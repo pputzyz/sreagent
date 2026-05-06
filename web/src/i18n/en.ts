@@ -235,7 +235,7 @@ export default {
     selectDatasource: 'Select metric datasource',
     selectLogDatasource: 'Select log datasource',
     noLogDatasources: 'No VictoriaLogs datasources found. Add one in Data Sources first.',
-    promqlPlaceholder: 'Enter PromQL / MetricsQL expression, e.g.: up{instance=~"prod.*"}',
+    promqlPlaceholder: 'Enter PromQL / MetricsQL expression, e.g.: up{\'{\'}instance=~"prod.*"{\'}\'}',
     logQueryPlaceholder: 'Enter LogsQL query, e.g.: _time:1h AND level:error',
     runQuery: 'Run Query',
     queryFailed: 'Query failed',

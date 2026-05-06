@@ -235,7 +235,7 @@ export default {
     selectDatasource: '选择指标数据源',
     selectLogDatasource: '选择日志数据源',
     noLogDatasources: '暂无 VictoriaLogs 数据源，请先在数据源管理中添加',
-    promqlPlaceholder: '输入 PromQL / MetricsQL 表达式，如: up{instance=~"prod.*"}',
+    promqlPlaceholder: '输入 PromQL / MetricsQL 表达式，如: up{\'{\'}instance=~"prod.*"{\'}\'}',
     logQueryPlaceholder: '输入 LogsQL 查询，如: _time:1h AND level:error',
     runQuery: '执行查询',
     queryFailed: '查询失败',
