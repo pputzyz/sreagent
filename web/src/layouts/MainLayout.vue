@@ -111,7 +111,7 @@ function renderIcon(icon: any) {
 const menuOptions = computed<MenuOption[]>(() => {
   const items: MenuOption[] = [
     { label: t('menu.dashboard'),        key: '/dashboard',  icon: renderIcon(GridOutline) },
-    { label: t('menu.explore') || 'Explore', key: '/explore', icon: renderIcon(SearchOutline) },
+    { label: t('menu.dataQuery'), key: '/query', icon: renderIcon(SearchOutline) },
     {
       label: t('menu.datasources'), key: '/datasources', icon: renderIcon(ServerOutline),
       children: [
@@ -139,7 +139,7 @@ const menuOptions = computed<MenuOption[]>(() => {
 })
 
 function resolveActiveKey(p: string): string {
-  if (p.startsWith('/explore'))                   return '/explore'
+  if (p.startsWith('/query'))                      return '/query'
   if (p.startsWith('/datasources'))               return '/datasources'
   if (p.startsWith('/alerts/rules'))              return '/alerts/rules'
   if (p.startsWith('/alerts/events'))             return '/alerts/events'
@@ -213,7 +213,7 @@ const pageTitle = computed(() => {
   const p = route.path
   if (p === '/dashboard')                         return t('menu.dashboard')
   if (p === '/datasources')                       return t('menu.datasources')
-  if (p.startsWith('/explore'))                   return t('menu.explore') || 'Explore'
+  if (p.startsWith('/query'))                      return t('menu.dataQuery')
   if (p.startsWith('/alerts/rules'))              return t('menu.alertRules')
   if (p.startsWith('/alerts/events'))             return t('menu.activeAlerts')
   if (p.startsWith('/alerts/history'))            return t('menu.alertHistory')

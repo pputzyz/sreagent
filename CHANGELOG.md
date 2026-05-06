@@ -4,6 +4,22 @@
 
 ---
 
+## [v1.16.20] - 2026-05-06
+
+### Changed
+- **「数据探索」重命名为「数据查询」(Data Query)**：路由 `/explore` → `/query`，保留旧路由重定向兼容
+- **数据查询页面完全重写**，修复长期白屏问题：
+  - 根因：`@codemirror/view`、`@codemirror/state`、`@codemirror/commands` 未声明为直接依赖，Rollup 打包解析失败
+  - 新增 Tab 切换：「指标查询」(Prometheus/VM/Zabbix) + 「日志查询」(VictoriaLogs)
+  - ECharts 改为懒加载 (dynamic import)：加载失败不阻塞页面，自动降级到表格模式
+  - PromQLEditor (CodeMirror) 改为 defineAsyncComponent + 5s 超时：加载失败回退到 NInput textarea
+  - 数据源按类型分组到对应 Tab，而非混合在一个下拉框
+  - 新增 `query.*` i18n key set (中英双语)
+
+### Fixed
+- 安装缺失的 `@codemirror/view`、`@codemirror/state`、`@codemirror/commands` 包至 package.json
+- 修复 vite build 因 CodeMirror 子包缺失导致的 Rollup resolve 错误
+
 ## [v1.16.19] - 2026-04-30
 
 ### Changed

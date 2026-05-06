@@ -1,6 +1,6 @@
 # CLAUDE.md — SREAgent
 
-> **v1.16.19** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
+> **v1.16.20** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
 
 ## 代码约定
 
@@ -68,7 +68,7 @@ NotifyRule / MuteRule / InhibitionRule / SubscribeRule ── match labels → N
 - 通知、飞书、邮件、webhook、lark、短信、渠道、分发、模板、订阅、推送、card、卡片、消息、dispatch、notify → 通知管道 + 飞书集成 + 告警通道
 - 值班、排班、oncall、替班、升级、轮转、rotation、shift、日程、schedule、escalation、值班人 → 值班排班 + 升级策略
 - 静默、mute、屏蔽、抑制、inhibition、silence、免打扰 → 静默规则 + 抑制规则
-- 数据源、Prometheus、PromQL、VM、VictoriaMetrics、VLogs、Zabbix、采集、查询、metric、指标 → 数据源 + 标签注册表
+- 数据源、Prometheus、PromQL、VM、VictoriaMetrics、VLogs、Zabbix、采集、查询、metric、指标、数据查询、explore、日志查询、MetricsQL、LogsQL → 数据源 + 数据查询 + 标签注册表
 - 登录、SSO、OIDC、权限、RBAC、JWT、token、认证、授权、密码、session、Keycloak、角色 → 认证 + 用户管理 + 团队
 - 仪表盘、统计、MTTA、MTTR、趋势、top、概览、分析图、dashboard → 仪表盘
 - AI、LLM、大模型、分析、根因、SOP、智能、assistant → AI 助手
