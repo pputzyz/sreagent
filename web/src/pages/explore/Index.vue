@@ -11,7 +11,7 @@
  * defineAsyncComponent / dynamic import so that a missing or broken dep
  * never white-screens the page — the fallback is a plain textarea + table.
  */
-import { ref, onMounted, computed, watch, defineAsyncComponent, shallowRef } from 'vue'
+import { ref, onMounted, computed, watch, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NSelect, NButton, NSpace, NTag, NAlert, NSpin,
@@ -53,14 +53,10 @@ async function loadECharts() {
   }
 }
 
-// --- Lazy PromQL Editor (fallback = plain input) ---
-const PromQLEditor = defineAsyncComponent({
-  loader: () => import('@/components/query/PromQLEditor.vue'),
-  loadingComponent: { template: '<div style="padding:8px;color:var(--sre-text-tertiary)">Loading editor...</div>' },
-  errorComponent: { template: '<div></div>' },  // silent fallback, we show the textarea
-  timeout: 5000,
-})
-const promqlEditorAvailable = ref(true)
+// PromQLEditor removed — CodeMirror dependency chain was the root cause of
+// repeated white-screen issues (v1.16.10-v1.16.18). Using stable NInput textarea
+// for query input. If CodeMirror support is needed later, re-introduce it as
+// a lazy async component with proper error boundary.
 
 type ResultMode = 'chart' | 'table'
 type QueryTab = 'metrics' | 'logs'
@@ -334,23 +330,14 @@ onMounted(() => {
         </div>
 
         <!-- Query Input -->
-        <div v-if="selectedDsId" class="query-bar">
+        <div v-if="selectedDsId != null" class="query-bar">
           <div class="query-editor-wrap">
-            <PromQLEditor
-              v-if="promqlEditorAvailable"
-              v-model="expression"
-              :datasource-id="selectedDsId"
-              :placeholder="t('query.promqlPlaceholder')"
-              @execute="run"
-              @vue:error="promqlEditorAvailable = false"
-            />
             <NInput
-              v-else
               v-model:value="expression"
               type="textarea"
-              :rows="2"
+              :rows="3"
               :placeholder="t('query.promqlPlaceholder')"
-              style="font-family: 'JetBrains Mono', 'Fira Code', monospace"
+              style="font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px"
               @keyup.ctrl.enter="run"
               @keyup.meta.enter="run"
             />
@@ -364,7 +351,7 @@ onMounted(() => {
         </div>
 
         <!-- Empty state -->
-        <div v-if="!selectedDsId" class="query-empty">
+        <div v-if="selectedDsId == null" class="query-empty">
           {{ t('query.selectDatasource') }}
         </div>
 
@@ -448,7 +435,7 @@ onMounted(() => {
         </div>
 
         <!-- Log Query Input -->
-        <div v-if="selectedDsId" class="query-bar">
+        <div v-if="selectedDsId != null" class="query-bar">
           <div class="query-editor-wrap">
             <NInput
               v-model:value="expression"
