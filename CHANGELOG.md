@@ -4,6 +4,12 @@
 
 ---
 
+## [v1.16.21] - 2026-05-06
+
+### Fixed
+- 指标查询选择数据源后查询输入框不显示：移除 PromQLEditor 异步组件，改用稳定的 NInput textarea
+- `v-if="selectedDsId"` 改为 `v-if="selectedDsId != null"` 显式空值检查
+
 ## [v1.16.20] - 2026-05-06
 
 ### Changed
