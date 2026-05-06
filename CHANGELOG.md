@@ -4,6 +4,11 @@
 
 ---
 
+## [v1.16.22] - 2026-05-06
+
+### Fixed
+- `query.promqlPlaceholder` 中 `{instance=~"prod.*"}` 未转义花括号，vue-i18n v11 message-compiler 报 SyntaxError（与 v1.16.18 同类问题）
+
 ## [v1.16.21] - 2026-05-06
 
 ### Fixed
