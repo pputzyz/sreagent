@@ -4,6 +4,13 @@
 
 ---
 
+## [v1.16.23] - 2026-05-06
+
+### Fixed
+- **彻底消除 vue-i18n runtime SyntaxError**：移除所有 i18n 消息中的花括号示例文本（PromQL、JSON 示例），改用不含花括号的纯文字描述
+  - `{'{'}` 转义在 vue-i18n v11 production JIT 编译模式下仍会触发 `EXPECTED_TOKEN` 错误
+  - 涉及 14 条消息（zh-CN 7 条 + en 7 条）：datasource/explore/query placeholder、notifyRule hints、OIDC mapping、Lark bot hint
+
 ## [v1.16.22] - 2026-05-06
 
 ### Fixed
