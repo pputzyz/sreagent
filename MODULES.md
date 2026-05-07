@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-07 | tag: v2.0.0
-> 共 34 个 model, 41 个 handler, 40 个 service, 32 个 repository, 160+ API 端点
+> 最后更新: 2026-05-08 | tag: v2.0.2
+> 共 36 个 model, 43 个 handler, 41 个 service, 33 个 repository, 175+ API 端点
 
 ---
 
@@ -66,6 +66,14 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | 系统设置 | ✅ | ❌ | ❌ | 0% |
 | 审计日志 | ✅ | ❌ | ❌ | 0% |
 | Webhook 入站 | ✅ | ❌ | ❌ | 0% |
+| 协作空间 | ✅ | ❌ | ❌ | 0% |
+| 故障管理 | ✅ | ❌ | ❌ | 0% |
+| 告警 v2 | ✅ | ❌ | ❌ | 0% |
+| 集成中心 | ✅ | ❌ | ❌ | 0% |
+| 路由规则 | ✅ | ❌ | ❌ | 0% |
+| 分派策略 | ✅ | ❌ | ❌ | 0% |
+| 排除规则 | ✅ | ❌ | ❌ | 0% |
+| 故障复盘 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
 
@@ -252,10 +260,10 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | 文档 | 内容 |
 |------|------|
 | [CLAUDE.md](CLAUDE.md) | AI 协作规范（代码约定、目录、错误码） |
-| [MODULES.md](MODULES.md) | 本文件：34 个模块清单 + 状态 |
+| [MODULES.md](MODULES.md) | 本文件：36 个模块清单 + 状态 |
 | [CHANGELOG.md](CHANGELOG.md) | 变更日志 |
 | [docs/architecture.md](docs/architecture.md) | 架构设计 + ADR + 引擎状态机 + 通知管道 |
-| [docs/api.md](docs/api.md) | REST API 参考（160+ 端点） |
+| [docs/api.md](docs/api.md) | REST API 参考（175+ 端点） |
 | [docs/ci-deploy.md](docs/ci-deploy.md) | CI/CD 部署文档 |
 | [docs/n9e-gap-analysis.md](docs/n9e-gap-analysis.md) | n9e 功能差距分析 + 路线图 |
 | [docs/phases.md](docs/phases.md) | Phase 追踪 + QA 修复汇总 |
@@ -297,3 +305,32 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | 000031 | create_dispatch_policies | dispatch_policies |
 | 000032 | create_dispatch_logs | dispatch_logs |
 | 000033 | alert_rule_channel | ALTER alert_rules ADD channel_id |
+
+---
+
+## 路由规则 (routing-rule) [v2.0.2]
+
+- **功能**: 共享集成的告警路由规则 CRUD（优先级排序、条件匹配、目标空间）
+- **后端文件**: `internal/handler/routing_rule.go`, `internal/repository/integration.go`（RoutingRuleRepository 内联）
+- **API**: `GET/POST /api/v1/integrations/:id/routing-rules`, `PUT/DELETE /api/v1/routing-rules/:id`
+- **状态**: ✅ 完成
+
+## 告警规则批量操作 (alert-rule-batch) [v2.0.1]
+
+- **功能**: 批量启用/禁用/删除告警规则
+- **后端文件**: `internal/handler/alert_rule.go`（BatchEnable/Disable/Delete）
+- **API**: `POST /api/v1/alert-rules/batch/enable|disable|delete`（manage 权限）
+- **状态**: ✅ 完成
+
+## 故障复盘增强 (post-mortem-editor) [v2.0.2]
+
+- **功能**: PostMortem Tab 使用 md-editor-v3 替换纯 textarea，支持 Markdown 实时预览
+- **前端文件**: `web/src/pages/incidents/Detail.vue`
+- **状态**: ✅ 完成
+
+## 故障操作增强 (incident-ops) [v2.0.2]
+
+- **功能**: 故障详情页新增暂缓（Snooze）/合并（Merge）/重新分派（Reassign）操作入口
+- **前端文件**: `web/src/pages/incidents/Detail.vue`
+- **后端 API**: 已有（POST /incidents/:id/snooze|merge|reassign）
+- **状态**: ✅ 完成
