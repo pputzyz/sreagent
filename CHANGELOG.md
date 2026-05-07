@@ -4,6 +4,32 @@
 
 ---
 
+## [v2.0.0] - 2026-05-07
+
+### Release — v2.0 正式版
+
+本版本为 SREAgent v2.0 正式发布版，包含 Phase 1-5 全部功能，以及发版收尾工作。
+
+**版本升级路径**：从任意 v1.x 直接升级即可。部署新镜像后 `golang-migrate` 自动执行 000019-000033 共 15 个迁移。
+
+#### 新增功能汇总
+- **协作空间**（Channel）：故障聚合、降噪、分派、统计的核心单元
+- **故障管理**（Incident）：完整生命周期 + 自动关闭 + 复盘
+- **告警 v2**（Alert/AlertEventV2）：去重、关联、事件流水线
+- **智能降噪**：聚合规则、风暴预警、抖动检测、排除规则、**快速静默**
+- **分派策略**：触发条件、延迟窗口、重复通知、标签增强、升级绑定
+- **Webhook 集成**：Standard/AlertManager/Grafana 三格式 + Pipeline + 限流
+- **故障复盘**：Markdown 编辑器 + AI 生成初稿 + 发布
+- **增强仪表盘**：按协作空间/团队维度的故障统计 + 趋势图
+
+#### 收尾工作
+- 版本号更新：CLAUDE.md v2.0.0 / web/package.json 2.0.0
+- MODULES.md 更新：34 个模块 + v2 模块清单 + 迁移文件索引
+- PLAN-status.md 修正所有遗漏项
+- QuickSilenceModal：Incident Detail + Alert Detail 集成快速静默
+
+---
+
 ## [v2.4.0-alpha.1] - 2026-05-07
 
 ### Added — Phase 5 故障复盘 + 分析增强

@@ -7,7 +7,8 @@ import { alertV2Api } from '@/api'
 import type { AlertV2, AlertEventV2 } from '@/types'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { ArrowBackOutline, RefreshOutline } from '@vicons/ionicons5'
+import { ArrowBackOutline, RefreshOutline, VolumeOffOutline } from '@vicons/ionicons5'
+import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -23,6 +24,7 @@ const eventsPageSize = ref(20)
 const loading = ref(false)
 const eventsLoading = ref(false)
 const activeTab = ref('overview')
+const showQuickSilence = ref(false)
 
 const severityTagType: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
   critical: 'error', warning: 'warning', info: 'info',
@@ -114,6 +116,10 @@ onMounted(async () => {
         </n-button>
         <n-button circle quaternary @click="loadAlert(); loadEvents()">
           <template #icon><n-icon :component="RefreshOutline" /></template>
+        </n-button>
+        <n-button size="small" type="warning" @click="showQuickSilence = true">
+          <template #icon><n-icon :component="VolumeOffOutline" /></template>
+          快速静默
         </n-button>
       </template>
     </PageHeader>
@@ -238,6 +244,13 @@ onMounted(async () => {
         </div>
       </div>
     </n-spin>
+
+    <!-- Quick Silence Modal -->
+    <QuickSilenceModal
+      v-model:show="showQuickSilence"
+      :labels="alert?.labels ?? {}"
+      :title="alert?.title"
+    />
   </div>
 </template>
 

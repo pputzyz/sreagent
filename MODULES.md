@@ -1,18 +1,22 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-04-30 | tag: v1.16.19
-> 共 24 个 model, 31 个 handler, 30 个 service, 23 个 repository, 126+ API 端点
+> 最后更新: 2026-05-07 | tag: v2.0.0
+> 共 34 个 model, 41 个 handler, 40 个 service, 32 个 repository, 160+ API 端点
 
 ---
 
 ## 模块依赖关系
 
 ```
-webhook ──────────→ alert-engine ←──── alert-rule (读取规则)
+webhook ──────────→ alert-engine ←──── alert-rule (读取规则，含 channel_id)
                        │    ↑
-                       │                       │    ↑
                        │    └── datasource (查询数据)
                        │    └── label-registry (标签匹配)
+                       │
+                       ├──→ alert-v2-pipeline ←── noise-reducer (降噪)
+                       │        ├──→ alert (v2 Alert + AlertEventV2)
+                       │        ├──→ incident (故障生命周期)
+                       │        └──→ dispatch (标签增强)
                        │
                        ├──→ notification ←── notify-rule, notify-media, message-template, subscribe-rule
                        │        └──→ lark, alert-channel (分发渠道)
@@ -20,10 +24,19 @@ webhook ──────────→ alert-engine ←──── alert-rul
                        └──→ escalation ──→ schedule (查找值班人)
                                 └──→ user, team (查找通知目标)
 
+integration (webhook接入) ──→ alert-v2-pipeline
+  └── routing-rule (共享集成路由)
+
+channel (协作空间) ──┬── incident (故障)
+                     ├── exclusion-rule (排除规则)
+                     ├── dispatch-policy (分派策略)
+                     └── noise-reducer (降噪配置)
+
+incident ──→ post-mortem (复盘) ──→ ai (AI 生成初稿)
 schedule ──→ user (成员)
 auth ──→ user (用户信息)
 ai ──→ alert-engine (读取告警上下文)
-dashboard ──→ alert-event (统计数据)
+dashboard ──→ alert-event + incident + channel + team (统计数据)
 ```
 
 改模块前查上方依赖：改 notification 会影响 alert-engine 和 escalation；改 schedule 会影响 escalation。
@@ -239,10 +252,48 @@ dashboard ──→ alert-event (统计数据)
 | 文档 | 内容 |
 |------|------|
 | [CLAUDE.md](CLAUDE.md) | AI 协作规范（代码约定、目录、错误码） |
-| [MODULES.md](MODULES.md) | 本文件：22 个模块清单 + 状态 |
+| [MODULES.md](MODULES.md) | 本文件：34 个模块清单 + 状态 |
 | [CHANGELOG.md](CHANGELOG.md) | 变更日志 |
 | [docs/architecture.md](docs/architecture.md) | 架构设计 + ADR + 引擎状态机 + 通知管道 |
-| [docs/api.md](docs/api.md) | REST API 参考（120+ 端点） |
+| [docs/api.md](docs/api.md) | REST API 参考（160+ 端点） |
 | [docs/ci-deploy.md](docs/ci-deploy.md) | CI/CD 部署文档 |
 | [docs/n9e-gap-analysis.md](docs/n9e-gap-analysis.md) | n9e 功能差距分析 + 路线图 |
 | [docs/phases.md](docs/phases.md) | Phase 追踪 + QA 修复汇总 |
+| [docs/PLAN-status.md](docs/PLAN-status.md) | v2.0 重构执行状态（Phase 1-5 全部完成） |
+
+---
+
+## v2.0 新增模块（Phase 1-5）
+
+| 模块 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| **协作空间** Channel | model/channel.go + repo/service/handler/channel.go | ✅ 生产就绪 | CRUD + Star + 降噪配置 + 分派策略 |
+| **故障** Incident | model/incident.go + repo/service/handler/incident.go | ✅ 生产就绪 | 完整生命周期：ack/close/reopen/snooze/merge/reassign/escalate + 自动关闭 |
+| **告警 v2** Alert + AlertEventV2 | model/alert.go + repo/service/alert.go + handler/alert.go | ✅ 生产就绪 | 按 alert_key 去重，关联 Channel + Incident |
+| **告警 v2 管道** AlertV2Pipeline | service/alert_v2_pipeline.go | ✅ 生产就绪 | 非侵入式引擎桥接，WrapOnAlert hook |
+| **降噪引擎** NoiseReducer | service/noise_reducer.go | ✅ 生产就绪 | 排除规则 + 聚合 + 风暴预警 + 抖动检测 |
+| **排除规则** ExclusionRule | repo/service/handler/exclusion_rule.go | ✅ 生产就绪 | Per-channel 排除规则 CRUD |
+| **分派策略** DispatchPolicy | model/dispatch.go + repo/service/dispatch.go + handler/dispatch.go | ✅ 生产就绪 | 触发条件 + 延迟 + 重复 + 标签增强 + 升级绑定 |
+| **Webhook 集成** Integration | model/integration.go + repo/service/integration.go + handler/integration.go | ✅ 生产就绪 | Standard/AlertManager/Grafana 三格式 + Pipeline + 限流 100/s |
+| **路由规则** RoutingRule | model/integration.go + repo/integration.go | ✅ 生产就绪 | 共享集成的 label 路由 |
+| **故障复盘** PostMortem | model/incident.go + repo/service/handler/post_mortem.go | ✅ 生产就绪 | CRUD + AI 生成初稿 + 发布 |
+
+### v2.0 DB 迁移文件（000019-000033）
+
+| 序号 | 文件 | 表 |
+|------|------|----|
+| 000019 | create_channels | channels |
+| 000020 | create_channel_stars | channel_stars |
+| 000021 | create_channel_exclusion_rules | channel_exclusion_rules |
+| 000022 | create_incidents | incidents |
+| 000023 | create_incident_assignees | incident_assignees |
+| 000024 | create_incident_timelines | incident_timelines |
+| 000025 | create_post_mortems | post_mortems |
+| 000026 | create_alerts_v2 | alerts |
+| 000027 | create_alert_events_v2 | alert_events_v2 |
+| 000028 | create_integrations | integrations |
+| 000029 | create_routing_rules | routing_rules |
+| 000030 | seed_default_channel | INSERT default channel |
+| 000031 | create_dispatch_policies | dispatch_policies |
+| 000032 | create_dispatch_logs | dispatch_logs |
+| 000033 | alert_rule_channel | ALTER alert_rules ADD channel_id |

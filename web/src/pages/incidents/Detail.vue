@@ -7,7 +7,8 @@ import { incidentApi, alertV2Api } from '@/api'
 import type { Incident, IncidentTimeline, AlertV2 } from '@/types'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { ArrowBackOutline, SparklesOutline } from '@vicons/ionicons5'
+import { ArrowBackOutline, SparklesOutline, VolumeOffOutline } from '@vicons/ionicons5'
+import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -22,6 +23,9 @@ const loading = ref(false)
 const activeTab = ref('overview')
 const commentText = ref('')
 const submittingComment = ref(false)
+
+// Quick silence
+const showQuickSilence = ref(false)
 
 // Post-mortem
 const postMortem = ref<any | null>(null)
@@ -231,6 +235,10 @@ onMounted(async () => {
               <n-button size="small" @click="doAction('escalate')">
                 {{ t('incident.escalate') }}
               </n-button>
+              <n-button size="small" type="warning" @click="showQuickSilence = true">
+                <template #icon><n-icon :component="VolumeOffOutline" /></template>
+                快速静默
+              </n-button>
             </n-space>
           </n-card>
 
@@ -407,6 +415,13 @@ onMounted(async () => {
         </div>
       </div>
     </n-spin>
+    <!-- Quick Silence Modal -->
+    <QuickSilenceModal
+      v-model:show="showQuickSilence"
+      :labels="incident?.labels ?? {}"
+      :title="incident?.title"
+      @created="load"
+    />
   </div>
 </template>
 

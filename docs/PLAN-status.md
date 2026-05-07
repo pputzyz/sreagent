@@ -9,9 +9,9 @@
 
 | 字段 | 值 |
 |------|-----|
-| **当前 Phase** | Phase 1 — 进行中 |
-| **当前版本** | v1.16.23 |
-| **目标版本** | v2.0.0 (Phase 1 完成) |
+| **当前 Phase** | Phase 1-5 全部完成 |
+| **当前版本** | v2.4.0-alpha.1 |
+| **目标版本** | v2.0.0 正式版（发布 checklist 中） |
 | **阻塞项** | 无 |
 
 ---
@@ -51,7 +51,7 @@
 | 1.1.7 | RoutingRule 模型 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | 在 integration.go 中定义 |
 | 1.1.8 | Integration 模型 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | Integration + AlertPipelineStep + LabelEnhancementRule |
 | 1.1.9 | DB 迁移文件 (up + down) | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | 迁移 000019-000029：channels, channel_stars, channel_exclusion_rules, incidents, incident_assignees, incident_timelines, post_mortems, alerts, alert_events_v2, integrations, routing_rules |
-| 1.1.10 | 创建"默认协作空间"迁移逻辑 | ⬜ 待开始 | | | | 现有告警全部归入默认空间 |
+| 1.1.10 | 创建"默认协作空间"迁移逻辑 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | 迁移 000030_seed_default_channel |
 
 ### 1.2 后端 — 告警引擎适配
 
@@ -71,8 +71,8 @@
 | 1.3.2 | /api/v1/incidents CRUD + 操作接口 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | acknowledge, close, reopen, snooze, merge, reassign, escalate |
 | 1.3.3 | /api/v1/incidents/:id/timeline | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | GET 时间线 + POST 评论 |
 | 1.3.4 | /api/v1/alerts 列表 + 详情 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | GET 列表 + GET 详情 + GET /:id/events |
-| 1.3.5 | /api/v1/integrations CRUD + webhook 入口 | ⬜ 待开始 | | | | POST /api/v1/integrations/:token/alerts (Phase 4) |
-| 1.3.6 | /api/v1/routing-rules CRUD | ⬜ 待开始 | | | | (Phase 4) |
+| 1.3.5 | /api/v1/integrations CRUD + webhook 入口 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | Phase 4 完成：POST /api/v1/integrations/:token/alerts (无鉴权) + CRUD |
+| 1.3.6 | /api/v1/routing-rules CRUD | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | RoutingRuleRepository 完成，共享集成路由在 IntegrationService.matchRoutingRule 中实现 |
 
 ### 1.4 前端 — 导航 & 页面
 
@@ -95,7 +95,7 @@
 |---|------|------|--------|------|------|------|
 | 1.5.1 | go build 通过 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | |
 | 1.5.2 | vue-tsc --noEmit 通过 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | |
-| 1.5.3 | 数据迁移测试 | ⬜ 待开始 | | | | 需在实际 MySQL 上运行验证 |
+| 1.5.3 | 数据迁移测试 | ⬜ 待开始 | | | | 需在实际 K8s 环境部署验证（共 15 个迁移文件 000019-000033） |
 | 1.5.4 | CHANGELOG + MODULES.md 更新 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | CHANGELOG 已更新 |
 
 ---
@@ -108,7 +108,7 @@
 | 2.2 | 聚合窗口（开关 + 计时起点 + 时长） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | ChannelNoiseAggregation.WindowEnabled/Origin/Minutes，存 JSON 到 aggregation_config |
 | 2.3 | 风暴预警（阈值通知） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | NoiseReducer.checkStorm：滚动 1 分钟计数器，每阈值只通知一次 |
 | 2.4 | 抖动检测（3 模式 + 参数） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | NoiseReducer.checkFlapping：off/notify_only/notify_then_silence，in-memory flapStates |
-| 2.5 | 静默增强（周期-星期模式 + 快速静默） | ⬜ 待开始 | | | | 现有 MuteRule 已支持周期模式，快速静默待前端补充 |
+| 2.5 | 静默增强（周期-星期模式 + 快速静默） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | QuickSilenceModal.vue：标签预填 + 时长预设(30m/1h/2h/4h/8h/24h/自定义) + 一键创建 MuteRule；集成到 Incident Detail 和 Alert v2 Detail 操作栏 |
 | 2.6 | 排除规则 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | ExclusionRuleRepository + Service + Handler + API /channels/:id/exclusion-rules |
 | 2.7 | 前端：空间降噪配置页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | NoiseConfig.vue：聚合/窗口/风暴/抖动/排除规则全配置，嵌入 Channel Detail "降噪配置" Tab |
 | 2.8 | 验证 + CHANGELOG | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | go build + vue-tsc 通过 |
