@@ -1,0 +1,417 @@
+package service
+
+import (
+	"context"
+	"crypto/md5"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+
+	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/repository"
+)
+
+// AlertV2Pipeline is the bridge between the legacy alert engine and the v2
+// Alert → Incident data model. It is designed as a non-invasive hook:
+// the existing engine continues to write AlertEvent records unchanged, while
+// this pipeline simultaneously maintains the v2 tables.
+//
+// Call WrapOnAlert to wrap the existing onAlert callback:
+//
+//	wrapped := pipeline.WrapOnAlert(existingOnAlert)
+//	evaluator.SetOnAlert(wrapped)
+type AlertV2Pipeline struct {
+	alertRepo   *repository.AlertRepository
+	incidentRepo *repository.IncidentRepository
+	channelRepo *repository.ChannelRepository
+	logger      *zap.Logger
+
+	// defaultChannelID is the ID of the "default" collaboration channel.
+	// All engine-fired alerts go here unless a specific channel is configured.
+	defaultChannelID uint
+}
+
+// NewAlertV2Pipeline creates a new pipeline. Call SetDefaultChannelID before use.
+func NewAlertV2Pipeline(
+	alertRepo *repository.AlertRepository,
+	incidentRepo *repository.IncidentRepository,
+	channelRepo *repository.ChannelRepository,
+	logger *zap.Logger,
+) *AlertV2Pipeline {
+	return &AlertV2Pipeline{
+		alertRepo:    alertRepo,
+		incidentRepo: incidentRepo,
+		channelRepo:  channelRepo,
+		logger:       logger,
+	}
+}
+
+// SetDefaultChannelID sets the collaboration channel ID to route alerts to.
+func (p *AlertV2Pipeline) SetDefaultChannelID(id uint) {
+	p.defaultChannelID = id
+}
+
+// InitDefaultChannel looks up (or creates) the default channel and caches its ID.
+func (p *AlertV2Pipeline) InitDefaultChannel(ctx context.Context) {
+	channels, err := p.channelRepo.ListActive(ctx)
+	if err != nil {
+		p.logger.Warn("alert_v2_pipeline: failed to list active channels", zap.Error(err))
+		return
+	}
+	for _, ch := range channels {
+		if ch.Name == "default" {
+			p.defaultChannelID = ch.ID
+			p.logger.Info("alert_v2_pipeline: using default channel",
+				zap.Uint("channel_id", ch.ID))
+			return
+		}
+	}
+	p.logger.Warn("alert_v2_pipeline: 'default' channel not found, v2 incidents will not be created")
+}
+
+// WrapOnAlert wraps the existing onAlert callback with v2 pipeline logic.
+// The original callback is still called first; v2 processing runs after.
+func (p *AlertV2Pipeline) WrapOnAlert(
+	original func(ctx context.Context, event *model.AlertEvent),
+) func(ctx context.Context, event *model.AlertEvent) {
+	return func(ctx context.Context, event *model.AlertEvent) {
+		// 1. Run original callback (notification routing, mute check, etc.)
+		if original != nil {
+			original(ctx, event)
+		}
+
+		// 2. Drive v2 pipeline asynchronously — never block the original path
+		go func() {
+			pipeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := p.process(pipeCtx, event); err != nil {
+				p.logger.Error("alert_v2_pipeline: processing failed",
+					zap.Uint("event_id", event.ID),
+					zap.Error(err),
+				)
+			}
+		}()
+	}
+}
+
+// process handles one AlertEvent: upserts Alert, then drives Incident lifecycle.
+func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) error {
+	alertKey := p.buildAlertKey(event)
+	severity := mapSeverity(event.Severity)
+	channelID := p.defaultChannelID
+
+	var eventStatus model.AlertEventV2Status
+	if event.Status == model.EventStatusResolved || event.Status == model.EventStatusClosed {
+		eventStatus = model.AlertEventV2StatusResolved
+	} else {
+		eventStatus = model.AlertEventV2StatusFiring
+	}
+
+	// 1. Upsert Alert record
+	alert, err := p.upsertAlert(ctx, alertKey, event, severity, eventStatus, channelID)
+	if err != nil {
+		return fmt.Errorf("upsert alert: %w", err)
+	}
+
+	// 2. Drive Incident lifecycle
+	if eventStatus == model.AlertEventV2StatusFiring {
+		if err := p.ensureIncident(ctx, alert, event); err != nil {
+			return fmt.Errorf("ensure incident: %w", err)
+		}
+	} else {
+		if err := p.handleResolution(ctx, alert); err != nil {
+			return fmt.Errorf("handle resolution: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// upsertAlert finds or creates an Alert, then appends an AlertEventV2 record.
+func (p *AlertV2Pipeline) upsertAlert(
+	ctx context.Context,
+	alertKey string,
+	event *model.AlertEvent,
+	severity model.AlertSeverity,
+	status model.AlertEventV2Status,
+	channelID uint,
+) (*model.Alert, error) {
+	now := time.Now()
+
+	existing, err := p.alertRepo.GetByAlertKey(ctx, alertKey)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	if existing != nil {
+		// Update existing
+		if status == model.AlertEventV2StatusFiring {
+			if err := p.alertRepo.IncrementFireCount(ctx, existing.ID, now); err != nil {
+				return nil, err
+			}
+			existing.Status = model.AlertStatusFiring
+			existing.LastFiredAt = now
+		} else {
+			resolvedAt := now
+			if err := p.alertRepo.UpdateStatus(ctx, existing.ID, model.AlertStatusResolved, &resolvedAt); err != nil {
+				return nil, err
+			}
+			existing.Status = model.AlertStatusResolved
+			existing.ResolvedAt = &resolvedAt
+		}
+	} else {
+		// Create new alert
+		ruleID := event.RuleID
+		chID := channelID
+		newAlert := &model.Alert{
+			AlertKey:     alertKey,
+			Title:        event.AlertName,
+			Severity:     severity,
+			Status:       model.AlertStatusFiring,
+			RuleID:       ruleID,
+			Labels:       event.Labels,
+			Annotations:  event.Annotations,
+			Source:       event.Source,
+			GeneratorURL: event.GeneratorURL,
+			FirstFiredAt: now,
+			LastFiredAt:  now,
+			EventCount:   1,
+			FireCount:    1,
+		}
+		if chID > 0 {
+			newAlert.ChannelID = &chID
+		}
+		if status == model.AlertEventV2StatusResolved {
+			newAlert.Status = model.AlertStatusResolved
+			newAlert.ResolvedAt = &now
+		}
+		if err := p.alertRepo.Create(ctx, newAlert); err != nil {
+			return nil, err
+		}
+		existing = newAlert
+	}
+
+	// Append event record
+	ev := &model.AlertEventV2{
+		AlertID:       existing.ID,
+		EventStatus:   status,
+		EventSeverity: severity,
+		Labels:        event.Labels,
+		Annotations:   event.Annotations,
+		Timestamp:     now,
+		Fingerprint:   event.Fingerprint,
+	}
+	if err := p.alertRepo.CreateEvent(ctx, ev); err != nil {
+		p.logger.Warn("alert_v2_pipeline: failed to create event record",
+			zap.Uint("alert_id", existing.ID),
+			zap.Error(err),
+		)
+	}
+
+	return existing, nil
+}
+
+// ensureIncident finds an open Incident for the alert's channel, or creates one.
+func (p *AlertV2Pipeline) ensureIncident(ctx context.Context, alert *model.Alert, event *model.AlertEvent) error {
+	if p.defaultChannelID == 0 {
+		return nil // no channel configured, skip
+	}
+
+	// If alert is already linked to an incident, nothing to do
+	if alert.IncidentID != nil {
+		return nil
+	}
+
+	// Look for an open (non-closed) incident in the same channel
+	openIncidents, _, err := p.incidentRepo.List(ctx, p.defaultChannelID, "triggered", "", "", 0, 1, 1)
+	if err != nil {
+		return err
+	}
+
+	// Also check processing incidents
+	if len(openIncidents) == 0 {
+		openIncidents, _, err = p.incidentRepo.List(ctx, p.defaultChannelID, "processing", "", "", 0, 1, 1)
+		if err != nil {
+			return err
+		}
+	}
+
+	var incident *model.Incident
+	if len(openIncidents) > 0 {
+		incident = &openIncidents[0]
+	} else {
+		// Create a new incident
+		now := time.Now()
+		incident = &model.Incident{
+			Title:       event.AlertName,
+			Description: descriptionFromLabels(event.Labels),
+			Severity:    incidentSeverityFrom(alert.Severity),
+			Status:      model.IncidentStatusTriggered,
+			ChannelID:   p.defaultChannelID,
+			Labels:      model.JSONLabels(event.Labels),
+			TriggeredAt: now,
+		}
+		if err := p.incidentRepo.Create(ctx, incident); err != nil {
+			return err
+		}
+
+		// Timeline: triggered
+		_ = p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
+			IncidentID: incident.ID,
+			Action:     model.IncidentActionTriggered,
+			Content:    "Incident auto-created from alert: " + event.AlertName,
+		})
+
+		p.logger.Info("alert_v2_pipeline: incident created",
+			zap.Uint("incident_id", incident.ID),
+			zap.String("alert", event.AlertName),
+		)
+	}
+
+	// Link alert → incident
+	if err := p.alertRepo.LinkToIncident(ctx, alert.ID, incident.ID); err != nil {
+		return err
+	}
+
+	// Update incident alert count
+	incident.AlertCount++
+	_ = p.incidentRepo.Update(ctx, incident)
+
+	// Timeline: alert merged
+	_ = p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
+		IncidentID: incident.ID,
+		Action:     model.IncidentActionAlertMerged,
+		Content:    "Alert merged: " + event.AlertName,
+	})
+
+	return nil
+}
+
+// handleResolution checks whether all alerts for the incident have resolved,
+// and if so, auto-closes the incident (if follow_alert_close is enabled).
+func (p *AlertV2Pipeline) handleResolution(ctx context.Context, alert *model.Alert) error {
+	if alert.IncidentID == nil {
+		return nil
+	}
+
+	incident, err := p.incidentRepo.GetByID(ctx, *alert.IncidentID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+		return err
+	}
+
+	if incident.Status == model.IncidentStatusClosed {
+		return nil
+	}
+
+	// Check channel's follow_alert_close setting
+	if incident.ChannelID > 0 {
+		ch, err := p.channelRepo.GetByID(ctx, incident.ChannelID)
+		if err == nil && !ch.FollowAlertClose {
+			return nil // channel configured to NOT auto-close
+		}
+	}
+
+	// Check if all linked alerts are resolved
+	firingAlerts, _, err := p.alertRepo.List(ctx, 0, *alert.IncidentID, string(model.AlertStatusFiring), "", "", 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(firingAlerts) > 0 {
+		return nil // still have firing alerts
+	}
+
+	// All resolved — mark incident as recovered
+	now := time.Now()
+	updates := map[string]interface{}{
+		"is_recovered": true,
+		"resolved_at":  now,
+	}
+	if err := p.incidentRepo.UpdateStatus(ctx, incident.ID, model.IncidentStatusProcessing, updates); err != nil {
+		return err
+	}
+
+	_ = p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
+		IncidentID: incident.ID,
+		Action:     model.IncidentActionResolved,
+		Content:    "All related alerts have recovered",
+	})
+
+	p.logger.Info("alert_v2_pipeline: incident auto-resolved",
+		zap.Uint("incident_id", incident.ID),
+	)
+
+	return nil
+}
+
+// buildAlertKey generates a stable deduplication key for an alert event.
+// Key = md5(rule_id + sorted(labels)) — same logic as engine fingerprint
+// but with rule_id prefix to scope per-rule.
+func (p *AlertV2Pipeline) buildAlertKey(event *model.AlertEvent) string {
+	var rulePrefix string
+	if event.RuleID != nil {
+		rulePrefix = fmt.Sprintf("rule:%d|", *event.RuleID)
+	}
+
+	keys := make([]string, 0, len(event.Labels))
+	for k := range event.Labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var b strings.Builder
+	b.WriteString(rulePrefix)
+	for _, k := range keys {
+		b.WriteString(k)
+		b.WriteByte('=')
+		b.WriteString(event.Labels[k])
+		b.WriteByte(',')
+	}
+
+	hash := md5.Sum([]byte(b.String()))
+	return fmt.Sprintf("%x", hash)
+}
+
+// mapSeverity converts AlertSeverity to the v2 scale (critical/warning/info).
+func mapSeverity(s model.AlertSeverity) model.AlertSeverity {
+	switch s {
+	case model.SeverityP0, model.SeverityP1, model.SeverityCritical:
+		return model.SeverityCritical
+	case model.SeverityP2, model.SeverityP3, model.SeverityWarning:
+		return model.SeverityWarning
+	default:
+		return model.SeverityInfo
+	}
+}
+
+// incidentSeverityFrom maps alert severity to incident severity.
+func incidentSeverityFrom(s model.AlertSeverity) model.IncidentSeverity {
+	switch s {
+	case model.SeverityCritical:
+		return model.IncidentSeverityCritical
+	case model.SeverityWarning:
+		return model.IncidentSeverityWarning
+	default:
+		return model.IncidentSeverityInfo
+	}
+}
+
+// descriptionFromLabels builds a short description string from alert labels.
+func descriptionFromLabels(labels model.JSONLabels) string {
+	parts := make([]string, 0, 3)
+	for _, k := range []string{"instance", "job", "namespace", "cluster"} {
+		if v, ok := labels[k]; ok && v != "" {
+			parts = append(parts, k+"="+v)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, ", ")
+}

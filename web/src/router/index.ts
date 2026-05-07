@@ -113,6 +113,31 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/settings/Index.vue'),
         meta: { title: 'Settings', icon: 'settings', requiresRole: ['admin', 'team_lead'] },
       },
+      // v2 routes
+      {
+        path: 'channels',
+        name: 'Channels',
+        component: () => import('@/pages/channels/Index.vue'),
+        meta: { title: 'Channels' },
+      },
+      {
+        path: 'incidents',
+        name: 'Incidents',
+        component: () => import('@/pages/incidents/Index.vue'),
+        meta: { title: 'Incidents' },
+      },
+      {
+        path: 'incidents/:id',
+        name: 'IncidentDetail',
+        component: () => import('@/pages/incidents/Detail.vue'),
+        meta: { title: 'Incident Detail' },
+      },
+      {
+        path: 'alerts-v2',
+        name: 'AlertsV2',
+        component: () => import('@/pages/alerts-v2/Index.vue'),
+        meta: { title: 'Alert View' },
+      },
     ],
   },
 ]

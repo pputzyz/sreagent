@@ -373,6 +373,19 @@ func main() {
 		}
 	}
 
+	// App-level context for long-running background workers (cancelled on shutdown).
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+
+	// Initialize v2 alert pipeline (Alert → Incident lifecycle).
+	// Wraps the existing onAlertFn so the v2 path runs alongside the legacy path.
+	alertV2Pipeline := service.NewAlertV2Pipeline(alertV2Repo, incidentRepo, channelV2Repo, zapLogger)
+	alertV2Pipeline.InitDefaultChannel(context.Background())
+	onAlertFn = alertV2Pipeline.WrapOnAlert(onAlertFn)
+
+	// Start the incident auto-close background worker.
+	incidentSvc.StartAutoCloseWorker(appCtx)
+
 	// Wire the heartbeat checker into the notification pipeline.
 	heartbeatChecker.SetOnAlert(onAlertFn)
 	heartbeatChecker.Start()
@@ -473,8 +486,6 @@ func main() {
 	}
 
 	// Start label registry sync worker (cancels on shutdown via appCtx)
-	appCtx, appCancel := context.WithCancel(context.Background())
-	defer appCancel()
 	go labelRegistrySvc.StartSyncWorker(appCtx, 10*time.Minute)
 
 	// Graceful shutdown

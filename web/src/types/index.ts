@@ -491,3 +491,127 @@ export interface InhibitionRule {
   created_at: string
   updated_at: string
 }
+
+// ===== v2: Collaboration Channels (协作空间) =====
+export type ChannelStatus = 'active' | 'disabled'
+export type ChannelAccessLevel = 'public' | 'private'
+
+export interface Channel {
+  id: number
+  name: string
+  description: string
+  team_id?: number
+  team?: Team
+  status: ChannelStatus
+  access_level: ChannelAccessLevel
+  aggregation_config?: string
+  flapping_config?: string
+  auto_close_enabled: boolean
+  auto_close_origin: string
+  auto_close_minutes: number
+  follow_alert_close: boolean
+  active_incident_count: number
+  sort_order: number
+  is_starred?: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ChannelForm {
+  name: string
+  description?: string
+  team_id?: number
+  status?: ChannelStatus
+  access_level?: ChannelAccessLevel
+  auto_close_enabled?: boolean
+  auto_close_minutes?: number
+  follow_alert_close?: boolean
+}
+
+// ===== v2: Incidents (故障) =====
+export type IncidentStatus = 'triggered' | 'processing' | 'closed'
+export type IncidentSeverity = 'critical' | 'warning' | 'info'
+
+export interface Incident {
+  id: number
+  title: string
+  description: string
+  severity: IncidentSeverity
+  status: IncidentStatus
+  channel_id: number
+  channel?: Channel
+  labels?: Record<string, string>
+  assigned_to?: number
+  assigned_user?: User
+  triggered_at: string
+  acknowledged_at?: string
+  resolved_at?: string
+  closed_at?: string
+  snoozed_until?: string
+  alert_count: number
+  event_count: number
+  is_recovered: boolean
+  escalation_policy_id?: number
+  current_escalation_step: number
+  merged_into_id?: number
+  created_at: string
+  updated_at: string
+}
+
+export type IncidentTimelineAction =
+  | 'triggered' | 'acknowledged' | 'unacknowledged'
+  | 'snoozed' | 'snooze_expired' | 'escalated' | 'reassigned'
+  | 'added_assignee' | 'resolved' | 'closed' | 'reopened'
+  | 'merged' | 'commented' | 'notified' | 'alert_merged'
+  | 'storm_warning' | 'severity_changed' | 'title_changed'
+
+export interface IncidentTimeline {
+  id: number
+  incident_id: number
+  action: IncidentTimelineAction
+  actor_id?: number
+  actor?: User
+  content: string
+  extra?: string
+  created_at: string
+}
+
+// ===== v2: Alerts (告警 v2) =====
+export type AlertV2Status = 'firing' | 'resolved'
+
+export interface AlertV2 {
+  id: number
+  alert_key: string
+  title: string
+  severity: AlertSeverity
+  status: AlertV2Status
+  rule_id?: number
+  labels?: Record<string, string>
+  annotations?: Record<string, string>
+  channel_id?: number
+  channel?: Channel
+  incident_id?: number
+  incident?: Incident
+  source: string
+  generator_url: string
+  first_fired_at: string
+  last_fired_at: string
+  resolved_at?: string
+  event_count: number
+  fire_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface AlertEventV2 {
+  id: number
+  alert_id: number
+  event_status: 'firing' | 'resolved'
+  event_severity: AlertSeverity
+  labels?: Record<string, string>
+  annotations?: Record<string, string>
+  value: number
+  timestamp: string
+  fingerprint: string
+  created_at: string
+}

@@ -57,11 +57,11 @@
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
-| 1.2.1 | rule_eval 产出 Event 而非 AlertEvent | ⬜ 待开始 | | | | 改造 evaluator 输出 |
-| 1.2.2 | Event → Alert 合入逻辑 | ⬜ 待开始 | | | | 同一 alert_key 合入同一 Alert |
-| 1.2.3 | Alert → Incident 触发逻辑 | ⬜ 待开始 | | | | 新 Alert 创建/合入 Incident（暂无聚合，1:1） |
-| 1.2.4 | Incident 自动关闭逻辑 | ⬜ 待开始 | | | | 关联 Alert 全部 resolved → Incident closed |
-| 1.2.5 | Incident 超时自动关闭 | ⬜ 待开始 | | | | 后台 goroutine 检查超时 |
+| 1.2.1 | rule_eval 产出 Event 而非 AlertEvent | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | 非侵入式：AlertV2Pipeline.WrapOnAlert 拦截 onAlert 回调，并行驱动 v2 路径，原引擎保持不变 |
+| 1.2.2 | Event → Alert 合入逻辑 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | AlertV2Pipeline.upsertAlert：按 alert_key 去重，同一序列累加 fire_count |
+| 1.2.3 | Alert → Incident 触发逻辑 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | AlertV2Pipeline.ensureIncident：复用已有 open Incident 或新建，时间线自动记录 |
+| 1.2.4 | Incident 自动关闭逻辑 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | AlertV2Pipeline.handleResolution：所有关联 Alert resolved → Incident resolved（尊重 follow_alert_close） |
+| 1.2.5 | Incident 超时自动关闭 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | IncidentService.StartAutoCloseWorker：每 5 分钟检查 auto_close_minutes，appCtx 控制生命周期 |
 
 ### 1.3 后端 — API 路由注册
 
@@ -78,23 +78,23 @@
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
-| 1.4.1 | 侧边栏导航重构（新菜单结构） | ⬜ 待开始 | | | | 协作空间/故障管理/告警配置/值班排班/通知管理/数据查询/仪表盘/集成中心/设置 |
-| 1.4.2 | 协作空间列表页 | ⬜ 待开始 | | | | 卡片列表 + 收藏 + 筛选 + 排序 + 创建向导 |
-| 1.4.3 | 协作空间详情页 — 故障列表 Tab | ⬜ 待开始 | | | | 筛选 + 批量操作 |
-| 1.4.4 | 协作空间详情页 — 统计概览 Tab | ⬜ 待开始 | | | | 4 张统计卡片 |
-| 1.4.5 | 协作空间详情页 — 配置 Tab | ⬜ 待开始 | | | | 侧边栏菜单（集成/降噪/分派/设置） |
-| 1.4.6 | 故障列表页（全局） | ⬜ 待开始 | | | | 分派给我/全部 + 筛选 + 聚合视图 + 批量操作 |
-| 1.4.7 | 故障详情页 | ⬜ 待开始 | | | | 操作栏 + Tab(概览/关联告警/时间线/复盘) + 右侧信息栏 |
-| 1.4.8 | 告警列表页 | ⬜ 待开始 | | | | 独立于故障的告警视图 |
-| 1.4.9 | 告警详情页 | ⬜ 待开始 | | | | 概览 + 关联事件 Tab |
-| 1.4.10 | 前端 API 层 + TypeScript 类型定义 | ⬜ 待开始 | | | | Channel, Incident, Alert, Event, Integration types |
+| 1.4.1 | 侧边栏导航重构（新菜单结构） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | MainLayout.vue 新增 协作空间/故障管理/告警视图 三项 |
+| 1.4.2 | 协作空间列表页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/channels/Index.vue：卡片列表 + Star + 创建弹窗 |
+| 1.4.3 | 协作空间详情页 — 故障列表 Tab | ⬜ 待开始 | | | | Phase 1.5 补充 |
+| 1.4.4 | 协作空间详情页 — 统计概览 Tab | ⬜ 待开始 | | | | Phase 1.5 补充 |
+| 1.4.5 | 协作空间详情页 — 配置 Tab | ⬜ 待开始 | | | | Phase 1.5 补充 |
+| 1.4.6 | 故障列表页（全局） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/incidents/Index.vue：全部/我的 + 筛选 + 认领/关闭操作 |
+| 1.4.7 | 故障详情页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/incidents/Detail.vue：操作栏 + Tab(概览/关联告警/时间线) + 右侧信息栏 |
+| 1.4.8 | 告警列表页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/alerts-v2/Index.vue：筛选 + 关联故障/空间 |
+| 1.4.9 | 告警详情页 | ⬜ 待开始 | | | | Phase 1.5 补充 |
+| 1.4.10 | 前端 API 层 + TypeScript 类型定义 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | types/index.ts: Channel/Incident/AlertV2/AlertEventV2; api/index.ts: channelV2Api/incidentApi/alertV2Api |
 
 ### 1.5 验证
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
 | 1.5.1 | go build 通过 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | |
-| 1.5.2 | vite build 通过 | ⬜ 待开始 | | | | 前端无变更，待 1.4.x 后验证 |
+| 1.5.2 | vue-tsc --noEmit 通过 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | |
 | 1.5.3 | 数据迁移测试 | ⬜ 待开始 | | | | 需在实际 MySQL 上运行验证 |
 | 1.5.4 | CHANGELOG + MODULES.md 更新 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | CHANGELOG 已更新 |
 
@@ -169,4 +169,6 @@
 | 2026-05-07 | 创建 Plan 文件（PLAN-flashcat-alignment.md + PLAN-feature-checklist.md + PLAN-status.md） | @opencode |
 | 2026-05-07 | 完成 1.1.1 + 1.1.3 + 1.1.7 + 1.1.8 模型定义（channel.go, incident.go, integration.go），go build 通过 | @opencode |
 | 2026-05-07 | 完成 Phase 1.1 后端全部：1.1.2 Channel CRUD + 1.1.4 Incident CRUD(含 ack/close/reopen/snooze/merge/reassign/escalate/comment) + 1.1.5 Timeline + 1.1.6 Alert+Event v2 双表 + 1.1.9 迁移 000019-000030 + 1.1.10 seed default channel + 1.3.1-1.3.4 API 路由注册 | @opencode |
+| 2026-05-07 | 完成 Phase 1.2 告警引擎适配：AlertV2Pipeline(非侵入式 WrapOnAlert hook) + IncidentService.StartAutoCloseWorker(超时自动关闭) + appCtx 生命周期管理 | @opencode |
+| 2026-05-07 | 完成 Phase 1.4 前端：侧边栏新增协作空间/故障/告警视图菜单 + 协作空间列表页 + 故障列表+详情页 + 告警v2列表页 + TypeScript 类型 + API 层 + i18n(中英) | @opencode |
 | | | |

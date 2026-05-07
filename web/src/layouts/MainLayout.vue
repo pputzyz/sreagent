@@ -28,6 +28,9 @@ import {
   ChevronBackOutline,
   ChevronForwardOutline,
   SearchOutline,
+  LayersOutline,
+  BugOutline,
+  FlashOutline,
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -110,8 +113,13 @@ function renderIcon(icon: any) {
 
 const menuOptions = computed<MenuOption[]>(() => {
   const items: MenuOption[] = [
-    { label: t('menu.dashboard'),        key: '/dashboard',  icon: renderIcon(GridOutline) },
-    { label: t('menu.dataQuery'), key: '/query', icon: renderIcon(SearchOutline) },
+    { label: t('menu.dashboard'),  key: '/dashboard',  icon: renderIcon(GridOutline) },
+    // v2 core
+    { label: t('menu.channels'),  key: '/channels',   icon: renderIcon(LayersOutline) },
+    { label: t('menu.incidents'), key: '/incidents',  icon: renderIcon(BugOutline) },
+    { label: t('menu.alertsV2'),  key: '/alerts-v2',  icon: renderIcon(FlashOutline) },
+    // existing
+    { label: t('menu.dataQuery'), key: '/query',      icon: renderIcon(SearchOutline) },
     {
       label: t('menu.datasources'), key: '/datasources', icon: renderIcon(ServerOutline),
       children: [
@@ -121,25 +129,28 @@ const menuOptions = computed<MenuOption[]>(() => {
     {
       label: t('menu.alertManagement'),  key: '/alerts', icon: renderIcon(AlertCircleOutline),
       children: [
-        { label: t('menu.alertRules'),   key: '/alerts/rules' },
-        { label: t('menu.activeAlerts'), key: '/alerts/events' },
-        { label: t('menu.alertHistory'), key: '/alerts/history' },
+        { label: t('menu.alertRules'),      key: '/alerts/rules' },
+        { label: t('menu.activeAlerts'),    key: '/alerts/events' },
+        { label: t('menu.alertHistory'),    key: '/alerts/history' },
         { label: t('menu.muteRules'),       key: '/alerts/mute-rules' },
         { label: t('menu.inhibitionRules'), key: '/alerts/inhibition-rules' },
       ],
     },
     { label: t('menu.notification'), key: '/notification', icon: renderIcon(NotificationsOutline) },
-    { label: t('menu.schedule'), key: '/schedule',  icon: renderIcon(CalendarOutline) },
+    { label: t('menu.schedule'),     key: '/schedule',     icon: renderIcon(CalendarOutline) },
   ]
   // Settings page is only visible to admin and team_lead roles
   if (authStore.canManage) {
-    items.push({ label: t('menu.settings'), key: '/settings',  icon: renderIcon(SettingsOutline) })
+    items.push({ label: t('menu.settings'), key: '/settings', icon: renderIcon(SettingsOutline) })
   }
   return items
 })
 
 function resolveActiveKey(p: string): string {
-  if (p.startsWith('/query'))                      return '/query'
+  if (p.startsWith('/channels'))                  return '/channels'
+  if (p.startsWith('/incidents'))                 return '/incidents'
+  if (p.startsWith('/alerts-v2'))                 return '/alerts-v2'
+  if (p.startsWith('/query'))                     return '/query'
   if (p.startsWith('/datasources'))               return '/datasources'
   if (p.startsWith('/alerts/rules'))              return '/alerts/rules'
   if (p.startsWith('/alerts/events'))             return '/alerts/events'

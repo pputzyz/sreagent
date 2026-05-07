@@ -12,6 +12,8 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+const incidentAutoCloseInterval = 5 * time.Minute
+
 // IncidentService provides business logic for incidents (故障).
 type IncidentService struct {
 	repo       *repository.IncidentRepository
@@ -344,4 +346,51 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 
 	s.logger.Info("incident escalated", zap.Uint("id", id), zap.Int("step", inc.CurrentEscalationStep))
 	return nil
+}
+
+// CloseExpiredIncidents closes all incidents that have exceeded their channel's
+// auto_close_minutes timeout. Called by StartAutoCloseWorker.
+func (s *IncidentService) CloseExpiredIncidents(ctx context.Context) {
+	now := time.Now()
+	incidents, err := s.repo.ListForAutoClose(ctx, now)
+	if err != nil {
+		s.logger.Error("auto-close: failed to list incidents", zap.Error(err))
+		return
+	}
+	for _, inc := range incidents {
+		updates := map[string]interface{}{
+			"closed_at": now,
+		}
+		if err := s.repo.UpdateStatus(ctx, inc.ID, model.IncidentStatusClosed, updates); err != nil {
+			s.logger.Error("auto-close: failed to close incident",
+				zap.Uint("id", inc.ID), zap.Error(err))
+			continue
+		}
+		_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+			IncidentID: inc.ID,
+			Action:     model.IncidentActionClosed,
+			Content:    "Incident auto-closed due to timeout",
+		})
+		s.logger.Info("auto-close: incident closed", zap.Uint("id", inc.ID))
+	}
+}
+
+// StartAutoCloseWorker starts a background goroutine that periodically closes
+// timed-out incidents. It stops when ctx is cancelled.
+func (s *IncidentService) StartAutoCloseWorker(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(incidentAutoCloseInterval)
+		defer ticker.Stop()
+		s.logger.Info("incident auto-close worker started",
+			zap.Duration("interval", incidentAutoCloseInterval))
+		for {
+			select {
+			case <-ticker.C:
+				s.CloseExpiredIncidents(ctx)
+			case <-ctx.Done():
+				s.logger.Info("incident auto-close worker stopped")
+				return
+			}
+		}
+	}()
 }

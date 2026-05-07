@@ -37,6 +37,11 @@ import type {
   AlertGroupItem,
   InhibitionRule,
   LogEntry,
+  Channel,
+  ChannelForm,
+  Incident,
+  AlertV2,
+  AlertEventV2,
 } from '@/types'
 
 // ===== Auth API =====
@@ -691,4 +696,93 @@ export const templateApi = {
 
   apply: (id: number, overrides: any) =>
     request.post<ApiResponse<any>>(`/alert-rule-templates/${id}/apply`, overrides),
+}
+
+// ===== v2: Collaboration Channels API =====
+export const channelV2Api = {
+  list: (params?: { query?: string; status?: string; page?: number; page_size?: number }) =>
+    request.get<ApiResponse<PageData<Channel>>>('/channels', { params }),
+
+  get: (id: number) =>
+    request.get<ApiResponse<Channel>>(`/channels/${id}`),
+
+  create: (data: ChannelForm) =>
+    request.post<ApiResponse<Channel>>('/channels', data),
+
+  update: (id: number, data: Partial<ChannelForm>) =>
+    request.put<ApiResponse<Channel>>(`/channels/${id}`, data),
+
+  delete: (id: number) =>
+    request.delete<ApiResponse<null>>(`/channels/${id}`),
+
+  star: (id: number) =>
+    request.post<ApiResponse<null>>(`/channels/${id}/star`),
+
+  unstar: (id: number) =>
+    request.delete<ApiResponse<null>>(`/channels/${id}/star`),
+}
+
+// ===== v2: Incidents API =====
+export const incidentApi = {
+  list: (params?: {
+    channel_id?: number
+    status?: string
+    severity?: string
+    query?: string
+    assigned_to?: number
+    page?: number
+    page_size?: number
+  }) => request.get<ApiResponse<PageData<Incident>>>('/incidents', { params }),
+
+  get: (id: number) =>
+    request.get<ApiResponse<Incident>>(`/incidents/${id}`),
+
+  create: (data: { title: string; description?: string; severity?: string; channel_id: number; assigned_to?: number }) =>
+    request.post<ApiResponse<Incident>>('/incidents', data),
+
+  acknowledge: (id: number) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/acknowledge`),
+
+  close: (id: number) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/close`),
+
+  reopen: (id: number) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/reopen`),
+
+  snooze: (id: number, until: string) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/snooze`, { until }),
+
+  reassign: (id: number, userId: number) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/reassign`, { user_id: userId }),
+
+  merge: (id: number, targetId: number) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/merge`, { target_id: targetId }),
+
+  escalate: (id: number) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/escalate`),
+
+  addComment: (id: number, content: string) =>
+    request.post<ApiResponse<null>>(`/incidents/${id}/comment`, { content }),
+
+  getTimeline: (id: number) =>
+    request.get<ApiResponse<any[]>>(`/incidents/${id}/timeline`),
+}
+
+// ===== v2: Alerts API =====
+export const alertV2Api = {
+  list: (params?: {
+    channel_id?: number
+    incident_id?: number
+    status?: string
+    severity?: string
+    query?: string
+    page?: number
+    page_size?: number
+  }) => request.get<ApiResponse<PageData<AlertV2>>>('/alerts', { params }),
+
+  get: (id: number) =>
+    request.get<ApiResponse<AlertV2>>(`/alerts/${id}`),
+
+  listEvents: (id: number, params?: { page?: number; page_size?: number }) =>
+    request.get<ApiResponse<PageData<AlertEventV2>>>(`/alerts/${id}/events`, { params }),
 }

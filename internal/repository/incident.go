@@ -126,6 +126,19 @@ func (r *IncidentRepository) ListTimeline(ctx context.Context, incidentID uint) 
 	return list, err
 }
 
+// ListForAutoClose returns open incidents eligible for auto-close.
+// Joins with channels to check auto_close_enabled and auto_close_minutes.
+func (r *IncidentRepository) ListForAutoClose(ctx context.Context, now time.Time) ([]model.Incident, error) {
+	var list []model.Incident
+	err := r.db.WithContext(ctx).
+		Joins("JOIN channels ON channels.id = incidents.channel_id AND channels.deleted_at IS NULL").
+		Where("incidents.status IN ? AND channels.auto_close_enabled = ? AND incidents.closed_at IS NULL", []string{"triggered", "processing"}, true).
+		Where("DATE_ADD(incidents.triggered_at, INTERVAL channels.auto_close_minutes MINUTE) < ?", now).
+		Where("channels.auto_close_minutes > 0").
+		Find(&list).Error
+	return list, err
+}
+
 // --- Counts ---
 
 func (r *IncidentRepository) CountByStatus(ctx context.Context, channelID uint) (map[string]int64, error) {
