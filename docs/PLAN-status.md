@@ -9,7 +9,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **当前 Phase** | Phase 1 — 未开始 |
+| **当前 Phase** | Phase 1 — 进行中 |
 | **当前版本** | v1.16.23 |
 | **目标版本** | v2.0.0 (Phase 1 完成) |
 | **阻塞项** | 无 |
@@ -42,14 +42,14 @@
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
-| 1.1.1 | Channel 模型定义 (model/channel.go) | ⬜ 待开始 | | | | name, description, team_id, is_public, noise_config JSON, auto_close_config JSON |
+| 1.1.1 | Channel 模型定义 (model/channel.go) | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | Channel + ChannelExclusionRule + ChannelStar + 降噪配置结构体 + FilterCondition |
 | 1.1.2 | Channel Repository + Service + Handler | ⬜ 待开始 | | | | CRUD + 列表带统计（活跃故障数、MTTA、MTTR） |
-| 1.1.3 | Incident 模型定义 (model/incident.go) | ⬜ 待开始 | | | | title, description, severity, status(triggered/processing/closed), channel_id, assigned_to, acknowledged_at, resolved_at, closed_at, alert_count, event_count |
+| 1.1.3 | Incident 模型定义 (model/incident.go) | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | Incident + IncidentAssignee + IncidentTimeline + PostMortem |
 | 1.1.4 | Incident Repository + Service + Handler | ⬜ 待开始 | | | | CRUD + 认领/关闭/重新打开/暂缓/合并/重新分派/升级 |
 | 1.1.5 | IncidentTimeline 模型 | ⬜ 待开始 | | | | incident_id, action_type, actor_id, content, created_at |
 | 1.1.6 | 重构 AlertEvent → Alert + Event 双表 | ⬜ 待开始 | | | | Alert: alert_key, title, severity, status(firing/resolved), incident_id, channel_id; Event: alert_id, event_status, event_severity, labels, timestamp |
-| 1.1.7 | RoutingRule 模型 | ⬜ 待开始 | | | | integration_id, match_conditions JSON, target_channel_id, priority |
-| 1.1.8 | Integration 模型 | ⬜ 待开始 | | | | name, type(alertmanager/grafana/standard), channel_id(专属) or null(共享), webhook_token, pipeline_config JSON |
+| 1.1.7 | RoutingRule 模型 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | 在 integration.go 中定义 |
+| 1.1.8 | Integration 模型 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | Integration + AlertPipelineStep + LabelEnhancementRule |
 | 1.1.9 | DB 迁移文件 (up + down) | ⬜ 待开始 | | | | 新建表 + 数据迁移（现有 AlertEvent → Alert） |
 | 1.1.10 | 创建"默认协作空间"迁移逻辑 | ⬜ 待开始 | | | | 现有告警全部归入默认空间 |
 
@@ -167,4 +167,5 @@
 | 日期 | 变更内容 | 执行者 |
 |------|---------|--------|
 | 2026-05-07 | 创建 Plan 文件（PLAN-flashcat-alignment.md + PLAN-feature-checklist.md + PLAN-status.md） | @opencode |
+| 2026-05-07 | 完成 1.1.1 + 1.1.3 + 1.1.7 + 1.1.8 模型定义（channel.go, incident.go, integration.go），go build 通过 | @opencode |
 | | | |
