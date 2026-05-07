@@ -329,6 +329,10 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 	if _, ok := labels["alertname"]; !ok {
 		labels["alertname"] = re.rule.Name
 	}
+	// Inject _channel_id hint for v2 pipeline routing (4.3)
+	if re.rule.ChannelID != nil && *re.rule.ChannelID > 0 {
+		labels["_channel_id"] = fmt.Sprintf("%d", *re.rule.ChannelID)
+	}
 
 	annotations := make(model.JSONLabels)
 	for k, v := range re.rule.Annotations {

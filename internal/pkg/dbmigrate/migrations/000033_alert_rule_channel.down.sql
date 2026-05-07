@@ -1,0 +1,1 @@
+ALTER TABLE alert_rules DROP INDEX idx_alert_rules_channel_id, DROP COLUMN channel_id

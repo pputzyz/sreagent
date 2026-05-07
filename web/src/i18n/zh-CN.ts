@@ -79,6 +79,7 @@ export default {
     channels: '协作空间',
     incidents: '故障管理',
     alertsV2: '告警视图',
+    integrations: '集成中心',
   },
   header: {
     timezone: '时区',
@@ -1248,5 +1249,41 @@ export default {
     linkedChannel: '协作空间',
     noAlerts: '暂无告警',
     events: '告警事件',
+  },
+
+  // ===== v2: Integrations (集成中心) =====
+  integration: {
+    title: '集成中心',
+    subtitle: '管理 Webhook 集成接入点，支持 Standard / AlertManager / Grafana 格式',
+    create: '新建集成',
+    name: '名称',
+    type: '类型',
+    mode: '模式',
+    modeExclusive: '专属集成',
+    modeShared: '共享集成',
+    channel: '目标空间',
+    webhookUrl: 'Webhook URL',
+    webhookToken: 'Token',
+    pipelineConfig: '处理管道配置',
+    pipelineConfigHint: 'JSON 数组，支持 rewrite_severity / rewrite_title / drop',
+    labelEnhancement: '标签增强配置',
+    totalAlerts: '已接收告警',
+    noIntegrations: '暂无集成',
+    copyToken: '复制 Token',
+    copyUrl: '复制 URL',
+    typeStandard: '通用格式',
+    typeAlertManager: 'AlertManager',
+    typeGrafana: 'Grafana',
+    rateLimit: '限流: 100/s, 1000/min',
+  },
+
+  // ===== v2: Alert rules folder =====
+  ruleFolder: {
+    title: '规则管理',
+    folder: '文件夹',
+    allFolders: '全部规则',
+    noFolder: '未分类',
+    newFolder: '新建文件夹',
+    moveToFolder: '移至文件夹',
   },
 }

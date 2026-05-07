@@ -135,16 +135,16 @@
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
-| 4.1 | 无数据告警 | ⬜ 待开始 | | | | |
-| 4.2 | 规则文件夹/树形分类 | ⬜ 待开始 | | | | |
-| 4.3 | 告警规则关联协作空间 | ⬜ 待开始 | | | | |
-| 4.4 | 标准 Webhook 接入 API | ⬜ 待开始 | | | | |
-| 4.5 | AlertManager 格式兼容 | ⬜ 待开始 | | | | |
-| 4.6 | Grafana 格式兼容 | ⬜ 待开始 | | | | |
-| 4.7 | 告警处理管道 Pipeline | ⬜ 待开始 | | | | |
-| 4.8 | 频率限制（100/s, 1000/min） | ⬜ 待开始 | | | | |
-| 4.9 | 前端：集成中心 + Pipeline 配置 + 规则文件夹 | ⬜ 待开始 | | | | |
-| 4.10 | 验证 + CHANGELOG | ⬜ 待开始 | | | | |
+| 4.1 | 无数据告警 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | 引擎已有 NoDataEnabled/NoDataDuration；rule_eval.go 已实现检测逻辑 |
+| 4.2 | 规则文件夹/树形分类 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | AlertRule.category 已存在；后端 listCategories API 已有；前端树形在侧边栏展示（现有告警规则页） |
+| 4.3 | 告警规则关联协作空间 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | AlertRule 新增 channel_id 字段；迁移 000033；rule_eval 注入 _channel_id label；pipeline 路由优先使用规则级 channel |
+| 4.4 | 标准 Webhook 接入 API | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | POST /api/v1/integrations/:token/alerts；normaliseStandard 支持 {alerts:[...]} 和单对象 |
+| 4.5 | AlertManager 格式兼容 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | normaliseAlertManager：解析 {alerts:[{status,labels,annotations,startsAt,...}]} |
+| 4.6 | Grafana 格式兼容 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | normaliseGrafana：解析 state=alerting/ok/normal，支持 no_data |
+| 4.7 | 告警处理管道 Pipeline | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | applyPipeline：rewrite_severity / rewrite_title / rewrite_description / drop；条件匹配复用 FilterCondition |
+| 4.8 | 频率限制（100/s, 1000/min） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | per-integration 令牌桶限流；rateLimiter in-memory，秒/分双窗口 |
+| 4.9 | 前端：集成中心 + Pipeline 配置 + 规则文件夹 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/integrations/Index.vue：CRUD + Webhook URL 展示 + Token 复制 + 管道配置 JSON 编辑器；菜单新增集成中心 |
+| 4.10 | 验证 + CHANGELOG | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | go build + vue-tsc 通过；DB 迁移 000033 |
 
 ---
 
@@ -172,4 +172,5 @@
 | 2026-05-07 | 完成 Phase 1.2 告警引擎适配：AlertV2Pipeline(非侵入式 WrapOnAlert hook) + IncidentService.StartAutoCloseWorker(超时自动关闭) + appCtx 生命周期管理 | @opencode |
 | 2026-05-07 | 完成 Phase 1.4 前端：侧边栏新增协作空间/故障/告警视图菜单 + 协作空间列表页 + 故障列表+详情页 + 告警v2列表页 + TypeScript 类型 + API 层 + i18n(中英) | @opencode |
 | 2026-05-07 | 完成 Phase 3 分派增强：DispatchPolicy+DispatchLog 模型 + DispatchService(FindMatchingPolicy/ApplyLabelEnhancements/时间窗口/触发条件) + AlertV2Pipeline 集成 + API + DB 迁移 000031-000032 + 前端 DispatchConfig.vue + Channel Detail Tab | @opencode |
+| 2026-05-07 | 完成 Phase 4 Webhook 接入+引擎增强：IntegrationService(Standard/AlertManager/Grafana 三格式+Pipeline+限流100/s+路由规则) + AlertRule.channel_id(000033) + Integration CRUD API + 前端集成中心页面 | @opencode |
 | | | |

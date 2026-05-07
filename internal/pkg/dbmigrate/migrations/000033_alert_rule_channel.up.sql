@@ -1,0 +1,1 @@
+ALTER TABLE alert_rules ADD COLUMN channel_id BIGINT UNSIGNED NULL DEFAULT NULL, ADD INDEX idx_alert_rules_channel_id (channel_id)

@@ -47,11 +47,12 @@ type Handlers struct {
 	LabelRegistry    *handler.LabelRegistryHandler
 	DashboardV2         *handler.DashboardV2Handler
 	AlertRuleTemplate   *handler.AlertRuleTemplateHandler
-	ChannelV2      *handler.ChannelHandler       // v2 collaboration channels (协作空间)
-	IncidentV2     *handler.IncidentHandler      // v2 incidents (故障)
-	AlertV2        *handler.AlertV2Handler       // v2 alerts (告警)
-	ExclusionRule  *handler.ExclusionRuleHandler // channel exclusion rules (排除规则)
-	DispatchPolicy *handler.DispatchHandler      // channel dispatch policies (分派策略)
+	ChannelV2      *handler.ChannelHandler        // v2 collaboration channels (协作空间)
+	IncidentV2     *handler.IncidentHandler       // v2 incidents (故障)
+	AlertV2        *handler.AlertV2Handler        // v2 alerts (告警)
+	ExclusionRule  *handler.ExclusionRuleHandler  // channel exclusion rules (排除规则)
+	DispatchPolicy *handler.DispatchHandler       // channel dispatch policies (分派策略)
+	Integration    *handler.IntegrationHandler    // webhook integrations (集成中心)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -93,6 +94,11 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	if handlers.AlertAction != nil {
 		r.GET("/alert-action/:token", handlers.AlertAction.ActionPage)
 		r.POST("/alert-action/:token", handlers.AlertAction.ExecuteAction)
+	}
+
+	// Integration webhook receive endpoint (no auth — authenticated by token in URL)
+	if handlers.Integration != nil {
+		r.POST("/api/v1/integrations/:token/alerts", handlers.Integration.Receive)
 	}
 
 	// API v1 routes
@@ -324,6 +330,18 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 					dp.GET("/:id", handlers.DispatchPolicy.Get)
 					dp.PUT("/:id", manage, handlers.DispatchPolicy.Update)
 					dp.DELETE("/:id", manage, handlers.DispatchPolicy.Delete)
+				}
+			}
+
+			// Integrations CRUD (webhook receive is registered above without auth)
+			if handlers.Integration != nil {
+				integrations := auth.Group("/integrations")
+				{
+					integrations.GET("", handlers.Integration.List)
+					integrations.GET("/:id", handlers.Integration.Get)
+					integrations.POST("", manage, handlers.Integration.Create)
+					integrations.PUT("/:id", manage, handlers.Integration.Update)
+					integrations.DELETE("/:id", manage, handlers.Integration.Delete)
 				}
 			}
 

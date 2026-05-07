@@ -120,13 +120,15 @@ func main() {
 	dashboardV2Repo := repository.NewDashboardRepository(db)
 	templateRepo := repository.NewAlertRuleTemplateRepository(db)
 
-	// v2 collaboration channel, incident, alert, noise-reduction & dispatch repositories
+	// v2 collaboration channel, incident, alert, noise-reduction, dispatch & integration repositories
 	channelV2Repo := repository.NewChannelV2Repository(db)
 	incidentRepo := repository.NewIncidentRepository(db)
 	alertV2Repo := repository.NewAlertRepository(db)
 	exclusionRuleRepo := repository.NewExclusionRuleRepository(db)
 	dispatchPolicyRepo := repository.NewDispatchPolicyRepository(db)
 	dispatchLogRepo := repository.NewDispatchLogRepository(db)
+	integrationRepo := repository.NewIntegrationRepository(db)
+	routingRuleRepo := repository.NewRoutingRuleRepository(db)
 
 	// Dispatch repositories
 	alertChannelRepo := repository.NewAlertChannelRepository(db)
@@ -181,6 +183,8 @@ func main() {
 	exclusionRuleSvc := service.NewExclusionRuleService(exclusionRuleRepo, zapLogger)
 	noiseReducer := service.NewNoiseReducer(channelV2Repo, exclusionRuleRepo, zapLogger)
 	dispatchSvc := service.NewDispatchService(dispatchPolicyRepo, dispatchLogRepo, zapLogger)
+	// integrationSvc is created after alertV2Pipeline is initialized (needs pipeline ref)
+	_ = routingRuleRepo // used below after pipeline init
 
 	// Dispatch services
 	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, zapLogger)
@@ -391,6 +395,9 @@ func main() {
 	alertV2Pipeline.SetDispatchService(dispatchSvc) // attach label enhancement
 	onAlertFn = alertV2Pipeline.WrapOnAlert(onAlertFn)
 
+	// Integration service needs the pipeline (must be after pipeline setup)
+	integrationSvc := service.NewIntegrationService(integrationRepo, routingRuleRepo, alertV2Pipeline, zapLogger)
+
 	// Start the incident auto-close background worker.
 	incidentSvc.StartAutoCloseWorker(appCtx)
 
@@ -474,6 +481,7 @@ func main() {
 		AlertV2:             handler.NewAlertV2Handler(alertV2Svc),
 		ExclusionRule:       handler.NewExclusionRuleHandler(exclusionRuleSvc),
 		DispatchPolicy:      handler.NewDispatchHandler(dispatchSvc),
+		Integration:         handler.NewIntegrationHandler(integrationSvc),
 	}
 
 	// Inject audit service into handlers that support it

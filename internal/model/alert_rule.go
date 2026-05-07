@@ -87,6 +87,12 @@ type AlertRule struct {
 	// SLA (Service Level Agreement) — 0 means disabled.
 	// If AckSlaMinutes > 0 and the event is not acknowledged within this window, an escalation is triggered.
 	AckSlaMinutes int `json:"ack_sla_minutes" gorm:"not null;default:0"`
+
+	// ChannelID links this rule to a collaboration channel (v2).
+	// When set, alerts fired by this rule are routed to the specified channel
+	// instead of the default channel.
+	ChannelID *uint    `json:"channel_id" gorm:"index"`
+	Channel   *Channel `json:"channel,omitempty" gorm:"foreignKey:ChannelID"`
 }
 
 func (AlertRule) TableName() string {

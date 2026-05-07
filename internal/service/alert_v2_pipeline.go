@@ -120,7 +120,21 @@ func (p *AlertV2Pipeline) WrapOnAlert(
 func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) error {
 	alertKey := p.buildAlertKey(event)
 	severity := mapSeverity(event.Severity)
+
+	// Determine target channel: prefer rule-level channel, fall back to default.
 	channelID := p.defaultChannelID
+	if event.RuleID != nil {
+		// We check the Alert repo for a previously-created alert that already has channel set,
+		// or fall back to default. Rule channel resolution happens at upsert time via ruleChannelID.
+		// Here we pass the rule's potential channel via the alert labels["_channel_id"] hint
+		// (set by the engine adapter below) or rely on default.
+		if chStr, ok := event.Labels["_channel_id"]; ok && chStr != "" {
+			var chID uint
+			if _, err := fmt.Sscanf(chStr, "%d", &chID); err == nil && chID > 0 {
+				channelID = chID
+			}
+		}
+	}
 
 	var eventStatus model.AlertEventV2Status
 	if event.Status == model.EventStatusResolved || event.Status == model.EventStatusClosed {

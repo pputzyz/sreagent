@@ -741,6 +741,32 @@ export const channelV2Api = {
     request.delete<ApiResponse<null>>(`/exclusion-rules/${ruleId}`),
 }
 
+// ===== v2: Integrations API =====
+export const integrationV2Api = {
+  list: (params?: { channel_id?: number; page?: number; page_size?: number }) =>
+    request.get<ApiResponse<PageData<any>>>('/integrations', { params }),
+
+  get: (id: number) =>
+    request.get<ApiResponse<any>>(`/integrations/${id}`),
+
+  create: (data: {
+    name: string
+    description?: string
+    type: string
+    mode?: string
+    channel_id?: number
+    pipeline_config?: string
+    label_enhancement_config?: string
+    is_enabled?: boolean
+  }) => request.post<ApiResponse<any>>('/integrations', data),
+
+  update: (id: number, data: any) =>
+    request.put<ApiResponse<any>>(`/integrations/${id}`, data),
+
+  delete: (id: number) =>
+    request.delete<ApiResponse<null>>(`/integrations/${id}`),
+}
+
 // ===== v2: Dispatch Policies API =====
 export const dispatchApi = {
   list: (channelId: number) =>

@@ -4,6 +4,31 @@
 
 ---
 
+## [v2.3.0-alpha.1] - 2026-05-07
+
+### Added — Phase 4 告警引擎增强 + Webhook 接入
+
+- **4.3 AlertRule → Channel 关联**: `AlertRule.channel_id` 字段 + 迁移 `000033`；rule_eval 注入 `_channel_id` 标签，AlertV2Pipeline 按规则优先路由到指定 channel
+- **4.4-4.6 Webhook 接入** (`internal/service/integration.go`):
+  - `IntegrationService.ReceiveAlerts`: 按 token 查找集成，限流检查，格式解析，pipeline 处理，路由到 AlertV2Pipeline
+  - `normaliseStandard`: `{alerts:[...]}` 或单对象格式
+  - `normaliseAlertManager`: `{alerts:[{status,labels,annotations,startsAt,...}]}`
+  - `normaliseGrafana`: `{alerts:[{title,state,labels,...}]}`，state=alerting/ok/normal/no_data
+- **4.7 处理管道**: `applyPipeline` — `rewrite_severity`/`rewrite_title`/`rewrite_description`/`drop`；条件匹配复用 `FilterCondition`；模板变量 `{{title}}/{{severity}}/{{labels.xxx}}`
+- **4.8 频率限制**: per-integration 令牌桶（in-memory），100/s + 1000/min 双窗口
+- **Integration CRUD API**: `GET/POST /api/v1/integrations` + `GET/PUT/DELETE /api/v1/integrations/:id`
+- **Webhook 接收端点**: `POST /api/v1/integrations/:token/alerts`（无 JWT，token 鉴权）
+- **4.1 NoData**: 引擎已有实现（`NoDataEnabled`/`NoDataDuration`）
+- **4.2 规则文件夹**: `AlertRule.category` 已支持，`listCategories` API 已有
+- **前端**:
+  - `pages/integrations/Index.vue`: CRUD 表格 + Webhook URL/Token 展示与复制 + 创建/编辑弹窗（type/mode/channel/pipeline/label 增强）
+  - 侧边栏新增"集成中心"菜单项（GitNetworkOutline 图标）
+  - `integrationV2Api` API 层
+  - i18n: zh-CN + en `integration.*` / `ruleFolder.*` 键
+- **DB 迁移 000033** `alert_rules.channel_id`
+
+---
+
 ## [v2.2.0-alpha.1] - 2026-05-07
 
 ### Added — Phase 3 分派增强

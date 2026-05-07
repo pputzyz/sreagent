@@ -79,6 +79,7 @@ export default {
     channels: 'Channels',
     incidents: 'Incidents',
     alertsV2: 'Alert View',
+    integrations: 'Integrations',
   },
   header: {
     timezone: 'Timezone',
@@ -1227,5 +1228,41 @@ export default {
     linkedChannel: 'Channel',
     noAlerts: 'No alerts',
     events: 'Alert Events',
+  },
+
+  // ===== v2: Integrations =====
+  integration: {
+    title: 'Integrations',
+    subtitle: 'Manage webhook integrations — Standard, AlertManager, Grafana formats',
+    create: 'New Integration',
+    name: 'Name',
+    type: 'Type',
+    mode: 'Mode',
+    modeExclusive: 'Exclusive',
+    modeShared: 'Shared',
+    channel: 'Target Channel',
+    webhookUrl: 'Webhook URL',
+    webhookToken: 'Token',
+    pipelineConfig: 'Pipeline Config',
+    pipelineConfigHint: 'JSON array: rewrite_severity / rewrite_title / drop',
+    labelEnhancement: 'Label Enhancement',
+    totalAlerts: 'Alerts Received',
+    noIntegrations: 'No integrations yet',
+    copyToken: 'Copy Token',
+    copyUrl: 'Copy URL',
+    typeStandard: 'Standard',
+    typeAlertManager: 'AlertManager',
+    typeGrafana: 'Grafana',
+    rateLimit: 'Rate limit: 100/s, 1000/min',
+  },
+
+  // ===== v2: Alert rule folders =====
+  ruleFolder: {
+    title: 'Alert Rules',
+    folder: 'Folder',
+    allFolders: 'All Rules',
+    noFolder: 'Uncategorized',
+    newFolder: 'New Folder',
+    moveToFolder: 'Move to Folder',
   },
 }
