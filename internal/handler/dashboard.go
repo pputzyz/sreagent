@@ -677,3 +677,176 @@ func (h *DashboardHandler) ExportReport(c *gin.Context) {
 	}
 	w.Flush()
 }
+
+// ===== v2 Stats — Channel & Team dimensions =====
+
+// ChannelStats returns incident statistics grouped by channel (协作空间维度).
+// GET /api/v1/dashboard/channel-stats?days=30
+func (h *DashboardHandler) ChannelStats(c *gin.Context) {
+	days := 30
+	if v := c.Query("days"); v != "" {
+		if d, err := strconv.Atoi(v); err == nil && d > 0 {
+			days = d
+		}
+	}
+	since := time.Now().AddDate(0, 0, -days)
+
+	type ChannelRow struct {
+		ChannelID   uint   `json:"channel_id"`
+		ChannelName string `json:"channel_name"`
+		Total       int64  `json:"total"`
+		Triggered   int64  `json:"triggered"`
+		Processing  int64  `json:"processing"`
+		Closed      int64  `json:"closed"`
+		Critical    int64  `json:"critical"`
+	}
+
+	var rows []ChannelRow
+	err := h.db.Table("incidents").
+		Select(`incidents.channel_id,
+			channels.name AS channel_name,
+			COUNT(*) AS total,
+			SUM(CASE WHEN incidents.status='triggered' THEN 1 ELSE 0 END) AS triggered,
+			SUM(CASE WHEN incidents.status='processing' THEN 1 ELSE 0 END) AS processing,
+			SUM(CASE WHEN incidents.status='closed' THEN 1 ELSE 0 END) AS closed,
+			SUM(CASE WHEN incidents.severity='critical' THEN 1 ELSE 0 END) AS critical`).
+		Joins("LEFT JOIN channels ON channels.id = incidents.channel_id AND channels.deleted_at IS NULL").
+		Where("incidents.deleted_at IS NULL AND incidents.triggered_at >= ?", since).
+		Group("incidents.channel_id, channels.name").
+		Order("total DESC").
+		Scan(&rows).Error
+	if err != nil {
+		h.logger.Error("channel_stats query failed", zap.Error(err))
+		rows = []ChannelRow{}
+	}
+	Success(c, rows)
+}
+
+// TeamStats returns incident statistics grouped by team (团队维度).
+// GET /api/v1/dashboard/team-stats?days=30
+func (h *DashboardHandler) TeamStats(c *gin.Context) {
+	days := 30
+	if v := c.Query("days"); v != "" {
+		if d, err := strconv.Atoi(v); err == nil && d > 0 {
+			days = d
+		}
+	}
+	since := time.Now().AddDate(0, 0, -days)
+
+	type TeamRow struct {
+		TeamID   uint   `json:"team_id"`
+		TeamName string `json:"team_name"`
+		Total    int64  `json:"total"`
+		Closed   int64  `json:"closed"`
+		Critical int64  `json:"critical"`
+		AvgMTTR  float64 `json:"avg_mttr_seconds"`
+	}
+
+	var rows []TeamRow
+	err := h.db.Table("incidents").
+		Select(`channels.team_id,
+			teams.name AS team_name,
+			COUNT(*) AS total,
+			SUM(CASE WHEN incidents.status='closed' THEN 1 ELSE 0 END) AS closed,
+			SUM(CASE WHEN incidents.severity='critical' THEN 1 ELSE 0 END) AS critical,
+			AVG(CASE WHEN incidents.closed_at IS NOT NULL
+				THEN TIMESTAMPDIFF(SECOND, incidents.triggered_at, incidents.closed_at)
+				ELSE NULL END) AS avg_mttr`).
+		Joins("LEFT JOIN channels ON channels.id = incidents.channel_id AND channels.deleted_at IS NULL").
+		Joins("LEFT JOIN teams ON teams.id = channels.team_id AND teams.deleted_at IS NULL").
+		Where("incidents.deleted_at IS NULL AND incidents.triggered_at >= ?", since).
+		Group("channels.team_id, teams.name").
+		Order("total DESC").
+		Scan(&rows).Error
+	if err != nil {
+		h.logger.Error("team_stats query failed", zap.Error(err))
+		rows = []TeamRow{}
+	}
+	Success(c, rows)
+}
+
+// IncidentTrend returns daily incident counts for the last N days.
+// GET /api/v1/dashboard/incident-trend?days=30
+func (h *DashboardHandler) IncidentTrend(c *gin.Context) {
+	days := 30
+	if v := c.Query("days"); v != "" {
+		if d, err := strconv.Atoi(v); err == nil && d > 0 {
+			days = d
+		}
+	}
+
+	type TrendPoint struct {
+		Date      string `json:"date"`
+		Triggered int64  `json:"triggered"`
+		Closed    int64  `json:"closed"`
+	}
+
+	type row struct {
+		Day    string
+		Status string
+		Count  int64
+	}
+
+	var rows []row
+	err := h.db.Table("incidents").
+		Select("DATE(triggered_at) AS day, status, COUNT(*) AS count").
+		Where("deleted_at IS NULL AND triggered_at >= ?", time.Now().AddDate(0, 0, -days)).
+		Group("DATE(triggered_at), status").
+		Order("day ASC").
+		Scan(&rows).Error
+	if err != nil {
+		h.logger.Error("incident_trend query failed", zap.Error(err))
+		Success(c, []TrendPoint{})
+		return
+	}
+
+	// Pivot into TrendPoint slice
+	pointMap := make(map[string]*TrendPoint)
+	for _, r := range rows {
+		if _, ok := pointMap[r.Day]; !ok {
+			pointMap[r.Day] = &TrendPoint{Date: r.Day}
+		}
+		switch r.Status {
+		case "triggered", "processing":
+			pointMap[r.Day].Triggered += r.Count
+		case "closed":
+			pointMap[r.Day].Closed += r.Count
+		}
+	}
+	result := make([]TrendPoint, 0, len(pointMap))
+	for _, p := range pointMap {
+		result = append(result, *p)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Date < result[j].Date })
+	Success(c, result)
+}
+
+// IncidentStats returns overall v2 incident statistics.
+// GET /api/v1/dashboard/incident-stats
+func (h *DashboardHandler) IncidentStats(c *gin.Context) {
+	type Stats struct {
+		TotalIncidents      int64   `json:"total_incidents"`
+		ActiveIncidents     int64   `json:"active_incidents"`
+		ClosedToday         int64   `json:"closed_today"`
+		CriticalActive      int64   `json:"critical_active"`
+		AvgMTTRSeconds      float64 `json:"avg_mttr_seconds"`
+		TotalPostMortems    int64   `json:"total_post_mortems"`
+		PublishedPostMortems int64  `json:"published_post_mortems"`
+	}
+
+	var stats Stats
+	todayStart := time.Now().Truncate(24 * time.Hour)
+
+	h.db.Model(&model.Incident{}).Count(&stats.TotalIncidents)
+	h.db.Model(&model.Incident{}).Where("status IN ?", []string{"triggered", "processing"}).Count(&stats.ActiveIncidents)
+	h.db.Model(&model.Incident{}).Where("status = 'closed' AND closed_at >= ?", todayStart).Count(&stats.ClosedToday)
+	h.db.Model(&model.Incident{}).Where("status IN ? AND severity = 'critical'", []string{"triggered", "processing"}).Count(&stats.CriticalActive)
+	h.db.Table("incidents").
+		Where("closed_at IS NOT NULL AND deleted_at IS NULL").
+		Select("AVG(TIMESTAMPDIFF(SECOND, triggered_at, closed_at))").
+		Scan(&stats.AvgMTTRSeconds)
+	h.db.Model(&model.PostMortem{}).Count(&stats.TotalPostMortems)
+	h.db.Model(&model.PostMortem{}).Where("status = 'published'").Count(&stats.PublishedPostMortems)
+
+	Success(c, stats)
+}

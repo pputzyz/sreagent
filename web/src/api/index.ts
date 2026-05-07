@@ -842,6 +842,37 @@ export const incidentApi = {
 
   getTimeline: (id: number) =>
     request.get<ApiResponse<any[]>>(`/incidents/${id}/timeline`),
+
+  // Post-mortem (复盘)
+  getPostMortem: (incidentId: number) =>
+    request.get<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem`),
+
+  updatePostMortem: (incidentId: number, data: { title?: string; content?: string; status?: string }) =>
+    request.put<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem`, data),
+
+  publishPostMortem: (incidentId: number) =>
+    request.post<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem/publish`),
+
+  aiGeneratePostMortem: (incidentId: number) =>
+    request.post<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem/ai-generate`),
+
+  aiSummaryPostMortem: (incidentId: number) =>
+    request.post<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem/ai-summary`),
+}
+
+// ===== v2 Dashboard Stats API =====
+export const dashboardV2StatsApi = {
+  incidentStats: () =>
+    request.get<ApiResponse<any>>('/dashboard/incident-stats'),
+
+  channelStats: (days = 30) =>
+    request.get<ApiResponse<any[]>>('/dashboard/channel-stats', { params: { days } }),
+
+  teamStats: (days = 30) =>
+    request.get<ApiResponse<any[]>>('/dashboard/team-stats', { params: { days } }),
+
+  incidentTrend: (days = 30) =>
+    request.get<ApiResponse<any[]>>('/dashboard/incident-trend', { params: { days } }),
 }
 
 // ===== v2: Alerts API =====

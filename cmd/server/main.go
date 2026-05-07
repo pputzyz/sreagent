@@ -120,7 +120,7 @@ func main() {
 	dashboardV2Repo := repository.NewDashboardRepository(db)
 	templateRepo := repository.NewAlertRuleTemplateRepository(db)
 
-	// v2 collaboration channel, incident, alert, noise-reduction, dispatch & integration repositories
+	// v2 collaboration channel, incident, alert, noise-reduction, dispatch, integration & postmortem repositories
 	channelV2Repo := repository.NewChannelV2Repository(db)
 	incidentRepo := repository.NewIncidentRepository(db)
 	alertV2Repo := repository.NewAlertRepository(db)
@@ -129,6 +129,7 @@ func main() {
 	dispatchLogRepo := repository.NewDispatchLogRepository(db)
 	integrationRepo := repository.NewIntegrationRepository(db)
 	routingRuleRepo := repository.NewRoutingRuleRepository(db)
+	postMortemRepo := repository.NewPostMortemRepository(db)
 
 	// Dispatch repositories
 	alertChannelRepo := repository.NewAlertChannelRepository(db)
@@ -183,6 +184,7 @@ func main() {
 	exclusionRuleSvc := service.NewExclusionRuleService(exclusionRuleRepo, zapLogger)
 	noiseReducer := service.NewNoiseReducer(channelV2Repo, exclusionRuleRepo, zapLogger)
 	dispatchSvc := service.NewDispatchService(dispatchPolicyRepo, dispatchLogRepo, zapLogger)
+	postMortemSvc := service.NewPostMortemService(postMortemRepo, incidentRepo, zapLogger)
 	// integrationSvc is created after alertV2Pipeline is initialized (needs pipeline ref)
 	_ = routingRuleRepo // used below after pipeline init
 
@@ -482,6 +484,7 @@ func main() {
 		ExclusionRule:       handler.NewExclusionRuleHandler(exclusionRuleSvc),
 		DispatchPolicy:      handler.NewDispatchHandler(dispatchSvc),
 		Integration:         handler.NewIntegrationHandler(integrationSvc),
+		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
 	}
 
 	// Inject audit service into handlers that support it

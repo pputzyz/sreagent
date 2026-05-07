@@ -32,6 +32,7 @@ import {
   BugOutline,
   FlashOutline,
   GitNetworkOutline,
+  BarChartOutline,
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -116,10 +117,11 @@ const menuOptions = computed<MenuOption[]>(() => {
   const items: MenuOption[] = [
     { label: t('menu.dashboard'),  key: '/dashboard',  icon: renderIcon(GridOutline) },
     // v2 core
-    { label: t('menu.channels'),     key: '/channels',      icon: renderIcon(LayersOutline) },
-    { label: t('menu.incidents'),    key: '/incidents',     icon: renderIcon(BugOutline) },
-    { label: t('menu.alertsV2'),     key: '/alerts-v2',     icon: renderIcon(FlashOutline) },
-    { label: t('menu.integrations'), key: '/integrations',  icon: renderIcon(GitNetworkOutline) },
+    { label: t('menu.incidentDashboard'), key: '/incident-dashboard', icon: renderIcon(BarChartOutline) },
+    { label: t('menu.channels'),          key: '/channels',           icon: renderIcon(LayersOutline) },
+    { label: t('menu.incidents'),         key: '/incidents',          icon: renderIcon(BugOutline) },
+    { label: t('menu.alertsV2'),          key: '/alerts-v2',          icon: renderIcon(FlashOutline) },
+    { label: t('menu.integrations'),      key: '/integrations',       icon: renderIcon(GitNetworkOutline) },
     // existing
     { label: t('menu.dataQuery'), key: '/query',      icon: renderIcon(SearchOutline) },
     {
@@ -149,6 +151,7 @@ const menuOptions = computed<MenuOption[]>(() => {
 })
 
 function resolveActiveKey(p: string): string {
+  if (p.startsWith('/incident-dashboard'))        return '/incident-dashboard'
   if (p.startsWith('/channels'))                  return '/channels'
   if (p.startsWith('/incidents'))                 return '/incidents'
   if (p.startsWith('/alerts-v2'))                 return '/alerts-v2'

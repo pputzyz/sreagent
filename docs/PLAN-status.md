@@ -152,13 +152,13 @@
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
-| 5.1 | PostMortem 模型 + CRUD | ⬜ 待开始 | | | | |
-| 5.2 | AI 故障总结（概述/影响/建议） | ⬜ 待开始 | | | | |
-| 5.3 | AI 辅助复盘（自动生成初稿） | ⬜ 待开始 | | | | |
-| 5.4 | 分析看板增强（按空间/团队维度） | ⬜ 待开始 | | | | |
-| 5.5 | 前端：故障详情复盘 Tab + AI 按钮 | ⬜ 待开始 | | | | |
-| 5.6 | 前端：增强仪表盘 | ⬜ 待开始 | | | | |
-| 5.7 | 验证 + CHANGELOG | ⬜ 待开始 | | | | |
+| 5.1 | PostMortem 模型 + CRUD | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | PostMortemRepository + Service (GetOrCreate/Update/Publish/List) + Handler；默认 Markdown 模板预填充故障信息 |
+| 5.2 | AI 故障总结（概述/影响/建议） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | PostMortemHandler.AISummary → AIService.AnalyzeAlertWithContext → 返回 AlertAnalysis 结构 |
+| 5.3 | AI 辅助复盘（自动生成初稿） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | PostMortemHandler.AIGenerate → AI 生成 + 保存为草稿；buildPostMortemFromAnalysis 拼装 Markdown |
+| 5.4 | 分析看板增强（按空间/团队维度） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | DashboardHandler: ChannelStats/TeamStats/IncidentTrend/IncidentStats 四个新端点；SQL 直接 JOIN channels/teams |
+| 5.5 | 前端：故障详情复盘 Tab + AI 按钮 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | Incident Detail 新增"复盘"Tab：Markdown 编辑器 + 保存 + 发布 + AI 生成初稿按钮 |
+| 5.6 | 前端：增强仪表盘 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | IncidentDashboard.vue：5 张统计卡片 + 故障趋势柱状图 + 空间/团队排行表格；路由 /incident-dashboard；侧边栏"故障看板" |
+| 5.7 | 验证 + CHANGELOG | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | go build + vue-tsc 通过 |
 
 ---
 
@@ -173,4 +173,5 @@
 | 2026-05-07 | 完成 Phase 1.4 前端：侧边栏新增协作空间/故障/告警视图菜单 + 协作空间列表页 + 故障列表+详情页 + 告警v2列表页 + TypeScript 类型 + API 层 + i18n(中英) | @opencode |
 | 2026-05-07 | 完成 Phase 3 分派增强：DispatchPolicy+DispatchLog 模型 + DispatchService(FindMatchingPolicy/ApplyLabelEnhancements/时间窗口/触发条件) + AlertV2Pipeline 集成 + API + DB 迁移 000031-000032 + 前端 DispatchConfig.vue + Channel Detail Tab | @opencode |
 | 2026-05-07 | 完成 Phase 4 Webhook 接入+引擎增强：IntegrationService(Standard/AlertManager/Grafana 三格式+Pipeline+限流100/s+路由规则) + AlertRule.channel_id(000033) + Integration CRUD API + 前端集成中心页面 | @opencode |
+| 2026-05-07 | 完成 Phase 5 故障复盘+分析增强：PostMortem CRUD + AI 生成初稿(AnalyzeAlertWithContext) + 4 个新 Dashboard 统计端点(channel/team/trend/stats) + 前端复盘Tab+AI按钮+IncidentDashboard看板 | @opencode |
 | | | |

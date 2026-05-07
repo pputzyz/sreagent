@@ -80,6 +80,7 @@ export default {
     incidents: 'Incidents',
     alertsV2: 'Alert View',
     integrations: 'Integrations',
+    incidentDashboard: 'Incident Board',
   },
   header: {
     timezone: 'Timezone',
@@ -290,6 +291,18 @@ export default {
     panelBar: 'Bar',
     panelPie: 'Pie',
     panelTable: 'Table',
+    // v2 incident stats (Phase 5)
+    incidentStats: 'Incident Stats',
+    activeIncidents: 'Active Incidents',
+    closedToday: 'Closed Today',
+    criticalActive: 'Critical Active',
+    avgMTTR: 'Avg MTTR',
+    totalPostMortems: 'Post-Mortems',
+    publishedPostMortems: 'Published',
+    channelStats: 'By Channel',
+    teamStats: 'By Team',
+    incidentTrend: 'Incident Trend',
+    days: 'days',
   },
   alert: {
     rules: 'Alert Rules',
@@ -1255,6 +1268,23 @@ export default {
     typeGrafana: 'Grafana',
     rateLimit: 'Rate limit: 100/s, 1000/min',
   },
+
+  // ===== v2: PostMortem =====
+  postMortem: {
+    title: 'Post-Mortem',
+    tab: 'Post-Mortem',
+    draft: 'Draft',
+    published: 'Published',
+    publish: 'Publish',
+    aiGenerate: 'AI Generate Draft',
+    aiSummary: 'AI Analysis',
+    generating: 'Generating…',
+    publishConfirm: 'Publish this post-mortem? It will be visible to everyone.',
+    noPostMortem: 'No post-mortem yet',
+    lastUpdated: 'Last updated',
+  },
+
+
 
   // ===== v2: Alert rule folders =====
   ruleFolder: {

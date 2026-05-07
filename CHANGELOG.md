@@ -4,6 +4,40 @@
 
 ---
 
+## [v2.4.0-alpha.1] - 2026-05-07
+
+### Added — Phase 5 故障复盘 + 分析增强
+
+- **PostMortem CRUD** (`internal/service/post_mortem.go`):
+  - `GetOrCreate`: 按 incident_id 查找或自动创建草稿（含 Markdown 模板预填充）
+  - `Update` / `Publish`: 保存内容并可一键发布
+  - `List`: 支持按 channel_id（JOIN incidents）和 status 过滤
+  - `defaultPostMortemTemplate`: 预填充故障标题/时间/等级
+- **AI 故障分析** (`internal/handler/post_mortem.go`):
+  - `AIGenerate`: 调用 `AIService.AnalyzeAlertWithContext` → 生成 Markdown 复盘初稿并保存
+  - `AISummary`: 返回 `AlertAnalysis` JSON 供前端预览（不保存）
+  - `buildPostMortemFromAnalysis`: 将 AI 输出拼装为标准 Markdown 复盘格式
+- **API 端点**:
+  - `GET/PUT /api/v1/incidents/:id/post-mortem`
+  - `POST /api/v1/incidents/:id/post-mortem/publish`
+  - `POST /api/v1/incidents/:id/post-mortem/ai-generate`
+  - `POST /api/v1/incidents/:id/post-mortem/ai-summary`
+  - `GET /api/v1/post-mortems` (全局列表)
+- **分析看板增强** (`internal/handler/dashboard.go`):
+  - `IncidentStats`: 活跃故障数/今日关闭/紧急/Avg MTTR/复盘统计
+  - `ChannelStats`: 按协作空间的故障分布（total/triggered/closed/critical）
+  - `TeamStats`: 按团队的故障分布 + Avg MTTR（JOIN channels→teams）
+  - `IncidentTrend`: 按日汇总 triggered+closed 趋势
+- **前端**:
+  - Incident Detail 新增"复盘"Tab：Markdown textarea 编辑器 + 保存/发布/AI 生成按钮 + SparklesOutline 图标
+  - `incidentApi` 扩展：getPostMortem/updatePostMortem/publishPostMortem/aiGeneratePostMortem/aiSummaryPostMortem
+  - `dashboardV2StatsApi`: incidentStats/channelStats/teamStats/incidentTrend
+  - `IncidentDashboard.vue`: 5 张统计卡片 + 趋势柱状图（纯 CSS） + 空间/团队排行表
+  - 侧边栏新增"故障看板"菜单（BarChartOutline 图标）
+  - i18n: zh-CN + en `postMortem.*` + `dashboardV2.*` 新增键（合并至已有 dashboardV2 节）
+
+---
+
 ## [v2.3.0-alpha.1] - 2026-05-07
 
 ### Added — Phase 4 告警引擎增强 + Webhook 接入

@@ -156,6 +156,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/integrations/Index.vue'),
         meta: { title: 'Integrations' },
       },
+      {
+        path: 'incident-dashboard',
+        name: 'IncidentDashboard',
+        component: () => import('@/pages/dashboard/IncidentDashboard.vue'),
+        meta: { title: 'Incident Dashboard' },
+      },
     ],
   },
 ]

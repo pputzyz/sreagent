@@ -80,6 +80,7 @@ export default {
     incidents: '故障管理',
     alertsV2: '告警视图',
     integrations: '集成中心',
+    incidentDashboard: '故障看板',
   },
   header: {
     timezone: '时区',
@@ -290,6 +291,18 @@ export default {
     panelBar: '柱状图',
     panelPie: '饼图',
     panelTable: '表格',
+    // v2 incident stats (Phase 5)
+    incidentStats: '故障统计',
+    activeIncidents: '活跃故障',
+    closedToday: '今日关闭',
+    criticalActive: '紧急告警',
+    avgMTTR: '平均解决时长',
+    totalPostMortems: '复盘总数',
+    publishedPostMortems: '已发布复盘',
+    channelStats: '空间维度分析',
+    teamStats: '团队维度分析',
+    incidentTrend: '故障趋势',
+    days: '天',
   },
   alert: {
     // Rules
@@ -1276,6 +1289,23 @@ export default {
     typeGrafana: 'Grafana',
     rateLimit: '限流: 100/s, 1000/min',
   },
+
+  // ===== v2: PostMortem =====
+  postMortem: {
+    title: '故障复盘',
+    tab: '复盘',
+    draft: '草稿',
+    published: '已发布',
+    publish: '发布',
+    aiGenerate: 'AI 生成初稿',
+    aiSummary: 'AI 分析',
+    generating: '生成中…',
+    publishConfirm: '确定发布该复盘？发布后内容对所有人可见。',
+    noPostMortem: '暂无复盘',
+    lastUpdated: '最后更新',
+  },
+
+
 
   // ===== v2: Alert rules folder =====
   ruleFolder: {

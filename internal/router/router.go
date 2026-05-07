@@ -53,6 +53,7 @@ type Handlers struct {
 	ExclusionRule  *handler.ExclusionRuleHandler  // channel exclusion rules (排除规则)
 	DispatchPolicy *handler.DispatchHandler       // channel dispatch policies (分派策略)
 	Integration    *handler.IntegrationHandler    // webhook integrations (集成中心)
+	PostMortem     *handler.PostMortemHandler     // incident post-mortems (故障复盘)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -361,7 +362,20 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 					incidents.POST("/:id/merge", operate, handlers.IncidentV2.Merge)
 					incidents.POST("/:id/escalate", operate, handlers.IncidentV2.Escalate)
 					incidents.POST("/:id/comment", operate, handlers.IncidentV2.AddComment)
+					// Post-mortem (复盘)
+					if handlers.PostMortem != nil {
+						incidents.GET("/:id/post-mortem", handlers.PostMortem.Get)
+						incidents.PUT("/:id/post-mortem", operate, handlers.PostMortem.Update)
+						incidents.POST("/:id/post-mortem/publish", manage, handlers.PostMortem.Publish)
+						incidents.POST("/:id/post-mortem/ai-generate", operate, handlers.PostMortem.AIGenerate)
+						incidents.POST("/:id/post-mortem/ai-summary", operate, handlers.PostMortem.AISummary)
+					}
 				}
+			}
+
+			// Post-mortems list (global view)
+			if handlers.PostMortem != nil {
+				auth.GET("/post-mortems", handlers.PostMortem.List)
 			}
 
 			// Alerts v2 (告警)
@@ -537,6 +551,11 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			auth.GET("/dashboard/top-rules", handlers.Dashboard.GetTopRules)
 			auth.GET("/dashboard/severity-history", handlers.Dashboard.GetSeverityHistory)
 			auth.GET("/dashboard/export", handlers.Dashboard.ExportReport)
+			// v2 dashboard stats (incident/channel/team dimensions)
+			auth.GET("/dashboard/incident-stats", handlers.Dashboard.IncidentStats)
+			auth.GET("/dashboard/channel-stats", handlers.Dashboard.ChannelStats)
+			auth.GET("/dashboard/team-stats", handlers.Dashboard.TeamStats)
+			auth.GET("/dashboard/incident-trend", handlers.Dashboard.IncidentTrend)
 
 				// Dashboard v2 (panel/variable dashboards)
 				dashV2 := auth.Group("/dashboards")

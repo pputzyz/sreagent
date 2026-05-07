@@ -7,7 +7,7 @@ import { incidentApi, alertV2Api } from '@/api'
 import type { Incident, IncidentTimeline, AlertV2 } from '@/types'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { ArrowBackOutline } from '@vicons/ionicons5'
+import { ArrowBackOutline, SparklesOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -22,6 +22,12 @@ const loading = ref(false)
 const activeTab = ref('overview')
 const commentText = ref('')
 const submittingComment = ref(false)
+
+// Post-mortem
+const postMortem = ref<any | null>(null)
+const pmLoading = ref(false)
+const pmSaving = ref(false)
+const pmAiLoading = ref(false)
 
 const severityTagType: Record<string, 'error' | 'warning' | 'info'> = {
   critical: 'error', warning: 'warning', info: 'info',
@@ -83,6 +89,62 @@ async function submitComment() {
   }
 }
 
+// --- Post-mortem ---
+async function loadPostMortem() {
+  pmLoading.value = true
+  try {
+    const res = await incidentApi.getPostMortem(incidentId.value)
+    postMortem.value = res.data.data ?? null
+  } catch {
+    postMortem.value = null
+  } finally {
+    pmLoading.value = false
+  }
+}
+
+async function savePostMortem() {
+  if (!postMortem.value) return
+  pmSaving.value = true
+  try {
+    const res = await incidentApi.updatePostMortem(incidentId.value, {
+      title: postMortem.value.title,
+      content: postMortem.value.content,
+    })
+    postMortem.value = res.data.data
+    message.success(t('common.savedSuccess'))
+  } catch (e: any) {
+    message.error(e?.message ?? t('common.saveFailed'))
+  } finally {
+    pmSaving.value = false
+  }
+}
+
+async function publishPostMortem() {
+  pmSaving.value = true
+  try {
+    const res = await incidentApi.publishPostMortem(incidentId.value)
+    postMortem.value = res.data.data
+    message.success(t('postMortem.published'))
+  } catch (e: any) {
+    message.error(e?.message ?? t('common.failed'))
+  } finally {
+    pmSaving.value = false
+  }
+}
+
+async function aiGeneratePostMortem() {
+  pmAiLoading.value = true
+  try {
+    const res = await incidentApi.aiGeneratePostMortem(incidentId.value)
+    postMortem.value = res.data.data
+    message.success('AI 初稿已生成')
+  } catch (e: any) {
+    message.error(e?.message ?? 'AI 生成失败')
+  } finally {
+    pmAiLoading.value = false
+  }
+}
+
 const alertColumns = computed(() => [
   {
     title: t('incident.severity'),
@@ -118,7 +180,10 @@ const alertColumns = computed(() => [
   },
 ])
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  await loadPostMortem()
+})
 </script>
 
 <template>
@@ -245,6 +310,72 @@ onMounted(load)
                 </div>
               </n-tab-pane>
 
+              <!-- Post-mortem tab -->
+              <n-tab-pane name="postmortem" :tab="t('postMortem.tab')">
+                <n-spin :show="pmLoading">
+                  <div v-if="postMortem" class="pm-container">
+                    <!-- Toolbar -->
+                    <div class="pm-toolbar">
+                      <div class="pm-meta">
+                        <n-tag :type="postMortem.status === 'published' ? 'success' : 'default'" size="small">
+                          {{ postMortem.status === 'published' ? t('postMortem.published') : t('postMortem.draft') }}
+                        </n-tag>
+                        <span v-if="postMortem.updated_at" style="font-size:11px;color:var(--sre-text-secondary)">
+                          {{ t('postMortem.lastUpdated') }}: {{ formatTime(postMortem.updated_at) }}
+                        </span>
+                      </div>
+                      <n-space size="small">
+                        <n-button
+                          size="small"
+                          :loading="pmAiLoading"
+                          @click="aiGeneratePostMortem"
+                        >
+                          <template #icon><n-icon :component="SparklesOutline" /></template>
+                          {{ pmAiLoading ? t('postMortem.generating') : t('postMortem.aiGenerate') }}
+                        </n-button>
+                        <n-button size="small" type="primary" :loading="pmSaving" @click="savePostMortem">
+                          {{ t('common.save') }}
+                        </n-button>
+                        <n-popconfirm
+                          v-if="postMortem.status !== 'published'"
+                          @positive-click="publishPostMortem"
+                        >
+                          <template #trigger>
+                            <n-button size="small" type="success" :loading="pmSaving">
+                              {{ t('postMortem.publish') }}
+                            </n-button>
+                          </template>
+                          {{ t('postMortem.publishConfirm') }}
+                        </n-popconfirm>
+                      </n-space>
+                    </div>
+
+                    <!-- Title -->
+                    <n-input
+                      v-model:value="postMortem.title"
+                      size="small"
+                      style="margin-bottom:12px;font-weight:600"
+                    />
+
+                    <!-- Markdown editor (textarea for now) -->
+                    <n-input
+                      v-model:value="postMortem.content"
+                      type="textarea"
+                      :rows="20"
+                      style="font-family:monospace;font-size:13px"
+                      placeholder="使用 Markdown 格式编写复盘内容…"
+                    />
+                  </div>
+                  <n-empty v-else :description="t('postMortem.noPostMortem')" style="padding:40px 0">
+                    <template #extra>
+                      <n-button type="primary" size="small" @click="loadPostMortem">
+                        {{ t('common.create') }}
+                      </n-button>
+                    </template>
+                  </n-empty>
+                </n-spin>
+              </n-tab-pane>
+
             </n-tabs>
           </n-card>
         </div>
@@ -318,5 +449,22 @@ onMounted(load)
 .comment-box {
   border-top: 1px solid var(--sre-border);
   padding-top: 12px;
+}
+
+/* Post-mortem */
+.pm-container { display: flex; flex-direction: column; gap: 10px; }
+
+.pm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--sre-border);
+}
+
+.pm-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
