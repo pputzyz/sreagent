@@ -1,0 +1,296 @@
+<script setup lang="ts">
+/**
+ * RoutingRules.vue — 共享集成的路由规则配置面板
+ * 按优先级从上到下匹配，命中即停，未命中则丢弃（或可配置默认空间）
+ */
+import { ref, onMounted, h, computed } from 'vue'
+import { useMessage, NButton, NSpace, NTag, NPopconfirm, NSwitch } from 'naive-ui'
+import { channelV2Api, routingRuleApi } from '@/api'
+import type { RoutingRule, Channel } from '@/types'
+import { AddOutline, TrashOutline, CreateOutline, ArrowUpOutline, ArrowDownOutline } from '@vicons/ionicons5'
+
+const props = defineProps<{ integrationId: number }>()
+const message = useMessage()
+
+const rules = ref<RoutingRule[]>([])
+const channels = ref<Channel[]>([])
+const loading = ref(false)
+const showModal = ref(false)
+const saving = ref(false)
+const editingId = ref<number | null>(null)
+
+const emptyForm = () => ({
+  target_channel_id: null as number | null,
+  conditions: '[]',
+  priority: 0,
+  is_enabled: true,
+})
+const form = ref(emptyForm())
+
+const channelOptions = computed(() =>
+  channels.value.map(c => ({ label: c.name, value: c.id }))
+)
+
+async function load() {
+  loading.value = true
+  try {
+    const [rRes, cRes] = await Promise.all([
+      routingRuleApi.listByIntegration(props.integrationId),
+      channelV2Api.list({ status: 'active', page: 1, page_size: 100 }),
+    ])
+    rules.value = (rRes.data.data ?? []).sort((a: RoutingRule, b: RoutingRule) => a.priority - b.priority)
+    channels.value = cRes.data.data?.list ?? []
+  } catch (e: any) {
+    message.error(e?.message ?? '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+function openCreate() {
+  editingId.value = null
+  form.value = emptyForm()
+  showModal.value = true
+}
+
+function openEdit(rule: RoutingRule) {
+  editingId.value = rule.id
+  form.value = {
+    target_channel_id: rule.target_channel_id,
+    conditions: rule.conditions || '[]',
+    priority: rule.priority,
+    is_enabled: rule.is_enabled,
+  }
+  showModal.value = true
+}
+
+async function save() {
+  if (!form.value.target_channel_id) {
+    message.warning('请选择目标协作空间')
+    return
+  }
+  saving.value = true
+  try {
+    if (editingId.value) {
+      await routingRuleApi.update(editingId.value, {
+        target_channel_id: form.value.target_channel_id!,
+        conditions: form.value.conditions,
+        priority: form.value.priority,
+        is_enabled: form.value.is_enabled,
+      })
+    } else {
+      await routingRuleApi.create(props.integrationId, {
+        target_channel_id: form.value.target_channel_id!,
+        conditions: form.value.conditions,
+        priority: form.value.priority,
+        is_enabled: form.value.is_enabled,
+      })
+    }
+    message.success('保存成功')
+    showModal.value = false
+    await load()
+  } catch (e: any) {
+    message.error(e?.message ?? '保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteRule(id: number) {
+  try {
+    await routingRuleApi.delete(id)
+    message.success('已删除')
+    await load()
+  } catch (e: any) {
+    message.error(e?.message ?? '删除失败')
+  }
+}
+
+async function toggleEnabled(rule: RoutingRule) {
+  try {
+    await routingRuleApi.update(rule.id, { is_enabled: !rule.is_enabled })
+    rule.is_enabled = !rule.is_enabled
+  } catch (e: any) {
+    message.error(e?.message ?? '操作失败')
+  }
+}
+
+async function movePriority(index: number, direction: 'up' | 'down') {
+  const swapIdx = direction === 'up' ? index - 1 : index + 1
+  if (swapIdx < 0 || swapIdx >= rules.value.length) return
+
+  const a = rules.value[index]
+  const b = rules.value[swapIdx]
+  const tmpPri = a.priority
+  a.priority = b.priority
+  b.priority = tmpPri
+  ;[rules.value[index], rules.value[swapIdx]] = [rules.value[swapIdx], rules.value[index]]
+
+  try {
+    await Promise.all([
+      routingRuleApi.update(a.id, { priority: a.priority }),
+      routingRuleApi.update(b.id, { priority: b.priority }),
+    ])
+  } catch (e: any) {
+    message.error('调整优先级失败')
+    await load()
+  }
+}
+
+const columns = computed(() => [
+  {
+    title: '优先级',
+    key: 'priority',
+    width: 80,
+    render: (_: RoutingRule, index: number) =>
+      h('span', { style: 'font-size:12px;color:var(--sre-text-secondary)' }, String(index + 1)),
+  },
+  {
+    title: '目标空间',
+    key: 'target_channel',
+    render: (row: RoutingRule) =>
+      h('span', { style: 'font-weight:500' }, row.target_channel?.name ?? `#${row.target_channel_id}`),
+  },
+  {
+    title: '匹配条件',
+    key: 'conditions',
+    render: (row: RoutingRule) => {
+      try {
+        const conds = JSON.parse(row.conditions || '[]')
+        if (!conds.length) return h('span', { style: 'color:var(--sre-text-secondary)' }, '（兜底规则）')
+        return h('span', { style: 'font-size:12px' }, `${conds.length} 个条件`)
+      } catch {
+        return h('span', { style: 'color:var(--sre-text-secondary)' }, '—')
+      }
+    },
+  },
+  {
+    title: '启用',
+    key: 'is_enabled',
+    width: 70,
+    render: (row: RoutingRule) =>
+      h(NSwitch, {
+        value: row.is_enabled,
+        size: 'small',
+        onUpdateValue: () => toggleEnabled(row),
+      }),
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 160,
+    render: (row: RoutingRule, index: number) =>
+      h(NSpace, { size: 'small' }, {
+        default: () => [
+          h(NButton, { size: 'tiny', circle: true, quaternary: true, disabled: index === 0, onClick: () => movePriority(index, 'up') },
+            { icon: () => h('n-icon', { component: ArrowUpOutline }) }),
+          h(NButton, { size: 'tiny', circle: true, quaternary: true, disabled: index === rules.value.length - 1, onClick: () => movePriority(index, 'down') },
+            { icon: () => h('n-icon', { component: ArrowDownOutline }) }),
+          h(NButton, { size: 'tiny', quaternary: true, onClick: () => openEdit(row) },
+            { icon: () => h('n-icon', { component: CreateOutline }) }),
+          h(NPopconfirm, { onPositiveClick: () => deleteRule(row.id) }, {
+            trigger: () => h(NButton, { size: 'tiny', quaternary: true, type: 'error' },
+              { icon: () => h('n-icon', { component: TrashOutline }) }),
+            default: () => '确认删除此路由规则？',
+          }),
+        ],
+      }),
+  },
+])
+
+onMounted(load)
+</script>
+
+<template>
+  <div class="routing-rules">
+    <div class="rr-header">
+      <div>
+        <p class="rr-desc">
+          共享集成会按优先级从上到下匹配路由规则，告警命中第一条匹配规则后路由到对应协作空间。
+          未匹配任何规则的告警将被丢弃（可添加空条件规则作为兜底）。
+        </p>
+      </div>
+      <n-button type="primary" size="small" @click="openCreate">
+        <template #icon><n-icon :component="AddOutline" /></template>
+        添加规则
+      </n-button>
+    </div>
+
+    <n-spin :show="loading">
+      <n-empty v-if="!loading && rules.length === 0" description="暂无路由规则" style="padding:32px 0" />
+      <n-data-table
+        v-else
+        :columns="columns"
+        :data="rules"
+        :row-key="(row: RoutingRule) => row.id"
+        size="small"
+      />
+    </n-spin>
+
+    <!-- Create / Edit Modal -->
+    <n-modal
+      v-model:show="showModal"
+      :title="editingId ? '编辑路由规则' : '添加路由规则'"
+      preset="card"
+      style="width: 520px"
+      :bordered="false"
+    >
+      <n-form label-placement="top" size="small">
+        <n-form-item label="目标协作空间" required>
+          <n-select
+            v-model:value="form.target_channel_id"
+            :options="channelOptions"
+            placeholder="选择告警路由到的协作空间"
+            filterable
+          />
+        </n-form-item>
+        <n-form-item label="优先级（数字越小越优先）">
+          <n-input-number v-model:value="form.priority" :min="0" :max="9999" style="width:100%" />
+        </n-form-item>
+        <n-form-item label="匹配条件 (JSON)">
+          <n-input
+            v-model:value="form.conditions"
+            type="textarea"
+            :rows="4"
+            placeholder='[{"field":"severity","operator":"=","value":"critical"}]&#10;留空或 [] 表示匹配所有告警（兜底规则）'
+            style="font-family:monospace;font-size:12px"
+          />
+          <template #feedback>
+            <span style="font-size:11px;color:var(--sre-text-secondary)">
+              field 可选: severity / title / description / labels.xxx；operator: = / != / =~ / !~
+            </span>
+          </template>
+        </n-form-item>
+        <n-form-item label="启用">
+          <n-switch v-model:value="form.is_enabled" />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showModal = false">取消</n-button>
+          <n-button type="primary" :loading="saving" @click="save">保存</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+  </div>
+</template>
+
+<style scoped>
+.routing-rules { padding: 4px 0; }
+
+.rr-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rr-desc {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 600px;
+}
+</style>

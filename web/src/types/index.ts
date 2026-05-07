@@ -615,3 +615,16 @@ export interface AlertEventV2 {
   fingerprint: string
   created_at: string
 }
+
+// ===== Routing Rules =====
+export interface RoutingRule {
+  id: number
+  integration_id: number
+  target_channel_id: number
+  target_channel?: { id: number; name: string }
+  conditions: string  // JSON []FilterCondition
+  priority: number
+  is_enabled: boolean
+  created_at: string
+  updated_at: string
+}

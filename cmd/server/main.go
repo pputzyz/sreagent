@@ -484,6 +484,7 @@ func main() {
 		ExclusionRule:       handler.NewExclusionRuleHandler(exclusionRuleSvc),
 		DispatchPolicy:      handler.NewDispatchHandler(dispatchSvc),
 		Integration:         handler.NewIntegrationHandler(integrationSvc),
+		RoutingRule:         handler.NewRoutingRuleHandler(routingRuleRepo),
 		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
 	}
 

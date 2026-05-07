@@ -4,7 +4,8 @@ import { useMessage, NTag, NButton, NSpace, NPopconfirm, NTooltip } from 'naive-
 import { useI18n } from 'vue-i18n'
 import { integrationV2Api, channelV2Api } from '@/api'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { AddOutline, RefreshOutline, CopyOutline, LinkOutline } from '@vicons/ionicons5'
+import { AddOutline, RefreshOutline, CopyOutline, LinkOutline, GitNetworkOutline } from '@vicons/ionicons5'
+import RoutingRules from './RoutingRules.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -189,18 +190,40 @@ const columns = computed(() => [
     render: (row: any) =>
       h(NSpace, { size: 'small' }, {
         default: () => [
+          row.mode === 'shared'
+            ? h(NButton, {
+                size: 'tiny',
+                type: 'info',
+                ghost: true,
+                onClick: () => openRoutingRules(row),
+              }, {
+                default: () => '路由规则',
+                icon: () => h('n-icon', { component: GitNetworkOutline }),
+              })
+            : null,
           h(NButton, { size: 'tiny', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
           h(NPopconfirm, { onPositiveClick: () => deleteInteg(row.id) }, {
             trigger: () => h(NButton, { size: 'tiny', quaternary: true, type: 'error' }, { default: () => t('common.delete') }),
             default: () => t('common.confirmDeleteMsg'),
           }),
-        ],
+        ].filter(Boolean),
       }),
   },
 ])
 
 // Fix: quaternary is a boolean prop for NButton, not a variable
 const quaternary = true
+
+// Routing rules drawer (for shared integrations)
+const showRoutingDrawer = ref(false)
+const routingIntegId = ref<number>(0)
+const routingIntegName = ref('')
+
+function openRoutingRules(integ: any) {
+  routingIntegId.value = integ.id
+  routingIntegName.value = integ.name
+  showRoutingDrawer.value = true
+}
 
 onMounted(load)
 </script>
@@ -295,6 +318,17 @@ onMounted(load)
         </n-space>
       </template>
     </n-modal>
+
+    <!-- Routing Rules Drawer (shared integrations only) -->
+    <n-drawer
+      v-model:show="showRoutingDrawer"
+      :width="680"
+      placement="right"
+    >
+      <n-drawer-content :title="`路由规则 — ${routingIntegName}`" closable>
+        <RoutingRules v-if="showRoutingDrawer" :integration-id="routingIntegId" />
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
 

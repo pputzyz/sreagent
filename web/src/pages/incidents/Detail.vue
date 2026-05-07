@@ -3,12 +3,17 @@ import { ref, onMounted, h, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { incidentApi, alertV2Api } from '@/api'
-import type { Incident, IncidentTimeline, AlertV2 } from '@/types'
+import { incidentApi, alertV2Api, userApi } from '@/api'
+import type { Incident, IncidentTimeline, AlertV2, User } from '@/types'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { ArrowBackOutline, SparklesOutline, VolumeOffOutline } from '@vicons/ionicons5'
+import {
+  ArrowBackOutline, SparklesOutline, VolumeOffOutline,
+  TimeOutline, GitMergeOutline, PersonOutline,
+} from '@vicons/ionicons5'
 import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
+import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -32,6 +37,136 @@ const postMortem = ref<any | null>(null)
 const pmLoading = ref(false)
 const pmSaving = ref(false)
 const pmAiLoading = ref(false)
+
+// ---- Snooze modal ----
+const showSnooze = ref(false)
+const snoozeLoading = ref(false)
+const snoozeDuration = ref<number | null>(null) // minutes preset
+const snoozeCustomUntil = ref('')
+const snoozePresets = [
+  { label: '15 分钟', minutes: 15 },
+  { label: '30 分钟', minutes: 30 },
+  { label: '1 小时', minutes: 60 },
+  { label: '2 小时', minutes: 120 },
+  { label: '4 小时', minutes: 240 },
+  { label: '自定义', minutes: -1 },
+]
+
+async function doSnooze() {
+  let until: string
+  if (snoozeDuration.value === -1) {
+    if (!snoozeCustomUntil.value) {
+      message.warning('请选择暂缓结束时间')
+      return
+    }
+    until = new Date(snoozeCustomUntil.value).toISOString()
+  } else if (snoozeDuration.value) {
+    const d = new Date()
+    d.setMinutes(d.getMinutes() + snoozeDuration.value)
+    until = d.toISOString()
+  } else {
+    message.warning('请选择暂缓时长')
+    return
+  }
+  snoozeLoading.value = true
+  try {
+    await incidentApi.snooze(incidentId.value, until)
+    message.success('暂缓成功')
+    showSnooze.value = false
+    snoozeDuration.value = null
+    snoozeCustomUntil.value = ''
+    await load()
+  } catch (e: any) {
+    message.error(e?.message ?? '操作失败')
+  } finally {
+    snoozeLoading.value = false
+  }
+}
+
+// ---- Merge modal ----
+const showMerge = ref(false)
+const mergeLoading = ref(false)
+const mergeSearch = ref('')
+const mergeSearchLoading = ref(false)
+const mergeResults = ref<Incident[]>([])
+const mergeTargetId = ref<number | null>(null)
+
+async function searchMergeIncidents() {
+  if (!mergeSearch.value.trim()) return
+  mergeSearchLoading.value = true
+  try {
+    const res = await incidentApi.list({ query: mergeSearch.value, page: 1, page_size: 10 })
+    mergeResults.value = (res.data.data?.list ?? []).filter((i: Incident) => i.id !== incidentId.value)
+  } catch (e: any) {
+    message.error(e?.message ?? '搜索失败')
+  } finally {
+    mergeSearchLoading.value = false
+  }
+}
+
+async function doMerge() {
+  if (!mergeTargetId.value) {
+    message.warning('请选择目标故障')
+    return
+  }
+  mergeLoading.value = true
+  try {
+    await incidentApi.merge(incidentId.value, mergeTargetId.value)
+    message.success('合并成功，当前故障已并入目标故障')
+    showMerge.value = false
+    router.push(`/incidents/${mergeTargetId.value}`)
+  } catch (e: any) {
+    message.error(e?.message ?? '操作失败')
+  } finally {
+    mergeLoading.value = false
+  }
+}
+
+// ---- Reassign modal ----
+const showReassign = ref(false)
+const reassignLoading = ref(false)
+const reassignSearch = ref('')
+const reassignSearchLoading = ref(false)
+const reassignUsers = ref<User[]>([])
+const reassignUserId = ref<number | null>(null)
+
+async function searchUsers() {
+  reassignSearchLoading.value = true
+  try {
+    const res = await userApi.list({ page: 1, page_size: 50 })
+    const allUsers: User[] = res.data.data?.list ?? []
+    const q = reassignSearch.value.toLowerCase()
+    reassignUsers.value = q
+      ? allUsers.filter(u =>
+          (u.username?.toLowerCase().includes(q)) ||
+          (u.display_name?.toLowerCase().includes(q))
+        )
+      : allUsers
+  } catch (e: any) {
+    message.error(e?.message ?? '搜索失败')
+  } finally {
+    reassignSearchLoading.value = false
+  }
+}
+
+async function doReassign() {
+  if (!reassignUserId.value) {
+    message.warning('请选择处理人')
+    return
+  }
+  reassignLoading.value = true
+  try {
+    await incidentApi.reassign(incidentId.value, reassignUserId.value)
+    message.success('重新分派成功')
+    showReassign.value = false
+    reassignUserId.value = null
+    await load()
+  } catch (e: any) {
+    message.error(e?.message ?? '操作失败')
+  } finally {
+    reassignLoading.value = false
+  }
+}
 
 const severityTagType: Record<string, 'error' | 'warning' | 'info'> = {
   critical: 'error', warning: 'warning', info: 'info',
@@ -187,6 +322,7 @@ const alertColumns = computed(() => [
 onMounted(async () => {
   await load()
   await loadPostMortem()
+  await searchUsers()
 })
 </script>
 
@@ -210,31 +346,63 @@ onMounted(async () => {
         <div class="detail-main">
           <!-- Action bar -->
           <n-card :bordered="false" class="action-card">
-            <n-space>
+            <n-space wrap>
               <n-tag :type="statusTagType[incident.status] ?? 'default'" size="medium">
                 {{ t(statusLabel[incident.status] ?? incident.status) }}
               </n-tag>
               <n-tag :type="severityTagType[incident.severity] ?? 'default'" size="medium">
                 {{ t(severityLabel[incident.severity] ?? incident.severity) }}
               </n-tag>
+
+              <!-- Acknowledge -->
               <n-button
                 v-if="incident.status === 'triggered'"
                 type="primary" size="small"
                 @click="doAction('acknowledge')"
               >{{ t('incident.acknowledge') }}</n-button>
+
+              <!-- Close -->
               <n-button
                 v-if="incident.status !== 'closed'"
                 size="small"
                 @click="doAction('close')"
               >{{ t('incident.close') }}</n-button>
+
+              <!-- Reopen -->
               <n-button
                 v-if="incident.status === 'closed'"
                 size="small"
                 @click="doAction('reopen')"
               >{{ t('incident.reopen') }}</n-button>
+
+              <!-- Escalate -->
               <n-button size="small" @click="doAction('escalate')">
                 {{ t('incident.escalate') }}
               </n-button>
+
+              <!-- Snooze -->
+              <n-button
+                v-if="incident.status !== 'closed'"
+                size="small"
+                @click="showSnooze = true"
+              >
+                <template #icon><n-icon :component="TimeOutline" /></template>
+                暂缓
+              </n-button>
+
+              <!-- Reassign -->
+              <n-button size="small" @click="showReassign = true">
+                <template #icon><n-icon :component="PersonOutline" /></template>
+                重新分派
+              </n-button>
+
+              <!-- Merge -->
+              <n-button size="small" @click="showMerge = true">
+                <template #icon><n-icon :component="GitMergeOutline" /></template>
+                合并故障
+              </n-button>
+
+              <!-- Quick Silence -->
               <n-button size="small" type="warning" @click="showQuickSilence = true">
                 <template #icon><n-icon :component="VolumeOffOutline" /></template>
                 快速静默
@@ -247,7 +415,7 @@ onMounted(async () => {
             <n-tabs v-model:value="activeTab" type="line" animated>
 
               <!-- Overview -->
-              <n-tab-pane name="overview" :tab="'Overview'">
+              <n-tab-pane name="overview" tab="Overview">
                 <n-descriptions :columns="2" label-placement="left" bordered size="small">
                   <n-descriptions-item :label="t('incident.triggeredAt')">
                     {{ formatTime(incident.triggered_at) }}
@@ -365,13 +533,13 @@ onMounted(async () => {
                       style="margin-bottom:12px;font-weight:600"
                     />
 
-                    <!-- Markdown editor (textarea for now) -->
-                    <n-input
-                      v-model:value="postMortem.content"
-                      type="textarea"
-                      :rows="20"
-                      style="font-family:monospace;font-size:13px"
-                      placeholder="使用 Markdown 格式编写复盘内容…"
+                    <!-- Markdown editor with preview -->
+                    <MdEditor
+                      v-model="postMortem.content"
+                      :preview="true"
+                      :toolbars-exclude="['github']"
+                      language="zh-CN"
+                      style="height: 500px; border-radius: 8px"
                     />
                   </div>
                   <n-empty v-else :description="t('postMortem.noPostMortem')" style="padding:40px 0">
@@ -410,11 +578,15 @@ onMounted(async () => {
                   {{ t(statusLabel[incident.status] ?? incident.status) }}
                 </n-tag>
               </n-descriptions-item>
+              <n-descriptions-item v-if="incident.assigned_user" :label="t('incident.assignee')">
+                {{ incident.assigned_user.display_name ?? incident.assigned_user.username }}
+              </n-descriptions-item>
             </n-descriptions>
           </n-card>
         </div>
       </div>
     </n-spin>
+
     <!-- Quick Silence Modal -->
     <QuickSilenceModal
       v-model:show="showQuickSilence"
@@ -422,6 +594,136 @@ onMounted(async () => {
       :title="incident?.title"
       @created="load"
     />
+
+    <!-- Snooze Modal -->
+    <n-modal
+      v-model:show="showSnooze"
+      title="暂缓故障"
+      preset="card"
+      style="width: 400px"
+      :bordered="false"
+    >
+      <div class="snooze-presets">
+        <n-button
+          v-for="p in snoozePresets"
+          :key="p.minutes"
+          :type="snoozeDuration === p.minutes ? 'primary' : 'default'"
+          size="small"
+          @click="snoozeDuration = p.minutes"
+        >{{ p.label }}</n-button>
+      </div>
+      <div v-if="snoozeDuration === -1" style="margin-top:12px">
+        <n-date-picker
+          v-model:formatted-value="snoozeCustomUntil"
+          type="datetime"
+          :is-date-disabled="(ts: number) => ts < Date.now()"
+          style="width:100%"
+        />
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showSnooze = false">取消</n-button>
+          <n-button type="primary" :loading="snoozeLoading" @click="doSnooze">确认暂缓</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- Merge Modal -->
+    <n-modal
+      v-model:show="showMerge"
+      title="合并到目标故障"
+      preset="card"
+      style="width: 520px"
+      :bordered="false"
+    >
+      <p style="font-size:13px;color:var(--sre-text-secondary);margin-bottom:12px">
+        将当前故障 <strong>#{{ incident?.id }}</strong> 的所有告警并入另一个故障，当前故障将被关闭。
+      </p>
+      <n-input-group>
+        <n-input
+          v-model:value="mergeSearch"
+          placeholder="搜索故障 ID 或标题…"
+          @keydown.enter="searchMergeIncidents"
+        />
+        <n-button :loading="mergeSearchLoading" @click="searchMergeIncidents">搜索</n-button>
+      </n-input-group>
+      <n-list v-if="mergeResults.length" style="margin-top:12px;max-height:240px;overflow-y:auto">
+        <n-list-item
+          v-for="inc in mergeResults"
+          :key="inc.id"
+          :class="{ 'selected-item': mergeTargetId === inc.id }"
+          style="cursor:pointer;padding:8px 12px;border-radius:6px"
+          @click="mergeTargetId = inc.id"
+        >
+          <n-space align="center">
+            <n-tag :type="inc.severity === 'critical' ? 'error' : inc.severity === 'warning' ? 'warning' : 'info'" size="tiny">
+              {{ inc.severity.toUpperCase() }}
+            </n-tag>
+            <span style="font-size:13px"><strong>#{{ inc.id }}</strong> {{ inc.title }}</span>
+          </n-space>
+        </n-list-item>
+      </n-list>
+      <n-empty v-else-if="mergeSearch && !mergeSearchLoading" description="无匹配故障" style="padding:16px 0" />
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showMerge = false">取消</n-button>
+          <n-popconfirm @positive-click="doMerge">
+            <template #trigger>
+              <n-button type="error" :loading="mergeLoading" :disabled="!mergeTargetId">
+                确认合并
+              </n-button>
+            </template>
+            合并后当前故障将关闭，操作不可撤销，确认？
+          </n-popconfirm>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- Reassign Modal -->
+    <n-modal
+      v-model:show="showReassign"
+      title="重新分派"
+      preset="card"
+      style="width: 440px"
+      :bordered="false"
+    >
+      <n-input
+        v-model:value="reassignSearch"
+        placeholder="搜索用户名或姓名…"
+        clearable
+        style="margin-bottom:12px"
+        @update:value="searchUsers"
+      />
+      <n-spin :show="reassignSearchLoading">
+        <n-list style="max-height:260px;overflow-y:auto">
+          <n-list-item
+            v-for="u in reassignUsers"
+            :key="u.id"
+            :class="{ 'selected-item': reassignUserId === u.id }"
+            style="cursor:pointer;padding:8px 12px;border-radius:6px"
+            @click="reassignUserId = u.id"
+          >
+            <n-space align="center">
+              <n-avatar size="small" round>
+                {{ (u.display_name || u.username).charAt(0).toUpperCase() }}
+              </n-avatar>
+              <div>
+                <div style="font-size:13px;font-weight:500">{{ u.display_name || u.username }}</div>
+                <div style="font-size:11px;color:var(--sre-text-secondary)">{{ u.username }}</div>
+              </div>
+            </n-space>
+          </n-list-item>
+        </n-list>
+      </n-spin>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showReassign = false">取消</n-button>
+          <n-button type="primary" :loading="reassignLoading" :disabled="!reassignUserId" @click="doReassign">
+            确认分派
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -481,5 +783,18 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Snooze presets */
+.snooze-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Selected list item */
+.selected-item {
+  background: var(--sre-primary-alpha, rgba(99,102,241,0.1));
+  outline: 1px solid var(--sre-primary);
 }
 </style>

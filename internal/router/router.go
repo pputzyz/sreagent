@@ -53,6 +53,7 @@ type Handlers struct {
 	ExclusionRule  *handler.ExclusionRuleHandler  // channel exclusion rules (排除规则)
 	DispatchPolicy *handler.DispatchHandler       // channel dispatch policies (分派策略)
 	Integration    *handler.IntegrationHandler    // webhook integrations (集成中心)
+	RoutingRule    *handler.RoutingRuleHandler    // routing rules for shared integrations (路由规则)
 	PostMortem     *handler.PostMortemHandler     // incident post-mortems (故障复盘)
 }
 
@@ -346,6 +347,20 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 					integrations.POST("", manage, handlers.Integration.Create)
 					integrations.PUT("/:id", manage, handlers.Integration.Update)
 					integrations.DELETE("/:id", manage, handlers.Integration.Delete)
+					// Routing rules for shared integrations
+					if handlers.RoutingRule != nil {
+						integrations.GET("/:id/routing-rules", handlers.RoutingRule.ListByIntegration)
+						integrations.POST("/:id/routing-rules", manage, handlers.RoutingRule.Create)
+					}
+				}
+			}
+
+			// Routing rules management (update/delete by rule ID)
+			if handlers.RoutingRule != nil {
+				rr := auth.Group("/routing-rules")
+				{
+					rr.PUT("/:id", manage, handlers.RoutingRule.Update)
+					rr.DELETE("/:id", manage, handlers.RoutingRule.Delete)
 				}
 			}
 

@@ -42,6 +42,7 @@ import type {
   Incident,
   AlertV2,
   AlertEventV2,
+  RoutingRule,
 } from '@/types'
 
 // ===== Auth API =====
@@ -882,6 +883,29 @@ export const dashboardV2StatsApi = {
 
   incidentTrend: (days = 30) =>
     request.get<ApiResponse<any[]>>('/dashboard/incident-trend', { params: { days } }),
+}
+
+// ===== v2: Routing Rules API =====
+export const routingRuleApi = {
+  listByIntegration: (integrationId: number) =>
+    request.get<ApiResponse<RoutingRule[]>>(`/integrations/${integrationId}/routing-rules`),
+
+  create: (integrationId: number, data: {
+    target_channel_id: number
+    conditions?: string
+    priority?: number
+    is_enabled?: boolean
+  }) => request.post<ApiResponse<RoutingRule>>(`/integrations/${integrationId}/routing-rules`, data),
+
+  update: (id: number, data: {
+    target_channel_id?: number
+    conditions?: string
+    priority?: number
+    is_enabled?: boolean
+  }) => request.put<ApiResponse<RoutingRule>>(`/routing-rules/${id}`, data),
+
+  delete: (id: number) =>
+    request.delete<ApiResponse<null>>(`/routing-rules/${id}`),
 }
 
 // ===== v2: Alerts API =====

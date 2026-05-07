@@ -4,6 +4,21 @@
 
 ---
 
+## [Unreleased]
+
+### Added — UI 缺口补齐
+
+- **故障详情页 — 暂缓（Snooze）**：操作栏新增"暂缓"按钮，提供 5 个时长预设（15m/30m/1h/2h/4h）+ 自定义截止时间选择
+- **故障详情页 — 合并（Merge）**：操作栏新增"合并故障"按钮，支持搜索目标故障并二次确认合并；合并后跳转目标故障
+- **故障详情页 — 重新分派（Reassign）**：操作栏新增"重新分派"按钮，展示用户列表并支持实时过滤
+- **故障复盘 — Markdown 编辑器**：PostMortem Tab 从纯 textarea 升级为 `md-editor-v3`，支持实时预览、语法高亮、工具栏
+- **路由规则 CRUD**：
+  - 后端：`RoutingRuleHandler`（List/Create/Update/Delete）+ 路由注册（`GET/POST /integrations/:id/routing-rules`，`PUT/DELETE /routing-rules/:id`）+ main.go wiring
+  - 前端：`RoutingRules.vue` — 规则列表 + 优先级上下调整 + 启用开关 + 条件 JSON 编辑 + 目标空间选择
+  - 集成中心：共享集成行新增"路由规则"按钮，点击弹出右侧抽屉展示 `RoutingRules.vue`
+
+---
+
 ## [v2.0.1] - 2026-05-07
 
 ### Added — 告警规则批量操作
