@@ -76,6 +76,10 @@ var (
 	ErrBuiltinDelete         = &AppError{Code: 10313, Message: "cannot delete built-in resource"}
 	ErrTemplateRender        = &AppError{Code: 10314, Message: "template rendering failed"}
 
+	// v2 Channel / Incident errors
+	ErrCollabChannelNotFound = &AppError{Code: 10315, Message: "collaboration channel not found"}
+	ErrIncidentNotFound      = &AppError{Code: 10316, Message: "incident not found"}
+
 	// 10400-10499: Conflict errors
 	ErrConflict      = &AppError{Code: 10400, Message: "resource already exists"}
 	ErrDuplicateName = &AppError{Code: 10401, Message: "name already taken"}

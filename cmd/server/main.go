@@ -120,6 +120,11 @@ func main() {
 	dashboardV2Repo := repository.NewDashboardRepository(db)
 	templateRepo := repository.NewAlertRuleTemplateRepository(db)
 
+	// v2 collaboration channel, incident & alert repositories
+	channelV2Repo := repository.NewChannelV2Repository(db)
+	incidentRepo := repository.NewIncidentRepository(db)
+	alertV2Repo := repository.NewAlertRepository(db)
+
 	// Dispatch repositories
 	alertChannelRepo := repository.NewAlertChannelRepository(db)
 	userNotifyConfigRepo := repository.NewUserNotifyConfigRepository(db)
@@ -165,6 +170,11 @@ func main() {
 
 	// Alert rule template service
 	templateSvc := service.NewAlertRuleTemplateService(templateRepo, zapLogger)
+
+	// v2 collaboration channel, incident & alert services
+	channelV2Svc := service.NewChannelService(channelV2Repo, zapLogger)
+	incidentSvc := service.NewIncidentService(incidentRepo, channelV2Svc, zapLogger)
+	alertV2Svc := service.NewAlertV2Service(alertV2Repo, zapLogger)
 
 	// Dispatch services
 	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, zapLogger)
@@ -438,6 +448,9 @@ func main() {
 		LabelRegistry:    handler.NewLabelRegistryHandler(labelRegistrySvc),
 		DashboardV2:      handler.NewDashboardV2Handler(dashboardV2Svc),
 		AlertRuleTemplate:   handler.NewAlertRuleTemplateHandler(templateSvc),
+		ChannelV2:           handler.NewChannelHandler(channelV2Svc),
+		IncidentV2:          handler.NewIncidentHandler(incidentSvc),
+		AlertV2:             handler.NewAlertV2Handler(alertV2Svc),
 	}
 
 	// Inject audit service into handlers that support it

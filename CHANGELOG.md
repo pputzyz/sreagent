@@ -4,6 +4,41 @@
 
 ---
 
+## [v2.0.0-alpha.1] - 2026-05-07
+
+### Added — Phase 1.1 核心模型重构
+- **协作空间 (Channel)**：`model/channel.go` + repository + service + handler + API (`/api/v1/channels`)
+  - CRUD + Star/Unstar 收藏 + 列表带收藏标记
+  - 降噪配置（聚合规则/抖动检测）、自动关闭配置
+- **故障 (Incident)**：`model/incident.go` + repository + service + handler + API (`/api/v1/incidents`)
+  - 完整操作：acknowledge / close / reopen / snooze / merge / reassign / escalate / comment
+  - 时间线 (IncidentTimeline) 自动记录所有操作
+  - 分派人跟踪 (IncidentAssignee)
+  - 复盘报告 (PostMortem) 模型
+- **告警 v2 (Alert + AlertEventV2)**：`model/alert.go` + repository + service + handler + API (`/api/v1/alerts`)
+  - Alert: 按 alert_key 去重的告警序列，关联 Channel + Incident
+  - AlertEventV2: 原始事件数据（firing/resolved），按时间戳记录
+  - UpsertFromEvent: 核心摄入路径，支持自动去重+合入
+- **集成 (Integration) + 路由规则 (RoutingRule)**：模型已定义（repo/service/handler 待 Phase 4 实现）
+- **DB 迁移 000019-000030**：
+  - 000019: channels
+  - 000020: channel_stars
+  - 000021: channel_exclusion_rules
+  - 000022: incidents
+  - 000023: incident_assignees
+  - 000024: incident_timelines
+  - 000025: post_mortems
+  - 000026: alerts
+  - 000027: alert_events_v2
+  - 000028: integrations
+  - 000029: routing_rules
+  - 000030: seed default channel
+
+### Fixed
+- **Settings 菜单点击无反应**：Naive UI n-menu 当 `:value` 等于点击项 key 时不触发 `@update:value`，改用 ref + 点击前清空解决
+
+---
+
 ## [v1.16.23] - 2026-05-06
 
 ### Fixed

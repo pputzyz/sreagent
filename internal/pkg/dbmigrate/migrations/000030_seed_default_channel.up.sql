@@ -1,0 +1,1 @@
+INSERT INTO channels (name, description, status, access_level, follow_alert_close, sort_order) VALUES ('default', 'Default collaboration channel for all alerts', 'active', 'public', TRUE, 0)

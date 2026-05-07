@@ -47,6 +47,9 @@ type Handlers struct {
 	LabelRegistry    *handler.LabelRegistryHandler
 	DashboardV2         *handler.DashboardV2Handler
 	AlertRuleTemplate   *handler.AlertRuleTemplateHandler
+	ChannelV2           *handler.ChannelHandler  // v2 collaboration channels (协作空间)
+	IncidentV2          *handler.IncidentHandler // v2 incidents (故障)
+	AlertV2             *handler.AlertV2Handler  // v2 alerts (告警)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -277,6 +280,49 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 				bizGroups.DELETE("/:id", manage, handlers.BizGroup.Delete)
 				bizGroups.POST("/:id/members", manage, handlers.BizGroup.AddMember)
 				bizGroups.DELETE("/:id/members/:uid", manage, handlers.BizGroup.RemoveMember)
+			}
+
+			// Collaboration Channels (协作空间 v2)
+			if handlers.ChannelV2 != nil {
+				chv2 := auth.Group("/channels")
+				{
+					chv2.GET("", handlers.ChannelV2.List)
+					chv2.GET("/:id", handlers.ChannelV2.Get)
+					chv2.POST("", manage, handlers.ChannelV2.Create)
+					chv2.PUT("/:id", manage, handlers.ChannelV2.Update)
+					chv2.DELETE("/:id", manage, handlers.ChannelV2.Delete)
+					chv2.POST("/:id/star", handlers.ChannelV2.Star)
+					chv2.DELETE("/:id/star", handlers.ChannelV2.Unstar)
+				}
+			}
+
+			// Incidents (故障 v2)
+			if handlers.IncidentV2 != nil {
+				incidents := auth.Group("/incidents")
+				{
+					incidents.GET("", handlers.IncidentV2.List)
+					incidents.GET("/:id", handlers.IncidentV2.Get)
+					incidents.POST("", manage, handlers.IncidentV2.Create)
+					incidents.GET("/:id/timeline", handlers.IncidentV2.GetTimeline)
+					incidents.POST("/:id/acknowledge", operate, handlers.IncidentV2.Acknowledge)
+					incidents.POST("/:id/close", operate, handlers.IncidentV2.Close)
+					incidents.POST("/:id/reopen", operate, handlers.IncidentV2.Reopen)
+					incidents.POST("/:id/snooze", operate, handlers.IncidentV2.Snooze)
+					incidents.POST("/:id/reassign", operate, handlers.IncidentV2.Reassign)
+					incidents.POST("/:id/merge", operate, handlers.IncidentV2.Merge)
+					incidents.POST("/:id/escalate", operate, handlers.IncidentV2.Escalate)
+					incidents.POST("/:id/comment", operate, handlers.IncidentV2.AddComment)
+				}
+			}
+
+			// Alerts v2 (告警)
+			if handlers.AlertV2 != nil {
+				alertsV2 := auth.Group("/alerts")
+				{
+					alertsV2.GET("", handlers.AlertV2.List)
+					alertsV2.GET("/:id", handlers.AlertV2.Get)
+					alertsV2.GET("/:id/events", handlers.AlertV2.ListEvents)
+				}
 			}
 
 			// Alert Channels (virtual receivers)

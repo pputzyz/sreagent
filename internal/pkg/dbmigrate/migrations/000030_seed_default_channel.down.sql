@@ -1,0 +1,1 @@
+DELETE FROM channels WHERE name = 'default' AND sort_order = 0 LIMIT 1

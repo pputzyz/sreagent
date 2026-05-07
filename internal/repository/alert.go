@@ -1,0 +1,140 @@
+package repository
+
+import (
+	"context"
+	"time"
+
+	"gorm.io/gorm"
+
+	"github.com/sreagent/sreagent/internal/model"
+)
+
+// AlertRepository handles CRUD for the v2 Alert model.
+type AlertRepository struct {
+	db *gorm.DB
+}
+
+func NewAlertRepository(db *gorm.DB) *AlertRepository {
+	return &AlertRepository{db: db}
+}
+
+func (r *AlertRepository) Create(ctx context.Context, alert *model.Alert) error {
+	return r.db.WithContext(ctx).Create(alert).Error
+}
+
+func (r *AlertRepository) GetByID(ctx context.Context, id uint) (*model.Alert, error) {
+	var alert model.Alert
+	err := r.db.WithContext(ctx).
+		Preload("Rule").
+		Preload("Channel").
+		Preload("Incident").
+		First(&alert, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &alert, nil
+}
+
+// GetByAlertKey finds an alert by its deduplication key.
+func (r *AlertRepository) GetByAlertKey(ctx context.Context, key string) (*model.Alert, error) {
+	var alert model.Alert
+	err := r.db.WithContext(ctx).Where("alert_key = ?", key).First(&alert).Error
+	if err != nil {
+		return nil, err
+	}
+	return &alert, nil
+}
+
+// List returns paginated alerts with optional filters.
+func (r *AlertRepository) List(ctx context.Context, channelID, incidentID uint, status, severity, query string, page, pageSize int) ([]model.Alert, int64, error) {
+	var list []model.Alert
+	var total int64
+
+	q := r.db.WithContext(ctx).Model(&model.Alert{})
+	if channelID > 0 {
+		q = q.Where("channel_id = ?", channelID)
+	}
+	if incidentID > 0 {
+		q = q.Where("incident_id = ?", incidentID)
+	}
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	if severity != "" {
+		q = q.Where("severity = ?", severity)
+	}
+	if query != "" {
+		like := "%" + query + "%"
+		q = q.Where("title LIKE ? OR alert_key LIKE ?", like, like)
+	}
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := q.Preload("Channel").Preload("Incident").
+		Offset(offset).Limit(pageSize).Order("last_fired_at DESC").Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
+}
+
+func (r *AlertRepository) Update(ctx context.Context, alert *model.Alert) error {
+	return r.db.WithContext(ctx).Save(alert).Error
+}
+
+// UpdateStatus updates the alert status and related timestamps.
+func (r *AlertRepository) UpdateStatus(ctx context.Context, id uint, status model.AlertStatus, resolvedAt *time.Time) error {
+	updates := map[string]interface{}{"status": status}
+	if resolvedAt != nil {
+		updates["resolved_at"] = resolvedAt
+	}
+	return r.db.WithContext(ctx).Model(&model.Alert{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// IncrementFireCount atomically increments event/fire counts and updates last_fired_at.
+func (r *AlertRepository) IncrementFireCount(ctx context.Context, id uint, now time.Time) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Alert{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"fire_count":    gorm.Expr("fire_count + 1"),
+			"event_count":   gorm.Expr("event_count + 1"),
+			"last_fired_at": now,
+			"status":        model.AlertStatusFiring,
+		}).Error
+}
+
+// LinkToIncident sets the incident_id on an alert.
+func (r *AlertRepository) LinkToIncident(ctx context.Context, alertID, incidentID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Alert{}).
+		Where("id = ?", alertID).
+		Update("incident_id", incidentID).Error
+}
+
+// --- AlertEventV2 ---
+
+func (r *AlertRepository) CreateEvent(ctx context.Context, event *model.AlertEventV2) error {
+	return r.db.WithContext(ctx).Create(event).Error
+}
+
+func (r *AlertRepository) ListEvents(ctx context.Context, alertID uint, page, pageSize int) ([]model.AlertEventV2, int64, error) {
+	var list []model.AlertEventV2
+	var total int64
+
+	q := r.db.WithContext(ctx).Model(&model.AlertEventV2{}).Where("alert_id = ?", alertID)
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := q.Offset(offset).Limit(pageSize).Order("timestamp DESC").Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
+}

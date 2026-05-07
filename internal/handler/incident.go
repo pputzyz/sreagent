@@ -1,0 +1,315 @@
+package handler
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/service"
+)
+
+// IncidentHandler handles HTTP requests for incidents (故障).
+type IncidentHandler struct {
+	svc *service.IncidentService
+}
+
+func NewIncidentHandler(svc *service.IncidentService) *IncidentHandler {
+	return &IncidentHandler{svc: svc}
+}
+
+// --- Request structs ---
+
+type CreateIncidentRequest struct {
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	Severity    string `json:"severity"`
+	ChannelID   uint   `json:"channel_id" binding:"required"`
+	AssignedTo  *uint  `json:"assigned_to"`
+}
+
+type SnoozeIncidentRequest struct {
+	Until string `json:"until" binding:"required"` // RFC3339
+}
+
+type ReassignIncidentRequest struct {
+	UserID uint `json:"user_id" binding:"required"`
+}
+
+type MergeIncidentRequest struct {
+	TargetID uint `json:"target_id" binding:"required"`
+}
+
+type CommentRequest struct {
+	Content string `json:"content" binding:"required"`
+}
+
+// --- Endpoints ---
+
+// Create creates a new incident.
+// POST /api/v1/incidents
+func (h *IncidentHandler) Create(c *gin.Context) {
+	var req CreateIncidentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+
+	inc := &model.Incident{
+		Title:       req.Title,
+		Description: req.Description,
+		Severity:    model.IncidentSeverity(req.Severity),
+		ChannelID:   req.ChannelID,
+		AssignedTo:  req.AssignedTo,
+		TriggeredAt: time.Now(),
+	}
+	if inc.Severity == "" {
+		inc.Severity = model.IncidentSeverityWarning
+	}
+
+	if err := h.svc.Create(c.Request.Context(), inc); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, inc)
+}
+
+// Get returns a single incident by ID.
+// GET /api/v1/incidents/:id
+func (h *IncidentHandler) Get(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	inc, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, inc)
+}
+
+// List returns a paginated list of incidents.
+// GET /api/v1/incidents?channel_id=&status=&severity=&query=&assigned_to=&page=&page_size=
+func (h *IncidentHandler) List(c *gin.Context) {
+	pq := GetPageQuery(c)
+	var channelID, assignedTo uint
+	if v := c.Query("channel_id"); v != "" {
+		if id, err := strconv.ParseUint(v, 10, 64); err == nil {
+			channelID = uint(id)
+		}
+	}
+	if v := c.Query("assigned_to"); v != "" {
+		if id, err := strconv.ParseUint(v, 10, 64); err == nil {
+			assignedTo = uint(id)
+		}
+	}
+	status := c.Query("status")
+	severity := c.Query("severity")
+	query := c.Query("query")
+
+	list, total, err := h.svc.List(c.Request.Context(), channelID, status, severity, query, assignedTo, pq.Page, pq.PageSize)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	SuccessPage(c, list, total, pq.Page, pq.PageSize)
+}
+
+// Acknowledge acknowledges an incident.
+// POST /api/v1/incidents/:id/acknowledge
+func (h *IncidentHandler) Acknowledge(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.Acknowledge(c.Request.Context(), id, userID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// Close closes an incident.
+// POST /api/v1/incidents/:id/close
+func (h *IncidentHandler) Close(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.Close(c.Request.Context(), id, userID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// Reopen re-opens a closed incident.
+// POST /api/v1/incidents/:id/reopen
+func (h *IncidentHandler) Reopen(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.Reopen(c.Request.Context(), id, userID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// Snooze pauses an incident until a specified time.
+// POST /api/v1/incidents/:id/snooze
+func (h *IncidentHandler) Snooze(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req SnoozeIncidentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+
+	until, err := time.Parse(time.RFC3339, req.Until)
+	if err != nil {
+		ErrorWithMessage(c, 10001, "invalid time format, must be RFC3339")
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.Snooze(c.Request.Context(), id, userID, until); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// Reassign reassigns an incident to a different user.
+// POST /api/v1/incidents/:id/reassign
+func (h *IncidentHandler) Reassign(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req ReassignIncidentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.Reassign(c.Request.Context(), id, userID, req.UserID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// Merge merges this incident into another one.
+// POST /api/v1/incidents/:id/merge
+func (h *IncidentHandler) Merge(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req MergeIncidentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.Merge(c.Request.Context(), id, req.TargetID, userID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// Escalate escalates the incident to the next step.
+// POST /api/v1/incidents/:id/escalate
+func (h *IncidentHandler) Escalate(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.Escalate(c.Request.Context(), id, userID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// GetTimeline returns the timeline for an incident.
+// GET /api/v1/incidents/:id/timeline
+func (h *IncidentHandler) GetTimeline(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	list, err := h.svc.ListTimeline(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, list)
+}
+
+// AddComment adds a comment to the incident timeline.
+// POST /api/v1/incidents/:id/comment
+func (h *IncidentHandler) AddComment(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req CommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.AddComment(c.Request.Context(), id, userID, req.Content); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}

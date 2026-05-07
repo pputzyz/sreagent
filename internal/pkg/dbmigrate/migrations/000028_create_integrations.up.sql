@@ -1,0 +1,20 @@
+CREATE TABLE integrations (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    deleted_at DATETIME(3) NULL,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(512) DEFAULT '',
+    type VARCHAR(32) NOT NULL,
+    mode VARCHAR(32) NOT NULL DEFAULT 'exclusive',
+    channel_id BIGINT UNSIGNED NULL,
+    webhook_token VARCHAR(64) NOT NULL,
+    pipeline_config JSON,
+    label_enhancement_config JSON,
+    is_enabled BOOLEAN DEFAULT TRUE,
+    total_alerts INT DEFAULT 0,
+    UNIQUE INDEX idx_integrations_webhook_token (webhook_token),
+    INDEX idx_integrations_type (type),
+    INDEX idx_integrations_channel_id (channel_id),
+    INDEX idx_integrations_deleted_at (deleted_at)
+)
