@@ -4,9 +4,9 @@
 
 ---
 
-## [Unreleased] - 2026-05-07
+## [v2.0.1] - 2026-05-07
 
-### Added — 告警规则批量操作（n9e-quality-gap P1）
+### Added — 告警规则批量操作
 
 - **后端**:
   - `AlertRuleRepository.BatchUpdateStatus(ctx, ids, status)` — 批量更新状态，version 字段自增
