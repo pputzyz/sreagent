@@ -121,6 +121,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Channels' },
       },
       {
+        path: 'channels/:id',
+        name: 'ChannelDetail',
+        component: () => import('@/pages/channels/Detail.vue'),
+        meta: { title: 'Channel Detail' },
+      },
+      {
         path: 'incidents',
         name: 'Incidents',
         component: () => import('@/pages/incidents/Index.vue'),
@@ -137,6 +143,12 @@ const routes: RouteRecordRaw[] = [
         name: 'AlertsV2',
         component: () => import('@/pages/alerts-v2/Index.vue'),
         meta: { title: 'Alert View' },
+      },
+      {
+        path: 'alerts-v2/:id',
+        name: 'AlertV2Detail',
+        component: () => import('@/pages/alerts-v2/Detail.vue'),
+        meta: { title: 'Alert Detail' },
       },
     ],
   },

@@ -59,11 +59,14 @@ const columns = computed(() => [
       h(NTag, { type: severityTagType[row.severity] ?? 'default', size: 'small' },
         { default: () => row.severity.toUpperCase() }),
   },
-  {
+    {
     title: t('common.name'),
     key: 'title',
     render: (row: AlertV2) =>
-      h('span', { style: 'font-weight:500' }, row.title),
+      h('a', {
+        style: 'font-weight:500;cursor:pointer;color:var(--sre-primary)',
+        onClick: () => router.push(`/alerts-v2/${row.id}`),
+      }, row.title),
   },
   {
     title: t('common.status'),

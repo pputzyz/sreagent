@@ -80,13 +80,13 @@
 |---|------|------|--------|------|------|------|
 | 1.4.1 | 侧边栏导航重构（新菜单结构） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | MainLayout.vue 新增 协作空间/故障管理/告警视图 三项 |
 | 1.4.2 | 协作空间列表页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/channels/Index.vue：卡片列表 + Star + 创建弹窗 |
-| 1.4.3 | 协作空间详情页 — 故障列表 Tab | ⬜ 待开始 | | | | Phase 1.5 补充 |
-| 1.4.4 | 协作空间详情页 — 统计概览 Tab | ⬜ 待开始 | | | | Phase 1.5 补充 |
-| 1.4.5 | 协作空间详情页 — 配置 Tab | ⬜ 待开始 | | | | Phase 1.5 补充 |
+| 1.4.3 | 协作空间详情页 — 故障列表 Tab | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/channels/Detail.vue Tab1 |
+| 1.4.4 | 协作空间详情页 — 统计概览 Tab | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/channels/Detail.vue Tab2：4 张统计卡片 + channel 元信息 |
+| 1.4.5 | 协作空间详情页 — 配置 Tab | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/channels/Detail.vue Tab3：inline 编辑表单 |
 | 1.4.6 | 故障列表页（全局） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/incidents/Index.vue：全部/我的 + 筛选 + 认领/关闭操作 |
 | 1.4.7 | 故障详情页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/incidents/Detail.vue：操作栏 + Tab(概览/关联告警/时间线) + 右侧信息栏 |
 | 1.4.8 | 告警列表页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/alerts-v2/Index.vue：筛选 + 关联故障/空间 |
-| 1.4.9 | 告警详情页 | ⬜ 待开始 | | | | Phase 1.5 补充 |
+| 1.4.9 | 告警详情页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | pages/alerts-v2/Detail.vue：概览+Labels+Annotations + Events Tab + 侧边栏链接 |
 | 1.4.10 | 前端 API 层 + TypeScript 类型定义 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | types/index.ts: Channel/Incident/AlertV2/AlertEventV2; api/index.ts: channelV2Api/incidentApi/alertV2Api |
 
 ### 1.5 验证
