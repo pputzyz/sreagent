@@ -101,3 +101,15 @@ func (r *AlertRuleRepository) Update(ctx context.Context, rule *model.AlertRule)
 func (r *AlertRuleRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.AlertRule{}, id).Error
 }
+
+// BatchUpdateStatus sets status for all rules whose IDs are in ids.
+func (r *AlertRuleRepository) BatchUpdateStatus(ctx context.Context, ids []uint, status model.AlertRuleStatus) error {
+	return r.db.WithContext(ctx).Model(&model.AlertRule{}).
+		Where("id IN ?", ids).
+		Updates(map[string]interface{}{"status": status, "version": gorm.Expr("version + 1")}).Error
+}
+
+// BatchDelete soft-deletes all rules whose IDs are in ids.
+func (r *AlertRuleRepository) BatchDelete(ctx context.Context, ids []uint) error {
+	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.AlertRule{}).Error
+}

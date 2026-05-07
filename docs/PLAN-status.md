@@ -174,4 +174,5 @@
 | 2026-05-07 | 完成 Phase 3 分派增强：DispatchPolicy+DispatchLog 模型 + DispatchService(FindMatchingPolicy/ApplyLabelEnhancements/时间窗口/触发条件) + AlertV2Pipeline 集成 + API + DB 迁移 000031-000032 + 前端 DispatchConfig.vue + Channel Detail Tab | @opencode |
 | 2026-05-07 | 完成 Phase 4 Webhook 接入+引擎增强：IntegrationService(Standard/AlertManager/Grafana 三格式+Pipeline+限流100/s+路由规则) + AlertRule.channel_id(000033) + Integration CRUD API + 前端集成中心页面 | @opencode |
 | 2026-05-07 | 完成 Phase 5 故障复盘+分析增强：PostMortem CRUD + AI 生成初稿(AnalyzeAlertWithContext) + 4 个新 Dashboard 统计端点(channel/team/trend/stats) + 前端复盘Tab+AI按钮+IncidentDashboard看板 | @opencode |
+| 2026-05-07 | 确认 P0 安全/稳定性修复已全部落地（WebhookAuth middleware + AlertWorkerPool 64并发 + main.go 优雅关闭顺序）；实现 n9e-quality-gap P1「告警规则批量操作」：后端 BatchEnable/Disable/Delete（repository+service+handler+router）+ 前端多选列+批量工具栏+i18n；go build ✅ vue-tsc 无新增错误 ✅ | @claude |
 | | | |

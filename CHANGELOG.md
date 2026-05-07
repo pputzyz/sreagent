@@ -4,6 +4,24 @@
 
 ---
 
+## [Unreleased] - 2026-05-07
+
+### Added — 告警规则批量操作（n9e-quality-gap P1）
+
+- **后端**:
+  - `AlertRuleRepository.BatchUpdateStatus(ctx, ids, status)` — 批量更新状态，version 字段自增
+  - `AlertRuleRepository.BatchDelete(ctx, ids)` — 批量软删除
+  - `AlertRuleService.BatchEnable/BatchDisable/BatchDelete` — 参数校验 + 错误封装
+  - `AlertRuleHandler.BatchEnable/BatchDisable/BatchDelete` — Gin handler + 审计日志
+  - 路由: `POST /api/v1/alert-rules/batch/enable|disable|delete`（manage 权限）
+- **前端**:
+  - `alertRuleApi.batchEnable/batchDisable/batchDelete` — API 层
+  - `pages/alerts/rules/Index.vue`: columns 添加 `{ type: 'selection' }` 复选列；`v-model:checked-row-keys` 多选；批量工具栏（选中数量显示 + 启用/禁用/删除按钮 + Popconfirm 二次确认）
+  - i18n: zh-CN + en `common.selected`、`alert.batchEnabled/Disabled/Deleted/DeleteConfirm` 新增键
+- go build ✅ | vue-tsc 无新增错误 ✅
+
+---
+
 ## [v2.0.0] - 2026-05-07
 
 ### Release — v2.0 正式版

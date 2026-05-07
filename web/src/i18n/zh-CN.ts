@@ -2,6 +2,7 @@ export default {
   common: {
     confirm: '确认',
     cancel: '取消',
+    selected: '已选 {count} 项',
     create: '创建',
     edit: '编辑',
     delete: '删除',
@@ -344,6 +345,10 @@ export default {
     nameRequired: '名称为必填项',
     expressionRequired: '表达式为必填项',
     deleteRuleConfirm: '确定要删除该规则吗？',
+    batchEnabled: '已启用 {count} 条规则',
+    batchDisabled: '已禁用 {count} 条规则',
+    batchDeleted: '已删除 {count} 条规则',
+    batchDeleteConfirm: '确定要删除选中的 {count} 条规则吗？此操作不可撤销。',
     dataSource: '数据源',
     selectDataSource: '选择数据源',
     addLabel: '+ 添加标签',

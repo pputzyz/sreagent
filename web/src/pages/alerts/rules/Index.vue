@@ -8,7 +8,7 @@ import { formatTime, kvArrayToRecord } from '@/utils/format'
 import { getSeverityType, getRuleStatusType } from '@/utils/alert'
 import KVEditor from '@/components/common/KVEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { AddOutline, RefreshOutline, CloudUploadOutline, CloudDownloadOutline, PlayOutline, FunnelOutline } from '@vicons/ionicons5'
+import { AddOutline, RefreshOutline, CloudUploadOutline, CloudDownloadOutline, PlayOutline, FunnelOutline, CheckmarkDoneOutline, BanOutline, TrashOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -17,6 +17,55 @@ const rules = ref<AlertRule[]>([])
 const total = ref(0)
 const page = ref(1)
 const datasources = ref<DataSource[]>([])
+
+// Batch selection
+const selectedKeys = ref<number[]>([])
+const batchLoading = ref(false)
+
+async function handleBatchEnable() {
+  if (selectedKeys.value.length === 0) return
+  batchLoading.value = true
+  try {
+    await alertRuleApi.batchEnable(selectedKeys.value)
+    message.success(t('alert.batchEnabled', { count: selectedKeys.value.length }))
+    selectedKeys.value = []
+    fetchRules()
+  } catch (err: any) {
+    message.error(err.message)
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+async function handleBatchDisable() {
+  if (selectedKeys.value.length === 0) return
+  batchLoading.value = true
+  try {
+    await alertRuleApi.batchDisable(selectedKeys.value)
+    message.success(t('alert.batchDisabled', { count: selectedKeys.value.length }))
+    selectedKeys.value = []
+    fetchRules()
+  } catch (err: any) {
+    message.error(err.message)
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+async function handleBatchDelete() {
+  if (selectedKeys.value.length === 0) return
+  batchLoading.value = true
+  try {
+    await alertRuleApi.batchDelete(selectedKeys.value)
+    message.success(t('alert.batchDeleted', { count: selectedKeys.value.length }))
+    selectedKeys.value = []
+    fetchRules()
+  } catch (err: any) {
+    message.error(err.message)
+  } finally {
+    batchLoading.value = false
+  }
+}
 
 // Category state
 const activeCategory = ref('')
@@ -186,6 +235,7 @@ const expressionPlaceholder = computed(() => {
 })
 
 const columns = [
+  { type: 'selection' as const },
   {
     title: () => t('common.name'),
     key: 'name',
@@ -525,6 +575,31 @@ onMounted(() => {
       </n-button>
     </div>
 
+    <!-- Batch toolbar -->
+    <div v-if="selectedKeys.length > 0" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px 12px; background: var(--sre-bg-card); border-radius: 8px; border: 1px solid var(--sre-border)">
+      <span style="font-size: 13px; color: var(--sre-text-secondary)">
+        {{ t('common.selected', { count: selectedKeys.length }) }}
+      </span>
+      <n-button size="small" type="success" :loading="batchLoading" @click="handleBatchEnable">
+        <template #icon><n-icon :component="CheckmarkDoneOutline" /></template>
+        {{ t('common.enabled') }}
+      </n-button>
+      <n-button size="small" type="warning" :loading="batchLoading" @click="handleBatchDisable">
+        <template #icon><n-icon :component="BanOutline" /></template>
+        {{ t('common.disabled') }}
+      </n-button>
+      <n-popconfirm @positive-click="handleBatchDelete">
+        <template #trigger>
+          <n-button size="small" type="error" :loading="batchLoading">
+            <template #icon><n-icon :component="TrashOutline" /></template>
+            {{ t('common.delete') }}
+          </n-button>
+        </template>
+        {{ t('alert.batchDeleteConfirm', { count: selectedKeys.length }) }}
+      </n-popconfirm>
+      <n-button size="small" quaternary @click="selectedKeys = []">{{ t('common.cancel') }}</n-button>
+    </div>
+
     <n-card :bordered="false" style="background: var(--sre-bg-card); border-radius: 12px">
       <n-data-table
         :loading="loading"
@@ -532,6 +607,8 @@ onMounted(() => {
         :data="rules"
         :row-key="(row: AlertRule) => row.id"
         :bordered="false"
+        :checked-row-keys="selectedKeys"
+        @update:checked-row-keys="(keys) => selectedKeys = keys as number[]"
         :pagination="{
           page: page,
           pageSize: 50,

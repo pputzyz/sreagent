@@ -382,3 +382,74 @@ func (h *AlertRuleHandler) ToggleStatus(c *gin.Context) {
 	}
 	Success(c, nil)
 }
+
+// batchIDsReq is shared by all batch endpoints.
+type batchIDsReq struct {
+	IDs []uint `json:"ids" binding:"required,min=1"`
+}
+
+// BatchEnable enables multiple alert rules.
+func (h *AlertRuleHandler) BatchEnable(c *gin.Context) {
+	var req batchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchEnable(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Username: GetCurrentUsername(c),
+			Action: model.AuditActionToggle, ResourceType: model.AuditResourceAlertRule,
+			Detail: "batch enable", IP: c.ClientIP(),
+		})
+	}
+	Success(c, nil)
+}
+
+// BatchDisable disables multiple alert rules.
+func (h *AlertRuleHandler) BatchDisable(c *gin.Context) {
+	var req batchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchDisable(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Username: GetCurrentUsername(c),
+			Action: model.AuditActionToggle, ResourceType: model.AuditResourceAlertRule,
+			Detail: "batch disable", IP: c.ClientIP(),
+		})
+	}
+	Success(c, nil)
+}
+
+// BatchDelete deletes multiple alert rules.
+func (h *AlertRuleHandler) BatchDelete(c *gin.Context) {
+	var req batchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchDelete(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Username: GetCurrentUsername(c),
+			Action: model.AuditActionDelete, ResourceType: model.AuditResourceAlertRule,
+			Detail: "batch delete", IP: c.ClientIP(),
+		})
+	}
+	Success(c, nil)
+}

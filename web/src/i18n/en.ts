@@ -2,6 +2,7 @@ export default {
   common: {
     confirm: 'Confirm',
     cancel: 'Cancel',
+    selected: '{count} selected',
     create: 'Create',
     edit: 'Edit',
     delete: 'Delete',
@@ -343,6 +344,10 @@ export default {
     nameRequired: 'Name is required',
     expressionRequired: 'Expression is required',
     deleteRuleConfirm: 'Are you sure to delete this rule?',
+    batchEnabled: '{count} rules enabled',
+    batchDisabled: '{count} rules disabled',
+    batchDeleted: '{count} rules deleted',
+    batchDeleteConfirm: 'Are you sure to delete {count} selected rules? This cannot be undone.',
     dataSource: 'Data Source',
     selectDataSource: 'Select data source',
     addLabel: '+ Add Label',

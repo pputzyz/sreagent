@@ -168,6 +168,9 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 				rules.DELETE("/:id", manage, handlers.AlertRule.Delete)
 				rules.PATCH("/:id/status", manage, handlers.AlertRule.ToggleStatus)
 				rules.POST("/import", manage, handlers.AlertRule.Import)
+				rules.POST("/batch/enable", manage, handlers.AlertRule.BatchEnable)
+				rules.POST("/batch/disable", manage, handlers.AlertRule.BatchDisable)
+				rules.POST("/batch/delete", manage, handlers.AlertRule.BatchDelete)
 			}
 
 			// Alert Rule Templates

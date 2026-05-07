@@ -161,6 +161,42 @@ func (s *AlertRuleService) UpdateStatus(ctx context.Context, id uint, status mod
 	return nil
 }
 
+// BatchEnable enables all rules in ids.
+func (s *AlertRuleService) BatchEnable(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "ids must not be empty")
+	}
+	if err := s.repo.BatchUpdateStatus(ctx, ids, model.RuleStatusEnabled); err != nil {
+		s.logger.Error("failed to batch enable alert rules", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// BatchDisable disables all rules in ids.
+func (s *AlertRuleService) BatchDisable(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "ids must not be empty")
+	}
+	if err := s.repo.BatchUpdateStatus(ctx, ids, model.RuleStatusDisabled); err != nil {
+		s.logger.Error("failed to batch disable alert rules", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// BatchDelete soft-deletes all rules in ids.
+func (s *AlertRuleService) BatchDelete(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "ids must not be empty")
+	}
+	if err := s.repo.BatchDelete(ctx, ids); err != nil {
+		s.logger.Error("failed to batch delete alert rules", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
 // RecordHeartbeatPing is called when a valid heartbeat token is received via
 // POST /heartbeat/:token. It looks up the rule and updates HeartbeatLastAt.
 func (s *AlertRuleService) RecordHeartbeatPing(ctx context.Context, token string) error {

@@ -144,6 +144,15 @@ export const alertRuleApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+
+  batchEnable: (ids: number[]) =>
+    request.post<ApiResponse<null>>('/alert-rules/batch/enable', { ids }),
+
+  batchDisable: (ids: number[]) =>
+    request.post<ApiResponse<null>>('/alert-rules/batch/disable', { ids }),
+
+  batchDelete: (ids: number[]) =>
+    request.post<ApiResponse<null>>('/alert-rules/batch/delete', { ids }),
 }
 
 // ===== Alert Event API =====
