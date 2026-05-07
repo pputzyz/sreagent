@@ -741,6 +741,37 @@ export const channelV2Api = {
     request.delete<ApiResponse<null>>(`/exclusion-rules/${ruleId}`),
 }
 
+// ===== v2: Dispatch Policies API =====
+export const dispatchApi = {
+  list: (channelId: number) =>
+    request.get<ApiResponse<any[]>>(`/channels/${channelId}/dispatch-policies`),
+
+  get: (id: number) =>
+    request.get<ApiResponse<any>>(`/dispatch-policies/${id}`),
+
+  create: (channelId: number, data: {
+    name: string
+    description?: string
+    is_enabled?: boolean
+    priority?: number
+    match_conditions?: string
+    active_time_config?: string
+    delay_seconds?: number
+    escalation_policy_id?: number
+    repeat_interval_seconds?: number
+    max_repeats?: number
+    notify_mode?: string
+    unified_media_id?: number
+    label_enhancement_rules?: string
+  }) => request.post<ApiResponse<any>>(`/channels/${channelId}/dispatch-policies`, data),
+
+  update: (id: number, data: any) =>
+    request.put<ApiResponse<any>>(`/dispatch-policies/${id}`, data),
+
+  delete: (id: number) =>
+    request.delete<ApiResponse<null>>(`/dispatch-policies/${id}`),
+}
+
 // ===== v2: Incidents API =====
 export const incidentApi = {
   list: (params?: {

@@ -5,6 +5,7 @@ import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { channelV2Api, incidentApi } from '@/api'
 import NoiseConfig from './NoiseConfig.vue'
+import DispatchConfig from './DispatchConfig.vue'
 import type { Channel, Incident, ChannelStatus, ChannelAccessLevel } from '@/types'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -299,6 +300,11 @@ onMounted(async () => {
             <!-- Tab 3: Noise reduction config -->
             <n-tab-pane name="noise" :tab="t('channel.noiseTab')">
               <NoiseConfig :channel-id="channelId" />
+            </n-tab-pane>
+
+            <!-- Tab 4: Dispatch policies -->
+            <n-tab-pane name="dispatch" :tab="t('channel.dispatchTab')">
+              <DispatchConfig :channel-id="channelId" />
             </n-tab-pane>
 
             <!-- Tab 4: Basic config (auto-close, access) -->

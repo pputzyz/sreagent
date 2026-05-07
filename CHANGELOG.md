@@ -4,6 +4,32 @@
 
 ---
 
+## [v2.2.0-alpha.1] - 2026-05-07
+
+### Added — Phase 3 分派增强
+
+- **DispatchPolicy 模型** (`internal/model/dispatch.go`):
+  - Channel 绑定、多策略优先级、启用开关
+  - 触发条件 `match_conditions` (JSON `FilterCondition[]`) + 生效时间段 `active_time_config` (时区/星期/时间段)
+  - 延迟窗口 `delay_seconds` (0-3600)
+  - 重复通知 `repeat_interval_seconds` + `max_repeats`
+  - 通知方式 `notify_mode` (personal_preference | unified) + `unified_media_id`
+  - 升级策略绑定 `escalation_policy_id`
+  - 标签增强规则 `label_enhancement_rules` (JSON `LabelEnhancementAction[]`)
+- **DispatchLog 模型** — 记录每次分派尝试状态
+- **DispatchService** (`internal/service/dispatch.go`):
+  - `FindMatchingPolicy`: 按优先级匹配第一个满足条件+时间窗口的策略
+  - `ApplyLabelEnhancements`: set/extract(regex)/combine(template)/map(lookup)/delete 五种操作
+  - `matchConditions` + `isActiveNow`: 复用 `FilterCondition` 匹配逻辑
+- **AlertV2Pipeline 集成**: `SetDispatchService` → `process()` 在 upsert 前执行标签增强
+- **API**: `GET/POST /api/v1/channels/:id/dispatch-policies` + `GET/PUT/DELETE /api/v1/dispatch-policies/:id`
+- **DB 迁移 000031** `dispatch_policies` + **000032** `dispatch_logs`
+- **前端 DispatchConfig.vue**: 策略列表 + 优先级上下移动 + 创建/编辑弹窗（全字段覆盖）
+- Channel Detail 新增"分派配置" Tab
+- i18n: zh-CN + en `channel.dispatch*` 全量键
+
+---
+
 ## [v2.1.0-alpha.1] - 2026-05-07
 
 ### Added — Phase 2 智能降噪

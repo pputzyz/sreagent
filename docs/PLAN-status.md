@@ -119,15 +119,15 @@
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
-| 3.1 | 分派策略绑定 Channel + 多策略优先级 | ⬜ 待开始 | | | | |
-| 3.2 | 触发条件（生效时间段 + 故障筛选） | ⬜ 待开始 | | | | |
-| 3.3 | 延迟窗口（0-3600 秒） | ⬜ 待开始 | | | | |
-| 3.4 | 多环节升级（增删/移动/超时升级/重复通知） | ⬜ 待开始 | | | | |
-| 3.5 | 通知方式（遵循个人偏好 vs 统一设置） | ⬜ 待开始 | | | | |
-| 3.6 | 标签增强（提取/组合/映射/删除） | ⬜ 待开始 | | | | |
-| 3.7 | 个人通知偏好配置 | ⬜ 待开始 | | | | |
-| 3.8 | 前端：空间分派配置页 | ⬜ 待开始 | | | | |
-| 3.9 | 验证 + CHANGELOG | ⬜ 待开始 | | | | |
+| 3.1 | 分派策略绑定 Channel + 多策略优先级 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | DispatchPolicy model: channel_id + priority + is_enabled；/api/v1/channels/:id/dispatch-policies CRUD |
+| 3.2 | 触发条件（生效时间段 + 故障筛选） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | match_conditions (JSON FilterCondition[]) + active_time_config (DispatchActiveTimeConfig) |
+| 3.3 | 延迟窗口（0-3600 秒） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | delay_seconds 字段；isActiveNow + matchConditions 匹配后延迟 N 秒分派 |
+| 3.4 | 多环节升级（增删/移动/超时升级/重复通知） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | escalation_policy_id 绑定 + repeat_interval_seconds + max_repeats；前端支持优先级上下移动 |
+| 3.5 | 通知方式（遵循个人偏好 vs 统一设置） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | notify_mode: personal_preference \| unified；unified_media_id |
+| 3.6 | 标签增强（提取/组合/映射/删除） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | LabelEnhancementAction: set/extract/combine/map/delete；DispatchService.ApplyLabelEnhancements；挂接到 AlertV2Pipeline.process() |
+| 3.7 | 个人通知偏好配置 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | 已有 UserNotifyConfig + /me/notify-configs；notify_mode=personal_preference 时使用用户偏好 |
+| 3.8 | 前端：空间分派配置页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | DispatchConfig.vue：策略列表 + 优先级排序 + 创建/编辑弹窗（延迟/重复/条件/时间/通知/升级/标签增强）；嵌入 Channel Detail "分派配置" Tab |
+| 3.9 | 验证 + CHANGELOG | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | go build + vue-tsc 通过；DB 迁移 000031-000032 |
 
 ---
 
@@ -171,4 +171,5 @@
 | 2026-05-07 | 完成 Phase 1.1 后端全部：1.1.2 Channel CRUD + 1.1.4 Incident CRUD(含 ack/close/reopen/snooze/merge/reassign/escalate/comment) + 1.1.5 Timeline + 1.1.6 Alert+Event v2 双表 + 1.1.9 迁移 000019-000030 + 1.1.10 seed default channel + 1.3.1-1.3.4 API 路由注册 | @opencode |
 | 2026-05-07 | 完成 Phase 1.2 告警引擎适配：AlertV2Pipeline(非侵入式 WrapOnAlert hook) + IncidentService.StartAutoCloseWorker(超时自动关闭) + appCtx 生命周期管理 | @opencode |
 | 2026-05-07 | 完成 Phase 1.4 前端：侧边栏新增协作空间/故障/告警视图菜单 + 协作空间列表页 + 故障列表+详情页 + 告警v2列表页 + TypeScript 类型 + API 层 + i18n(中英) | @opencode |
+| 2026-05-07 | 完成 Phase 3 分派增强：DispatchPolicy+DispatchLog 模型 + DispatchService(FindMatchingPolicy/ApplyLabelEnhancements/时间窗口/触发条件) + AlertV2Pipeline 集成 + API + DB 迁移 000031-000032 + 前端 DispatchConfig.vue + Channel Detail Tab | @opencode |
 | | | |

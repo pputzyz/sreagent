@@ -120,11 +120,13 @@ func main() {
 	dashboardV2Repo := repository.NewDashboardRepository(db)
 	templateRepo := repository.NewAlertRuleTemplateRepository(db)
 
-	// v2 collaboration channel, incident, alert & noise-reduction repositories
+	// v2 collaboration channel, incident, alert, noise-reduction & dispatch repositories
 	channelV2Repo := repository.NewChannelV2Repository(db)
 	incidentRepo := repository.NewIncidentRepository(db)
 	alertV2Repo := repository.NewAlertRepository(db)
 	exclusionRuleRepo := repository.NewExclusionRuleRepository(db)
+	dispatchPolicyRepo := repository.NewDispatchPolicyRepository(db)
+	dispatchLogRepo := repository.NewDispatchLogRepository(db)
 
 	// Dispatch repositories
 	alertChannelRepo := repository.NewAlertChannelRepository(db)
@@ -172,12 +174,13 @@ func main() {
 	// Alert rule template service
 	templateSvc := service.NewAlertRuleTemplateService(templateRepo, zapLogger)
 
-	// v2 collaboration channel, incident, alert & noise-reduction services
+	// v2 collaboration channel, incident, alert, noise-reduction & dispatch services
 	channelV2Svc := service.NewChannelService(channelV2Repo, zapLogger)
 	incidentSvc := service.NewIncidentService(incidentRepo, channelV2Svc, zapLogger)
 	alertV2Svc := service.NewAlertV2Service(alertV2Repo, zapLogger)
 	exclusionRuleSvc := service.NewExclusionRuleService(exclusionRuleRepo, zapLogger)
 	noiseReducer := service.NewNoiseReducer(channelV2Repo, exclusionRuleRepo, zapLogger)
+	dispatchSvc := service.NewDispatchService(dispatchPolicyRepo, dispatchLogRepo, zapLogger)
 
 	// Dispatch services
 	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, zapLogger)
@@ -384,7 +387,8 @@ func main() {
 	// Wraps the existing onAlertFn so the v2 path runs alongside the legacy path.
 	alertV2Pipeline := service.NewAlertV2Pipeline(alertV2Repo, incidentRepo, channelV2Repo, zapLogger)
 	alertV2Pipeline.InitDefaultChannel(context.Background())
-	alertV2Pipeline.SetNoiseReducer(noiseReducer) // attach noise reduction
+	alertV2Pipeline.SetNoiseReducer(noiseReducer)   // attach noise reduction
+	alertV2Pipeline.SetDispatchService(dispatchSvc) // attach label enhancement
 	onAlertFn = alertV2Pipeline.WrapOnAlert(onAlertFn)
 
 	// Start the incident auto-close background worker.
@@ -469,6 +473,7 @@ func main() {
 		IncidentV2:          handler.NewIncidentHandler(incidentSvc),
 		AlertV2:             handler.NewAlertV2Handler(alertV2Svc),
 		ExclusionRule:       handler.NewExclusionRuleHandler(exclusionRuleSvc),
+		DispatchPolicy:      handler.NewDispatchHandler(dispatchSvc),
 	}
 
 	// Inject audit service into handlers that support it

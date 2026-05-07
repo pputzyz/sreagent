@@ -37,6 +37,9 @@ type AlertV2Pipeline struct {
 	// noiseReducer applies noise-reduction rules before alert ingestion.
 	// May be nil if not configured (degraded mode: no noise reduction).
 	noiseReducer *NoiseReducer
+
+	// dispatchSvc applies dispatch policy label enhancements.
+	dispatchSvc *DispatchService
 }
 
 // NewAlertV2Pipeline creates a new pipeline. Call SetDefaultChannelID before use.
@@ -57,6 +60,11 @@ func NewAlertV2Pipeline(
 // SetNoiseReducer attaches a NoiseReducer to the pipeline.
 func (p *AlertV2Pipeline) SetNoiseReducer(nr *NoiseReducer) {
 	p.noiseReducer = nr
+}
+
+// SetDispatchService attaches a DispatchService for label enhancement.
+func (p *AlertV2Pipeline) SetDispatchService(svc *DispatchService) {
+	p.dispatchSvc = svc
 }
 
 // SetDefaultChannelID sets the collaboration channel ID to route alerts to.
@@ -164,13 +172,28 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 		}
 	}
 
-	// 1. Upsert Alert record
+	// 1. Apply dispatch policy label enhancements (3.6)
+	if p.dispatchSvc != nil && channelID > 0 && len(event.Labels) > 0 {
+		policy, _ := p.dispatchSvc.FindMatchingPolicy(ctx, channelID, model.JSONLabels(event.Labels), string(event.Severity))
+		if policy != nil && policy.LabelEnhancementRules != "" {
+			enhanced := p.dispatchSvc.ApplyLabelEnhancements(policy.LabelEnhancementRules, model.JSONLabels(event.Labels))
+			// Merge enhanced labels back into event (non-destructive to existing labels)
+			if event.Labels == nil {
+				event.Labels = make(model.JSONLabels)
+			}
+			for k, v := range enhanced {
+				event.Labels[k] = v
+			}
+		}
+	}
+
+	// 2. Upsert Alert record
 	alert, err := p.upsertAlert(ctx, alertKey, event, severity, eventStatus, channelID)
 	if err != nil {
 		return fmt.Errorf("upsert alert: %w", err)
 	}
 
-	// 2. Drive Incident lifecycle
+	// 3. Drive Incident lifecycle
 	if eventStatus == model.AlertEventV2StatusFiring {
 		if err := p.ensureIncident(ctx, alert, event); err != nil {
 			return fmt.Errorf("ensure incident: %w", err)

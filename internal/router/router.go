@@ -47,10 +47,11 @@ type Handlers struct {
 	LabelRegistry    *handler.LabelRegistryHandler
 	DashboardV2         *handler.DashboardV2Handler
 	AlertRuleTemplate   *handler.AlertRuleTemplateHandler
-	ChannelV2     *handler.ChannelHandler       // v2 collaboration channels (协作空间)
-	IncidentV2    *handler.IncidentHandler      // v2 incidents (故障)
-	AlertV2       *handler.AlertV2Handler       // v2 alerts (告警)
-	ExclusionRule *handler.ExclusionRuleHandler // channel exclusion rules (排除规则)
+	ChannelV2      *handler.ChannelHandler       // v2 collaboration channels (协作空间)
+	IncidentV2     *handler.IncidentHandler      // v2 incidents (故障)
+	AlertV2        *handler.AlertV2Handler       // v2 alerts (告警)
+	ExclusionRule  *handler.ExclusionRuleHandler // channel exclusion rules (排除规则)
+	DispatchPolicy *handler.DispatchHandler      // channel dispatch policies (分派策略)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -299,6 +300,11 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 						chv2.GET("/:id/exclusion-rules", handlers.ExclusionRule.List)
 						chv2.POST("/:id/exclusion-rules", manage, handlers.ExclusionRule.Create)
 					}
+					// Dispatch policies
+					if handlers.DispatchPolicy != nil {
+						chv2.GET("/:id/dispatch-policies", handlers.DispatchPolicy.List)
+						chv2.POST("/:id/dispatch-policies", manage, handlers.DispatchPolicy.Create)
+					}
 				}
 			}
 
@@ -308,6 +314,16 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 				{
 					excl.PUT("/:id", manage, handlers.ExclusionRule.Update)
 					excl.DELETE("/:id", manage, handlers.ExclusionRule.Delete)
+				}
+			}
+
+			// Dispatch policy management (get/update/delete by policy ID)
+			if handlers.DispatchPolicy != nil {
+				dp := auth.Group("/dispatch-policies")
+				{
+					dp.GET("/:id", handlers.DispatchPolicy.Get)
+					dp.PUT("/:id", manage, handlers.DispatchPolicy.Update)
+					dp.DELETE("/:id", manage, handlers.DispatchPolicy.Delete)
 				}
 			}
 
