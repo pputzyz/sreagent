@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { channelV2Api, incidentApi } from '@/api'
+import NoiseConfig from './NoiseConfig.vue'
 import type { Channel, Incident, ChannelStatus, ChannelAccessLevel } from '@/types'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -295,7 +296,12 @@ onMounted(async () => {
               </n-descriptions>
             </n-tab-pane>
 
-            <!-- Tab 3: Config (noise reduction, auto-close) -->
+            <!-- Tab 3: Noise reduction config -->
+            <n-tab-pane name="noise" :tab="t('channel.noiseTab')">
+              <NoiseConfig :channel-id="channelId" />
+            </n-tab-pane>
+
+            <!-- Tab 4: Basic config (auto-close, access) -->
             <n-tab-pane name="config" :tab="t('common.actions')">
               <n-form label-placement="top" size="small" style="max-width:520px">
                 <n-form-item :label="t('channel.name')">

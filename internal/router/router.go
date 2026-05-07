@@ -47,9 +47,10 @@ type Handlers struct {
 	LabelRegistry    *handler.LabelRegistryHandler
 	DashboardV2         *handler.DashboardV2Handler
 	AlertRuleTemplate   *handler.AlertRuleTemplateHandler
-	ChannelV2           *handler.ChannelHandler  // v2 collaboration channels (协作空间)
-	IncidentV2          *handler.IncidentHandler // v2 incidents (故障)
-	AlertV2             *handler.AlertV2Handler  // v2 alerts (告警)
+	ChannelV2     *handler.ChannelHandler       // v2 collaboration channels (协作空间)
+	IncidentV2    *handler.IncidentHandler      // v2 incidents (故障)
+	AlertV2       *handler.AlertV2Handler       // v2 alerts (告警)
+	ExclusionRule *handler.ExclusionRuleHandler // channel exclusion rules (排除规则)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -293,6 +294,20 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 					chv2.DELETE("/:id", manage, handlers.ChannelV2.Delete)
 					chv2.POST("/:id/star", handlers.ChannelV2.Star)
 					chv2.DELETE("/:id/star", handlers.ChannelV2.Unstar)
+					// Noise reduction config
+					if handlers.ExclusionRule != nil {
+						chv2.GET("/:id/exclusion-rules", handlers.ExclusionRule.List)
+						chv2.POST("/:id/exclusion-rules", manage, handlers.ExclusionRule.Create)
+					}
+				}
+			}
+
+			// Exclusion rule management (update/delete by rule ID)
+			if handlers.ExclusionRule != nil {
+				excl := auth.Group("/exclusion-rules")
+				{
+					excl.PUT("/:id", manage, handlers.ExclusionRule.Update)
+					excl.DELETE("/:id", manage, handlers.ExclusionRule.Delete)
 				}
 			}
 

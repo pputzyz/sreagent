@@ -104,14 +104,14 @@
 
 | # | 任务 | 状态 | 执行者 | 开始 | 完成 | 备注 |
 |---|------|------|--------|------|------|------|
-| 2.1 | 规则聚合引擎（统一控制 + 细粒度控制） | ⬜ 待开始 | | | | |
-| 2.2 | 聚合窗口（开关 + 计时起点 + 时长） | ⬜ 待开始 | | | | |
-| 2.3 | 风暴预警（阈值通知） | ⬜ 待开始 | | | | |
-| 2.4 | 抖动检测（3 模式 + 参数） | ⬜ 待开始 | | | | |
-| 2.5 | 静默增强（周期-星期模式 + 快速静默） | ⬜ 待开始 | | | | |
-| 2.6 | 排除规则 | ⬜ 待开始 | | | | |
-| 2.7 | 前端：空间降噪配置页 | ⬜ 待开始 | | | | |
-| 2.8 | 验证 + CHANGELOG | ⬜ 待开始 | | | | |
+| 2.1 | 规则聚合引擎（统一控制 + 细粒度控制） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | NoiseReducer.computeAggregationKey：统一/细粒度 + branch 条件匹配 |
+| 2.2 | 聚合窗口（开关 + 计时起点 + 时长） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | ChannelNoiseAggregation.WindowEnabled/Origin/Minutes，存 JSON 到 aggregation_config |
+| 2.3 | 风暴预警（阈值通知） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | NoiseReducer.checkStorm：滚动 1 分钟计数器，每阈值只通知一次 |
+| 2.4 | 抖动检测（3 模式 + 参数） | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | NoiseReducer.checkFlapping：off/notify_only/notify_then_silence，in-memory flapStates |
+| 2.5 | 静默增强（周期-星期模式 + 快速静默） | ⬜ 待开始 | | | | 现有 MuteRule 已支持周期模式，快速静默待前端补充 |
+| 2.6 | 排除规则 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | ExclusionRuleRepository + Service + Handler + API /channels/:id/exclusion-rules |
+| 2.7 | 前端：空间降噪配置页 | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | NoiseConfig.vue：聚合/窗口/风暴/抖动/排除规则全配置，嵌入 Channel Detail "降噪配置" Tab |
+| 2.8 | 验证 + CHANGELOG | ✅ 完成 | @opencode | 2026-05-07 | 2026-05-07 | go build + vue-tsc 通过 |
 
 ---
 

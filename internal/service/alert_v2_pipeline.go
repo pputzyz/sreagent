@@ -25,14 +25,18 @@ import (
 //	wrapped := pipeline.WrapOnAlert(existingOnAlert)
 //	evaluator.SetOnAlert(wrapped)
 type AlertV2Pipeline struct {
-	alertRepo   *repository.AlertRepository
+	alertRepo    *repository.AlertRepository
 	incidentRepo *repository.IncidentRepository
-	channelRepo *repository.ChannelRepository
-	logger      *zap.Logger
+	channelRepo  *repository.ChannelRepository
+	logger       *zap.Logger
 
 	// defaultChannelID is the ID of the "default" collaboration channel.
 	// All engine-fired alerts go here unless a specific channel is configured.
 	defaultChannelID uint
+
+	// noiseReducer applies noise-reduction rules before alert ingestion.
+	// May be nil if not configured (degraded mode: no noise reduction).
+	noiseReducer *NoiseReducer
 }
 
 // NewAlertV2Pipeline creates a new pipeline. Call SetDefaultChannelID before use.
@@ -48,6 +52,11 @@ func NewAlertV2Pipeline(
 		channelRepo:  channelRepo,
 		logger:       logger,
 	}
+}
+
+// SetNoiseReducer attaches a NoiseReducer to the pipeline.
+func (p *AlertV2Pipeline) SetNoiseReducer(nr *NoiseReducer) {
+	p.noiseReducer = nr
 }
 
 // SetDefaultChannelID sets the collaboration channel ID to route alerts to.
@@ -98,7 +107,8 @@ func (p *AlertV2Pipeline) WrapOnAlert(
 	}
 }
 
-// process handles one AlertEvent: upserts Alert, then drives Incident lifecycle.
+// process handles one AlertEvent: runs noise reduction, upserts Alert,
+// then drives Incident lifecycle.
 func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) error {
 	alertKey := p.buildAlertKey(event)
 	severity := mapSeverity(event.Severity)
@@ -109,6 +119,49 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 		eventStatus = model.AlertEventV2StatusResolved
 	} else {
 		eventStatus = model.AlertEventV2StatusFiring
+	}
+
+	// 0. Noise reduction: exclusion rules, flapping, storm warning
+	if p.noiseReducer != nil && channelID > 0 {
+		nr := p.noiseReducer.Evaluate(ctx, channelID, alertKey, event)
+
+		if nr.Excluded {
+			p.logger.Info("alert_v2_pipeline: alert excluded by rule",
+				zap.String("alert_key", alertKey),
+				zap.String("reason", nr.ExcludeReason),
+			)
+			return nil // drop — do not upsert or create incident
+		}
+
+		if nr.StormWarning {
+			p.logger.Warn("alert_v2_pipeline: storm warning",
+				zap.Uint("channel_id", channelID),
+				zap.Int("storm_level", nr.StormLevel),
+			)
+			// Storm warning is informational — still process the alert,
+			// but the caller (future: notification service) can act on this.
+		}
+
+		if nr.Flapping {
+			p.logger.Info("alert_v2_pipeline: alert is flapping",
+				zap.String("alert_key", alertKey),
+				zap.String("mode", nr.FlappingMode),
+			)
+			if nr.FlappingMode == "notify_then_silence" {
+				// Silenced — drop from incident creation but still track the alert
+				_, err := p.upsertAlert(ctx, alertKey, event, severity, eventStatus, channelID)
+				if err != nil {
+					return fmt.Errorf("upsert flapping alert: %w", err)
+				}
+				return nil // skip incident
+			}
+			// notify_only: fall through and process normally
+		}
+
+		// Record resolution for flap tracking
+		if eventStatus == model.AlertEventV2StatusResolved {
+			p.noiseReducer.RecordResolution(channelID, alertKey)
+		}
 	}
 
 	// 1. Upsert Alert record

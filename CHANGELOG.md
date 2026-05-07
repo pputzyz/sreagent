@@ -4,6 +4,22 @@
 
 ---
 
+## [v2.1.0-alpha.1] - 2026-05-07
+
+### Added — Phase 2 智能降噪
+
+- **NoiseReducer** (`internal/service/noise_reducer.go`): 降噪核心引擎
+  - 排除规则：`matchAllConditions` 支持 eq/ne/contains/not_contains/regex/in/not_in
+  - 聚合键计算：统一维度 / 细粒度条件分支，strictMode 控制空值处理
+  - 风暴预警：滚动 1 分钟窗口计数，每阈值只触发一次告警
+  - 抖动检测：in-memory flapStates，支持 off / notify_only / notify_then_silence 三种模式
+- **AlertV2Pipeline 集成**：`SetNoiseReducer` + `process()` 在 upsert 前执行降噪，excluded→drop，silenced→跳过故障创建
+- **ExclusionRuleRepository + Service + Handler**：`/api/v1/channels/:id/exclusion-rules` CRUD
+- **前端 NoiseConfig.vue**：协作空间详情页新增"降噪配置" Tab，覆盖聚合规则/窗口/风暴预警/抖动检测/排除规则
+- **i18n**：zh-CN + en 新增 `channel.noise*` / `channel.flapping*` / `channel.exclusion*` 全量键
+
+---
+
 ## [v2.0.0-alpha.1] - 2026-05-07
 
 ### Added — Phase 1.1 核心模型重构

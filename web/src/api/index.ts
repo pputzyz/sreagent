@@ -720,6 +720,25 @@ export const channelV2Api = {
 
   unstar: (id: number) =>
     request.delete<ApiResponse<null>>(`/channels/${id}/star`),
+
+  // Noise reduction
+  getNoiseConfig: (id: number) =>
+    request.get<ApiResponse<{ aggregation_config: string; flapping_config: string }>>(`/channels/${id}/noise-config`),
+
+  updateNoiseConfig: (id: number, data: { aggregation_config?: string; flapping_config?: string }) =>
+    request.put<ApiResponse<Channel>>(`/channels/${id}`, data),
+
+  listExclusionRules: (channelId: number) =>
+    request.get<ApiResponse<any[]>>(`/channels/${channelId}/exclusion-rules`),
+
+  createExclusionRule: (channelId: number, data: { name: string; conditions: string; is_enabled: boolean; priority?: number; description?: string }) =>
+    request.post<ApiResponse<any>>(`/channels/${channelId}/exclusion-rules`, data),
+
+  updateExclusionRule: (ruleId: number, data: { name?: string; conditions?: string; is_enabled?: boolean; priority?: number }) =>
+    request.put<ApiResponse<any>>(`/exclusion-rules/${ruleId}`, data),
+
+  deleteExclusionRule: (ruleId: number) =>
+    request.delete<ApiResponse<null>>(`/exclusion-rules/${ruleId}`),
 }
 
 // ===== v2: Incidents API =====
