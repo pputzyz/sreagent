@@ -4,6 +4,46 @@
 
 ---
 
+## [v2.1.0] - 2026-05-08
+
+### Changed — UI 重构（FlashCat 风格）
+
+- **数据查询页（/query）**：
+  - 时间范围：横排预设按钮（5m/15m/30m/1h/3h/6h/12h/24h/2d/7d/30d）+ 自定义 datetimerange
+  - 自动刷新：5s/10s/30s/1min/5min，倒计时显示
+  - Step 选择器（metrics）：自动/15s/30s/1m/5m/15m/1h
+  - Limit 选择器：metrics 50-1000，logs 50-5000
+  - 查询历史 Popover（localStorage，最近 20 条）+ 清空按钮
+  - CSV 导出（前端 Blob）：metrics table 模式 + logs 模式
+  - 视觉：三段式卡片布局（工具栏 / 编辑器 / 结果）
+
+- **主侧栏（MainLayout）**：
+  - 扁平化：去除"告警管理"父级嵌套，子项铺平
+  - 6 个 group 分组：概览 / 故障管理 / 告警引擎 / 集成与数据 / 通知与值班 / 系统
+  - Group label 小字号 uppercase，FlashCat 风格
+  - 选中态：左侧色条 + 浅色背景 + 主色文字
+  - 折叠态隐藏 group label
+
+- **故障列表（/incidents）**：
+  - 弃用 n-data-table 改自定义卡片列表
+  - 左侧 4px 严重程度色条
+  - 三行结构：圆点+严重程度+#ID+标题 / 元数据 / 状态+处理人+时间
+  - Hover 背景变化 + 箭头浮现
+  - 已关闭行 0.72 opacity 淡化
+  - 顶部分段控件：全部/我的，状态/严重程度筛选
+
+- **协作空间列表（/channels）**：
+  - 顶部 4px 主色色条
+  - 三栏指标（活跃故障 / MTTA / MTTR）
+  - 卡片右上角 Star（hover 显隐）
+  - 右下角省略号下拉（编辑/删除）
+  - Hover translateY(-2px) + 主色边框
+  - 视图切换占位（卡片/列表）+ 排序下拉
+
+- **i18n**：menu.* 补齐 6 个 v2 路由的中英键，incident.empty/duration/unassigned 等新增
+
+---
+
 ## [v2.0.3] - 2026-05-08
 
 ### Fixed — 启动 panic（路由冲突）

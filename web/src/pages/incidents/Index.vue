@@ -1,14 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NTag, NButton, NSpace, NPopconfirm } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
 import type { Incident } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { RefreshOutline, AddOutline } from '@vicons/ionicons5'
+import {
+  RefreshOutline,
+  AddOutline,
+  SearchOutline,
+  ChevronForwardOutline,
+  AlertCircleOutline,
+  PersonOutline,
+  TimeOutline,
+  NotificationsOutline,
+} from '@vicons/ionicons5'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -21,8 +30,8 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const viewMode = ref<'all' | 'mine'>('all')
-const statusFilter = ref('')
-const severityFilter = ref('')
+const statusFilter = ref<string>('')
+const severityFilter = ref<string>('')
 const searchQuery = ref('')
 
 // Create modal
@@ -35,28 +44,28 @@ const createForm = ref({
   channel_id: 0,
 })
 
-const severityTagType: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
-  critical: 'error',
-  warning: 'warning',
-  info: 'info',
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: '#ef4444',
+  warning: '#f59e0b',
+  info: '#3b82f6',
 }
 
-const statusTagType: Record<string, 'error' | 'warning' | 'success' | 'default'> = {
-  triggered: 'error',
-  processing: 'warning',
-  closed: 'success',
-}
-
-const statusLabel: Record<string, string> = {
-  triggered: 'incident.statusTriggered',
-  processing: 'incident.statusProcessing',
-  closed: 'incident.statusClosed',
+const STATUS_COLORS: Record<string, string> = {
+  triggered: '#ef4444',
+  processing: '#f59e0b',
+  closed: '#10b981',
 }
 
 const severityLabel: Record<string, string> = {
   critical: 'incident.severityCritical',
   warning: 'incident.severityWarning',
   info: 'incident.severityInfo',
+}
+
+const statusLabel: Record<string, string> = {
+  triggered: 'incident.statusTriggered',
+  processing: 'incident.statusProcessing',
+  closed: 'incident.statusClosed',
 }
 
 async function loadIncidents() {
@@ -82,7 +91,8 @@ async function loadIncidents() {
   }
 }
 
-async function acknowledgeIncident(id: number) {
+async function acknowledgeIncident(id: number, e?: Event) {
+  e?.stopPropagation()
   try {
     await incidentApi.acknowledge(id)
     message.success(t('common.success'))
@@ -92,7 +102,8 @@ async function acknowledgeIncident(id: number) {
   }
 }
 
-async function closeIncident(id: number) {
+async function closeIncident(id: number, e?: Event) {
+  e?.stopPropagation()
   try {
     await incidentApi.close(id)
     message.success(t('common.success'))
@@ -117,83 +128,30 @@ async function createIncident() {
   }
 }
 
-const columns = computed(() => [
-  {
-    title: 'ID',
-    key: 'id',
-    width: 70,
-    render: (row: Incident) => h('span', { style: 'font-size:12px;color:var(--sre-text-secondary)' }, `#${row.id}`),
-  },
-  {
-    title: t('incident.severity'),
-    key: 'severity',
-    width: 90,
-    render: (row: Incident) =>
-      h(NTag, { type: severityTagType[row.severity] ?? 'default', size: 'small' },
-        { default: () => t(severityLabel[row.severity] ?? row.severity) }),
-  },
-  {
-    title: t('incident.name'),
-    key: 'title',
-    render: (row: Incident) =>
-      h('a', {
-        style: 'cursor:pointer;color:var(--sre-primary)',
-        onClick: () => router.push(`/incidents/${row.id}`),
-      }, row.title),
-  },
-  {
-    title: t('incident.status'),
-    key: 'status',
-    width: 100,
-    render: (row: Incident) =>
-      h(NTag, { type: statusTagType[row.status] ?? 'default', size: 'small' },
-        { default: () => t(statusLabel[row.status] ?? row.status) }),
-  },
-  {
-    title: t('incident.channel'),
-    key: 'channel',
-    render: (row: Incident) => h('span', {}, row.channel?.name ?? '—'),
-  },
-  {
-    title: t('incident.assignee'),
-    key: 'assigned_user',
-    render: (row: Incident) =>
-      h('span', {}, row.assigned_user?.display_name ?? row.assigned_user?.username ?? '—'),
-  },
-  {
-    title: t('incident.alertCount'),
-    key: 'alert_count',
-    width: 90,
-    render: (row: Incident) => h('span', {}, String(row.alert_count)),
-  },
-  {
-    title: t('incident.triggeredAt'),
-    key: 'triggered_at',
-    render: (row: Incident) => h('span', { style: 'font-size:12px' }, formatTime(row.triggered_at)),
-  },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    width: 160,
-    render: (row: Incident) =>
-      h(NSpace, { size: 'small' }, {
-        default: () => [
-          row.status !== 'closed' && row.status !== 'processing'
-            ? h(NButton, {
-                size: 'tiny', type: 'primary',
-                onClick: (e: Event) => { e.stopPropagation(); acknowledgeIncident(row.id) },
-              }, { default: () => t('incident.acknowledge') })
-            : null,
-          row.status !== 'closed'
-            ? h(NButton, {
-                size: 'tiny', type: 'default',
-                onClick: (e: Event) => { e.stopPropagation(); closeIncident(row.id) },
-              }, { default: () => t('incident.close') })
-            : null,
-        ].filter(Boolean),
-      }),
-  },
-])
+function gotoDetail(id: number) {
+  router.push(`/incidents/${id}`)
+}
+
+function durationText(triggeredAt: string | undefined, closedAt?: string | null): string {
+  if (!triggeredAt) return '—'
+  const start = new Date(triggeredAt).getTime()
+  const end = closedAt ? new Date(closedAt).getTime() : Date.now()
+  let diff = Math.max(0, Math.floor((end - start) / 1000))
+  const d = Math.floor(diff / 86400); diff -= d * 86400
+  const h = Math.floor(diff / 3600); diff -= h * 3600
+  const m = Math.floor(diff / 60)
+  if (d > 0) return `${d}d ${h}h`
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
+
+function userInitial(u?: { display_name?: string; username?: string } | null): string {
+  const name = u?.display_name || u?.username
+  return name ? name.charAt(0).toUpperCase() : '?'
+}
+
+const isEmpty = computed(() => !loading.value && incidents.value.length === 0)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 onMounted(loadIncidents)
 </script>
@@ -212,64 +170,153 @@ onMounted(loadIncidents)
       </template>
     </PageHeader>
 
-    <!-- View toggle + filters -->
-    <n-card :bordered="false" class="filter-card">
-      <n-space wrap>
-        <n-radio-group v-model:value="viewMode" @update:value="loadIncidents">
-          <n-radio-button value="all">{{ t('incident.allIncidents') }}</n-radio-button>
-          <n-radio-button value="mine">{{ t('incident.myIncidents') }}</n-radio-button>
+    <!-- Primary tabs: All / Mine -->
+    <div class="primary-tabs">
+      <n-radio-group v-model:value="viewMode" size="medium" @update:value="loadIncidents">
+        <n-radio-button value="all">{{ t('incident.allIncidents') }}</n-radio-button>
+        <n-radio-button value="mine">{{ t('incident.myIncidents') }}</n-radio-button>
+      </n-radio-group>
+    </div>
+
+    <!-- Compact filter bar -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">{{ t('common.status') }}</span>
+        <n-radio-group v-model:value="statusFilter" size="small" @update:value="loadIncidents">
+          <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
+          <n-radio-button value="triggered">{{ t('incident.statusTriggered') }}</n-radio-button>
+          <n-radio-button value="processing">{{ t('incident.statusProcessing') }}</n-radio-button>
+          <n-radio-button value="closed">{{ t('incident.statusClosed') }}</n-radio-button>
         </n-radio-group>
+      </div>
 
-        <n-select
-          v-model:value="statusFilter"
-          :options="[
-            { label: t('incident.statusTriggered'), value: 'triggered' },
-            { label: t('incident.statusProcessing'), value: 'processing' },
-            { label: t('incident.statusClosed'), value: 'closed' },
-          ]"
-          :placeholder="t('common.status')"
-          clearable
-          style="width: 130px"
-          @update:value="loadIncidents"
-        />
-        <n-select
-          v-model:value="severityFilter"
-          :options="[
-            { label: t('incident.severityCritical'), value: 'critical' },
-            { label: t('incident.severityWarning'), value: 'warning' },
-            { label: t('incident.severityInfo'), value: 'info' },
-          ]"
-          :placeholder="t('incident.severity')"
-          clearable
-          style="width: 120px"
-          @update:value="loadIncidents"
-        />
-        <n-input
-          v-model:value="searchQuery"
-          :placeholder="t('common.search')"
-          clearable
-          style="width: 220px"
-          @update:value="loadIncidents"
-        />
-      </n-space>
-    </n-card>
+      <div class="filter-group">
+        <span class="filter-label">{{ t('incident.severity') }}</span>
+        <n-radio-group v-model:value="severityFilter" size="small" @update:value="loadIncidents">
+          <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
+          <n-radio-button value="critical">
+            <span class="dot" :style="{ background: SEVERITY_COLORS.critical }" />
+            {{ t('incident.severityCritical') }}
+          </n-radio-button>
+          <n-radio-button value="warning">
+            <span class="dot" :style="{ background: SEVERITY_COLORS.warning }" />
+            {{ t('incident.severityWarning') }}
+          </n-radio-button>
+          <n-radio-button value="info">
+            <span class="dot" :style="{ background: SEVERITY_COLORS.info }" />
+            {{ t('incident.severityInfo') }}
+          </n-radio-button>
+        </n-radio-group>
+      </div>
 
-    <n-card :bordered="false" class="table-card">
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="incidents"
-        :row-key="(row: Incident) => row.id"
-        :row-props="(row: Incident) => ({ style: 'cursor:pointer', onClick: () => $router.push(`/incidents/${row.id}`) })"
-      />
-      <div v-if="total > pageSize" style="display:flex;justify-content:flex-end;margin-top:12px">
+      <div class="filter-spacer" />
+
+      <n-input
+        v-model:value="searchQuery"
+        :placeholder="t('common.search')"
+        clearable
+        size="small"
+        class="search-box"
+        @update:value="loadIncidents"
+      >
+        <template #prefix><n-icon :component="SearchOutline" /></template>
+      </n-input>
+    </div>
+
+    <!-- Incident list -->
+    <n-spin :show="loading">
+      <div v-if="isEmpty" class="empty-state">
+        <n-icon :component="AlertCircleOutline" size="48" class="empty-icon" />
+        <div class="empty-title">
+          {{ viewMode === 'mine' ? t('incident.emptyMine') : t('incident.empty') }}
+        </div>
+        <div class="empty-sub">{{ t('incident.emptySub') }}</div>
+      </div>
+
+      <div v-else class="incident-list">
+        <div
+          v-for="row in incidents"
+          :key="row.id"
+          class="incident-row"
+          :class="{ 'is-closed': row.status === 'closed' }"
+          @click="gotoDetail(row.id)"
+        >
+          <span class="status-bar" :style="{ background: SEVERITY_COLORS[row.severity] || '#94a3b8' }" />
+
+          <div class="row-body">
+            <div class="row-line-1">
+              <span class="dot dot-lg" :style="{ background: SEVERITY_COLORS[row.severity] || '#94a3b8' }" />
+              <span class="severity-text" :style="{ color: SEVERITY_COLORS[row.severity] }">
+                {{ t(severityLabel[row.severity] ?? row.severity) }}
+              </span>
+              <span class="incident-id">#{{ row.id }}</span>
+              <span class="incident-title">{{ row.title }}</span>
+            </div>
+
+            <div class="row-line-2">
+              <span v-if="row.channel?.name" class="meta-item">
+                <n-icon :component="NotificationsOutline" size="14" />
+                {{ row.channel.name }}
+              </span>
+              <span class="meta-item">
+                <n-icon :component="TimeOutline" size="14" />
+                {{ t('incident.duration') }}: {{ durationText(row.triggered_at, row.closed_at) }}
+              </span>
+              <span class="meta-item">
+                <n-icon :component="AlertCircleOutline" size="14" />
+                {{ t('incident.alertCount') }}: {{ row.alert_count ?? 0 }}
+              </span>
+            </div>
+
+            <div class="row-line-3">
+              <span class="status-pill" :style="{
+                color: STATUS_COLORS[row.status],
+                background: STATUS_COLORS[row.status] + '1a',
+              }">
+                {{ t(statusLabel[row.status] ?? row.status) }}
+              </span>
+
+              <span class="assignee">
+                <span class="avatar" v-if="row.assigned_user">
+                  {{ userInitial(row.assigned_user) }}
+                </span>
+                <n-icon v-else :component="PersonOutline" size="14" />
+                <span class="assignee-name">
+                  {{ row.assigned_user?.display_name ?? row.assigned_user?.username ?? t('incident.unassigned') }}
+                </span>
+              </span>
+
+              <span class="trigger-time">
+                {{ t('incident.triggeredAt') }}: {{ formatTime(row.triggered_at) }}
+              </span>
+
+              <span class="row-actions" @click.stop>
+                <n-button
+                  v-if="row.status !== 'closed' && row.status !== 'processing'"
+                  size="tiny" type="primary" tertiary
+                  @click="acknowledgeIncident(row.id, $event)"
+                >{{ t('incident.acknowledge') }}</n-button>
+                <n-button
+                  v-if="row.status !== 'closed'"
+                  size="tiny" tertiary
+                  @click="closeIncident(row.id, $event)"
+                >{{ t('incident.close') }}</n-button>
+              </span>
+            </div>
+          </div>
+
+          <n-icon :component="ChevronForwardOutline" class="chevron" size="18" />
+        </div>
+      </div>
+
+      <div v-if="total > pageSize" class="pagination">
         <n-pagination
           v-model:page="page"
-          :page-count="Math.ceil(total / pageSize)"
+          :page-count="totalPages"
           @update:page="loadIncidents"
         />
       </div>
-    </n-card>
+    </n-spin>
 
     <!-- Create Modal -->
     <n-modal
@@ -306,6 +353,198 @@ onMounted(loadIncidents)
 
 <style scoped>
 .incidents-page { max-width: 1400px; }
-.filter-card { border-radius: 12px; margin-bottom: 16px; }
-.table-card { border-radius: 12px; }
+
+.primary-tabs {
+  margin-bottom: 12px;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-label {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+}
+.filter-spacer { flex: 1; }
+.search-box { width: 240px; min-width: 180px; }
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.dot-lg { width: 10px; height: 10px; margin-right: 8px; }
+
+/* Incident list */
+.incident-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.incident-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border);
+  border-radius: 10px;
+  padding: 14px 18px 14px 22px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+.incident-row:hover {
+  background: var(--sre-bg-hover, rgba(127, 127, 127, 0.06));
+  border-color: var(--sre-primary, #6366f1);
+}
+.incident-row:hover .chevron {
+  opacity: 1;
+  transform: translateX(2px);
+}
+.incident-row.is-closed { opacity: 0.72; }
+
+.status-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.row-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.row-line-1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.severity-text {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.incident-id {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.incident-title {
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.row-line-2 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+}
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.row-line-3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sre-text-secondary);
+}
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--sre-primary, #6366f1);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+}
+.assignee-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trigger-time { color: var(--sre-text-tertiary); }
+.row-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.chevron {
+  flex-shrink: 0;
+  margin-left: 12px;
+  color: var(--sre-text-tertiary);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  background: var(--sre-bg-card);
+  border: 1px dashed var(--sre-border);
+  border-radius: 12px;
+}
+.empty-icon { color: var(--sre-text-tertiary); margin-bottom: 12px; opacity: 0.6; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--sre-text-primary); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: var(--sre-text-tertiary); }
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
 </style>

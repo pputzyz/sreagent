@@ -115,37 +115,42 @@ function renderIcon(icon: any) {
 
 const menuOptions = computed<MenuOption[]>(() => {
   const items: MenuOption[] = [
-    { label: t('menu.dashboard'),  key: '/dashboard',  icon: renderIcon(GridOutline) },
-    // v2 core
-    { label: t('menu.incidentDashboard'), key: '/incident-dashboard', icon: renderIcon(BarChartOutline) },
-    { label: t('menu.channels'),          key: '/channels',           icon: renderIcon(LayersOutline) },
-    { label: t('menu.incidents'),         key: '/incidents',          icon: renderIcon(BugOutline) },
-    { label: t('menu.alertsV2'),          key: '/alerts-v2',          icon: renderIcon(FlashOutline) },
-    { label: t('menu.integrations'),      key: '/integrations',       icon: renderIcon(GitNetworkOutline) },
-    // existing
-    { label: t('menu.dataQuery'), key: '/query',      icon: renderIcon(SearchOutline) },
-    {
-      label: t('menu.datasources'), key: '/datasources', icon: renderIcon(ServerOutline),
-      children: [
-        { label: t('menu.datasourceList'), key: '/datasources' },
-      ],
-    },
-    {
-      label: t('menu.alertManagement'),  key: '/alerts', icon: renderIcon(AlertCircleOutline),
-      children: [
-        { label: t('menu.alertRules'),      key: '/alerts/rules' },
-        { label: t('menu.activeAlerts'),    key: '/alerts/events' },
-        { label: t('menu.alertHistory'),    key: '/alerts/history' },
-        { label: t('menu.muteRules'),       key: '/alerts/mute-rules' },
-        { label: t('menu.inhibitionRules'), key: '/alerts/inhibition-rules' },
-      ],
-    },
-    { label: t('menu.notification'), key: '/notification', icon: renderIcon(NotificationsOutline) },
-    { label: t('menu.schedule'),     key: '/schedule',     icon: renderIcon(CalendarOutline) },
+    // ===== 概览 =====
+    { type: 'group', label: '概览', key: 'g-overview', children: [
+      { label: t('menu.dashboard'),         key: '/dashboard',          icon: renderIcon(GridOutline) },
+      { label: t('menu.incidentDashboard'), key: '/incident-dashboard', icon: renderIcon(BarChartOutline) },
+    ]},
+    // ===== 故障管理 =====
+    { type: 'group', label: '故障管理', key: 'g-incident', children: [
+      { label: t('menu.channels'),  key: '/channels',  icon: renderIcon(LayersOutline) },
+      { label: t('menu.incidents'), key: '/incidents', icon: renderIcon(BugOutline) },
+      { label: t('menu.alertsV2'),  key: '/alerts-v2', icon: renderIcon(FlashOutline) },
+    ]},
+    // ===== 告警引擎 =====
+    { type: 'group', label: '告警引擎', key: 'g-engine', children: [
+      { label: t('menu.alertRules'),      key: '/alerts/rules',           icon: renderIcon(AlertCircleOutline) },
+      { label: t('menu.activeAlerts'),    key: '/alerts/events' },
+      { label: t('menu.alertHistory'),    key: '/alerts/history' },
+      { label: t('menu.muteRules'),       key: '/alerts/mute-rules' },
+      { label: t('menu.inhibitionRules'), key: '/alerts/inhibition-rules' },
+    ]},
+    // ===== 集成与数据 =====
+    { type: 'group', label: '集成与数据', key: 'g-integration', children: [
+      { label: t('menu.integrations'), key: '/integrations', icon: renderIcon(GitNetworkOutline) },
+      { label: t('menu.datasources'),  key: '/datasources',  icon: renderIcon(ServerOutline) },
+      { label: t('menu.dataQuery'),    key: '/query',        icon: renderIcon(SearchOutline) },
+    ]},
+    // ===== 通知与值班 =====
+    { type: 'group', label: '通知与值班', key: 'g-notify', children: [
+      { label: t('menu.notification'), key: '/notification', icon: renderIcon(NotificationsOutline) },
+      { label: t('menu.schedule'),     key: '/schedule',     icon: renderIcon(CalendarOutline) },
+    ]},
   ]
   // Settings page is only visible to admin and team_lead roles
   if (authStore.canManage) {
-    items.push({ label: t('menu.settings'), key: '/settings', icon: renderIcon(SettingsOutline) })
+    items.push({ type: 'group', label: '系统', key: 'g-system', children: [
+      { label: t('menu.settings'), key: '/settings', icon: renderIcon(SettingsOutline) },
+    ]})
   }
   return items
 })
@@ -843,6 +848,24 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 .sre-menu :deep(.n-menu-item-content) {
   position: relative;
   overflow: visible;
+  padding: 6px 12px !important;
+  min-height: 34px;
+}
+
+/* Group label: small uppercase, FlashCat style */
+.sre-menu :deep(.n-menu-item-group-title) {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--sre-text-tertiary) !important;
+  padding: 16px 12px 6px !important;
+}
+
+/* Hide group titles in collapsed (icon-rail) mode */
+.n-layout-sider--collapsed .sre-menu :deep(.n-menu-item-group-title),
+.n-layout-sider.n-layout-sider--collapsed .sre-menu :deep(.n-menu-item-group-title) {
+  display: none;
 }
 
 /* Bottom area: ⌘K + version */

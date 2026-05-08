@@ -1231,6 +1231,11 @@ export default {
     noIncidents: 'No incidents',
     myIncidents: 'Assigned to me',
     allIncidents: 'All Incidents',
+    duration: 'Duration',
+    unassigned: 'Unassigned',
+    empty: 'No incidents, all systems operational',
+    emptyMine: 'No incidents assigned to you',
+    emptySub: 'No matching records under current filters',
   },
 
   // ===== v2: Alerts view =====

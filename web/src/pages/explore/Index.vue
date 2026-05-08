@@ -1,33 +1,34 @@
 <script setup lang="ts">
 /**
- * Data Query Page — unified metrics + logs query interface.
+ * Data Query Page — unified metrics + logs query interface (refactored).
  *
- * Supports:
- *  - Prometheus / VictoriaMetrics: PromQL / MetricsQL range queries → chart + table
- *  - VictoriaLogs: LogsQL queries → log entry table
- *  - Zabbix: item key queries → table
+ * Inspired by Grafana Explore + FlashCat layout:
+ *  - Compact horizontal preset time buttons (5m..30d) + custom range
+ *  - Refresh button + auto-refresh dropdown with countdown
+ *  - Step selector for metrics, Limit selector for both tabs
+ *  - Query history popover (localStorage), clear button, CSV export
  *
- * All heavy dependencies (ECharts, CodeMirror) are lazily imported via
- * defineAsyncComponent / dynamic import so that a missing or broken dep
- * never white-screens the page — the fallback is a plain textarea + table.
+ * All heavy deps (ECharts) lazy-loaded with fallback.
  */
-import { ref, onMounted, computed, watch, shallowRef } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NSelect, NButton, NSpace, NTag, NAlert, NSpin,
-  NDataTable, NTabs, NTabPane, NInputNumber, NInput,
-  useMessage,
+  NDataTable, NTabs, NTabPane, NInput, NDatePicker,
+  NPopover, NIcon, NTooltip, useMessage,
 } from 'naive-ui'
+import {
+  RefreshOutline, TimeOutline, TrashOutline, DownloadOutline,
+} from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
 import type { DataSource, DataSourceType } from '@/types'
 
 const { t } = useI18n()
 const message = useMessage()
 
-// --- Lazy ECharts (never blocks page render) ---
+// --- Lazy ECharts ---
 const ChartReady = ref(false)
 const VChart = shallowRef<any>(null)
-const echartsSetup = shallowRef<any>(null)
 
 async function loadECharts() {
   try {
@@ -39,24 +40,16 @@ async function loadECharts() {
       import('vue-echarts'),
     ])
     use([
-      CanvasRenderer,
-      LineChart,
-      components.TooltipComponent,
-      components.LegendComponent,
-      components.GridComponent,
-      components.DataZoomComponent,
+      CanvasRenderer, LineChart,
+      components.TooltipComponent, components.LegendComponent,
+      components.GridComponent, components.DataZoomComponent,
     ])
     VChart.value = vc.default
     ChartReady.value = true
   } catch (e) {
-    console.warn('[DataQuery] ECharts load failed, chart mode unavailable:', e)
+    console.warn('[DataQuery] ECharts load failed:', e)
   }
 }
-
-// PromQLEditor removed — CodeMirror dependency chain was the root cause of
-// repeated white-screen issues (v1.16.10-v1.16.18). Using stable NInput textarea
-// for query input. If CodeMirror support is needed later, re-introduce it as
-// a lazy async component with proper error boundary.
 
 type ResultMode = 'chart' | 'table'
 type QueryTab = 'metrics' | 'logs'
@@ -71,63 +64,186 @@ const logEntries = ref<any[]>([])
 const metricData = ref<any>(null)
 const logTotal = ref(0)
 const logTruncated = ref(false)
-const logLimit = ref(200)
 const resultMode = ref<ResultMode>('chart')
 const activeTab = ref<QueryTab>('metrics')
 
-// --- time ---
+// --- time range ---
+// rangeMin: minutes; -1 = custom
+const rangeMin = ref<number>(60)
+const customRange = ref<[number, number] | null>(null)
 const now = ref(Date.now())
-const rangeH = ref(1)
-const timeStart = computed(() => Math.floor((now.value - rangeH.value * 3600000) / 1000))
-const timeEnd = computed(() => Math.floor(now.value / 1000))
 
-const timeOptions = [
-  { label: t('query.last1h'), value: 1 },
-  { label: t('query.last6h'), value: 6 },
-  { label: t('query.last24h'), value: 24 },
-  { label: t('query.last3d'), value: 72 },
-  { label: t('query.last7d'), value: 168 },
+const presetOptions = [
+  { label: '5m', value: 5 },
+  { label: '15m', value: 15 },
+  { label: '30m', value: 30 },
+  { label: '1h', value: 60 },
+  { label: '3h', value: 180 },
+  { label: '6h', value: 360 },
+  { label: '12h', value: 720 },
+  { label: '24h', value: 1440 },
+  { label: '2d', value: 2880 },
+  { label: '7d', value: 10080 },
+  { label: '30d', value: 43200 },
 ]
+
+const showCustomPicker = ref(false)
+
+const timeStart = computed(() => {
+  if (rangeMin.value === -1 && customRange.value) {
+    return Math.floor(customRange.value[0] / 1000)
+  }
+  return Math.floor((now.value - rangeMin.value * 60000) / 1000)
+})
+const timeEnd = computed(() => {
+  if (rangeMin.value === -1 && customRange.value) {
+    return Math.floor(customRange.value[1] / 1000)
+  }
+  return Math.floor(now.value / 1000)
+})
+
+const rangeDisplay = computed(() => {
+  const s = new Date(timeStart.value * 1000).toLocaleString()
+  const e = new Date(timeEnd.value * 1000).toLocaleString()
+  return `${s} → ${e}`
+})
+
+function selectPreset(v: number) {
+  rangeMin.value = v
+  showCustomPicker.value = false
+  now.value = Date.now()
+}
+
+function openCustomRange() {
+  rangeMin.value = -1
+  showCustomPicker.value = true
+  if (!customRange.value) {
+    const n = Date.now()
+    customRange.value = [n - 3600000, n]
+  }
+}
+
+// --- step ---
+const stepOptions = [
+  { label: '自动', value: 'auto' },
+  { label: '15s', value: '15s' },
+  { label: '30s', value: '30s' },
+  { label: '1m', value: '1m' },
+  { label: '5m', value: '5m' },
+  { label: '15m', value: '15m' },
+  { label: '1h', value: '1h' },
+]
+const stepValue = ref<string>('auto')
+
+function resolveStep(): string {
+  if (stepValue.value !== 'auto') return stepValue.value
+  const diff = timeEnd.value - timeStart.value
+  return diff <= 3600 ? '15s' : diff <= 21600 ? '1m' : diff <= 86400 ? '5m' : '15m'
+}
+
+// --- limit ---
+const metricLimit = ref<number>(100)
+const metricLimitOptions = [50, 100, 200, 500, 1000].map(v => ({ label: String(v), value: v }))
+
+const logLimit = ref<number>(200)
+const logLimitOptions = [50, 100, 200, 500, 1000, 5000].map(v => ({ label: String(v), value: v }))
+
+// --- auto-refresh ---
+const autoRefreshOptions = [
+  { label: '关闭', value: 0 },
+  { label: '5s', value: 5 },
+  { label: '10s', value: 10 },
+  { label: '30s', value: 30 },
+  { label: '1min', value: 60 },
+  { label: '5min', value: 300 },
+]
+const autoRefreshSec = ref<number>(0)
+const autoCountdown = ref<number>(0)
+let autoTimer: any = null
+
+function startAutoTimer() {
+  stopAutoTimer()
+  if (autoRefreshSec.value <= 0) return
+  autoCountdown.value = autoRefreshSec.value
+  autoTimer = setInterval(() => {
+    autoCountdown.value -= 1
+    if (autoCountdown.value <= 0) {
+      run()
+      autoCountdown.value = autoRefreshSec.value
+    }
+  }, 1000)
+}
+
+function stopAutoTimer() {
+  if (autoTimer) {
+    clearInterval(autoTimer)
+    autoTimer = null
+  }
+  autoCountdown.value = 0
+}
+
+watch(autoRefreshSec, () => startAutoTimer())
+
+// --- query history ---
+type HistoryItem = { tab: QueryTab; expression: string; ts: number }
+const HISTORY_KEY = 'sre-query-history'
+const history = ref<HistoryItem[]>([])
+const historyVisible = ref(false)
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    if (raw) history.value = JSON.parse(raw) || []
+  } catch { /* ignore */ }
+}
+
+function pushHistory(tab: QueryTab, expr: string) {
+  if (!expr.trim()) return
+  const list = history.value.filter(h => !(h.tab === tab && h.expression === expr))
+  list.unshift({ tab, expression: expr, ts: Date.now() })
+  history.value = list.slice(0, 20)
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value)) } catch { /* ignore */ }
+}
+
+const filteredHistory = computed(() =>
+  history.value.filter(h => h.tab === activeTab.value).slice(0, 10)
+)
+
+function applyHistory(item: HistoryItem) {
+  expression.value = item.expression
+  historyVisible.value = false
+}
+
+function clearExpression() {
+  expression.value = ''
+}
 
 // --- computed ---
 const selectedDs = computed(() => datasources.value.find(d => d.id === selectedDsId.value))
-
 const metricDatasources = computed(() =>
   datasources.value.filter(d => ['prometheus', 'victoriametrics', 'zabbix'].includes(d.type))
 )
 const logDatasources = computed(() =>
   datasources.value.filter(d => d.type === 'victorialogs')
 )
-
-const currentDsList = computed(() =>
-  activeTab.value === 'logs' ? logDatasources.value : metricDatasources.value
-)
-
 const isLogs = computed(() => activeTab.value === 'logs')
-const isMetrics = computed(() => activeTab.value === 'metrics')
 
 function dsLabel(ds: DataSource): string {
   return `${ds.name} (${typeBadge(ds.type)})`
 }
-
-function typeBadge(t: DataSourceType): string {
+function typeBadge(tp: DataSourceType): string {
   const m: Record<string, string> = {
-    prometheus: 'Prometheus',
-    victoriametrics: 'VictoriaMetrics',
-    victorialogs: 'VictoriaLogs',
-    zabbix: 'Zabbix',
+    prometheus: 'Prometheus', victoriametrics: 'VictoriaMetrics',
+    victorialogs: 'VictoriaLogs', zabbix: 'Zabbix',
   }
-  return m[t] || t
+  return m[tp] || tp
 }
-
-function typeColor(t: DataSourceType): string {
+function typeColor(tp: DataSourceType): string {
   const m: Record<string, string> = {
-    prometheus: '#e6522c',
-    victoriametrics: '#1a7f37',
-    victorialogs: '#0550ae',
-    zabbix: '#d32f2f',
+    prometheus: '#e6522c', victoriametrics: '#1a7f37',
+    victorialogs: '#0550ae', zabbix: '#d32f2f',
   }
-  return m[t] || '#666'
+  return m[tp] || '#666'
 }
 
 // --- actions ---
@@ -139,13 +255,9 @@ async function loadDs() {
   } catch { /* ignore */ }
 }
 
-function refreshTime() {
-  now.value = Date.now()
-}
-
 async function run() {
   if (!selectedDsId.value || !expression.value.trim()) return
-  refreshTime()
+  if (rangeMin.value !== -1) now.value = Date.now()
   loading.value = true
   errorMsg.value = ''
   metricData.value = null
@@ -165,16 +277,20 @@ async function run() {
         logTruncated.value = data.truncated || false
       }
     } else {
-      const diff = timeEnd.value - timeStart.value
-      const step = diff <= 3600 ? '15s' : diff <= 21600 ? '1m' : diff <= 86400 ? '5m' : '15m'
       const res = await datasourceApi.rangeQuery(selectedDsId.value, {
         expression: expression.value,
         start: timeStart.value,
         end: timeEnd.value,
-        step,
+        step: resolveStep(),
       })
-      metricData.value = res.data?.data
+      const data = res.data?.data
+      if (data?.series && data.series.length > metricLimit.value) {
+        data.series = data.series.slice(0, metricLimit.value)
+        ;(data as any)._limited = true
+      }
+      metricData.value = data
     }
+    pushHistory(activeTab.value, expression.value)
   } catch (e: any) {
     errorMsg.value = e?.response?.data?.error || e?.response?.data?.message || e?.message || t('query.queryFailed')
   } finally {
@@ -186,15 +302,11 @@ async function run() {
 const chartOption = computed(() => {
   if (!metricData.value?.series?.length) return null
   const seriesList: any[] = []
-  const allTimestamps = new Set<number>()
   for (const s of metricData.value.series) {
     const name = formatLegend(s.labels)
     const data: [number, number][] = []
     for (const v of s.values || []) {
-      const ts = Number(v.ts) * 1000
-      const val = v.value != null ? Number(v.value) : 0
-      data.push([ts, val])
-      allTimestamps.add(ts)
+      data.push([Number(v.ts) * 1000, v.value != null ? Number(v.value) : 0])
     }
     seriesList.push({ name, type: 'line', data, smooth: false, showSymbol: false, connectNulls: true })
   }
@@ -213,7 +325,6 @@ const chartOption = computed(() => {
   }
 })
 
-// --- metric table ---
 const metricColumns = computed(() => [
   { title: t('query.metricName'), key: 'name', ellipsis: { tooltip: true }, width: 200 },
   { title: t('query.value'), key: 'value', width: 160 },
@@ -237,7 +348,6 @@ const metricTableData = computed(() => {
   return rows
 })
 
-// --- log table ---
 const logColumns = computed(() => [
   { title: t('query.logTime'), key: 'timestamp', width: 200, render: (r: any) => fmtTs(r.timestamp) },
   { title: t('query.logMessage'), key: 'message', ellipsis: { tooltip: true } },
@@ -253,7 +363,6 @@ function formatLegend(lbs: Record<string, string>): string {
   }
   return parts.length ? parts.join(', ') : (lbs.__name__ || 'value')
 }
-
 function formatLabelsStr(lbs: any): string {
   if (!lbs) return '-'
   const parts: string[] = []
@@ -262,11 +371,53 @@ function formatLabelsStr(lbs: any): string {
   }
   return parts.length ? parts.join(', ') : '-'
 }
-
 function fmtTs(ts: any): string {
   if (!ts) return '-'
   try { return new Date(ts).toLocaleString() } catch { return String(ts) }
 }
+
+// --- CSV export ---
+function csvEscape(v: any): string {
+  if (v == null) return ''
+  const s = String(v)
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
+  return s
+}
+
+function downloadCsv(rows: string[][], filename: string) {
+  const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function exportCsv() {
+  const ts = new Date().toISOString().replace(/[:.]/g, '-')
+  if (isLogs.value && logEntries.value.length) {
+    const rows = [['timestamp', 'message', 'labels']]
+    for (const e of logEntries.value) {
+      rows.push([fmtTs(e.timestamp), e.message || '', formatLabelsStr(e.labels)])
+    }
+    downloadCsv(rows, `query-result-${ts}.csv`)
+    message.success('已导出 CSV')
+  } else if (metricTableData.value.length) {
+    const rows = [['name', 'value', 'labels']]
+    for (const r of metricTableData.value) rows.push([r.name, r.value, r.labels])
+    downloadCsv(rows, `query-result-${ts}.csv`)
+    message.success('已导出 CSV')
+  }
+}
+
+const canExport = computed(() => {
+  if (isLogs.value) return logEntries.value.length > 0
+  return resultMode.value === 'table' && metricTableData.value.length > 0
+})
 
 // --- watch ---
 watch(selectedDsId, () => {
@@ -287,6 +438,11 @@ watch(activeTab, () => {
 onMounted(() => {
   loadDs()
   loadECharts()
+  loadHistory()
+})
+
+onUnmounted(() => {
+  stopAutoTimer()
 })
 </script>
 
@@ -298,208 +454,263 @@ onMounted(() => {
         <h2 class="query-title">{{ t('query.title') }}</h2>
         <p class="query-subtitle">{{ t('query.subtitle') }}</p>
       </div>
-      <NSpace align="center" :size="12">
-        <NSelect
-          v-model:value="rangeH"
-          :options="timeOptions"
-          size="small"
-          style="width:160px"
-        />
-      </NSpace>
     </div>
 
-    <!-- Tabs: Metrics / Logs -->
-    <NTabs v-model:value="activeTab" type="line" style="margin-bottom:16px">
-      <NTabPane name="metrics" :tab="t('query.metricsTab')">
-        <!-- Data Source Selector -->
-        <div class="ds-selector">
+    <!-- Toolbar Card: time range + refresh -->
+    <div class="toolbar-card">
+      <div class="toolbar-row">
+        <div class="preset-group">
+          <NButton
+            v-for="opt in presetOptions"
+            :key="opt.value"
+            size="small"
+            :type="rangeMin === opt.value ? 'primary' : 'default'"
+            :secondary="rangeMin !== opt.value"
+            @click="selectPreset(opt.value)"
+          >
+            {{ opt.label }}
+          </NButton>
+          <NButton
+            size="small"
+            :type="rangeMin === -1 ? 'primary' : 'default'"
+            :secondary="rangeMin !== -1"
+            @click="openCustomRange"
+          >
+            自定义
+          </NButton>
+        </div>
+
+        <div class="toolbar-right">
+          <NButton size="small" @click="run" :loading="loading">
+            <template #icon><NIcon><RefreshOutline /></NIcon></template>
+            刷新
+          </NButton>
           <NSelect
-            v-model:value="selectedDsId"
-            :options="metricDatasources.map(d => ({ label: dsLabel(d), value: d.id }))"
-            :placeholder="t('query.selectDatasource')"
-            filterable
-            clearable
-            style="max-width:480px;flex:1"
-          />
-          <div v-if="selectedDs" class="ds-info">
-            <NTag :color="{ color: typeColor(selectedDs.type), textColor: '#fff' }" size="small" :bordered="false">
-              {{ typeBadge(selectedDs.type) }}
-            </NTag>
-            <span class="ds-endpoint">{{ selectedDs.endpoint }}</span>
-          </div>
-        </div>
-
-        <!-- Query Input -->
-        <div v-if="selectedDsId != null" class="query-bar">
-          <div class="query-editor-wrap">
-            <NInput
-              v-model:value="expression"
-              type="textarea"
-              :rows="3"
-              :placeholder="t('query.promqlPlaceholder')"
-              style="font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px"
-              @keyup.ctrl.enter="run"
-              @keyup.meta.enter="run"
-            />
-          </div>
-          <div class="query-actions">
-            <NButton type="primary" :loading="loading" :disabled="!expression.trim()" @click="run">
-              {{ t('query.runQuery') }}
-            </NButton>
-            <span class="shortcut-hint">Ctrl + Enter</span>
-          </div>
-        </div>
-
-        <!-- Empty state -->
-        <div v-if="selectedDsId == null" class="query-empty">
-          {{ t('query.selectDatasource') }}
-        </div>
-
-        <!-- Error -->
-        <NAlert v-if="errorMsg" type="error" :title="errorMsg" closable style="margin-bottom:12px" @close="errorMsg = ''" />
-
-        <!-- Loading -->
-        <div v-if="loading" style="display:flex;justify-content:center;padding:40px">
-          <NSpin size="medium" />
-        </div>
-
-        <!-- Metrics Results -->
-        <div v-if="!loading && metricData?.series?.length" class="results-panel">
-          <div class="results-header">
-            <span class="results-count">
-              {{ metricData.series.length }} {{ t('query.seriesCount') }}
-              <template v-if="metricData.resultType"> · {{ metricData.resultType }}</template>
-            </span>
-            <NSpace :size="4">
-              <NButton size="small" :type="resultMode === 'chart' ? 'primary' : 'default'" @click="resultMode = 'chart'">
-                {{ t('query.chart') }}
-              </NButton>
-              <NButton size="small" :type="resultMode === 'table' ? 'primary' : 'default'" @click="resultMode = 'table'">
-                {{ t('query.table') }}
-              </NButton>
-            </NSpace>
-          </div>
-
-          <!-- Chart (lazy, with fallback) -->
-          <div v-if="resultMode === 'chart'" class="chart-container">
-            <template v-if="ChartReady && VChart && chartOption">
-              <component :is="VChart" :option="chartOption" :autoresize="true" style="width:100%;height:400px" />
+            v-model:value="autoRefreshSec"
+            :options="autoRefreshOptions"
+            size="small"
+            style="width:140px"
+          >
+            <template #arrow>
+              <span class="select-prefix">
+                <span v-if="autoRefreshSec > 0 && autoCountdown > 0" class="countdown">{{ autoCountdown }}s</span>
+              </span>
             </template>
-            <div v-else class="chart-fallback">
-              <p>{{ t('query.chartUnavailable') }}</p>
-              <NButton size="small" @click="resultMode = 'table'">{{ t('query.switchToTable') }}</NButton>
-            </div>
-          </div>
-
-          <!-- Table -->
-          <NDataTable
-            v-if="resultMode === 'table'"
-            :columns="metricColumns"
-            :data="metricTableData"
-            :row-key="(r: any) => r._key"
-            size="small"
-            :single-line="false"
-            striped
-            max-height="500"
-            virtual-scroll
-          />
+          </NSelect>
         </div>
+      </div>
 
-        <!-- No results -->
-        <div v-if="!loading && !errorMsg && selectedDsId && expression.trim() && !metricData?.series?.length && metricData !== null" class="query-empty">
-          {{ t('query.noResults') }}
-        </div>
-      </NTabPane>
+      <div v-if="rangeMin === -1 && showCustomPicker" class="custom-range-row">
+        <NDatePicker
+          v-model:value="customRange"
+          type="datetimerange"
+          size="small"
+          clearable
+          style="width:420px"
+        />
+      </div>
 
-      <NTabPane name="logs" :tab="t('query.logsTab')">
-        <!-- Data Source Selector for Logs -->
-        <div class="ds-selector">
-          <NSelect
-            v-model:value="selectedDsId"
-            :options="logDatasources.map(d => ({ label: dsLabel(d), value: d.id }))"
-            :placeholder="t('query.selectLogDatasource')"
-            filterable
-            clearable
-            style="max-width:480px;flex:1"
-          />
-          <div v-if="selectedDs" class="ds-info">
-            <NTag :color="{ color: typeColor(selectedDs.type), textColor: '#fff' }" size="small" :bordered="false">
-              {{ typeBadge(selectedDs.type) }}
-            </NTag>
-            <span class="ds-endpoint">{{ selectedDs.endpoint }}</span>
-          </div>
-        </div>
+      <div class="range-display">
+        <NIcon size="12"><TimeOutline /></NIcon>
+        <span>{{ rangeDisplay }}</span>
+      </div>
+    </div>
 
-        <div v-if="!logDatasources.length" class="query-empty">
-          {{ t('query.noLogDatasources') }}
-        </div>
-
-        <!-- Log Query Input -->
-        <div v-if="selectedDsId != null" class="query-bar">
-          <div class="query-editor-wrap">
-            <NInput
-              v-model:value="expression"
-              type="textarea"
-              :rows="3"
-              :placeholder="t('query.logQueryPlaceholder')"
-              style="font-family: 'JetBrains Mono', 'Fira Code', monospace"
-              @keyup.ctrl.enter="run"
-              @keyup.meta.enter="run"
-            />
-          </div>
-          <div class="query-actions">
-            <NInputNumber
-              v-model:value="logLimit"
-              :min="10"
-              :max="10000"
-              size="small"
-              style="width:120px"
-            >
-              <template #prefix>Limit</template>
-            </NInputNumber>
-            <NButton type="primary" :loading="loading" :disabled="!expression.trim()" @click="run">
-              {{ t('query.runQuery') }}
-            </NButton>
-            <span class="shortcut-hint">Ctrl + Enter</span>
-          </div>
-        </div>
-
-        <!-- Error -->
-        <NAlert v-if="errorMsg" type="error" :title="errorMsg" closable style="margin-bottom:12px" @close="errorMsg = ''" />
-
-        <!-- Loading -->
-        <div v-if="loading" style="display:flex;justify-content:center;padding:40px">
-          <NSpin size="medium" />
-        </div>
-
-        <!-- Log Results -->
-        <div v-if="!loading && logEntries.length" class="results-panel">
-          <div class="results-header">
-            <span class="results-count">
-              {{ t('query.showing') }} {{ logEntries.length }}
-              <template v-if="logTotal > 0"> / {{ logTotal }}</template>
-              {{ t('query.entries') }}
-            </span>
-            <NTag v-if="logTruncated" type="warning" size="small" :bordered="false">
-              {{ t('query.truncated') }}
-            </NTag>
-          </div>
-          <NDataTable
-            :columns="logColumns"
-            :data="logEntries"
-            :row-key="(r: any) => r._key"
-            size="small"
-            max-height="600"
-            virtual-scroll
-          />
-        </div>
-
-        <!-- No results -->
-        <div v-if="!loading && !errorMsg && selectedDsId && expression.trim() && !logEntries.length && logTotal === 0 && metricData === null" class="query-empty">
-          {{ t('query.noResults') }}
-        </div>
-      </NTabPane>
+    <!-- Tabs -->
+    <NTabs v-model:value="activeTab" type="line" style="margin-bottom:12px">
+      <NTabPane name="metrics" :tab="t('query.metricsTab')" />
+      <NTabPane name="logs" :tab="t('query.logsTab')" />
     </NTabs>
+
+    <!-- Editor Card -->
+    <div class="editor-card">
+      <div class="ds-selector">
+        <NSelect
+          v-model:value="selectedDsId"
+          :options="(isLogs ? logDatasources : metricDatasources).map(d => ({ label: dsLabel(d), value: d.id }))"
+          :placeholder="isLogs ? t('query.selectLogDatasource') : t('query.selectDatasource')"
+          filterable
+          clearable
+          size="small"
+          style="max-width:420px;flex:1"
+        />
+        <div v-if="selectedDs" class="ds-info">
+          <NTag :color="{ color: typeColor(selectedDs.type), textColor: '#fff' }" size="small" :bordered="false">
+            {{ typeBadge(selectedDs.type) }}
+          </NTag>
+          <span class="ds-endpoint">{{ selectedDs.endpoint }}</span>
+        </div>
+      </div>
+
+      <div v-if="isLogs && !logDatasources.length" class="query-empty-inline">
+        {{ t('query.noLogDatasources') }}
+      </div>
+
+      <div v-if="selectedDsId != null" class="query-bar">
+        <div class="query-editor-wrap">
+          <NInput
+            v-model:value="expression"
+            type="textarea"
+            :rows="3"
+            :placeholder="isLogs ? t('query.logQueryPlaceholder') : t('query.promqlPlaceholder')"
+            class="expr-input"
+            @keyup.ctrl.enter="run"
+            @keyup.meta.enter="run"
+          />
+          <div class="editor-tools">
+            <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end" style="max-width:480px">
+              <template #trigger>
+                <NTooltip>
+                  <template #trigger>
+                    <NButton size="tiny" quaternary>
+                      <template #icon><NIcon><TimeOutline /></NIcon></template>
+                    </NButton>
+                  </template>
+                  查询历史
+                </NTooltip>
+              </template>
+              <div class="history-pop">
+                <div class="history-title">最近查询</div>
+                <div v-if="!filteredHistory.length" class="history-empty">暂无历史</div>
+                <div
+                  v-for="h in filteredHistory"
+                  :key="h.ts"
+                  class="history-item"
+                  @click="applyHistory(h)"
+                >
+                  <div class="history-expr">{{ h.expression }}</div>
+                  <div class="history-ts">{{ fmtTs(h.ts) }}</div>
+                </div>
+              </div>
+            </NPopover>
+            <NTooltip>
+              <template #trigger>
+                <NButton size="tiny" quaternary :disabled="!expression" @click="clearExpression">
+                  <template #icon><NIcon><TrashOutline /></NIcon></template>
+                </NButton>
+              </template>
+              清空
+            </NTooltip>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="selectedDsId != null" class="query-actions-row">
+        <NSpace :size="8" align="center">
+          <template v-if="!isLogs">
+            <span class="field-label">Step</span>
+            <NSelect v-model:value="stepValue" :options="stepOptions" size="small" style="width:100px" />
+            <span class="field-label">Limit</span>
+            <NSelect v-model:value="metricLimit" :options="metricLimitOptions" size="small" style="width:100px" />
+          </template>
+          <template v-else>
+            <span class="field-label">Limit</span>
+            <NSelect v-model:value="logLimit" :options="logLimitOptions" size="small" style="width:100px" />
+          </template>
+        </NSpace>
+        <NSpace :size="8" align="center">
+          <span class="shortcut-hint">Ctrl + Enter</span>
+          <NButton type="primary" size="small" :loading="loading" :disabled="!expression.trim()" @click="run">
+            {{ t('query.runQuery') }}
+          </NButton>
+        </NSpace>
+      </div>
+
+      <div v-if="selectedDsId == null && !(isLogs && !logDatasources.length)" class="query-empty-inline">
+        {{ isLogs ? t('query.selectLogDatasource') : t('query.selectDatasource') }}
+      </div>
+    </div>
+
+    <!-- Error -->
+    <NAlert v-if="errorMsg" type="error" :title="errorMsg" closable style="margin:12px 0" @close="errorMsg = ''" />
+
+    <!-- Loading -->
+    <div v-if="loading" style="display:flex;justify-content:center;padding:40px">
+      <NSpin size="medium" />
+    </div>
+
+    <!-- Metrics Results -->
+    <div v-if="!loading && !isLogs && metricData?.series?.length" class="results-panel">
+      <div class="results-header">
+        <span class="results-count">
+          {{ metricData.series.length }} {{ t('query.seriesCount') }}
+          <template v-if="metricData.resultType"> · {{ metricData.resultType }}</template>
+          <NTag v-if="metricData._limited" type="warning" size="small" :bordered="false" style="margin-left:8px">
+            已限制 {{ metricLimit }}
+          </NTag>
+        </span>
+        <NSpace :size="4">
+          <NButton size="small" :type="resultMode === 'chart' ? 'primary' : 'default'" :secondary="resultMode !== 'chart'" @click="resultMode = 'chart'">
+            {{ t('query.chart') }}
+          </NButton>
+          <NButton size="small" :type="resultMode === 'table' ? 'primary' : 'default'" :secondary="resultMode !== 'table'" @click="resultMode = 'table'">
+            {{ t('query.table') }}
+          </NButton>
+          <NButton v-if="canExport" size="small" tertiary @click="exportCsv">
+            <template #icon><NIcon><DownloadOutline /></NIcon></template>
+            导出 CSV
+          </NButton>
+        </NSpace>
+      </div>
+
+      <div v-if="resultMode === 'chart'" class="chart-container">
+        <template v-if="ChartReady && VChart && chartOption">
+          <component :is="VChart" :option="chartOption" :autoresize="true" style="width:100%;height:400px" />
+        </template>
+        <div v-else class="chart-fallback">
+          <p>{{ t('query.chartUnavailable') }}</p>
+          <NButton size="small" @click="resultMode = 'table'">{{ t('query.switchToTable') }}</NButton>
+        </div>
+      </div>
+
+      <NDataTable
+        v-if="resultMode === 'table'"
+        :columns="metricColumns"
+        :data="metricTableData"
+        :row-key="(r: any) => r._key"
+        size="small"
+        :single-line="false"
+        striped
+        max-height="500"
+        virtual-scroll
+      />
+    </div>
+
+    <!-- Log Results -->
+    <div v-if="!loading && isLogs && logEntries.length" class="results-panel">
+      <div class="results-header">
+        <span class="results-count">
+          {{ t('query.showing') }} {{ logEntries.length }}
+          <template v-if="logTotal > 0"> / {{ logTotal }}</template>
+          {{ t('query.entries') }}
+          <NTag v-if="logTruncated" type="warning" size="small" :bordered="false" style="margin-left:8px">
+            {{ t('query.truncated') }}
+          </NTag>
+        </span>
+        <NButton v-if="canExport" size="small" tertiary @click="exportCsv">
+          <template #icon><NIcon><DownloadOutline /></NIcon></template>
+          导出 CSV
+        </NButton>
+      </div>
+      <NDataTable
+        :columns="logColumns"
+        :data="logEntries"
+        :row-key="(r: any) => r._key"
+        size="small"
+        max-height="600"
+        virtual-scroll
+      />
+    </div>
+
+    <!-- No results -->
+    <div
+      v-if="!loading && !errorMsg && selectedDsId && expression.trim()
+        && ((!isLogs && metricData !== null && !metricData?.series?.length)
+          || (isLogs && !logEntries.length && metricData === null && logTotal === 0))"
+      class="query-empty"
+    >
+      {{ t('query.noResults') }}
+    </div>
   </div>
 </template>
 
@@ -513,7 +724,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .query-title {
@@ -529,11 +740,73 @@ onMounted(() => {
   margin: 0;
 }
 
+.toolbar-card {
+  background: var(--sre-bg-card, #fff);
+  border: 1px solid var(--sre-border, #e0e0e0);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preset-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.select-prefix {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.countdown {
+  color: var(--n-color-primary, #2080f0);
+  font-weight: 500;
+}
+
+.custom-range-row {
+  margin-top: 8px;
+}
+
+.range-display {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-card {
+  background: var(--sre-bg-card, #fff);
+  border: 1px solid var(--sre-border, #e0e0e0);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
 .ds-selector {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
@@ -549,23 +822,38 @@ onMounted(() => {
 }
 
 .query-bar {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .query-editor-wrap {
-  flex: 1;
-  min-width: 0;
+  position: relative;
 }
 
-.query-actions {
+.expr-input :deep(textarea) {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  padding-right: 70px;
+}
+
+.editor-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
   display: flex;
+  gap: 2px;
+}
+
+.query-actions-row {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+.field-label {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
 }
 
 .shortcut-hint {
@@ -581,6 +869,12 @@ onMounted(() => {
   min-height: 200px;
   color: var(--sre-text-tertiary);
   font-size: 14px;
+}
+
+.query-empty-inline {
+  padding: 16px 4px;
+  color: var(--sre-text-tertiary);
+  font-size: 13px;
 }
 
 .results-panel {
@@ -616,5 +910,51 @@ onMounted(() => {
   gap: 12px;
   color: var(--sre-text-tertiary);
   font-size: 13px;
+}
+
+.history-pop {
+  min-width: 360px;
+  max-width: 480px;
+}
+
+.history-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sre-text-secondary);
+  margin-bottom: 8px;
+}
+
+.history-empty {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  padding: 12px 0;
+  text-align: center;
+}
+
+.history-item {
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.history-item:hover {
+  background: var(--sre-bg-hover, rgba(0,0,0,0.04));
+  border-color: var(--sre-border, #e0e0e0);
+}
+
+.history-expr {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--sre-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-ts {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  margin-top: 2px;
 }
 </style>

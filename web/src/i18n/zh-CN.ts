@@ -1252,6 +1252,11 @@ export default {
     noIncidents: '暂无故障',
     myIncidents: '分派给我',
     allIncidents: '全部故障',
+    duration: '持续',
+    unassigned: '未分派',
+    empty: '暂无故障，运行平稳',
+    emptyMine: '无人分派给你的故障',
+    emptySub: '当前筛选条件下没有匹配的故障记录',
   },
 
   // ===== v2: Alerts view =====
