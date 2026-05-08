@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, shallowRef, onMounted, computed, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
+import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi, alertV2Api, userApi } from '@/api'
 import type { Incident, IncidentTimeline, AlertV2, User } from '@/types'
 import { formatTime } from '@/utils/format'
-import PageHeader from '@/components/common/PageHeader.vue'
 import {
   ArrowBackOutline, SparklesOutline, VolumeOffOutline,
   TimeOutline, GitMergeOutline, PersonOutline,
+  EllipsisHorizontal, RefreshOutline, ArrowUpCircleOutline,
 } from '@vicons/ionicons5'
 import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
 import { MdEditor } from 'md-editor-v3'
@@ -21,9 +21,9 @@ const route = useRoute()
 const router = useRouter()
 
 const incidentId = computed(() => Number(route.params.id))
-const incident = ref<Incident | null>(null)
-const timeline = ref<IncidentTimeline[]>([])
-const relatedAlerts = ref<AlertV2[]>([])
+const incident = shallowRef<Incident | null>(null)
+const timeline = shallowRef<IncidentTimeline[]>([])
+const relatedAlerts = shallowRef<AlertV2[]>([])
 const loading = ref(false)
 const activeTab = ref('overview')
 const commentText = ref('')
@@ -38,35 +38,31 @@ const pmLoading = ref(false)
 const pmSaving = ref(false)
 const pmAiLoading = ref(false)
 
-// ---- Snooze modal ----
+// Snooze
 const showSnooze = ref(false)
 const snoozeLoading = ref(false)
-const snoozeDuration = ref<number | null>(null) // minutes preset
+const snoozeDuration = ref<number | null>(null)
 const snoozeCustomUntil = ref('')
 const snoozePresets = [
-  { label: '15 分钟', minutes: 15 },
-  { label: '30 分钟', minutes: 30 },
-  { label: '1 小时', minutes: 60 },
-  { label: '2 小时', minutes: 120 },
-  { label: '4 小时', minutes: 240 },
+  { label: '15m', minutes: 15 },
+  { label: '30m', minutes: 30 },
+  { label: '1h', minutes: 60 },
+  { label: '2h', minutes: 120 },
+  { label: '4h', minutes: 240 },
   { label: '自定义', minutes: -1 },
 ]
 
 async function doSnooze() {
   let until: string
   if (snoozeDuration.value === -1) {
-    if (!snoozeCustomUntil.value) {
-      message.warning('请选择暂缓结束时间')
-      return
-    }
+    if (!snoozeCustomUntil.value) { message.warning('请选择暂缓结束时间'); return }
     until = new Date(snoozeCustomUntil.value).toISOString()
   } else if (snoozeDuration.value) {
     const d = new Date()
     d.setMinutes(d.getMinutes() + snoozeDuration.value)
     until = d.toISOString()
   } else {
-    message.warning('请选择暂缓时长')
-    return
+    message.warning('请选择暂缓时长'); return
   }
   snoozeLoading.value = true
   try {
@@ -76,14 +72,10 @@ async function doSnooze() {
     snoozeDuration.value = null
     snoozeCustomUntil.value = ''
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? '操作失败')
-  } finally {
-    snoozeLoading.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? '操作失败') } finally { snoozeLoading.value = false }
 }
 
-// ---- Merge modal ----
+// Merge
 const showMerge = ref(false)
 const mergeLoading = ref(false)
 const mergeSearch = ref('')
@@ -97,32 +89,21 @@ async function searchMergeIncidents() {
   try {
     const res = await incidentApi.list({ query: mergeSearch.value, page: 1, page_size: 10 })
     mergeResults.value = (res.data.data?.list ?? []).filter((i: Incident) => i.id !== incidentId.value)
-  } catch (e: any) {
-    message.error(e?.message ?? '搜索失败')
-  } finally {
-    mergeSearchLoading.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? '搜索失败') } finally { mergeSearchLoading.value = false }
 }
 
 async function doMerge() {
-  if (!mergeTargetId.value) {
-    message.warning('请选择目标故障')
-    return
-  }
+  if (!mergeTargetId.value) { message.warning('请选择目标故障'); return }
   mergeLoading.value = true
   try {
     await incidentApi.merge(incidentId.value, mergeTargetId.value)
-    message.success('合并成功，当前故障已并入目标故障')
+    message.success('合并成功')
     showMerge.value = false
     router.push(`/incidents/${mergeTargetId.value}`)
-  } catch (e: any) {
-    message.error(e?.message ?? '操作失败')
-  } finally {
-    mergeLoading.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? '操作失败') } finally { mergeLoading.value = false }
 }
 
-// ---- Reassign modal ----
+// Reassign
 const showReassign = ref(false)
 const reassignLoading = ref(false)
 const reassignSearch = ref('')
@@ -139,21 +120,13 @@ async function searchUsers() {
     reassignUsers.value = q
       ? allUsers.filter(u =>
           (u.username?.toLowerCase().includes(q)) ||
-          (u.display_name?.toLowerCase().includes(q))
-        )
+          (u.display_name?.toLowerCase().includes(q)))
       : allUsers
-  } catch (e: any) {
-    message.error(e?.message ?? '搜索失败')
-  } finally {
-    reassignSearchLoading.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? '搜索失败') } finally { reassignSearchLoading.value = false }
 }
 
 async function doReassign() {
-  if (!reassignUserId.value) {
-    message.warning('请选择处理人')
-    return
-  }
+  if (!reassignUserId.value) { message.warning('请选择处理人'); return }
   reassignLoading.value = true
   try {
     await incidentApi.reassign(incidentId.value, reassignUserId.value)
@@ -161,19 +134,9 @@ async function doReassign() {
     showReassign.value = false
     reassignUserId.value = null
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? '操作失败')
-  } finally {
-    reassignLoading.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? '操作失败') } finally { reassignLoading.value = false }
 }
 
-const severityTagType: Record<string, 'error' | 'warning' | 'info'> = {
-  critical: 'error', warning: 'warning', info: 'info',
-}
-const statusTagType: Record<string, 'error' | 'warning' | 'success' | 'default'> = {
-  triggered: 'error', processing: 'warning', closed: 'success',
-}
 const statusLabel: Record<string, string> = {
   triggered: 'incident.statusTriggered',
   processing: 'incident.statusProcessing',
@@ -183,6 +146,30 @@ const severityLabel: Record<string, string> = {
   critical: 'incident.severityCritical',
   warning: 'incident.severityWarning',
   info: 'incident.severityInfo',
+}
+
+function relTime(ts?: string): string {
+  if (!ts) return '—'
+  const diff = Date.now() - new Date(ts).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  return `${d}d ago`
+}
+
+function durationStr(start?: string, end?: string): string {
+  if (!start) return '—'
+  const s = new Date(start).getTime()
+  const e = end ? new Date(end).getTime() : Date.now()
+  let sec = Math.max(0, Math.floor((e - s) / 1000))
+  const h = Math.floor(sec / 3600); sec -= h * 3600
+  const m = Math.floor(sec / 60); sec -= m * 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${sec}s`
+  return `${sec}s`
 }
 
 async function load() {
@@ -198,9 +185,7 @@ async function load() {
     relatedAlerts.value = alertRes.data.data?.list ?? []
   } catch (e: any) {
     message.error(e?.message ?? t('common.loadFailed'))
-  } finally {
-    loading.value = false
-  }
+  } finally { loading.value = false }
 }
 
 async function doAction(action: 'acknowledge' | 'close' | 'reopen' | 'escalate') {
@@ -208,9 +193,7 @@ async function doAction(action: 'acknowledge' | 'close' | 'reopen' | 'escalate')
     await incidentApi[action](incidentId.value)
     message.success(t('common.success'))
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
-  }
+  } catch (e: any) { message.error(e?.message ?? t('common.failed')) }
 }
 
 async function submitComment() {
@@ -221,24 +204,15 @@ async function submitComment() {
     commentText.value = ''
     const tlRes = await incidentApi.getTimeline(incidentId.value)
     timeline.value = tlRes.data.data ?? []
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
-  } finally {
-    submittingComment.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? t('common.failed')) } finally { submittingComment.value = false }
 }
 
-// --- Post-mortem ---
 async function loadPostMortem() {
   pmLoading.value = true
   try {
     const res = await incidentApi.getPostMortem(incidentId.value)
     postMortem.value = res.data.data ?? null
-  } catch {
-    postMortem.value = null
-  } finally {
-    pmLoading.value = false
-  }
+  } catch { postMortem.value = null } finally { pmLoading.value = false }
 }
 
 async function savePostMortem() {
@@ -251,11 +225,7 @@ async function savePostMortem() {
     })
     postMortem.value = res.data.data
     message.success(t('common.savedSuccess'))
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.saveFailed'))
-  } finally {
-    pmSaving.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? t('common.saveFailed')) } finally { pmSaving.value = false }
 }
 
 async function publishPostMortem() {
@@ -264,11 +234,7 @@ async function publishPostMortem() {
     const res = await incidentApi.publishPostMortem(incidentId.value)
     postMortem.value = res.data.data
     message.success(t('postMortem.published'))
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
-  } finally {
-    pmSaving.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? t('common.failed')) } finally { pmSaving.value = false }
 }
 
 async function aiGeneratePostMortem() {
@@ -277,47 +243,31 @@ async function aiGeneratePostMortem() {
     const res = await incidentApi.aiGeneratePostMortem(incidentId.value)
     postMortem.value = res.data.data
     message.success('AI 初稿已生成')
-  } catch (e: any) {
-    message.error(e?.message ?? 'AI 生成失败')
-  } finally {
-    pmAiLoading.value = false
-  }
+  } catch (e: any) { message.error(e?.message ?? 'AI 生成失败') } finally { pmAiLoading.value = false }
 }
 
-const alertColumns = computed(() => [
-  {
-    title: t('incident.severity'),
-    key: 'severity',
-    width: 90,
-    render: (row: AlertV2) =>
-      h(NTag, { type: (severityTagType as any)[row.severity] ?? 'default', size: 'small' },
-        { default: () => row.severity.toUpperCase() }),
-  },
-  {
-    title: t('common.name'),
-    key: 'title',
-    render: (row: AlertV2) => h('span', {}, row.title),
-  },
-  {
-    title: t('common.status'),
-    key: 'status',
-    width: 100,
-    render: (row: AlertV2) =>
-      h(NTag, { type: row.status === 'firing' ? 'error' : 'success', size: 'small' },
-        { default: () => row.status === 'firing' ? 'Firing' : 'Resolved' }),
-  },
-  {
-    title: t('alertV2.lastFiredAt'),
-    key: 'last_fired_at',
-    render: (row: AlertV2) => h('span', { style: 'font-size:12px' }, formatTime(row.last_fired_at)),
-  },
-  {
-    title: t('alertV2.fireCount'),
-    key: 'fire_count',
-    width: 90,
-    render: (row: AlertV2) => h('span', {}, String(row.fire_count)),
-  },
-])
+const moreActionOptions = computed(() => {
+  const opts: any[] = [
+    { label: t('incident.escalate'), key: 'escalate', icon: () => h(NIcon, { component: ArrowUpCircleOutline }) },
+    { label: '重新分派', key: 'reassign', icon: () => h(NIcon, { component: PersonOutline }) },
+    { label: '合并故障', key: 'merge', icon: () => h(NIcon, { component: GitMergeOutline }) },
+    { label: '快速静默', key: 'silence', icon: () => h(NIcon, { component: VolumeOffOutline }) },
+  ]
+  if (incident.value && incident.value.status !== 'closed') {
+    opts.splice(1, 0, { label: '暂缓', key: 'snooze', icon: () => h(NIcon, { component: TimeOutline }) })
+  }
+  return opts
+})
+
+function handleMoreAction(key: string) {
+  switch (key) {
+    case 'escalate': doAction('escalate'); break
+    case 'snooze': showSnooze.value = true; break
+    case 'reassign': showReassign.value = true; break
+    case 'merge': showMerge.value = true; break
+    case 'silence': showQuickSilence.value = true; break
+  }
+}
 
 onMounted(async () => {
   await load()
@@ -328,262 +278,321 @@ onMounted(async () => {
 
 <template>
   <div class="incident-detail">
-    <PageHeader
-      :title="incident ? `#${incident.id} ${incident.title}` : t('incident.title')"
-      :subtitle="incident?.channel?.name ?? ''"
-    >
-      <template #actions>
-        <n-button quaternary @click="router.back()">
-          <template #icon><n-icon :component="ArrowBackOutline" /></template>
-          {{ t('common.back') }}
-        </n-button>
-      </template>
-    </PageHeader>
+    <!-- Header -->
+    <header class="detail-header">
+      <div class="header-top">
+        <div class="header-left">
+          <n-button quaternary circle size="small" @click="router.back()">
+            <template #icon><n-icon :component="ArrowBackOutline" /></template>
+          </n-button>
+          <span v-if="incident" class="incident-id tnum">#{{ incident.id }}</span>
+          <h1 class="incident-title">{{ incident?.title ?? t('incident.title') }}</h1>
+        </div>
+        <div class="header-right">
+          <n-button quaternary circle size="small" :loading="loading" @click="load">
+            <template #icon><n-icon :component="RefreshOutline" /></template>
+          </n-button>
+          <n-dropdown
+            v-if="incident"
+            trigger="click"
+            :options="moreActionOptions"
+            @select="handleMoreAction"
+          >
+            <n-button quaternary size="small">
+              <template #icon><n-icon :component="EllipsisHorizontal" /></template>
+              操作
+            </n-button>
+          </n-dropdown>
+        </div>
+      </div>
+
+      <div
+        v-if="incident"
+        class="header-stripe sre-row-card"
+        :data-severity="incident.severity"
+      >
+        <span class="sre-dot" :data-severity="incident.severity" />
+        <span class="stripe-text">{{ t(severityLabel[incident.severity] ?? incident.severity) }}</span>
+        <span class="sre-meta-divider" />
+        <span class="stripe-text">{{ t(statusLabel[incident.status] ?? incident.status) }}</span>
+        <span class="sre-meta-divider" />
+        <span class="stripe-text">{{ incident.channel?.name ?? '—' }}</span>
+        <span class="sre-meta-divider" />
+        <span class="stripe-text tnum">{{ durationStr(incident.triggered_at, incident.closed_at) }}</span>
+      </div>
+    </header>
 
     <n-spin :show="loading">
-      <div v-if="incident" class="detail-layout">
-        <!-- Left: main content -->
+      <div v-if="incident" class="detail-layout sre-fadein">
+        <!-- LEFT MAIN -->
         <div class="detail-main">
           <!-- Action bar -->
-          <n-card :bordered="false" class="action-card">
-            <n-space wrap>
-              <n-tag :type="statusTagType[incident.status] ?? 'default'" size="medium">
-                {{ t(statusLabel[incident.status] ?? incident.status) }}
-              </n-tag>
-              <n-tag :type="severityTagType[incident.severity] ?? 'default'" size="medium">
-                {{ t(severityLabel[incident.severity] ?? incident.severity) }}
-              </n-tag>
+          <div class="action-bar">
+            <n-button
+              v-if="incident.status === 'triggered'"
+              type="primary" size="small" @click="doAction('acknowledge')"
+            >{{ t('incident.acknowledge') }}</n-button>
 
-              <!-- Acknowledge -->
-              <n-button
-                v-if="incident.status === 'triggered'"
-                type="primary" size="small"
-                @click="doAction('acknowledge')"
-              >{{ t('incident.acknowledge') }}</n-button>
+            <n-button
+              v-if="incident.status !== 'closed'"
+              size="small" @click="doAction('close')"
+            >{{ t('incident.close') }}</n-button>
 
-              <!-- Close -->
-              <n-button
-                v-if="incident.status !== 'closed'"
-                size="small"
-                @click="doAction('close')"
-              >{{ t('incident.close') }}</n-button>
+            <n-button
+              v-if="incident.status === 'closed'"
+              size="small" @click="doAction('reopen')"
+            >{{ t('incident.reopen') }}</n-button>
 
-              <!-- Reopen -->
-              <n-button
-                v-if="incident.status === 'closed'"
-                size="small"
-                @click="doAction('reopen')"
-              >{{ t('incident.reopen') }}</n-button>
+            <n-button
+              v-if="incident.status !== 'closed'"
+              size="small" tertiary @click="showSnooze = true"
+            >
+              <template #icon><n-icon :component="TimeOutline" /></template>
+              暂缓
+            </n-button>
 
-              <!-- Escalate -->
-              <n-button size="small" @click="doAction('escalate')">
-                {{ t('incident.escalate') }}
-              </n-button>
-
-              <!-- Snooze -->
-              <n-button
-                v-if="incident.status !== 'closed'"
-                size="small"
-                @click="showSnooze = true"
-              >
-                <template #icon><n-icon :component="TimeOutline" /></template>
-                暂缓
-              </n-button>
-
-              <!-- Reassign -->
-              <n-button size="small" @click="showReassign = true">
-                <template #icon><n-icon :component="PersonOutline" /></template>
-                重新分派
-              </n-button>
-
-              <!-- Merge -->
-              <n-button size="small" @click="showMerge = true">
-                <template #icon><n-icon :component="GitMergeOutline" /></template>
-                合并故障
-              </n-button>
-
-              <!-- Quick Silence -->
-              <n-button size="small" type="warning" @click="showQuickSilence = true">
-                <template #icon><n-icon :component="VolumeOffOutline" /></template>
-                快速静默
-              </n-button>
-            </n-space>
-          </n-card>
+            <n-button size="small" tertiary @click="showQuickSilence = true">
+              <template #icon><n-icon :component="VolumeOffOutline" /></template>
+              快速静默
+            </n-button>
+          </div>
 
           <!-- Tabs -->
-          <n-card :bordered="false" class="tabs-card">
-            <n-tabs v-model:value="activeTab" type="line" animated>
+          <n-tabs v-model:value="activeTab" type="line" animated class="detail-tabs">
 
-              <!-- Overview -->
-              <n-tab-pane name="overview" tab="Overview">
-                <n-descriptions :columns="2" label-placement="left" bordered size="small">
-                  <n-descriptions-item :label="t('incident.triggeredAt')">
-                    {{ formatTime(incident.triggered_at) }}
-                  </n-descriptions-item>
-                  <n-descriptions-item v-if="incident.acknowledged_at" :label="t('incident.acknowledgedAt')">
-                    {{ formatTime(incident.acknowledged_at) }}
-                  </n-descriptions-item>
-                  <n-descriptions-item v-if="incident.resolved_at" :label="t('incident.resolvedAt')">
-                    {{ formatTime(incident.resolved_at) }}
-                  </n-descriptions-item>
-                  <n-descriptions-item v-if="incident.closed_at" :label="t('incident.closedAt')">
-                    {{ formatTime(incident.closed_at) }}
-                  </n-descriptions-item>
-                  <n-descriptions-item :label="t('incident.alertCount')">
-                    {{ incident.alert_count }}
-                  </n-descriptions-item>
-                  <n-descriptions-item :label="t('incident.assignee')">
-                    {{ incident.assigned_user?.display_name ?? incident.assigned_user?.username ?? '—' }}
-                  </n-descriptions-item>
-                </n-descriptions>
-
-                <div v-if="incident.description" style="margin-top:16px">
-                  <p style="color:var(--sre-text-secondary);font-size:13px">{{ incident.description }}</p>
+            <!-- Overview -->
+            <n-tab-pane name="overview" tab="Overview">
+              <div class="overview-grid">
+                <div class="ov-row">
+                  <div class="sre-label-eyebrow">Triggered</div>
+                  <div class="ov-value tnum">{{ formatTime(incident.triggered_at) }}</div>
                 </div>
-              </n-tab-pane>
-
-              <!-- Related Alerts -->
-              <n-tab-pane name="alerts" :tab="t('alertV2.title')">
-                <n-data-table
-                  :columns="alertColumns"
-                  :data="relatedAlerts"
-                  :row-key="(row: AlertV2) => row.id"
-                  size="small"
-                />
-              </n-tab-pane>
-
-              <!-- Timeline -->
-              <n-tab-pane name="timeline" :tab="t('incident.timeline')">
-                <div class="timeline-list">
-                  <div v-if="timeline.length === 0" style="text-align:center;padding:24px">
-                    <n-empty :description="t('incident.noTimeline')" />
+                <div class="ov-row">
+                  <div class="sre-label-eyebrow">Acknowledged</div>
+                  <div class="ov-value tnum">{{ incident.acknowledged_at ? formatTime(incident.acknowledged_at) : '—' }}</div>
+                </div>
+                <div class="ov-row">
+                  <div class="sre-label-eyebrow">Resolved</div>
+                  <div class="ov-value tnum">{{ incident.resolved_at ? formatTime(incident.resolved_at) : '—' }}</div>
+                </div>
+                <div class="ov-row">
+                  <div class="sre-label-eyebrow">Closed</div>
+                  <div class="ov-value tnum">{{ incident.closed_at ? formatTime(incident.closed_at) : '—' }}</div>
+                </div>
+                <div class="ov-row">
+                  <div class="sre-label-eyebrow">Alert count</div>
+                  <div class="ov-value tnum">{{ incident.alert_count }}</div>
+                </div>
+                <div class="ov-row">
+                  <div class="sre-label-eyebrow">Assignee</div>
+                  <div class="ov-value">
+                    {{ incident.assigned_user?.display_name ?? incident.assigned_user?.username ?? '—' }}
                   </div>
-                  <div v-for="entry in timeline" :key="entry.id" class="timeline-entry">
-                    <div class="tl-dot" />
-                    <div class="tl-content">
+                </div>
+              </div>
+
+              <div v-if="incident.description" class="ov-description">
+                {{ incident.description }}
+              </div>
+
+              <div v-if="incident.labels && Object.keys(incident.labels).length" class="ov-labels">
+                <div class="sre-label-eyebrow" style="margin-bottom:8px">Labels</div>
+                <div class="label-chips">
+                  <span v-for="(v, k) in incident.labels" :key="k" class="label-chip">
+                    {{ k }}={{ v }}
+                  </span>
+                </div>
+              </div>
+            </n-tab-pane>
+
+            <!-- Related alerts -->
+            <n-tab-pane name="alerts" :tab="t('alertV2.title')">
+              <div v-if="!relatedAlerts.length" class="empty-state">
+                <n-empty :description="t('common.noData')" />
+              </div>
+              <div v-else class="alert-rows">
+                <div
+                  v-for="a in relatedAlerts" :key="a.id"
+                  class="sre-row-card alert-row"
+                  :data-severity="a.severity"
+                  @click="router.push(`/alerts/${a.id}`)"
+                >
+                  <span class="sre-dot" :data-severity="a.severity" />
+                  <span class="alert-title">{{ a.title }}</span>
+                  <span class="sre-meta-divider" />
+                  <span class="alert-meta tnum">{{ relTime(a.last_fired_at) }}</span>
+                  <span class="sre-meta-divider" />
+                  <span class="alert-meta tnum">{{ a.fire_count }}× fired</span>
+                  <span class="alert-status" :class="`s-${a.status}`">{{ a.status }}</span>
+                </div>
+              </div>
+            </n-tab-pane>
+
+            <!-- Timeline -->
+            <n-tab-pane name="timeline" :tab="t('incident.timeline')">
+              <div v-if="!timeline.length" class="empty-state">
+                <n-empty :description="t('incident.noTimeline')" />
+              </div>
+              <ol v-else class="tl-list">
+                <li v-for="entry in timeline" :key="entry.id" class="tl-item">
+                  <span class="tl-dot" />
+                  <div class="tl-body">
+                    <div class="tl-line">
                       <span class="tl-action">{{ entry.action }}</span>
-                      <span v-if="entry.actor" class="tl-actor"> · {{ entry.actor.display_name ?? entry.actor.username }}</span>
-                      <span class="tl-time"> · {{ formatTime(entry.created_at) }}</span>
-                      <p v-if="entry.content" class="tl-text">{{ entry.content }}</p>
+                      <span class="tl-time tnum">{{ relTime(entry.created_at) }}</span>
+                    </div>
+                    <div v-if="entry.actor || entry.content" class="tl-sub">
+                      <span v-if="entry.actor">by {{ entry.actor.display_name ?? entry.actor.username }}</span>
+                      <span v-if="entry.actor && entry.content" class="sre-meta-divider" />
+                      <span v-if="entry.content">{{ entry.content }}</span>
                     </div>
                   </div>
-                </div>
+                </li>
+              </ol>
 
-                <!-- Add comment -->
-                <div class="comment-box">
-                  <n-input
-                    v-model:value="commentText"
-                    type="textarea"
-                    :rows="2"
-                    :placeholder="t('incident.commentPlaceholder')"
-                  />
+              <div class="comment-box">
+                <textarea
+                  v-model="commentText"
+                  class="comment-input"
+                  rows="3"
+                  :placeholder="t('incident.commentPlaceholder')"
+                />
+                <div class="comment-actions">
                   <n-button
                     type="primary" size="small"
                     :loading="submittingComment"
-                    style="margin-top:8px"
+                    :disabled="!commentText.trim()"
                     @click="submitComment"
                   >{{ t('incident.addComment') }}</n-button>
                 </div>
-              </n-tab-pane>
+              </div>
+            </n-tab-pane>
 
-              <!-- Post-mortem tab -->
-              <n-tab-pane name="postmortem" :tab="t('postMortem.tab')">
-                <n-spin :show="pmLoading">
-                  <div v-if="postMortem" class="pm-container">
-                    <!-- Toolbar -->
-                    <div class="pm-toolbar">
-                      <div class="pm-meta">
-                        <n-tag :type="postMortem.status === 'published' ? 'success' : 'default'" size="small">
-                          {{ postMortem.status === 'published' ? t('postMortem.published') : t('postMortem.draft') }}
-                        </n-tag>
-                        <span v-if="postMortem.updated_at" style="font-size:11px;color:var(--sre-text-secondary)">
-                          {{ t('postMortem.lastUpdated') }}: {{ formatTime(postMortem.updated_at) }}
-                        </span>
-                      </div>
-                      <n-space size="small">
-                        <n-button
-                          size="small"
-                          :loading="pmAiLoading"
-                          @click="aiGeneratePostMortem"
-                        >
-                          <template #icon><n-icon :component="SparklesOutline" /></template>
-                          {{ pmAiLoading ? t('postMortem.generating') : t('postMortem.aiGenerate') }}
-                        </n-button>
-                        <n-button size="small" type="primary" :loading="pmSaving" @click="savePostMortem">
-                          {{ t('common.save') }}
-                        </n-button>
-                        <n-popconfirm
-                          v-if="postMortem.status !== 'published'"
-                          @positive-click="publishPostMortem"
-                        >
-                          <template #trigger>
-                            <n-button size="small" type="success" :loading="pmSaving">
-                              {{ t('postMortem.publish') }}
-                            </n-button>
-                          </template>
-                          {{ t('postMortem.publishConfirm') }}
-                        </n-popconfirm>
-                      </n-space>
+            <!-- Post-mortem -->
+            <n-tab-pane name="postmortem" :tab="t('postMortem.tab')">
+              <n-spin :show="pmLoading">
+                <div v-if="postMortem" class="pm-container">
+                  <div class="pm-toolbar">
+                    <div class="pm-meta">
+                      <n-tag :type="postMortem.status === 'published' ? 'success' : 'default'" size="small" :bordered="false">
+                        {{ postMortem.status === 'published' ? t('postMortem.published') : t('postMortem.draft') }}
+                      </n-tag>
+                      <span v-if="postMortem.updated_at" class="pm-updated tnum">
+                        {{ t('postMortem.lastUpdated') }} · {{ formatTime(postMortem.updated_at) }}
+                      </span>
                     </div>
-
-                    <!-- Title -->
-                    <n-input
-                      v-model:value="postMortem.title"
-                      size="small"
-                      style="margin-bottom:12px;font-weight:600"
-                    />
-
-                    <!-- Markdown editor with preview -->
-                    <MdEditor
-                      v-model="postMortem.content"
-                      :preview="true"
-                      :toolbars-exclude="['github']"
-                      language="zh-CN"
-                      style="height: 500px; border-radius: 8px"
-                    />
-                  </div>
-                  <n-empty v-else :description="t('postMortem.noPostMortem')" style="padding:40px 0">
-                    <template #extra>
-                      <n-button type="primary" size="small" @click="loadPostMortem">
-                        {{ t('common.create') }}
+                    <n-space size="small">
+                      <n-button size="small" tertiary :loading="pmAiLoading" @click="aiGeneratePostMortem">
+                        <template #icon><n-icon :component="SparklesOutline" /></template>
+                        {{ pmAiLoading ? t('postMortem.generating') : t('postMortem.aiGenerate') }}
                       </n-button>
-                    </template>
-                  </n-empty>
-                </n-spin>
-              </n-tab-pane>
+                      <n-button size="small" type="primary" :loading="pmSaving" @click="savePostMortem">
+                        {{ t('common.save') }}
+                      </n-button>
+                      <n-popconfirm
+                        v-if="postMortem.status !== 'published'"
+                        @positive-click="publishPostMortem"
+                      >
+                        <template #trigger>
+                          <n-button size="small" type="success" :loading="pmSaving">
+                            {{ t('postMortem.publish') }}
+                          </n-button>
+                        </template>
+                        {{ t('postMortem.publishConfirm') }}
+                      </n-popconfirm>
+                    </n-space>
+                  </div>
 
-            </n-tabs>
-          </n-card>
+                  <input
+                    v-model="postMortem.title"
+                    class="pm-title-input"
+                    type="text"
+                    placeholder="Post-mortem title…"
+                  />
+
+                  <MdEditor
+                    v-model="postMortem.content"
+                    :preview="true"
+                    :toolbars-exclude="['github']"
+                    language="zh-CN"
+                    theme="dark"
+                    style="height: 520px; border-radius: 8px"
+                  />
+                </div>
+                <div v-else class="empty-state pm-empty">
+                  <p class="pm-empty-text">No post-mortem yet</p>
+                  <n-button type="primary" size="small" @click="loadPostMortem">
+                    {{ t('common.create') }}
+                  </n-button>
+                </div>
+              </n-spin>
+            </n-tab-pane>
+
+          </n-tabs>
         </div>
 
-        <!-- Right: info sidebar -->
-        <div class="detail-sidebar">
-          <n-card :bordered="false" class="info-card" title="Info">
-            <n-descriptions :columns="1" label-placement="top" size="small">
-              <n-descriptions-item :label="t('incident.channel')">
-                <a
-                  v-if="incident.channel"
-                  style="cursor:pointer;color:var(--sre-primary)"
-                  @click="$router.push(`/channels/${incident.channel_id}`)"
-                >{{ incident.channel.name }}</a>
-                <span v-else>—</span>
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('incident.severity')">
-                <n-tag :type="severityTagType[incident.severity] ?? 'default'" size="small">
+        <!-- RIGHT SIDEBAR -->
+        <aside class="detail-sidebar">
+          <section class="side-card">
+            <div class="sre-label-eyebrow card-eyebrow">Key info</div>
+            <dl class="kv-list">
+              <div class="kv-row">
+                <dt>Channel</dt>
+                <dd>
+                  <a v-if="incident.channel" class="kv-link" @click="router.push(`/channels/${incident.channel_id}`)">
+                    {{ incident.channel.name }}
+                  </a>
+                  <span v-else>—</span>
+                </dd>
+              </div>
+              <div class="kv-row">
+                <dt>Severity</dt>
+                <dd class="kv-flex">
+                  <span class="sre-dot" :data-severity="incident.severity" />
                   {{ t(severityLabel[incident.severity] ?? incident.severity) }}
-                </n-tag>
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('incident.status')">
-                <n-tag :type="statusTagType[incident.status] ?? 'default'" size="small">
-                  {{ t(statusLabel[incident.status] ?? incident.status) }}
-                </n-tag>
-              </n-descriptions-item>
-              <n-descriptions-item v-if="incident.assigned_user" :label="t('incident.assignee')">
-                {{ incident.assigned_user.display_name ?? incident.assigned_user.username }}
-              </n-descriptions-item>
-            </n-descriptions>
-          </n-card>
-        </div>
+                </dd>
+              </div>
+              <div class="kv-row">
+                <dt>Status</dt>
+                <dd>{{ t(statusLabel[incident.status] ?? incident.status) }}</dd>
+              </div>
+              <div class="kv-row">
+                <dt>Triggered</dt>
+                <dd class="tnum">{{ formatTime(incident.triggered_at) }}</dd>
+              </div>
+              <div class="kv-row">
+                <dt>Acked</dt>
+                <dd class="tnum">{{ incident.acknowledged_at ? formatTime(incident.acknowledged_at) : '—' }}</dd>
+              </div>
+              <div class="kv-row">
+                <dt>Assignee</dt>
+                <dd>{{ incident.assigned_user?.display_name ?? incident.assigned_user?.username ?? '—' }}</dd>
+              </div>
+              <div class="kv-row">
+                <dt>Alerts</dt>
+                <dd class="tnum">{{ incident.alert_count }}</dd>
+              </div>
+              <div class="kv-row">
+                <dt>Duration</dt>
+                <dd class="tnum">{{ durationStr(incident.triggered_at, incident.closed_at) }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="side-card">
+            <div class="sre-label-eyebrow card-eyebrow">Timeline brief</div>
+            <ol v-if="timeline.length" class="brief-list">
+              <li v-for="e in timeline.slice(0, 5)" :key="e.id" class="brief-item">
+                <span class="brief-dot" />
+                <div class="brief-body">
+                  <div class="brief-action">{{ e.action }}</div>
+                  <div class="brief-meta tnum">{{ relTime(e.created_at) }}</div>
+                </div>
+              </li>
+            </ol>
+            <p v-else class="brief-empty">No events yet</p>
+          </section>
+        </aside>
       </div>
     </n-spin>
 
@@ -595,22 +604,20 @@ onMounted(async () => {
       @created="load"
     />
 
-    <!-- Snooze Modal -->
+    <!-- Snooze -->
     <n-modal
       v-model:show="showSnooze"
       title="暂缓故障"
       preset="card"
-      style="width: 400px"
+      style="width: 420px"
       :bordered="false"
     >
       <div class="snooze-presets">
-        <n-button
-          v-for="p in snoozePresets"
-          :key="p.minutes"
-          :type="snoozeDuration === p.minutes ? 'primary' : 'default'"
-          size="small"
+        <button
+          v-for="p in snoozePresets" :key="p.minutes"
+          class="preset-btn" :class="{ active: snoozeDuration === p.minutes }"
           @click="snoozeDuration = p.minutes"
-        >{{ p.label }}</n-button>
+        >{{ p.label }}</button>
       </div>
       <div v-if="snoozeDuration === -1" style="margin-top:12px">
         <n-date-picker
@@ -628,16 +635,16 @@ onMounted(async () => {
       </template>
     </n-modal>
 
-    <!-- Merge Modal -->
+    <!-- Merge -->
     <n-modal
       v-model:show="showMerge"
       title="合并到目标故障"
       preset="card"
-      style="width: 520px"
+      style="width: 540px"
       :bordered="false"
     >
-      <p style="font-size:13px;color:var(--sre-text-secondary);margin-bottom:12px">
-        将当前故障 <strong>#{{ incident?.id }}</strong> 的所有告警并入另一个故障，当前故障将被关闭。
+      <p class="modal-hint">
+        将当前故障 <strong class="tnum">#{{ incident?.id }}</strong> 的所有告警并入另一个故障，当前故障将被关闭。
       </p>
       <n-input-group>
         <n-input
@@ -647,22 +654,19 @@ onMounted(async () => {
         />
         <n-button :loading="mergeSearchLoading" @click="searchMergeIncidents">搜索</n-button>
       </n-input-group>
-      <n-list v-if="mergeResults.length" style="margin-top:12px;max-height:240px;overflow-y:auto">
-        <n-list-item
-          v-for="inc in mergeResults"
-          :key="inc.id"
-          :class="{ 'selected-item': mergeTargetId === inc.id }"
-          style="cursor:pointer;padding:8px 12px;border-radius:6px"
+      <div v-if="mergeResults.length" class="picker-list">
+        <div
+          v-for="inc in mergeResults" :key="inc.id"
+          class="picker-row sre-row-card"
+          :class="{ selected: mergeTargetId === inc.id }"
+          :data-severity="inc.severity"
           @click="mergeTargetId = inc.id"
         >
-          <n-space align="center">
-            <n-tag :type="inc.severity === 'critical' ? 'error' : inc.severity === 'warning' ? 'warning' : 'info'" size="tiny">
-              {{ inc.severity.toUpperCase() }}
-            </n-tag>
-            <span style="font-size:13px"><strong>#{{ inc.id }}</strong> {{ inc.title }}</span>
-          </n-space>
-        </n-list-item>
-      </n-list>
+          <span class="sre-dot" :data-severity="inc.severity" />
+          <span class="tnum incident-id-small">#{{ inc.id }}</span>
+          <span class="picker-title">{{ inc.title }}</span>
+        </div>
+      </div>
       <n-empty v-else-if="mergeSearch && !mergeSearchLoading" description="无匹配故障" style="padding:16px 0" />
       <template #footer>
         <n-space justify="end">
@@ -679,12 +683,12 @@ onMounted(async () => {
       </template>
     </n-modal>
 
-    <!-- Reassign Modal -->
+    <!-- Reassign -->
     <n-modal
       v-model:show="showReassign"
       title="重新分派"
       preset="card"
-      style="width: 440px"
+      style="width: 460px"
       :bordered="false"
     >
       <n-input
@@ -695,25 +699,22 @@ onMounted(async () => {
         @update:value="searchUsers"
       />
       <n-spin :show="reassignSearchLoading">
-        <n-list style="max-height:260px;overflow-y:auto">
-          <n-list-item
-            v-for="u in reassignUsers"
-            :key="u.id"
-            :class="{ 'selected-item': reassignUserId === u.id }"
-            style="cursor:pointer;padding:8px 12px;border-radius:6px"
+        <div class="picker-list">
+          <div
+            v-for="u in reassignUsers" :key="u.id"
+            class="picker-row user-row"
+            :class="{ selected: reassignUserId === u.id }"
             @click="reassignUserId = u.id"
           >
-            <n-space align="center">
-              <n-avatar size="small" round>
-                {{ (u.display_name || u.username).charAt(0).toUpperCase() }}
-              </n-avatar>
-              <div>
-                <div style="font-size:13px;font-weight:500">{{ u.display_name || u.username }}</div>
-                <div style="font-size:11px;color:var(--sre-text-secondary)">{{ u.username }}</div>
-              </div>
-            </n-space>
-          </n-list-item>
-        </n-list>
+            <n-avatar size="small" round>
+              {{ (u.display_name || u.username).charAt(0).toUpperCase() }}
+            </n-avatar>
+            <div class="user-meta">
+              <div class="user-name">{{ u.display_name || u.username }}</div>
+              <div class="user-handle">{{ u.username }}</div>
+            </div>
+          </div>
+        </div>
       </n-spin>
       <template #footer>
         <n-space justify="end">
@@ -728,73 +729,440 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.incident-detail { max-width: 1400px; }
+.incident-detail {
+  max-width: 1400px;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+}
 
-.action-card { border-radius: 12px; margin-bottom: 16px; }
-.tabs-card { border-radius: 12px; }
-.info-card { border-radius: 12px; }
+/* Header */
+.detail-header {
+  margin-bottom: 16px;
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.incident-id {
+  font-size: 13px;
+  color: var(--sre-text-tertiary);
+  font-weight: 500;
+}
+.incident-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.header-stripe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--sre-radius-sm);
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  font-size: 12px;
+}
+.stripe-text {
+  color: var(--sre-text-secondary);
+  font-weight: 500;
+}
 
+/* Layout */
 .detail-layout {
   display: grid;
-  grid-template-columns: 1fr 260px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 16px;
   align-items: start;
 }
-
-.timeline-list { margin-bottom: 16px; }
-
-.timeline-entry {
+.detail-main {
+  min-width: 0;
   display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
+  flex-direction: column;
+  gap: 16px;
 }
 
+/* Action bar */
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border: var(--sre-hairline);
+  background: var(--sre-bg-card);
+  border-radius: var(--sre-radius-md);
+}
+
+/* Tabs */
+.detail-tabs {
+  border: var(--sre-hairline);
+  background: var(--sre-bg-card);
+  border-radius: var(--sre-radius-md);
+  padding: 4px 16px 16px;
+}
+.detail-tabs :deep(.n-tabs-tab) {
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Overview */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 24px;
+  padding: 8px 0 4px;
+}
+.ov-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov-value {
+  font-size: 13px;
+  color: var(--sre-text-primary);
+  line-height: 1.5;
+}
+.ov-description {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: var(--sre-hairline);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sre-text-secondary);
+}
+.ov-labels {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: var(--sre-hairline);
+}
+.label-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.label-chip {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--sre-bg-elevated);
+  border-radius: 4px;
+  color: var(--sre-text-secondary);
+}
+
+/* Alerts list */
+.alert-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.alert-row:hover { background: var(--sre-bg-hover); }
+.alert-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sre-text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alert-meta { font-size: 12px; color: var(--sre-text-secondary); }
+.alert-status {
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--sre-bg-elevated);
+}
+.alert-status.s-firing { color: #ef4444; background: rgba(239,68,68,0.12); }
+.alert-status.s-resolved { color: #22c55e; background: rgba(34,197,94,0.12); }
+
+/* Timeline */
+.tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 0;
+  position: relative;
+}
+.tl-list::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: var(--sre-border);
+}
+.tl-item {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 8px 0;
+}
 .tl-dot {
-  width: 8px;
-  height: 8px;
+  position: relative;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: var(--sre-primary);
-  margin-top: 5px;
+  margin-top: 4px;
   flex-shrink: 0;
+  box-shadow: 0 0 0 3px var(--sre-bg-card);
+}
+.tl-body { flex: 1; min-width: 0; }
+.tl-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tl-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+}
+.tl-time {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+}
+.tl-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.tl-content { flex: 1; }
-.tl-action { font-weight: 600; font-size: 13px; }
-.tl-actor, .tl-time { font-size: 12px; color: var(--sre-text-secondary); }
-.tl-text { font-size: 13px; margin: 4px 0 0; color: var(--sre-text-primary); }
-
 .comment-box {
-  border-top: 1px solid var(--sre-border);
-  padding-top: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: var(--sre-hairline);
+}
+.comment-input {
+  width: 100%;
+  background: var(--sre-bg-elevated);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-sm);
+  padding: 10px 12px;
+  color: var(--sre-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+.comment-input:focus { border-color: var(--sre-primary); }
+.comment-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
 /* Post-mortem */
-.pm-container { display: flex; flex-direction: column; gap: 10px; }
-
+.pm-container { display: flex; flex-direction: column; gap: 12px; padding-top: 6px; }
 .pm-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--sre-border);
+  padding-bottom: 12px;
+  border-bottom: var(--sre-hairline);
+  gap: 12px;
+}
+.pm-meta { display: flex; align-items: center; gap: 10px; }
+.pm-updated { font-size: 11px; color: var(--sre-text-tertiary); }
+.pm-title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  padding: 4px 0;
+  border-bottom: var(--sre-hairline);
+}
+.pm-title-input:focus { border-bottom-color: var(--sre-primary); }
+.pm-empty { padding: 60px 0; text-align: center; }
+.pm-empty-text { color: var(--sre-text-secondary); margin-bottom: 16px; font-size: 13px; }
+
+/* Empty state */
+.empty-state { padding: 32px 0; text-align: center; }
+
+/* Sidebar */
+.detail-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+}
+.side-card {
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+  padding: 16px;
+}
+.card-eyebrow { margin-bottom: 12px; color: var(--sre-text-tertiary); }
+.kv-list { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.kv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.kv-row dt {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sre-text-tertiary);
+  margin: 0;
+}
+.kv-row dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--sre-text-primary);
+  text-align: right;
+}
+.kv-flex { display: inline-flex; align-items: center; gap: 6px; }
+.kv-link { color: var(--sre-primary); cursor: pointer; }
+.kv-link:hover { text-decoration: underline; }
+
+.brief-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.brief-item { display: flex; gap: 10px; align-items: flex-start; }
+.brief-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--sre-primary);
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+.brief-body { flex: 1; min-width: 0; }
+.brief-action {
+  font-size: 12px;
+  color: var(--sre-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brief-meta { font-size: 11px; color: var(--sre-text-tertiary); margin-top: 2px; }
+.brief-empty { font-size: 12px; color: var(--sre-text-tertiary); margin: 0; }
+
+/* Modals */
+.modal-hint { font-size: 13px; color: var(--sre-text-secondary); margin: 0 0 12px; line-height: 1.5; }
+.snooze-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.preset-btn {
+  background: var(--sre-bg-elevated);
+  border: var(--sre-hairline);
+  color: var(--sre-text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: var(--sre-radius-sm);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.preset-btn:hover { color: var(--sre-text-primary); border-color: var(--sre-border-strong); }
+.preset-btn.active {
+  background: var(--sre-primary-soft);
+  border-color: var(--sre-primary);
+  color: var(--sre-primary);
 }
 
-.pm-meta {
+.picker-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.picker-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--sre-radius-sm);
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.picker-row:hover { background: var(--sre-bg-hover); }
+.picker-row.selected {
+  background: var(--sre-primary-soft);
+  border-color: var(--sre-primary);
+}
+.incident-id-small {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  font-weight: 500;
+}
+.picker-title {
+  font-size: 13px;
+  color: var(--sre-text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-row { padding: 10px 12px; }
+.user-meta { display: flex; flex-direction: column; gap: 1px; }
+.user-name { font-size: 13px; font-weight: 500; color: var(--sre-text-primary); }
+.user-handle { font-size: 11px; color: var(--sre-text-tertiary); font-family: 'Geist Mono', monospace; }
+
+/* Fade in */
+.sre-fadein {
+  animation: sre-fadein 200ms ease-out;
+}
+@keyframes sre-fadein {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
 }
 
-/* Snooze presets */
-.snooze-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-/* Selected list item */
-.selected-item {
-  background: var(--sre-primary-alpha, rgba(99,102,241,0.1));
-  outline: 1px solid var(--sre-primary);
+@media (max-width: 980px) {
+  .detail-layout { grid-template-columns: 1fr; }
+  .detail-sidebar { position: static; }
+  .overview-grid { grid-template-columns: 1fr; }
 }
 </style>

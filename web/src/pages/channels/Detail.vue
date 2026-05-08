@@ -1,35 +1,46 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
+import {
+  useMessage, useDialog,
+  NButton, NIcon, NTabs, NTabPane, NSpin, NDropdown,
+  NSelect, NPagination, NEmpty, NDescriptions, NDescriptionsItem, NTag,
+  NForm, NFormItem, NInput, NInputNumber, NSwitch, NCheckbox, NRadioGroup, NRadio,
+  NModal, NSpace,
+} from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { channelV2Api, incidentApi } from '@/api'
 import NoiseConfig from './NoiseConfig.vue'
 import DispatchConfig from './DispatchConfig.vue'
 import type { Channel, Incident, ChannelStatus, ChannelAccessLevel } from '@/types'
 import { formatTime } from '@/utils/format'
-import PageHeader from '@/components/common/PageHeader.vue'
-import { ArrowBackOutline, SettingsOutline, RefreshOutline } from '@vicons/ionicons5'
+import {
+  ArrowBackOutline, StarOutline, Star, EllipsisHorizontal,
+  RefreshOutline, TrashOutline, CreateOutline,
+} from '@vicons/ionicons5'
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 const route = useRoute()
 const router = useRouter()
 
 const channelId = computed(() => Number(route.params.id))
-const channel = ref<Channel | null>(null)
-const incidents = ref<Incident[]>([])
+const channel = shallowRef<Channel | null>(null)
+const channelLoading = ref(false)
+
+const incidents = shallowRef<Incident[]>([])
 const incidentTotal = ref(0)
 const incidentPage = ref(1)
 const incidentPageSize = ref(20)
 const incidentStatus = ref('')
 const incidentLoading = ref(false)
-const channelLoading = ref(false)
-const activeTab = ref('incidents')
 
-// Edit modal
+const activeTab = ref('incidents')
 const showEditModal = ref(false)
 const saving = ref(false)
+const starring = ref(false)
+
 const editForm = ref<{
   name: string
   description: string
@@ -48,23 +59,9 @@ const editForm = ref<{
   follow_alert_close: true,
 })
 
-const statusTagType: Record<string, 'error' | 'warning' | 'success' | 'default'> = {
-  triggered: 'error', processing: 'warning', closed: 'success',
-}
-const statusLabel: Record<string, string> = {
-  triggered: 'incident.statusTriggered',
-  processing: 'incident.statusProcessing',
-  closed: 'incident.statusClosed',
-}
-const severityTagType: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
-  critical: 'error', warning: 'warning', info: 'info',
-}
-const severityLabel: Record<string, string> = {
-  critical: 'incident.severityCritical',
-  warning: 'incident.severityWarning',
-  info: 'incident.severityInfo',
-}
-
+// ─────────────────────────────────────────────────────────
+// Loaders
+// ─────────────────────────────────────────────────────────
 async function loadChannel() {
   channelLoading.value = true
   try {
@@ -120,64 +117,116 @@ async function saveChannel() {
   }
 }
 
-// Stats derived from incidents
-const stats = computed(() => {
-  const triggeredCount = incidents.value.filter(i => i.status === 'triggered').length
-  const processingCount = incidents.value.filter(i => i.status === 'processing').length
-  const closedCount = incidents.value.filter(i => i.status === 'closed').length
-  const criticalCount = incidents.value.filter(i => i.severity === 'critical').length
-  return { triggeredCount, processingCount, closedCount, criticalCount }
+async function toggleStar() {
+  if (!channel.value || starring.value) return
+  starring.value = true
+  try {
+    if (channel.value.is_starred) {
+      await channelV2Api.unstar(channelId.value)
+    } else {
+      await channelV2Api.star(channelId.value)
+    }
+    await loadChannel()
+  } catch (e: any) {
+    message.error(e?.message ?? t('common.saveFailed'))
+  } finally {
+    starring.value = false
+  }
+}
+
+function confirmDelete() {
+  if (!channel.value) return
+  dialog.warning({
+    title: t('common.confirmDelete'),
+    content: channel.value.name,
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await channelV2Api.delete(channelId.value)
+        message.success(t('common.deletedSuccess'))
+        router.replace('/channels')
+      } catch (e: any) {
+        message.error(e?.message ?? t('common.deleteFailed'))
+      }
+    },
+  })
+}
+
+// ─────────────────────────────────────────────────────────
+// Derived data — KPI
+// ─────────────────────────────────────────────────────────
+const kpi = computed(() => {
+  const list = incidents.value
+  const active = list.filter(i => i.status !== 'closed').length
+  const today = list.length
+  // MTTA / MTTR: derive simple averages over closed items, in seconds
+  const closed = list.filter(i => i.status === 'closed' && i.triggered_at)
+  let mtta = 0, mttr = 0
+  if (closed.length) {
+    let acks = 0, ackSum = 0, resSum = 0, resN = 0
+    closed.forEach(i => {
+      const trig = new Date(i.triggered_at).getTime()
+      if (i.acknowledged_at) {
+        acks++
+        ackSum += (new Date(i.acknowledged_at).getTime() - trig)
+      }
+      if (i.closed_at) {
+        resN++
+        resSum += (new Date(i.closed_at).getTime() - trig)
+      }
+    })
+    mtta = acks ? Math.round(ackSum / acks / 1000) : 0
+    mttr = resN ? Math.round(resSum / resN / 1000) : 0
+  }
+  return {
+    active,
+    today,
+    mtta: fmtDuration(mtta),
+    mttr: fmtDuration(mttr),
+  }
 })
 
-const incidentColumns = computed(() => [
-  {
-    title: 'ID',
-    key: 'id',
-    width: 70,
-    render: (row: Incident) => h('span', { style: 'font-size:12px;color:var(--sre-text-secondary)' }, `#${row.id}`),
-  },
-  {
-    title: t('incident.severity'),
-    key: 'severity',
-    width: 90,
-    render: (row: Incident) =>
-      h(NTag, { type: severityTagType[row.severity] ?? 'default', size: 'small' },
-        { default: () => t(severityLabel[row.severity] ?? row.severity) }),
-  },
-  {
-    title: t('incident.name'),
-    key: 'title',
-    render: (row: Incident) =>
-      h('a', {
-        style: 'cursor:pointer;color:var(--sre-primary)',
-        onClick: () => router.push(`/incidents/${row.id}`),
-      }, row.title),
-  },
-  {
-    title: t('incident.status'),
-    key: 'status',
-    width: 110,
-    render: (row: Incident) =>
-      h(NTag, { type: statusTagType[row.status] ?? 'default', size: 'small' },
-        { default: () => t(statusLabel[row.status] ?? row.status) }),
-  },
-  {
-    title: t('incident.assignee'),
-    key: 'assigned_user',
-    render: (row: Incident) =>
-      h('span', {}, row.assigned_user?.display_name ?? row.assigned_user?.username ?? '—'),
-  },
-  {
-    title: t('incident.alertCount'),
-    key: 'alert_count',
-    width: 80,
-    render: (row: Incident) => h('span', {}, String(row.alert_count)),
-  },
-  {
-    title: t('incident.triggeredAt'),
-    key: 'triggered_at',
-    render: (row: Incident) => h('span', { style: 'font-size:12px' }, formatTime(row.triggered_at)),
-  },
+function fmtDuration(seconds: number): string {
+  if (!seconds || seconds < 0) return '—'
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+// ─────────────────────────────────────────────────────────
+// Helpers — severity / status labels
+// ─────────────────────────────────────────────────────────
+const severityToneMap: Record<string, string> = {
+  critical: 'critical', warning: 'warning', info: 'info',
+}
+const statusLabelMap: Record<string, string> = {
+  triggered: 'incident.statusTriggered',
+  processing: 'incident.statusProcessing',
+  closed: 'incident.statusClosed',
+}
+
+function relTime(ts?: string): string {
+  if (!ts) return '—'
+  const diff = (Date.now() - new Date(ts).getTime()) / 1000
+  if (diff < 60) return `${Math.floor(diff)}s`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  return `${Math.floor(diff / 86400)}d`
+}
+
+const moreOptions = computed(() => [
+  { label: t('common.delete'), key: 'delete', icon: () => h(NIcon, { component: TrashOutline }) },
+])
+
+function onMoreSelect(key: string) {
+  if (key === 'delete') confirmDelete()
+}
+
+const statusFilterOptions = computed(() => [
+  { label: t('incident.statusTriggered'), value: 'triggered' },
+  { label: t('incident.statusProcessing'), value: 'processing' },
+  { label: t('incident.statusClosed'), value: 'closed' },
 ])
 
 onMounted(async () => {
@@ -188,128 +237,170 @@ onMounted(async () => {
 
 <template>
   <div class="channel-detail">
-    <PageHeader
-      :title="channel?.name ?? t('channel.title')"
-      :subtitle="channel?.description ?? ''"
-    >
-      <template #actions>
-        <n-button quaternary @click="router.back()">
-          <template #icon><n-icon :component="ArrowBackOutline" /></template>
-          {{ t('common.back') }}
-        </n-button>
-        <n-button @click="showEditModal = true">
-          <template #icon><n-icon :component="SettingsOutline" /></template>
-          {{ t('common.edit') }}
-        </n-button>
-      </template>
-    </PageHeader>
-
     <n-spin :show="channelLoading">
-      <div v-if="channel">
+      <!-- Header -->
+      <header class="cd-header sre-stagger">
+        <div class="cd-header-left">
+          <n-button quaternary circle size="small" @click="router.back()">
+            <template #icon><n-icon :component="ArrowBackOutline" /></template>
+          </n-button>
+          <div class="cd-title-block">
+            <h1 class="cd-title">{{ channel?.name ?? t('channel.title') }}</h1>
+            <div class="cd-subtitle">
+              <span v-if="channel?.description">{{ channel.description }}</span>
+              <span v-if="channel?.description && channel?.team" class="sre-meta-divider">·</span>
+              <span v-if="channel?.team">{{ channel.team.name }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="cd-header-right">
+          <n-button
+            quaternary circle size="small" :loading="starring"
+            :type="channel?.is_starred ? 'warning' : 'default'"
+            @click="toggleStar"
+          >
+            <template #icon>
+              <n-icon :component="channel?.is_starred ? Star : StarOutline" />
+            </template>
+          </n-button>
+          <n-button size="small" @click="showEditModal = true">
+            <template #icon><n-icon :component="CreateOutline" /></template>
+            {{ t('common.edit') }}
+          </n-button>
+          <n-dropdown trigger="click" :options="moreOptions" @select="onMoreSelect">
+            <n-button quaternary circle size="small">
+              <template #icon><n-icon :component="EllipsisHorizontal" /></template>
+            </n-button>
+          </n-dropdown>
+        </div>
+      </header>
 
-        <!-- Tabs -->
-        <n-card :bordered="false" class="main-card">
-          <n-tabs v-model:value="activeTab" type="line" animated>
+      <!-- KPI row -->
+      <section class="kpi-row sre-stagger" v-if="channel">
+        <div class="kpi-card sre-lift">
+          <div class="kpi-value tnum">{{ kpi.active }}</div>
+          <div class="sre-label-eyebrow">{{ t('incident.statusTriggered') }}</div>
+          <div class="kpi-stripe" data-tone="critical"></div>
+        </div>
+        <div class="kpi-card sre-lift">
+          <div class="kpi-value tnum">{{ kpi.today }}</div>
+          <div class="sre-label-eyebrow">{{ t('incident.title') }}</div>
+          <div class="kpi-stripe" data-tone="info"></div>
+        </div>
+        <div class="kpi-card sre-lift">
+          <div class="kpi-value tnum">{{ kpi.mtta }}</div>
+          <div class="sre-label-eyebrow">MTTA</div>
+          <div class="kpi-stripe" data-tone="success"></div>
+        </div>
+        <div class="kpi-card sre-lift">
+          <div class="kpi-value tnum">{{ kpi.mttr }}</div>
+          <div class="sre-label-eyebrow">MTTR</div>
+          <div class="kpi-stripe" data-tone="success"></div>
+        </div>
+      </section>
 
-            <!-- Tab 1: Incident list -->
-            <n-tab-pane name="incidents" :tab="t('incident.title')">
-              <div class="tab-toolbar">
-                <n-select
-                  v-model:value="incidentStatus"
-                  :options="[
-                    { label: t('incident.statusTriggered'), value: 'triggered' },
-                    { label: t('incident.statusProcessing'), value: 'processing' },
-                    { label: t('incident.statusClosed'),    value: 'closed' },
-                  ]"
-                  :placeholder="t('common.status')"
-                  clearable
-                  style="width:140px"
-                  @update:value="loadIncidents"
-                />
-                <n-button circle quaternary size="small" @click="loadIncidents">
-                  <template #icon><n-icon :component="RefreshOutline" /></template>
-                </n-button>
-              </div>
-
-              <n-data-table
-                :loading="incidentLoading"
-                :columns="incidentColumns"
-                :data="incidents"
-                :row-key="(row: Incident) => row.id"
+      <!-- Tabs -->
+      <section class="cd-tabs" v-if="channel">
+        <n-tabs v-model:value="activeTab" type="line" animated size="medium">
+          <!-- Incidents -->
+          <n-tab-pane name="incidents" :tab="t('incident.title')">
+            <div class="tab-toolbar">
+              <n-select
+                v-model:value="incidentStatus"
+                :options="statusFilterOptions"
+                :placeholder="t('common.status')"
+                clearable
                 size="small"
-                :row-props="(row: Incident) => ({
-                  style: 'cursor:pointer',
-                  onClick: () => router.push(`/incidents/${row.id}`)
-                })"
+                style="width:150px"
+                @update:value="loadIncidents"
               />
-              <div v-if="incidentTotal > incidentPageSize" class="pagination-row">
-                <n-pagination
-                  v-model:page="incidentPage"
-                  :page-count="Math.ceil(incidentTotal / incidentPageSize)"
-                  @update:page="loadIncidents"
-                />
-              </div>
-            </n-tab-pane>
+              <n-button quaternary circle size="small" @click="loadIncidents">
+                <template #icon><n-icon :component="RefreshOutline" /></template>
+              </n-button>
+            </div>
 
-            <!-- Tab 2: Stats overview -->
-            <n-tab-pane name="stats" :tab="'Overview'">
-              <div class="stats-grid">
-                <div class="stat-card">
-                  <div class="stat-label">{{ t('incident.statusTriggered') }}</div>
-                  <div class="stat-value triggered">{{ stats.triggeredCount }}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">{{ t('incident.statusProcessing') }}</div>
-                  <div class="stat-value processing">{{ stats.processingCount }}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">{{ t('incident.statusClosed') }}</div>
-                  <div class="stat-value closed">{{ stats.closedCount }}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">{{ t('incident.severityCritical') }}</div>
-                  <div class="stat-value critical">{{ stats.criticalCount }}</div>
-                </div>
+            <div class="incident-list">
+              <div v-if="!incidentLoading && incidents.length === 0" class="empty-wrap">
+                <n-empty :description="t('common.noData')" />
               </div>
 
-              <!-- Channel meta info -->
-              <n-descriptions :columns="2" label-placement="left" bordered size="small" style="margin-top:24px">
-                <n-descriptions-item :label="t('channel.status')">
-                  <n-tag :type="channel.status === 'active' ? 'success' : 'warning'" size="small">
-                    {{ channel.status === 'active' ? t('common.active') : t('common.disabled') }}
-                  </n-tag>
-                </n-descriptions-item>
-                <n-descriptions-item :label="t('channel.accessLevel')">
-                  {{ channel.access_level === 'public' ? t('channel.accessPublic') : t('channel.accessPrivate') }}
-                </n-descriptions-item>
-                <n-descriptions-item :label="t('channel.autoClose')">
-                  {{ channel.auto_close_enabled ? `${channel.auto_close_minutes} min` : t('common.off') }}
-                </n-descriptions-item>
-                <n-descriptions-item :label="t('channel.followAlertClose')">
-                  {{ channel.follow_alert_close ? t('common.yes') : t('common.no') }}
-                </n-descriptions-item>
-                <n-descriptions-item :label="t('channel.activeIncidents')">
-                  {{ channel.active_incident_count }}
-                </n-descriptions-item>
-                <n-descriptions-item v-if="channel.team" :label="t('channel.team')">
-                  {{ channel.team.name }}
-                </n-descriptions-item>
-              </n-descriptions>
-            </n-tab-pane>
+              <div
+                v-for="row in incidents"
+                :key="row.id"
+                class="sre-row-card incident-row"
+                @click="router.push(`/incidents/${row.id}`)"
+              >
+                <span class="sre-dot" :data-tone="severityToneMap[row.severity] ?? 'default'"></span>
+                <span class="i-id tnum">#{{ row.id }}</span>
+                <span class="i-title">{{ row.title }}</span>
+                <span class="i-status" :data-status="row.status">
+                  {{ t(statusLabelMap[row.status] ?? row.status) }}
+                </span>
+                <span class="i-meta tnum">
+                  {{ row.alert_count }} {{ t('incident.alertCount') }}
+                </span>
+                <span class="i-meta">
+                  {{ row.assigned_user?.display_name ?? row.assigned_user?.username ?? '—' }}
+                </span>
+                <span class="i-time tnum">{{ relTime(row.triggered_at) }}</span>
+              </div>
+            </div>
 
-            <!-- Tab 3: Noise reduction config -->
-            <n-tab-pane name="noise" :tab="t('channel.noiseTab')">
-              <NoiseConfig :channel-id="channelId" />
-            </n-tab-pane>
+            <div v-if="incidentTotal > incidentPageSize" class="pagination-row">
+              <n-pagination
+                v-model:page="incidentPage"
+                :page-count="Math.ceil(incidentTotal / incidentPageSize)"
+                @update:page="loadIncidents"
+              />
+            </div>
+          </n-tab-pane>
 
-            <!-- Tab 4: Dispatch policies -->
-            <n-tab-pane name="dispatch" :tab="t('channel.dispatchTab')">
-              <DispatchConfig :channel-id="channelId" />
-            </n-tab-pane>
+          <!-- Overview -->
+          <n-tab-pane name="overview" :tab="t('common.overview') || 'Overview'">
+            <n-descriptions :columns="2" label-placement="left" bordered size="small">
+              <n-descriptions-item :label="t('channel.status')">
+                <n-tag :type="channel.status === 'active' ? 'success' : 'warning'" size="small" round>
+                  {{ channel.status === 'active' ? t('common.active') : t('common.disabled') }}
+                </n-tag>
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('channel.accessLevel')">
+                {{ channel.access_level === 'public' ? t('channel.accessPublic') : t('channel.accessPrivate') }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('channel.autoClose')">
+                {{ channel.auto_close_enabled ? `${channel.auto_close_minutes} min` : t('common.off') }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('channel.followAlertClose')">
+                {{ channel.follow_alert_close ? t('common.yes') : t('common.no') }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('channel.activeIncidents')">
+                <span class="tnum">{{ channel.active_incident_count }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item v-if="channel.team" :label="t('channel.team')">
+                {{ channel.team.name }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.createdAt')">
+                <span class="tnum">{{ formatTime(channel.created_at) }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.updatedAt')">
+                <span class="tnum">{{ formatTime(channel.updated_at) }}</span>
+              </n-descriptions-item>
+            </n-descriptions>
+          </n-tab-pane>
 
-            <!-- Tab 4: Basic config (auto-close, access) -->
-            <n-tab-pane name="config" :tab="t('common.actions')">
-              <n-form label-placement="top" size="small" style="max-width:520px">
+          <!-- Noise -->
+          <n-tab-pane name="noise" :tab="t('channel.noiseTab')">
+            <NoiseConfig :channel-id="channelId" />
+          </n-tab-pane>
+
+          <!-- Dispatch -->
+          <n-tab-pane name="dispatch" :tab="t('channel.dispatchTab')">
+            <DispatchConfig :channel-id="channelId" />
+          </n-tab-pane>
+
+          <!-- Settings -->
+          <n-tab-pane name="settings" :tab="t('common.settings') || 'Settings'">
+            <div class="settings-grid">
+              <n-form label-placement="top" size="small" class="settings-form">
                 <n-form-item :label="t('channel.name')">
                   <n-input v-model:value="editForm.name" />
                 </n-form-item>
@@ -339,23 +430,38 @@ onMounted(async () => {
                     {{ t('channel.followAlertClose') }}
                   </n-checkbox>
                 </n-form-item>
-                <n-button type="primary" :loading="saving" @click="saveChannel">
-                  {{ t('common.save') }}
-                </n-button>
+                <div class="form-actions">
+                  <n-button type="primary" :loading="saving" @click="saveChannel">
+                    {{ t('common.save') }}
+                  </n-button>
+                </div>
               </n-form>
-            </n-tab-pane>
 
-          </n-tabs>
-        </n-card>
-      </div>
+              <div class="danger-zone">
+                <div class="danger-eyebrow sre-label-eyebrow">Danger zone</div>
+                <div class="danger-body">
+                  <div class="danger-text">
+                    <div class="danger-title">{{ t('common.delete') }} {{ channel.name }}</div>
+                    <div class="danger-desc">{{ t('channel.deleteDesc') || t('common.confirmDelete') }}</div>
+                  </div>
+                  <n-button type="error" ghost size="small" @click="confirmDelete">
+                    <template #icon><n-icon :component="TrashOutline" /></template>
+                    {{ t('common.delete') }}
+                  </n-button>
+                </div>
+              </div>
+            </div>
+          </n-tab-pane>
+        </n-tabs>
+      </section>
     </n-spin>
 
-    <!-- Quick-edit modal -->
+    <!-- Quick edit modal -->
     <n-modal
       v-model:show="showEditModal"
       :title="t('common.edit') + ' — ' + (channel?.name ?? '')"
       preset="card"
-      style="width:440px"
+      style="width:480px"
       :bordered="false"
     >
       <n-form label-placement="top" size="small">
@@ -386,51 +492,212 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.channel-detail { max-width: 1400px; }
-.main-card { border-radius: 12px; }
+.channel-detail {
+  max-width: 1400px;
+  font-family: 'Geist', system-ui, sans-serif;
+}
+
+/* ───────── Header ───────── */
+.cd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 4px 20px;
+  border-bottom: 1px solid var(--sre-hairline);
+  margin-bottom: 24px;
+}
+.cd-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.cd-title-block { min-width: 0; }
+.cd-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+  color: var(--sre-text-primary);
+}
+.cd-subtitle {
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cd-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ───────── KPI ───────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  position: relative;
+  padding: 20px;
+  background: var(--sre-bg-elev, var(--sre-bg-page));
+  border: 1px solid var(--sre-hairline);
+  border-radius: var(--sre-radius-md, 10px);
+  overflow: hidden;
+}
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--sre-text-primary);
+  margin-bottom: 8px;
+}
+.kpi-stripe {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 3px;
+  background: var(--sre-text-tertiary);
+}
+.kpi-stripe[data-tone="critical"] { background: var(--sre-danger, #e03131); }
+.kpi-stripe[data-tone="warning"]  { background: var(--sre-warning, #f08c00); }
+.kpi-stripe[data-tone="success"]  { background: var(--sre-success, #2f9e44); }
+.kpi-stripe[data-tone="info"]     { background: var(--sre-primary, #4263eb); }
+
+/* ───────── Tabs ───────── */
+.cd-tabs {
+  background: transparent;
+}
+:deep(.n-tabs .n-tabs-tab) {
+  font-family: 'Geist', system-ui, sans-serif;
+  font-weight: 500;
+}
 
 .tab-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
+/* ───────── Incident rows ───────── */
+.incident-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.incident-row {
+  display: grid;
+  grid-template-columns: 14px 60px 1fr 100px 110px 130px 60px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  transition: border-color .15s ease;
+}
+.incident-row:hover {
+  border-left-color: var(--sre-primary, #4263eb);
+}
+.i-id {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.i-title {
+  font-size: 13.5px;
+  color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.i-status {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sre-text-secondary);
+  font-weight: 500;
+}
+.i-status[data-status="triggered"] { color: var(--sre-danger, #e03131); }
+.i-status[data-status="processing"] { color: var(--sre-warning, #f08c00); }
+.i-status[data-status="closed"] { color: var(--sre-text-tertiary); }
+.i-meta {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.i-time {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  text-align: right;
+}
+.empty-wrap {
+  padding: 48px 0;
+}
 .pagination-row {
   display: flex;
   justify-content: flex-end;
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+/* ───────── Settings ───────── */
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 600px;
+}
+.settings-form { width: 100%; }
+.form-actions {
+  padding-top: 8px;
+  border-top: 1px solid var(--sre-hairline);
+  margin-top: 8px;
+}
+.danger-zone {
+  border: 1px solid var(--sre-danger, #e03131);
+  border-radius: var(--sre-radius-md, 10px);
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--sre-danger, #e03131) 4%, transparent);
+}
+.danger-eyebrow {
+  color: var(--sre-danger, #e03131);
+  margin-bottom: 12px;
+}
+.danger-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  margin-bottom: 8px;
 }
-
-.stat-card {
-  background: var(--sre-bg-page);
-  border: 1px solid var(--sre-border);
-  border-radius: 10px;
-  padding: 20px 16px;
-  text-align: center;
+.danger-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  margin-bottom: 2px;
 }
-
-.stat-label {
+.danger-desc {
   font-size: 12px;
   color: var(--sre-text-secondary);
-  margin-bottom: 8px;
 }
 
-.stat-value {
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1;
+@media (max-width: 768px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .incident-row {
+    grid-template-columns: 14px 1fr 60px;
+    grid-template-areas:
+      "dot title time"
+      "dot meta meta";
+    row-gap: 4px;
+  }
+  .i-id, .i-status { display: none; }
 }
-
-.stat-value.triggered { color: #e03131; }
-.stat-value.processing { color: #f08c00; }
-.stat-value.closed     { color: #2f9e44; }
-.stat-value.critical   { color: #e03131; }
 </style>

@@ -4,6 +4,44 @@
 
 ---
 
+## [v2.3.0] - 2026-05-08
+
+### Changed — UI 重构 Phase 2（详情页 FlashCat 对齐）
+
+5 个详情/二级页面同步对齐 Phase 1 设计语言。所有页面：Geist 字体、tabular nums、severity 4px 左色条、sre-dot 圆点、hairline 边框、hover lift。
+
+- **故障详情**（incidents/Detail.vue）：
+  - Header 紧凑横条 + sre-row-card 副标题（圆点+severity+状态+空间+持续时间）
+  - 操作栏分层：主操作（认领/关闭/重新打开）+ 横排次操作 + 右上 NDropdown 收纳
+  - 三栏 Tab：Overview（紧凑 dl 网格 + tabular nums）/ Alerts (sre-row-card) / Timeline (竖向圆点+hairline 连接)/ Post-Mortem (md-editor-v3 dark)
+  - 右栏 280px：KEY INFO + TIMELINE BRIEF
+  - Snooze/Merge/Reassign 弹窗用 sre-row-card picker 行
+
+- **协作空间详情**（channels/Detail.vue）：
+  - Header 24px 700 标题 + 描述·团队副标
+  - 4 张 KPI 卡片（Active/Today/MTTA/MTTR）+ 底部 tone 色条
+  - 5 Tab：Incidents（sre-row-card）/ Overview / Noise / Dispatch / Settings
+  - Settings Tab 含"危险区"删除卡片（红边二次确认）
+
+- **告警 v2 列表 + 详情**（alerts-v2/）：
+  - Index：sre-row-card + status segmented + severity/channel 筛选
+  - Detail：sre-row-card subtitle + Tabs(Overview/Events) + 右栏 KEY INFO + LABELS
+
+- **告警事件详情**（alerts/events/Detail.vue）：
+  - 状态感知操作栏（firing→ack/resolve/close, acked→resolve/close/assign, etc）
+  - 三 Tab：Overview（labels mono chips + annotations dl + rule card）/ Timeline（竖向 sre-dot 时间线 + 评论框）/ AI（报告+SOP 推荐）
+  - 右栏 280px：Key Info + Responders + Labels + Related
+
+- **集成中心**（integrations/Index.vue）：
+  - n-data-table → 卡片网格（auto-fill minmax 320px）
+  - Type+Mode 双层 segmented 筛选
+  - 卡片：顶部 type 色条 + 状态点 + 标题 + type/mode badges + 描述 + webhook URL chip + 复制按钮 + 底部 alerts count + → 关联空间 + 操作行
+  - 共享集成卡片显式"路由规则"按钮 → RoutingRules 抽屉
+
+vue-tsc ✅
+
+---
+
 ## [v2.2.0] - 2026-05-08
 
 ### Changed — UI 重构 Phase 1（FlashCat 全站对齐）

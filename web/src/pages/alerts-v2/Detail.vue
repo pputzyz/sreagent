@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, h } from 'vue'
+import { onMounted, computed, shallowRef, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMessage, NTag } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertV2Api } from '@/api'
 import type { AlertV2, AlertEventV2 } from '@/types'
 import { formatTime } from '@/utils/format'
-import PageHeader from '@/components/common/PageHeader.vue'
-import { ArrowBackOutline, RefreshOutline, VolumeOffOutline } from '@vicons/ionicons5'
+import {
+  ArrowBackOutline,
+  RefreshOutline,
+  VolumeOffOutline,
+} from '@vicons/ionicons5'
 import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
 
 const { t } = useI18n()
@@ -16,19 +19,24 @@ const route = useRoute()
 const router = useRouter()
 
 const alertId = computed(() => Number(route.params.id))
-const alert = ref<AlertV2 | null>(null)
-const events = ref<AlertEventV2[]>([])
+const alert = shallowRef<AlertV2 | null>(null)
+const events = shallowRef<AlertEventV2[]>([])
 const eventsTotal = ref(0)
 const eventsPage = ref(1)
-const eventsPageSize = ref(20)
+const eventsPageSize = ref(50)
 const loading = ref(false)
 const eventsLoading = ref(false)
 const activeTab = ref('overview')
 const showQuickSilence = ref(false)
 
-const severityTagType: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
-  critical: 'error', warning: 'warning', info: 'info',
-  p0: 'error', p1: 'error', p2: 'warning', p3: 'warning', p4: 'info',
+const SEVERITY_LABEL: Record<string, string> = {
+  critical: 'Critical', warning: 'Warning', info: 'Info',
+  p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3', p4: 'P4',
+}
+
+function severityLabel(s?: string) {
+  if (!s) return ''
+  return SEVERITY_LABEL[s] ?? s.toUpperCase()
 }
 
 async function loadAlert() {
@@ -50,7 +58,10 @@ async function loadEvents() {
       page: eventsPage.value,
       page_size: eventsPageSize.value,
     })
-    events.value = res.data.data?.list ?? []
+    const list = res.data.data?.list ?? []
+    // sort desc by timestamp
+    events.value = [...list].sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     eventsTotal.value = res.data.data?.total ?? 0
   } catch (e: any) {
     message.error(e?.message ?? t('common.loadFailed'))
@@ -59,193 +70,236 @@ async function loadEvents() {
   }
 }
 
-const eventColumns = computed(() => [
-  {
-    title: t('incident.severity'),
-    key: 'event_severity',
-    width: 90,
-    render: (row: AlertEventV2) =>
-      h(NTag, { type: severityTagType[row.event_severity] ?? 'default', size: 'small' },
-        { default: () => row.event_severity.toUpperCase() }),
-  },
-  {
-    title: t('common.status'),
-    key: 'event_status',
-    width: 100,
-    render: (row: AlertEventV2) =>
-      h(NTag, { type: row.event_status === 'firing' ? 'error' : 'success', size: 'small' },
-        { default: () => row.event_status === 'firing' ? 'Firing' : 'Resolved' }),
-  },
-  {
-    title: 'Value',
-    key: 'value',
-    width: 100,
-    render: (row: AlertEventV2) => h('span', { style: 'font-family:monospace;font-size:12px' },
-      row.value.toFixed(4)),
-  },
-  {
-    title: 'Timestamp',
-    key: 'timestamp',
-    render: (row: AlertEventV2) => h('span', { style: 'font-size:12px' }, formatTime(row.timestamp)),
-  },
-  {
-    title: 'Fingerprint',
-    key: 'fingerprint',
-    render: (row: AlertEventV2) => h('span', {
-      style: 'font-family:monospace;font-size:11px;color:var(--sre-text-secondary)',
-    }, row.fingerprint ? row.fingerprint.substring(0, 12) + '…' : '—'),
-  },
-])
+const labelEntries = computed(() =>
+  alert.value?.labels ? Object.entries(alert.value.labels) : [])
+const annotationEntries = computed(() =>
+  alert.value?.annotations ? Object.entries(alert.value.annotations) : [])
 
 onMounted(async () => {
   await loadAlert()
   await loadEvents()
 })
+
+function refreshAll() {
+  loadAlert()
+  loadEvents()
+}
 </script>
 
 <template>
   <div class="alert-detail">
-    <PageHeader
-      :title="alert?.title ?? t('alertV2.title')"
-      :subtitle="alert ? `${alert.alert_key}` : ''"
-    >
-      <template #actions>
-        <n-button quaternary @click="router.back()">
+    <!-- Header -->
+    <div class="detail-header">
+      <div class="header-top">
+        <n-button quaternary circle size="small" @click="router.back()">
           <template #icon><n-icon :component="ArrowBackOutline" /></template>
-          {{ t('common.back') }}
         </n-button>
-        <n-button circle quaternary @click="loadAlert(); loadEvents()">
-          <template #icon><n-icon :component="RefreshOutline" /></template>
-        </n-button>
-        <n-button size="small" type="warning" @click="showQuickSilence = true">
-          <template #icon><n-icon :component="VolumeOffOutline" /></template>
-          快速静默
-        </n-button>
-      </template>
-    </PageHeader>
+        <h1 class="detail-title">{{ alert?.title ?? t('alertV2.title') }}</h1>
+        <div class="header-actions">
+          <n-button
+            v-if="alert"
+            size="small"
+            type="warning"
+            @click="showQuickSilence = true"
+          >
+            <template #icon><n-icon :component="VolumeOffOutline" /></template>
+            快速静默
+          </n-button>
+          <n-button circle quaternary size="small" @click="refreshAll">
+            <template #icon><n-icon :component="RefreshOutline" /></template>
+          </n-button>
+        </div>
+      </div>
+
+      <div
+        v-if="alert"
+        class="header-sub sre-row-card"
+        :data-severity="alert.severity"
+        data-static
+      >
+        <span class="sre-dot" :data-severity="alert.severity"></span>
+        <span class="hsub-sev">{{ severityLabel(alert.severity) }}</span>
+        <span class="sre-meta-divider"></span>
+        <span class="hsub-status">{{ alert.status }}</span>
+        <span class="sre-meta-divider"></span>
+        <span class="hsub-key">
+          <span class="hsub-key-label">alert_key:</span>
+          <code>{{ alert.alert_key }}</code>
+        </span>
+      </div>
+    </div>
 
     <n-spin :show="loading">
       <div v-if="alert" class="detail-layout">
 
-        <!-- Left: tabs -->
+        <!-- LEFT: tabs -->
         <div class="detail-main">
-          <n-card :bordered="false" class="tabs-card">
-            <n-tabs v-model:value="activeTab" type="line" animated>
+          <n-tabs v-model:value="activeTab" type="line" animated>
 
-              <!-- Overview tab -->
-              <n-tab-pane name="overview" :tab="'Overview'">
-                <div class="badge-row">
-                  <n-tag :type="alert.status === 'firing' ? 'error' : 'success'" size="medium">
-                    {{ alert.status === 'firing' ? 'Firing' : 'Resolved' }}
-                  </n-tag>
-                  <n-tag :type="severityTagType[alert.severity] ?? 'default'" size="medium">
-                    {{ alert.severity.toUpperCase() }}
-                  </n-tag>
+            <!-- Overview -->
+            <n-tab-pane name="overview" tab="Overview">
+              <div class="ov-section" v-if="annotationEntries.length">
+                <div class="sre-label-eyebrow">Description</div>
+                <div class="ov-desc">
+                  <div
+                    v-for="[k, v] in annotationEntries"
+                    :key="k"
+                    class="annot-row"
+                  >
+                    <span class="annot-key">{{ k }}</span>
+                    <span class="annot-val">{{ v }}</span>
+                  </div>
                 </div>
+              </div>
 
-                <n-descriptions :columns="2" label-placement="left" bordered size="small" style="margin-top:16px">
-                  <n-descriptions-item :label="t('alertV2.alertKey')">
-                    <span style="font-family:monospace;font-size:12px">{{ alert.alert_key }}</span>
-                  </n-descriptions-item>
-                  <n-descriptions-item label="Source">
-                    {{ alert.source || '—' }}
-                  </n-descriptions-item>
-                  <n-descriptions-item :label="t('alertV2.firstFiredAt')">
-                    {{ formatTime(alert.first_fired_at) }}
-                  </n-descriptions-item>
-                  <n-descriptions-item :label="t('alertV2.lastFiredAt')">
-                    {{ formatTime(alert.last_fired_at) }}
-                  </n-descriptions-item>
-                  <n-descriptions-item v-if="alert.resolved_at" label="Resolved At">
-                    {{ formatTime(alert.resolved_at) }}
-                  </n-descriptions-item>
-                  <n-descriptions-item :label="t('alertV2.fireCount')">
-                    {{ alert.fire_count }}
-                  </n-descriptions-item>
-                  <n-descriptions-item :label="t('alertV2.eventCount')">
-                    {{ alert.event_count }}
-                  </n-descriptions-item>
-                </n-descriptions>
-
-                <!-- Labels -->
-                <div v-if="alert.labels && Object.keys(alert.labels).length" style="margin-top:20px">
-                  <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--sre-text-secondary)">Labels</div>
-                  <n-space wrap>
-                    <n-tag
-                      v-for="(v, k) in alert.labels"
-                      :key="k"
-                      size="small"
-                      style="font-family:monospace;font-size:11px"
-                    >{{ k }}="{{ v }}"</n-tag>
-                  </n-space>
+              <div class="ov-section" v-if="labelEntries.length">
+                <div class="sre-label-eyebrow">Labels</div>
+                <div class="chip-row">
+                  <span
+                    v-for="[k, v] in labelEntries"
+                    :key="k"
+                    class="label-chip"
+                  ><span class="lc-k">{{ k }}</span><span class="lc-eq">=</span><span class="lc-v">{{ v }}</span></span>
                 </div>
+              </div>
 
-                <!-- Annotations -->
-                <div v-if="alert.annotations && Object.keys(alert.annotations).length" style="margin-top:16px">
-                  <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--sre-text-secondary)">Annotations</div>
-                  <n-descriptions :columns="1" label-placement="left" size="small">
-                    <n-descriptions-item v-for="(v, k) in alert.annotations" :key="k" :label="k">
-                      {{ v }}
-                    </n-descriptions-item>
-                  </n-descriptions>
+              <div class="ov-section">
+                <div class="sre-label-eyebrow">Fire Summary</div>
+                <div class="summary-grid">
+                  <div class="sg-item">
+                    <div class="sg-label">Fire count</div>
+                    <div class="sg-value tnum">{{ alert.fire_count }}</div>
+                  </div>
+                  <div class="sg-item">
+                    <div class="sg-label">Event count</div>
+                    <div class="sg-value tnum">{{ alert.event_count }}</div>
+                  </div>
+                  <div class="sg-item">
+                    <div class="sg-label">First fired</div>
+                    <div class="sg-value tnum">{{ formatTime(alert.first_fired_at) }}</div>
+                  </div>
+                  <div class="sg-item">
+                    <div class="sg-label">Last fired</div>
+                    <div class="sg-value tnum">{{ formatTime(alert.last_fired_at) }}</div>
+                  </div>
                 </div>
-              </n-tab-pane>
+              </div>
+            </n-tab-pane>
 
-              <!-- Events tab -->
-              <n-tab-pane name="events" :tab="t('alertV2.events')">
-                <n-data-table
-                  :loading="eventsLoading"
-                  :columns="eventColumns"
-                  :data="events"
-                  :row-key="(row: AlertEventV2) => row.id"
-                  size="small"
-                />
-                <div v-if="eventsTotal > eventsPageSize" class="pagination-row">
+            <!-- Events -->
+            <n-tab-pane name="events" :tab="t('alertV2.events') || 'Events'">
+              <n-spin :show="eventsLoading">
+                <div v-if="!events.length" class="ev-empty">No events</div>
+                <div v-else class="event-list">
+                  <div
+                    v-for="ev in events"
+                    :key="ev.id"
+                    class="event-row"
+                    :data-status="ev.event_status"
+                  >
+                    <span class="sre-dot" :data-severity="ev.event_severity"></span>
+                    <span class="ev-time tnum">{{ formatTime(ev.timestamp) }}</span>
+                    <span class="ev-value tnum">{{ ev.value.toFixed(4) }}</span>
+                    <span class="ev-status" :data-status="ev.event_status">
+                      {{ ev.event_status }}
+                    </span>
+                    <code v-if="ev.fingerprint" class="ev-fp">
+                      {{ ev.fingerprint.substring(0, 12) }}…
+                    </code>
+                  </div>
+                </div>
+                <div v-if="eventsTotal > eventsPageSize" class="pagination">
                   <n-pagination
                     v-model:page="eventsPage"
                     :page-count="Math.ceil(eventsTotal / eventsPageSize)"
                     @update:page="loadEvents"
                   />
                 </div>
-              </n-tab-pane>
-
-            </n-tabs>
-          </n-card>
+              </n-spin>
+            </n-tab-pane>
+          </n-tabs>
         </div>
 
-        <!-- Right: sidebar -->
-        <div class="detail-sidebar">
-          <n-card :bordered="false" class="info-card" title="Links">
-            <n-descriptions :columns="1" label-placement="top" size="small">
-              <n-descriptions-item :label="t('alertV2.linkedChannel')">
-                <a
-                  v-if="alert.channel"
-                  style="cursor:pointer;color:var(--sre-primary)"
-                  @click="router.push(`/channels/${alert.channel_id}`)"
-                >{{ alert.channel.name }}</a>
-                <span v-else>—</span>
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('alertV2.linkedIncident')">
-                <a
-                  v-if="alert.incident"
-                  style="cursor:pointer;color:var(--sre-primary)"
-                  @click="router.push(`/incidents/${alert.incident_id}`)"
-                >#{{ alert.incident_id }} {{ alert.incident.title }}</a>
-                <span v-else>—</span>
-              </n-descriptions-item>
-            </n-descriptions>
-          </n-card>
+        <!-- RIGHT: sidebar -->
+        <aside class="detail-sidebar">
+          <section class="side-card">
+            <div class="sre-label-eyebrow">Key info</div>
+            <dl class="kv-list">
+              <div class="kv-item">
+                <dt>Severity</dt>
+                <dd>
+                  <span class="sre-dot" :data-severity="alert.severity"></span>
+                  {{ severityLabel(alert.severity) }}
+                </dd>
+              </div>
+              <div class="kv-item">
+                <dt>Status</dt>
+                <dd>{{ alert.status }}</dd>
+              </div>
+              <div class="kv-item">
+                <dt>First fired</dt>
+                <dd class="tnum">{{ formatTime(alert.first_fired_at) }}</dd>
+              </div>
+              <div class="kv-item">
+                <dt>Last fired</dt>
+                <dd class="tnum">{{ formatTime(alert.last_fired_at) }}</dd>
+              </div>
+              <div v-if="alert.resolved_at" class="kv-item">
+                <dt>Resolved</dt>
+                <dd class="tnum">{{ formatTime(alert.resolved_at) }}</dd>
+              </div>
+              <div class="kv-item">
+                <dt>Event count</dt>
+                <dd class="tnum">{{ alert.event_count }}</dd>
+              </div>
+              <div class="kv-item">
+                <dt>Fire count</dt>
+                <dd class="tnum">{{ alert.fire_count }}</dd>
+              </div>
+              <div v-if="alert.source" class="kv-item">
+                <dt>Source</dt>
+                <dd>{{ alert.source }}</dd>
+              </div>
+              <div v-if="alert.channel" class="kv-item">
+                <dt>Channel</dt>
+                <dd>
+                  <a class="link" @click="router.push(`/channels/${alert.channel_id}`)">
+                    {{ alert.channel.name }}
+                  </a>
+                </dd>
+              </div>
+              <div v-if="alert.incident" class="kv-item">
+                <dt>Incident</dt>
+                <dd>
+                  <a class="link" @click="router.push(`/incidents/${alert.incident_id}`)">
+                    #{{ alert.incident_id }}
+                  </a>
+                </dd>
+              </div>
+              <div v-if="alert.generator_url" class="kv-item">
+                <dt>Generator</dt>
+                <dd>
+                  <a class="link" :href="alert.generator_url" target="_blank">
+                    Open ↗
+                  </a>
+                </dd>
+              </div>
+            </dl>
+          </section>
 
-          <n-card v-if="alert.generator_url" :bordered="false" class="info-card" title="Generator" style="margin-top:12px">
-            <a :href="alert.generator_url" target="_blank" style="font-size:12px;word-break:break-all">
-              {{ alert.generator_url }}
-            </a>
-          </n-card>
-        </div>
+          <section v-if="labelEntries.length" class="side-card">
+            <div class="sre-label-eyebrow">Labels</div>
+            <div class="side-labels">
+              <div v-for="[k, v] in labelEntries" :key="k" class="side-label-row">
+                <span class="slr-k">{{ k }}</span>
+                <span class="slr-v">{{ v }}</span>
+              </div>
+            </div>
+          </section>
+        </aside>
       </div>
     </n-spin>
 
-    <!-- Quick Silence Modal -->
     <QuickSilenceModal
       v-model:show="showQuickSilence"
       :labels="alert?.labels ?? {}"
@@ -256,25 +310,262 @@ onMounted(async () => {
 
 <style scoped>
 .alert-detail { max-width: 1400px; }
-.tabs-card { border-radius: 12px; }
-.info-card { border-radius: 12px; }
 
+/* Header */
+.detail-header { margin-bottom: 16px; }
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail-title {
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--sre-text-primary);
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.header-sub {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  cursor: default;
+}
+.hsub-sev {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.hsub-status { text-transform: capitalize; }
+.hsub-key { display: inline-flex; align-items: center; gap: 6px; }
+.hsub-key-label { color: var(--sre-text-tertiary); }
+.hsub-key code {
+  font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 12px;
+  background: var(--sre-bg-elevated);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--sre-text-secondary);
+}
+
+/* Layout */
 .detail-layout {
   display: grid;
-  grid-template-columns: 1fr 260px;
+  grid-template-columns: 1fr 280px;
   gap: 16px;
   align-items: start;
 }
+.detail-main { min-width: 0; }
 
-.badge-row {
+/* Overview sections */
+.ov-section { margin-bottom: 24px; }
+.ov-section .sre-label-eyebrow { margin-bottom: 8px; }
+
+.ov-desc {
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-hairline, var(--sre-border));
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.annot-row {
   display: flex;
   gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.annot-key {
+  color: var(--sre-text-tertiary);
+  font-weight: 500;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+.annot-val { color: var(--sre-text-primary); }
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11px;
+  background: var(--sre-bg-elevated);
+  border: 1px solid var(--sre-hairline, var(--sre-border));
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.lc-k { color: var(--sre-text-tertiary); }
+.lc-eq { color: var(--sre-text-tertiary); margin: 0 1px; }
+.lc-v { color: var(--sre-text-primary); }
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+.sg-item {
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-hairline, var(--sre-border));
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.sg-label {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
   margin-bottom: 4px;
 }
+.sg-value { font-size: 13px; color: var(--sre-text-primary); font-weight: 500; }
 
-.pagination-row {
+/* Events */
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-hairline, var(--sre-border));
+  border-radius: 6px;
+  font-size: 12px;
+}
+.event-row[data-status="resolved"] { opacity: 0.7; }
+.ev-time { color: var(--sre-text-secondary); min-width: 160px; }
+.ev-value {
+  font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  color: var(--sre-text-primary);
+  min-width: 80px;
+}
+.ev-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.ev-status[data-status="firing"] {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+.ev-status[data-status="resolved"] {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+.ev-fp {
+  font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  margin-left: auto;
+}
+.ev-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--sre-text-tertiary);
+  font-size: 13px;
+}
+
+/* Sidebar */
+.detail-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.side-card {
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-hairline, var(--sre-border));
+  border-radius: 10px;
+  padding: 16px;
+}
+.side-card .sre-label-eyebrow { margin-bottom: 12px; }
+
+.kv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+.kv-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  margin: 0;
+}
+.kv-item dt {
+  color: var(--sre-text-tertiary);
+  flex-shrink: 0;
+}
+.kv-item dd {
+  margin: 0;
+  color: var(--sre-text-primary);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.link {
+  color: var(--sre-primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+.link:hover { text-decoration: underline; }
+
+.side-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.side-label-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--sre-bg-elevated);
+  border-radius: 4px;
+  font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11px;
+}
+.slr-k { color: var(--sre-text-tertiary); }
+.slr-v { color: var(--sre-text-primary); word-break: break-all; }
+
+.pagination {
   display: flex;
   justify-content: flex-end;
-  margin-top: 12px;
+  margin-top: 16px;
+}
+
+@media (max-width: 1024px) {
+  .detail-layout { grid-template-columns: 1fr; }
 }
 </style>
