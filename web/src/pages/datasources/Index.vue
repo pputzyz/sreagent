@@ -1,19 +1,36 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { reactive, shallowRef, ref, computed, onMounted } from 'vue'
+import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NEmpty, NSpin, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import type { DataSource, DataSourceType } from '@/types'
-import { formatTime, kvArrayToRecord } from '@/utils/format'
-import { getDatasourceStatusType } from '@/utils/alert'
-import { AddOutline, RefreshOutline, CreateOutline } from '@vicons/ionicons5'
+import { kvArrayToRecord } from '@/utils/format'
+import {
+  AddOutline,
+  RefreshOutline,
+  PulseOutline,
+  EllipsisHorizontalOutline,
+  ServerOutline,
+  SearchOutline,
+  CreateOutline,
+  TrashOutline,
+} from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+
+interface DSCard extends DataSource {
+  _testing?: boolean
+  _latencyMs?: number
+  _lastCheckAt?: string
+}
 
 const message = useMessage()
 const { t } = useI18n()
 const loading = ref(false)
-const datasources = ref<DataSource[]>([])
+const datasources = shallowRef<DSCard[]>([])
+
+const typeFilter = ref<'all' | DataSourceType>('all')
+const search = ref('')
 
 // Modal state
 const showModal = ref(false)
@@ -27,12 +44,9 @@ const defaultForm = {
   endpoint: '',
   description: '',
   auth_type: 'none',
-  // Basic auth
   auth_username: '',
   auth_password: '',
-  // Bearer token
   auth_token: '',
-  // API Key
   auth_key_header: '',
   auth_key_value: '',
   labels: [] as { key: string; value: string }[],
@@ -45,8 +59,8 @@ const form = reactive({ ...defaultForm })
 const typeOptions = [
   { label: 'Prometheus', value: 'prometheus' },
   { label: 'VictoriaMetrics', value: 'victoriametrics' },
-  { label: 'Zabbix', value: 'zabbix' },
   { label: 'VictoriaLogs', value: 'victorialogs' },
+  { label: 'Zabbix', value: 'zabbix' },
 ]
 
 const authTypeOptions = [
@@ -56,11 +70,20 @@ const authTypeOptions = [
   { label: () => t('datasource.authApiKey'), value: 'api_key' },
 ]
 
+const filteredList = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return datasources.value.filter((d) => {
+    if (typeFilter.value !== 'all' && d.type !== typeFilter.value) return false
+    if (q && !`${d.name} ${d.endpoint} ${d.description}`.toLowerCase().includes(q)) return false
+    return true
+  })
+})
+
 async function fetchList() {
   loading.value = true
   try {
-    const { data } = await datasourceApi.list({ page: 1, page_size: 50 })
-    datasources.value = data.data.list || []
+    const { data } = await datasourceApi.list({ page: 1, page_size: 100 })
+    datasources.value = (data.data.list || []) as DSCard[]
   } catch (err: any) {
     message.error(err.message)
   } finally {
@@ -71,21 +94,7 @@ async function fetchList() {
 function openCreate() {
   editingId.value = null
   modalTitle.value = t('datasource.add')
-  Object.assign(form, {
-    name: '',
-    type: 'prometheus',
-    endpoint: '',
-    description: '',
-    auth_type: 'none',
-    auth_username: '',
-    auth_password: '',
-    auth_token: '',
-    auth_key_header: '',
-    auth_key_value: '',
-    labels: [],
-    health_check_interval: 60,
-    is_enabled: true,
-  })
+  Object.assign(form, defaultForm, { labels: [] })
   showModal.value = true
 }
 
@@ -98,8 +107,6 @@ function openEdit(ds: DataSource) {
     endpoint: ds.endpoint,
     description: ds.description,
     auth_type: ds.auth_type || 'none',
-    // Credential fields are intentionally blank on edit (backend never returns them).
-    // Leaving them blank signals "keep existing credentials" to the API.
     auth_username: '',
     auth_password: '',
     auth_token: '',
@@ -121,11 +128,8 @@ async function handleSave() {
     message.warning(t('datasource.endpointRequired'))
     return
   }
-
   saving.value = true
   try {
-    // Build auth_config JSON based on auth_type.
-    // For edits: if all credential fields are blank, send empty string to signal "no change".
     let auth_config = ''
     if (form.auth_type === 'basic' && (form.auth_username || form.auth_password)) {
       auth_config = JSON.stringify({ username: form.auth_username, password: form.auth_password })
@@ -134,7 +138,6 @@ async function handleSave() {
     } else if (form.auth_type === 'api_key' && form.auth_key_value) {
       auth_config = JSON.stringify({ header: form.auth_key_header || 'X-API-Key', value: form.auth_key_value })
     }
-
     const payload = {
       name: form.name,
       type: form.type,
@@ -146,7 +149,6 @@ async function handleSave() {
       health_check_interval: form.health_check_interval,
       is_enabled: form.is_enabled,
     }
-
     if (editingId.value) {
       await datasourceApi.update(editingId.value, payload)
       message.success(t('datasource.updated'))
@@ -173,40 +175,76 @@ async function handleDelete(id: number) {
   }
 }
 
-async function handleHealthCheck(id: number) {
+async function testHealth(ds: DSCard) {
+  ds._testing = true
+  datasources.value = [...datasources.value]
   try {
-    const { data } = await datasourceApi.healthCheck(id)
+    const { data } = await datasourceApi.healthCheck(ds.id)
     const r = data.data
-    const latency = r.latency_ms >= 0 ? ` (${r.latency_ms}ms)` : ''
-    const version = r.version ? ` · ${r.version}` : ''
+    ds._latencyMs = r.latency_ms >= 0 ? r.latency_ms : undefined
+    ds._lastCheckAt = new Date().toISOString()
+    ds.status = r.status as any
+    if (r.version) ds.version = r.version
     if (r.status === 'healthy') {
-      message.success(`✓ ${r.message}${latency}${version}`, { duration: 4000 })
+      message.success(`${ds.name} · ${r.latency_ms}ms${r.version ? ' · ' + r.version : ''}`, { duration: 3500 })
     } else {
-      message.error(`✗ ${r.message}${latency}`, { duration: 5000 })
+      message.error(`${ds.name} · ${r.message}`, { duration: 5000 })
     }
-    fetchList()
   } catch (err: any) {
     message.error(err.message)
+  } finally {
+    ds._testing = false
+    datasources.value = [...datasources.value]
   }
 }
 
-function getTypeColor(type: string) {
-  const colors: Record<string, string> = {
-    prometheus: '#e6522c',
-    victoriametrics: '#621773',
-    zabbix: '#d40000',
-    victorialogs: '#621773',
-  }
-  return colors[type] || '#666'
+function rowActions(_ds: DSCard) {
+  return [
+    { label: t('common.edit'), key: 'edit', icon: () => h(NIcon, { component: CreateOutline }) },
+    { label: t('common.delete'), key: 'delete', icon: () => h(NIcon, { component: TrashOutline }) },
+  ]
 }
 
-function getStatusLabel(status: string) {
-  const map: Record<string, string> = {
-    healthy: t('datasource.healthy'),
-    unhealthy: t('datasource.unhealthy'),
-    unknown: t('datasource.unknown'),
+import { h } from 'vue'
+
+function handleAction(key: string, ds: DSCard) {
+  if (key === 'edit') openEdit(ds)
+  else if (key === 'delete') {
+    if (confirm(t('datasource.deleteConfirm'))) handleDelete(ds.id)
   }
-  return map[status] || status
+}
+
+function healthSev(ds: DSCard): 'success' | 'warning' | 'critical' | null {
+  if (ds.status === 'healthy') return 'success'
+  if (ds.status === 'unhealthy') return 'critical'
+  return null
+}
+function healthLabel(ds: DSCard) {
+  if (ds.status === 'healthy') return t('datasource.healthy')
+  if (ds.status === 'unhealthy') return t('datasource.unhealthy')
+  return t('datasource.unknown')
+}
+function typeLabel(t: string) {
+  const m: Record<string, string> = {
+    prometheus: 'Prometheus',
+    victoriametrics: 'VictoriaMetrics',
+    victorialogs: 'VictoriaLogs',
+    zabbix: 'Zabbix',
+  }
+  return m[t] || t
+}
+function relTime(iso?: string) {
+  if (!iso) return '—'
+  const ms = Date.now() - new Date(iso).getTime()
+  if (ms < 0 || isNaN(ms)) return '—'
+  const s = Math.floor(ms / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const hr = Math.floor(m / 60)
+  if (hr < 24) return `${hr}h ago`
+  const d = Math.floor(hr / 24)
+  return `${d}d ago`
 }
 
 onMounted(fetchList)
@@ -214,194 +252,188 @@ onMounted(fetchList)
 
 <template>
   <div class="datasources-page">
-    <PageHeader :title="t('datasource.title')" :subtitle="t('datasource.subtitle')">
+    <PageHeader :title="t('datasource.title')" :subtitle="'Manage Prometheus / VictoriaMetrics / VictoriaLogs / Zabbix'">
       <template #actions>
-        <n-button @click="fetchList" :loading="loading">
-          <template #icon><n-icon :component="RefreshOutline" /></template>
+        <NButton quaternary @click="fetchList" :loading="loading">
+          <template #icon><NIcon :component="RefreshOutline" /></template>
           {{ t('common.refresh') }}
-        </n-button>
-        <n-button type="primary" @click="openCreate">
-          <template #icon><n-icon :component="AddOutline" /></template>
+        </NButton>
+        <NButton type="primary" @click="openCreate">
+          <template #icon><NIcon :component="AddOutline" /></template>
           {{ t('datasource.add') }}
-        </n-button>
+        </NButton>
       </template>
     </PageHeader>
 
-    <n-spin :show="loading">
-      <n-grid :x-gap="16" :y-gap="16" :cols="3" responsive="screen">
-        <n-gi v-for="(ds, idx) in datasources" :key="ds.id" :style="{ '--sre-stagger-i': idx }">
-          <n-card class="ds-card card-hover stagger-item" :bordered="false">
-            <div class="ds-header">
-              <div class="ds-type-badge" :style="{ background: getTypeColor(ds.type) + '20', color: getTypeColor(ds.type) }">
-                {{ ds.type }}
-              </div>
-              <n-tag :type="getDatasourceStatusType(ds.status)" size="small" round>
-                {{ getStatusLabel(ds.status) }}
-              </n-tag>
+    <div class="ds-toolbar">
+      <NRadioGroup v-model:value="typeFilter" size="small">
+        <NRadioButton value="all">All</NRadioButton>
+        <NRadioButton value="prometheus">Prometheus</NRadioButton>
+        <NRadioButton value="victoriametrics">VictoriaMetrics</NRadioButton>
+        <NRadioButton value="victorialogs">VictoriaLogs</NRadioButton>
+        <NRadioButton value="zabbix">Zabbix</NRadioButton>
+      </NRadioGroup>
+      <NInput v-model:value="search" :placeholder="t('common.search') || 'Search'" clearable size="small" class="ds-search">
+        <template #prefix><NIcon :component="SearchOutline" /></template>
+      </NInput>
+    </div>
+
+    <NSpin :show="loading">
+      <div v-if="filteredList.length > 0" class="ds-grid sre-stagger">
+        <div
+          v-for="(ds, idx) in filteredList"
+          :key="ds.id"
+          class="ds-card sre-lift"
+          :style="{ '--sre-stagger-i': idx } as any"
+          @click="openEdit(ds)"
+        >
+          <div class="ds-stripe" :data-type="ds.type"></div>
+
+          <div class="ds-status">
+            <span class="sre-dot" :data-severity="healthSev(ds) || ''"></span>
+            <span class="ds-status-text">{{ healthLabel(ds) }}</span>
+            <span v-if="!ds.is_enabled" class="ds-disabled">· Disabled</span>
+          </div>
+
+          <div class="ds-name">{{ ds.name }}</div>
+          <div class="ds-type">{{ typeLabel(ds.type) }}</div>
+
+          <code class="ds-endpoint" :title="ds.endpoint">{{ ds.endpoint }}</code>
+
+          <div class="ds-stats">
+            <div class="ds-stat-row">
+              <span class="sre-label-eyebrow">Latency</span>
+              <span class="ds-stat-val tnum">{{ ds._latencyMs != null ? ds._latencyMs + 'ms' : '—' }}</span>
             </div>
-            <h3 class="ds-name">{{ ds.name }}</h3>
-            <p class="ds-endpoint">{{ ds.endpoint }}</p>
-            <p v-if="ds.description" class="ds-desc">{{ ds.description }}</p>
-
-            <!-- Labels display -->
-            <div v-if="ds.labels && Object.keys(ds.labels).length > 0" class="ds-labels">
-              <n-tag
-                v-for="(value, key) in ds.labels"
-                :key="key"
-                size="small"
-                :bordered="false"
-                style="background: rgba(128,128,128,0.08)"
-              >
-                {{ key }}={{ value }}
-              </n-tag>
+            <div class="ds-stat-row">
+              <span class="sre-label-eyebrow">Version</span>
+              <span class="ds-stat-val mono">{{ ds.version || '—' }}</span>
             </div>
-
-            <div class="ds-meta">
-              <n-text depth="3" style="font-size: 11px">Auth: {{ ds.auth_type || 'none' }}</n-text>
-              <n-text v-if="ds.version" depth="3" style="font-size: 11px">v{{ ds.version }}</n-text>
-              <n-text depth="3" style="font-size: 11px">{{ ds.is_enabled ? t('common.enabled') : t('common.disabled') }}</n-text>
+            <div class="ds-stat-row">
+              <span class="sre-label-eyebrow">Last check</span>
+              <span class="ds-stat-val">{{ relTime(ds._lastCheckAt) }}</span>
             </div>
+          </div>
 
-            <div class="ds-actions">
-              <n-button size="small" @click="openEdit(ds)">
-                <template #icon><n-icon :component="CreateOutline" :size="14" /></template>
-                {{ t('common.edit') }}
-              </n-button>
-              <n-button size="small" @click="handleHealthCheck(ds.id)">{{ t('datasource.healthCheck') }}</n-button>
-              <n-popconfirm @positive-click="handleDelete(ds.id)">
-                <template #trigger>
-                  <n-button size="small" type="error" quaternary>{{ t('common.delete') }}</n-button>
-                </template>
-                {{ t('datasource.deleteConfirm') }}
-              </n-popconfirm>
-            </div>
-          </n-card>
-        </n-gi>
-      </n-grid>
+          <div class="ds-actions" @click.stop>
+            <NButton size="tiny" :loading="ds._testing" @click="testHealth(ds)">
+              <template #icon><NIcon :component="PulseOutline" /></template>
+              Test
+            </NButton>
+            <NDropdown :options="rowActions(ds)" trigger="click" @select="handleAction($event, ds)">
+              <NButton quaternary circle size="small">
+                <template #icon><NIcon :component="EllipsisHorizontalOutline" /></template>
+              </NButton>
+            </NDropdown>
+          </div>
+        </div>
+      </div>
 
-      <n-empty v-if="!loading && datasources.length === 0" :description="t('datasource.noData')" style="padding: 80px 0">
-        <template #extra>
-          <n-button type="primary" @click="openCreate">{{ t('datasource.addFirst') }}</n-button>
-        </template>
-      </n-empty>
-    </n-spin>
+      <div v-else-if="!loading" class="ds-empty">
+        <NEmpty :description="t('datasource.noData')">
+          <template #icon>
+            <NIcon :component="ServerOutline" :size="56" />
+          </template>
+          <template #extra>
+            <NButton type="primary" @click="openCreate">
+              <template #icon><NIcon :component="AddOutline" /></template>
+              {{ t('datasource.addFirst') }}
+            </NButton>
+          </template>
+        </NEmpty>
+      </div>
+    </NSpin>
 
-    <!-- Create/Edit Modal -->
-    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px" :bordered="false">
-      <n-form label-placement="top">
-        <n-form-item :label="t('common.name')" required>
-          <n-input v-model:value="form.name" placeholder="e.g. Production VictoriaMetrics" />
-        </n-form-item>
+    <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px" :bordered="false">
+      <NForm label-placement="top">
+        <NFormItem :label="t('common.name')" required>
+          <NInput v-model:value="form.name" placeholder="e.g. Production VictoriaMetrics" />
+        </NFormItem>
 
-        <n-grid :x-gap="12" :cols="2">
-          <n-gi>
-            <n-form-item :label="t('common.type')">
-              <n-select v-model:value="form.type" :options="typeOptions" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item :label="t('datasource.authType')">
-              <n-select v-model:value="form.auth_type" :options="authTypeOptions" />
-            </n-form-item>
-          </n-gi>
-        </n-grid>
+        <NGrid :x-gap="12" :cols="2">
+          <NGi>
+            <NFormItem :label="t('common.type')">
+              <NSelect v-model:value="form.type" :options="typeOptions" />
+            </NFormItem>
+          </NGi>
+          <NGi>
+            <NFormItem :label="t('datasource.authType')">
+              <NSelect v-model:value="form.auth_type" :options="authTypeOptions" />
+            </NFormItem>
+          </NGi>
+        </NGrid>
 
-        <n-form-item :label="t('datasource.endpointUrl')" required>
-          <n-input v-model:value="form.endpoint" placeholder="https://vm.example.com:8428" />
-        </n-form-item>
+        <NFormItem :label="t('datasource.endpointUrl')" required>
+          <NInput v-model:value="form.endpoint" placeholder="https://vm.example.com:8428" />
+        </NFormItem>
 
-        <!-- Basic Auth credentials -->
         <template v-if="form.auth_type === 'basic'">
-          <n-grid :x-gap="12" :cols="2">
-            <n-gi>
-              <n-form-item :label="t('datasource.authUsername')">
-                <n-input
-                  v-model:value="form.auth_username"
-                  :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authUsername')"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item :label="t('datasource.authPassword')">
-                <n-input
-                  v-model:value="form.auth_password"
-                  type="password"
-                  show-password-on="click"
-                  :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authPassword')"
-                />
-              </n-form-item>
-            </n-gi>
-          </n-grid>
+          <NGrid :x-gap="12" :cols="2">
+            <NGi>
+              <NFormItem :label="t('datasource.authUsername')">
+                <NInput v-model:value="form.auth_username" :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authUsername')" />
+              </NFormItem>
+            </NGi>
+            <NGi>
+              <NFormItem :label="t('datasource.authPassword')">
+                <NInput v-model:value="form.auth_password" type="password" show-password-on="click" :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authPassword')" />
+              </NFormItem>
+            </NGi>
+          </NGrid>
         </template>
 
-        <!-- Bearer Token credentials -->
         <template v-if="form.auth_type === 'bearer'">
-          <n-form-item :label="t('datasource.authToken')">
-            <n-input
-              v-model:value="form.auth_token"
-              type="password"
-              show-password-on="click"
-              :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authToken')"
-            />
-          </n-form-item>
+          <NFormItem :label="t('datasource.authToken')">
+            <NInput v-model:value="form.auth_token" type="password" show-password-on="click" :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authToken')" />
+          </NFormItem>
         </template>
 
-        <!-- API Key credentials -->
         <template v-if="form.auth_type === 'api_key'">
-          <n-grid :x-gap="12" :cols="2">
-            <n-gi>
-              <n-form-item :label="t('datasource.authApiKeyHeader')">
-                <n-input
-                  v-model:value="form.auth_key_header"
-                  :placeholder="t('datasource.authApiKeyHeaderPlaceholder')"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item :label="t('datasource.authApiKeyValue')">
-                <n-input
-                  v-model:value="form.auth_key_value"
-                  type="password"
-                  show-password-on="click"
-                  :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authApiKeyValue')"
-                />
-              </n-form-item>
-            </n-gi>
-          </n-grid>
+          <NGrid :x-gap="12" :cols="2">
+            <NGi>
+              <NFormItem :label="t('datasource.authApiKeyHeader')">
+                <NInput v-model:value="form.auth_key_header" :placeholder="t('datasource.authApiKeyHeaderPlaceholder')" />
+              </NFormItem>
+            </NGi>
+            <NGi>
+              <NFormItem :label="t('datasource.authApiKeyValue')">
+                <NInput v-model:value="form.auth_key_value" type="password" show-password-on="click" :placeholder="editingId ? t('datasource.authCredentialsNote') : t('datasource.authApiKeyValue')" />
+              </NFormItem>
+            </NGi>
+          </NGrid>
         </template>
 
-        <n-form-item :label="t('common.description')">
-          <n-input v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
-        </n-form-item>
+        <NFormItem :label="t('common.description')">
+          <NInput v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
+        </NFormItem>
 
-        <n-grid :x-gap="12" :cols="2">
-          <n-gi>
-            <n-form-item :label="t('datasource.healthCheckInterval')">
-              <n-input-number v-model:value="form.health_check_interval" :min="10" :max="3600" style="width: 100%" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item :label="t('common.enabled')">
-              <n-switch v-model:value="form.is_enabled" />
-            </n-form-item>
-          </n-gi>
-        </n-grid>
+        <NGrid :x-gap="12" :cols="2">
+          <NGi>
+            <NFormItem :label="t('datasource.healthCheckInterval')">
+              <NInputNumber v-model:value="form.health_check_interval" :min="10" :max="3600" style="width: 100%" />
+            </NFormItem>
+          </NGi>
+          <NGi>
+            <NFormItem :label="t('common.enabled')">
+              <NSwitch v-model:value="form.is_enabled" />
+            </NFormItem>
+          </NGi>
+        </NGrid>
 
-        <!-- Labels -->
-        <n-form-item :label="t('datasource.labels')">
+        <NFormItem :label="t('datasource.labels')">
           <KVEditor v-model:modelValue="form.labels" :add-label="t('datasource.addLabel')" />
-        </n-form-item>
-      </n-form>
+        </NFormItem>
+      </NForm>
 
       <template #action>
-        <n-space justify="end">
-          <n-button @click="showModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :loading="saving" @click="handleSave">
+        <NSpace justify="end">
+          <NButton @click="showModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="saving" @click="handleSave">
             {{ editingId ? t('common.update') : t('common.create') }}
-          </n-button>
-        </n-space>
+          </NButton>
+        </NSpace>
       </template>
-    </n-modal>
+    </NModal>
   </div>
 </template>
 
@@ -410,64 +442,127 @@ onMounted(fetchList)
   max-width: 1400px;
 }
 
-.ds-card {
-  background: var(--sre-bg-card);
-  border-radius: 12px;
-}
-
-.ds-header {
+.ds-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 12px 0 20px;
+  flex-wrap: wrap;
+}
+.ds-search {
+  max-width: 280px;
 }
 
-.ds-type-badge {
-  padding: 2px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
+.ds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
 }
+
+.ds-card {
+  position: relative;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md, 12px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.ds-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--sre-primary);
+}
+
+.ds-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--sre-text-tertiary);
+}
+.ds-stripe[data-type="prometheus"]      { background: #e6522c; }
+.ds-stripe[data-type="victoriametrics"] { background: #1a7f37; }
+.ds-stripe[data-type="victorialogs"]    { background: #0550ae; }
+.ds-stripe[data-type="zabbix"]          { background: #d32f2f; }
+
+.ds-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 4px;
+}
+.ds-status-text { font-weight: 600; }
+.ds-disabled { color: var(--sre-text-tertiary); }
 
 .ds-name {
   font-size: 16px;
   font-weight: 600;
-  margin: 0 0 4px 0;
   color: var(--sre-text-primary);
+  margin-top: 4px;
+  letter-spacing: -0.01em;
+}
+.ds-type {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
 }
 
 .ds-endpoint {
-  font-size: 12px;
-  color: var(--sre-text-secondary);
-  margin: 0 0 8px 0;
-  word-break: break-all;
+  font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  background: var(--sre-bg-elevated);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--sre-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  margin-top: 4px;
 }
 
-.ds-desc {
-  font-size: 13px;
-  color: var(--sre-text-secondary);
-  margin: 0 0 8px 0;
-}
-
-.ds-labels {
+.ds-stats {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 4px;
-  margin-bottom: 8px;
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: var(--sre-hairline);
 }
-
-.ds-meta {
+.ds-stat-row {
   display: flex;
-  gap: 12px;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.ds-stat-val {
+  color: var(--sre-text-primary);
+  font-weight: 500;
+}
+.mono {
+  font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 
 .ds-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.ds-empty {
+  padding: 80px 0;
+  display: flex;
+  justify-content: center;
 }
 </style>

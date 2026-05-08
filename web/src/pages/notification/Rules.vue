@@ -1,24 +1,23 @@
 <script setup lang="ts">
-import { h, ref, reactive, onMounted } from 'vue'
-import { useMessage, NTag, NButton, NSpace, NPopconfirm, NSwitch } from 'naive-ui'
+import { reactive, ref, shallowRef, computed, onMounted, h } from 'vue'
+import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyRuleApi } from '@/api'
 import type { NotifyRule } from '@/types'
-import { AddOutline } from '@vicons/ionicons5'
-import { getSeverityType } from '@/utils/alert'
+import { AddOutline, SearchOutline, FilterOutline } from '@vicons/ionicons5'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
-import PageHeader from '@/components/common/PageHeader.vue'
 
 const message = useMessage()
 const { t } = useI18n()
 
 const loading = ref(false)
-const rules = ref<NotifyRule[]>([])
+const rules = shallowRef<NotifyRule[]>([])
 const showModal = ref(false)
 const modalTitle = ref('')
 const editingId = ref<number | null>(null)
 const saving = ref(false)
+const search = ref('')
 
 const form = reactive({
   name: '',
@@ -32,101 +31,46 @@ const form = reactive({
   is_enabled: true,
 })
 
-const severityOptions = [
-  { label: () => t('alert.critical'), value: 'critical' },
-  { label: () => t('alert.warning'), value: 'warning' },
-  { label: () => t('alert.info'), value: 'info' },
-]
+const severityOptions = computed(() => [
+  { label: t('alert.critical'), value: 'critical' },
+  { label: t('alert.warning'), value: 'warning' },
+  { label: t('alert.info'), value: 'info' },
+])
 
-const columns = [
-  {
-    title: () => t('common.name'),
-    key: 'name',
-    width: 180,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: () => t('notifyRule.severities'),
-    key: 'severities',
-    width: 200,
-    render: (row: NotifyRule) => {
-      const sevs = (row.severities || '').split(',').filter(Boolean)
-      if (sevs.length === 0) return h('span', { style: 'color: #666' }, '-')
-      return h(NSpace, { size: 4 }, {
-        default: () => sevs.map(s =>
-          h(NTag, { size: 'small', type: getSeverityType(s), round: true, bordered: false }, { default: () => s })
-        ),
-      })
-    },
-  },
-  {
-    title: () => t('notifyRule.matchLabels'),
-    key: 'match_labels',
-    width: 220,
-    render: (row: NotifyRule) => {
-      const labels = row.match_labels || {}
-      const entries = Object.entries(labels)
-      if (entries.length === 0) return h('span', { style: 'color: #666' }, '-')
-      return h(NSpace, { size: 4 }, {
-        default: () => entries.map(([k, v]) =>
-          h(NTag, { size: 'small', bordered: false }, { default: () => `${k}=${v}` })
-        ),
-      })
-    },
-  },
-  {
-    title: () => t('notifyRule.repeatInterval'),
-    key: 'repeat_interval',
-    width: 120,
-    render: (row: NotifyRule) => `${row.repeat_interval}s`,
-  },
-  {
-    title: () => t('common.enabled'),
-    key: 'is_enabled',
-    width: 80,
-    render: (row: NotifyRule) =>
-      h(NTag, { type: row.is_enabled ? 'success' : 'default', size: 'small' }, { default: () => row.is_enabled ? t('common.on') : t('common.off') }),
-  },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 160,
-    render: (row: NotifyRule) =>
-      h(NSpace, { size: 4 }, {
-        default: () => [
-          h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
-            trigger: () => h(NButton, { size: 'small', quaternary: true, type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('notifyRule.deleteConfirm'),
-          }),
-        ],
-      }),
-  },
-]
+const filtered = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return rules.value
+  return rules.value.filter(r =>
+    r.name.toLowerCase().includes(q) ||
+    (r.description || '').toLowerCase().includes(q),
+  )
+})
+
+function severityDot(s: string) {
+  return s === 'critical' ? 'critical' : s === 'warning' ? 'warning' : 'info'
+}
+
+function summarizeMedia(r: NotifyRule): string[] {
+  try {
+    const arr = JSON.parse(r.notify_configs || '[]')
+    if (!Array.isArray(arr)) return []
+    return arr.map((c: any) => c.media_name || c.name || c.type || 'media').slice(0, 4)
+  } catch { return [] }
+}
 
 async function fetchData() {
   loading.value = true
   try {
     const { data } = await notifyRuleApi.list({ page: 1, page_size: 100 })
     rules.value = data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    loading.value = false
-  }
+  } catch (err: any) { message.error(err.message) } finally { loading.value = false }
 }
 
 function resetForm() {
   Object.assign(form, {
-    name: '',
-    description: '',
-    severities: [],
-    match_labels: [],
-    pipeline: '[]',
-    notify_configs: '[]',
-    repeat_interval: 3600,
-    callback_url: '',
-    is_enabled: true,
+    name: '', description: '', severities: [], match_labels: [],
+    pipeline: '[]', notify_configs: '[]', repeat_interval: 3600,
+    callback_url: '', is_enabled: true,
   })
 }
 
@@ -160,24 +104,9 @@ function openEdit(row: NotifyRule) {
 }
 
 async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('notifyRule.nameRequired'))
-    return
-  }
-
-  // Validate JSON fields
-  try {
-    JSON.parse(form.pipeline)
-  } catch {
-    message.warning(t('notifyRule.pipeline') + ': Invalid JSON')
-    return
-  }
-  try {
-    JSON.parse(form.notify_configs)
-  } catch {
-    message.warning(t('notifyRule.notifyConfigs') + ': Invalid JSON')
-    return
-  }
+  if (!form.name.trim()) { message.warning(t('notifyRule.nameRequired')); return }
+  try { JSON.parse(form.pipeline) } catch { message.warning(t('notifyRule.pipeline') + ': Invalid JSON'); return }
+  try { JSON.parse(form.notify_configs) } catch { message.warning(t('notifyRule.notifyConfigs') + ': Invalid JSON'); return }
 
   saving.value = true
   try {
@@ -204,11 +133,7 @@ async function handleSave() {
     }
     showModal.value = false
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    saving.value = false
-  }
+  } catch (err: any) { message.error(err.message) } finally { saving.value = false }
 }
 
 async function handleDelete(id: number) {
@@ -216,40 +141,93 @@ async function handleDelete(id: number) {
     await notifyRuleApi.delete(id)
     message.success(t('notifyRule.deleted'))
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
-  }
+  } catch (err: any) { message.error(err.message) }
 }
 
-onMounted(() => {
-  fetchData()
-})
+async function toggleEnabled(row: NotifyRule, val: boolean) {
+  try {
+    await notifyRuleApi.update(row.id, { ...row, is_enabled: val })
+    rules.value = rules.value.map(r => r.id === row.id ? { ...r, is_enabled: val } : r)
+  } catch (err: any) { message.error(err.message) }
+}
+
+function rowMenu(row: NotifyRule) {
+  return [
+    { label: t('common.edit'), key: 'edit' },
+    { type: 'divider', key: 'd1' },
+    { label: t('common.delete'), key: 'delete', props: { style: 'color: var(--sre-danger, #ef4444)' } },
+  ]
+}
+function onRowMenu(key: string, row: NotifyRule) {
+  if (key === 'edit') openEdit(row)
+  else if (key === 'delete' && confirm(t('notifyRule.deleteConfirm'))) handleDelete(row.id)
+}
+const RowMenu = (row: NotifyRule) => h(NDropdown, {
+  trigger: 'click', options: rowMenu(row),
+  onSelect: (k: string) => onRowMenu(k, row),
+}, { default: () => h('button', { class: 'sre-icon-btn' }, h('span', { class: 'sre-dots' })) })
+
+onMounted(fetchData)
 </script>
 
 <template>
-  <div class="page-container">
-    <PageHeader :title="t('notifyRule.title')" :subtitle="t('notifyRule.subtitle')">
-      <template #actions>
-        <n-button type="primary" @click="openCreate">
-          <template #icon><n-icon :component="AddOutline" /></template>
-          {{ t('notifyRule.create') }}
-        </n-button>
-      </template>
-    </PageHeader>
+  <div class="rules-page">
+    <header class="sub-header">
+      <div>
+        <h2 class="sub-title">{{ t('notifyRule.title') }}</h2>
+        <p class="sub-sub">{{ t('notifyRule.subtitle') }}</p>
+      </div>
+      <n-button type="primary" size="small" @click="openCreate">
+        <template #icon><n-icon :component="AddOutline" /></template>
+        {{ t('notifyRule.create') }}
+      </n-button>
+    </header>
 
-    <n-card :bordered="false" class="content-card">
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="rules"
-        :row-key="(row: NotifyRule) => row.id"
-        :bordered="false"
-        size="small"
-      />
-      <n-empty v-if="!loading && rules.length === 0" :description="t('notifyRule.noData')" style="padding: 40px 0" />
-    </n-card>
+    <div class="toolbar">
+      <n-input v-model:value="search" size="small" :placeholder="t('common.search')" clearable style="width: 240px">
+        <template #prefix><n-icon :component="SearchOutline" /></template>
+      </n-input>
+      <span class="count tnum">{{ filtered.length }} / {{ rules.length }}</span>
+    </div>
 
-    <!-- Create/Edit Modal -->
+    <div v-if="loading" class="loading">{{ t('common.loading') }}…</div>
+
+    <div v-else-if="filtered.length === 0" class="empty">
+      <n-icon :component="FilterOutline" size="36" />
+      <div class="empty-text">{{ t('notifyRule.noData') }}</div>
+      <n-button type="primary" size="small" @click="openCreate">{{ t('notifyRule.create') }}</n-button>
+    </div>
+
+    <ul v-else class="row-list sre-stagger">
+      <li v-for="r in filtered" :key="r.id" class="sre-row-card sre-lift">
+        <div class="row-l1">
+          <span class="dot" :class="r.is_enabled ? 'on' : 'off'"></span>
+          <span class="row-name">{{ r.name }}</span>
+          <div class="severities">
+            <span v-for="s in (r.severities || '').split(',').filter(Boolean)" :key="s"
+              class="sev-chip" :data-sev="severityDot(s)">{{ s }}</span>
+          </div>
+          <div class="row-actions">
+            <n-switch :value="r.is_enabled" size="small" @update:value="(v: boolean) => toggleEnabled(r, v)" />
+            <component :is="RowMenu(r)" />
+          </div>
+        </div>
+        <div class="row-l2">
+          <template v-for="(v, k) in (r.match_labels || {})" :key="k">
+            <code class="label-chip">{{ k }}={{ v }}</code>
+          </template>
+          <span v-if="!Object.keys(r.match_labels || {}).length" class="muted">{{ t('common.noMatchLabels') || '—' }}</span>
+          <span class="arrow">→</span>
+          <span v-for="m in summarizeMedia(r)" :key="m" class="media-chip">{{ m }}</span>
+        </div>
+        <div class="row-l3">
+          <span class="meta tnum">repeat {{ r.repeat_interval }}s</span>
+          <span class="sre-meta-divider">·</span>
+          <span class="meta" v-if="r.description">{{ r.description }}</span>
+        </div>
+      </li>
+    </ul>
+
     <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 600px" :bordered="false">
       <n-form label-placement="top">
         <n-grid :x-gap="12" :cols="2">
@@ -270,12 +248,8 @@ onMounted(() => {
         </n-form-item>
 
         <n-form-item :label="t('notifyRule.severities')">
-          <n-select
-            v-model:value="form.severities"
-            :options="severityOptions"
-            multiple
-            :placeholder="t('common.selectSeverities')"
-          />
+          <n-select v-model:value="form.severities" :options="severityOptions" multiple
+            :placeholder="t('common.selectSeverities')" />
         </n-form-item>
 
         <n-form-item :label="t('notifyRule.matchLabels')">
@@ -283,32 +257,21 @@ onMounted(() => {
         </n-form-item>
 
         <n-form-item :label="t('notifyRule.pipeline')">
-          <n-input
-            v-model:value="form.pipeline"
-            type="textarea"
-            :rows="4"
+          <n-input v-model:value="form.pipeline" type="textarea" :rows="4"
             :placeholder="t('notifyRule.pipelineHint')"
-            style="font-family: monospace; font-size: 12px"
-          />
+            style="font-family: 'Geist Mono', monospace; font-size: 12px" />
         </n-form-item>
 
         <n-form-item :label="t('notifyRule.notifyConfigs')">
-          <n-input
-            v-model:value="form.notify_configs"
-            type="textarea"
-            :rows="4"
+          <n-input v-model:value="form.notify_configs" type="textarea" :rows="4"
             :placeholder="t('notifyRule.notifyConfigsHint')"
-            style="font-family: monospace; font-size: 12px"
-          />
+            style="font-family: 'Geist Mono', monospace; font-size: 12px" />
         </n-form-item>
 
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
             <n-form-item :label="t('notifyRule.repeatInterval')">
               <n-input-number v-model:value="form.repeat_interval" :min="0" style="width: 100%" />
-              <template #feedback>
-                <n-text depth="3" style="font-size: 12px">{{ t('notifyRule.repeatIntervalHint') }}</n-text>
-              </template>
             </n-form-item>
           </n-gi>
           <n-gi>
@@ -332,11 +295,72 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.page-container {
-  max-width: 1400px;
-}
+.rules-page { font-family: 'Geist', system-ui, sans-serif; max-width: 1400px; }
 
-.content-card {
-  border-radius: 12px;
+.sub-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding-bottom: 14px; border-bottom: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
+  margin-bottom: 14px;
 }
+.sub-title { font: 600 18px/1.2 'Geist', sans-serif; margin: 0; letter-spacing: -0.01em; }
+.sub-sub { font-size: 12px; color: var(--sre-text-secondary, #888); margin: 4px 0 0; }
+
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.count { font-size: 12px; color: var(--sre-text-secondary, #888); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.loading, .empty { padding: 60px 20px; text-align: center; color: var(--sre-text-secondary, #888); }
+.empty { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.empty-text { font-size: 13px; }
+
+.row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.sre-row-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
+  border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
+  border-radius: 8px; background: var(--sre-bg-card, rgba(255,255,255,0.02));
+  transition: border-color .15s, background .15s;
+}
+.sre-row-card:hover { border-color: var(--sre-hairline-strong, rgba(255,255,255,0.12)); background: rgba(255,255,255,0.03); }
+
+.row-l1 { display: flex; align-items: center; gap: 10px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sre-success, #22c55e); box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
+.dot.off { background: #555; box-shadow: 0 0 0 3px rgba(120,120,120,0.12); }
+.row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
+
+.severities { display: flex; gap: 4px; flex-wrap: wrap; }
+.sev-chip {
+  font: 500 10px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.sev-chip[data-sev="critical"] { background: rgba(239,68,68,0.14); color: #fca5a5; }
+.sev-chip[data-sev="warning"]  { background: rgba(245,158,11,0.14); color: #fcd34d; }
+.sev-chip[data-sev="info"]     { background: rgba(56,189,248,0.14); color: #7dd3fc; }
+
+.row-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+.row-l2 { padding-left: 18px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.label-chip, .media-chip {
+  font: 11px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
+}
+.media-chip { background: rgba(129,140,248,0.12); color: #a5b4fc; }
+.arrow { color: var(--sre-text-secondary, #666); margin: 0 4px; font-size: 12px; }
+.muted { color: var(--sre-text-secondary, #666); font-size: 12px; }
+
+.row-l3 { padding-left: 18px; display: flex; gap: 6px; align-items: center; }
+.meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.sre-icon-btn {
+  width: 24px; height: 24px; padding: 0; border: 0; background: transparent;
+  border-radius: 4px; cursor: pointer; color: var(--sre-text-secondary, #888);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sre-icon-btn:hover { background: rgba(255,255,255,0.06); color: inherit; }
+.sre-dots { width: 14px; height: 4px; position: relative; display: inline-block; }
+.sre-dots::before, .sre-dots::after, .sre-dots {
+  content: ''; width: 3px; height: 3px; background: currentColor; border-radius: 50%;
+}
+.sre-dots::before { position: absolute; left: -5px; top: 0.5px; }
+.sre-dots::after  { position: absolute; right: -5px; top: 0.5px; }
 </style>

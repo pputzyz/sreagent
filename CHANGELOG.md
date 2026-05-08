@@ -4,6 +4,33 @@
 
 ---
 
+## [v2.4.0] - 2026-05-08
+
+### Changed — UI 重构 Phase 3（配置类页面 FlashCat 对齐）
+
+11 个配置类页面统一视觉语言：Geist 字体 / tabular nums / sre-row-card / sre-dot / hairline。
+
+- **通知中心**：
+  - `notification/Index.vue`：NTabs → 200px 左导航 + 内容区，URL hash 同步
+  - `AlertChannels.vue`：NDataTable → sre-row-card 列表，标签匹配 chips、Webhook URL 复制、Throttle 显示
+  - `Media.vue`：紧凑列表，type chip 着色（lark/email/webhook/script），测试发送按钮
+  - `Rules.vue`：Match conditions chips → "→" 关联 media 列表
+  - `Subscribe.vue`：订阅人头像组 + Match chips + 通知方式
+  - `Templates.vue`：type chip + 内容预览 mono + 内置/自定义标记
+
+- **告警引擎补齐**：
+  - `mute/Index.vue`：状态分段（生效中/未来/已过期/禁用）+ Match chips + Schedule 摘要 + 命中预览抽屉
+  - `inhibition/Index.vue`：Source/Target/Equal 分行展示 + 命中数 tnum
+  - `history/Index.vue`：时间分段（7天/30天/90天/自定义）+ 紧凑历史列表（dim 0.85）+ Export CSV
+
+- **集成与数据**：
+  - `datasources/Index.vue`：表格 → 卡片网格（顶部 type 色条）+ 健康状态点 + Latency/Version stats + Test 按钮
+  - `schedule/Index.vue`：Header + Sidebar 视觉对齐，班次色块（var(--sre-primary-soft) + 主色 marker），当前值班用主色实色
+
+vue-tsc ✅ — 修复 4 处类型问题（DataSourceStatus 类型断言、SelectOption value 不能为 null、NSpin size="tiny" → "small"、duration/relTime null 兼容）
+
+---
+
 ## [v2.3.0] - 2026-05-08
 
 ### Changed — UI 重构 Phase 2（详情页 FlashCat 对齐）

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, shallowRef, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { scheduleApi, teamApi, userApi, scheduleICalApi } from '@/api'
@@ -13,8 +13,8 @@ import ParticipantsList from './ParticipantsList.vue'
 const message = useMessage()
 const { t } = useI18n()
 
-// ===== Color palette for users =====
-const userColors = ['#18a058','#4098fc','#f0a020','#d03050','#9c27b0','#00bcd4','#ff5722','#607d8b']
+// ===== Color palette for users (restrained) =====
+const userColors = ['#0070f3', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b']
 const userColorMap = ref<Map<number, string>>(new Map())
 
 function getUserColor(userId: number): string {
@@ -32,9 +32,9 @@ function getUserName(userId: number): string {
 
 // ===== Data =====
 const loading = ref(false)
-const schedules = ref<Schedule[]>([])
-const teams = ref<Team[]>([])
-const users = ref<User[]>([])
+const schedules = shallowRef<Schedule[]>([])
+const teams = shallowRef<Team[]>([])
+const users = shallowRef<User[]>([])
 const onCallMap = ref<Record<number, User | null>>({})
 const selectedSchedule = ref<Schedule | null>(null)
 
@@ -72,7 +72,7 @@ const weekRangeLabel = computed(() => {
   const start = weekDays.value[0]
   const end = weekDays.value[6]
   const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`
-  return `${start.getFullYear()} ${fmt(start)} - ${fmt(end)}`
+  return `${start.getFullYear()} · ${fmt(start)} – ${fmt(end)}`
 })
 
 // Time axis
@@ -94,8 +94,13 @@ function isToday(d: Date): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
 }
 
+function isWeekend(d: Date): boolean {
+  const day = d.getDay()
+  return day === 0 || day === 6
+}
+
 // ===== Shifts =====
-const shifts = ref<OnCallShift[]>([])
+const shifts = shallowRef<OnCallShift[]>([])
 const shiftsLoading = ref(false)
 
 async function fetchShifts() {
@@ -129,6 +134,11 @@ function getShiftsForDay(day: Date): OnCallShift[] {
   })
 }
 
+function isShiftActive(shift: OnCallShift): boolean {
+  const now = Date.now()
+  return new Date(shift.start_time).getTime() <= now && new Date(shift.end_time).getTime() >= now
+}
+
 function shiftStyle(shift: OnCallShift, day: Date): Record<string, string> {
   const dayStart = new Date(day)
   dayStart.setHours(0, 0, 0, 0)
@@ -149,21 +159,14 @@ function shiftStyle(shift: OnCallShift, day: Date): Record<string, string> {
   const height = Math.max(((endMin - startMin) / minutesInDay) * 100, 2)
 
   const color = getUserColor(shift.user_id)
+  const active = isShiftActive(shift)
   return {
     top: `${top}%`,
     height: `${height}%`,
-    position: 'absolute',
-    width: '94%',
-    left: '3%',
-    backgroundColor: color + '22',
-    borderLeft: `3px solid ${color}`,
-    borderRadius: '4px',
-    padding: '2px 4px',
-    overflow: 'hidden',
-    cursor: 'pointer',
-    boxSizing: 'border-box',
-    boxShadow: `0 1px 4px ${color}33`,
-    zIndex: '1',
+    '--shift-color': color,
+    background: active ? color : `${color}1a`,
+    color: active ? '#fff' : color,
+    borderLeftColor: active ? 'transparent' : color,
   }
 }
 
@@ -171,7 +174,7 @@ function formatShiftTime(shift: OnCallShift): string {
   const s = new Date(shift.start_time)
   const e = new Date(shift.end_time)
   const fmt = (d: Date) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-  return `${fmt(s)}-${fmt(e)}`
+  return `${fmt(s)}–${fmt(e)}`
 }
 
 // ===== Generate Shifts =====
@@ -283,6 +286,10 @@ function handleShiftSaved() {
   fetchShifts()
 }
 
+const currentOnCall = computed(() =>
+  selectedSchedule.value ? onCallMap.value[selectedSchedule.value.id] : null
+)
+
 onMounted(() => {
   fetchSchedules()
   fetchTeams()
@@ -292,27 +299,73 @@ onMounted(() => {
 
 <template>
   <div class="schedule-page">
+    <!-- Page Header -->
+    <header class="schedule-header">
+      <div class="schedule-header-text">
+        <h1 class="schedule-title">{{ t('schedule.pageTitle') || 'On-Call Schedule' }}</h1>
+        <p class="schedule-subtitle">{{ t('schedule.pageSubtitle') || 'Define rotations and escalation policies' }}</p>
+      </div>
+      <div class="schedule-header-actions">
+        <n-button size="small" @click="scheduleModalRef?.openCreate()">+ {{ t('schedule.newSchedule') }}</n-button>
+        <n-button
+          size="small"
+          type="primary"
+          :disabled="!selectedSchedule"
+          @click="shiftModalRef?.openCreate()"
+        >
+          + {{ t('schedule.newShift') }}
+        </n-button>
+      </div>
+    </header>
+
     <div class="schedule-layout">
       <!-- Left Sidebar -->
-      <ScheduleSidebar
-        :schedules="schedules"
-        :loading="loading"
-        :selected-id="selectedSchedule?.id ?? null"
-        :on-call-map="onCallMap"
-        @select="selectSchedule"
-        @create="scheduleModalRef?.openCreate()"
-      />
+      <aside class="schedule-sidebar-wrap">
+        <ScheduleSidebar
+          :schedules="schedules"
+          :loading="loading"
+          :selected-id="selectedSchedule?.id ?? null"
+          :on-call-map="onCallMap"
+          @select="selectSchedule"
+          @create="scheduleModalRef?.openCreate()"
+        />
+      </aside>
 
       <!-- Right Detail Panel -->
-      <div class="schedule-detail">
+      <section class="schedule-detail">
         <template v-if="selectedSchedule">
-          <!-- Top bar -->
+          <!-- Detail header: title + on-call + actions -->
           <div class="detail-topbar">
-            <div class="detail-title">
-              <h2>{{ selectedSchedule.name }}</h2>
-              <n-tag v-if="selectedSchedule.team" size="small" :bordered="false" type="info">{{ selectedSchedule.team?.name || '' }}</n-tag>
+            <div class="detail-title-row">
+              <div class="detail-title-block">
+                <span class="sre-label-eyebrow">{{ t('schedule.scheduleLabel') || 'Schedule' }}</span>
+                <h2 class="detail-title">
+                  {{ selectedSchedule.name }}
+                  <span v-if="selectedSchedule.team" class="detail-team">
+                    <span class="sre-meta-divider"></span>
+                    {{ selectedSchedule.team?.name }}
+                  </span>
+                </h2>
+              </div>
+
+              <!-- Current on-call badge -->
+              <div v-if="currentOnCall" class="oncall-badge">
+                <span class="oncall-eyebrow">{{ t('schedule.currentOnCall') || 'On-call now' }}</span>
+                <div class="oncall-info">
+                  <span class="sre-dot" :style="{ background: getUserColor(currentOnCall.id) }"></span>
+                  <span class="oncall-name">{{ currentOnCall.display_name || currentOnCall.username }}</span>
+                  <span v-if="currentOnCall.email" class="oncall-email tnum">{{ currentOnCall.email }}</span>
+                </div>
+              </div>
             </div>
-            <n-space size="small">
+
+            <div class="detail-actions">
+              <n-button size="small" tertiary @click="handleExportICal" :title="t('ical.exportHint')">
+                {{ t('ical.exportCalendar') }}
+              </n-button>
+              <n-button size="small" tertiary @click="showGenerateModal = true">
+                {{ t('schedule.generateShifts') }}
+              </n-button>
               <n-button size="small" @click="scheduleModalRef?.openEdit(selectedSchedule!)">{{ t('common.edit') }}</n-button>
               <n-popconfirm @positive-click="handleDeleteSchedule(selectedSchedule.id)">
                 <template #trigger>
@@ -320,113 +373,121 @@ onMounted(() => {
                 </template>
                 {{ t('schedule.deleteConfirm') }}
               </n-popconfirm>
-              <n-button size="small" type="primary" @click="showGenerateModal = true">
-                {{ t('schedule.generateShifts') }}
-              </n-button>
-              <n-button size="small" quaternary @click="handleExportICal" :title="t('ical.exportHint')">
-                📅 {{ t('ical.exportCalendar') }}
-              </n-button>
-            </n-space>
+            </div>
           </div>
 
           <!-- Week navigation -->
           <div class="week-nav">
-            <n-button size="small" quaternary @click="prevWeek">&#x2039;</n-button>
-            <span class="week-label">{{ weekRangeLabel }}</span>
-            <n-button size="small" quaternary @click="nextWeek">&#x203A;</n-button>
-            <n-button size="tiny" @click="goToday" style="margin-left: 8px">{{ t('schedule.today') }}</n-button>
-            <n-button size="tiny" type="primary" @click="shiftModalRef?.openCreate()" style="margin-left: 8px">
-              + {{ t('schedule.newShift') }}
-            </n-button>
+            <div class="week-nav-left">
+              <n-button size="tiny" quaternary @click="prevWeek">‹</n-button>
+              <span class="week-label tnum">{{ weekRangeLabel }}</span>
+              <n-button size="tiny" quaternary @click="nextWeek">›</n-button>
+              <n-button size="tiny" tertiary @click="goToday">{{ t('schedule.today') }}</n-button>
+            </div>
+            <div v-if="shiftsLoading" class="week-nav-status">
+              <n-spin size="small" />
+            </div>
           </div>
 
           <!-- Calendar grid -->
           <div class="calendar-container">
-            <n-spin :show="shiftsLoading">
-              <div class="calendar-grid">
-                <!-- Header row -->
-                <div class="cal-header-row">
-                  <div class="cal-time-gutter" />
+            <div class="calendar-grid">
+              <!-- Header row -->
+              <div class="cal-header-row">
+                <div class="cal-time-gutter" />
+                <div
+                  v-for="(day, i) in weekDays"
+                  :key="i"
+                  class="cal-day-header"
+                  :class="{ today: isToday(day), weekend: isWeekend(day) }"
+                >
+                  <span class="cal-day-name">{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i] }}</span>
+                  <span class="cal-day-num tnum" :class="{ today: isToday(day) }">{{ day.getDate() }}</span>
+                </div>
+              </div>
+
+              <!-- Body -->
+              <div class="cal-body">
+                <div class="cal-time-gutter-body">
                   <div
-                    v-for="(day, i) in weekDays"
-                    :key="i"
-                    class="cal-day-header"
-                    :class="{ today: isToday(day) }"
-                  >
-                    <span class="cal-day-name">{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i] }}</span>
-                    <span class="cal-day-num" :class="{ today: isToday(day) }">{{ day.getDate() }}</span>
-                  </div>
+                    v-for="label in timeLabels"
+                    :key="label"
+                    class="cal-time-label tnum"
+                  >{{ label }}</div>
                 </div>
 
-                <!-- Body -->
-                <div class="cal-body">
-                  <div class="cal-time-gutter-body">
-                    <div
-                      v-for="label in timeLabels"
-                      :key="label"
-                      class="cal-time-label"
-                    >{{ label }}</div>
-                  </div>
+                <div
+                  v-for="(day, dayIdx) in weekDays"
+                  :key="dayIdx"
+                  class="cal-day-col"
+                  :class="{ weekend: isWeekend(day), today: isToday(day) }"
+                  @click.self="handleCalendarDayClick(day, $event)"
+                >
+                  <div
+                    v-for="h in 24"
+                    :key="h"
+                    class="cal-hour-line"
+                    :class="{ major: h % 2 === 1 }"
+                    :style="{ top: `${((h - 1) / 24) * 100}%` }"
+                  />
 
                   <div
-                    v-for="(day, dayIdx) in weekDays"
-                    :key="dayIdx"
-                    class="cal-day-col"
-                    @click.self="handleCalendarDayClick(day, $event)"
+                    v-if="isToday(day)"
+                    class="current-time-line"
+                    :style="{ top: `${currentTimePercent}%` }"
+                  />
+
+                  <div
+                    v-for="shift in getShiftsForDay(day)"
+                    :key="shift.id"
+                    class="shift-block"
+                    :class="{ 'is-now': isShiftActive(shift) }"
+                    :style="shiftStyle(shift, day)"
+                    @click.stop="shiftModalRef?.openEdit(shift)"
                   >
-                    <div
-                      v-for="h in 24"
-                      :key="h"
-                      class="cal-hour-line"
-                      :style="{ top: `${((h - 1) / 24) * 100}%` }"
-                    />
-
-                    <div
-                      v-if="isToday(day)"
-                      class="current-time-line"
-                      :style="{ top: `${currentTimePercent}%` }"
-                    />
-
-                    <div
-                      v-for="shift in getShiftsForDay(day)"
-                      :key="shift.id"
-                      class="shift-block"
-                      :style="shiftStyle(shift, day)"
-                      @click.stop="shiftModalRef?.openEdit(shift)"
-                    >
-                      <div class="shift-user" :style="{ color: getUserColor(shift.user_id) }">
-                        {{ getUserName(shift.user_id) }}
-                      </div>
-                      <div class="shift-time">{{ formatShiftTime(shift) }}</div>
-                    </div>
+                    <div class="shift-user">{{ getUserName(shift.user_id) }}</div>
+                    <div class="shift-time tnum">{{ formatShiftTime(shift) }}</div>
                   </div>
                 </div>
               </div>
-            </n-spin>
+            </div>
           </div>
 
           <!-- Bottom Config Tabs -->
           <div class="config-tabs">
             <n-tabs v-model:value="activeConfigTab" type="line" size="small" animated>
               <n-tab-pane name="config" :tab="t('schedule.tabConfig')">
-                <div class="config-form">
-                  <n-descriptions bordered :column="2" label-placement="left" size="small">
-                    <n-descriptions-item :label="t('schedule.rotationType')">
-                      <n-tag size="small" type="info">{{ selectedSchedule.rotation_type }}</n-tag>
-                    </n-descriptions-item>
-                    <n-descriptions-item :label="t('schedule.timezone')">{{ selectedSchedule.timezone }}</n-descriptions-item>
-                    <n-descriptions-item :label="t('schedule.handoffTime')">{{ selectedSchedule.handoff_time }}</n-descriptions-item>
-                    <n-descriptions-item :label="t('schedule.team')">{{ selectedSchedule.team?.name || '-' }}</n-descriptions-item>
-                    <n-descriptions-item :label="t('schedule.severityFilter')">
-                      <span v-if="selectedSchedule.severity_filter">{{ selectedSchedule.severity_filter }}</span>
-                      <span v-else style="opacity: 0.4">{{ t('schedule.allSeverities') }}</span>
-                    </n-descriptions-item>
-                    <n-descriptions-item :label="t('common.status')">
-                      <n-tag :type="selectedSchedule.is_enabled ? 'success' : 'default'" size="small">
-                        {{ selectedSchedule.is_enabled ? t('common.active') : t('common.disabled') }}
-                      </n-tag>
-                    </n-descriptions-item>
-                  </n-descriptions>
+                <div class="config-grid">
+                  <div class="config-item">
+                    <span class="config-label">{{ t('schedule.rotationType') }}</span>
+                    <span class="config-value">{{ selectedSchedule.rotation_type }}</span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('schedule.timezone') }}</span>
+                    <span class="config-value tnum">{{ selectedSchedule.timezone }}</span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('schedule.handoffTime') }}</span>
+                    <span class="config-value tnum">{{ selectedSchedule.handoff_time }}</span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('schedule.team') }}</span>
+                    <span class="config-value">{{ selectedSchedule.team?.name || '—' }}</span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('schedule.severityFilter') }}</span>
+                    <span class="config-value">
+                      <template v-if="selectedSchedule.severity_filter">{{ selectedSchedule.severity_filter }}</template>
+                      <span v-else class="config-muted">{{ t('schedule.allSeverities') }}</span>
+                    </span>
+                  </div>
+                  <div class="config-item">
+                    <span class="config-label">{{ t('common.status') }}</span>
+                    <span class="config-value">
+                      <span class="sre-dot" :style="{ background: selectedSchedule.is_enabled ? 'var(--sre-success, #10b981)' : 'var(--sre-text-secondary)' }"></span>
+                      {{ selectedSchedule.is_enabled ? t('common.active') : t('common.disabled') }}
+                    </span>
+                  </div>
                 </div>
               </n-tab-pane>
 
@@ -443,13 +504,15 @@ onMounted(() => {
           </div>
         </template>
 
-        <!-- No schedule selected -->
-        <n-empty v-else :description="t('schedule.selectSchedule')" style="padding: 120px 0">
-          <template #extra>
-            <n-button type="primary" @click="scheduleModalRef?.openCreate()">+ {{ t('schedule.newSchedule') }}</n-button>
-          </template>
-        </n-empty>
-      </div>
+        <!-- Empty state -->
+        <div v-else class="empty-state">
+          <div class="empty-eyebrow sre-label-eyebrow">{{ t('schedule.empty') || 'No schedule selected' }}</div>
+          <p class="empty-text">{{ t('schedule.selectSchedule') }}</p>
+          <n-button type="primary" size="small" @click="scheduleModalRef?.openCreate()">
+            + {{ t('schedule.newSchedule') }}
+          </n-button>
+        </div>
+      </section>
     </div>
 
     <!-- Modals -->
@@ -476,8 +539,8 @@ onMounted(() => {
       </n-form>
       <template #action>
         <n-space justify="end">
-          <n-button @click="showGenerateModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :loading="generating" @click="handleGenerateShifts">
+          <n-button size="small" @click="showGenerateModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button size="small" type="primary" :loading="generating" @click="handleGenerateShifts">
             {{ t('schedule.confirmGenerate') }}
           </n-button>
         </n-space>
@@ -488,60 +551,175 @@ onMounted(() => {
 
 <style scoped>
 .schedule-page {
-  height: calc(100vh - 100px);
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  height: calc(100vh - 88px);
 }
 
-.schedule-layout {
+/* Header */
+.schedule-header {
   display: flex;
-  gap: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.schedule-title {
+  margin: 0;
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sre-text-primary);
+  line-height: 1.2;
+}
+
+.schedule-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  line-height: 1.4;
+}
+
+.schedule-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Layout */
+.schedule-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
   flex: 1;
   min-height: 0;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--sre-border);
-  background: var(--sre-bg-card);
 }
 
-/* Right Detail Panel */
+.schedule-sidebar-wrap {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Detail panel */
 .schedule-detail {
-  flex: 1;
-  min-width: 0;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md, 10px);
   display: flex;
   flex-direction: column;
+  min-width: 0;
   overflow: hidden;
 }
 
 .detail-topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--sre-border);
+  gap: 16px;
+  padding: 16px 20px 14px;
+  border-bottom: var(--sre-hairline);
   flex-shrink: 0;
+}
+
+.detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+  flex: 1;
+}
+
+.detail-title-block {
+  min-width: 0;
 }
 
 .detail-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.detail-title h2 {
-  margin: 0;
+  margin: 2px 0 0;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 600;
+  letter-spacing: -0.005em;
   color: var(--sre-text-primary);
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 
+.detail-team {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--sre-text-secondary);
+}
+
+.detail-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* On-call badge */
+.oncall-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--sre-bg-sunken, rgba(0, 0, 0, 0.02));
+  border: var(--sre-hairline);
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.oncall-eyebrow {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sre-text-secondary);
+}
+
+.oncall-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.oncall-name {
+  font-weight: 500;
+  color: var(--sre-text-primary);
+  white-space: nowrap;
+}
+
+.oncall-email {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Week nav */
 .week-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 20px;
-  border-bottom: 1px solid var(--sre-border);
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: var(--sre-hairline);
   flex-shrink: 0;
+}
+
+.week-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .week-label {
@@ -569,45 +747,53 @@ onMounted(() => {
 
 .cal-header-row {
   display: grid;
-  grid-template-columns: 52px repeat(7, 1fr);
-  border-bottom: 1px solid var(--sre-border);
+  grid-template-columns: 56px repeat(7, 1fr);
+  border-bottom: var(--sre-hairline);
   flex-shrink: 0;
+  background: var(--sre-bg-card);
 }
 
 .cal-time-gutter {
-  border-right: 1px solid var(--sre-border);
+  border-right: var(--sre-hairline);
 }
 
 .cal-day-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 0;
+  gap: 2px;
+  padding: 8px 0;
   font-size: 11px;
   color: var(--sre-text-secondary);
-  border-right: 1px solid rgba(128, 128, 128, 0.1);
+  border-right: var(--sre-hairline);
 }
 
-.cal-day-header.today {
+.cal-day-header.weekend {
+  background: var(--sre-bg-sunken, rgba(0, 0, 0, 0.02));
+}
+
+.cal-day-header.today .cal-day-name {
   color: var(--sre-primary);
 }
 
 .cal-day-name {
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
   font-size: 10px;
+  font-weight: 500;
 }
 
 .cal-day-num {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  line-height: 1.4;
-  width: 28px;
-  height: 28px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--sre-text-primary);
 }
 
 .cal-day-num.today {
@@ -617,7 +803,7 @@ onMounted(() => {
 
 .cal-body {
   display: grid;
-  grid-template-columns: 52px repeat(7, 1fr);
+  grid-template-columns: 56px repeat(7, 1fr);
   flex: 1;
   overflow-y: auto;
   min-height: 0;
@@ -625,28 +811,39 @@ onMounted(() => {
 }
 
 .cal-time-gutter-body {
-  border-right: 1px solid var(--sre-border);
+  border-right: var(--sre-hairline);
   position: relative;
   height: 1200px;
+  background: var(--sre-bg-card);
 }
 
 .cal-time-label {
   position: absolute;
-  right: 6px;
+  right: 8px;
   font-size: 10px;
   color: var(--sre-text-secondary);
   transform: translateY(-50%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .cal-day-col {
   position: relative;
   height: 1200px;
-  border-right: 1px solid rgba(128, 128, 128, 0.08);
+  border-right: var(--sre-hairline);
   cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cal-day-col.weekend {
+  background: var(--sre-bg-sunken, rgba(0, 0, 0, 0.02));
+}
+
+.cal-day-col.today {
+  background: rgba(0, 112, 243, 0.015);
 }
 
 .cal-day-col:hover {
-  background: rgba(128, 128, 128, 0.02);
+  background: var(--sre-bg-sunken, rgba(0, 0, 0, 0.025));
 }
 
 .cal-hour-line {
@@ -654,15 +851,21 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 1px;
-  background: rgba(128, 128, 128, 0.08);
+  background: var(--sre-border);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.cal-hour-line.major {
+  opacity: 0.7;
 }
 
 .current-time-line {
   position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
-  background: #d03050;
+  height: 1px;
+  background: var(--sre-primary);
   z-index: 10;
   pointer-events: none;
 }
@@ -670,23 +873,40 @@ onMounted(() => {
 .current-time-line::before {
   content: '';
   position: absolute;
-  left: -4px;
-  top: -3px;
-  width: 8px;
-  height: 8px;
+  left: -3px;
+  top: -2.5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #d03050;
+  background: var(--sre-primary);
 }
 
+/* Shift blocks */
 .shift-block {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-left: 2px solid var(--shift-color, var(--sre-primary));
+  border-radius: 4px;
+  padding: 4px 6px;
   font-size: 11px;
   line-height: 1.3;
+  cursor: pointer;
+  overflow: hidden;
   user-select: none;
-  transition: opacity 0.15s;
+  z-index: 1;
+  box-sizing: border-box;
+  transition: filter 0.15s, transform 0.15s;
 }
 
 .shift-block:hover {
-  opacity: 0.8;
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.shift-block.is-now {
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .shift-user {
@@ -694,30 +914,85 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 11px;
 }
 
 .shift-time {
   font-size: 10px;
-  opacity: 0.75;
+  opacity: 0.8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* Bottom Config Tabs */
+/* Config tabs */
 .config-tabs {
   flex-shrink: 0;
-  border-top: 1px solid var(--sre-border);
-  max-height: 260px;
+  border-top: var(--sre-hairline);
+  max-height: 240px;
   overflow-y: auto;
-  padding: 0 16px 12px;
+  padding: 0 20px 8px;
+  background: var(--sre-bg-card);
 }
 
-.config-form {
-  padding: 12px 0;
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 24px;
+  padding: 12px 0 4px;
 }
 
-/* Time label positions (every 2 hours) */
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.config-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sre-text-secondary);
+}
+
+.config-value {
+  font-size: 13px;
+  color: var(--sre-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.config-muted {
+  color: var(--sre-text-secondary);
+}
+
+/* Empty state */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 24px;
+}
+
+.empty-eyebrow {
+  color: var(--sre-text-secondary);
+}
+
+.empty-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--sre-text-secondary);
+}
+
+/* Time label positions (every 2 hours, 1200px / 12 = 100px) */
 .cal-time-gutter-body .cal-time-label:nth-child(1)  { top: 0px }
 .cal-time-gutter-body .cal-time-label:nth-child(2)  { top: 100px }
 .cal-time-gutter-body .cal-time-label:nth-child(3)  { top: 200px }
@@ -731,4 +1006,14 @@ onMounted(() => {
 .cal-time-gutter-body .cal-time-label:nth-child(11) { top: 1000px }
 .cal-time-gutter-body .cal-time-label:nth-child(12) { top: 1100px }
 .cal-time-gutter-body .cal-time-label:nth-child(13) { top: 1200px }
+
+/* Responsive */
+@media (max-width: 960px) {
+  .schedule-layout {
+    grid-template-columns: 1fr;
+  }
+  .config-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 </style>

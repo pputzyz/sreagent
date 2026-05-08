@@ -1,27 +1,31 @@
 <script setup lang="ts">
-import { h, ref, reactive, onMounted } from 'vue'
-import { useMessage, NTag, NButton, NSpace, NPopconfirm, NTooltip } from 'naive-ui'
+import { ref, shallowRef, reactive, computed, onMounted } from 'vue'
+import { useMessage, NIcon, NButton, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { messageTemplateApi } from '@/api'
 import type { MessageTemplate } from '@/types'
-import { AddOutline } from '@vicons/ionicons5'
-import PageHeader from '@/components/common/PageHeader.vue'
+import {
+  AddOutline, SearchOutline, EllipsisHorizontalOutline,
+  CreateOutline, EyeOutline, TrashOutline, DocumentTextOutline,
+} from '@vicons/ionicons5'
 
 const message = useMessage()
 const { t } = useI18n()
 
 const loading = ref(false)
-const templates = ref<MessageTemplate[]>([])
+const templates = shallowRef<MessageTemplate[]>([])
+const search = ref('')
+const typeFilter = ref<string>('')
+
+// Modal state
 const showModal = ref(false)
-const modalTitle = ref('')
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 
+// Preview state
 const showPreviewModal = ref(false)
 const previewLoading = ref(false)
 const previewResult = ref('')
-
-const showVariablesHint = ref(false)
 
 const form = reactive({
   name: '',
@@ -30,73 +34,41 @@ const form = reactive({
   content: '',
 })
 
-const typeOptions = [
-  { label: () => t('template.text'), value: 'text' },
-  { label: () => t('template.html'), value: 'html' },
-  { label: () => t('template.markdown'), value: 'markdown' },
-  { label: () => t('template.larkCard'), value: 'lark_card' },
-]
+const typeOptions = computed(() => [
+  { label: t('template.text'), value: 'text' },
+  { label: t('template.html'), value: 'html' },
+  { label: t('template.markdown'), value: 'markdown' },
+  { label: t('template.larkCard'), value: 'lark_card' },
+])
 
-function getTypeTagType(type: string): 'default' | 'info' | 'success' | 'warning' | 'error' {
-  const map: Record<string, 'default' | 'info' | 'success' | 'warning' | 'error'> = {
-    text: 'default',
-    html: 'info',
-    markdown: 'success',
-    lark_card: 'warning',
+const filterTypeOptions = computed(() => [
+  { label: t('common.all'), value: '' },
+  ...typeOptions.value,
+])
+
+// Type chip color mapping (subtle, not big NTag)
+function typeChipClass(type: string) {
+  const map: Record<string, string> = {
+    text: 'text',
+    html: 'html',
+    markdown: 'markdown',
+    lark_card: 'lark',
   }
-  return map[type] || 'default'
+  return map[type] || 'text'
 }
 
-const columns = [
-  {
-    title: () => t('common.name'),
-    key: 'name',
-    width: 200,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: () => t('template.type'),
-    key: 'type',
-    width: 120,
-    render: (row: MessageTemplate) =>
-      h(NTag, { type: getTypeTagType(row.type), size: 'small', bordered: false, round: true }, { default: () => row.type }),
-  },
-  {
-    title: () => t('template.builtin'),
-    key: 'is_builtin',
-    width: 80,
-    render: (row: MessageTemplate) =>
-      row.is_builtin
-        ? h(NTag, { size: 'small', type: 'info', bordered: false }, { default: () => t('template.builtin') })
-        : h(NTag, { size: 'small', bordered: false }, { default: () => t('template.custom') }),
-  },
-  {
-    title: () => t('common.description'),
-    key: 'description',
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 220,
-    render: (row: MessageTemplate) =>
-      h(NSpace, { size: 4 }, {
-        default: () => [
-          h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NButton, { size: 'small', quaternary: true, type: 'warning', onClick: () => handlePreview(row) }, { default: () => t('template.preview') }),
-          row.is_builtin
-            ? h(NTooltip, {}, {
-                trigger: () => h(NButton, { size: 'small', quaternary: true, type: 'error', disabled: true }, { default: () => t('common.delete') }),
-                default: () => t('template.builtinCannotDelete'),
-              })
-            : h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
-                trigger: () => h(NButton, { size: 'small', quaternary: true, type: 'error' }, { default: () => t('common.delete') }),
-                default: () => t('template.deleteConfirm'),
-              }),
-        ],
-      }),
-  },
-]
+const filtered = computed(() => {
+  let list = templates.value
+  if (typeFilter.value) list = list.filter(t => t.type === typeFilter.value)
+  if (search.value.trim()) {
+    const q = search.value.toLowerCase()
+    list = list.filter(t =>
+      t.name.toLowerCase().includes(q) ||
+      (t.description?.toLowerCase().includes(q))
+    )
+  }
+  return list
+})
 
 async function fetchData() {
   loading.value = true
@@ -111,24 +83,17 @@ async function fetchData() {
 }
 
 function resetForm() {
-  Object.assign(form, {
-    name: '',
-    description: '',
-    type: 'text',
-    content: '',
-  })
+  Object.assign(form, { name: '', description: '', type: 'text', content: '' })
 }
 
 function openCreate() {
   editingId.value = null
-  modalTitle.value = t('template.create')
   resetForm()
   showModal.value = true
 }
 
 function openEdit(row: MessageTemplate) {
   editingId.value = row.id
-  modalTitle.value = t('template.edit')
   Object.assign(form, {
     name: row.name,
     description: row.description,
@@ -143,7 +108,6 @@ async function handleSave() {
     message.warning(t('template.nameRequired'))
     return
   }
-
   saving.value = true
   try {
     const payload = {
@@ -208,38 +172,104 @@ async function handlePreviewFromForm() {
   }
 }
 
+function rowActions(row: MessageTemplate) {
+  const actions = [
+    { key: 'edit', label: t('common.edit'), icon: () => h(NIcon, { component: CreateOutline }) },
+    { key: 'preview', label: t('template.preview'), icon: () => h(NIcon, { component: EyeOutline }) },
+  ]
+  if (!row.is_builtin) {
+    actions.push({
+      key: 'delete',
+      label: t('common.delete'),
+      icon: () => h(NIcon, { component: TrashOutline }),
+    } as any)
+  }
+  return actions
+}
+
+function handleAction(key: string, row: MessageTemplate) {
+  if (key === 'edit') openEdit(row)
+  else if (key === 'preview') handlePreview(row)
+  else if (key === 'delete') {
+    if (window.confirm(t('template.deleteConfirm') || 'Delete?')) handleDelete(row.id)
+  }
+}
+
+// Truncate template content preview
+function contentPreview(content: string | null | undefined): string {
+  if (!content) return '—'
+  const trimmed = content.trim().replace(/\s+/g, ' ')
+  return trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed
+}
+
 const availableVariables = '{{.AlertName}} {{.Severity}} {{.Status}} {{.Labels}} {{.Annotations}} {{.FiredAt}} {{.Value}} {{.Duration}} {{.RuleName}}'
 
-onMounted(() => {
-  fetchData()
-})
+import { h } from 'vue'
+
+onMounted(fetchData)
 </script>
 
 <template>
-  <div class="page-container">
-    <PageHeader :title="t('template.title')" :subtitle="t('template.subtitle')">
-      <template #actions>
-        <n-button type="primary" @click="openCreate">
-          <template #icon><n-icon :component="AddOutline" /></template>
-          {{ t('template.create') }}
-        </n-button>
-      </template>
-    </PageHeader>
+  <div class="tmpl-page">
+    <header class="tmpl-header">
+      <div>
+        <h2 class="tmpl-title">{{ t('template.title') }}</h2>
+        <p class="tmpl-subtitle">{{ t('template.subtitle') }}</p>
+      </div>
+      <n-button type="primary" size="small" @click="openCreate">
+        <template #icon><n-icon :component="AddOutline" /></template>
+        {{ t('template.create') }}
+      </n-button>
+    </header>
 
-    <n-card :bordered="false" class="content-card">
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="templates"
-        :row-key="(row: MessageTemplate) => row.id"
-        :bordered="false"
-        size="small"
+    <div class="toolbar">
+      <n-input
+        v-model:value="search" size="small" clearable
+        :placeholder="t('common.search')" style="width: 240px"
+      >
+        <template #prefix><n-icon :component="SearchOutline" /></template>
+      </n-input>
+      <n-select
+        v-model:value="typeFilter" size="small"
+        :options="filterTypeOptions" style="width: 140px"
       />
-      <n-empty v-if="!loading && templates.length === 0" :description="t('template.noData')" style="padding: 40px 0" />
-    </n-card>
+      <span class="count tnum">{{ filtered.length }} / {{ templates.length }}</span>
+    </div>
+
+    <div v-if="loading" class="empty-state">{{ t('common.loading') }}…</div>
+    <div v-else-if="filtered.length === 0" class="empty-state">
+      <n-icon :component="DocumentTextOutline" size="40" />
+      <p>{{ t('template.noData') }}</p>
+      <n-button type="primary" size="small" @click="openCreate">{{ t('template.create') }}</n-button>
+    </div>
+
+    <div v-else class="tmpl-list sre-stagger">
+      <div
+        v-for="tpl in filtered" :key="tpl.id"
+        class="tmpl-row"
+        @click="openEdit(tpl)"
+      >
+        <div class="tmpl-main">
+          <div class="tmpl-head">
+            <span class="tmpl-name">{{ tpl.name }}</span>
+            <span class="tmpl-type-chip" :data-type="typeChipClass(tpl.type)">{{ tpl.type }}</span>
+            <span v-if="tpl.is_builtin" class="tmpl-builtin">{{ t('template.builtin') }}</span>
+          </div>
+          <div v-if="tpl.description" class="tmpl-desc">{{ tpl.description }}</div>
+          <code class="tmpl-content">{{ contentPreview(tpl.content) }}</code>
+        </div>
+        <div class="tmpl-actions" @click.stop>
+          <n-dropdown :options="rowActions(tpl)" trigger="click" @select="handleAction($event, tpl)">
+            <n-button quaternary circle size="small">
+              <template #icon><n-icon :component="EllipsisHorizontalOutline" /></template>
+            </n-button>
+          </n-dropdown>
+        </div>
+      </div>
+    </div>
 
     <!-- Create/Edit Modal -->
-    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 600px" :bordered="false">
+    <n-modal v-model:show="showModal" preset="card" :title="editingId ? t('template.edit') : t('template.create')" style="width: 600px" :bordered="false">
       <n-form label-placement="top">
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
@@ -258,24 +288,17 @@ onMounted(() => {
           <n-input v-model:value="form.description" :placeholder="t('template.description')" />
         </n-form-item>
 
-        <!-- Available variables hint -->
         <n-collapse>
           <n-collapse-item :title="t('template.availableVariables')" name="variables">
-            <n-code
-              :code="availableVariables"
-              language="text"
-              style="font-size: 12px"
-            />
+            <n-code :code="availableVariables" language="text" style="font-size: 12px" />
           </n-collapse-item>
         </n-collapse>
 
         <n-form-item :label="t('template.content')" style="margin-top: 12px">
           <n-input
-            v-model:value="form.content"
-            type="textarea"
-            :rows="12"
+            v-model:value="form.content" type="textarea" :rows="12"
             :placeholder="t('common.enterContent')"
-            style="font-family: monospace; font-size: 12px"
+            style="font-family: var(--sre-font-mono); font-size: 12px"
           />
         </n-form-item>
       </n-form>
@@ -294,10 +317,10 @@ onMounted(() => {
     <!-- Preview Modal -->
     <n-modal v-model:show="showPreviewModal" preset="card" :title="t('template.previewResult')" style="width: 600px" :bordered="false">
       <n-spin :show="previewLoading">
-        <n-card :bordered="true" size="small" style="min-height: 120px" class="preview-card">
-          <pre v-if="previewResult" class="preview-content" style="white-space: pre-wrap; word-break: break-word; margin: 0; font-family: inherit;">{{ previewResult }}</pre>
+        <div class="preview-pane">
+          <pre v-if="previewResult" class="preview-content">{{ previewResult }}</pre>
           <n-empty v-else-if="!previewLoading" :description="t('common.noPreview')" style="padding: 20px 0" />
-        </n-card>
+        </div>
       </n-spin>
       <template #action>
         <n-space justify="end">
@@ -309,23 +332,107 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.page-container {
-  max-width: 1400px;
+.tmpl-page { display: flex; flex-direction: column; gap: 16px; }
+
+.tmpl-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px;
+}
+.tmpl-title { font-size: 18px; font-weight: 600; margin: 0 0 4px; color: var(--sre-text-primary); }
+.tmpl-subtitle { font-size: 12px; color: var(--sre-text-secondary); margin: 0; }
+
+.toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: var(--sre-hairline);
+}
+.count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
-.content-card {
-  border-radius: 12px;
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px;
+  padding: 64px 0;
+  color: var(--sre-text-tertiary);
+}
+.empty-state p { margin: 0; font-size: 14px; }
+
+.tmpl-list { display: flex; flex-direction: column; gap: 6px; }
+
+.tmpl-row {
+  display: flex; align-items: stretch; gap: 14px;
+  padding: 14px 18px;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+  cursor: pointer;
+  transition: background var(--sre-duration-fast) var(--sre-ease-out),
+              border-color var(--sre-duration-fast) var(--sre-ease-out);
+}
+.tmpl-row:hover {
+  background: var(--sre-bg-hover);
+  border-color: rgba(255,255,255,0.14);
 }
 
-.preview-card {
-  background: var(--sre-bg-dark);
+.tmpl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.tmpl-head { display: flex; align-items: center; gap: 8px; }
+.tmpl-name { font-size: 14px; font-weight: 600; color: var(--sre-text-primary); }
+.tmpl-type-chip {
+  font-size: 11px; font-weight: 500;
+  padding: 2px 8px; border-radius: 4px;
+  letter-spacing: 0.3px;
+  font-family: var(--sre-font-mono);
+}
+.tmpl-type-chip[data-type="text"]     { background: var(--sre-bg-elevated); color: var(--sre-text-secondary); }
+.tmpl-type-chip[data-type="html"]     { background: var(--sre-info-soft); color: var(--sre-info); }
+.tmpl-type-chip[data-type="markdown"] { background: var(--sre-primary-soft); color: var(--sre-primary); }
+.tmpl-type-chip[data-type="lark"]     { background: rgba(99,102,241,0.14); color: #818cf8; }
+.tmpl-builtin {
+  font-size: 11px; padding: 2px 8px; border-radius: 4px;
+  background: var(--sre-bg-elevated);
+  color: var(--sre-text-tertiary);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
+.tmpl-desc {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  line-height: 1.5;
+}
+
+.tmpl-content {
+  font-family: var(--sre-font-mono); font-size: 11px;
+  background: var(--sre-bg-elevated);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--sre-text-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block;
+}
+
+.tmpl-actions {
+  display: flex; align-items: center; flex-shrink: 0;
+}
+
+.preview-pane {
+  background: var(--sre-bg-elevated);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+  min-height: 120px;
+  padding: 16px;
+}
 .preview-content {
-  font-family: monospace;
+  font-family: var(--sre-font-mono);
   font-size: 13px;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
+  margin: 0;
   color: var(--sre-text-primary);
   line-height: 1.6;
 }

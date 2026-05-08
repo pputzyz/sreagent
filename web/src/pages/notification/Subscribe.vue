@@ -1,29 +1,27 @@
 <script setup lang="ts">
-import { h, ref, reactive, computed, onMounted } from 'vue'
-import { useMessage, NTag, NButton, NSpace, NPopconfirm } from 'naive-ui'
+import { reactive, ref, shallowRef, computed, onMounted, h } from 'vue'
+import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { subscribeRuleApi, notifyRuleApi, userApi, teamApi } from '@/api'
 import type { SubscribeRule, NotifyRule, User, Team } from '@/types'
-import { AddOutline } from '@vicons/ionicons5'
-import { getSeverityType } from '@/utils/alert'
+import { AddOutline, SearchOutline, NotificationsOutline } from '@vicons/ionicons5'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
-import PageHeader from '@/components/common/PageHeader.vue'
 
 const message = useMessage()
 const { t } = useI18n()
 
 const loading = ref(false)
-const subscriptions = ref<SubscribeRule[]>([])
+const subscriptions = shallowRef<SubscribeRule[]>([])
 const showModal = ref(false)
 const modalTitle = ref('')
 const editingId = ref<number | null>(null)
 const saving = ref(false)
+const search = ref('')
 
-// Reference data
-const notifyRules = ref<NotifyRule[]>([])
-const users = ref<User[]>([])
-const teams = ref<Team[]>([])
+const notifyRules = shallowRef<NotifyRule[]>([])
+const users = shallowRef<User[]>([])
+const teams = shallowRef<Team[]>([])
 
 const form = reactive({
   name: '',
@@ -37,133 +35,53 @@ const form = reactive({
   is_enabled: true,
 })
 
-const severityOptions = [
-  { label: () => t('alert.critical'), value: 'critical' },
-  { label: () => t('alert.warning'), value: 'warning' },
-  { label: () => t('alert.info'), value: 'info' },
-]
+const severityOptions = computed(() => [
+  { label: t('alert.critical'), value: 'critical' },
+  { label: t('alert.warning'), value: 'warning' },
+  { label: t('alert.info'), value: 'info' },
+])
 
-const notifyRuleOptions = computed(() =>
-  notifyRules.value.map(r => ({ label: r.name, value: r.id }))
-)
+const notifyRuleOptions = computed(() => notifyRules.value.map(r => ({ label: r.name, value: r.id })))
+const userOptions = computed(() => users.value.map(u => ({ label: u.display_name || u.username, value: u.id })))
+const teamOptions = computed(() => teams.value.map(t => ({ label: t.name, value: t.id })))
 
-const userOptions = computed(() =>
-  users.value.map(u => ({ label: u.display_name || u.username, value: u.id }))
-)
-
-const teamOptions = computed(() =>
-  teams.value.map(t => ({ label: t.name, value: t.id }))
-)
-
-function getNotifyRuleName(ruleId: number | null): string {
+function getNotifyRuleName(ruleId: number | null) {
   if (ruleId == null) return '—'
-  const rule = notifyRules.value.find(r => r.id === ruleId)
-  return rule?.name || `#${ruleId}`
+  return notifyRules.value.find(r => r.id === ruleId)?.name || `#${ruleId}`
 }
 
-function getSubscriberName(row: SubscribeRule): string {
+function getSubscriberLabel(row: SubscribeRule): { type: 'user' | 'team' | null; name: string; initial: string } {
   if (row.user_id) {
-    const user = users.value.find(u => u.id === row.user_id)
-    return user ? (user.display_name || user.username) : `User #${row.user_id}`
+    const u = users.value.find(x => x.id === row.user_id)
+    const name = u ? (u.display_name || u.username) : `User #${row.user_id}`
+    return { type: 'user', name, initial: (name[0] || '?').toUpperCase() }
   }
   if (row.team_id) {
-    const team = teams.value.find(t => t.id === row.team_id)
-    return team ? team.name : `Team #${row.team_id}`
+    const tm = teams.value.find(x => x.id === row.team_id)
+    const name = tm ? tm.name : `Team #${row.team_id}`
+    return { type: 'team', name, initial: (name[0] || '?').toUpperCase() }
   }
-  return '-'
+  return { type: null, name: '—', initial: '?' }
 }
 
-const columns = [
-  {
-    title: () => t('common.name'),
-    key: 'name',
-    width: 160,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: () => t('subscribe.matchLabels'),
-    key: 'match_labels',
-    width: 200,
-    render: (row: SubscribeRule) => {
-      const labels = row.match_labels || {}
-      const entries = Object.entries(labels)
-      if (entries.length === 0) return h('span', { style: 'color: #666' }, '-')
-      return h(NSpace, { size: 4 }, {
-        default: () => entries.map(([k, v]) =>
-          h(NTag, { size: 'small', bordered: false }, { default: () => `${k}=${v}` })
-        ),
-      })
-    },
-  },
-  {
-    title: () => t('subscribe.severities'),
-    key: 'severities',
-    width: 180,
-    render: (row: SubscribeRule) => {
-      const sevs = (row.severities || '').split(',').filter(Boolean)
-      if (sevs.length === 0) return h('span', { style: 'color: #666' }, '-')
-      return h(NSpace, { size: 4 }, {
-        default: () => sevs.map(s =>
-          h(NTag, { size: 'small', type: getSeverityType(s), round: true, bordered: false }, { default: () => s })
-        ),
-      })
-    },
-  },
-  {
-    title: () => t('subscribe.notifyRule'),
-    key: 'notify_rule_id',
-    width: 140,
-    render: (row: SubscribeRule) => getNotifyRuleName(row.notify_rule_id),
-  },
-  {
-    title: () => t('subscribe.subscriber'),
-    key: 'subscriber',
-    width: 140,
-    render: (row: SubscribeRule) => {
-      const name = getSubscriberName(row)
-      const type = row.user_id ? t('subscribe.user') : t('subscribe.team')
-      return h(NSpace, { size: 4, align: 'center' }, {
-        default: () => [
-          h(NTag, { size: 'small', bordered: false, type: row.user_id ? 'info' : 'success' }, { default: () => type }),
-          h('span', {}, name),
-        ],
-      })
-    },
-  },
-  {
-    title: () => t('common.enabled'),
-    key: 'is_enabled',
-    width: 80,
-    render: (row: SubscribeRule) =>
-      h(NTag, { type: row.is_enabled ? 'success' : 'default', size: 'small' }, { default: () => row.is_enabled ? t('common.on') : t('common.off') }),
-  },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 160,
-    render: (row: SubscribeRule) =>
-      h(NSpace, { size: 4 }, {
-        default: () => [
-          h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
-            trigger: () => h(NButton, { size: 'small', quaternary: true, type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('subscribe.deleteConfirm'),
-          }),
-        ],
-      }),
-  },
-]
+function severityDot(s: string) {
+  return s === 'critical' ? 'critical' : s === 'warning' ? 'warning' : 'info'
+}
+
+const filtered = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return subscriptions.value
+  return subscriptions.value.filter(s =>
+    s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q),
+  )
+})
 
 async function fetchData() {
   loading.value = true
   try {
     const { data } = await subscribeRuleApi.list({ page: 1, page_size: 100 })
     subscriptions.value = data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    loading.value = false
-  }
+  } catch (err: any) { message.error(err.message) } finally { loading.value = false }
 }
 
 async function fetchRefData() {
@@ -176,21 +94,13 @@ async function fetchRefData() {
     notifyRules.value = rulesRes.data.data.list || []
     users.value = usersRes.data.data.list || []
     teams.value = teamsRes.data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
-  }
+  } catch (err: any) { message.error(err.message) }
 }
 
 function resetForm() {
   Object.assign(form, {
-    name: '',
-    description: '',
-    match_labels: [],
-    severities: [],
-    notify_rule_id: null,
-    subscriber_type: 'user',
-    user_id: null,
-    team_id: null,
+    name: '', description: '', match_labels: [], severities: [],
+    notify_rule_id: null, subscriber_type: 'user', user_id: null, team_id: null,
     is_enabled: true,
   })
 }
@@ -225,11 +135,7 @@ function openEdit(row: SubscribeRule) {
 }
 
 async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('subscribe.nameRequired'))
-    return
-  }
-
+  if (!form.name.trim()) { message.warning(t('subscribe.nameRequired')); return }
   saving.value = true
   try {
     const payload: Partial<SubscribeRule> = {
@@ -240,9 +146,6 @@ async function handleSave() {
         return [m.key, v]
       })),
       severities: form.severities.join(','),
-      // v1.8.1: was `|| 0`, which silently coerced an un-picked value into
-       // the numeric id 0 on the backend and then failed the FK constraint.
-       // Leave it as null/undefined so the server treats it as "no override".
       notify_rule_id: form.notify_rule_id || null,
       user_id: form.subscriber_type === 'user' ? form.user_id : null,
       team_id: form.subscriber_type === 'team' ? form.team_id : null,
@@ -257,11 +160,7 @@ async function handleSave() {
     }
     showModal.value = false
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    saving.value = false
-  }
+  } catch (err: any) { message.error(err.message) } finally { saving.value = false }
 }
 
 async function handleDelete(id: number) {
@@ -269,41 +168,98 @@ async function handleDelete(id: number) {
     await subscribeRuleApi.delete(id)
     message.success(t('subscribe.deleted'))
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
-  }
+  } catch (err: any) { message.error(err.message) }
 }
 
-onMounted(() => {
-  fetchData()
-  fetchRefData()
-})
+async function toggleEnabled(row: SubscribeRule, val: boolean) {
+  try {
+    await subscribeRuleApi.update(row.id, { ...row, is_enabled: val })
+    subscriptions.value = subscriptions.value.map(r => r.id === row.id ? { ...r, is_enabled: val } : r)
+  } catch (err: any) { message.error(err.message) }
+}
+
+function rowMenu(row: SubscribeRule) {
+  return [
+    { label: t('common.edit'), key: 'edit' },
+    { type: 'divider', key: 'd1' },
+    { label: t('common.delete'), key: 'delete', props: { style: 'color: var(--sre-danger, #ef4444)' } },
+  ]
+}
+function onRowMenu(key: string, row: SubscribeRule) {
+  if (key === 'edit') openEdit(row)
+  else if (key === 'delete' && confirm(t('subscribe.deleteConfirm'))) handleDelete(row.id)
+}
+const RowMenu = (row: SubscribeRule) => h(NDropdown, {
+  trigger: 'click', options: rowMenu(row),
+  onSelect: (k: string) => onRowMenu(k, row),
+}, { default: () => h('button', { class: 'sre-icon-btn' }, h('span', { class: 'sre-dots' })) })
+
+onMounted(() => { fetchData(); fetchRefData() })
 </script>
 
 <template>
-  <div class="page-container">
-    <PageHeader :title="t('subscribe.title')" :subtitle="t('subscribe.subtitle')">
-      <template #actions>
-        <n-button type="primary" @click="openCreate">
-          <template #icon><n-icon :component="AddOutline" /></template>
-          {{ t('subscribe.create') }}
-        </n-button>
-      </template>
-    </PageHeader>
+  <div class="sub-page">
+    <header class="sub-header">
+      <div>
+        <h2 class="sub-title">{{ t('subscribe.title') }}</h2>
+        <p class="sub-sub">{{ t('subscribe.subtitle') }}</p>
+      </div>
+      <n-button type="primary" size="small" @click="openCreate">
+        <template #icon><n-icon :component="AddOutline" /></template>
+        {{ t('subscribe.create') }}
+      </n-button>
+    </header>
 
-    <n-card :bordered="false" class="content-card">
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="subscriptions"
-        :row-key="(row: SubscribeRule) => row.id"
-        :bordered="false"
-        size="small"
-      />
-      <n-empty v-if="!loading && subscriptions.length === 0" :description="t('subscribe.noData')" style="padding: 40px 0" />
-    </n-card>
+    <div class="toolbar">
+      <n-input v-model:value="search" size="small" :placeholder="t('common.search')" clearable style="width: 240px">
+        <template #prefix><n-icon :component="SearchOutline" /></template>
+      </n-input>
+      <span class="count tnum">{{ filtered.length }} / {{ subscriptions.length }}</span>
+    </div>
 
-    <!-- Create/Edit Modal -->
+    <div v-if="loading" class="loading">{{ t('common.loading') }}…</div>
+
+    <div v-else-if="filtered.length === 0" class="empty">
+      <n-icon :component="NotificationsOutline" size="36" />
+      <div class="empty-text">{{ t('subscribe.noData') }}</div>
+      <n-button type="primary" size="small" @click="openCreate">{{ t('subscribe.create') }}</n-button>
+    </div>
+
+    <ul v-else class="row-list sre-stagger">
+      <li v-for="s in filtered" :key="s.id" class="sre-row-card sre-lift">
+        <div class="row-l1">
+          <span class="dot" :class="s.is_enabled ? 'on' : 'off'"></span>
+          <span class="row-name">{{ s.name }}</span>
+          <span class="subscriber" :data-type="getSubscriberLabel(s).type">
+            <span class="avatar">{{ getSubscriberLabel(s).initial }}</span>
+            <span class="sub-name">{{ getSubscriberLabel(s).name }}</span>
+            <span class="sub-kind">{{ getSubscriberLabel(s).type === 'team' ? t('subscribe.team') : t('subscribe.user') }}</span>
+          </span>
+          <div class="row-actions">
+            <n-switch :value="s.is_enabled" size="small" @update:value="(v: boolean) => toggleEnabled(s, v)" />
+            <component :is="RowMenu(s)" />
+          </div>
+        </div>
+
+        <div class="row-l2">
+          <template v-for="(v, k) in (s.match_labels || {})" :key="k">
+            <code class="label-chip">{{ k }}={{ v }}</code>
+          </template>
+          <span v-if="!Object.keys(s.match_labels || {}).length" class="muted">—</span>
+          <span class="severities">
+            <span v-for="sv in (s.severities || '').split(',').filter(Boolean)" :key="sv"
+              class="sev-chip" :data-sev="severityDot(sv)">{{ sv }}</span>
+          </span>
+        </div>
+
+        <div class="row-l3">
+          <span class="meta">→ {{ getNotifyRuleName(s.notify_rule_id) }}</span>
+          <span v-if="s.description" class="sre-meta-divider">·</span>
+          <span v-if="s.description" class="meta">{{ s.description }}</span>
+        </div>
+      </li>
+    </ul>
+
     <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 600px" :bordered="false">
       <n-form label-placement="top">
         <n-form-item :label="t('subscribe.name')" required>
@@ -319,21 +275,13 @@ onMounted(() => {
         </n-form-item>
 
         <n-form-item :label="t('subscribe.severities')">
-          <n-select
-            v-model:value="form.severities"
-            :options="severityOptions"
-            multiple
-            :placeholder="t('common.selectSeverities')"
-          />
+          <n-select v-model:value="form.severities" :options="severityOptions" multiple
+            :placeholder="t('common.selectSeverities')" />
         </n-form-item>
 
         <n-form-item :label="t('subscribe.notifyRule')">
-          <n-select
-            v-model:value="form.notify_rule_id"
-            :options="notifyRuleOptions"
-            :placeholder="t('subscribe.selectNotifyRule')"
-            clearable
-          />
+          <n-select v-model:value="form.notify_rule_id" :options="notifyRuleOptions"
+            :placeholder="t('subscribe.selectNotifyRule')" clearable />
         </n-form-item>
 
         <n-form-item :label="t('subscribe.subscriberType')">
@@ -344,23 +292,13 @@ onMounted(() => {
         </n-form-item>
 
         <n-form-item v-if="form.subscriber_type === 'user'" :label="t('subscribe.user')">
-          <n-select
-            v-model:value="form.user_id"
-            :options="userOptions"
-            :placeholder="t('subscribe.selectUser')"
-            filterable
-            clearable
-          />
+          <n-select v-model:value="form.user_id" :options="userOptions"
+            :placeholder="t('subscribe.selectUser')" filterable clearable />
         </n-form-item>
 
         <n-form-item v-if="form.subscriber_type === 'team'" :label="t('subscribe.team')">
-          <n-select
-            v-model:value="form.team_id"
-            :options="teamOptions"
-            :placeholder="t('subscribe.selectTeam')"
-            filterable
-            clearable
-          />
+          <n-select v-model:value="form.team_id" :options="teamOptions"
+            :placeholder="t('subscribe.selectTeam')" filterable clearable />
         </n-form-item>
 
         <n-form-item :label="t('common.enabled')">
@@ -381,11 +319,79 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.page-container {
-  max-width: 1400px;
-}
+.sub-page { font-family: 'Geist', system-ui, sans-serif; max-width: 1400px; }
 
-.content-card {
-  border-radius: 12px;
+.sub-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding-bottom: 14px; border-bottom: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
+  margin-bottom: 14px;
 }
+.sub-title { font: 600 18px/1.2 'Geist', sans-serif; margin: 0; letter-spacing: -0.01em; }
+.sub-sub { font-size: 12px; color: var(--sre-text-secondary, #888); margin: 4px 0 0; }
+
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.count { font-size: 12px; color: var(--sre-text-secondary, #888); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.loading, .empty { padding: 60px 20px; text-align: center; color: var(--sre-text-secondary, #888); }
+.empty { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.empty-text { font-size: 13px; }
+
+.row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.sre-row-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
+  border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
+  border-radius: 8px; background: var(--sre-bg-card, rgba(255,255,255,0.02));
+  transition: border-color .15s, background .15s;
+}
+.sre-row-card:hover { border-color: var(--sre-hairline-strong, rgba(255,255,255,0.12)); background: rgba(255,255,255,0.03); }
+
+.row-l1 { display: flex; align-items: center; gap: 10px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sre-success, #22c55e); box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
+.dot.off { background: #555; box-shadow: 0 0 0 3px rgba(120,120,120,0.12); }
+.row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
+
+.subscriber { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px;
+  border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06)); }
+.avatar {
+  width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font: 600 10px/1 'Geist', sans-serif; background: rgba(129,140,248,0.18); color: #a5b4fc;
+}
+.subscriber[data-type="team"] .avatar { background: rgba(34,197,94,0.18); color: #86efac; }
+.sub-name { font-size: 12px; }
+.sub-kind { font: 500 10px/1 'Geist Mono', monospace; color: var(--sre-text-secondary, #888); text-transform: uppercase; letter-spacing: .04em; }
+
+.row-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+.row-l2 { padding-left: 18px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.label-chip {
+  font: 11px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
+}
+.severities { display: inline-flex; gap: 4px; margin-left: 4px; }
+.sev-chip {
+  font: 500 10px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.sev-chip[data-sev="critical"] { background: rgba(239,68,68,0.14); color: #fca5a5; }
+.sev-chip[data-sev="warning"]  { background: rgba(245,158,11,0.14); color: #fcd34d; }
+.sev-chip[data-sev="info"]     { background: rgba(56,189,248,0.14); color: #7dd3fc; }
+.muted { color: var(--sre-text-secondary, #666); font-size: 12px; }
+
+.row-l3 { padding-left: 18px; display: flex; gap: 6px; align-items: center; }
+.meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.sre-icon-btn {
+  width: 24px; height: 24px; padding: 0; border: 0; background: transparent;
+  border-radius: 4px; cursor: pointer; color: var(--sre-text-secondary, #888);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sre-icon-btn:hover { background: rgba(255,255,255,0.06); color: inherit; }
+.sre-dots { width: 14px; height: 4px; position: relative; display: inline-block; }
+.sre-dots::before, .sre-dots::after, .sre-dots {
+  content: ''; width: 3px; height: 3px; background: currentColor; border-radius: 50%;
+}
+.sre-dots::before { position: absolute; left: -5px; top: 0.5px; }
+.sre-dots::after  { position: absolute; right: -5px; top: 0.5px; }
 </style>

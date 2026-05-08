@@ -1,340 +1,393 @@
 <script setup lang="ts">
-import { h, ref, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NTag, NButton } from 'naive-ui'
+import { useMessage, NIcon, NRadioGroup, NRadioButton, NSelect, NInput, NDatePicker, NButton, NPagination, NSpin, NEmpty } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { alertEventApi } from '@/api'
-import type { AlertEvent } from '@/types'
-import { formatTime, formatDuration } from '@/utils/format'
-import { getSeverityType, getStatusColor, getStatusLabelKey, statusTagColor, severityRowClass } from '@/utils/alert'
-import PageHeader from '@/components/common/PageHeader.vue'
-import { RefreshOutline } from '@vicons/ionicons5'
+import { alertEventApi, alertRuleApi, alertExportApi } from '@/api'
+import type { AlertEvent, AlertRule } from '@/types'
+import { ArchiveOutline, DownloadOutline } from '@vicons/ionicons5'
 
 const router = useRouter()
 const message = useMessage()
 const { t } = useI18n()
+
 const loading = ref(false)
-const events = ref<AlertEvent[]>([])
+const events = shallowRef<AlertEvent[]>([])
+const rules = shallowRef<AlertRule[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
+const firstLoad = ref(true)
 
-// Filters - default to resolved + closed for history
-const statusFilter = ref<string[]>(['resolved', 'closed'])
-const severityFilter = ref<string[]>([])
-const alertNameSearch = ref('')
-const sourceFilter = ref('')
-const timeRangePreset = ref('7d')
+const range = ref<'7d' | '30d' | '90d' | 'custom'>('30d')
 const customRange = ref<[number, number] | null>(null)
+const severityFilter = ref<string | null>(null)
+const ruleFilter = ref<number | null>(null)
+const search = ref('')
 
-const statusOptions = [
-  { label: () => t('alert.firing'), value: 'firing' },
-  { label: () => t('alert.acknowledged'), value: 'acknowledged' },
-  { label: () => t('alert.assigned'), value: 'assigned' },
-  { label: () => t('alert.resolved'), value: 'resolved' },
-  { label: () => t('alert.closed'), value: 'closed' },
-  { label: () => t('alert.silenced'), value: 'silenced' },
-]
+const severityOptions = computed(() => [
+  { label: t('alert.critical'), value: 'critical' },
+  { label: t('alert.warning'), value: 'warning' },
+  { label: t('alert.info'), value: 'info' },
+])
 
-const severityOptions = [
-  { label: () => t('alert.critical'), value: 'critical' },
-  { label: () => t('alert.warning'), value: 'warning' },
-  { label: () => t('alert.info'), value: 'info' },
-]
-
-const timePresets = [
-  { label: () => t('alert.last1h'), value: '1h' },
-  { label: () => t('alert.last6h'), value: '6h' },
-  { label: () => t('alert.last24h'), value: '24h' },
-  { label: () => t('alert.last7d'), value: '7d' },
-  { label: () => t('alert.last30d'), value: '30d' },
-]
+const ruleOptions = computed(() =>
+  rules.value.map(r => ({ label: r.name, value: r.id }))
+)
 
 function getTimeRange(): { start_time?: string; end_time?: string } {
-  if (timeRangePreset.value === 'custom' && customRange.value) {
+  if (range.value === 'custom' && customRange.value) {
     return {
       start_time: new Date(customRange.value[0]).toISOString(),
       end_time: new Date(customRange.value[1]).toISOString(),
     }
   }
-  const now = new Date()
-  const map: Record<string, number> = {
-    '1h': 3600000,
-    '6h': 21600000,
-    '24h': 86400000,
-    '7d': 604800000,
-    '30d': 2592000000,
-  }
-  const ms = map[timeRangePreset.value]
-  if (ms) {
-    return { start_time: new Date(now.getTime() - ms).toISOString() }
+  const map: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 }
+  const days = map[range.value]
+  if (days) {
+    return { start_time: new Date(Date.now() - days * 86400000).toISOString() }
   }
   return {}
 }
 
-function calcDuration(row: AlertEvent): string {
-  const firedAt = new Date(row.fired_at).getTime()
-  const end = row.resolved_at
-    ? new Date(row.resolved_at).getTime()
-    : (row.closed_at ? new Date(row.closed_at).getTime() : Date.now())
-  return formatDuration(Math.floor((end - firedAt) / 1000))
-}
-
-const columns = [
-  {
-    title: () => t('alert.severity'),
-    key: 'severity',
-    width: 90,
-    render: (row: AlertEvent) =>
-      h(NTag, { type: getSeverityType(row.severity), size: 'small', round: true }, { default: () => row.severity.toUpperCase() }),
-  },
-  {
-    title: () => t('alert.alertName'),
-    key: 'alert_name',
-    ellipsis: { tooltip: true },
-    minWidth: 180,
-    render: (row: AlertEvent) => h('a', {
-      style: 'color: var(--sre-info); cursor: pointer; text-decoration: none; font-weight: 500',
-      onClick: () => router.push(`/alerts/events/${row.id}`),
-    }, row.alert_name),
-  },
-  {
-    title: () => t('common.status'),
-    key: 'status',
-    width: 100,
-    render: (row: AlertEvent) =>
-      h(NTag, {
-        size: 'small',
-        bordered: false,
-        color: statusTagColor(row.status),
-      }, { default: () => t(getStatusLabelKey(row.status)) }),
-  },
-  {
-    title: () => t('alert.source'),
-    key: 'source',
-    width: 120,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: () => t('alert.firedAt'),
-    key: 'fired_at',
-    width: 170,
-    render: (row: AlertEvent) => h('span', { style: 'font-size: 12px' }, formatTime(row.fired_at)),
-  },
-  {
-    title: () => t('alert.resolvedAt'),
-    key: 'resolved_at',
-    width: 170,
-    render: (row: AlertEvent) => h('span', { style: 'font-size: 12px' }, formatTime(row.resolved_at)),
-  },
-  {
-    title: () => t('alert.duration'),
-    key: 'duration',
-    width: 100,
-    render: (row: AlertEvent) => h('span', { style: 'font-size: 12px; color: var(--sre-text-secondary)' }, calcDuration(row)),
-  },
-  {
-    title: () => t('alert.fireCount'),
-    key: 'fire_count',
-    width: 60,
-    align: 'center' as const,
-  },
-  {
-    title: () => t('alert.resolution'),
-    key: 'resolution',
-    width: 160,
-    ellipsis: { tooltip: true },
-    render: (row: AlertEvent) =>
-      h('span', { style: 'font-size: 12px; color: var(--sre-text-secondary)' }, row.resolution || '-'),
-  },
-  {
-    title: () => t('alert.ackedBy'),
-    key: 'acked_by',
-    width: 100,
-    render: (row: AlertEvent) =>
-      h('span', { style: 'font-size: 12px' }, row.acked_by_user?.display_name || '-'),
-  },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 80,
-    render: (row: AlertEvent) =>
-      h(NButton, { size: 'tiny', quaternary: true, onClick: () => router.push(`/alerts/events/${row.id}`) }, { default: () => t('alert.detail') }),
-  },
-]
-
 async function fetchEvents() {
   loading.value = true
   try {
-    const timeRange = getTimeRange()
+    const tr = getTimeRange()
     const { data } = await alertEventApi.list({
       page: page.value,
       page_size: pageSize.value,
-      status: statusFilter.value.length ? statusFilter.value : undefined,
-      severity: severityFilter.value.length ? severityFilter.value : undefined,
-      alert_name: alertNameSearch.value || undefined,
-      source: sourceFilter.value || undefined,
-      ...timeRange,
-    })
+      status: ['resolved', 'closed'],
+      severity: severityFilter.value ? [severityFilter.value] : undefined,
+      alert_name: search.value || undefined,
+      rule_id: ruleFilter.value || undefined,
+      ...tr,
+    } as any)
     events.value = data.data.list || []
     total.value = data.data.total
   } catch (err: any) {
     message.error(err.message)
   } finally {
     loading.value = false
+    firstLoad.value = false
   }
 }
 
-function resetFilters() {
-  statusFilter.value = ['resolved', 'closed']
-  severityFilter.value = []
-  alertNameSearch.value = ''
-  sourceFilter.value = ''
-  timeRangePreset.value = '7d'
-  customRange.value = null
+async function fetchRules() {
+  try {
+    const { data } = await alertRuleApi.list({ page: 1, page_size: 200 })
+    rules.value = data.data.list || []
+  } catch { /* silent */ }
+}
+
+function onFilterChange() {
   page.value = 1
   fetchEvents()
 }
 
-function handleTimePreset(preset: string) {
-  timeRangePreset.value = preset
-  if (preset !== 'custom') {
-    customRange.value = null
+function onRangeChange(v: string) {
+  range.value = v as any
+  if (v !== 'custom') customRange.value = null
+  onFilterChange()
+}
+
+function onCustomRange(v: [number, number] | null) {
+  customRange.value = v
+  if (v) {
+    range.value = 'custom'
+    onFilterChange()
   }
-  page.value = 1
+}
+
+function exportCsv() {
+  const tr = getTimeRange()
+  const url = alertExportApi.exportCSV({
+    status: 'resolved,closed',
+    severity: severityFilter.value || undefined,
+    start: tr.start_time,
+    end: tr.end_time,
+  })
+  window.open(url, '_blank')
+}
+
+function severityLabel(s: string) {
+  return t(`alert.${s}`) || s.toUpperCase()
+}
+
+function statusLabel(s: string) {
+  return t(`alert.${s}`) || s
+}
+
+function goDetail(ev: AlertEvent) {
+  router.push(`/alerts/events/${ev.id}`)
+}
+
+function duration(start?: string, end?: string): string {
+  if (!start) return '—'
+  const a = new Date(start).getTime()
+  const b = end ? new Date(end).getTime() : Date.now()
+  const s = Math.max(0, Math.floor((b - a) / 1000))
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
+  return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`
+}
+
+function relTime(iso?: string): string {
+  if (!iso) return '—'
+  const diff = Date.now() - new Date(iso).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 60) return `${s}s ago`
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+  return `${Math.floor(s / 86400)}d ago`
+}
+
+onMounted(() => {
+  fetchRules()
   fetchEvents()
-}
-
-function handleCustomRange(val: [number, number] | null) {
-  customRange.value = val
-  if (val) {
-    timeRangePreset.value = 'custom'
-    page.value = 1
-    fetchEvents()
-  }
-}
-
-onMounted(fetchEvents)
+})
 </script>
 
 <template>
-  <div class="history-page">
-    <PageHeader :title="t('alert.historyTitle')" :subtitle="t('alert.historySubtitle')">
-      <template #actions>
-        <n-text depth="3">{{ t('alert.totalAlerts', { n: total }) }}</n-text>
-        <n-button @click="fetchEvents" :loading="loading">
-          <template #icon><n-icon :component="RefreshOutline" /></template>
-          {{ t('common.refresh') }}
-        </n-button>
-      </template>
-    </PageHeader>
+  <div class="hist-page">
+    <!-- Header -->
+    <header class="hist-header">
+      <div>
+        <h1 class="hist-title-main">Alert History</h1>
+        <p class="hist-subtitle">Browse historical alert events</p>
+      </div>
+      <NButton size="small" @click="exportCsv">
+        <template #icon><NIcon :component="DownloadOutline" /></template>
+        Export CSV
+      </NButton>
+    </header>
 
-    <!-- Filter bar -->
-    <div class="filter-bar">
-      <n-select
-        v-model:value="statusFilter"
-        :options="statusOptions"
-        multiple
-        :placeholder="t('common.status')"
-        clearable
-        style="width: 220px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-select
-        v-model:value="severityFilter"
-        :options="severityOptions"
-        multiple
-        :placeholder="t('alert.severity')"
-        clearable
-        style="width: 200px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-input
-        v-model:value="alertNameSearch"
-        :placeholder="t('alert.alertNameSearch')"
-        clearable
-        style="width: 200px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-input
-        v-model:value="sourceFilter"
-        :placeholder="t('alert.sourceFilter')"
-        clearable
-        style="width: 160px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-button quaternary @click="resetFilters">{{ t('alert.resetFilters') }}</n-button>
-    </div>
-
-    <!-- Time range quick buttons -->
-    <div class="time-range-bar">
-      <n-space size="small">
-        <n-button
-          v-for="preset in timePresets"
-          :key="preset.value"
-          size="small"
-          :type="timeRangePreset === preset.value ? 'primary' : 'default'"
-          :secondary="timeRangePreset === preset.value"
-          @click="handleTimePreset(preset.value)"
-        >
-          {{ preset.label() }}
-        </n-button>
-        <n-date-picker
+    <!-- Time range -->
+    <div class="hist-toolbar">
+      <div class="hist-toolbar-row">
+        <span class="sre-label-eyebrow">TIME</span>
+        <NRadioGroup :value="range" size="small" @update:value="onRangeChange">
+          <NRadioButton value="7d">{{ t('alert.last7d') }}</NRadioButton>
+          <NRadioButton value="30d">{{ t('alert.last30d') }}</NRadioButton>
+          <NRadioButton value="90d">{{ t('alert.last90d') }}</NRadioButton>
+          <NRadioButton value="custom">自定义</NRadioButton>
+        </NRadioGroup>
+        <NDatePicker
+          v-if="range === 'custom'"
           type="datetimerange"
           :value="customRange"
+          size="small"
+          clearable
+          style="width: 320px"
+          @update:value="onCustomRange"
+        />
+      </div>
+
+      <div class="hist-toolbar-row">
+        <NSelect
+          v-model:value="severityFilter"
+          :options="severityOptions"
+          :placeholder="t('alert.severity')"
           clearable
           size="small"
-          style="width: 340px"
-          @update:value="handleCustomRange"
+          style="width: 120px"
+          @update:value="onFilterChange"
         />
-      </n-space>
+        <NSelect
+          v-model:value="ruleFilter"
+          :options="ruleOptions"
+          :placeholder="t('alert.rule') || 'Rule'"
+          filterable
+          clearable
+          size="small"
+          style="width: 200px"
+          @update:value="onFilterChange"
+        />
+        <NInput
+          v-model:value="search"
+          :placeholder="t('alert.alertNameSearch')"
+          clearable
+          size="small"
+          style="width: 240px"
+          @update:value="onFilterChange"
+        />
+      </div>
     </div>
 
-    <!-- History Table -->
-    <n-card :bordered="false" style="background: var(--sre-bg-card); border-radius: 12px">
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="events"
-        :row-key="(row: AlertEvent) => row.id"
-        :row-class-name="severityRowClass"
-        :bordered="false"
-        :pagination="{
-          page: page,
-          pageSize: pageSize,
-          itemCount: total,
-          showSizePicker: true,
-          pageSizes: [20, 50, 100],
-          onChange: (p: number) => { page = p; fetchEvents() },
-          onUpdatePageSize: (s: number) => { pageSize = s; page = 1; fetchEvents() },
-        }"
+    <!-- List -->
+    <NSpin :show="loading">
+      <div v-if="events.length" class="hist-list" :class="{ 'sre-stagger': firstLoad }">
+        <div
+          v-for="ev in events"
+          :key="ev.id"
+          class="sre-row-card sre-lift hist-row"
+          :data-severity="ev.severity"
+          data-dim="true"
+          @click="goDetail(ev)"
+        >
+          <div class="hist-main">
+            <div class="hist-headline">
+              <span class="sre-dot" :data-severity="ev.severity"></span>
+              <span class="hist-sev-label">{{ severityLabel(ev.severity) }}</span>
+              <span class="hist-title">{{ (ev as any).title || ev.alert_name }}</span>
+            </div>
+            <div class="hist-context">
+              <span>规则: {{ (ev as any).rule?.name || '—' }}</span>
+              <span class="sre-meta-divider"></span>
+              <span>数据源: {{ (ev as any).datasource?.name || ev.source || '—' }}</span>
+            </div>
+            <div class="hist-footer">
+              <span class="tnum">触发 {{ ev.fire_count || 0 }} 次</span>
+              <span class="sre-meta-divider"></span>
+              <span class="tnum">持续 {{ duration(ev.fired_at, ev.resolved_at || ev.closed_at || undefined) }}</span>
+              <span class="sre-meta-divider"></span>
+              <span class="tnum">已恢复 {{ relTime(ev.resolved_at || ev.closed_at || undefined) }}</span>
+            </div>
+          </div>
+          <div class="hist-status">
+            <span class="sre-dot" :data-severity="ev.status === 'resolved' ? 'success' : null"></span>
+            <span class="hist-status-text">{{ statusLabel(ev.status) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="!loading" class="hist-empty">
+        <NEmpty description="No history in this range">
+          <template #icon>
+            <NIcon :component="ArchiveOutline" size="56" />
+          </template>
+        </NEmpty>
+      </div>
+    </NSpin>
+
+    <!-- Pagination -->
+    <div v-if="total > 0" class="hist-pagination">
+      <NPagination
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :item-count="total"
+        :page-sizes="[20, 50, 100]"
+        size="small"
+        show-size-picker
+        @update:page="fetchEvents"
+        @update:page-size="() => { page = 1; fetchEvents() }"
       />
-    </n-card>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.history-page {
-  max-width: 1400px;
+.hist-page {
+  max-width: 1280px;
+  font-family: 'Geist', -apple-system, sans-serif;
 }
 
-.filter-bar {
+.hist-header {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--sre-hairline);
+  margin-bottom: 16px;
+}
+.hist-title-main {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--sre-text-primary);
+}
+.hist-subtitle {
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  margin: 4px 0 0;
+}
+
+.hist-toolbar {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.hist-toolbar-row {
+  display: flex;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.time-range-bar {
-  margin-bottom: 12px;
+.hist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-:deep(.row-critical) {
-  background-color: rgba(232, 128, 128, 0.04) !important;
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  cursor: pointer;
 }
 
-:deep(.row-warning) {
-  background-color: rgba(242, 201, 125, 0.04) !important;
+.hist-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hist-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.hist-sev-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sre-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.hist-title {
+  color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hist-context,
+.hist-footer {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.hist-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+
+.hist-empty {
+  padding: 80px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.hist-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

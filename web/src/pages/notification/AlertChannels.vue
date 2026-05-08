@@ -1,22 +1,29 @@
 <script setup lang="ts">
-import { h, ref, reactive, computed, onMounted } from 'vue'
-import { useMessage, NTag, NButton, NSpace, NPopconfirm } from 'naive-ui'
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import {
+  AddOutline,
+  ChatbubblesOutline,
+  CopyOutline,
+  EllipsisHorizontal,
+  SearchOutline,
+} from '@vicons/ionicons5'
 import { alertChannelApi, notifyMediaApi, messageTemplateApi } from '@/api'
 import type { AlertChannel, NotifyMedia, MessageTemplate } from '@/types'
-import { AddOutline } from '@vicons/ionicons5'
-import { getSeverityType } from '@/utils/alert'
 import KVEditor from '@/components/common/KVEditor.vue'
-import PageHeader from '@/components/common/PageHeader.vue'
 
 const message = useMessage()
 const { t } = useI18n()
 
 const loading = ref(false)
-const channels = ref<AlertChannel[]>([])
+const channels = shallowRef<AlertChannel[]>([])
 const total = ref(0)
 const page = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(50)
+
+const search = ref('')
+const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
 
 const showModal = ref(false)
 const modalTitle = ref('')
@@ -24,15 +31,20 @@ const editingId = ref<number | null>(null)
 const saving = ref(false)
 const testingId = ref<number | null>(null)
 
-const mediaList = ref<NotifyMedia[]>([])
-const templateList = ref<MessageTemplate[]>([])
+const mediaList = shallowRef<NotifyMedia[]>([])
+const templateList = shallowRef<MessageTemplate[]>([])
 
-// Severity options
 const severityOptions = [
   { label: 'Critical', value: 'critical' },
   { label: 'Warning', value: 'warning' },
   { label: 'Info', value: 'info' },
 ]
+
+const statusOptions = computed(() => [
+  { label: t('common.all') || 'All', value: 'all' },
+  { label: t('common.enabled'), value: 'enabled' },
+  { label: t('common.disabled'), value: 'disabled' },
+])
 
 const form = reactive({
   name: '',
@@ -46,115 +58,80 @@ const form = reactive({
 })
 
 const mediaOptions = computed(() =>
-  mediaList.value.map((m) => ({ label: m.name, value: m.id }))
+  mediaList.value.map((m) => ({ label: m.name, value: m.id })),
 )
-
 const templateOptions = computed(() => [
   { label: t('common.noData') + ' (默认)', value: null as any },
   ...templateList.value.map((tp) => ({ label: tp.name, value: tp.id })),
 ])
 
+const filteredChannels = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return channels.value.filter((c) => {
+    if (statusFilter.value === 'enabled' && !c.is_enabled) return false
+    if (statusFilter.value === 'disabled' && c.is_enabled) return false
+    if (q) {
+      const hay = [
+        c.name,
+        c.description,
+        ...Object.entries(c.match_labels || {}).map(([k, v]) => `${k}=${v}`),
+      ]
+        .join(' ')
+        .toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    return true
+  })
+})
+
 function severityBadges(severitiesStr: string) {
   if (!severitiesStr) return []
-  return severitiesStr.split(',').map((s) => s.trim()).filter(Boolean)
+  return severitiesStr
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
 function labelEntries(matchLabels: Record<string, string>) {
   return Object.entries(matchLabels || {})
 }
 
-const columns = [
-  {
-    title: () => t('common.name'),
-    key: 'name',
-    minWidth: 140,
-    render: (row: AlertChannel) =>
-      h('span', { style: 'font-weight: 500' }, row.name),
-  },
-  {
-    title: () => t('alertChannel.matchLabels'),
-    key: 'match_labels',
-    minWidth: 140,
-    render: (row: AlertChannel) => {
-      const entries = labelEntries(row.match_labels)
-      if (!entries.length) return h('span', { style: 'color: var(--sre-text-secondary); font-size: 12px' }, '-')
-      return h(NSpace, { size: 4, wrap: true }, {
-        default: () => entries.map(([k, v]) =>
-          h(NTag, { size: 'small', type: 'default' }, { default: () => `${k}=${v}` })
-        ),
-      })
-    },
-  },
-  {
-    title: () => t('alertChannel.severities'),
-    key: 'severities',
-    width: 160,
-    render: (row: AlertChannel) => {
-      const badges = severityBadges(row.severities)
-      if (!badges.length) return h('span', { style: 'color: var(--sre-text-secondary); font-size: 12px' }, t('alert.all'))
-      return h(NSpace, { size: 4 }, {
-        default: () => badges.map((s) =>
-          h(NTag, { size: 'small', type: getSeverityType(s), round: true }, { default: () => s.toUpperCase() })
-        ),
-      })
-    },
-  },
-  {
-    title: () => t('alertChannel.mediaLabel'),
-    key: 'media_id',
-    width: 140,
-    render: (row: AlertChannel) => {
-      const media = mediaList.value.find((m) => m.id === row.media_id)
-      return h('span', { style: 'font-size: 13px' }, media?.name || `#${row.media_id}`)
-    },
-  },
-  {
-    title: () => t('alertChannel.throttle'),
-    key: 'throttle_min',
-    width: 110,
-    render: (row: AlertChannel) =>
-      h('span', { style: 'font-size: 13px' }, `${row.throttle_min} min`),
-  },
-  {
-    title: () => t('common.status'),
-    key: 'is_enabled',
-    width: 90,
-    render: (row: AlertChannel) =>
-      h(NTag, {
-        size: 'small',
-        type: row.is_enabled ? 'success' : 'default',
-      }, { default: () => row.is_enabled ? t('common.enabled') : t('common.disabled') }),
-  },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 200,
-    render: (row: AlertChannel) =>
-      h(NSpace, { size: 4 }, {
-        default: () => [
-          h(NButton, {
-            size: 'tiny',
-            secondary: true,
-            loading: testingId.value === row.id,
-            onClick: () => handleTest(row.id),
-          }, { default: () => t('alertChannel.testSend') }),
-          h(NButton, {
-            size: 'tiny',
-            type: 'primary',
-            secondary: true,
-            onClick: () => openEdit(row),
-          }, { default: () => t('common.edit') }),
-          h(NPopconfirm, {
-            onPositiveClick: () => handleDelete(row.id),
-          }, {
-            trigger: () =>
-              h(NButton, { size: 'tiny', type: 'error', secondary: true }, { default: () => t('common.delete') }),
-            default: () => t('alertChannel.deleteConfirm'),
-          }),
-        ],
-      }),
-  },
-]
+function mediaName(id: number) {
+  return mediaList.value.find((m) => m.id === id)?.name || `#${id}`
+}
+
+function mediaWebhookHint(id: number) {
+  const media = mediaList.value.find((m) => m.id === id)
+  if (!media) return ''
+  const cfg = (media as any).config
+  if (typeof cfg === 'string') {
+    try {
+      const parsed = JSON.parse(cfg)
+      return parsed.webhook || parsed.url || ''
+    } catch {
+      return cfg
+    }
+  } else if (cfg && typeof cfg === 'object') {
+    return cfg.webhook || cfg.url || ''
+  }
+  return ''
+}
+
+function shortUrl(url: string) {
+  if (!url) return ''
+  if (url.length <= 56) return url
+  return url.slice(0, 36) + '…' + url.slice(-16)
+}
+
+async function copyText(text: string) {
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    message.success(t('common.copied') || 'Copied')
+  } catch {
+    message.error('Copy failed')
+  }
+}
 
 async function fetchChannels() {
   loading.value = true
@@ -174,7 +151,7 @@ async function fetchMedia() {
     const { data } = await notifyMediaApi.list({ page: 1, page_size: 200 })
     mediaList.value = data.data.list || []
   } catch {
-    // ignore
+    /* ignore */
   }
 }
 
@@ -183,7 +160,7 @@ async function fetchTemplates() {
     const { data } = await messageTemplateApi.list({ page: 1, page_size: 200 })
     templateList.value = data.data.list || []
   } catch {
-    // ignore
+    /* ignore */
   }
 }
 
@@ -286,6 +263,23 @@ async function handleTest(id: number) {
   }
 }
 
+function rowMenuOptions(row: AlertChannel) {
+  return [
+    { label: t('alertChannel.testSend'), key: 'test' },
+    { label: t('common.edit'), key: 'edit' },
+    { type: 'divider' as const, key: 'd1' },
+    { label: t('common.delete'), key: 'delete', props: { style: 'color: var(--sre-danger, #ef4444)' } },
+  ]
+}
+
+function onMenuSelect(key: string, row: AlertChannel) {
+  if (key === 'test') handleTest(row.id)
+  else if (key === 'edit') openEdit(row)
+  else if (key === 'delete') {
+    if (window.confirm(t('alertChannel.deleteConfirm'))) handleDelete(row.id)
+  }
+}
+
 onMounted(() => {
   fetchChannels()
   fetchMedia()
@@ -294,36 +288,125 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="alert-channels-page">
-    <!-- Header -->
-    <PageHeader :title="t('alertChannel.title')" :subtitle="t('alertChannel.subtitle')">
-      <template #actions>
-        <n-button type="primary" @click="openCreate">
+  <div class="ac-page">
+    <!-- Toolbar -->
+    <div class="ac-toolbar">
+      <div class="ac-toolbar-left">
+        <n-input
+          v-model:value="search"
+          size="small"
+          :placeholder="t('common.search') || 'Search'"
+          clearable
+          style="width: 240px"
+        >
+          <template #prefix>
+            <n-icon :component="SearchOutline" />
+          </template>
+        </n-input>
+        <n-select
+          v-model:value="statusFilter"
+          size="small"
+          :options="statusOptions"
+          style="width: 140px"
+        />
+      </div>
+      <div class="ac-toolbar-right">
+        <n-button type="primary" size="small" @click="openCreate">
           <template #icon><n-icon :component="AddOutline" /></template>
           {{ t('alertChannel.create') }}
         </n-button>
-      </template>
-    </PageHeader>
+      </div>
+    </div>
 
-    <!-- Table -->
-    <n-card :bordered="false" style="background: var(--sre-bg-card); border-radius: 12px">
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="channels"
-        :row-key="(row: AlertChannel) => row.id"
-        :bordered="false"
-        :pagination="{
-          page: page,
-          pageSize: pageSize,
-          itemCount: total,
-          showSizePicker: true,
-          pageSizes: [20, 50, 100],
-          onChange: (p: number) => { page = p; fetchChannels() },
-          onUpdatePageSize: (s: number) => { pageSize = s; page = 1; fetchChannels() },
-        }"
-      />
-    </n-card>
+    <!-- List -->
+    <n-spin :show="loading">
+      <div v-if="filteredChannels.length === 0 && !loading" class="ac-empty">
+        <n-icon :component="ChatbubblesOutline" :size="44" class="ac-empty-icon" />
+        <div class="ac-empty-title">{{ t('alertChannel.noData') }}</div>
+        <n-button type="primary" size="small" @click="openCreate">
+          <template #icon><n-icon :component="AddOutline" /></template>
+          {{ t('alertChannel.create') }}
+        </n-button>
+      </div>
+
+      <ul v-else class="ac-list sre-stagger">
+        <li
+          v-for="row in filteredChannels"
+          :key="row.id"
+          class="ac-row sre-lift"
+          @click="openEdit(row)"
+        >
+          <div class="ac-headline">
+            <span class="sre-dot" :data-severity="row.is_enabled ? 'success' : 'tertiary'" />
+            <span class="ac-name">{{ row.name }}</span>
+            <span class="ac-status">{{ row.is_enabled ? t('common.enabled') : t('common.disabled') }}</span>
+            <span class="ac-row-spacer" />
+            <n-dropdown
+              trigger="click"
+              :options="rowMenuOptions(row)"
+              @select="(k: string) => onMenuSelect(k, row)"
+            >
+              <button type="button" class="ac-menu-btn" @click.stop>
+                <n-icon :component="EllipsisHorizontal" :size="16" />
+              </button>
+            </n-dropdown>
+          </div>
+
+          <div class="ac-line">
+            <span class="ac-line-label">Match</span>
+            <div v-if="labelEntries(row.match_labels).length" class="ac-match">
+              <span
+                v-for="[k, v] in labelEntries(row.match_labels)"
+                :key="k"
+                class="ac-chip"
+              >{{ k }}={{ v }}</span>
+            </div>
+            <span v-else class="ac-muted">—</span>
+
+            <template v-if="severityBadges(row.severities).length">
+              <span class="sre-meta-divider">·</span>
+              <span class="ac-line-label">Severity</span>
+              <div class="ac-match">
+                <span
+                  v-for="s in severityBadges(row.severities)"
+                  :key="s"
+                  class="ac-chip ac-chip-sev"
+                  :data-severity="s"
+                >{{ s.toUpperCase() }}</span>
+              </div>
+            </template>
+          </div>
+
+          <div class="ac-line">
+            <span class="ac-line-label">Webhook</span>
+            <span class="ac-webhook">{{ mediaName(row.media_id) }}</span>
+            <template v-if="mediaWebhookHint(row.media_id)">
+              <span class="sre-meta-divider">·</span>
+              <span class="ac-webhook ac-webhook-url" :title="mediaWebhookHint(row.media_id)">
+                {{ shortUrl(mediaWebhookHint(row.media_id)) }}
+              </span>
+              <button
+                type="button"
+                class="ac-copy"
+                :title="t('common.copy') || 'Copy'"
+                @click.stop="copyText(mediaWebhookHint(row.media_id))"
+              >
+                <n-icon :component="CopyOutline" :size="12" />
+              </button>
+            </template>
+          </div>
+
+          <div class="ac-line ac-line-meta">
+            <span class="ac-line-label">Throttle</span>
+            <span class="tnum">{{ row.throttle_min }} min</span>
+            <template v-if="row.template_id">
+              <span class="sre-meta-divider">·</span>
+              <span>{{ t('alertChannel.template') }}: {{ templateList.find(tp => tp.id === row.template_id)?.name || '#' + row.template_id }}</span>
+            </template>
+          </div>
+        </li>
+      </ul>
+    </n-spin>
 
     <!-- Create / Edit Modal -->
     <n-modal
@@ -337,17 +420,12 @@ onMounted(() => {
         <n-form-item :label="t('common.name')" required>
           <n-input v-model:value="form.name" :placeholder="t('alertChannel.nameRequired')" clearable />
         </n-form-item>
-
         <n-form-item :label="t('common.description')">
           <n-input v-model:value="form.description" type="textarea" :rows="2" clearable />
         </n-form-item>
-
-        <!-- Match Labels -->
         <n-form-item :label="t('alertChannel.matchLabels')">
           <KVEditor v-model:modelValue="form.match_labels" :add-label="t('alertChannel.addLabel')" />
         </n-form-item>
-
-        <!-- Severities -->
         <n-form-item :label="t('alertChannel.severities')">
           <n-select
             v-model:value="form.severities"
@@ -358,8 +436,6 @@ onMounted(() => {
             style="width: 100%"
           />
         </n-form-item>
-
-        <!-- Notify Media -->
         <n-form-item :label="t('alertChannel.mediaLabel')" required>
           <n-select
             v-model:value="form.media_id"
@@ -369,8 +445,6 @@ onMounted(() => {
             style="width: 100%"
           />
         </n-form-item>
-
-        <!-- Template -->
         <n-form-item :label="t('alertChannel.template')">
           <n-select
             v-model:value="form.template_id"
@@ -379,22 +453,17 @@ onMounted(() => {
             style="width: 100%"
           />
         </n-form-item>
-
-        <!-- Throttle -->
         <n-form-item :label="t('alertChannel.throttle')">
           <n-input-number v-model:value="form.throttle_min" :min="0" :max="10080" style="width: 160px" />
         </n-form-item>
-
-        <!-- Enabled -->
         <n-form-item :label="t('common.enabled')">
           <n-switch v-model:value="form.is_enabled" />
         </n-form-item>
       </n-form>
-
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 8px">
-          <n-button @click="showModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :loading="saving" @click="handleSave">
+          <n-button size="small" @click="showModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button size="small" type="primary" :loading="saving" @click="handleSave">
             {{ t('common.save') }}
           </n-button>
         </div>
@@ -404,7 +473,163 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.alert-channels-page {
-  max-width: 1400px;
+.ac-page {
+  font-family: var(--sre-font-sans, 'Geist', system-ui, sans-serif);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ac-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ac-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ac-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ac-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 18px;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md, 10px);
+  cursor: pointer;
+  transition: all var(--sre-duration-fast, 120ms) var(--sre-ease-out, ease);
+}
+.ac-row:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--sre-bg-hover);
+}
+.ac-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ac-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  letter-spacing: -0.005em;
+}
+.ac-status {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sre-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.ac-row-spacer { flex: 1; }
+.ac-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--sre-text-tertiary);
+  cursor: pointer;
+  transition: all var(--sre-duration-fast, 120ms) var(--sre-ease-out, ease);
+}
+.ac-menu-btn:hover {
+  background: var(--sre-bg-elevated);
+  color: var(--sre-text-primary);
+}
+
+.ac-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+}
+.ac-line-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--sre-text-tertiary);
+  opacity: 0.7;
+  margin-right: 2px;
+}
+.ac-line-meta { color: var(--sre-text-tertiary); }
+.ac-muted { color: var(--sre-text-tertiary); opacity: 0.7; }
+
+.ac-match {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ac-chip {
+  font-family: var(--sre-font-mono, 'Geist Mono', monospace);
+  font-size: 11px;
+  background: var(--sre-bg-elevated);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--sre-text-secondary);
+  border: 1px solid var(--sre-border);
+  line-height: 1.4;
+}
+.ac-chip-sev { font-weight: 600; letter-spacing: 0.4px; }
+.ac-chip-sev[data-severity='critical'] { color: var(--sre-danger, #ef4444); border-color: rgba(239, 68, 68, 0.25); }
+.ac-chip-sev[data-severity='warning'] { color: var(--sre-warning, #f59e0b); border-color: rgba(245, 158, 11, 0.25); }
+.ac-chip-sev[data-severity='info'] { color: var(--sre-info, #3b82f6); border-color: rgba(59, 130, 246, 0.25); }
+
+.ac-webhook {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sre-font-mono, 'Geist Mono', monospace);
+  font-size: 11px;
+  color: var(--sre-text-secondary);
+}
+.ac-webhook-url { color: var(--sre-text-tertiary); }
+.ac-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--sre-text-tertiary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--sre-duration-fast, 120ms) var(--sre-ease-out, ease);
+}
+.ac-copy:hover {
+  background: var(--sre-bg-elevated);
+  color: var(--sre-text-primary);
+}
+
+.ac-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  gap: 12px;
+  text-align: center;
+}
+.ac-empty-icon { color: var(--sre-text-tertiary); opacity: 0.5; }
+.ac-empty-title {
+  font-size: 14px;
+  color: var(--sre-text-secondary);
+  margin-bottom: 4px;
 }
 </style>

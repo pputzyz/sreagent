@@ -1,54 +1,68 @@
 <script setup lang="ts">
-import { h, ref, reactive, onMounted } from 'vue'
-import { useMessage, NTag, NButton, NSpace, NPopconfirm, NTooltip } from 'naive-ui'
+import { reactive, ref, shallowRef, computed, onMounted, h } from 'vue'
+import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyMediaApi } from '@/api'
 import type { NotifyMedia } from '@/types'
-import { AddOutline } from '@vicons/ionicons5'
+import {
+  AddOutline,
+  SearchOutline,
+  EllipsisHorizontal,
+  ChatbubblesOutline,
+  MailOutline,
+  GlobeOutline,
+  TerminalOutline,
+  FlashOutline,
+} from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
-import PageHeader from '@/components/common/PageHeader.vue'
 
 const message = useMessage()
 const { t } = useI18n()
 
 const loading = ref(false)
-const mediaList = ref<NotifyMedia[]>([])
+const mediaList = shallowRef<NotifyMedia[]>([])
 const showModal = ref(false)
 const modalTitle = ref('')
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const testingId = ref<number | null>(null)
 
+const search = ref('')
+const typeFilter = ref<string>('')
+
+type MediaType = 'lark_webhook' | 'email' | 'http' | 'script'
+
 const form = reactive({
   name: '',
   description: '',
-  type: 'lark_webhook' as 'lark_webhook' | 'email' | 'http' | 'script',
+  type: 'lark_webhook' as MediaType,
   is_enabled: true,
   variables: '{}',
-  // lark_webhook config
   webhook_url: '',
-  // email config
   smtp_host: '',
   smtp_port: 25,
   username: '',
   password: '',
   from: '',
-  // http config
   method: 'POST',
   url: '',
   headers: [] as { key: string; value: string }[],
   body: '',
-  // script config
   path: '',
   args: '',
 })
 
-const typeOptions = [
-  { label: () => t('media.larkWebhook'), value: 'lark_webhook' },
-  { label: () => t('media.email'), value: 'email' },
-  { label: () => t('media.http'), value: 'http' },
-  { label: () => t('media.script'), value: 'script' },
-]
+const typeOptions = computed(() => [
+  { label: t('media.larkWebhook'), value: 'lark_webhook' },
+  { label: t('media.email'), value: 'email' },
+  { label: t('media.http'), value: 'http' },
+  { label: t('media.script'), value: 'script' },
+])
+
+const filterTypeOptions = computed(() => [
+  { label: t('common.all'), value: '' },
+  ...typeOptions.value,
+])
 
 const methodOptions = [
   { label: 'GET', value: 'GET' },
@@ -56,16 +70,6 @@ const methodOptions = [
   { label: 'PUT', value: 'PUT' },
   { label: 'PATCH', value: 'PATCH' },
 ]
-
-function getTypeColor(type: string): 'success' | 'info' | 'default' | 'warning' | 'error' {
-  const map: Record<string, 'success' | 'info' | 'default' | 'warning' | 'error'> = {
-    lark_webhook: 'success',
-    email: 'info',
-    http: 'default',
-    script: 'warning',
-  }
-  return map[type] || 'default'
-}
 
 function getTypeLabel(type: string) {
   const map: Record<string, string> = {
@@ -77,69 +81,48 @@ function getTypeLabel(type: string) {
   return map[type] || type
 }
 
-const columns = [
-  {
-    title: () => t('common.name'),
-    key: 'name',
-    width: 180,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: () => t('media.type'),
-    key: 'type',
-    width: 120,
-    render: (row: NotifyMedia) =>
-      h(NTag, { type: getTypeColor(row.type), size: 'small', bordered: false, round: true }, { default: () => getTypeLabel(row.type) }),
-  },
-  {
-    title: () => t('common.description'),
-    key: 'description',
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: () => t('media.builtin'),
-    key: 'is_builtin',
-    width: 80,
-    render: (row: NotifyMedia) =>
-      row.is_builtin
-        ? h(NTag, { size: 'small', type: 'info', bordered: false }, { default: () => t('media.builtin') })
-        : h(NTag, { size: 'small', bordered: false }, { default: () => t('media.custom') }),
-  },
-  {
-    title: () => t('common.enabled'),
-    key: 'is_enabled',
-    width: 80,
-    render: (row: NotifyMedia) =>
-      h(NTag, { type: row.is_enabled ? 'success' : 'default', size: 'small' }, { default: () => row.is_enabled ? t('common.on') : t('common.off') }),
-  },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 220,
-    render: (row: NotifyMedia) =>
-      h(NSpace, { size: 4 }, {
-        default: () => [
-          h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NButton, {
-            size: 'small',
-            quaternary: true,
-            type: 'warning',
-            loading: testingId.value === row.id,
-            onClick: () => handleTest(row.id),
-          }, { default: () => t('common.test') }),
-          row.is_builtin
-            ? h(NTooltip, {}, {
-                trigger: () => h(NButton, { size: 'small', quaternary: true, type: 'error', disabled: true }, { default: () => t('common.delete') }),
-                default: () => t('media.builtinCannotDelete'),
-              })
-            : h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
-                trigger: () => h(NButton, { size: 'small', quaternary: true, type: 'error' }, { default: () => t('common.delete') }),
-                default: () => t('media.deleteConfirm'),
-              }),
-        ],
-      }),
-  },
-]
+function getTypeIcon(type: string) {
+  const map: Record<string, any> = {
+    lark_webhook: ChatbubblesOutline,
+    email: MailOutline,
+    http: GlobeOutline,
+    script: TerminalOutline,
+  }
+  return map[type] || FlashOutline
+}
+
+function getTargetSummary(row: NotifyMedia): string {
+  try {
+    const cfg = JSON.parse(row.config || '{}')
+    switch (row.type) {
+      case 'lark_webhook':
+        return cfg.webhook_url ? cfg.webhook_url.replace(/^https?:\/\//, '') : '—'
+      case 'email':
+        return cfg.from ? `${cfg.from} via ${cfg.smtp_host}:${cfg.smtp_port}` : (cfg.smtp_host || '—')
+      case 'http':
+        return `${cfg.method || 'POST'} ${cfg.url || ''}`.trim()
+      case 'script':
+        return cfg.path || '—'
+      default:
+        return '—'
+    }
+  } catch {
+    return '—'
+  }
+}
+
+const filtered = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return mediaList.value.filter(m => {
+    if (typeFilter.value && m.type !== typeFilter.value) return false
+    if (!q) return true
+    return (
+      m.name.toLowerCase().includes(q) ||
+      (m.description || '').toLowerCase().includes(q) ||
+      getTargetSummary(m).toLowerCase().includes(q)
+    )
+  })
+})
 
 async function fetchData() {
   loading.value = true
@@ -154,11 +137,7 @@ async function fetchData() {
 }
 
 function parseConfig(configStr: string): Record<string, any> {
-  try {
-    return JSON.parse(configStr || '{}')
-  } catch {
-    return {}
-  }
+  try { return JSON.parse(configStr || '{}') } catch { return {} }
 }
 
 function buildConfigString(): string {
@@ -167,23 +146,13 @@ function buildConfigString(): string {
       return JSON.stringify({ webhook_url: form.webhook_url }, null, 2)
     case 'email':
       return JSON.stringify({
-        smtp_host: form.smtp_host,
-        smtp_port: form.smtp_port,
-        username: form.username,
-        password: form.password,
-        from: form.from,
+        smtp_host: form.smtp_host, smtp_port: form.smtp_port,
+        username: form.username, password: form.password, from: form.from,
       }, null, 2)
     case 'http': {
       const hdrs: Record<string, string> = {}
-      for (const h of form.headers) {
-        if (h.key.trim()) hdrs[h.key.trim()] = h.value
-      }
-      return JSON.stringify({
-        method: form.method,
-        url: form.url,
-        headers: hdrs,
-        body: form.body,
-      }, null, 2)
+      for (const h of form.headers) { if (h.key.trim()) hdrs[h.key.trim()] = h.value }
+      return JSON.stringify({ method: form.method, url: form.url, headers: hdrs, body: form.body }, null, 2)
     }
     case 'script':
       return JSON.stringify({ path: form.path, args: form.args }, null, 2)
@@ -194,23 +163,9 @@ function buildConfigString(): string {
 
 function resetForm() {
   Object.assign(form, {
-    name: '',
-    description: '',
-    type: 'lark_webhook',
-    is_enabled: true,
-    variables: '{}',
-    webhook_url: '',
-    smtp_host: '',
-    smtp_port: 25,
-    username: '',
-    password: '',
-    from: '',
-    method: 'POST',
-    url: '',
-    headers: [],
-    body: '',
-    path: '',
-    args: '',
+    name: '', description: '', type: 'lark_webhook', is_enabled: true, variables: '{}',
+    webhook_url: '', smtp_host: '', smtp_port: 25, username: '', password: '', from: '',
+    method: 'POST', url: '', headers: [], body: '', path: '', args: '',
   })
 }
 
@@ -225,52 +180,27 @@ function openEdit(row: NotifyMedia) {
   editingId.value = row.id
   modalTitle.value = t('media.edit')
   const cfg = parseConfig(row.config)
-
   Object.assign(form, {
-    name: row.name,
-    description: row.description,
-    type: row.type,
-    is_enabled: row.is_enabled,
-    variables: row.variables || '{}',
+    name: row.name, description: row.description, type: row.type,
+    is_enabled: row.is_enabled, variables: row.variables || '{}',
     webhook_url: cfg.webhook_url || '',
-    smtp_host: cfg.smtp_host || '',
-    smtp_port: cfg.smtp_port || 25,
-    username: cfg.username || '',
-    password: cfg.password || '',
-    from: cfg.from || '',
-    method: cfg.method || 'POST',
-    url: cfg.url || '',
+    smtp_host: cfg.smtp_host || '', smtp_port: cfg.smtp_port || 25,
+    username: cfg.username || '', password: cfg.password || '', from: cfg.from || '',
+    method: cfg.method || 'POST', url: cfg.url || '',
     headers: Object.entries(cfg.headers || {}).map(([key, value]) => ({ key, value: String(value) })),
-    body: cfg.body || '',
-    path: cfg.path || '',
-    args: cfg.args || '',
+    body: cfg.body || '', path: cfg.path || '', args: cfg.args || '',
   })
   showModal.value = true
 }
 
 async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('media.nameRequired'))
-    return
-  }
-
-  // Validate variables JSON
-  try {
-    JSON.parse(form.variables)
-  } catch {
-    message.warning(t('media.variables') + ': Invalid JSON')
-    return
-  }
-
+  if (!form.name.trim()) { message.warning(t('media.nameRequired')); return }
+  try { JSON.parse(form.variables) } catch { message.warning(t('media.variables') + ': Invalid JSON'); return }
   saving.value = true
   try {
     const payload = {
-      name: form.name,
-      description: form.description,
-      type: form.type,
-      is_enabled: form.is_enabled,
-      config: buildConfigString(),
-      variables: form.variables,
+      name: form.name, description: form.description, type: form.type,
+      is_enabled: form.is_enabled, config: buildConfigString(), variables: form.variables,
     }
     if (editingId.value) {
       await notifyMediaApi.update(editingId.value, payload)
@@ -281,11 +211,7 @@ async function handleSave() {
     }
     showModal.value = false
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    saving.value = false
-  }
+  } catch (err: any) { message.error(err.message) } finally { saving.value = false }
 }
 
 async function handleDelete(id: number) {
@@ -293,56 +219,107 @@ async function handleDelete(id: number) {
     await notifyMediaApi.delete(id)
     message.success(t('media.deleted'))
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
-  }
+  } catch (err: any) { message.error(err.message) }
 }
 
 async function handleTest(id: number) {
   testingId.value = id
   try {
     const { data } = await notifyMediaApi.test(id)
-    if (data.data.success) {
-      message.success(t('media.testSuccess'))
-    } else {
-      message.warning(`${t('media.testFailed')}: ${data.data.message}`)
-    }
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    testingId.value = null
+    if (data.data.success) message.success(t('media.testSuccess'))
+    else message.warning(`${t('media.testFailed')}: ${data.data.message}`)
+  } catch (err: any) { message.error(err.message) } finally { testingId.value = null }
+}
+
+function rowMenuOptions(row: NotifyMedia) {
+  return [
+    { label: t('common.edit'), key: 'edit' },
+    { label: t('common.test'), key: 'test' },
+    { type: 'divider', key: 'd1' },
+    {
+      label: t('common.delete'), key: 'delete',
+      disabled: row.is_builtin,
+      props: { style: row.is_builtin ? '' : 'color: var(--sre-danger, #ef4444)' },
+    },
+  ]
+}
+
+function onRowMenu(key: string, row: NotifyMedia) {
+  if (key === 'edit') openEdit(row)
+  else if (key === 'test') handleTest(row.id)
+  else if (key === 'delete' && !row.is_builtin) {
+    if (confirm(t('media.deleteConfirm'))) handleDelete(row.id)
   }
 }
 
-onMounted(() => {
-  fetchData()
+// Render dropdown trigger via h to keep template light
+const RowMenu = (row: NotifyMedia) => h(NDropdown, {
+  trigger: 'click',
+  options: rowMenuOptions(row),
+  onSelect: (key: string) => onRowMenu(key, row),
+}, {
+  default: () => h('button', { class: 'sre-icon-btn', 'aria-label': 'menu' },
+    h('span', { class: 'sre-dots' })),
 })
+
+onMounted(fetchData)
 </script>
 
 <template>
-  <div class="page-container">
-    <PageHeader :title="t('media.title')" :subtitle="t('media.subtitle')">
-      <template #actions>
-        <n-button type="primary" @click="openCreate">
-          <template #icon><n-icon :component="AddOutline" /></template>
-          {{ t('media.create') }}
-        </n-button>
-      </template>
-    </PageHeader>
+  <div class="media-page">
+    <header class="sub-header">
+      <div>
+        <h2 class="sub-title">{{ t('media.title') }}</h2>
+        <p class="sub-sub">{{ t('media.subtitle') }}</p>
+      </div>
+      <n-button type="primary" size="small" @click="openCreate">
+        <template #icon><n-icon :component="AddOutline" /></template>
+        {{ t('media.create') }}
+      </n-button>
+    </header>
 
-    <n-card :bordered="false" class="content-card">
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="mediaList"
-        :row-key="(row: NotifyMedia) => row.id"
-        :bordered="false"
-        size="small"
-      />
-      <n-empty v-if="!loading && mediaList.length === 0" :description="t('media.noData')" style="padding: 40px 0" />
-    </n-card>
+    <div class="toolbar">
+      <n-input v-model:value="search" size="small" :placeholder="t('common.search')" clearable style="width: 240px">
+        <template #prefix><n-icon :component="SearchOutline" /></template>
+      </n-input>
+      <n-select v-model:value="typeFilter" size="small" :options="filterTypeOptions" style="width: 160px" />
+      <span class="count tnum">{{ filtered.length }} / {{ mediaList.length }}</span>
+    </div>
 
-    <!-- Create/Edit Modal -->
+    <div v-if="loading" class="loading">{{ t('common.loading') }}…</div>
+
+    <div v-else-if="filtered.length === 0" class="empty">
+      <n-icon :component="FlashOutline" size="36" />
+      <div class="empty-text">{{ t('media.noData') }}</div>
+      <n-button type="primary" size="small" @click="openCreate">{{ t('media.create') }}</n-button>
+    </div>
+
+    <ul v-else class="row-list sre-stagger">
+      <li v-for="m in filtered" :key="m.id" class="sre-row-card sre-lift" :data-type="m.type">
+        <div class="row-l1">
+          <span class="type-icon" :data-type="m.type"><n-icon :component="getTypeIcon(m.type)" size="16" /></span>
+          <span class="row-name">{{ m.name }}</span>
+          <span class="type-chip" :data-type="m.type">{{ getTypeLabel(m.type) }}</span>
+          <span v-if="m.is_builtin" class="builtin-chip">{{ t('media.builtin') }}</span>
+          <span class="status-text" :class="{ off: !m.is_enabled }">
+            {{ m.is_enabled ? t('common.on') : t('common.off') }}
+          </span>
+          <div class="row-actions">
+            <n-button quaternary size="tiny" :loading="testingId === m.id" @click="handleTest(m.id)">
+              {{ t('common.test') }}
+            </n-button>
+            <component :is="RowMenu(m)" />
+          </div>
+        </div>
+        <div class="row-l2">
+          <code class="target tnum">{{ getTargetSummary(m) }}</code>
+        </div>
+        <div class="row-l3" v-if="m.description">
+          <span class="meta">{{ m.description }}</span>
+        </div>
+      </li>
+    </ul>
+
     <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 600px" :bordered="false">
       <n-form label-placement="top">
         <n-grid :x-gap="12" :cols="2">
@@ -362,17 +339,14 @@ onMounted(() => {
           <n-input v-model:value="form.description" :placeholder="t('media.description')" />
         </n-form-item>
 
-        <!-- Dynamic config based on type -->
         <n-divider style="margin: 12px 0">{{ t('media.config') }}</n-divider>
 
-        <!-- Lark Webhook -->
         <template v-if="form.type === 'lark_webhook'">
           <n-form-item :label="t('media.webhookUrl')" required>
             <n-input v-model:value="form.webhook_url" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
           </n-form-item>
         </template>
 
-        <!-- Email -->
         <template v-if="form.type === 'email'">
           <n-grid :x-gap="12" :cols="2">
             <n-gi>
@@ -403,7 +377,6 @@ onMounted(() => {
           </n-form-item>
         </template>
 
-        <!-- HTTP -->
         <template v-if="form.type === 'http'">
           <n-grid :x-gap="12" :cols="4">
             <n-gi>
@@ -421,17 +394,12 @@ onMounted(() => {
             <KVEditor v-model:modelValue="form.headers" key-placeholder="Header Name" value-placeholder="Header Value" :add-label="t('media.addHeader')" />
           </n-form-item>
           <n-form-item :label="t('media.body')">
-            <n-input
-              v-model:value="form.body"
-              type="textarea"
-              :rows="4"
+            <n-input v-model:value="form.body" type="textarea" :rows="4"
               placeholder='{"text": "{{.AlertName}} is {{.Status}}"}'
-              style="font-family: monospace; font-size: 12px"
-            />
+              style="font-family: 'Geist Mono', monospace; font-size: 12px" />
           </n-form-item>
         </template>
 
-        <!-- Script -->
         <template v-if="form.type === 'script'">
           <n-form-item :label="t('media.path')">
             <n-input v-model:value="form.path" placeholder="/usr/local/bin/notify.sh" />
@@ -444,13 +412,9 @@ onMounted(() => {
         <n-divider style="margin: 12px 0" />
 
         <n-form-item :label="t('media.variables')">
-          <n-input
-            v-model:value="form.variables"
-            type="textarea"
-            :rows="3"
+          <n-input v-model:value="form.variables" type="textarea" :rows="3"
             :placeholder="t('media.variablesHint')"
-            style="font-family: monospace; font-size: 12px"
-          />
+            style="font-family: 'Geist Mono', monospace; font-size: 12px" />
         </n-form-item>
 
         <n-form-item :label="t('common.enabled')">
@@ -471,11 +435,87 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.page-container {
-  max-width: 1400px;
-}
+.media-page { font-family: 'Geist', system-ui, sans-serif; max-width: 1400px; }
 
-.content-card {
-  border-radius: 12px;
+.sub-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding-bottom: 14px; border-bottom: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
+  margin-bottom: 14px;
 }
+.sub-title { font: 600 18px/1.2 'Geist', sans-serif; margin: 0; letter-spacing: -0.01em; }
+.sub-sub { font-size: 12px; color: var(--sre-text-secondary, #888); margin: 4px 0 0; }
+
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.count { font-size: 12px; color: var(--sre-text-secondary, #888); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.loading, .empty { padding: 60px 20px; text-align: center; color: var(--sre-text-secondary, #888); }
+.empty { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.empty-text { font-size: 13px; }
+
+.row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.sre-row-card {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
+  border-radius: 8px;
+  background: var(--sre-bg-card, rgba(255,255,255,0.02));
+  transition: border-color .15s, background .15s;
+}
+.sre-row-card:hover { border-color: var(--sre-hairline-strong, rgba(255,255,255,0.12)); background: rgba(255,255,255,0.03); }
+
+.row-l1 { display: flex; align-items: center; gap: 10px; }
+.type-icon {
+  width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; background: rgba(255,255,255,0.04);
+}
+.type-icon[data-type="lark_webhook"] { color: #818cf8; background: rgba(129,140,248,0.12); }
+.type-icon[data-type="email"]        { color: #94a3b8; background: rgba(148,163,184,0.10); }
+.type-icon[data-type="http"]         { color: #22c55e; background: rgba(34,197,94,0.10); }
+.type-icon[data-type="script"]       { color: #f59e0b; background: rgba(245,158,11,0.10); }
+
+.row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
+
+.type-chip {
+  font: 500 10px/1 'Geist Mono', monospace; text-transform: uppercase;
+  padding: 3px 6px; border-radius: 4px; letter-spacing: .04em;
+  background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
+}
+.type-chip[data-type="lark_webhook"] { background: rgba(129,140,248,0.14); color: #a5b4fc; }
+.type-chip[data-type="email"]        { background: rgba(148,163,184,0.14); color: #cbd5e1; }
+.type-chip[data-type="http"]         { background: rgba(34,197,94,0.14);   color: #86efac; }
+.type-chip[data-type="script"]       { background: rgba(245,158,11,0.14);  color: #fcd34d; }
+
+.builtin-chip {
+  font: 500 10px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  background: rgba(56,189,248,0.10); color: #7dd3fc; letter-spacing: .04em;
+}
+.status-text { font-size: 11px; color: var(--sre-success, #22c55e); }
+.status-text.off { color: var(--sre-text-secondary, #888); }
+
+.row-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.sre-icon-btn {
+  width: 24px; height: 24px; padding: 0; border: 0; background: transparent;
+  border-radius: 4px; cursor: pointer; color: var(--sre-text-secondary, #888);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sre-icon-btn:hover { background: rgba(255,255,255,0.06); color: inherit; }
+.sre-dots {
+  width: 14px; height: 4px; position: relative; display: inline-block;
+}
+.sre-dots::before, .sre-dots::after, .sre-dots {
+  content: ''; width: 3px; height: 3px; background: currentColor; border-radius: 50%;
+}
+.sre-dots::before { position: absolute; left: -5px; top: 0.5px; }
+.sre-dots::after  { position: absolute; right: -5px; top: 0.5px; }
+
+.row-l2 { padding-left: 38px; }
+.target {
+  font: 12px/1.4 'Geist Mono', monospace;
+  color: var(--sre-text-secondary, #aaa);
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+.row-l3 { padding-left: 38px; }
+.meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
 </style>
