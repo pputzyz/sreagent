@@ -4,6 +4,54 @@
 
 ---
 
+## [v2.2.0] - 2026-05-08
+
+### Changed — UI 重构 Phase 1（FlashCat 全站对齐）
+
+应用三个 skill：frontend-design (anthropics) / vue 3.5 (antfu) / web-design-guidelines (Vercel)
+
+**字体与设计 tokens：**
+- Geist + JetBrains Mono 通过 Google Fonts 全局引入（替代 system fonts，避免 AI slop）
+- 新增设计 tokens：`--sre-stripe-w` `--sre-row-pad-y/x` `--sre-card-pad` `--sre-section-gap` `--sre-hairline`
+- 新增 utility classes：`.sre-stagger`（错峰浮现）、`.sre-row-card[data-severity]`（4px 左色条卡片）、`.sre-dot[data-severity]`（圆点）、`.sre-meta-divider`、`.sre-stat-value`、`.sre-lift`、`.tnum`、`.sre-label-eyebrow`
+
+**Phase 1 页面（4 个核心页）：**
+
+- **主仪表盘**（dashboard/Index.vue 1158 → 536 行）：
+  - 删除 GlowCard / AnimatedNumber / AuroraBackground（AI slop 视觉）
+  - 4 张 KPI 卡片（Active / MTTA / MTTR / Resolved Today）+ 底部 3px tone 色条
+  - Geist 字体 + 所有数字带 tabular-nums
+  - 告警趋势 ECharts 折线图（280px 渐变填充，节制配色）
+  - Top 噪音规则自定义列表 + 严重程度环形图
+  - sre-stagger 首屏 KPI 错峰浮现
+
+- **设置页**（settings/Index.vue 81 → 332 行）：
+  - 顶部 Tabs → 240px 左导航 + 内容区
+  - 三组 eyebrow label：PLATFORM / ORGANIZATION / AUDIT
+  - 选中态 primary-soft 背景 + 2px 主色左 marker + 主色文字
+  - URL hash 同步（#ai / #lark-bot 等）+ hashchange 监听
+  - UserManagement v-show 保留以便跨 tab user list 共享
+
+- **告警规则**（alerts/rules/Index.vue 941 → 1288 行）：
+  - 抛弃 n-data-table，自定义 sre-row-card div 列表
+  - 220px 左侧分类导航（active 态 primary-soft + 2px marker + tnum count）
+  - 严重程度作 4px 左色条 + sre-dot 圆点替代 tag
+  - 紧凑工具栏（search 240px + 3 selects 160px）
+  - 浮现选择栏 + 批量启用/禁用/删除
+  - 行 actions：启用 switch + 省略号下拉
+
+- **活跃告警**（alerts/events/Index.vue 817 → 750 行）：
+  - 抛弃 n-data-table，自定义 sre-row-card 列表
+  - 严重程度 4px 左色条 + sre-dot
+  - resolved/closed 行 data-dim 淡化 0.6
+  - 4 行结构：headline / context / labels chips / footer 元数据
+  - 状态分段：[全部 | Firing | Acked | Resolved]
+  - 自动刷新（Off/30s/60s/5min 持久化）+ Export CSV
+
+vue-tsc ✅
+
+---
+
 ## [v2.1.0] - 2026-05-08
 
 ### Changed — UI 重构（FlashCat 风格）

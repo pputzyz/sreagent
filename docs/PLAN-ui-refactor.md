@@ -120,7 +120,7 @@
 | Phase | 状态 |
 |-------|------|
 | **v2.1.0 已完成** | 数据查询、侧栏、故障列表、协作空间列表 |
-| Phase 1（v2.2.0） | ⏳ 计划中 |
+| **Phase 1（v2.2.0）已完成** | dashboard / settings / alert-rules / alert-events |
 | Phase 2 (v2.3.0)  | ⬜ 未开始 |
 | Phase 3 (v2.4.0)  | ⬜ 未开始 |
 | Phase 4 (v2.5.0)  | ⬜ 未开始 |

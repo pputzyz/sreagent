@@ -1,16 +1,31 @@
 <script setup lang="ts">
-import { h, ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
-
-type RowKey = string | number
+import {
+  useMessage,
+  NButton,
+  NIcon,
+  NInput,
+  NSelect,
+  NDatePicker,
+  NRadioGroup,
+  NRadioButton,
+  NDropdown,
+  NPagination,
+  NSpin,
+  NEmpty,
+  NText,
+} from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { alertEventApi, alertExportApi, alertGroupsApi } from '@/api'
-import type { AlertEvent, AlertViewMode, AlertGroupItem } from '@/types'
-import { formatTime, formatDuration } from '@/utils/format'
-import { getSeverityType, getStatusLabelKey, statusTagColor, severityRowClass } from '@/utils/alert'
-import PageHeader from '@/components/common/PageHeader.vue'
-import { RefreshOutline, OptionsOutline, AlertCircleOutline, DownloadOutline, LayersOutline, ListOutline } from '@vicons/ionicons5'
+import {
+  RefreshOutline,
+  DownloadOutline,
+  EllipsisHorizontalOutline,
+  ShieldCheckmarkOutline,
+  CloseOutline,
+} from '@vicons/ionicons5'
+import { alertEventApi, alertRuleApi } from '@/api'
+import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -18,364 +33,339 @@ const message = useMessage()
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-// View mode
-const viewMode = ref<AlertViewMode>('mine')
-
-const canViewAll = computed(() =>
-  authStore.user?.role === 'admin' || authStore.user?.role === 'global_viewer'
-)
-
-const viewModeOptions = computed(() => {
-  const opts = [
-    { label: t('alert.myAlerts'), value: 'mine' as AlertViewMode },
-    { label: t('alert.unassigned'), value: 'unassigned' as AlertViewMode },
-  ]
-  if (canViewAll.value) {
-    opts.push({ label: t('alert.allAlerts'), value: 'all' as AlertViewMode })
-  }
-  return opts
-})
-
-function handleViewModeChange(mode: AlertViewMode) {
-  viewMode.value = mode
-  page.value = 1
-  fetchEvents()
-}
-const loading = ref(false)
-const events = ref<AlertEvent[]>([])
+// ===== State =====
+const events = shallowRef<AlertEvent[]>([])
 const total = ref(0)
+const loading = ref(false)
+const firstLoad = ref(true)
 const page = ref(1)
 const pageSize = ref(20)
-const checkedRowKeys = ref<number[]>([])
+const selected = ref<Set<number>>(new Set())
 
-// Filters
-const showFilters = ref(true)
-const statusFilter = ref<string[]>([])
-const severityFilter = ref<string[]>([])
-const alertNameSearch = ref('')
-const sourceFilter = ref('')
-const timeRangePreset = ref('24h')
+// ===== Filters =====
+type StatusTab = 'all' | 'firing' | 'acked' | 'resolved'
+const statusTab = ref<StatusTab>('all')
+const search = ref('')
+const severityFilter = ref<string | null>(null)
+const ruleFilter = ref<number | null>(null)
+const tagFilter = ref('')
 const customRange = ref<[number, number] | null>(null)
+const timePreset = ref<string>('24h')
 
-// Count by status from current result (rough breakdown for badge)
-const statusCounts = computed(() => {
-  const m: Record<string, number> = { firing: 0, acknowledged: 0, assigned: 0, resolved: 0, closed: 0, silenced: 0 }
-  for (const e of events.value) m[e.status] = (m[e.status] || 0) + 1
-  return m
-})
-
-const statusOptions = [
-  { label: () => t('alert.firing'), value: 'firing' },
-  { label: () => t('alert.acknowledged'), value: 'acknowledged' },
-  { label: () => t('alert.assigned'), value: 'assigned' },
-  { label: () => t('alert.resolved'), value: 'resolved' },
-  { label: () => t('alert.closed'), value: 'closed' },
-  { label: () => t('alert.silenced'), value: 'silenced' },
-]
+const viewMode = ref<AlertViewMode>('mine')
+const canViewAll = computed(
+  () => authStore.user?.role === 'admin' || authStore.user?.role === 'global_viewer',
+)
 
 const severityOptions = [
-  { label: () => t('alert.p0'), value: 'p0' },
-  { label: () => t('alert.p1'), value: 'p1' },
-  { label: () => t('alert.p2'), value: 'p2' },
-  { label: () => t('alert.p3'), value: 'p3' },
-  { label: () => t('alert.p4'), value: 'p4' },
-  { label: () => t('alert.critical'), value: 'critical' },
-  { label: () => t('alert.warning'), value: 'warning' },
-  { label: () => t('alert.info'), value: 'info' },
+  { label: 'P0', value: 'p0' },
+  { label: 'P1', value: 'p1' },
+  { label: 'P2', value: 'p2' },
+  { label: 'P3', value: 'p3' },
+  { label: 'P4', value: 'p4' },
+  { label: 'Critical', value: 'critical' },
+  { label: 'Warning', value: 'warning' },
+  { label: 'Info', value: 'info' },
 ]
 
-const timePresets = [
+const timePresetOptions = [
   { label: '1h', value: '1h' },
   { label: '6h', value: '6h' },
   { label: '24h', value: '24h' },
   { label: '7d', value: '7d' },
   { label: '30d', value: '30d' },
+  { label: t('alert.custom') || 'Custom', value: 'custom' },
 ]
 
+const refreshOptions = [
+  { label: t('alert.refreshOff') || 'Off', value: 0 },
+  { label: '30s', value: 30 },
+  { label: '60s', value: 60 },
+  { label: '5min', value: 300 },
+]
+const REFRESH_KEY = 'sre.alerts.refreshInterval'
+const refreshInterval = ref<number>(
+  Number(localStorage.getItem(REFRESH_KEY) ?? 30),
+)
+
+// ===== Rule list (for filter) =====
+const ruleOptions = shallowRef<{ label: string; value: number }[]>([])
+async function loadRules() {
+  try {
+    const { data } = await alertRuleApi.list({ page: 1, page_size: 200 })
+    const list = (data.data?.list || []) as AlertRule[]
+    ruleOptions.value = list.map((r) => ({ label: r.name, value: r.id }))
+  } catch {
+    /* silent */
+  }
+}
+
+// ===== Time range =====
 function getTimeRange(): { start_time?: string; end_time?: string } {
-  if (timeRangePreset.value === 'custom' && customRange.value) {
+  if (timePreset.value === 'custom' && customRange.value) {
     return {
       start_time: new Date(customRange.value[0]).toISOString(),
       end_time: new Date(customRange.value[1]).toISOString(),
     }
   }
-  const now = new Date()
+  const now = Date.now()
   const map: Record<string, number> = {
-    '1h': 3600000, '6h': 21600000, '24h': 86400000, '7d': 604800000, '30d': 2592000000,
+    '1h': 3600000,
+    '6h': 21600000,
+    '24h': 86400000,
+    '7d': 604800000,
+    '30d': 2592000000,
   }
-  const ms = map[timeRangePreset.value]
-  if (ms) return { start_time: new Date(now.getTime() - ms).toISOString() }
+  const ms = map[timePreset.value]
+  if (ms) return { start_time: new Date(now - ms).toISOString() }
   return {}
 }
 
-function calcDuration(row: AlertEvent): string {
-  const firedAt = new Date(row.fired_at).getTime()
-  if (row.status === 'resolved' || row.status === 'closed') {
-    const end = row.resolved_at ? new Date(row.resolved_at).getTime() : (row.closed_at ? new Date(row.closed_at).getTime() : Date.now())
-    return formatDuration(Math.floor((end - firedAt) / 1000))
+function statusFilterArray(): string[] | undefined {
+  switch (statusTab.value) {
+    case 'firing':
+      return ['firing']
+    case 'acked':
+      return ['acknowledged', 'assigned']
+    case 'resolved':
+      return ['resolved', 'closed']
+    default:
+      return undefined
   }
-  return formatDuration(Math.floor((Date.now() - firedAt) / 1000))
 }
 
-const columns = [
-  { type: 'selection' as const, width: 40 },
-  {
-    title: () => t('alert.severity'),
-    key: 'severity',
-    width: 90,
-    render: (row: AlertEvent) =>
-      h('div', { class: 'severity-cell' }, [
-        h('span', { class: `severity-bar severity-bar--${row.severity}` }),
-        h(NTag, { type: getSeverityType(row.severity), size: 'small', round: true }, { default: () => row.severity.toUpperCase() }),
-      ]),
-  },
-  {
-    title: () => t('alert.alertName'),
-    key: 'alert_name',
-    ellipsis: { tooltip: true },
-    minWidth: 180,
-    render: (row: AlertEvent) => h('div', { class: 'name-cell' }, [
-      row.severity === 'critical' && row.status === 'firing'
-        ? h('span', { class: 'critical-pulse' })
-        : null,
-      h('a', {
-        class: 'alert-link',
-        onClick: () => router.push(`/alerts/events/${row.id}`),
-      }, row.alert_name),
-    ]),
-  },
-  {
-    title: () => t('common.status'),
-    key: 'status',
-    width: 110,
-    render: (row: AlertEvent) =>
-      h(NTag, {
-        size: 'small',
-        bordered: false,
-        color: statusTagColor(row.status),
-      }, { default: () => t(getStatusLabelKey(row.status)) }),
-  },
-  {
-    title: () => t('alert.source'),
-    key: 'source',
-    width: 120,
-    ellipsis: { tooltip: true },
-    render: (row: AlertEvent) => h('span', { style: 'font-size:12px;color:var(--sre-text-secondary)' }, row.source || '-'),
-  },
-  {
-    title: () => t('alert.firedAt'),
-    key: 'fired_at',
-    width: 160,
-    render: (row: AlertEvent) => h('span', { style: 'font-size: 12px' }, formatTime(row.fired_at)),
-  },
-  {
-    title: () => t('alert.duration'),
-    key: 'duration',
-    width: 90,
-    render: (row: AlertEvent) => h('span', { style: 'font-size:12px;color:var(--sre-text-secondary);font-variant-numeric:tabular-nums' }, calcDuration(row)),
-  },
-  {
-    title: '#',
-    key: 'fire_count',
-    width: 50,
-    align: 'center' as const,
-    render: (row: AlertEvent) => h('span', {
-      style: `font-size:11px;font-weight:600;color:${row.fire_count > 5 ? '#e88080' : 'var(--sre-text-secondary)'}`,
-    }, String(row.fire_count)),
-  },
-  {
-    title: () => t('alert.ackedBy'),
-    key: 'acked_by',
-    width: 90,
-    render: (row: AlertEvent) =>
-      h('span', { style: 'font-size: 12px' }, row.acked_by_user?.display_name || '-'),
-  },
-  {
-    title: () => t('alert.oncallUser'),
-    key: 'oncall_user',
-    width: 100,
-    render: (row: AlertEvent) => {
-      if (row.is_dispatched && row.oncall_user) {
-        return h('span', { style: 'font-size:12px;color:#18a058' }, row.oncall_user.display_name || row.oncall_user.username)
-      }
-      return h('span', { style: 'font-size:11px;color:#666' }, '-')
-    },
-  },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 170,
-    fixed: 'right' as const,
-    render: (row: AlertEvent) => {
-      const buttons: any[] = []
-      if (row.status === 'firing') {
-        buttons.push(
-          h(NButton, { size: 'tiny', type: 'primary', secondary: true, onClick: () => handleAck(row.id) }, { default: () => t('alert.ack') })
-        )
-      }
-      if (row.status === 'firing' || row.status === 'acknowledged') {
-        buttons.push(
-          h(NButton, { size: 'tiny', type: 'success', secondary: true, onClick: () => handleResolve(row.id) }, { default: () => t('alert.resolve') })
-        )
-      }
-      if (row.status !== 'closed' && row.status !== 'resolved') {
-        buttons.push(
-          h(NButton, { size: 'tiny', secondary: true, onClick: () => handleClose(row.id) }, { default: () => t('alert.close') })
-        )
-      }
-      buttons.push(
-        h(NButton, { size: 'tiny', quaternary: true, onClick: () => router.push(`/alerts/events/${row.id}`) }, { default: () => t('alert.detail') })
-      )
-      return h(NSpace, { size: 3 }, { default: () => buttons })
-    },
-  },
-]
-
+// ===== Fetch =====
 async function fetchEvents() {
-  if (groupedMode.value) {
-    fetchGroups()
-    return
-  }
   loading.value = true
   try {
-    const timeRange = getTimeRange()
+    const tr = getTimeRange()
     const { data } = await alertEventApi.list({
       page: page.value,
       page_size: pageSize.value,
-      status: statusFilter.value.length ? statusFilter.value : undefined,
-      severity: severityFilter.value.length ? severityFilter.value : undefined,
-      alert_name: alertNameSearch.value || undefined,
-      source: sourceFilter.value || undefined,
+      status: statusFilterArray(),
+      severity: severityFilter.value ? [severityFilter.value] : undefined,
+      alert_name: search.value || undefined,
       view_mode: viewMode.value,
-      ...timeRange,
+      ...tr,
     })
-    events.value = data.data.list || []
+    let list = data.data.list || []
+    // Client-side filter for rule + tag (server may not support both; safe extra)
+    if (ruleFilter.value != null) {
+      list = list.filter((e) => e.rule_id === ruleFilter.value)
+    }
+    if (tagFilter.value.trim()) {
+      const [k, v] = tagFilter.value.split('=').map((s) => s.trim())
+      if (k) {
+        list = list.filter((e) => {
+          const lv = e.labels?.[k]
+          return v ? lv === v : lv != null
+        })
+      }
+    }
+    events.value = list
     total.value = data.data.total
   } catch (err: any) {
-    message.error(err.message)
+    message.error(err?.message || 'Failed to load')
   } finally {
     loading.value = false
+    firstLoad.value = false
   }
 }
 
-async function handleAck(id: number) {
+function refilter() {
+  page.value = 1
+  fetchEvents()
+}
+
+// ===== Actions =====
+async function onAck(ev: AlertEvent) {
   try {
-    await alertEventApi.acknowledge(id)
+    await alertEventApi.acknowledge(ev.id)
     message.success(t('alert.alertAcknowledged'))
     fetchEvents()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: any) {
+    message.error(err?.message)
+  }
 }
-
-async function handleResolve(id: number) {
+async function onResolve(ev: AlertEvent) {
   try {
-    await alertEventApi.resolve(id, { resolution: t('alert.manuallyResolved') })
+    await alertEventApi.resolve(ev.id, { resolution: t('alert.manuallyResolved') })
     message.success(t('alert.alertResolved'))
     fetchEvents()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: any) {
+    message.error(err?.message)
+  }
 }
-
-async function handleClose(id: number) {
+async function onClose(ev: AlertEvent) {
   try {
-    await alertEventApi.close(id)
+    await alertEventApi.close(ev.id)
     message.success(t('alert.alertClosed'))
     fetchEvents()
-  } catch (err: any) { message.error(err.message) }
-}
-
-async function handleBatchAck() {
-  if (!checkedRowKeys.value.length) return
-  try {
-    await alertEventApi.batchAcknowledge(checkedRowKeys.value)
-    message.success(t('alert.batchAckSuccess'))
-    checkedRowKeys.value = []
-    fetchEvents()
-  } catch (err: any) { message.error(err.message) }
-}
-
-async function handleBatchClose() {
-  if (!checkedRowKeys.value.length) return
-  try {
-    await alertEventApi.batchClose(checkedRowKeys.value)
-    message.success(t('alert.batchCloseSuccess'))
-    checkedRowKeys.value = []
-    fetchEvents()
-  } catch (err: any) { message.error(err.message) }
-}
-
-function resetFilters() {
-  statusFilter.value = []
-  severityFilter.value = []
-  alertNameSearch.value = ''
-  sourceFilter.value = ''
-  timeRangePreset.value = '24h'
-  customRange.value = null
-  page.value = 1
-  fetchEvents()
-}
-
-function handleTimePreset(preset: string) {
-  timeRangePreset.value = preset
-  if (preset !== 'custom') customRange.value = null
-  page.value = 1
-  fetchEvents()
-}
-
-function handleCustomRange(val: [number, number] | null) {
-  customRange.value = val
-  if (val) { timeRangePreset.value = 'custom'; page.value = 1; fetchEvents() }
-}
-
-let refreshTimer: ReturnType<typeof setInterval> | null = null
-onMounted(() => { fetchEvents(); refreshTimer = setInterval(fetchEvents, 30000) })
-onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
-
-const selectedText = computed(() => t('alert.selectedCount', { n: checkedRowKeys.value.length }))
-function onCheckedRowKeysUpdate(keys: RowKey[]) { checkedRowKeys.value = keys as number[] }
-
-const activeFiltersCount = computed(() => {
-  let n = 0
-  if (statusFilter.value.length) n++
-  if (severityFilter.value.length) n++
-  if (alertNameSearch.value) n++
-  if (sourceFilter.value) n++
-  if (timeRangePreset.value !== '24h') n++
-  return n
-})
-
-// ===== Grouped view =====
-const groupedMode = ref(false)
-const groups = ref<AlertGroupItem[]>([])
-const groupsLoading = ref(false)
-
-async function fetchGroups() {
-  groupsLoading.value = true
-  try {
-    const params: Record<string, string> = {}
-    if (statusFilter.value.length) params.status = statusFilter.value.join(',')
-    if (severityFilter.value.length) params.severity = severityFilter.value.join(',')
-    const { data } = await alertGroupsApi.list(params)
-    groups.value = data.data || []
   } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    groupsLoading.value = false
+    message.error(err?.message)
+  }
+}
+async function onSilence(ev: AlertEvent) {
+  try {
+    await alertEventApi.silence(ev.id, { duration_minutes: 60, reason: 'manual' })
+    message.success(t('alert.silenced'))
+    fetchEvents()
+  } catch (err: any) {
+    message.error(err?.message)
+  }
+}
+async function batchAck() {
+  const ids = Array.from(selected.value)
+  if (!ids.length) return
+  try {
+    await alertEventApi.batchAcknowledge(ids)
+    message.success(t('alert.batchAckSuccess'))
+    selected.value = new Set()
+    fetchEvents()
+  } catch (err: any) {
+    message.error(err?.message)
+  }
+}
+async function batchCloseAction() {
+  const ids = Array.from(selected.value)
+  if (!ids.length) return
+  try {
+    await alertEventApi.batchClose(ids)
+    message.success(t('alert.batchCloseSuccess'))
+    selected.value = new Set()
+    fetchEvents()
+  } catch (err: any) {
+    message.error(err?.message)
+  }
+}
+async function batchSilence() {
+  const ids = Array.from(selected.value)
+  if (!ids.length) return
+  try {
+    await Promise.all(
+      ids.map((id) =>
+        alertEventApi.silence(id, { duration_minutes: 60, reason: 'manual batch' }),
+      ),
+    )
+    message.success(t('alert.silenced'))
+    selected.value = new Set()
+    fetchEvents()
+  } catch (err: any) {
+    message.error(err?.message)
   }
 }
 
-function toggleGroupedMode() {
-  groupedMode.value = !groupedMode.value
-  if (groupedMode.value) fetchGroups()
+function rowActions(ev: AlertEvent) {
+  const opts = [
+    { label: t('alert.detail'), key: 'detail' },
+    { label: t('alert.silence') || 'Silence', key: 'silence' },
+  ]
+  if (ev.status === 'firing' || ev.status === 'acknowledged') {
+    opts.unshift({ label: t('alert.resolve'), key: 'resolve' })
+  }
+  return opts
+}
+function handleAction(key: string, ev: AlertEvent) {
+  if (key === 'detail') router.push(`/alerts/events/${ev.id}`)
+  else if (key === 'silence') onSilence(ev)
+  else if (key === 'resolve') onResolve(ev)
 }
 
+// ===== Selection =====
+function toggleSelect(id: number) {
+  const next = new Set(selected.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selected.value = next
+}
+function clearSelection() {
+  selected.value = new Set()
+}
+
+// ===== Navigation =====
+function goDetail(ev: AlertEvent) {
+  router.push(`/alerts/events/${ev.id}`)
+}
+
+// ===== Helpers =====
+function relTime(input: string | number | null | undefined): string {
+  if (!input) return '—'
+  const t = typeof input === 'number' ? input : Date.parse(input)
+  if (Number.isNaN(t)) return '—'
+  const diff = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  if (diff < 60) return `${diff}s 前`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m 前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h 前`
+  return `${Math.floor(diff / 86400)}d 前`
+}
+
+function severityLabel(sev: string): string {
+  const k = `alert.${sev}`
+  const v = t(k)
+  return v === k ? sev.toUpperCase() : v
+}
+
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    firing: 'alert.firing',
+    acknowledged: 'alert.acknowledged',
+    assigned: 'alert.assigned',
+    resolved: 'alert.resolved',
+    closed: 'alert.closed',
+    silenced: 'alert.silenced',
+  }
+  return map[status] ? t(map[status]) : status
+}
+
+function severityDotKey(sev: string): string {
+  if (['p0', 'critical'].includes(sev)) return 'critical'
+  if (['p1', 'p2', 'warning'].includes(sev)) return 'warning'
+  if (['p3', 'info'].includes(sev)) return 'info'
+  if (['p4', 'success'].includes(sev)) return 'success'
+  return 'info'
+}
+
+function hasLabels(ev: AlertEvent): boolean {
+  return !!ev.labels && Object.keys(ev.labels).length > 0
+}
+
+function assigneeInitial(u: { display_name?: string; username?: string }): string {
+  const n = u.display_name || u.username || '?'
+  return n.charAt(0).toUpperCase()
+}
+
+function isDim(ev: AlertEvent): boolean {
+  return ev.status === 'resolved' || ev.status === 'closed'
+}
+
+const allOnPageSelected = computed(
+  () =>
+    events.value.length > 0 &&
+    events.value.every((e) => selected.value.has(e.id)),
+)
+
+function toggleSelectAll() {
+  if (allOnPageSelected.value) {
+    const next = new Set(selected.value)
+    events.value.forEach((e) => next.delete(e.id))
+    selected.value = next
+  } else {
+    const next = new Set(selected.value)
+    events.value.forEach((e) => next.add(e.id))
+    selected.value = next
+  }
+}
+
+// ===== Export =====
 function handleExportCSV() {
-  const timeRange = getTimeRange()
+  const tr = getTimeRange()
   const params = new URLSearchParams()
-  if (statusFilter.value.length) params.set('status', statusFilter.value.join(','))
-  if (severityFilter.value.length) params.set('severity', severityFilter.value.join(','))
-  if (alertNameSearch.value) params.set('alert_name', alertNameSearch.value)
-  if (sourceFilter.value) params.set('source', sourceFilter.value)
-  if (timeRange.start_time) params.set('start_time', timeRange.start_time)
-  if (timeRange.end_time) params.set('end_time', timeRange.end_time)
+  const sf = statusFilterArray()
+  if (sf) params.set('status', sf.join(','))
+  if (severityFilter.value) params.set('severity', severityFilter.value)
+  if (search.value) params.set('alert_name', search.value)
+  if (tr.start_time) params.set('start_time', tr.start_time)
+  if (tr.end_time) params.set('end_time', tr.end_time)
   params.set('view_mode', viewMode.value)
   const url = `/api/v1/alert-events/export?${params.toString()}`
   const a = document.createElement('a')
@@ -385,433 +375,556 @@ function handleExportCSV() {
   a.click()
   document.body.removeChild(a)
 }
+
+// ===== Auto-refresh =====
+let timer: ReturnType<typeof setInterval> | null = null
+function applyAutoRefresh() {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+  if (refreshInterval.value > 0) {
+    timer = setInterval(fetchEvents, refreshInterval.value * 1000)
+  }
+  localStorage.setItem(REFRESH_KEY, String(refreshInterval.value))
+}
+
+onMounted(() => {
+  loadRules()
+  fetchEvents()
+  applyAutoRefresh()
+})
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
+
+// ===== Render helpers (icons via h to avoid template noise) =====
+const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 </script>
 
 <template>
-  <div class="events-page">
-    <PageHeader :title="t('alert.events')" :subtitle="t('alert.eventsSubtitle')">
-      <template #actions>
-        <n-text depth="3" style="font-size:13px">{{ t('alert.totalAlerts', { n: total }) }}</n-text>
-        <n-button size="small" :secondary="groupedMode" :type="groupedMode ? 'primary' : 'default'" @click="toggleGroupedMode">
-          <template #icon><n-icon :component="groupedMode ? ListOutline : LayersOutline" /></template>
-          {{ groupedMode ? t('alert.flatView') : t('alert.groupedView') }}
-        </n-button>
-        <n-button size="small" @click="handleExportCSV">
-          <template #icon><n-icon :component="DownloadOutline" /></template>
-          {{ t('alert.exportCSV') }}
-        </n-button>
-        <n-button size="small" @click="fetchEvents" :loading="loading">
-          <template #icon><n-icon :component="RefreshOutline" /></template>
-          {{ t('common.refresh') }}
-        </n-button>
-      </template>
-    </PageHeader>
-
-    <!-- Toolbar: view mode + filter toggle + time presets -->
-    <div class="toolbar">
-      <n-radio-group :value="viewMode" @update:value="handleViewModeChange" size="small">
-        <n-radio-button v-for="opt in viewModeOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
-      </n-radio-group>
-
-      <div class="toolbar-sep" />
-
-      <!-- Time presets -->
-      <div class="time-presets">
-        <button
-          v-for="p in timePresets"
-          :key="p.value"
-          class="time-chip"
-          :class="{ active: timeRangePreset === p.value }"
-          @click="handleTimePreset(p.value)"
-        >{{ p.label }}</button>
-        <n-date-picker
-          type="datetimerange"
-          :value="customRange"
-          clearable
+  <div class="ae-page sre-stagger">
+    <!-- Header -->
+    <header class="ae-header">
+      <div>
+        <h1 class="ae-title">Active Alerts</h1>
+        <p class="ae-subtitle">Live alerts firing across all rules</p>
+      </div>
+      <div class="ae-header-actions">
+        <NSelect
+          :value="refreshInterval"
+          :options="refreshOptions"
           size="small"
-          style="width:300px"
-          @update:value="handleCustomRange"
+          style="width: 110px"
+          @update:value="(v: number) => { refreshInterval = v; applyAutoRefresh() }"
+        />
+        <NButton circle quaternary size="small" :loading="loading" @click="fetchEvents">
+          <template #icon><NIcon :component="RefreshOutline" /></template>
+        </NButton>
+        <NButton size="small" @click="handleExportCSV">
+          <template #icon><NIcon :component="DownloadOutline" /></template>
+          {{ t('alert.exportCSV') || 'Export CSV' }}
+        </NButton>
+      </div>
+    </header>
+
+    <!-- Status tabs + filters -->
+    <section class="ae-filters">
+      <div class="ae-filter-row">
+        <NRadioGroup
+          :value="statusTab"
+          size="small"
+          @update:value="(v: StatusTab) => { statusTab = v; refilter() }"
+        >
+          <NRadioButton value="all">{{ t('common.all') || '全部' }}</NRadioButton>
+          <NRadioButton value="firing">Firing</NRadioButton>
+          <NRadioButton value="acked">Acked</NRadioButton>
+          <NRadioButton value="resolved">Resolved</NRadioButton>
+        </NRadioGroup>
+
+        <div v-if="canViewAll" class="ae-view-mode">
+          <NRadioGroup
+            :value="viewMode"
+            size="small"
+            @update:value="(v: AlertViewMode) => { viewMode = v; refilter() }"
+          >
+            <NRadioButton value="mine">{{ t('alert.myAlerts') }}</NRadioButton>
+            <NRadioButton value="unassigned">{{ t('alert.unassigned') }}</NRadioButton>
+            <NRadioButton value="all">{{ t('alert.allAlerts') }}</NRadioButton>
+          </NRadioGroup>
+        </div>
+      </div>
+
+      <div class="ae-filter-row ae-filter-row--inputs">
+        <NInput
+          v-model:value="search"
+          size="small"
+          clearable
+          placeholder="Search alert name"
+          style="width: 240px"
+          @update:value="refilter"
+        />
+        <NSelect
+          v-model:value="severityFilter"
+          :options="severityOptions"
+          size="small"
+          clearable
+          placeholder="Severity"
+          style="width: 130px"
+          @update:value="refilter"
+        />
+        <NSelect
+          v-model:value="ruleFilter"
+          :options="ruleOptions"
+          size="small"
+          clearable
+          filterable
+          placeholder="Rule"
+          style="width: 200px"
+          @update:value="refilter"
+        />
+        <NInput
+          v-model:value="tagFilter"
+          size="small"
+          clearable
+          placeholder="key=value"
+          style="width: 180px"
+          @update:value="refilter"
+        />
+        <NSelect
+          v-model:value="timePreset"
+          :options="timePresetOptions"
+          size="small"
+          style="width: 110px"
+          @update:value="refilter"
+        />
+        <NDatePicker
+          v-if="timePreset === 'custom'"
+          v-model:value="customRange"
+          type="daterange"
+          size="small"
+          clearable
+          @update:value="refilter"
         />
       </div>
+    </section>
 
-      <div style="flex:1" />
-
-      <!-- Filter toggle -->
-      <n-button
-        size="small"
-        :secondary="showFilters"
-        :type="activeFiltersCount > 0 ? 'primary' : 'default'"
-        @click="showFilters = !showFilters"
-      >
-        <template #icon><n-icon :component="OptionsOutline" /></template>
-        Filters
-        <n-badge v-if="activeFiltersCount > 0" :value="activeFiltersCount" style="margin-left:4px" />
-      </n-button>
-    </div>
-
-    <!-- Collapsible filter bar -->
-    <div v-show="showFilters" class="filter-bar">
-      <n-select
-        v-model:value="statusFilter"
-        :options="statusOptions"
-        multiple
-        :placeholder="t('common.status')"
-        clearable
-        style="width:220px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-select
-        v-model:value="severityFilter"
-        :options="severityOptions"
-        multiple
-        :placeholder="t('alert.severity')"
-        clearable
-        style="width:190px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-input
-        v-model:value="alertNameSearch"
-        :placeholder="t('alert.alertNameSearch')"
-        clearable
-        style="width:200px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-input
-        v-model:value="sourceFilter"
-        :placeholder="t('alert.sourceFilter')"
-        clearable
-        style="width:150px"
-        @update:value="() => { page = 1; fetchEvents() }"
-      />
-      <n-button size="small" @click="resetFilters" :disabled="activeFiltersCount === 0">
-        {{ t('alert.resetFilters') }}
-      </n-button>
-    </div>
-
-    <!-- Status summary badges -->
-    <div class="status-summary">
-      <div v-for="(count, status) in statusCounts" :key="status" v-show="count > 0" class="status-pill" :class="`status-pill--${status}`">
-        <span class="status-pill__dot" />
-        <span>{{ status }}</span>
-        <span class="status-pill__count">{{ count }}</span>
-      </div>
-    </div>
-
-    <!-- Batch actions bar -->
-    <transition name="slide-down">
-      <div v-if="checkedRowKeys.length > 0" class="batch-bar">
-        <n-icon :component="AlertCircleOutline" size="16" style="color:#637dff" />
-        <span class="batch-bar__text">{{ selectedText }}</span>
-        <div style="flex:1" />
-        <n-button size="small" type="primary" @click="handleBatchAck">{{ t('alert.batchAck') }}</n-button>
-        <n-button size="small" type="error" @click="handleBatchClose">{{ t('alert.batchClose') }}</n-button>
-        <n-button size="small" quaternary @click="checkedRowKeys = []">{{ t('common.cancel') }}</n-button>
+    <!-- Selection bar -->
+    <transition name="ae-fade">
+      <div v-if="selected.size > 0" class="ae-selection-bar">
+        <span class="ae-selection-count tnum">{{ selected.size }} 已选</span>
+        <NButton size="small" type="primary" @click="batchAck">
+          {{ t('alert.batchAck') || 'Acknowledge' }}
+        </NButton>
+        <NButton size="small" @click="batchCloseAction">
+          {{ t('alert.batchClose') || 'Close' }}
+        </NButton>
+        <NButton size="small" type="warning" ghost @click="batchSilence">
+          {{ t('alert.silence') || 'Silence' }}
+        </NButton>
+        <div style="flex: 1" />
+        <NButton circle quaternary size="small" @click="clearSelection">
+          <template #icon><NIcon :component="CloseOutline" /></template>
+        </NButton>
       </div>
     </transition>
 
-    <!-- ===== Grouped View ===== -->
-    <template v-if="groupedMode">
-      <n-card :bordered="false" style="background:var(--sre-bg-card);border-radius:12px">
-        <n-spin :show="groupsLoading">
-          <n-empty v-if="!groupsLoading && groups.length === 0" :description="t('alert.noGroupedAlerts')" style="padding:40px 0" />
-          <div v-else class="group-list">
-            <div v-for="g in groups" :key="g.alert_name + g.source" class="group-card">
-              <div class="group-header">
-                <div class="group-name">
-                  <n-tag v-if="g.severity_breakdown['critical'] > 0" type="error" size="small" round>critical ×{{ g.severity_breakdown['critical'] }}</n-tag>
-                  <n-tag v-if="g.severity_breakdown['warning'] > 0" type="warning" size="small" round>warning ×{{ g.severity_breakdown['warning'] }}</n-tag>
-                  <n-tag v-if="g.severity_breakdown['info'] > 0" type="info" size="small" round>info ×{{ g.severity_breakdown['info'] }}</n-tag>
-                  <span class="group-alert-name">{{ g.alert_name }}</span>
-                  <span v-if="g.source" class="group-source">@ {{ g.source }}</span>
-                </div>
-                <div class="group-meta">
-                  <span class="group-count">{{ t('alert.groupTotal', { n: g.total_count }) }}</span>
-                  <n-tag v-if="g.max_fire_count > 5" type="error" size="tiny">{{ t('alert.noisyAlert', { n: g.max_fire_count }) }}</n-tag>
-                  <n-button size="tiny" quaternary @click="() => { alertNameSearch = g.alert_name; sourceFilter = g.source; groupedMode = false; page = 1; fetchEvents() }">
-                    {{ t('alert.viewEvents') }}
-                  </n-button>
-                </div>
-              </div>
-              <div class="group-status-row">
-                <span v-for="(cnt, st) in g.status_breakdown" :key="st" v-show="cnt > 0" class="status-chip" :class="`status-chip--${st}`">
-                  {{ st }} {{ cnt }}
+    <!-- Select-all hairline -->
+    <div v-if="events.length > 0" class="ae-selectall">
+      <input
+        type="checkbox"
+        class="ec-check"
+        :checked="allOnPageSelected"
+        @change="toggleSelectAll"
+      />
+      <span class="ae-selectall-label">{{ allOnPageSelected ? '取消全选' : '全选本页' }}</span>
+      <span class="sre-meta-divider"></span>
+      <span class="tnum">{{ total }} {{ t('alert.totalAlerts', { n: total }).replace(/\d+\s*/, '') || '条' }}</span>
+    </div>
+
+    <!-- Event list -->
+    <NSpin :show="loading && firstLoad">
+      <div
+        v-if="events.length > 0"
+        class="event-list"
+        :class="{ 'sre-stagger': firstLoad }"
+      >
+        <div
+          v-for="ev in events"
+          :key="ev.id"
+          class="sre-row-card event-row"
+          :data-severity="severityDotKey(ev.severity)"
+          :data-dim="isDim(ev) || undefined"
+          @click="goDetail(ev)"
+        >
+          <input
+            type="checkbox"
+            class="ec-check"
+            :checked="selected.has(ev.id)"
+            @click.stop
+            @change="toggleSelect(ev.id)"
+          />
+          <div class="ec-main">
+            <div class="ec-headline">
+              <span class="sre-dot" :data-severity="severityDotKey(ev.severity)"></span>
+              <span class="ec-sev-label">{{ severityLabel(ev.severity) }}</span>
+              <span class="ec-title">{{ ev.alert_name }}</span>
+            </div>
+            <div class="ec-context">
+              <span>规则: {{ ev.rule?.name || '—' }}</span>
+              <span class="sre-meta-divider"></span>
+              <span>数据源: {{ ev.source || '—' }}</span>
+            </div>
+            <div v-if="hasLabels(ev)" class="ec-labels">
+              <span
+                v-for="(v, k) in ev.labels"
+                :key="k"
+                class="ec-chip"
+              >{{ k }}={{ v }}</span>
+            </div>
+            <div class="ec-footer">
+              <span class="tnum">{{ ev.fire_count }} 次触发</span>
+              <span class="sre-meta-divider"></span>
+              <span>首次 {{ relTime(ev.fired_at) }}</span>
+              <span class="sre-meta-divider"></span>
+              <span>最近 {{ relTime(ev.acked_at || ev.fired_at) }}</span>
+              <template v-if="ev.acked_by_user">
+                <span class="sre-meta-divider"></span>
+                <span class="ec-assignee">
+                  <span class="ec-avatar">{{ assigneeInitial(ev.acked_by_user) }}</span>
+                  {{ ev.acked_by_user.display_name || ev.acked_by_user.username }}
                 </span>
-                <span class="group-time">{{ t('alert.latestFired') }}: {{ formatTime(g.latest_fired_at) }}</span>
-              </div>
+              </template>
+              <template v-else-if="ev.oncall_user">
+                <span class="sre-meta-divider"></span>
+                <span class="ec-assignee">
+                  <span class="ec-avatar">{{ assigneeInitial(ev.oncall_user) }}</span>
+                  {{ ev.oncall_user.display_name || ev.oncall_user.username }}
+                </span>
+              </template>
             </div>
           </div>
-        </n-spin>
-      </n-card>
-    </template>
+          <div class="ec-status">
+            <span class="sre-dot" :data-status="ev.status"></span>
+            <span class="ec-status-text">{{ statusLabel(ev.status) }}</span>
+          </div>
+          <div class="ec-actions" @click.stop>
+            <NButton
+              v-if="ev.status === 'firing'"
+              size="tiny"
+              type="primary"
+              @click="onAck(ev)"
+            >{{ t('alert.ack') || '认领' }}</NButton>
+            <NButton
+              v-if="ev.status !== 'closed' && ev.status !== 'resolved'"
+              size="tiny"
+              quaternary
+              @click="onClose(ev)"
+            >{{ t('alert.close') || '关闭' }}</NButton>
+            <NDropdown
+              :options="rowActions(ev)"
+              trigger="click"
+              @select="(k: string) => handleAction(k, ev)"
+            >
+              <NButton quaternary circle size="small">
+                <template #icon>
+                  <NIcon :component="EllipsisHorizontalOutline" />
+                </template>
+              </NButton>
+            </NDropdown>
+          </div>
+        </div>
+      </div>
 
-    <!-- ===== Flat Events Table ===== -->
-    <template v-else>
-      <n-card :bordered="false" style="background:var(--sre-bg-card);border-radius:12px">
-        <n-data-table
-          :loading="loading"
-          :columns="columns"
-          :data="events"
-          :row-key="(row: AlertEvent) => row.id"
-          :row-class-name="severityRowClass"
-          :checked-row-keys="checkedRowKeys"
-          @update:checked-row-keys="onCheckedRowKeysUpdate"
-          :bordered="false"
-          scroll-x="1100"
-          :pagination="{
-            page, pageSize, itemCount: total,
-            showSizePicker: true,
-            pageSizes: [20, 50, 100],
-            onChange: (p: number) => { page = p; fetchEvents() },
-            onUpdatePageSize: (s: number) => { pageSize = s; page = 1; fetchEvents() },
-          }"
-        />
-      </n-card>
-    </template>
+      <!-- Empty state -->
+      <div v-else-if="!loading" class="ae-empty">
+        <NIcon :component="ShieldCheckmarkOutline" :size="48" class="ae-empty-icon" />
+        <div class="ae-empty-title">All quiet</div>
+        <div class="ae-empty-sub">No active alerts firing</div>
+      </div>
+    </NSpin>
+
+    <!-- Pagination -->
+    <div v-if="total > pageSize" class="ae-pagination">
+      <NPagination
+        :page="page"
+        :page-size="pageSize"
+        :item-count="total"
+        :page-sizes="[20, 50, 100]"
+        show-size-picker
+        @update:page="(p: number) => { page = p; fetchEvents() }"
+        @update:page-size="(s: number) => { pageSize = s; page = 1; fetchEvents() }"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
-.events-page { max-width: 1440px; }
+.ae-page {
+  max-width: 1440px;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
 
-/* Page sections entrance */
-.toolbar        { animation: sre-slide-up 0.22s var(--sre-ease-out) both; animation-delay: 0ms; }
-.status-summary { animation: sre-slide-up 0.22s var(--sre-ease-out) both; animation-delay: 55ms; }
-.batch-bar      { animation: sre-slide-up 0.18s var(--sre-ease-out) both; }
-:deep(.n-card)  { animation: sre-slide-up 0.28s var(--sre-ease-out) both; animation-delay: 90ms; }
-
-/* ===== Toolbar ===== */
-.toolbar {
+/* ===== Header ===== */
+.ae-header {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-  background: var(--sre-bg-card);
-  border-radius: 10px;
-  padding: 10px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0 20px;
+  border-bottom: var(--sre-hairline);
+  margin-bottom: 20px;
 }
-.toolbar-sep {
-  width: 1px;
-  height: 20px;
-  background: rgba(255,255,255,0.08);
-}
-.time-presets {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.time-chip {
-  padding: 3px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: transparent;
-  color: var(--sre-text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.time-chip:hover { background: rgba(255,255,255,0.06); color: var(--sre-text-primary); }
-.time-chip.active {
-  background: rgba(24,160,88,0.15);
-  border-color: rgba(24,160,88,0.5);
-  color: #18a058;
+.ae-title {
+  font-family: 'Geist', sans-serif;
+  font-size: 22px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sre-text-primary);
+  margin: 0 0 4px;
+  line-height: 1.2;
 }
-
-/* ===== Filter bar ===== */
-.filter-bar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-  align-items: center;
-  background: var(--sre-bg-card);
-  border-radius: 10px;
-  padding: 12px 16px;
-  border: 1px solid rgba(255,255,255,0.06);
-}
-
-/* ===== Status summary ===== */
-.status-summary {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-  min-height: 24px;
-}
-.status-pill {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px 3px 7px;
-  border-radius: 100px;
-  font-size: 12px;
-  font-weight: 500;
-  background: rgba(255,255,255,0.05);
-  color: var(--sre-text-secondary);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-.status-pill__dot {
-  width: 6px; height: 6px; border-radius: 50%;
-}
-.status-pill__count {
-  font-weight: 700;
-  margin-left: 3px;
-}
-.status-pill--firing { background: rgba(232,128,128,0.1); border-color: rgba(232,128,128,0.3); color: #e88080; }
-.status-pill--firing .status-pill__dot { background: #e88080; animation: pulse-dot 1.5s ease-in-out infinite; }
-.status-pill--acknowledged { background: rgba(242,201,125,0.1); border-color: rgba(242,201,125,0.3); color: #f2c97d; }
-.status-pill--acknowledged .status-pill__dot { background: #f2c97d; }
-.status-pill--assigned { background: rgba(112,192,232,0.1); border-color: rgba(112,192,232,0.3); color: #70c0e8; }
-.status-pill--assigned .status-pill__dot { background: #70c0e8; }
-.status-pill--resolved { background: rgba(24,160,88,0.1); border-color: rgba(24,160,88,0.3); color: #18a058; }
-.status-pill--resolved .status-pill__dot { background: #18a058; }
-.status-pill--closed .status-pill__dot { background: #666; }
-.status-pill--silenced { background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.3); color: #a855f7; }
-.status-pill--silenced .status-pill__dot { background: #a855f7; }
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232,128,128,0.5); }
-  50% { opacity: 0.7; box-shadow: 0 0 0 3px rgba(232,128,128,0); }
-}
-
-/* ===== Batch bar ===== */
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(99,125,255,0.08);
-  border: 1px solid rgba(99,125,255,0.2);
-  border-radius: 10px;
-  padding: 8px 16px;
-  margin-bottom: 10px;
-}
-.batch-bar__text {
+.ae-subtitle {
   font-size: 13px;
-  color: #637dff;
-  font-weight: 500;
+  color: var(--sre-text-secondary);
+  margin: 0;
 }
-.slide-down-enter-active, .slide-down-leave-active {
-  transition: all 0.2s ease;
-}
-.slide-down-enter-from, .slide-down-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-/* ===== Table cell styles ===== */
-:deep(.severity-cell) {
+.ae-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-:deep(.severity-bar) {
-  width: 3px;
-  height: 20px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-:deep(.severity-bar--critical) { background: #e88080; box-shadow: 0 0 4px rgba(232,128,128,0.6); }
-:deep(.severity-bar--warning)  { background: #f2c97d; }
-:deep(.severity-bar--info)     { background: #70c0e8; }
-
-:deep(.name-cell) {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-:deep(.critical-pulse) {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: #e88080;
-  flex-shrink: 0;
-  animation: pulse-dot 1.2s ease-in-out infinite;
-}
-:deep(.alert-link) {
-  color: var(--sre-info);
-  cursor: pointer;
-  text-decoration: none;
-  font-weight: 500;
-}
-:deep(.alert-link:hover) { text-decoration: underline; }
-
-:deep(.row-critical td) {
-  background-color: rgba(232,128,128,0.04) !important;
-}
-:deep(.row-warning td) {
-  background-color: rgba(242,201,125,0.03) !important;
+  gap: 8px;
 }
 
-/* ===== Grouped view ===== */
-.group-list {
+/* ===== Filters ===== */
+.ae-filters {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-bottom: 16px;
 }
-.group-card {
-  background: var(--sre-bg-elevated, rgba(255,255,255,0.04));
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-  padding: 12px 16px;
-  transition: border-color 0.15s;
-}
-.group-card:hover { border-color: rgba(24,160,88,0.3); }
-.group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-.group-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.group-alert-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--sre-text-primary);
-}
-.group-source {
-  font-size: 12px;
-  color: var(--sre-text-secondary);
-}
-.group-meta {
+.ae-filter-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.group-count {
+.ae-filter-row--inputs {
+  padding-top: 4px;
+}
+.ae-view-mode {
+  margin-left: auto;
+}
+
+/* ===== Selection bar ===== */
+.ae-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--sre-primary-soft);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--sre-primary) 20%, transparent);
+}
+.ae-selection-count {
   font-size: 13px;
   font-weight: 600;
-  color: var(--sre-text-primary);
+  color: var(--sre-primary);
+  margin-right: 4px;
 }
-.group-status-row {
+.ae-fade-enter-active,
+.ae-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.ae-fade-enter-from,
+.ae-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ===== Select-all ===== */
+.ae-selectall {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  padding: 4px 14px 8px;
+}
+.ae-selectall-label {
+  cursor: pointer;
+}
+
+/* ===== Event list ===== */
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+.event-row:hover {
+  background: var(--sre-bg-elevated);
+}
+.ec-check {
+  width: 14px;
+  height: 14px;
+  align-self: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--sre-primary);
+}
+.ec-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ec-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  font-family: 'Geist', sans-serif;
+}
+.ec-sev-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sre-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.ec-title {
+  color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ec-context,
+.ec-footer {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+}
+.ec-context > span,
+.ec-footer > span {
+  display: inline-flex;
+  align-items: center;
+}
+.ec-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ec-chip {
+  font-size: 11px;
+  font-family: var(--sre-font-mono, 'Geist Mono', ui-monospace, monospace);
+  background: var(--sre-bg-elevated);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--sre-text-secondary);
+  border: 1px solid var(--sre-border);
+}
+.ec-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ec-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sre-primary-soft);
+  color: var(--sre-primary);
+  font-size: 10px;
+  font-weight: 600;
+}
+.ec-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  flex-shrink: 0;
+  padding-right: 4px;
+  min-width: 80px;
 }
-.status-chip {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 100px;
-  font-weight: 500;
-  background: rgba(255,255,255,0.05);
+.ec-status-text {
+  font-variant-numeric: tabular-nums;
+  text-transform: capitalize;
+}
+.ec-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Status dot fallbacks (in case not in global) */
+:deep(.sre-dot[data-status='firing']) {
+  background: var(--sre-critical);
+}
+:deep(.sre-dot[data-status='acked']),
+:deep(.sre-dot[data-status='acknowledged']),
+:deep(.sre-dot[data-status='assigned']) {
+  background: var(--sre-warning);
+}
+:deep(.sre-dot[data-status='resolved']) {
+  background: var(--sre-primary);
+}
+:deep(.sre-dot[data-status='closed']) {
+  background: var(--sre-text-tertiary);
+}
+:deep(.sre-dot[data-status='silenced']) {
+  background: #a855f7;
+}
+
+/* ===== Empty state ===== */
+.ae-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  gap: 8px;
+}
+.ae-empty-icon {
+  color: var(--sre-primary);
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+.ae-empty-title {
+  font-family: 'Geist', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+}
+.ae-empty-sub {
+  font-size: 13px;
   color: var(--sre-text-secondary);
 }
-.status-chip--firing    { background: rgba(232,128,128,0.15); color: #e88080; }
-.status-chip--acknowledged { background: rgba(242,201,125,0.15); color: #f2c97d; }
-.status-chip--assigned  { background: rgba(112,192,232,0.15); color: #70c0e8; }
-.status-chip--resolved  { background: rgba(24,160,88,0.15); color: #18a058; }
-.status-chip--silenced  { background: rgba(168,85,247,0.15); color: #a855f7; }
-.group-time {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--sre-text-secondary);
+
+/* ===== Pagination ===== */
+.ae-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: var(--sre-hairline);
 }
 </style>
