@@ -48,15 +48,21 @@ const createForm = ref({
 })
 
 const SEVERITY_COLORS: Record<string, string> = {
-  critical: '#ef4444',
-  warning: '#f59e0b',
-  info: '#3b82f6',
+  critical: 'var(--sre-critical)',
+  warning: 'var(--sre-warning)',
+  info: 'var(--sre-info)',
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  triggered: '#ef4444',
-  processing: '#f59e0b',
-  closed: '#10b981',
+  triggered: 'var(--sre-critical)',
+  processing: 'var(--sre-warning)',
+  closed: 'var(--sre-success)',
+}
+
+const STATUS_BG: Record<string, string> = {
+  triggered: 'var(--sre-critical-soft)',
+  processing: 'var(--sre-warning-soft)',
+  closed: 'var(--sre-success-soft)',
 }
 
 const severityLabel: Record<string, string> = {
@@ -244,11 +250,11 @@ onMounted(loadIncidents)
           :class="{ 'is-closed': row.status === 'closed' }"
           @click="gotoDetail(row.id)"
         >
-          <span class="status-bar" :style="{ background: SEVERITY_COLORS[row.severity] || '#94a3b8' }" />
+          <span class="status-bar" :style="{ background: SEVERITY_COLORS[row.severity] || 'var(--sre-text-tertiary)' }" />
 
           <div class="row-body">
             <div class="row-line-1">
-              <span class="dot dot-lg" :style="{ background: SEVERITY_COLORS[row.severity] || '#94a3b8' }" />
+              <span class="dot dot-lg" :style="{ background: SEVERITY_COLORS[row.severity] || 'var(--sre-text-tertiary)' }" />
               <span class="severity-text" :style="{ color: SEVERITY_COLORS[row.severity] }">
                 {{ t(severityLabel[row.severity] ?? row.severity) }}
               </span>
@@ -274,7 +280,7 @@ onMounted(loadIncidents)
             <div class="row-line-3">
               <span class="status-pill" :style="{
                 color: STATUS_COLORS[row.status],
-                background: STATUS_COLORS[row.status] + '1a',
+                background: STATUS_BG[row.status],
               }">
                 {{ t(statusLabel[row.status] ?? row.status) }}
               </span>
@@ -453,7 +459,7 @@ onMounted(loadIncidents)
 .incident-id {
   font-size: 12px;
   color: var(--sre-text-tertiary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--sre-font-mono);
 }
 .incident-title {
   font-weight: 600;

@@ -43,36 +43,36 @@ const showSnooze = ref(false)
 const snoozeLoading = ref(false)
 const snoozeDuration = ref<number | null>(null)
 const snoozeCustomUntil = ref('')
-const snoozePresets = [
+const snoozePresets = computed(() => [
   { label: '15m', minutes: 15 },
   { label: '30m', minutes: 30 },
   { label: '1h', minutes: 60 },
   { label: '2h', minutes: 120 },
   { label: '4h', minutes: 240 },
-  { label: '自定义', minutes: -1 },
-]
+  { label: t('query.timeCustom'), minutes: -1 },
+])
 
 async function doSnooze() {
   let until: string
   if (snoozeDuration.value === -1) {
-    if (!snoozeCustomUntil.value) { message.warning('请选择暂缓结束时间'); return }
+    if (!snoozeCustomUntil.value) { message.warning(t('incident.selectSnoozeEnd')); return }
     until = new Date(snoozeCustomUntil.value).toISOString()
   } else if (snoozeDuration.value) {
     const d = new Date()
     d.setMinutes(d.getMinutes() + snoozeDuration.value)
     until = d.toISOString()
   } else {
-    message.warning('请选择暂缓时长'); return
+    message.warning(t('incident.selectSnoozeDuration')); return
   }
   snoozeLoading.value = true
   try {
     await incidentApi.snooze(incidentId.value, until)
-    message.success('暂缓成功')
+    message.success(t('incident.snoozeSuccess'))
     showSnooze.value = false
     snoozeDuration.value = null
     snoozeCustomUntil.value = ''
     await load()
-  } catch (e: any) { message.error(e?.message ?? '操作失败') } finally { snoozeLoading.value = false }
+  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { snoozeLoading.value = false }
 }
 
 // Merge
@@ -89,18 +89,18 @@ async function searchMergeIncidents() {
   try {
     const res = await incidentApi.list({ query: mergeSearch.value, page: 1, page_size: 10 })
     mergeResults.value = (res.data.data?.list ?? []).filter((i: Incident) => i.id !== incidentId.value)
-  } catch (e: any) { message.error(e?.message ?? '搜索失败') } finally { mergeSearchLoading.value = false }
+  } catch (e: any) { message.error(e?.message ?? t('incident.searchFailed')) } finally { mergeSearchLoading.value = false }
 }
 
 async function doMerge() {
-  if (!mergeTargetId.value) { message.warning('请选择目标故障'); return }
+  if (!mergeTargetId.value) { message.warning(t('incident.selectTargetIncident')); return }
   mergeLoading.value = true
   try {
     await incidentApi.merge(incidentId.value, mergeTargetId.value)
-    message.success('合并成功')
+    message.success(t('incident.mergeSuccess'))
     showMerge.value = false
     router.push(`/incidents/${mergeTargetId.value}`)
-  } catch (e: any) { message.error(e?.message ?? '操作失败') } finally { mergeLoading.value = false }
+  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { mergeLoading.value = false }
 }
 
 // Reassign
@@ -122,19 +122,19 @@ async function searchUsers() {
           (u.username?.toLowerCase().includes(q)) ||
           (u.display_name?.toLowerCase().includes(q)))
       : allUsers
-  } catch (e: any) { message.error(e?.message ?? '搜索失败') } finally { reassignSearchLoading.value = false }
+  } catch (e: any) { message.error(e?.message ?? t('incident.searchFailed')) } finally { reassignSearchLoading.value = false }
 }
 
 async function doReassign() {
-  if (!reassignUserId.value) { message.warning('请选择处理人'); return }
+  if (!reassignUserId.value) { message.warning(t('incident.selectAssignee')); return }
   reassignLoading.value = true
   try {
     await incidentApi.reassign(incidentId.value, reassignUserId.value)
-    message.success('重新分派成功')
+    message.success(t('incident.reassignSuccess'))
     showReassign.value = false
     reassignUserId.value = null
     await load()
-  } catch (e: any) { message.error(e?.message ?? '操作失败') } finally { reassignLoading.value = false }
+  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { reassignLoading.value = false }
 }
 
 const statusLabel: Record<string, string> = {
@@ -242,19 +242,19 @@ async function aiGeneratePostMortem() {
   try {
     const res = await incidentApi.aiGeneratePostMortem(incidentId.value)
     postMortem.value = res.data.data
-    message.success('AI 初稿已生成')
-  } catch (e: any) { message.error(e?.message ?? 'AI 生成失败') } finally { pmAiLoading.value = false }
+    message.success(t('incident.aiDraftGenerated'))
+  } catch (e: any) { message.error(e?.message ?? t('incident.aiGenerateFailed')) } finally { pmAiLoading.value = false }
 }
 
 const moreActionOptions = computed(() => {
   const opts: any[] = [
     { label: t('incident.escalate'), key: 'escalate', icon: () => h(NIcon, { component: ArrowUpCircleOutline }) },
-    { label: '重新分派', key: 'reassign', icon: () => h(NIcon, { component: PersonOutline }) },
-    { label: '合并故障', key: 'merge', icon: () => h(NIcon, { component: GitMergeOutline }) },
-    { label: '快速静默', key: 'silence', icon: () => h(NIcon, { component: VolumeOffOutline }) },
+    { label: t('incident.reassign'), key: 'reassign', icon: () => h(NIcon, { component: PersonOutline }) },
+    { label: t('incident.mergeIncident'), key: 'merge', icon: () => h(NIcon, { component: GitMergeOutline }) },
+    { label: t('incident.quickSilence'), key: 'silence', icon: () => h(NIcon, { component: VolumeOffOutline }) },
   ]
   if (incident.value && incident.value.status !== 'closed') {
-    opts.splice(1, 0, { label: '暂缓', key: 'snooze', icon: () => h(NIcon, { component: TimeOutline }) })
+    opts.splice(1, 0, { label: t('incident.snooze'), key: 'snooze', icon: () => h(NIcon, { component: TimeOutline }) })
   }
   return opts
 })
@@ -300,7 +300,7 @@ onMounted(async () => {
           >
             <n-button quaternary size="small">
               <template #icon><n-icon :component="EllipsisHorizontal" /></template>
-              操作
+              {{ t('common.actions') }}
             </n-button>
           </n-dropdown>
         </div>
@@ -348,12 +348,12 @@ onMounted(async () => {
               size="small" tertiary @click="showSnooze = true"
             >
               <template #icon><n-icon :component="TimeOutline" /></template>
-              暂缓
+              {{ t('incident.snooze') }}
             </n-button>
 
             <n-button size="small" tertiary @click="showQuickSilence = true">
               <template #icon><n-icon :component="VolumeOffOutline" /></template>
-              快速静默
+              {{ t('incident.quickSilence') }}
             </n-button>
           </div>
 
@@ -607,7 +607,7 @@ onMounted(async () => {
     <!-- Snooze -->
     <n-modal
       v-model:show="showSnooze"
-      title="暂缓故障"
+      :title="t('incident.snoozeIncident')"
       preset="card"
       style="width: 420px"
       :bordered="false"
@@ -629,8 +629,8 @@ onMounted(async () => {
       </div>
       <template #footer>
         <n-space justify="end">
-          <n-button @click="showSnooze = false">取消</n-button>
-          <n-button type="primary" :loading="snoozeLoading" @click="doSnooze">确认暂缓</n-button>
+          <n-button @click="showSnooze = false">{{ t('incident.cancelBtn') }}</n-button>
+          <n-button type="primary" :loading="snoozeLoading" @click="doSnooze">{{ t('incident.confirmSnooze') }}</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -638,21 +638,21 @@ onMounted(async () => {
     <!-- Merge -->
     <n-modal
       v-model:show="showMerge"
-      title="合并到目标故障"
+      :title="t('incident.mergeToTarget')"
       preset="card"
       style="width: 540px"
       :bordered="false"
     >
       <p class="modal-hint">
-        将当前故障 <strong class="tnum">#{{ incident?.id }}</strong> 的所有告警并入另一个故障，当前故障将被关闭。
+        {{ t('incident.mergeDescription') }}
       </p>
       <n-input-group>
         <n-input
           v-model:value="mergeSearch"
-          placeholder="搜索故障 ID 或标题…"
+          :placeholder="t('incident.searchIncidentHint')"
           @keydown.enter="searchMergeIncidents"
         />
-        <n-button :loading="mergeSearchLoading" @click="searchMergeIncidents">搜索</n-button>
+        <n-button :loading="mergeSearchLoading" @click="searchMergeIncidents">{{ t('incident.searchBtn') }}</n-button>
       </n-input-group>
       <div v-if="mergeResults.length" class="picker-list">
         <div
@@ -667,17 +667,17 @@ onMounted(async () => {
           <span class="picker-title">{{ inc.title }}</span>
         </div>
       </div>
-      <n-empty v-else-if="mergeSearch && !mergeSearchLoading" description="无匹配故障" style="padding:16px 0" />
+      <n-empty v-else-if="mergeSearch && !mergeSearchLoading" :description="t('incident.noMatchingIncident')" style="padding:16px 0" />
       <template #footer>
         <n-space justify="end">
-          <n-button @click="showMerge = false">取消</n-button>
+          <n-button @click="showMerge = false">{{ t('incident.cancelBtn') }}</n-button>
           <n-popconfirm @positive-click="doMerge">
             <template #trigger>
               <n-button type="error" :loading="mergeLoading" :disabled="!mergeTargetId">
-                确认合并
+                {{ t('incident.confirmMerge') }}
               </n-button>
             </template>
-            合并后当前故障将关闭，操作不可撤销，确认？
+            {{ t('incident.confirmMergeMsg') }}
           </n-popconfirm>
         </n-space>
       </template>
@@ -686,14 +686,14 @@ onMounted(async () => {
     <!-- Reassign -->
     <n-modal
       v-model:show="showReassign"
-      title="重新分派"
+      :title="t('incident.reassign')"
       preset="card"
       style="width: 460px"
       :bordered="false"
     >
       <n-input
         v-model:value="reassignSearch"
-        placeholder="搜索用户名或姓名…"
+        :placeholder="t('incident.searchUserHint')"
         clearable
         style="margin-bottom:12px"
         @update:value="searchUsers"
@@ -718,9 +718,9 @@ onMounted(async () => {
       </n-spin>
       <template #footer>
         <n-space justify="end">
-          <n-button @click="showReassign = false">取消</n-button>
+          <n-button @click="showReassign = false">{{ t('incident.cancelBtn') }}</n-button>
           <n-button type="primary" :loading="reassignLoading" :disabled="!reassignUserId" @click="doReassign">
-            确认分派
+            {{ t('incident.confirmReassign') }}
           </n-button>
         </n-space>
       </template>
@@ -731,7 +731,7 @@ onMounted(async () => {
 <style scoped>
 .incident-detail {
   max-width: 1400px;
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
 }
 
 /* Header */
@@ -861,7 +861,7 @@ onMounted(async () => {
   gap: 6px;
 }
 .label-chip {
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--sre-font-mono);
   font-size: 11px;
   padding: 2px 6px;
   background: var(--sre-bg-elevated);
@@ -1149,7 +1149,7 @@ onMounted(async () => {
 .user-row { padding: 10px 12px; }
 .user-meta { display: flex; flex-direction: column; gap: 1px; }
 .user-name { font-size: 13px; font-weight: 500; color: var(--sre-text-primary); }
-.user-handle { font-size: 11px; color: var(--sre-text-tertiary); font-family: 'Geist Mono', monospace; }
+.user-handle { font-size: 11px; color: var(--sre-text-tertiary); font-family: var(--sre-font-mono); }
 
 /* Fade in */
 .sre-fadein {

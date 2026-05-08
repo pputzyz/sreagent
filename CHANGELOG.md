@@ -4,6 +4,34 @@
 
 ---
 
+## [v2.6.1] - 2026-05-09
+
+### Fixed — 全站质量修复（P0-P3）
+
+**P0 - 构建修复：**
+- `.gitignore` 添加 `.superpowers/` 排除
+- `md-editor-v3` 依赖安装（构建修复）
+
+**P1 - 后端错误处理修复（15 处）：**
+- `alert_v2_pipeline.go`: 修复 3 处 `_ =` 静默丢弃 DB 错误
+- `schedule.go`: 修复 DeleteEscalationPolicy 中 `steps, _ :=` 和 `_ = stepRepo.Delete` 错误忽略
+- `system_setting.go`: `parseBool` 不再静默丢弃解析错误
+- `user.go`, `datasource.go`, `team.go`, `alert_event.go`, `message_template.go`, `biz_group.go`, `seed.go`, `integration.go`, `notification.go`: 修复 `existing, _ :=` 模式，区分 `gorm.ErrRecordNotFound` 与真正的 DB 错误
+
+**P2 - i18n 国际化修复：**
+- 新增 ~200 个 i18n key（zh-CN + en）
+- 修复 6 个严重未国际化文件：`RoutingRules.vue`（完全未翻译）、`QuickSilenceModal.vue`（完全未翻译）、`incidents/Detail.vue`（~35 处）、`explore/Index.vue`（~13 处）、`DispatchConfig.vue`（~11 处）、`IncidentDashboard.vue`（~8 处）
+- 修复 `alerts/events/Index.vue`、`channels/Index.vue`、`Login.vue` 中的硬编码字符串
+
+**P3 - UI 设计系统对齐：**
+- 字体标准化：22 个文件中的硬编码 `font-family` 替换为 `var(--sre-font-*)` CSS 变量
+- 颜色系统：6 个文件中的硬编码颜色表替换为 `var(--sre-*)` 设计令牌
+- CSS 去重：将 notification（Rules/Subscribe/Media）和 settings config（AI/Lark/OIDC/SMTP）中 ~280 行重复 CSS 提取到 `global.css` 共享样式
+
+---
+
+
+
 ## [v2.6.0] - 2026-05-08
 
 ### Changed — UI 重构 Phase 5（共享组件 + 设计系统文档 + 浅色审计）

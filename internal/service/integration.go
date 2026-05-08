@@ -217,7 +217,11 @@ func (s *IntegrationService) ReceiveAlerts(ctx context.Context, token string, ra
 
 	// For shared integrations: use routing rules to determine channel
 	if integ.Mode == model.IntegrationModeShared {
-		rules, _ := s.routingRepo.ListByIntegration(ctx, integ.ID)
+		rules, err := s.routingRepo.ListByIntegration(ctx, integ.ID)
+		if err != nil {
+			s.logger.Error("failed to list routing rules for shared integration", zap.Error(err), zap.Uint("integration_id", integ.ID))
+			return fmt.Errorf("list routing rules: %w", err)
+		}
 		for _, alert := range alerts {
 			targetID := s.matchRoutingRule(rules, alert.Labels, string(alert.Severity))
 			if targetID > 0 {

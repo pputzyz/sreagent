@@ -129,8 +129,8 @@ onMounted(load)
           </div>
         </div>
         <div class="trend-legend">
-          <span class="legend-dot triggered" /> 触发
-          <span class="legend-dot closed" style="margin-left:12px" /> 关闭
+          <span class="legend-dot triggered" /> {{ t('dashboard.triggered') }}
+          <span class="legend-dot closed" style="margin-left:12px" /> {{ t('dashboard.closed') }}
         </div>
       </n-card>
 
@@ -142,10 +142,10 @@ onMounted(load)
             <thead>
               <tr>
                 <th>{{ t('channel.name') }}</th>
-                <th>总计</th>
-                <th>待处理</th>
-                <th>紧急</th>
-                <th>关闭</th>
+                <th>{{ t('dashboard.total') }}</th>
+                <th>{{ t('dashboard.pending') }}</th>
+                <th>{{ t('dashboard.urgent') }}</th>
+                <th>{{ t('dashboard.closed') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -162,7 +162,7 @@ onMounted(load)
                 <td><span style="color:#2f9e44">{{ row.closed }}</span></td>
               </tr>
               <tr v-if="topChannels.length === 0">
-                <td colspan="5" style="text-align:center;color:var(--sre-text-secondary);padding:16px">暂无数据</td>
+                <td colspan="5" style="text-align:center;color:var(--sre-text-secondary);padding:16px">{{ t('dashboard.noData') }}</td>
               </tr>
             </tbody>
           </table>
@@ -175,22 +175,22 @@ onMounted(load)
             <thead>
               <tr>
                 <th>{{ t('common.name') }}</th>
-                <th>总计</th>
-                <th>紧急</th>
-                <th>关闭</th>
-                <th>Avg MTTR</th>
+                <th>{{ t('dashboard.total') }}</th>
+                <th>{{ t('dashboard.urgent') }}</th>
+                <th>{{ t('dashboard.closed') }}</th>
+                <th>{{ t('dashboard.avgMttr') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="row in topTeams" :key="row.team_id" class="stats-row">
-                <td>{{ row.team_name || '未分组' }}</td>
+                <td>{{ row.team_name || t('dashboard.ungrouped') }}</td>
                 <td><strong>{{ row.total }}</strong></td>
                 <td><span style="color:#e03131">{{ row.critical }}</span></td>
                 <td><span style="color:#2f9e44">{{ row.closed }}</span></td>
                 <td>{{ formatSeconds(row.avg_mttr_seconds) }}</td>
               </tr>
               <tr v-if="topTeams.length === 0">
-                <td colspan="5" style="text-align:center;color:var(--sre-text-secondary);padding:16px">暂无数据</td>
+                <td colspan="5" style="text-align:center;color:var(--sre-text-secondary);padding:16px">{{ t('dashboard.noData') }}</td>
               </tr>
             </tbody>
           </table>

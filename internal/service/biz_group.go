@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sort"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -184,7 +186,11 @@ func (s *BizGroupService) AddMember(ctx context.Context, groupID, userID uint, r
 	}
 
 	// Check if user is already a member
-	existing, _ := s.repo.GetMember(ctx, groupID, userID)
+	existing, err := s.repo.GetMember(ctx, groupID, userID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to check biz group member", zap.Error(err), zap.Uint("group_id", groupID), zap.Uint("user_id", userID))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrConflict, "user is already a member of this group")
 	}

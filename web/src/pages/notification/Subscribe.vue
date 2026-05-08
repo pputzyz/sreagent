@@ -226,9 +226,9 @@ onMounted(() => { fetchData(); fetchRefData() })
     </div>
 
     <ul v-else class="row-list sre-stagger">
-      <li v-for="s in filtered" :key="s.id" class="sre-row-card sre-lift">
+      <li v-for="s in filtered" :key="s.id" class="sre-notify-card sre-lift">
         <div class="row-l1">
-          <span class="dot" :class="s.is_enabled ? 'on' : 'off'"></span>
+          <span class="sre-dot" :class="s.is_enabled ? 'on' : 'off'"></span>
           <span class="row-name">{{ s.name }}</span>
           <span class="subscriber" :data-type="getSubscriberLabel(s).type">
             <span class="avatar">{{ getSubscriberLabel(s).initial }}</span>
@@ -319,7 +319,7 @@ onMounted(() => { fetchData(); fetchRefData() })
 </template>
 
 <style scoped>
-.sub-page { font-family: 'Geist', system-ui, sans-serif; max-width: 1400px; }
+.sub-page { font-family: var(--sre-font-sans); max-width: 1400px; }
 
 .sub-header {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -338,17 +338,7 @@ onMounted(() => { fetchData(); fetchRefData() })
 
 .row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 
-.sre-row-card {
-  display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
-  border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
-  border-radius: 8px; background: var(--sre-bg-card, rgba(255,255,255,0.02));
-  transition: border-color .15s, background .15s;
-}
-.sre-row-card:hover { border-color: var(--sre-hairline-strong, rgba(255,255,255,0.12)); background: rgba(255,255,255,0.03); }
-
 .row-l1 { display: flex; align-items: center; gap: 10px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sre-success, #22c55e); box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
-.dot.off { background: #555; box-shadow: 0 0 0 3px rgba(120,120,120,0.12); }
 .row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
 
 .subscriber { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px;
@@ -380,18 +370,4 @@ onMounted(() => { fetchData(); fetchRefData() })
 
 .row-l3 { padding-left: 18px; display: flex; gap: 6px; align-items: center; }
 .meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
-.tnum { font-variant-numeric: tabular-nums; }
-
-.sre-icon-btn {
-  width: 24px; height: 24px; padding: 0; border: 0; background: transparent;
-  border-radius: 4px; cursor: pointer; color: var(--sre-text-secondary, #888);
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.sre-icon-btn:hover { background: rgba(255,255,255,0.06); color: inherit; }
-.sre-dots { width: 14px; height: 4px; position: relative; display: inline-block; }
-.sre-dots::before, .sre-dots::after, .sre-dots {
-  content: ''; width: 3px; height: 3px; background: currentColor; border-radius: 50%;
-}
-.sre-dots::before { position: absolute; left: -5px; top: 0.5px; }
-.sre-dots::after  { position: absolute; right: -5px; top: 0.5px; }
 </style>

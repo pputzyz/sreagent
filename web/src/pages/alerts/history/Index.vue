@@ -280,7 +280,7 @@ onMounted(() => {
 <style scoped>
 .hist-page {
   max-width: 1280px;
-  font-family: 'Geist', -apple-system, sans-serif;
+  font-family: var(--sre-font-sans);
 }
 
 .hist-header {

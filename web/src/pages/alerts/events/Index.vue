@@ -292,13 +292,13 @@ function goDetail(ev: AlertEvent) {
 // ===== Helpers =====
 function relTime(input: string | number | null | undefined): string {
   if (!input) return '—'
-  const t = typeof input === 'number' ? input : Date.parse(input)
-  if (Number.isNaN(t)) return '—'
-  const diff = Math.max(0, Math.floor((Date.now() - t) / 1000))
-  if (diff < 60) return `${diff}s 前`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m 前`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h 前`
-  return `${Math.floor(diff / 86400)}d 前`
+  const ts = typeof input === 'number' ? input : Date.parse(input)
+  if (Number.isNaN(ts)) return '—'
+  const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000))
+  if (diff < 60) return t('alert.secsAgo', { n: diff })
+  if (diff < 3600) return t('alert.minsAgo', { n: Math.floor(diff / 60) })
+  if (diff < 86400) return t('alert.hoursAgo', { n: Math.floor(diff / 3600) })
+  return t('alert.daysAgo', { n: Math.floor(diff / 86400) })
 }
 
 function severityLabel(sev: string): string {
@@ -514,7 +514,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     <!-- Selection bar -->
     <transition name="ae-fade">
       <div v-if="selected.size > 0" class="ae-selection-bar">
-        <span class="ae-selection-count tnum">{{ selected.size }} 已选</span>
+        <span class="ae-selection-count tnum">{{ selected.size }} {{ t('alert.selected') }}</span>
         <NButton size="small" type="primary" @click="batchAck">
           {{ t('alert.batchAck') || 'Acknowledge' }}
         </NButton>
@@ -539,9 +539,9 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         :checked="allOnPageSelected"
         @change="toggleSelectAll"
       />
-      <span class="ae-selectall-label">{{ allOnPageSelected ? '取消全选' : '全选本页' }}</span>
+      <span class="ae-selectall-label">{{ allOnPageSelected ? t('alert.deselectAll') : t('alert.selectAllPage') }}</span>
       <span class="sre-meta-divider"></span>
-      <span class="tnum">{{ total }} {{ t('alert.totalAlerts', { n: total }).replace(/\d+\s*/, '') || '条' }}</span>
+      <span class="tnum">{{ total }} {{ t('alert.items') }}</span>
     </div>
 
     <!-- Event list -->
@@ -574,9 +574,9 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
               <span class="ec-title">{{ ev.alert_name }}</span>
             </div>
             <div class="ec-context">
-              <span>规则: {{ ev.rule?.name || '—' }}</span>
+              <span>{{ t('alert.ruleLabel') }} {{ ev.rule?.name || '—' }}</span>
               <span class="sre-meta-divider"></span>
-              <span>数据源: {{ ev.source || '—' }}</span>
+              <span>{{ t('alert.datasourceLabel') }} {{ ev.source || '—' }}</span>
             </div>
             <div v-if="hasLabels(ev)" class="ec-labels">
               <span
@@ -586,11 +586,11 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
               >{{ k }}={{ v }}</span>
             </div>
             <div class="ec-footer">
-              <span class="tnum">{{ ev.fire_count }} 次触发</span>
+              <span class="tnum">{{ ev.fire_count }} {{ t('alert.fireCount') }}</span>
               <span class="sre-meta-divider"></span>
-              <span>首次 {{ relTime(ev.fired_at) }}</span>
+              <span>{{ t('alert.firstTrigger') }} {{ relTime(ev.fired_at) }}</span>
               <span class="sre-meta-divider"></span>
-              <span>最近 {{ relTime(ev.acked_at || ev.fired_at) }}</span>
+              <span>{{ t('alert.lastTrigger') }} {{ relTime(ev.acked_at || ev.fired_at) }}</span>
               <template v-if="ev.acked_by_user">
                 <span class="sre-meta-divider"></span>
                 <span class="ec-assignee">
@@ -617,13 +617,13 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
               size="tiny"
               type="primary"
               @click="onAck(ev)"
-            >{{ t('alert.ack') || '认领' }}</NButton>
+            >{{ t('alert.claim') }}</NButton>
             <NButton
               v-if="ev.status !== 'closed' && ev.status !== 'resolved'"
               size="tiny"
               quaternary
               @click="onClose(ev)"
-            >{{ t('alert.close') || '关闭' }}</NButton>
+            >{{ t('alert.closeAlert') }}</NButton>
             <NDropdown
               :options="rowActions(ev)"
               trigger="click"
@@ -643,8 +643,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
       <EmptyState
         v-else-if="!loading"
         :icon="ShieldCheckmarkOutline"
-        title="All quiet"
-        description="No active alerts firing"
+        :title="t('alert.allQuiet')"
+        :description="t('alert.noActiveAlerts')"
       />
     </NSpin>
 
@@ -666,7 +666,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 <style scoped>
 .ae-page {
   max-width: 1440px;
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--sre-font-sans);
 }
 
 /* ===== Header ===== */
@@ -680,7 +680,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
   margin-bottom: 20px;
 }
 .ae-title {
-  font-family: 'Geist', sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -798,7 +798,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
   font-size: 14px;
   font-weight: 600;
   color: var(--sre-text-primary);
-  font-family: 'Geist', sans-serif;
+  font-family: var(--sre-font-sans);
 }
 .ec-sev-label {
   font-size: 11px;
@@ -913,7 +913,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
   margin-bottom: 4px;
 }
 .ae-empty-title {
-  font-family: 'Geist', sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 16px;
   font-weight: 600;
   color: var(--sre-text-primary);

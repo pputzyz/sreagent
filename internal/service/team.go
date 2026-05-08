@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -122,7 +123,11 @@ func NewTeamService(repo TeamRepository, logger *zap.Logger) *TeamService {
 // Create creates a new team.
 func (s *TeamService) Create(ctx context.Context, team *model.Team) error {
 	// Check if team name already exists
-	existing, _ := s.repo.GetByName(ctx, team.Name)
+	existing, err := s.repo.GetByName(ctx, team.Name)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to check team name", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrDuplicateName, fmt.Sprintf("team '%s' already exists", team.Name))
 	}
@@ -195,7 +200,11 @@ func (s *TeamService) AddMember(ctx context.Context, teamID, userID uint, role s
 	}
 
 	// Check if user is already a member
-	existing, _ := s.repo.GetMember(ctx, teamID, userID)
+	existing, err := s.repo.GetMember(ctx, teamID, userID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to check team member", zap.Error(err), zap.Uint("team_id", teamID), zap.Uint("user_id", userID))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrConflict, "user is already a member of this team")
 	}

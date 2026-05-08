@@ -655,7 +655,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 <style scoped>
 .evt-page {
   max-width: 1400px;
-  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  font-family: var(--sre-font-sans);
   font-feature-settings: 'cv11', 'ss01';
   letter-spacing: -0.005em;
 }
@@ -674,7 +674,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   min-width: 0;
 }
 .evt-title {
-  font-family: 'Geist', sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -768,7 +768,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-chip {
   display: inline-flex;
   align-items: center;
-  font-family: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+  font-family: var(--sre-font-mono);
   font-size: 12px;
   border: 1px solid var(--sre-hairline);
   border-radius: 6px;
@@ -798,7 +798,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 /* Annotations KV */
 .evt-kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 8px 0 0; }
 .evt-kv dt {
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--sre-font-mono);
   font-size: 12px;
   color: var(--sre-text-secondary);
   padding-top: 1px;
@@ -835,7 +835,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   padding: 8px 10px;
   background: rgba(128,128,128,0.06);
   border-radius: 6px;
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--sre-font-mono);
   font-size: 11.5px;
   color: var(--sre-text-primary);
   overflow-x: auto;
@@ -1024,7 +1024,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-aside-labels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .evt-aside-labels li {
   display: flex; align-items: center; gap: 6px;
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--sre-font-mono);
   font-size: 11.5px;
   cursor: pointer;
   padding: 2px 0;
@@ -1049,7 +1049,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 }
 .evt-related li > span:first-child { color: var(--sre-text-secondary); }
 .evt-fp {
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--sre-font-mono);
   font-size: 11px;
   color: var(--sre-text-secondary);
   background: rgba(128,128,128,0.08);

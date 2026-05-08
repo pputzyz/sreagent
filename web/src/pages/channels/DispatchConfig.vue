@@ -54,12 +54,15 @@ const notifyModeOptions = [
   { label: t('channel.dispatchNotifyUnified'), value: 'unified' },
 ]
 
-const dayOptions = [
-  { label: '周一', value: 1 }, { label: '周二', value: 2 },
-  { label: '周三', value: 3 }, { label: '周四', value: 4 },
-  { label: '周五', value: 5 }, { label: '周六', value: 6 },
-  { label: '周日', value: 0 },
-]
+const dayOptions = computed(() => [
+  { label: t('channel.mon'), value: 1 },
+  { label: t('channel.tue'), value: 2 },
+  { label: t('channel.wed'), value: 3 },
+  { label: t('channel.thu'), value: 4 },
+  { label: t('channel.fri'), value: 5 },
+  { label: t('channel.sat'), value: 6 },
+  { label: t('channel.sun'), value: 0 },
+])
 
 const escalationOptions = computed(() => [
   { label: t('channel.dispatchEscalationHint'), value: null },
@@ -227,9 +230,9 @@ onMounted(load)
               <n-tag size="tiny" type="info">P{{ policy.priority }}</n-tag>
             </div>
             <div class="policy-meta">
-              <span v-if="policy.delay_seconds > 0">延迟 {{ policy.delay_seconds }}s</span>
-              <span v-if="policy.repeat_interval_seconds > 0">每 {{ policy.repeat_interval_seconds }}s 重复</span>
-              <span v-if="policy.escalation_policy_id">升级策略已绑定</span>
+              <span v-if="policy.delay_seconds > 0">{{ t('channel.delaySeconds', { n: policy.delay_seconds }) }}</span>
+              <span v-if="policy.repeat_interval_seconds > 0">{{ t('channel.repeatInterval', { n: policy.repeat_interval_seconds }) }}</span>
+              <span v-if="policy.escalation_policy_id">{{ t('channel.escalationBound') }}</span>
               <span>{{ policy.notify_mode === 'personal_preference' ? t('channel.dispatchNotifyPersonal') : t('channel.dispatchNotifyUnified') }}</span>
             </div>
           </div>
@@ -281,7 +284,7 @@ onMounted(load)
             </n-form-item-gi>
           </n-grid>
 
-          <n-divider title-placement="left" style="font-size:12px">触发 &amp; 延迟</n-divider>
+          <n-divider title-placement="left" style="font-size:12px">{{ t('channel.triggerAndDelay') }}</n-divider>
 
           <!-- Delay -->
           <n-form-item :label="t('channel.dispatchDelay')">
@@ -336,7 +339,7 @@ onMounted(load)
             </n-grid>
           </template>
 
-          <n-divider title-placement="left" style="font-size:12px">通知 &amp; 升级</n-divider>
+          <n-divider title-placement="left" style="font-size:12px">{{ t('channel.notifyAndEscalation') }}</n-divider>
 
           <!-- Notify mode -->
           <n-form-item :label="t('channel.dispatchNotifyMode')">
@@ -356,7 +359,7 @@ onMounted(load)
             />
           </n-form-item>
 
-          <n-divider title-placement="left" style="font-size:12px">标签增强</n-divider>
+          <n-divider title-placement="left" style="font-size:12px">{{ t('channel.labelEnhancement') }}</n-divider>
 
           <!-- Label enhancement rules -->
           <n-form-item :label="t('channel.dispatchLabelRules')">

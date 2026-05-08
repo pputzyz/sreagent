@@ -319,7 +319,7 @@ function refreshAll() {
   gap: 8px;
 }
 .detail-title {
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 22px;
   font-weight: 600;
   margin: 0;

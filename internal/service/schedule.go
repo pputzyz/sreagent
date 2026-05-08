@@ -655,9 +655,15 @@ func (s *ScheduleService) DeleteEscalationPolicy(ctx context.Context, id uint) e
 	}
 
 	// Delete associated steps first
-	steps, _ := s.stepRepo.ListByPolicyID(ctx, id)
+	steps, err := s.stepRepo.ListByPolicyID(ctx, id)
+	if err != nil {
+		s.logger.Error("failed to list escalation steps for deletion", zap.Error(err), zap.Uint("policy_id", id))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	for _, step := range steps {
-		_ = s.stepRepo.Delete(ctx, step.ID)
+		if err := s.stepRepo.Delete(ctx, step.ID); err != nil {
+			s.logger.Error("failed to delete escalation step", zap.Error(err), zap.Uint("step_id", step.ID), zap.Uint("policy_id", id))
+		}
 	}
 
 	if err := s.policyRepo.Delete(ctx, id); err != nil {

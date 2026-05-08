@@ -494,7 +494,7 @@ onMounted(async () => {
 <style scoped>
 .channel-detail {
   max-width: 1400px;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
 }
 
 /* ───────── Header ───────── */
@@ -576,7 +576,7 @@ onMounted(async () => {
   background: transparent;
 }
 :deep(.n-tabs .n-tabs-tab) {
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
   font-weight: 500;
 }
 

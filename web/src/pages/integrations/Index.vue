@@ -416,7 +416,7 @@ onMounted(load)
 <style scoped>
 .integ-page {
   max-width: 1400px;
-  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  font-family: var(--sre-font-sans);
 }
 
 /* Header */
@@ -429,7 +429,7 @@ onMounted(load)
 }
 .integ-header-text { display: flex; flex-direction: column; gap: 4px; }
 .integ-title {
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 22px;
   font-weight: 600;
   margin: 0;
@@ -488,9 +488,9 @@ onMounted(load)
   height: 3px;
   background: var(--sre-text-tertiary, #9ca3af);
 }
-.card-stripe[data-type='alertmanager'] { background: #e6522c; }
-.card-stripe[data-type='grafana']      { background: #f59e0b; }
-.card-stripe[data-type='standard']     { background: var(--sre-primary, #2563eb); }
+.card-stripe[data-type='alertmanager'] { background: var(--sre-integ-alertmanager); }
+.card-stripe[data-type='grafana']      { background: var(--sre-integ-grafana); }
+.card-stripe[data-type='standard']     { background: var(--sre-primary); }
 
 .card-status {
   display: flex;
@@ -521,11 +521,17 @@ onMounted(load)
   background: var(--sre-bg-elevated);
   color: var(--sre-text-secondary);
 }
-.card-badge[data-type='alertmanager'] { background: rgba(230, 82, 44, 0.14); color: #e6522c; }
-.card-badge[data-type='grafana']      { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+.card-badge[data-type='alertmanager'] {
+  background: color-mix(in srgb, var(--sre-integ-alertmanager) 14%, transparent);
+  color: var(--sre-integ-alertmanager);
+}
+.card-badge[data-type='grafana'] {
+  background: color-mix(in srgb, var(--sre-integ-grafana) 14%, transparent);
+  color: var(--sre-integ-grafana);
+}
 .card-badge[data-type='standard']     {
-  background: var(--sre-primary-soft, rgba(37, 99, 235, 0.1));
-  color: var(--sre-primary, #2563eb);
+  background: var(--sre-primary-soft);
+  color: var(--sre-primary);
 }
 .card-badge-mode {
   font-size: 11px;

@@ -3,12 +3,14 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -52,7 +54,11 @@ func NewMessageTemplateService(
 // Create creates a new message template.
 func (s *MessageTemplateService) Create(ctx context.Context, tmpl *model.MessageTemplate) error {
 	// Check for duplicate name
-	existing, _ := s.repo.GetByName(ctx, tmpl.Name)
+	existing, err := s.repo.GetByName(ctx, tmpl.Name)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to check template name", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrDuplicateName, fmt.Sprintf("template '%s' already exists", tmpl.Name))
 	}

@@ -124,15 +124,15 @@ function openCustomRange() {
 }
 
 // --- step ---
-const stepOptions = [
-  { label: '自动', value: 'auto' },
+const stepOptions = computed(() => [
+  { label: t('query.stepAuto'), value: 'auto' },
   { label: '15s', value: '15s' },
   { label: '30s', value: '30s' },
   { label: '1m', value: '1m' },
   { label: '5m', value: '5m' },
   { label: '15m', value: '15m' },
   { label: '1h', value: '1h' },
-]
+])
 const stepValue = ref<string>('auto')
 
 function resolveStep(): string {
@@ -149,14 +149,14 @@ const logLimit = ref<number>(200)
 const logLimitOptions = [50, 100, 200, 500, 1000, 5000].map(v => ({ label: String(v), value: v }))
 
 // --- auto-refresh ---
-const autoRefreshOptions = [
-  { label: '关闭', value: 0 },
+const autoRefreshOptions = computed(() => [
+  { label: t('query.refreshOff'), value: 0 },
   { label: '5s', value: 5 },
   { label: '10s', value: 10 },
   { label: '30s', value: 30 },
   { label: '1min', value: 60 },
   { label: '5min', value: 300 },
-]
+])
 const autoRefreshSec = ref<number>(0)
 const autoCountdown = ref<number>(0)
 let autoTimer: any = null
@@ -405,12 +405,12 @@ function exportCsv() {
       rows.push([fmtTs(e.timestamp), e.message || '', formatLabelsStr(e.labels)])
     }
     downloadCsv(rows, `query-result-${ts}.csv`)
-    message.success('已导出 CSV')
+    message.success(t('query.csvExported'))
   } else if (metricTableData.value.length) {
     const rows = [['name', 'value', 'labels']]
     for (const r of metricTableData.value) rows.push([r.name, r.value, r.labels])
     downloadCsv(rows, `query-result-${ts}.csv`)
-    message.success('已导出 CSV')
+    message.success(t('query.csvExported'))
   }
 }
 
@@ -476,14 +476,14 @@ onUnmounted(() => {
             :secondary="rangeMin !== -1"
             @click="openCustomRange"
           >
-            自定义
+            {{ t('query.timeCustom') }}
           </NButton>
         </div>
 
         <div class="toolbar-right">
           <NButton size="small" @click="run" :loading="loading">
             <template #icon><NIcon><RefreshOutline /></NIcon></template>
-            刷新
+            {{ t('query.refreshBtn') }}
           </NButton>
           <NSelect
             v-model:value="autoRefreshSec"
@@ -566,12 +566,12 @@ onUnmounted(() => {
                       <template #icon><NIcon><TimeOutline /></NIcon></template>
                     </NButton>
                   </template>
-                  查询历史
+                  {{ t('query.queryHistory') }}
                 </NTooltip>
               </template>
               <div class="history-pop">
-                <div class="history-title">最近查询</div>
-                <div v-if="!filteredHistory.length" class="history-empty">暂无历史</div>
+                <div class="history-title">{{ t('query.recentQueries') }}</div>
+                <div v-if="!filteredHistory.length" class="history-empty">{{ t('query.noHistory') }}</div>
                 <div
                   v-for="h in filteredHistory"
                   :key="h.ts"
@@ -589,7 +589,7 @@ onUnmounted(() => {
                   <template #icon><NIcon><TrashOutline /></NIcon></template>
                 </NButton>
               </template>
-              清空
+              {{ t('query.clearBtn') }}
             </NTooltip>
           </div>
         </div>
@@ -636,7 +636,7 @@ onUnmounted(() => {
           {{ metricData.series.length }} {{ t('query.seriesCount') }}
           <template v-if="metricData.resultType"> · {{ metricData.resultType }}</template>
           <NTag v-if="metricData._limited" type="warning" size="small" :bordered="false" style="margin-left:8px">
-            已限制 {{ metricLimit }}
+            {{ t('query.limitedTo', { n: metricLimit }) }}
           </NTag>
         </span>
         <NSpace :size="4">
@@ -648,7 +648,7 @@ onUnmounted(() => {
           </NButton>
           <NButton v-if="canExport" size="small" tertiary @click="exportCsv">
             <template #icon><NIcon><DownloadOutline /></NIcon></template>
-            导出 CSV
+            {{ t('query.exportCsv') }}
           </NButton>
         </NSpace>
       </div>
@@ -689,7 +689,7 @@ onUnmounted(() => {
         </span>
         <NButton v-if="canExport" size="small" tertiary @click="exportCsv">
           <template #icon><NIcon><DownloadOutline /></NIcon></template>
-          导出 CSV
+          {{ t('query.exportCsv') }}
         </NButton>
       </div>
       <NDataTable
@@ -830,7 +830,7 @@ onUnmounted(() => {
 }
 
 .expr-input :deep(textarea) {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--sre-font-mono);
   font-size: 13px;
   padding-right: 70px;
 }
@@ -944,7 +944,7 @@ onUnmounted(() => {
 }
 
 .history-expr {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--sre-font-mono);
   font-size: 12px;
   color: var(--sre-text-primary);
   white-space: nowrap;

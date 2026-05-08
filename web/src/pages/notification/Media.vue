@@ -295,7 +295,7 @@ onMounted(fetchData)
     </div>
 
     <ul v-else class="row-list sre-stagger">
-      <li v-for="m in filtered" :key="m.id" class="sre-row-card sre-lift" :data-type="m.type">
+      <li v-for="m in filtered" :key="m.id" class="sre-notify-card sre-lift" :data-type="m.type">
         <div class="row-l1">
           <span class="type-icon" :data-type="m.type"><n-icon :component="getTypeIcon(m.type)" size="16" /></span>
           <span class="row-name">{{ m.name }}</span>
@@ -396,7 +396,7 @@ onMounted(fetchData)
           <n-form-item :label="t('media.body')">
             <n-input v-model:value="form.body" type="textarea" :rows="4"
               placeholder='{"text": "{{.AlertName}} is {{.Status}}"}'
-              style="font-family: 'Geist Mono', monospace; font-size: 12px" />
+              style="font-family: var(--sre-font-mono); font-size: 12px" />
           </n-form-item>
         </template>
 
@@ -414,7 +414,7 @@ onMounted(fetchData)
         <n-form-item :label="t('media.variables')">
           <n-input v-model:value="form.variables" type="textarea" :rows="3"
             :placeholder="t('media.variablesHint')"
-            style="font-family: 'Geist Mono', monospace; font-size: 12px" />
+            style="font-family: var(--sre-font-mono); font-size: 12px" />
         </n-form-item>
 
         <n-form-item :label="t('common.enabled')">
@@ -435,7 +435,7 @@ onMounted(fetchData)
 </template>
 
 <style scoped>
-.media-page { font-family: 'Geist', system-ui, sans-serif; max-width: 1400px; }
+.media-page { font-family: var(--sre-font-sans); max-width: 1400px; }
 
 .sub-header {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -453,16 +453,6 @@ onMounted(fetchData)
 .empty-text { font-size: 13px; }
 
 .row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-
-.sre-row-card {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 12px 14px;
-  border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
-  border-radius: 8px;
-  background: var(--sre-bg-card, rgba(255,255,255,0.02));
-  transition: border-color .15s, background .15s;
-}
-.sre-row-card:hover { border-color: var(--sre-hairline-strong, rgba(255,255,255,0.12)); background: rgba(255,255,255,0.03); }
 
 .row-l1 { display: flex; align-items: center; gap: 10px; }
 .type-icon {
@@ -494,20 +484,6 @@ onMounted(fetchData)
 .status-text.off { color: var(--sre-text-secondary, #888); }
 
 .row-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
-.sre-icon-btn {
-  width: 24px; height: 24px; padding: 0; border: 0; background: transparent;
-  border-radius: 4px; cursor: pointer; color: var(--sre-text-secondary, #888);
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.sre-icon-btn:hover { background: rgba(255,255,255,0.06); color: inherit; }
-.sre-dots {
-  width: 14px; height: 4px; position: relative; display: inline-block;
-}
-.sre-dots::before, .sre-dots::after, .sre-dots {
-  content: ''; width: 3px; height: 3px; background: currentColor; border-radius: 50%;
-}
-.sre-dots::before { position: absolute; left: -5px; top: 0.5px; }
-.sre-dots::after  { position: absolute; right: -5px; top: 0.5px; }
 
 .row-l2 { padding-left: 38px; }
 .target {

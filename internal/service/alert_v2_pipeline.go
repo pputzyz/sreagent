@@ -188,7 +188,10 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 
 	// 1. Apply dispatch policy label enhancements (3.6)
 	if p.dispatchSvc != nil && channelID > 0 && len(event.Labels) > 0 {
-		policy, _ := p.dispatchSvc.FindMatchingPolicy(ctx, channelID, model.JSONLabels(event.Labels), string(event.Severity))
+		policy, err := p.dispatchSvc.FindMatchingPolicy(ctx, channelID, model.JSONLabels(event.Labels), string(event.Severity))
+		if err != nil {
+			p.logger.Warn("failed to find matching dispatch policy", zap.Error(err), zap.Uint("channel_id", channelID))
+		}
 		if policy != nil && policy.LabelEnhancementRules != "" {
 			enhanced := p.dispatchSvc.ApplyLabelEnhancements(policy.LabelEnhancementRules, model.JSONLabels(event.Labels))
 			// Merge enhanced labels back into event (non-destructive to existing labels)
@@ -369,14 +372,18 @@ func (p *AlertV2Pipeline) ensureIncident(ctx context.Context, alert *model.Alert
 
 	// Update incident alert count
 	incident.AlertCount++
-	_ = p.incidentRepo.Update(ctx, incident)
+	if err := p.incidentRepo.Update(ctx, incident); err != nil {
+		p.logger.Error("failed to update incident alert count", zap.Error(err), zap.Uint("incident_id", incident.ID))
+	}
 
 	// Timeline: alert merged
-	_ = p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: incident.ID,
 		Action:     model.IncidentActionAlertMerged,
 		Content:    "Alert merged: " + event.AlertName,
-	})
+	}); err != nil {
+		p.logger.Error("failed to add alert merged timeline", zap.Error(err), zap.Uint("incident_id", incident.ID))
+	}
 
 	return nil
 }

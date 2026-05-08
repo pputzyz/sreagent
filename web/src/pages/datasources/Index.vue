@@ -486,10 +486,10 @@ onMounted(fetchList)
   height: 3px;
   background: var(--sre-text-tertiary);
 }
-.ds-stripe[data-type="prometheus"]      { background: #e6522c; }
-.ds-stripe[data-type="victoriametrics"] { background: #1a7f37; }
-.ds-stripe[data-type="victorialogs"]    { background: #0550ae; }
-.ds-stripe[data-type="zabbix"]          { background: #d32f2f; }
+.ds-stripe[data-type="prometheus"]      { background: var(--sre-ds-prometheus); }
+.ds-stripe[data-type="victoriametrics"] { background: var(--sre-ds-victoriametrics); }
+.ds-stripe[data-type="victorialogs"]    { background: var(--sre-ds-victorialogs); }
+.ds-stripe[data-type="zabbix"]          { background: var(--sre-ds-zabbix); }
 
 .ds-status {
   display: flex;

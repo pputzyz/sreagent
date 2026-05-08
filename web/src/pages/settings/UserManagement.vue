@@ -349,7 +349,7 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
 </template>
 
 <style scoped>
-.user-mgmt { font-family: 'Geist', system-ui, sans-serif; }
+.user-mgmt { font-family: var(--sre-font-sans); }
 
 .page-header {
   display: flex; align-items: flex-start; justify-content: space-between;

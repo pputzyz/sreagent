@@ -566,7 +566,10 @@ func strDef(v, def string) string {
 }
 
 func parseBool(v string) bool {
-	b, _ := strconv.ParseBool(v)
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false
+	}
 	return b
 }
 

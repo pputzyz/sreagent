@@ -142,16 +142,16 @@ function openChannel(id: number) {
 }
 
 const statusOptions = computed(() => [
-  { label: t('common.all') || '全部', value: '' },
+  { label: t('channel.all'), value: '' },
   { label: t('common.active'), value: 'active' },
   { label: t('common.disabled'), value: 'disabled' },
 ])
 
 const sortOptions = computed(() => [
-  { label: '最近活动', value: 'recent' },
-  { label: '创建时间', value: 'created' },
-  { label: '名称', value: 'name' },
-  { label: '故障数', value: 'incidents' },
+  { label: t('channel.recentActivity'), value: 'recent' },
+  { label: t('channel.createdTime'), value: 'created' },
+  { label: t('channel.name'), value: 'name' },
+  { label: t('channel.incidentCount'), value: 'incidents' },
 ])
 
 const pendingDeleteId = ref<number | null>(null)
@@ -161,12 +161,12 @@ function buildMenuOptions(ch: Channel) {
   return [
     {
       key: 'edit',
-      label: '编辑',
+      label: t('channel.edit'),
       icon: () => h(NIcon, { component: CreateOutline }),
     },
     {
       key: 'delete',
-      label: '删除',
+      label: t('channel.delete'),
       icon: () => h(NIcon, { component: TrashOutline }),
     },
   ]
@@ -295,7 +295,7 @@ onMounted(loadChannels)
               <div class="metric-value" :class="{ 'is-active': (ch.active_incident_count ?? 0) > 0 }">
                 {{ fmtMetric(ch.active_incident_count) }}
               </div>
-              <div class="metric-label">活跃故障</div>
+              <div class="metric-label">{{ t('channel.activeIncidents') }}</div>
             </div>
             <div class="metric">
               <div class="metric-value">{{ fmtMetric((ch as any).mtta_label) }}</div>
@@ -315,7 +315,7 @@ onMounted(loadChannels)
               <span class="team-name">{{ ch.team.name }}</span>
             </template>
             <template v-else>
-              <span class="team-name muted">未分配团队</span>
+              <span class="team-name muted">{{ t('channel.unassignedTeam') }}</span>
             </template>
           </div>
           <div class="footer-right">
@@ -352,7 +352,7 @@ onMounted(loadChannels)
       preset="dialog"
       :title="t('common.delete')"
       :content="t('channel.deleteConfirm')"
-      positive-text="确认删除"
+      :positive-text="t('common.confirmDelete')"
       :negative-text="t('common.cancel')"
       type="warning"
       @positive-click="confirmDelete"
@@ -484,8 +484,8 @@ onMounted(loadChannels)
   opacity: 0;
   transition: opacity 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
-.card-star:hover { background: var(--sre-bg-hover); color: #f5a623; }
-.card-star.starred { opacity: 1; color: #f5a623; }
+.card-star:hover { background: var(--sre-bg-hover); color: var(--sre-warning); }
+.card-star.starred { opacity: 1; color: var(--sre-warning); }
 
 .card-body { flex: 1 1 auto; display: flex; flex-direction: column; }
 .card-name {
@@ -570,10 +570,10 @@ onMounted(loadChannels)
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #c0c4cc;
+  background: var(--sre-text-tertiary);
 }
-.status-dot.active .dot { background: #18a058; box-shadow: 0 0 0 3px rgba(24, 160, 88, 0.15); }
-.status-dot.disabled .dot { background: #d0d0d0; }
+.status-dot.active .dot { background: var(--sre-primary); box-shadow: 0 0 0 3px var(--sre-primary-soft); }
+.status-dot.disabled .dot { background: var(--sre-text-tertiary); }
 
 .pagination-wrap {
   display: flex;

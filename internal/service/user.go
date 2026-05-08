@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"unicode"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -52,7 +54,11 @@ func (s *UserService) Create(ctx context.Context, user *model.User) error {
 	}
 
 	// Check if username already exists
-	existing, _ := s.repo.GetByUsername(ctx, user.Username)
+	existing, err := s.repo.GetByUsername(ctx, user.Username)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to check username", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrDuplicateName, fmt.Sprintf("username '%s' already exists", user.Username))
 	}
@@ -106,7 +112,11 @@ func (s *UserService) CreateVirtual(ctx context.Context, user *model.User) error
 	}
 
 	// Check if username already exists
-	existing, _ := s.repo.GetByUsername(ctx, user.Username)
+	existing, err := s.repo.GetByUsername(ctx, user.Username)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to check username", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrDuplicateName, fmt.Sprintf("username '%s' already exists", user.Username))
 	}

@@ -25,15 +25,15 @@ const message = useMessage()
 const saving = ref(false)
 
 // Duration presets in minutes
-const durationPresets = [
-  { label: '30 分钟', value: 30 },
-  { label: '1 小时',  value: 60 },
-  { label: '2 小时',  value: 120 },
-  { label: '4 小时',  value: 240 },
-  { label: '8 小时',  value: 480 },
-  { label: '24 小时', value: 1440 },
-  { label: '自定义',  value: 0 },
-]
+const durationPresets = computed(() => [
+  { label: t('channel.silence30m'), value: 30 },
+  { label: t('channel.silence1h'),  value: 60 },
+  { label: t('channel.silence2h'),  value: 120 },
+  { label: t('channel.silence4h'),  value: 240 },
+  { label: t('channel.silence8h'),  value: 480 },
+  { label: t('channel.silence24h'), value: 1440 },
+  { label: t('channel.silenceCustom'),  value: 0 },
+])
 
 const selectedDuration = ref(60)
 const customMinutes = ref(60)
@@ -49,7 +49,7 @@ watch(() => props.show, (v) => {
   selectedDuration.value = 60
   customMinutes.value = 60
   reason.value = ''
-  ruleName.value = (props.title ? `静默: ${props.title}` : '快速静默')
+  ruleName.value = (props.title ? t('channel.quickSilence') + ': ' + props.title : t('channel.quickSilence'))
   labelSelections.value = Object.entries(props.labels ?? {})
     // Exclude internal hints
     .filter(([k]) => !k.startsWith('_'))
@@ -72,7 +72,7 @@ const endTime = computed(() => {
 
 async function create() {
   if (!ruleName.value.trim()) {
-    message.warning('请填写静默规则名称')
+    message.warning(t('channel.silenceNameRequired'))
     return
   }
   saving.value = true
@@ -87,7 +87,7 @@ async function create() {
 
     await muteRuleApi.create({
       name: ruleName.value,
-      description: reason.value || `快速静默 ${effectiveMinutes.value} 分钟`,
+      description: reason.value || t('channel.silenceCreated', { n: effectiveMinutes.value }),
       match_labels: matchLabels,
       start_time: String(Math.floor(Date.now() / 1000)),
       end_time: String(Math.floor((Date.now() + effectiveMinutes.value * 60_000) / 1000)),
@@ -96,11 +96,11 @@ async function create() {
       rule_ids: '',
     })
 
-    message.success(`已创建静默规则，将静默 ${effectiveMinutes.value} 分钟`)
+    message.success(t('channel.silenceCreated', { n: effectiveMinutes.value }))
     emit('update:show', false)
     emit('created')
   } catch (e: any) {
-    message.error(e?.message ?? '创建失败')
+    message.error(e?.message ?? t('channel.silenceCreateFailed'))
   } finally {
     saving.value = false
   }
@@ -110,7 +110,7 @@ async function create() {
 <template>
   <n-modal
     :show="show"
-    title="快速静默"
+    :title="t('channel.quickSilence')"
     preset="card"
     style="width:460px"
     :bordered="false"
@@ -119,12 +119,12 @@ async function create() {
     <n-form label-placement="top" size="small">
 
       <!-- Rule name -->
-      <n-form-item label="规则名称" required>
-        <n-input v-model:value="ruleName" placeholder="静默规则名称" />
+      <n-form-item :label="t('channel.silenceNameLabel')" required>
+        <n-input v-model:value="ruleName" :placeholder="t('channel.silenceNamePlaceholder')" />
       </n-form-item>
 
       <!-- Duration selector -->
-      <n-form-item label="静默时长">
+      <n-form-item :label="t('channel.silenceDurationLabel')">
         <n-radio-group v-model:value="selectedDuration">
           <n-space wrap>
             <n-radio
@@ -145,7 +145,7 @@ async function create() {
       </n-form-item>
 
       <!-- Time range display -->
-      <n-form-item label="生效时间">
+      <n-form-item :label="t('channel.silenceEffectiveTime')">
         <n-space>
           <n-tag size="small">{{ new Date(startTime).toLocaleString('zh-CN', { hour12: false }) }}</n-tag>
           <span style="color:var(--sre-text-secondary)">→</span>
@@ -154,7 +154,7 @@ async function create() {
       </n-form-item>
 
       <!-- Label matching -->
-      <n-form-item v-if="labelSelections.length > 0" label="匹配标签（勾选需要匹配的标签）">
+      <n-form-item v-if="labelSelections.length > 0" :label="t('channel.silenceMatchLabels')">
         <div class="label-list">
           <div
             v-for="item in labelSelections"
@@ -172,12 +172,12 @@ async function create() {
       </n-form-item>
 
       <!-- Reason -->
-      <n-form-item label="静默原因（可选）">
+      <n-form-item :label="t('channel.silenceReasonLabel')">
         <n-input
           v-model:value="reason"
           type="textarea"
           :rows="2"
-          placeholder="说明静默原因…"
+          :placeholder="t('channel.silenceReasonPlaceholder')"
         />
       </n-form-item>
 
@@ -187,7 +187,7 @@ async function create() {
       <n-space justify="end">
         <n-button @click="$emit('update:show', false)">{{ t('common.cancel') }}</n-button>
         <n-button type="warning" :loading="saving" @click="create">
-          立即静默 {{ effectiveMinutes }} 分钟
+          {{ t('channel.silenceNow', { n: effectiveMinutes }) }}
         </n-button>
       </n-space>
     </template>

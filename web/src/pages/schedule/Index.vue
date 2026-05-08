@@ -14,7 +14,16 @@ const message = useMessage()
 const { t } = useI18n()
 
 // ===== Color palette for users (restrained) =====
-const userColors = ['#0070f3', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b']
+const userColors = [
+  'var(--sre-info)',
+  'var(--sre-success)',
+  'var(--sre-warning)',
+  'var(--sre-critical)',
+  'var(--sre-aurora-3)',
+  'var(--sre-brand-accent)',
+  'var(--sre-aurora-4)',
+  'var(--sre-user-slate)',
+]
 const userColorMap = ref<Map<number, string>>(new Map())
 
 function getUserColor(userId: number): string {
@@ -164,7 +173,7 @@ function shiftStyle(shift: OnCallShift, day: Date): Record<string, string> {
     top: `${top}%`,
     height: `${height}%`,
     '--shift-color': color,
-    background: active ? color : `${color}1a`,
+    background: active ? color : `color-mix(in srgb, ${color} 10%, transparent)`,
     color: active ? '#fff' : color,
     borderLeftColor: active ? 'transparent' : color,
   }
@@ -551,7 +560,7 @@ onMounted(() => {
 
 <style scoped>
 .schedule-page {
-  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  font-family: var(--sre-font-sans);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -568,7 +577,7 @@ onMounted(() => {
 
 .schedule-title {
   margin: 0;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -638,7 +647,7 @@ onMounted(() => {
 
 .detail-title {
   margin: 2px 0 0;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -700,7 +709,7 @@ onMounted(() => {
 .oncall-email {
   font-size: 12px;
   color: var(--sre-text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--sre-font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -823,7 +832,7 @@ onMounted(() => {
   font-size: 10px;
   color: var(--sre-text-secondary);
   transform: translateY(-50%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--sre-font-mono);
 }
 
 .cal-day-col {
@@ -923,7 +932,7 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--sre-font-mono);
 }
 
 /* Config tabs */

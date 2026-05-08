@@ -43,6 +43,19 @@
   --sre-success:        #10b981;
   --sre-success-soft:   rgba(16, 185, 129, 0.14);
 
+  /* --- Datasource type accents --- */
+  --sre-ds-prometheus:      #e6522c;
+  --sre-ds-victoriametrics: #1a7f37;
+  --sre-ds-victorialogs:    #0550ae;
+  --sre-ds-zabbix:          #d32f2f;
+
+  /* --- Integration type accents --- */
+  --sre-integ-alertmanager: #e6522c;
+  --sre-integ-grafana:      #f59e0b;
+
+  /* --- User palette accent --- */
+  --sre-user-slate: #64748b;
+
   /* --- Surfaces (layered depth) --- */
   --sre-bg-base:        #07090d;
   --sre-bg-page:        #0b0e14;
@@ -803,4 +816,191 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 .sre-lift:hover {
   transform: translateY(-1px);
   border-color: var(--sre-border-strong);
+}
+
+/* ============================================================
+   Notification card list (v2.6) — vertical column row cards
+   used by notify rules, subscribe rules, and media list.
+   Distinct from .sre-row-card which is a horizontal stripe card
+   for alert rows.
+   ============================================================ */
+.sre-notify-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
+  border-radius: 8px;
+  background: var(--sre-bg-card, rgba(255,255,255,0.02));
+  transition: border-color .15s, background .15s;
+}
+.sre-notify-card:hover {
+  border-color: var(--sre-hairline-strong, rgba(255,255,255,0.12));
+  background: rgba(255,255,255,0.03);
+}
+
+/* Icon button — transparent 24x24 action trigger (row menus) */
+.sre-icon-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--sre-text-secondary, #888);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sre-icon-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: inherit;
+}
+
+/* Three-dot menu indicator (pseudo-element construction) */
+.sre-dots {
+  width: 14px;
+  height: 4px;
+  position: relative;
+  display: inline-block;
+}
+.sre-dots::before,
+.sre-dots::after,
+.sre-dots {
+  content: '';
+  width: 3px;
+  height: 3px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.sre-dots::before {
+  position: absolute;
+  left: -5px;
+  top: 0.5px;
+}
+.sre-dots::after {
+  position: absolute;
+  right: -5px;
+  top: 0.5px;
+}
+
+/* Status-dot modifiers — extends .sre-dot for on/off state */
+.sre-dot.on {
+  background: var(--sre-success, #22c55e);
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+}
+.sre-dot.off {
+  background: #555;
+  box-shadow: 0 0 0 3px rgba(120,120,120,0.12);
+}
+
+/* ============================================================
+   Settings config pages — shared layout (v2.6)
+   Used by AIConfig, LarkBotConfig, OIDCConfig, SMTPConfig.
+   ============================================================ */
+.sre-config-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: 'Geist', system-ui, sans-serif;
+}
+
+.sre-config-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: var(--sre-hairline);
+  gap: 16px;
+}
+.sre-config-header-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--sre-text-primary);
+}
+.sre-config-header-sub {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  margin: 0;
+  max-width: 600px;
+  line-height: 1.5;
+}
+.sre-config-header-sub code {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+}
+.sre-config-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sre-config-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--sre-radius-md);
+  font-size: 12px;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+}
+.sre-config-status[data-tone="success"] {
+  border-color: rgba(16,185,129,0.3);
+  background: rgba(16,185,129,0.06);
+}
+.sre-config-status[data-tone="error"] {
+  border-color: rgba(239,68,68,0.3);
+  background: rgba(239,68,68,0.06);
+}
+
+.sre-config-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sre-config-section {
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+  padding: 20px 24px;
+}
+.sre-config-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--sre-text-primary);
+  margin: 0 0 4px;
+}
+.sre-config-section-desc {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.sre-config-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.sre-config-form-grid .full-row {
+  grid-column: 1 / -1;
+}
+
+/* Compact form labels — settings pages use uppercase label style */
+.n-form-item-label {
+  padding: 0 0 4px 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  color: var(--sre-text-tertiary) !important;
+  text-transform: uppercase;
 }

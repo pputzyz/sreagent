@@ -1001,7 +1001,7 @@ onMounted(() => {
 <style scoped>
 .rules-page {
   max-width: 1400px;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
 }
 
 .rules-layout {

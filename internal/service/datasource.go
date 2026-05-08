@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
@@ -24,7 +26,11 @@ func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Log
 
 func (s *DataSourceService) Create(ctx context.Context, ds *model.DataSource) error {
 	// Check if name already exists
-	existing, _ := s.repo.GetByName(ctx, ds.Name)
+	existing, err := s.repo.GetByName(ctx, ds.Name)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to check datasource name", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrDuplicateName, fmt.Sprintf("datasource '%s' already exists", ds.Name))
 	}

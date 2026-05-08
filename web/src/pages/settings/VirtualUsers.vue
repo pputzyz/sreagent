@@ -231,7 +231,7 @@ onMounted(fetchList)
 </template>
 
 <style scoped>
-.vuser-mgmt { font-family: 'Geist', system-ui, sans-serif; }
+.vuser-mgmt { font-family: var(--sre-font-sans); }
 
 .page-header {
   display: flex; align-items: flex-start; justify-content: space-between;

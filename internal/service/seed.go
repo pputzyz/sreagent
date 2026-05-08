@@ -78,7 +78,10 @@ func (s *SeedService) seedDefaultMedia(ctx context.Context) error {
 	for i := range defaultMedias {
 		media := &defaultMedias[i]
 		// Check if already exists by listing and matching name
-		existing, _, _ := s.mediaRepo.List(ctx, 1, 1000)
+		existing, _, err := s.mediaRepo.List(ctx, 1, 1000)
+		if err != nil {
+			return err
+		}
 		found := false
 		for _, e := range existing {
 			if e.Name == media.Name {
@@ -129,7 +132,10 @@ func (s *SeedService) seedDefaultTemplates(ctx context.Context) error {
 	for i := range defaultTemplates {
 		tmpl := &defaultTemplates[i]
 		// Check if already exists by name
-		existing, _ := s.templateRepo.GetByName(ctx, tmpl.Name)
+		existing, err := s.templateRepo.GetByName(ctx, tmpl.Name)
+		if err != nil {
+			return err
+		}
 		if existing != nil {
 			s.logger.Debug("default template already exists, skipping", zap.String("name", tmpl.Name))
 			continue

@@ -26,8 +26,8 @@ const oidcLoginUrl = ref('')
 const oidcLoading = ref(false)
 
 const langOptions = [
-  { label: '简体中文', value: 'zh-CN' },
-  { label: 'English', value: 'en' },
+  { label: t('language.zh'), value: 'zh-CN' },
+  { label: t('language.en'), value: 'en' },
 ]
 
 function handleLangChange(val: string) {

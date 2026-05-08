@@ -383,7 +383,7 @@ onMounted(refresh)
 <style scoped>
 .dashboard {
   max-width: 1440px;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -400,7 +400,7 @@ onMounted(refresh)
 .dash-header__left { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dash-header__right { display: flex; align-items: center; gap: 8px; }
 .dash-title {
-  font-family: 'Geist', sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -433,7 +433,7 @@ onMounted(refresh)
 .kpi-value {
   color: var(--sre-text-primary);
   margin-bottom: 8px;
-  font-family: 'Geist', sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 32px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -494,7 +494,7 @@ onMounted(refresh)
 }
 .rule-row:hover { background: var(--sre-bg-hover, rgba(255,255,255,0.03)); }
 .rule-name {
-  font-family: 'Geist', sans-serif;
+  font-family: var(--sre-font-sans);
   font-size: 13px;
   color: var(--sre-text-primary);
   overflow: hidden;
@@ -514,7 +514,7 @@ onMounted(refresh)
   transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .rule-count {
-  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-family: var(--sre-font-mono);
   font-size: 14px;
   font-weight: 600;
   color: var(--sre-primary, #18a058);
@@ -554,7 +554,7 @@ onMounted(refresh)
   text-transform: capitalize;
 }
 .sev-num {
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--sre-font-mono);
   font-feature-settings: "tnum";
   font-weight: 600;
   color: var(--sre-text-primary);

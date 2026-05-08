@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -301,7 +302,11 @@ func (s *AlertEventService) ProcessWebhook(ctx context.Context, payload *model.A
 
 func (s *AlertEventService) processAlert(ctx context.Context, alert *model.AlertManagerAlert, payload *model.AlertManagerPayload) error {
 	// Try to find existing event by fingerprint
-	existing, _ := s.repo.GetByFingerprint(ctx, alert.Fingerprint)
+	existing, err := s.repo.GetByFingerprint(ctx, alert.Fingerprint)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Error("failed to get event by fingerprint", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 
 	if alert.Status == "resolved" {
 		if existing != nil && existing.Status != model.EventStatusClosed {

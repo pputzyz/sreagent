@@ -743,7 +743,11 @@ func (s *NotificationService) testWebhookChannel(_ context.Context, channel *mod
 		"source":  "SREAgent",
 		"message": "This is a test notification from SREAgent.",
 	}
-	bodyBytes, _ := json.Marshal(payload)
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		s.logger.Error("failed to marshal test notification payload", zap.Error(err))
+		return fmt.Errorf("marshal test payload: %w", err)
+	}
 
 	httpCli := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
 	req, err := http.NewRequest(cfg.Method, cfg.URL, bytes.NewReader(bodyBytes))

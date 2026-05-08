@@ -371,7 +371,7 @@ onMounted(fetchTeams)
 </template>
 
 <style scoped>
-.team-mgmt { font-family: 'Geist', system-ui, sans-serif; }
+.team-mgmt { font-family: var(--sre-font-sans); }
 
 .page-header {
   display: flex; align-items: flex-start; justify-content: space-between;
