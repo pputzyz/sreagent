@@ -4,6 +4,41 @@
 
 ---
 
+## [v2.5.0] - 2026-05-08
+
+### Changed — UI 重构 Phase 4（Settings 子页 + Login）
+
+10 个 settings 子页 + Login 全部对齐 FlashCat 设计语言。
+
+**Platform Config（4 个表单页统一模板）：**
+- `AIConfig.vue`：Provider + Behavior 两段卡片，新增 temperature/max_tokens/system_prompt 字段
+- `LarkBotConfig.vue`：App Credentials + Defaults 两段
+- `SMTPConfig.vue`：Server + Sender + Test Delivery 三段，新增 from_name
+- `OIDCConfig.vue`：Provider + Claim Mapping + Behavior 三段，新增 username_claim/email_claim
+
+共享模板：紧凑 header（18px 600 + 描述）+ 状态 banner（success/error tone）+ 段落卡片（hairline 边框）+ 2 列 form-grid + uppercase eyebrow labels + 内联 Test/Save 按钮
+
+**Organization Pages：**
+- `UserManagement.vue`：NDataTable → sre-row-card（avatar 圆形 + role chip 颜色映射 + 状态点 + last_login relTime）
+- `TeamManagement.vue`：NDataTable → 卡片网格（成员头像组叠层 + member count + incidents count）
+- `VirtualUsers.vue`：sre-row-card（type icon tile + type chip mono + truncate notify_target）
+- `BizGroupManagement.vue`：300px 自定义递归树 + 右侧详情面板（PARENT/PATH/CHILDREN/CREATED 元信息卡 + MEMBERS 列表）
+
+**Audit：**
+- `AuditLog.vue`：NDataTable → 竖向时间线（hairline rail + 8px 圆点按 action tone 着色 + mono 时间戳 + action chip + resource 跳转链接）
+
+**Login 重设计**：
+- "Mission Control" 双栏布局（60% brand / 40% form）
+- 品牌侧：Geist 800 -2px tracking 56px 标题 + gradient text-clip + 极细噪点 + 一处低饱和极光斑（左下）
+- 表单侧：mono uppercase eyebrow labels + stagger 浮现（60ms 增量）+ 主色按钮 hover ring + 警告 banner（默认密码提醒）
+- 拒绝紫渐变 / 卡通 illustration / 立体阴影；接受 hairline + 噪点 + 字体层次
+
+修复 6 处 TS 错误：AIConfig/OIDCConfig/SMTPConfig 新增字段类型断言。
+
+vue-tsc ✅
+
+---
+
 ## [v2.4.0] - 2026-05-08
 
 ### Changed — UI 重构 Phase 3（配置类页面 FlashCat 对齐）

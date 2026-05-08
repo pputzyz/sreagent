@@ -1,30 +1,44 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
-import type { TreeOption } from 'naive-ui'
+import { ref, shallowRef, reactive, computed, onMounted, defineComponent, h } from 'vue'
+import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { bizGroupApi } from '@/api'
 import type { User, BizGroup } from '@/types'
 import { kvArrayToRecord } from '@/utils/format'
-import { AddOutline } from '@vicons/ionicons5'
+import {
+  AddOutline,
+  FolderOutline,
+  DocumentOutline,
+  ChevronDownOutline,
+  ChevronForwardOutline,
+  PeopleOutline,
+  TrashOutline,
+  CreateOutline,
+} from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
-const props = defineProps<{
-  /** All users from the UserManagement tab for member selection */
-  allUsers: User[]
-}>()
+interface TreeNode {
+  id: number | string
+  name: string
+  fullPath: string
+  group: BizGroup | null
+  children: TreeNode[]
+}
+
+const props = defineProps<{ allUsers: User[] }>()
 
 const message = useMessage()
 const { t } = useI18n()
 
 const loading = ref(false)
-const list = ref<BizGroup[]>([])
-const selectedId = ref<number | null>(null)
-const selectedGroup = ref<BizGroup | null>(null)
+const list = shallowRef<BizGroup[]>([])
+const selected = ref<BizGroup | null>(null)
 const members = ref<any[]>([])
 const membersLoading = ref(false)
+const expanded = ref<Set<string | number>>(new Set())
+
 const showModal = ref(false)
 const modalTitle = ref('')
 const editingId = ref<number | null>(null)
@@ -49,65 +63,74 @@ const allUserOptions = computed(() =>
   props.allUsers.map(u => ({ label: u.display_name || u.username, value: u.id }))
 )
 
-/**
- * Convert a flat list of BizGroup (with "/" in name) into NTree options.
- * e.g. "DBA/MySQL" -> DBA > MySQL
- */
-function buildTree(groups: BizGroup[]): TreeOption[] {
-  const root: TreeOption[] = []
-  const nodeMap = new Map<string, TreeOption>()
-
-  const sorted = [...groups].sort((a, b) => a.name.localeCompare(b.name))
+/** Build hierarchical tree from flat list using "/" path notation. */
+const tree = computed<TreeNode[]>(() => {
+  const root: TreeNode[] = []
+  const map = new Map<string, TreeNode>()
+  const sorted = [...list.value].sort((a, b) => a.name.localeCompare(b.name))
 
   for (const g of sorted) {
     const parts = g.name.split('/')
-    let currentPath = ''
-    let parentChildren = root
+    let path = ''
+    let parentList = root
 
     for (let i = 0; i < parts.length; i++) {
-      currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i]
+      path = path ? `${path}/${parts[i]}` : parts[i]
       const isLeaf = i === parts.length - 1
+      let node = map.get(path)
 
-      if (isLeaf) {
-        const node: TreeOption = {
-          key: g.id,
-          label: parts[i],
-          children: undefined,
+      if (!node) {
+        node = {
+          id: isLeaf ? g.id : `__path__${path}`,
+          name: parts[i],
+          fullPath: path,
+          group: isLeaf ? g : null,
+          children: [],
         }
-        const existing = nodeMap.get(currentPath)
-        if (existing) {
-          existing.key = g.id
-        } else {
-          parentChildren.push(node)
-          nodeMap.set(currentPath, node)
-        }
-      } else {
-        if (!nodeMap.has(currentPath)) {
-          const intermediate: TreeOption = {
-            key: `__path__${currentPath}`,
-            label: parts[i],
-            children: [],
-          }
-          parentChildren.push(intermediate)
-          nodeMap.set(currentPath, intermediate)
-        }
-        const parent = nodeMap.get(currentPath)!
-        if (!parent.children) parent.children = []
-        parentChildren = parent.children
+        parentList.push(node)
+        map.set(path, node)
+      } else if (isLeaf) {
+        node.id = g.id
+        node.group = g
       }
+      parentList = node.children
     }
   }
-
   return root
-}
+})
 
-const treeOptions = computed(() => buildTree(list.value))
+const totalGroups = computed(() => list.value.length)
+const selectedDescendants = computed(() => {
+  if (!selected.value) return 0
+  const prefix = selected.value.name + '/'
+  return list.value.filter(g => g.name.startsWith(prefix)).length
+})
+const selectedParent = computed(() => {
+  if (!selected.value) return null
+  const idx = selected.value.name.lastIndexOf('/')
+  return idx > 0 ? selected.value.name.slice(0, idx) : null
+})
+
+function relTime(iso?: string): string {
+  if (!iso) return '—'
+  const d = Date.now() - new Date(iso).getTime()
+  if (d < 60_000) return 'just now'
+  if (d < 3600_000) return `${Math.floor(d / 60_000)}m ago`
+  if (d < 86_400_000) return `${Math.floor(d / 3600_000)}h ago`
+  if (d < 30 * 86_400_000) return `${Math.floor(d / 86_400_000)}d ago`
+  return new Date(iso).toLocaleDateString()
+}
 
 async function fetchList() {
   loading.value = true
   try {
     const { data } = await bizGroupApi.list({ page: 1, page_size: 500 })
     list.value = data.data.list || []
+    if (expanded.value.size === 0) {
+      const next = new Set<string | number>()
+      tree.value.forEach(n => next.add(n.fullPath))
+      expanded.value = next
+    }
   } catch (err: any) {
     message.error(err.message)
   } finally {
@@ -115,13 +138,24 @@ async function fetchList() {
   }
 }
 
-function handleSelect(keys: Array<string | number>) {
-  const key = keys[0]
-  if (typeof key === 'string' && key.startsWith('__path__')) return
-  selectedId.value = key as number
-  const group = list.value.find(g => g.id === key)
-  selectedGroup.value = group || null
-  if (group) fetchMembers(group.id)
+function toggleExpand(node: TreeNode, e: Event) {
+  e.stopPropagation()
+  const next = new Set(expanded.value)
+  if (next.has(node.fullPath)) next.delete(node.fullPath)
+  else next.add(node.fullPath)
+  expanded.value = next
+}
+
+function selectNode(node: TreeNode) {
+  if (!node.group) {
+    const next = new Set(expanded.value)
+    if (next.has(node.fullPath)) next.delete(node.fullPath)
+    else next.add(node.fullPath)
+    expanded.value = next
+    return
+  }
+  selected.value = node.group
+  fetchMembers(node.group.id)
 }
 
 async function fetchMembers(groupId: number) {
@@ -161,8 +195,8 @@ function openCreate() {
 }
 
 function openEdit() {
-  if (!selectedGroup.value) return
-  const g = selectedGroup.value
+  if (!selected.value) return
+  const g = selected.value
   editingId.value = g.id
   modalTitle.value = t('bizGroup.edit')
   Object.assign(form, {
@@ -195,7 +229,7 @@ async function handleSave() {
       message.success(t('bizGroup.created'))
     }
     showModal.value = false
-    fetchList()
+    await fetchList()
   } catch (err: any) {
     message.error(err.message)
   } finally {
@@ -204,14 +238,13 @@ async function handleSave() {
 }
 
 async function handleDelete() {
-  if (!selectedGroup.value) return
+  if (!selected.value) return
   try {
-    await bizGroupApi.delete(selectedGroup.value.id)
+    await bizGroupApi.delete(selected.value.id)
     message.success(t('bizGroup.deleted'))
-    selectedGroup.value = null
-    selectedId.value = null
+    selected.value = null
     members.value = []
-    fetchList()
+    await fetchList()
   } catch (err: any) {
     message.error(err.message)
   }
@@ -224,258 +257,606 @@ function openAddMember() {
 }
 
 async function handleAddMember() {
-  if (!selectedGroup.value || !selectedMemberUserId.value) return
+  if (!selected.value || !selectedMemberUserId.value) return
   try {
-    await bizGroupApi.addMember(selectedGroup.value.id, {
+    await bizGroupApi.addMember(selected.value.id, {
       user_id: selectedMemberUserId.value,
       role: selectedMemberRole.value,
     })
     message.success(t('settings.memberAdded'))
     showAddMemberModal.value = false
-    fetchMembers(selectedGroup.value.id)
+    fetchMembers(selected.value.id)
   } catch (err: any) {
     message.error(err.message)
   }
 }
 
 async function handleRemoveMember(userId: number) {
-  if (!selectedGroup.value) return
+  if (!selected.value) return
   try {
-    await bizGroupApi.removeMember(selectedGroup.value.id, userId)
+    await bizGroupApi.removeMember(selected.value.id, userId)
     message.success(t('settings.memberRemoved'))
-    fetchMembers(selectedGroup.value.id)
+    fetchMembers(selected.value.id)
   } catch (err: any) {
     message.error(err.message)
   }
 }
 
-onMounted(() => {
-  fetchList()
+/** Recursive tree-node renderer. Defined inline to keep this a single SFC. */
+const TreeNodeRow: any = defineComponent({
+  name: 'TreeNodeRow',
+  props: {
+    node: { type: Object as () => TreeNode, required: true },
+    depth: { type: Number, required: true },
+    expandedSet: { type: Object as () => Set<string | number>, required: true },
+    selectedId: { type: [Number, String, null] as any, default: null },
+    onPick: { type: Function, required: true },
+    onToggleNode: { type: Function, required: true },
+  },
+  setup(p) {
+    return () => {
+      const node = p.node
+      const hasChildren = node.children && node.children.length > 0
+      const isOpen = p.expandedSet.has(node.fullPath)
+      const isActive = !!node.group && p.selectedId === node.group.id
+      const isPathOnly = !node.group
+
+      return h('div', { class: 'tn-wrap' }, [
+        h(
+          'div',
+          {
+            class: ['tn-row', { 'tn-active': isActive, 'tn-path': isPathOnly }],
+            style: { paddingLeft: `${p.depth * 14 + 8}px` },
+            onClick: () => p.onPick(node),
+          },
+          [
+            h(
+              'span',
+              {
+                class: ['tn-caret', { 'tn-caret-empty': !hasChildren }],
+                onClick: (e: Event) => hasChildren && p.onToggleNode(node, e),
+              },
+              hasChildren
+                ? [h(NIcon, { size: 11, component: isOpen ? ChevronDownOutline : ChevronForwardOutline })]
+                : []
+            ),
+            h(NIcon, {
+              class: 'tn-icon',
+              size: 13,
+              component: hasChildren ? FolderOutline : DocumentOutline,
+            }),
+            h('span', { class: 'tn-name' }, node.name),
+          ]
+        ),
+        hasChildren && isOpen
+          ? h(
+              'div',
+              { class: 'tn-children' },
+              node.children.map((c: TreeNode) =>
+                h(TreeNodeRow, {
+                  node: c,
+                  depth: p.depth + 1,
+                  expandedSet: p.expandedSet,
+                  selectedId: p.selectedId,
+                  onPick: p.onPick,
+                  onToggleNode: p.onToggleNode,
+                })
+              )
+            )
+          : null,
+      ])
+    }
+  },
 })
+
+onMounted(fetchList)
 </script>
 
 <template>
-  <div class="biz-group-layout">
-    <!-- Left panel: tree -->
-    <div class="biz-group-left">
-      <div class="tab-header">
-        <n-button type="primary" size="small" @click="openCreate">
-          <template #icon><n-icon :component="AddOutline" /></template>
-          {{ t('bizGroup.create') }}
-        </n-button>
+  <div class="bg-page sre-stagger">
+    <header class="page-header">
+      <div>
+        <h2 class="page-title">Business Groups</h2>
+        <p class="page-subtitle">
+          Hierarchical organization for permission scope and notification routing
+          <span class="sre-meta-divider" />
+          <span class="tnum">{{ totalGroups }}</span> groups
+        </p>
       </div>
-      <n-spin :show="loading">
-        <n-tree
-          :data="treeOptions"
-          :selected-keys="selectedId ? [selectedId] : []"
-          selectable
-          block-line
-          @update:selected-keys="handleSelect"
-          default-expand-all
-          style="min-height: 200px"
-        />
-        <n-empty v-if="!loading && list.length === 0" :description="t('bizGroup.noData')" style="padding: 40px 0" />
-      </n-spin>
-    </div>
+      <NButton type="primary" size="small" @click="openCreate">
+        <template #icon><NIcon :component="AddOutline" /></template>
+        New Group
+      </NButton>
+    </header>
 
-    <!-- Right panel: selected group detail -->
-    <div class="biz-group-right">
-      <template v-if="selectedGroup">
-        <div class="biz-group-detail-header">
-          <h3 style="margin: 0; font-size: 18px; font-weight: 600">{{ selectedGroup.name }}</h3>
-          <n-space size="small">
-            <n-button size="small" type="info" quaternary @click="openEdit">{{ t('common.edit') }}</n-button>
-            <n-popconfirm @positive-click="handleDelete">
-              <template #trigger>
-                <n-button size="small" type="error" quaternary>{{ t('common.delete') }}</n-button>
-              </template>
-              {{ t('bizGroup.deleteConfirm') }}
-            </n-popconfirm>
-          </n-space>
+    <div class="bg-layout">
+      <!-- Tree -->
+      <aside class="bg-tree sre-lift">
+        <div class="bg-tree-head">
+          <span class="sre-label-eyebrow">Hierarchy</span>
         </div>
-
-        <n-descriptions bordered :column="1" label-placement="left" size="small" style="margin-bottom: 16px">
-          <n-descriptions-item :label="t('common.name')">{{ selectedGroup.name }}</n-descriptions-item>
-          <n-descriptions-item :label="t('common.description')">{{ selectedGroup.description || '-' }}</n-descriptions-item>
-          <n-descriptions-item :label="t('alert.labels')">
-            <n-space size="small" v-if="Object.keys(selectedGroup.labels || {}).length > 0">
-              <n-tag v-for="(v, k) in selectedGroup.labels" :key="k" size="small" :bordered="false">{{ k }}={{ v }}</n-tag>
-            </n-space>
-            <span v-else style="opacity: 0.3">-</span>
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('bizGroup.matchLabels')">
-            <n-space size="small" v-if="Object.keys(selectedGroup.match_labels || {}).length > 0">
-              <n-tag v-for="(v, k) in selectedGroup.match_labels" :key="k" size="small" type="info" :bordered="false">{{ k }}{{ v.startsWith('!=') || v.startsWith('=~') || v.startsWith('!~') ? v : '=' + v }}</n-tag>
-            </n-space>
-            <span v-else style="opacity: 0.3">-</span>
-          </n-descriptions-item>
-        </n-descriptions>
-
-        <div class="biz-members-header">
-          <h4 style="margin: 0; font-size: 15px; font-weight: 500">{{ t('settings.members') }}</h4>
-          <n-button size="small" type="primary" @click="openAddMember">
-            <template #icon><n-icon :component="AddOutline" /></template>
-            {{ t('bizGroup.addMember') }}
-          </n-button>
-        </div>
-
-        <n-spin :show="membersLoading">
-          <div class="members-list">
-            <div v-for="member in members" :key="member.id" class="member-item">
-              <n-avatar :size="28" round>{{ (member.display_name || member.username).charAt(0).toUpperCase() }}</n-avatar>
-              <div class="member-info">
-                <div class="member-name">{{ member.display_name || member.username }}</div>
-                <div class="member-meta">{{ member.email || member.username }}</div>
-              </div>
-              <n-tag :type="member.role === 'admin' ? 'warning' : 'default'" size="small">{{ member.role || 'member' }}</n-tag>
-              <n-popconfirm @positive-click="handleRemoveMember(member.id)">
-                <template #trigger>
-                  <n-button size="tiny" quaternary type="error">{{ t('common.remove') }}</n-button>
-                </template>
-                {{ t('settings.removeMemberConfirm') }}
-              </n-popconfirm>
-            </div>
-            <n-empty v-if="!membersLoading && members.length === 0" :description="t('settings.noMembers')" style="padding: 20px 0" />
+        <NSpin :show="loading">
+          <div v-if="tree.length === 0 && !loading" class="bg-tree-empty">
+            <NIcon :component="FolderOutline" :size="22" />
+            <span>{{ t('bizGroup.noData') }}</span>
           </div>
-        </n-spin>
-      </template>
+          <div v-else class="bg-tree-body">
+            <TreeNodeRow
+              v-for="node in tree"
+              :key="node.fullPath"
+              :node="node"
+              :depth="0"
+              :expanded-set="expanded"
+              :selected-id="selected?.id ?? null"
+              :on-pick="selectNode"
+              :on-toggle-node="toggleExpand"
+            />
+          </div>
+        </NSpin>
+      </aside>
 
-      <n-empty v-else :description="t('bizGroup.selectGroup')" style="padding: 80px 0" />
+      <!-- Detail -->
+      <section class="bg-detail">
+        <div v-if="!selected" class="bg-empty sre-lift">
+          <NIcon :component="FolderOutline" :size="36" />
+          <p class="bg-empty-title">{{ t('bizGroup.selectGroup') }}</p>
+          <p class="bg-empty-sub">Pick a group from the tree to manage its members and metadata.</p>
+        </div>
+
+        <template v-else>
+          <div class="bg-card sre-lift">
+            <div class="bg-card-head">
+              <div class="bg-title-block">
+                <code class="bg-path tnum">{{ selected.name }}</code>
+                <h3 class="bg-name">{{ selected.name.split('/').pop() }}</h3>
+                <p class="bg-desc">{{ selected.description || '—' }}</p>
+              </div>
+              <div class="bg-actions">
+                <NButton size="small" quaternary @click="openEdit">
+                  <template #icon><NIcon :component="CreateOutline" /></template>
+                  {{ t('common.edit') }}
+                </NButton>
+                <NPopconfirm @positive-click="handleDelete">
+                  <template #trigger>
+                    <NButton size="small" quaternary type="error">
+                      <template #icon><NIcon :component="TrashOutline" /></template>
+                      {{ t('common.delete') }}
+                    </NButton>
+                  </template>
+                  {{ t('bizGroup.deleteConfirm') }}
+                </NPopconfirm>
+              </div>
+            </div>
+
+            <dl class="bg-meta">
+              <div class="bg-meta-cell">
+                <dt class="sre-label-eyebrow">Parent</dt>
+                <dd>{{ selectedParent || '—' }}</dd>
+              </div>
+              <div class="bg-meta-cell">
+                <dt class="sre-label-eyebrow">Path</dt>
+                <dd class="mono">/{{ selected.name }}</dd>
+              </div>
+              <div class="bg-meta-cell">
+                <dt class="sre-label-eyebrow">Children</dt>
+                <dd class="tnum">{{ selectedDescendants }}</dd>
+              </div>
+              <div class="bg-meta-cell">
+                <dt class="sre-label-eyebrow">Created</dt>
+                <dd>{{ relTime(selected.created_at) }}</dd>
+              </div>
+            </dl>
+
+            <div
+              v-if="Object.keys(selected.labels || {}).length || Object.keys(selected.match_labels || {}).length"
+              class="bg-tags"
+            >
+              <div v-if="Object.keys(selected.labels || {}).length" class="bg-tags-row">
+                <span class="sre-label-eyebrow">Labels</span>
+                <span v-for="(v, k) in selected.labels" :key="`l-${k}`" class="bg-chip">{{ k }}={{ v }}</span>
+              </div>
+              <div v-if="Object.keys(selected.match_labels || {}).length" class="bg-tags-row">
+                <span class="sre-label-eyebrow">Match</span>
+                <span v-for="(v, k) in selected.match_labels" :key="`m-${k}`" class="bg-chip bg-chip-info">
+                  {{ k }}{{ (v.startsWith('!=') || v.startsWith('=~') || v.startsWith('!~')) ? v : '=' + v }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-card sre-lift">
+            <div class="bg-section-head">
+              <div class="bg-section-title">
+                <NIcon :component="PeopleOutline" :size="14" />
+                <span class="sre-label-eyebrow">Members</span>
+                <span class="bg-count tnum">{{ members.length }}</span>
+              </div>
+              <NButton size="small" type="primary" tertiary @click="openAddMember">
+                <template #icon><NIcon :component="AddOutline" /></template>
+                {{ t('bizGroup.addMember') }}
+              </NButton>
+            </div>
+
+            <NSpin :show="membersLoading">
+              <div v-if="members.length === 0 && !membersLoading" class="bg-members-empty">
+                <span>{{ t('settings.noMembers') }}</span>
+              </div>
+              <ul v-else class="bg-members">
+                <li v-for="m in members" :key="m.id" class="sre-row-card bg-member">
+                  <NAvatar :size="28" round>
+                    {{ (m.display_name || m.username).charAt(0).toUpperCase() }}
+                  </NAvatar>
+                  <div class="bg-member-info">
+                    <div class="bg-member-name">{{ m.display_name || m.username }}</div>
+                    <div class="bg-member-meta">{{ m.email || m.username }}</div>
+                  </div>
+                  <span class="bg-role" :class="m.role === 'admin' ? 'bg-role-admin' : 'bg-role-member'">
+                    <span class="sre-dot" />
+                    {{ m.role || 'member' }}
+                  </span>
+                  <NPopconfirm @positive-click="handleRemoveMember(m.id)">
+                    <template #trigger>
+                      <NButton size="tiny" quaternary type="error">{{ t('common.remove') }}</NButton>
+                    </template>
+                    {{ t('settings.removeMemberConfirm') }}
+                  </NPopconfirm>
+                </li>
+              </ul>
+            </NSpin>
+          </div>
+        </template>
+      </section>
     </div>
 
-    <!-- Business Group Create/Edit Modal -->
-    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 520px" :bordered="false">
-      <n-form label-placement="top">
-        <n-form-item :label="t('common.name')" required>
-          <n-input v-model:value="form.name" placeholder="e.g. DBA/MySQL" />
+    <!-- Create/Edit modal -->
+    <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 520px" :bordered="false">
+      <NForm label-placement="top">
+        <NFormItem :label="t('common.name')" required>
+          <NInput v-model:value="form.name" placeholder="e.g. infrastructure/database" />
           <template #feedback>
-            <span style="font-size: 11px; opacity: 0.45">{{ t('bizGroup.nameHint') }}</span>
+            <span class="bg-hint">{{ t('bizGroup.nameHint') }}</span>
           </template>
-        </n-form-item>
-
-        <n-form-item :label="t('common.description')">
-          <n-input v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
-        </n-form-item>
-
-        <n-form-item :label="t('settings.labels')">
+        </NFormItem>
+        <NFormItem :label="t('common.description')">
+          <NInput v-model:value="form.description" type="textarea" :rows="2" />
+        </NFormItem>
+        <NFormItem :label="t('settings.labels')">
           <KVEditor v-model="form.labels" :add-label="t('settings.addTeamLabel')" />
-        </n-form-item>
-
-        <n-form-item :label="t('bizGroup.matchLabels')">
+        </NFormItem>
+        <NFormItem :label="t('bizGroup.matchLabels')">
           <template #feedback>
-            <span style="font-size: 11px; opacity: 0.45">{{ t('bizGroup.matchLabelsDesc') }}</span>
+            <span class="bg-hint">{{ t('bizGroup.matchLabelsDesc') }}</span>
           </template>
           <LabelMatcherEditor v-model:modelValue="form.match_labels" :add-label="t('bizGroup.addMatchLabel')" />
-        </n-form-item>
-      </n-form>
-
+        </NFormItem>
+      </NForm>
       <template #action>
-        <n-space justify="end">
-          <n-button @click="showModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :loading="saving" @click="handleSave">
+        <NSpace justify="end">
+          <NButton @click="showModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="saving" @click="handleSave">
             {{ editingId ? t('common.update') : t('common.create') }}
-          </n-button>
-        </n-space>
+          </NButton>
+        </NSpace>
       </template>
-    </n-modal>
+    </NModal>
 
-    <!-- Add Member Modal -->
-    <n-modal v-model:show="showAddMemberModal" preset="card" :title="t('bizGroup.addMember')" style="width: 420px" :bordered="false">
-      <n-form label-placement="top">
-        <n-form-item :label="t('settings.user')" required>
-          <n-select
+    <!-- Add member modal -->
+    <NModal
+      v-model:show="showAddMemberModal"
+      preset="card"
+      :title="t('bizGroup.addMember')"
+      style="width: 420px"
+      :bordered="false"
+    >
+      <NForm label-placement="top">
+        <NFormItem :label="t('settings.user')" required>
+          <NSelect
             v-model:value="selectedMemberUserId"
             :options="allUserOptions"
             :placeholder="t('settings.selectUser')"
             filterable
           />
-        </n-form-item>
-        <n-form-item :label="t('settings.role')">
-          <n-select
-            v-model:value="selectedMemberRole"
-            :options="memberRoleOptions"
-          />
-        </n-form-item>
-      </n-form>
-
+        </NFormItem>
+        <NFormItem :label="t('settings.role')">
+          <NSelect v-model:value="selectedMemberRole" :options="memberRoleOptions" />
+        </NFormItem>
+      </NForm>
       <template #action>
-        <n-space justify="end">
-          <n-button @click="showAddMemberModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :disabled="!selectedMemberUserId" @click="handleAddMember">
+        <NSpace justify="end">
+          <NButton @click="showAddMemberModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :disabled="!selectedMemberUserId" @click="handleAddMember">
             {{ t('common.add') }}
-          </n-button>
-        </n-space>
+          </NButton>
+        </NSpace>
       </template>
-    </n-modal>
+    </NModal>
   </div>
 </template>
 
 <style scoped>
-.tab-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
-.biz-group-layout {
-  display: flex;
-  gap: 24px;
-  min-height: 400px;
-}
-
-.biz-group-left {
-  flex: 0 0 33%;
-  max-width: 33%;
-  border-right: 1px solid rgba(128, 128, 128, 0.12);
-  padding-right: 20px;
-}
-
-.biz-group-right {
-  flex: 1;
-  min-width: 0;
-}
-
-.biz-group-detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.biz-members-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.members-list {
+.bg-page {
+  font-family: var(--sre-font-sans, 'Geist', system-ui, sans-serif);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 18px;
 }
 
-.member-item {
+/* Header */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: var(--sre-hairline);
+}
+.page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-family: var(--sre-font-sans, 'Geist');
+}
+.page-subtitle {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.5));
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: rgba(128, 128, 128, 0.06);
-  border-radius: 8px;
+  flex-wrap: wrap;
 }
 
-.member-info {
+/* Layout */
+.bg-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* Tree */
+.bg-tree {
+  background: var(--sre-bg-card, rgba(255, 255, 255, 0.02));
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md, 10px);
+  padding: 14px 12px;
+  max-height: 70vh;
+  overflow-y: auto;
+  position: sticky;
+  top: 12px;
+}
+.bg-tree-head {
+  padding: 0 4px 10px;
+  border-bottom: var(--sre-hairline);
+  margin-bottom: 8px;
+}
+.bg-tree-body {
+  display: flex;
+  flex-direction: column;
+}
+.bg-tree-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  font-size: 12.5px;
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.4));
+}
+:deep(.tn-wrap) { display: flex; flex-direction: column; }
+:deep(.tn-row) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 0;
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 13px;
+  user-select: none;
+  transition: background 120ms ease, color 120ms ease;
+  line-height: 1.3;
+}
+:deep(.tn-row:hover) { background: rgba(255, 255, 255, 0.04); }
+:deep(.tn-active) {
+  background: var(--sre-primary-soft, rgba(99, 102, 241, 0.12)) !important;
+  color: var(--sre-primary, #818cf8);
+}
+:deep(.tn-active .tn-icon) { color: var(--sre-primary, #818cf8); }
+:deep(.tn-path) { color: var(--sre-text-muted, rgba(255, 255, 255, 0.6)); }
+:deep(.tn-caret) {
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.45));
+  flex-shrink: 0;
+}
+:deep(.tn-caret-empty) { visibility: hidden; }
+:deep(.tn-icon) { opacity: 0.65; flex-shrink: 0; }
+:deep(.tn-name) {
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--sre-font-sans, 'Geist');
+}
+
+/* Detail */
+.bg-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   min-width: 0;
 }
+.bg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 80px 20px;
+  background: var(--sre-bg-card, rgba(255, 255, 255, 0.02));
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md, 10px);
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.45));
+}
+.bg-empty-title { margin: 0; font-size: 14px; font-weight: 500; }
+.bg-empty-sub { margin: 0; font-size: 12px; opacity: 0.7; }
 
-.member-name {
-  font-size: 14px;
-  font-weight: 500;
+.bg-card {
+  background: var(--sre-bg-card, rgba(255, 255, 255, 0.02));
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md, 10px);
+  padding: 18px 20px;
 }
 
-.member-meta {
+.bg-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.bg-title-block { min-width: 0; flex: 1; }
+.bg-path {
   font-size: 11px;
-  opacity: 0.4;
+  font-family: var(--sre-font-mono, ui-monospace, 'SF Mono', monospace);
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.5));
+  letter-spacing: 0.02em;
+}
+.bg-name {
+  margin: 4px 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.bg-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.55));
+  line-height: 1.5;
+}
+.bg-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.bg-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px 16px;
+  margin: 0 0 14px;
+  padding: 14px 0;
+  border-top: var(--sre-hairline);
+  border-bottom: var(--sre-hairline);
+}
+.bg-meta-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bg-meta-cell dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bg-meta-cell dd.mono {
+  font-family: var(--sre-font-mono, ui-monospace, 'SF Mono', monospace);
+  font-size: 12px;
+}
+
+.bg-tags { display: flex; flex-direction: column; gap: 8px; }
+.bg-tags-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bg-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: var(--sre-font-mono, ui-monospace, 'SF Mono', monospace);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: var(--sre-hairline);
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.7));
+}
+.bg-chip-info {
+  background: var(--sre-primary-soft, rgba(99, 102, 241, 0.1));
+  color: var(--sre-primary, #818cf8);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+/* Members */
+.bg-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.bg-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.55));
+}
+.bg-count {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sre-text, rgba(255, 255, 255, 0.85));
+}
+.bg-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bg-member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+.bg-member-info { flex: 1; min-width: 0; }
+.bg-member-name { font-size: 13.5px; font-weight: 500; line-height: 1.2; }
+.bg-member-meta {
+  font-size: 11.5px;
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.45));
+  margin-top: 2px;
+  font-family: var(--sre-font-mono, ui-monospace, monospace);
+}
+.bg-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: capitalize;
+  border: var(--sre-hairline);
+}
+.bg-role-admin {
+  background: rgba(245, 158, 11, 0.08);
+  color: rgb(251, 191, 36);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+.bg-role-admin .sre-dot { background: rgb(251, 191, 36); }
+.bg-role-member {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.6));
+}
+.bg-role-member .sre-dot { background: rgba(255, 255, 255, 0.4); }
+.bg-members-empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--sre-text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.bg-hint { font-size: 11px; opacity: 0.5; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .bg-layout { grid-template-columns: 1fr; }
+  .bg-tree { position: static; max-height: 320px; }
 }
 </style>
