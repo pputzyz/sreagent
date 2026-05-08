@@ -60,27 +60,27 @@ const canViewAll = computed(
 )
 
 const severityOptions = [
-  { label: 'P0', value: 'p0' },
-  { label: 'P1', value: 'p1' },
-  { label: 'P2', value: 'p2' },
-  { label: 'P3', value: 'p3' },
-  { label: 'P4', value: 'p4' },
-  { label: 'Critical', value: 'critical' },
-  { label: 'Warning', value: 'warning' },
-  { label: 'Info', value: 'info' },
+  { label: () => t('alert.p0'), value: 'p0' },
+  { label: () => t('alert.p1'), value: 'p1' },
+  { label: () => t('alert.p2'), value: 'p2' },
+  { label: () => t('alert.p3'), value: 'p3' },
+  { label: () => t('alert.p4'), value: 'p4' },
+  { label: () => t('alert.critical'), value: 'critical' },
+  { label: () => t('alert.warning'), value: 'warning' },
+  { label: () => t('alert.info'), value: 'info' },
 ]
 
 const timePresetOptions = [
-  { label: '1h', value: '1h' },
-  { label: '6h', value: '6h' },
-  { label: '24h', value: '24h' },
-  { label: '7d', value: '7d' },
-  { label: '30d', value: '30d' },
-  { label: t('alert.custom') || 'Custom', value: 'custom' },
+  { label: () => t('alert.last1h'), value: '1h' },
+  { label: () => t('alert.last6h'), value: '6h' },
+  { label: () => t('alert.last24h'), value: '24h' },
+  { label: () => t('alert.last7d'), value: '7d' },
+  { label: () => t('alert.last30d'), value: '30d' },
+  { label: () => t('alert.custom'), value: 'custom' },
 ]
 
 const refreshOptions = [
-  { label: t('alert.refreshOff') || 'Off', value: 0 },
+  { label: () => t('common.off'), value: 0 },
   { label: '30s', value: 30 },
   { label: '60s', value: 60 },
   { label: '5min', value: 300 },
@@ -409,15 +409,15 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     <!-- Header -->
     <header class="ae-header">
       <div>
-        <h1 class="ae-title">Active Alerts</h1>
-        <p class="ae-subtitle">Live alerts firing across all rules</p>
+        <h1 class="ae-title">{{ t('alert.events') || 'Active Alerts' }}</h1>
+        <p class="ae-subtitle">{{ t('alert.eventsSubtitle') || 'Live alerts firing across all rules' }}</p>
       </div>
       <div class="ae-header-actions">
         <NSelect
           :value="refreshInterval"
           :options="refreshOptions"
           size="small"
-          style="width: 110px"
+          class="ae-filter-sm"
           @update:value="(v: number) => { refreshInterval = v; applyAutoRefresh() }"
         />
         <NButton circle quaternary size="small" :loading="loading" @click="fetchEvents">
@@ -438,10 +438,10 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           size="small"
           @update:value="(v: StatusTab) => { statusTab = v; refilter() }"
         >
-          <NRadioButton value="all">{{ t('common.all') || '全部' }}</NRadioButton>
-          <NRadioButton value="firing">Firing</NRadioButton>
-          <NRadioButton value="acked">Acked</NRadioButton>
-          <NRadioButton value="resolved">Resolved</NRadioButton>
+          <NRadioButton value="all">{{ t('common.all') }}</NRadioButton>
+          <NRadioButton value="firing">{{ t('alert.firing') }}</NRadioButton>
+          <NRadioButton value="acked">{{ t('alert.acknowledged') }}</NRadioButton>
+          <NRadioButton value="resolved">{{ t('alert.resolved') }}</NRadioButton>
         </NRadioGroup>
 
         <div v-if="canViewAll" class="ae-view-mode">
@@ -462,8 +462,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           v-model:value="search"
           size="small"
           clearable
-          placeholder="Search alert name"
-          style="width: 240px"
+          :placeholder="t('alert.alertNameSearch') || 'Search alert name'"
+          class="ae-filter-search"
           @update:value="refilter"
         />
         <NSelect
@@ -471,8 +471,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           :options="severityOptions"
           size="small"
           clearable
-          placeholder="Severity"
-          style="width: 130px"
+          :placeholder="t('alert.severity') || 'Severity'"
+          class="ae-filter-sev"
           @update:value="refilter"
         />
         <NSelect
@@ -481,23 +481,23 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           size="small"
           clearable
           filterable
-          placeholder="Rule"
-          style="width: 200px"
+          :placeholder="t('alert.rule') || 'Rule'"
+          class="ae-filter-rule"
           @update:value="refilter"
         />
         <NInput
           v-model:value="tagFilter"
           size="small"
           clearable
-          placeholder="key=value"
-          style="width: 180px"
+          :placeholder="t('alert.filterPlaceholder')"
+          class="ae-filter-tag"
           @update:value="refilter"
         />
         <NSelect
           v-model:value="timePreset"
           :options="timePresetOptions"
           size="small"
-          style="width: 110px"
+          class="ae-filter-sm"
           @update:value="refilter"
         />
         <NDatePicker
@@ -524,7 +524,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         <NButton size="small" type="warning" ghost @click="batchSilence">
           {{ t('alert.silence') || 'Silence' }}
         </NButton>
-        <div style="flex: 1" />
+        <div class="ae-spacer" />
         <NButton circle quaternary size="small" @click="clearSelection">
           <template #icon><NIcon :component="CloseOutline" /></template>
         </NButton>
@@ -715,6 +715,12 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 .ae-filter-row--inputs {
   padding-top: 4px;
 }
+.ae-filter-sm { width: 110px; }
+.ae-filter-sev { width: 130px; }
+.ae-filter-rule { width: 200px; }
+.ae-filter-tag { width: 180px; }
+.ae-filter-search { width: 240px; }
+.ae-spacer { flex: 1; }
 .ae-view-mode {
   margin-left: auto;
 }
@@ -728,7 +734,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
   border-radius: 8px;
   padding: 10px 16px;
   margin-bottom: 12px;
-  border: 1px solid color-mix(in srgb, var(--sre-primary) 20%, transparent);
+  border: var(--sre-hairline);
 }
 .ae-selection-count {
   font-size: 13px;
@@ -895,32 +901,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
   background: var(--sre-text-tertiary);
 }
 :deep(.sre-dot[data-status='silenced']) {
-  background: #a855f7;
-}
-
-/* ===== Empty state ===== */
-.ae-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 0;
-  gap: 8px;
-}
-.ae-empty-icon {
-  color: var(--sre-primary);
-  opacity: 0.7;
-  margin-bottom: 4px;
-}
-.ae-empty-title {
-  font-family: var(--sre-font-sans);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--sre-text-primary);
-}
-.ae-empty-sub {
-  font-size: 13px;
-  color: var(--sre-text-secondary);
+  background: var(--sre-info);
 }
 
 /* ===== Pagination ===== */

@@ -4,7 +4,29 @@
 
 ---
 
-## [v2.6.1] - 2026-05-09
+## [v2.6.2] - 2026-05-09
+
+### Fixed — P4 全站质量修复完成
+
+**P4 - incidents 模块 (FlashCat 9/10)：**
+- `incidents/Index.vue`: 移除 3 处硬编码 CSS fallback 颜色，添加 `font-family`，i18n-ify `durationText()`，2 处 `var(--sre-hairline)` 替换 `1px solid`，添加 i18n 表单 placeholder
+- `incidents/Detail.vue`: 2 处 `n-empty` → `EmptyState` 组件，`.incident-id` 添加 monospace 字体，修复硬编码 "by" 使用 i18n，MdEditor language/theme 改为计算属性，初始加载添加 `LoadingSkeleton`，timeline action 映射到 i18n 标签
+- 提取 3 个子组件：`SnoozeModal.vue` / `MergeModal.vue` / `ReassignModal.vue`
+
+**P4 - alerts 模块 (FlashCat 9/10)：**
+- `events/Index.vue`: i18n-ify severityOptions/timePresetOptions/refreshOptions/NRadioButton/placeholder，修复 color-mix 边框，移除死 CSS
+- `events/Detail.vue`: 11 处硬编码 `rgba()` 替换为 `var(--sre-*)` 令牌，`n-spin` → `LoadingSkeleton`，移除非法 `font-feature-settings`
+- `mute/Index.vue`: i18n-ify statusText()/dayMap/typeOptions 及全部模板字符串，添加 font-family
+- `inhibition/Index.vue`: i18n-ify status 标签/relTime/eyebrow labels/footer 字符串，添加 font-family
+- `history/Index.vue`: 全 i18n（11 处），`NEmpty` → `EmptyState`，`NSpin` → `LoadingSkeleton`，4 处 inline style → CSS class
+
+**P4 - 共享组件修复：**
+- `LoadingSkeleton.vue`: `rgba()` 替换为 `var(--sre-overlay-subtle)`
+- `EmptyState.vue`: 4 处硬编码 `rgba()` 边框替换为 `var(--sre-*-ring/soft)` 令牌
+- `global.css`: 新增 `--sre-overlay-subtle` / `--sre-bg-subtle` 令牌（dark + light）
+
+**i18n 新增：**
+- `zh-CN.ts` / `en.ts`: 新增 ~54 个 key（incident 14 + alert 20 + mute 12 + inhibition 8）
 
 ### Fixed — 全站质量修复（P0-P3）
 

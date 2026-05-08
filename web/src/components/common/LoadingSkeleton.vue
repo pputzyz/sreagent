@@ -61,7 +61,7 @@ withDefaults(defineProps<{
   background: linear-gradient(
     90deg,
     var(--sre-bg-elevated) 0%,
-    rgba(255,255,255,0.04) 50%,
+    var(--sre-overlay-subtle) 50%,
     var(--sre-bg-elevated) 100%
   );
   background-size: 200% 100%;

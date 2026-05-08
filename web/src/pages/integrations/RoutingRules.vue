@@ -8,7 +8,8 @@ import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NSpace, NTag, NPopconfirm, NSwitch } from 'naive-ui'
 import { channelV2Api, routingRuleApi } from '@/api'
 import type { RoutingRule, Channel } from '@/types'
-import { AddOutline, TrashOutline, CreateOutline, ArrowUpOutline, ArrowDownOutline } from '@vicons/ionicons5'
+import { AddOutline, TrashOutline, CreateOutline, ArrowUpOutline, ArrowDownOutline, GitNetworkOutline } from '@vicons/ionicons5'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const props = defineProps<{ integrationId: number }>()
 const message = useMessage()
@@ -218,9 +219,16 @@ onMounted(load)
     </div>
 
     <n-spin :show="loading">
-      <n-empty v-if="!loading && rules.length === 0" :description="t('routingRule.noRules')" style="padding:32px 0" />
+      <EmptyState
+        v-if="!loading && rules.length === 0"
+        :icon="GitNetworkOutline"
+        :title="t('routingRule.noRules')"
+        :description="t('routingRule.description')"
+        :primary-text="t('routingRule.addRule')"
+        @primary="openCreate"
+      />
       <n-data-table
-        v-else
+        v-else-if="rules.length > 0"
         :columns="columns"
         :data="rules"
         :row-key="(row: RoutingRule) => row.id"
@@ -233,8 +241,8 @@ onMounted(load)
       v-model:show="showModal"
       :title="editingId ? t('routingRule.editRule') : t('routingRule.createRule')"
       preset="card"
-      style="width: 520px"
       :bordered="false"
+      class="rr-modal"
     >
       <n-form label-placement="top" size="small">
         <n-form-item :label="t('routingRule.targetChannelLabel')" required>
@@ -246,7 +254,7 @@ onMounted(load)
           />
         </n-form-item>
         <n-form-item :label="t('routingRule.priorityLabel')">
-          <n-input-number v-model:value="form.priority" :min="0" :max="9999" style="width:100%" />
+          <n-input-number v-model:value="form.priority" :min="0" :max="9999" class="rr-input-full" />
         </n-form-item>
         <n-form-item :label="t('routingRule.conditionsLabel')">
           <n-input
@@ -254,10 +262,10 @@ onMounted(load)
             type="textarea"
             :rows="4"
             :placeholder="t('routingRule.conditionsPlaceholder')"
-            style="font-family:monospace;font-size:12px"
+            class="rr-conditions-input"
           />
           <template #feedback>
-            <span style="font-size:11px;color:var(--sre-text-secondary)">
+            <span class="rr-conditions-hint">
               {{ t('routingRule.conditionsHint') }}
             </span>
           </template>
@@ -294,4 +302,9 @@ onMounted(load)
   line-height: 1.6;
   max-width: 600px;
 }
+
+.rr-modal { width: 520px; }
+.rr-input-full { width: 100%; }
+.rr-conditions-input { font-family: var(--sre-font-mono, monospace); font-size: 12px; }
+.rr-conditions-hint { font-size: 11px; color: var(--sre-text-secondary); }
 </style>

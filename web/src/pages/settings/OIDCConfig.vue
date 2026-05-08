@@ -137,7 +137,7 @@ onMounted(fetchConfig)
         <span class="tnum">{{ lastTestResult.time }}</span>
       </div>
 
-      <div class="sre-config-status" data-tone="warning" style="border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06);">
+      <div class="sre-config-status" data-tone="warning">
         <span class="sre-dot" data-severity="warning"></span>
         <span>{{ t('settings.oidcRestartWarning') }}</span>
       </div>

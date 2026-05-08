@@ -1,54 +1,42 @@
 <script setup lang="ts">
-import { h, ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NDataTable, NInput, NSpace, NPopconfirm } from 'naive-ui'
+import { NButton, NInput, NSpace, NPopconfirm, NPagination } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2Api } from '@/api'
 import type { DashboardV2 } from '@/types/dashboard'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { AddOutline } from '@vicons/ionicons5'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import { AddOutline, BarChartOutline, ChevronForwardOutline } from '@vicons/ionicons5'
 
 const router = useRouter()
 const message = useMessage()
 const { t } = useI18n()
 const loading = ref(false)
+const firstLoaded = ref(false)
 const search = ref('')
 const list = ref<DashboardV2[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 
-const columns = [
-  {
-    title: () => t('common.name'),
-    key: 'name',
-    ellipsis: { tooltip: true },
-    render(row: DashboardV2) {
-      return h('a', {
-        class: 'dash-link',
-        onClick: () => handleEdit(row.id),
-      }, row.name)
-    },
-  },
-  { title: () => t('common.description'), key: 'description', ellipsis: { tooltip: true } },
-  {
-    title: () => t('common.actions'),
-    key: 'actions',
-    width: 160,
-    render(row: DashboardV2) {
-      return h(NSpace, { size: 4 }, {
-        default: () => [
-          h(NButton, { size: 'tiny', quaternary: true, onClick: () => handleEdit(row.id) }, { default: () => t('common.edit') }),
-          h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
-            trigger: () => h(NButton, { size: 'tiny', quaternary: true, type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('common.confirmDelete'),
-          }),
-        ],
-      })
-    },
-  },
-]
+const isEmpty = computed(() => firstLoaded.value && !loading.value && list.value.length === 0)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+
+function relTime(iso?: string): string {
+  if (!iso) return '—'
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return t('common.justNow') || 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 30) return `${d}d ago`
+  return new Date(iso).toLocaleDateString()
+}
 
 async function fetchList() {
   loading.value = true
@@ -56,11 +44,22 @@ async function fetchList() {
     const res = await dashboardV2Api.list({ page: page.value, page_size: pageSize.value, search: search.value || undefined })
     list.value = res.data.data.list || []
     total.value = res.data.data.total || 0
+    firstLoaded.value = true
   } catch (err: any) {
     message.error(err.message || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
+}
+
+function onSearch() {
+  page.value = 1
+  fetchList()
+}
+
+function onPageChange(p: number) {
+  page.value = p
+  fetchList()
 }
 
 async function handleDelete(id: number) {
@@ -88,8 +87,8 @@ onMounted(fetchList)
           v-model:value="search"
           :placeholder="t('common.search')"
           clearable
-          style="width: 200px"
-          @update:value="fetchList"
+          class="search-input"
+          @update:value="onSearch"
         />
         <NButton type="primary" @click="router.push({ name: 'DashboardV2View', params: { id: 'new' } })">
           <template #icon>
@@ -100,19 +99,71 @@ onMounted(fetchList)
       </template>
     </PageHeader>
 
-    <NDataTable
-      :columns="columns"
-      :data="list"
-      :loading="loading"
-      :pagination="{ page, pageSize, itemCount: total, onChange: (p: number) => { page = p; fetchList() } }"
-      :row-key="(row: DashboardV2) => row.id"
-    >
-      <template #empty>
-        <div class="empty-state">
-          {{ t('dashboardV2.emptyHint') }}
+    <!-- Loading skeleton -->
+    <LoadingSkeleton v-if="loading && list.length === 0" :rows="5" variant="card-grid" />
+
+    <!-- Empty state -->
+    <EmptyState
+      v-else-if="isEmpty"
+      :icon="BarChartOutline"
+      :title="t('dashboardV2.emptyHint') || 'No dashboards yet'"
+      :description="t('dashboardV2.subtitle')"
+      :primary-text="t('dashboardV2.newDashboard')"
+      @primary="router.push({ name: 'DashboardV2View', params: { id: 'new' } })"
+    />
+
+    <!-- List -->
+    <n-spin v-else :show="loading && list.length > 0">
+      <div class="dash-list sre-stagger">
+        <div
+          v-for="dash in list"
+          :key="dash.id"
+          class="sre-row-card dash-card"
+          @click="handleEdit(dash.id)"
+        >
+          <div class="dash-content">
+            <div class="dash-headline">
+              <span class="dash-name">{{ dash.name }}</span>
+            </div>
+            <div v-if="dash.description" class="dash-desc">{{ dash.description }}</div>
+            <div class="dash-meta">
+              <span class="tnum">{{ relTime(dash.created_at) }}</span>
+              <template v-if="dash.is_public">
+                <span class="sre-meta-divider" />
+                <span>{{ t('dashboardV2.public') || 'Public' }}</span>
+              </template>
+            </div>
+          </div>
+          <div class="dash-actions" @click.stop>
+            <NSpace :size="4">
+              <NButton quaternary size="tiny" @click="handleEdit(dash.id)">
+                {{ t('common.edit') }}
+              </NButton>
+              <NPopconfirm @positive-click="handleDelete(dash.id)">
+                <template #trigger>
+                  <NButton quaternary size="tiny" type="error">
+                    {{ t('common.delete') }}
+                  </NButton>
+                </template>
+                {{ t('common.confirmDelete') }}
+              </NPopconfirm>
+            </NSpace>
+          </div>
+          <div class="dash-arrow">
+            <ChevronForwardOutline />
+          </div>
         </div>
-      </template>
-    </NDataTable>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="total > pageSize" class="pagination-row">
+        <NPagination
+          v-model:page="page"
+          :page-count="totalPages"
+          @update:page="onPageChange"
+        />
+      </div>
+    </n-spin>
   </div>
 </template>
 
@@ -120,16 +171,82 @@ onMounted(fetchList)
 .dash-list-page {
   max-width: 1400px;
 }
-.dash-link {
-  color: var(--sre-primary);
+
+.search-input {
+  width: 200px;
+}
+
+.dash-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sre-row-gap, 4px);
+}
+
+.dash-card {
   cursor: pointer;
 }
-.dash-link:hover {
-  text-decoration: underline;
+
+.dash-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.empty-state {
-  padding: 48px 0;
-  text-align: center;
+
+.dash-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-desc {
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-meta {
+  font-size: 12px;
   color: var(--sre-text-tertiary);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dash-actions {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.dash-arrow {
+  color: var(--sre-text-tertiary);
+  flex-shrink: 0;
+  align-self: center;
+  opacity: 0.5;
+  transition: opacity var(--sre-duration-fast) ease;
+  width: 16px;
+  height: 16px;
+}
+
+.sre-row-card:hover .dash-arrow {
+  opacity: 1;
+}
+
+.pagination-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NIcon, NRadioGroup, NRadioButton, NSelect, NInput, NDatePicker, NButton, NPagination, NSpin, NEmpty } from 'naive-ui'
+import { useMessage, NRadioGroup, NRadioButton, NSelect, NInput, NDatePicker, NButton, NPagination, NSpin } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertEventApi, alertRuleApi, alertExportApi } from '@/api'
 import type { AlertEvent, AlertRule } from '@/types'
 import { ArchiveOutline, DownloadOutline } from '@vicons/ionicons5'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -154,24 +156,24 @@ onMounted(() => {
     <!-- Header -->
     <header class="hist-header">
       <div>
-        <h1 class="hist-title-main">Alert History</h1>
-        <p class="hist-subtitle">Browse historical alert events</p>
+        <h1 class="hist-title-main">{{ t('alert.history') }}</h1>
+        <p class="hist-subtitle">{{ t('alert.historyDesc') }}</p>
       </div>
       <NButton size="small" @click="exportCsv">
         <template #icon><NIcon :component="DownloadOutline" /></template>
-        Export CSV
+        {{ t('alert.exportCSV') }}
       </NButton>
     </header>
 
     <!-- Time range -->
     <div class="hist-toolbar">
       <div class="hist-toolbar-row">
-        <span class="sre-label-eyebrow">TIME</span>
+        <span class="sre-label-eyebrow">{{ t('alert.time') }}</span>
         <NRadioGroup :value="range" size="small" @update:value="onRangeChange">
           <NRadioButton value="7d">{{ t('alert.last7d') }}</NRadioButton>
           <NRadioButton value="30d">{{ t('alert.last30d') }}</NRadioButton>
           <NRadioButton value="90d">{{ t('alert.last90d') }}</NRadioButton>
-          <NRadioButton value="custom">自定义</NRadioButton>
+          <NRadioButton value="custom">{{ t('common.custom') }}</NRadioButton>
         </NRadioGroup>
         <NDatePicker
           v-if="range === 'custom'"
@@ -179,7 +181,7 @@ onMounted(() => {
           :value="customRange"
           size="small"
           clearable
-          style="width: 320px"
+          class="hist-date-picker"
           @update:value="onCustomRange"
         />
       </div>
@@ -191,7 +193,7 @@ onMounted(() => {
           :placeholder="t('alert.severity')"
           clearable
           size="small"
-          style="width: 120px"
+          class="hist-filter-sev"
           @update:value="onFilterChange"
         />
         <NSelect
@@ -201,7 +203,7 @@ onMounted(() => {
           filterable
           clearable
           size="small"
-          style="width: 200px"
+          class="hist-filter-rule"
           @update:value="onFilterChange"
         />
         <NInput
@@ -209,14 +211,15 @@ onMounted(() => {
           :placeholder="t('alert.alertNameSearch')"
           clearable
           size="small"
-          style="width: 240px"
+          class="hist-filter-search"
           @update:value="onFilterChange"
         />
       </div>
     </div>
 
     <!-- List -->
-    <NSpin :show="loading">
+    <LoadingSkeleton v-if="loading && firstLoad && events.length === 0" :rows="6" variant="row" />
+    <NSpin v-else :show="loading && !firstLoad">
       <div v-if="events.length" class="hist-list" :class="{ 'sre-stagger': firstLoad }">
         <div
           v-for="ev in events"
@@ -233,16 +236,16 @@ onMounted(() => {
               <span class="hist-title">{{ (ev as any).title || ev.alert_name }}</span>
             </div>
             <div class="hist-context">
-              <span>规则: {{ (ev as any).rule?.name || '—' }}</span>
+              <span>{{ t('alert.ruleLabel') }} {{ (ev as any).rule?.name || '—' }}</span>
               <span class="sre-meta-divider"></span>
-              <span>数据源: {{ (ev as any).datasource?.name || ev.source || '—' }}</span>
+              <span>{{ t('alert.datasourceLabel') }} {{ (ev as any).datasource?.name || ev.source || '—' }}</span>
             </div>
             <div class="hist-footer">
-              <span class="tnum">触发 {{ ev.fire_count || 0 }} 次</span>
+              <span class="tnum">{{ t('alert.firedCount', { n: ev.fire_count || 0 }) }}</span>
               <span class="sre-meta-divider"></span>
-              <span class="tnum">持续 {{ duration(ev.fired_at, ev.resolved_at || ev.closed_at || undefined) }}</span>
+              <span class="tnum">{{ t('alert.duration') }} {{ duration(ev.fired_at, ev.resolved_at || ev.closed_at || undefined) }}</span>
               <span class="sre-meta-divider"></span>
-              <span class="tnum">已恢复 {{ relTime(ev.resolved_at || ev.closed_at || undefined) }}</span>
+              <span class="tnum">{{ t('alert.recoveredFor', { n: relTime(ev.resolved_at || ev.closed_at || undefined) }) }}</span>
             </div>
           </div>
           <div class="hist-status">
@@ -252,13 +255,12 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else-if="!loading" class="hist-empty">
-        <NEmpty description="No history in this range">
-          <template #icon>
-            <NIcon :component="ArchiveOutline" size="56" />
-          </template>
-        </NEmpty>
-      </div>
+      <EmptyState
+        v-else-if="!loading"
+        :icon="ArchiveOutline"
+        :title="t('alert.noHistoryDesc')"
+        size="md"
+      />
     </NSpin>
 
     <!-- Pagination -->
@@ -379,11 +381,10 @@ onMounted(() => {
   padding-right: 4px;
 }
 
-.hist-empty {
-  padding: 80px 0;
-  display: flex;
-  justify-content: center;
-}
+.hist-date-picker { width: 320px; }
+.hist-filter-sev { width: 120px; }
+.hist-filter-rule { width: 200px; }
+.hist-filter-search { width: 240px; }
 
 .hist-pagination {
   display: flex;

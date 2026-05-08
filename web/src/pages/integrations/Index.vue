@@ -222,8 +222,8 @@ onMounted(load)
     <!-- Header -->
     <header class="integ-header">
       <div class="integ-header-text">
-        <h1 class="integ-title">Integrations</h1>
-        <p class="integ-subtitle">Connect external alert sources via webhook endpoints</p>
+        <h1 class="integ-title">{{ t('menu.integrations') }}</h1>
+        <p class="integ-subtitle">{{ t('integration.subtitle') }}</p>
       </div>
       <div class="integ-header-actions">
         <n-button quaternary circle :loading="loading" @click="load">
@@ -231,7 +231,7 @@ onMounted(load)
         </n-button>
         <n-button type="primary" @click="openCreate">
           <template #icon><n-icon :component="AddOutline" /></template>
-          New Integration
+          {{ t('integration.create') }}
         </n-button>
       </div>
     </header>
@@ -239,7 +239,7 @@ onMounted(load)
     <!-- Filters -->
     <section class="integ-filters">
       <div class="filter-group">
-        <span class="sre-label-eyebrow">Type</span>
+        <span class="sre-label-eyebrow">{{ t('common.type') }}</span>
         <n-radio-group v-model:value="filterType" size="small">
           <n-radio-button v-for="o in typeFilterOptions" :key="o.value" :value="o.value">
             {{ o.label }}
@@ -247,7 +247,7 @@ onMounted(load)
         </n-radio-group>
       </div>
       <div class="filter-group">
-        <span class="sre-label-eyebrow">Mode</span>
+        <span class="sre-label-eyebrow">{{ t('integration.mode') }}</span>
         <n-radio-group v-model:value="filterMode" size="small">
           <n-radio-button v-for="o in modeFilterOptions" :key="o.value" :value="o.value">
             {{ o.label }}
@@ -263,9 +263,9 @@ onMounted(load)
     <EmptyState
       v-else-if="!loading && filteredIntegrations.length === 0"
       :icon="GitNetworkOutline"
-      title="No integrations yet"
-      description="Connect external alert sources via webhook endpoints"
-      primary-text="Create Integration"
+      :title="t('integration.noIntegrations')"
+      :description="t('integration.subtitle')"
+      :primary-text="t('integration.create')"
       @primary="openCreate"
     />
 
@@ -284,7 +284,7 @@ onMounted(load)
             class="sre-dot"
             :data-severity="integ.is_enabled ? 'success' : null"
           ></span>
-          <span class="card-status-text">{{ integ.is_enabled ? 'Active' : 'Disabled' }}</span>
+          <span class="card-status-text">{{ integ.is_enabled ? t('common.active') : t('common.disabled') }}</span>
         </div>
 
         <div class="card-title">{{ integ.name }}</div>
@@ -292,7 +292,7 @@ onMounted(load)
         <div class="card-badges">
           <span class="card-badge" :data-type="integ.type">{{ typeLabel(integ.type) }}</span>
           <span class="card-badge-mode">
-            {{ integ.mode === 'shared' ? 'Shared' : 'Exclusive' }}
+            {{ integ.mode === 'shared' ? t('integration.modeShared') : t('integration.modeExclusive') }}
           </span>
         </div>
 
@@ -311,7 +311,7 @@ onMounted(load)
         </div>
 
         <div class="card-footer">
-          <span class="tnum">{{ formatNumber(integ.total_alerts) }} alerts</span>
+          <span class="tnum">{{ formatNumber(integ.total_alerts) }} {{ t('integration.totalAlerts') }}</span>
           <template v-if="integ.channel">
             <span class="sre-meta-divider"></span>
             <span class="card-footer-channel">→ {{ integ.channel.name }}</span>
@@ -327,7 +327,7 @@ onMounted(load)
             @click="openRoutingRules(integ)"
           >
             <template #icon><n-icon :component="GitNetworkOutline" /></template>
-            路由规则
+            {{ t('routingRule.addRule') }}
           </n-button>
           <span v-else></span>
           <n-dropdown
@@ -349,12 +349,11 @@ onMounted(load)
       v-model:show="showModal"
       :title="editingId ? t('common.edit') : t('integration.create')"
       preset="card"
-      style="width: 560px"
       :bordered="false"
       class="integ-modal"
     >
-      <n-scrollbar style="max-height: 70vh">
-        <n-form label-placement="top" size="small" style="padding-right: 12px">
+      <n-scrollbar class="integ-modal-body">
+        <n-form label-placement="top" size="small" class="integ-modal-form">
           <n-form-item :label="t('integration.name')" required>
             <n-input v-model:value="form.name" />
           </n-form-item>
@@ -406,7 +405,7 @@ onMounted(load)
 
     <!-- Routing rules drawer -->
     <n-drawer v-model:show="showRoutingDrawer" :width="680" placement="right">
-      <n-drawer-content :title="`路由规则 — ${routingIntegName}`" closable>
+      <n-drawer-content :title="t('routingRule.createRule') + ' — ' + routingIntegName" closable>
         <RoutingRules v-if="showRoutingDrawer" :integration-id="routingIntegId" />
       </n-drawer-content>
     </n-drawer>
@@ -597,6 +596,11 @@ onMounted(load)
   padding: 8px 16px;
   gap: 8px;
 }
+
+/* Modal */
+.integ-modal { width: 560px; }
+.integ-modal-body { max-height: 70vh; }
+.integ-modal-form { padding-right: 12px; }
 
 /* Empty state */
 .integ-empty {

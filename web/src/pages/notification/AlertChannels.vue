@@ -12,6 +12,7 @@ import {
 import { alertChannelApi, notifyMediaApi, messageTemplateApi } from '@/api'
 import type { AlertChannel, NotifyMedia, MessageTemplate } from '@/types'
 import KVEditor from '@/components/common/KVEditor.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -297,7 +298,7 @@ onMounted(() => {
           size="small"
           :placeholder="t('common.search') || 'Search'"
           clearable
-          style="width: 240px"
+          class="ac-search-input"
         >
           <template #prefix>
             <n-icon :component="SearchOutline" />
@@ -307,7 +308,7 @@ onMounted(() => {
           v-model:value="statusFilter"
           size="small"
           :options="statusOptions"
-          style="width: 140px"
+          class="ac-status-select"
         />
       </div>
       <div class="ac-toolbar-right">
@@ -320,14 +321,13 @@ onMounted(() => {
 
     <!-- List -->
     <n-spin :show="loading">
-      <div v-if="filteredChannels.length === 0 && !loading" class="ac-empty">
-        <n-icon :component="ChatbubblesOutline" :size="44" class="ac-empty-icon" />
-        <div class="ac-empty-title">{{ t('alertChannel.noData') }}</div>
-        <n-button type="primary" size="small" @click="openCreate">
-          <template #icon><n-icon :component="AddOutline" /></template>
-          {{ t('alertChannel.create') }}
-        </n-button>
-      </div>
+      <EmptyState
+        v-if="filteredChannels.length === 0 && !loading"
+        :icon="ChatbubblesOutline"
+        :title="t('alertChannel.noData')"
+        :primary-text="t('alertChannel.create')"
+        @primary="openCreate"
+      />
 
       <ul v-else class="ac-list sre-stagger">
         <li
@@ -413,8 +413,8 @@ onMounted(() => {
       v-model:show="showModal"
       :title="modalTitle"
       preset="card"
-      style="width: 560px"
       :bordered="false"
+      class="ac-modal"
     >
       <n-form label-placement="left" label-width="100" size="medium">
         <n-form-item :label="t('common.name')" required>
@@ -433,7 +433,7 @@ onMounted(() => {
             multiple
             :placeholder="t('common.selectSeverities')"
             clearable
-            style="width: 100%"
+            class="ac-form-select"
           />
         </n-form-item>
         <n-form-item :label="t('alertChannel.mediaLabel')" required>
@@ -442,7 +442,7 @@ onMounted(() => {
             :options="mediaOptions"
             :placeholder="t('alertChannel.mediaRequired')"
             clearable
-            style="width: 100%"
+            class="ac-form-select"
           />
         </n-form-item>
         <n-form-item :label="t('alertChannel.template')">
@@ -450,18 +450,18 @@ onMounted(() => {
             v-model:value="form.template_id"
             :options="templateOptions"
             clearable
-            style="width: 100%"
+            class="ac-form-select"
           />
         </n-form-item>
         <n-form-item :label="t('alertChannel.throttle')">
-          <n-input-number v-model:value="form.throttle_min" :min="0" :max="10080" style="width: 160px" />
+          <n-input-number v-model:value="form.throttle_min" :min="0" :max="10080" class="ac-form-throttle" />
         </n-form-item>
         <n-form-item :label="t('common.enabled')">
           <n-switch v-model:value="form.is_enabled" />
         </n-form-item>
       </n-form>
       <template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px">
+        <div class="ac-modal-footer">
           <n-button size="small" @click="showModal = false">{{ t('common.cancel') }}</n-button>
           <n-button size="small" type="primary" :loading="saving" @click="handleSave">
             {{ t('common.save') }}
@@ -490,6 +490,8 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
 }
+.ac-search-input { width: 240px; }
+.ac-status-select { width: 140px; }
 .ac-list {
   list-style: none;
   margin: 0;
@@ -510,7 +512,7 @@ onMounted(() => {
   transition: all var(--sre-duration-fast, 120ms) var(--sre-ease-out, ease);
 }
 .ac-row:hover {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: var(--sre-border-strong);
   background: var(--sre-bg-hover);
 }
 .ac-headline {
@@ -632,4 +634,10 @@ onMounted(() => {
   color: var(--sre-text-secondary);
   margin-bottom: 4px;
 }
+
+/* Modal */
+.ac-modal { width: 560px; }
+.ac-modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
+.ac-form-select { width: 100%; }
+.ac-form-throttle { width: 160px; }
 </style>

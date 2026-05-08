@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NSpace, NInput, useMessage, NModal, NPopconfirm } from 'naive-ui'
+import { NButton, NSpace, NInput, NSelect, useMessage, NModal, NPopconfirm, NSpin } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2Api, datasourceApi } from '@/api'
 import type { DashboardV2, DashboardConfig, PanelConfig, VariableConfig } from '@/types/dashboard'
@@ -14,6 +14,7 @@ import RefreshPicker from '@/components/time/RefreshPicker.vue'
 import QueryPanel from '@/components/query/QueryPanel.vue'
 import QueryResultChart from '@/components/query/QueryResultChart.vue'
 import PanelCard from '@/components/query/PanelCard.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import { ArrowBackOutline, AddOutline } from '@vicons/ionicons5'
 
 const route = useRoute()
@@ -257,6 +258,7 @@ function handleExecuteSingle(id: string) {
 
 const hasPanels = computed(() => config.value.panels.length > 0)
 const hasResults = computed(() => targets.value.some(t => t.series && t.series.length > 0))
+const isLoadingDashboard = computed(() => loading.value && !isNew.value)
 
 onMounted(() => {
   fetchDatasources()
@@ -278,7 +280,7 @@ onMounted(() => {
           :value="dashboard?.name || ''"
           :placeholder="t('dashboardV2.name')"
           size="small"
-          style="width: 280px"
+          class="dash-name-input"
           @update:value="(v: string) => { if (dashboard) dashboard.name = v; else dashboard = { name: v } as any }"
         />
       </div>
@@ -300,96 +302,101 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Variable bar -->
-    <div v-if="variableList.length > 0" class="variable-bar">
-      <div v-for="v in variableList" :key="v.config.name" class="var-item">
-        <label>{{ v.config.label || v.config.name }}</label>
-        <NSelect
-          v-if="v.config.type === 'query' || v.config.type === 'custom'"
-          :value="v.value"
-          :options="v.options.map(o => ({ label: o, value: o }))"
-          :loading="v.loading"
-          size="small"
-          style="width: 160px"
-          @update:value="(val: string) => setValue(v.config.name, val)"
-        />
-        <NInput
-          v-else-if="v.config.type === 'textbox'"
-          :value="v.value"
-          size="small"
-          style="width: 160px"
-          @update:value="(val: string) => setValue(v.config.name, val)"
-        />
-        <span v-else class="var-value">{{ v.value }}</span>
-      </div>
-    </div>
+    <!-- Loading state -->
+    <LoadingSkeleton v-if="isLoadingDashboard" :rows="4" variant="card-grid" />
 
-    <!-- PANEL GRID -->
-    <div v-if="hasPanels" ref="gridEl" class="panel-grid" @mousemove="onGridResize">
-      <div
-        v-for="panel in config.panels"
-        :key="panel.id"
-        class="panel-grid-item"
-        :class="{ 'panel-dragging': dragState?.panelId === panel.id && dragState?.mode === 'move', 'panel-resizing': dragState?.panelId === panel.id && dragState?.mode === 'resize' }"
-        :style="{
-          gridColumn: `${(panel.gridPos?.x || 0) + 1} / span ${panel.gridPos?.w || 24}`,
-          gridRow: `${(panel.gridPos?.y || 0) + 1} / span ${panel.gridPos?.h || 6}`,
-        }"
-      >
-        <div class="panel-toolbar panel-drag-handle" @mousedown="(e: MouseEvent) => startDrag(e, panel)">
-          <NInput
-            :value="panel.title"
-            size="tiny"
-            style="width: 180px"
-            @update:value="(v: string) => updatePanelTitle(panel.id, v)"
+    <template v-else>
+      <!-- Variable bar -->
+      <div v-if="variableList.length > 0" class="variable-bar">
+        <div v-for="v in variableList" :key="v.config.name" class="var-item">
+          <label>{{ v.config.label || v.config.name }}</label>
+          <NSelect
+            v-if="v.config.type === 'query' || v.config.type === 'custom'"
+            :value="v.value"
+            :options="v.options.map(o => ({ label: o, value: o }))"
+            :loading="v.loading"
+            size="small"
+            class="var-select"
+            @update:value="(val: string) => setValue(v.config.name, val)"
           />
-          <NSpace :size="4">
-            <NButton quaternary size="tiny" @click="removePanel(panel.id)">&times;</NButton>
-          </NSpace>
-        </div>
-        <PanelCard :panel="panel" :time-range="timeRange" />
-        <div class="panel-drag-handle-resize" @mousedown="(e: MouseEvent) => startResize(e, panel)">
-          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 10 L10 0 M4 10 L10 4 M8 10 L10 8" stroke="currentColor" fill="none" opacity="0.4"/></svg>
+          <NInput
+            v-else-if="v.config.type === 'textbox'"
+            :value="v.value"
+            size="small"
+            class="var-select"
+            @update:value="(val: string) => setValue(v.config.name, val)"
+          />
+          <span v-else class="var-value">{{ v.value }}</span>
         </div>
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div v-if="!hasPanels && !hasResults" class="empty-dashboard">
-      <div class="empty-text">{{ t('dashboardV2.emptyDashboardHint') || 'Add panels from queries below to build your dashboard' }}</div>
-    </div>
-
-    <!-- Query editor (always visible) -->
-    <details class="query-editor-section" :open="!hasPanels">
-      <summary class="query-editor-toggle">{{ t('dashboardV2.queryEditor') || 'Query Editor' }}</summary>
-      <QueryPanel
-        :targets="targets"
-        :datasources="datasources"
-        :loading="globalLoading"
-        @add="addTarget"
-        @remove="removeTarget"
-        @toggle="toggleTarget"
-        @update="updateTarget"
-        @execute="handleExecuteSingle"
-        @execute-all="executeAll"
-      />
-
-      <!-- Query results + add panel buttons -->
-      <div v-if="hasResults" class="query-results-section">
-        <div class="results-actions">
-          <span class="results-label">{{ t('dashboardV2.addAsPanel') || 'Add as panel:' }}</span>
-          <NSpace size="small">
-            <NButton size="tiny" secondary @click="addPanelFromQuery('timeseries')">{{ t('dashboardV2.panelTimeseries') || 'Chart' }}</NButton>
-            <NButton size="tiny" secondary @click="addPanelFromQuery('stat')">{{ t('dashboardV2.panelStat') || 'Stat' }}</NButton>
-            <NButton size="tiny" secondary @click="addPanelFromQuery('gauge')">{{ t('dashboardV2.panelGauge') || 'Gauge' }}</NButton>
-            <NButton size="tiny" secondary @click="addPanelFromQuery('bar')">{{ t('dashboardV2.panelBar') || 'Bar' }}</NButton>
-            <NButton size="tiny" secondary @click="addPanelFromQuery('pie')">{{ t('dashboardV2.panelPie') || 'Pie' }}</NButton>
-            <NButton size="tiny" secondary @click="addPanelFromQuery('table')">{{ t('dashboardV2.panelTable') || 'Table' }}</NButton>
-          </NSpace>
+      <!-- PANEL GRID -->
+      <div v-if="hasPanels" ref="gridEl" class="panel-grid" @mousemove="onGridResize">
+        <div
+          v-for="panel in config.panels"
+          :key="panel.id"
+          class="panel-grid-item"
+          :class="{ 'panel-dragging': dragState?.panelId === panel.id && dragState?.mode === 'move', 'panel-resizing': dragState?.panelId === panel.id && dragState?.mode === 'resize' }"
+          :style="{
+            gridColumn: `${(panel.gridPos?.x || 0) + 1} / span ${panel.gridPos?.w || 24}`,
+            gridRow: `${(panel.gridPos?.y || 0) + 1} / span ${panel.gridPos?.h || 6}`,
+          }"
+        >
+          <div class="panel-toolbar panel-drag-handle" @mousedown="(e: MouseEvent) => startDrag(e, panel)">
+            <NInput
+              :value="panel.title"
+              size="tiny"
+              class="panel-title-input"
+              @update:value="(v: string) => updatePanelTitle(panel.id, v)"
+            />
+            <NSpace :size="4">
+              <NButton quaternary size="tiny" @click="removePanel(panel.id)">&times;</NButton>
+            </NSpace>
+          </div>
+          <PanelCard :panel="panel" :time-range="timeRange" />
+          <div class="panel-drag-handle-resize" @mousedown="(e: MouseEvent) => startResize(e, panel)">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 10 L10 0 M4 10 L10 4 M8 10 L10 8" stroke="currentColor" fill="none" opacity="0.4"/></svg>
+          </div>
         </div>
-        <QueryResultChart :targets="targets" :time-range="timeRange" :height="300" />
       </div>
-    </details>
+
+      <!-- Empty state -->
+      <div v-if="!hasPanels && !hasResults" class="empty-dashboard">
+        <div class="empty-text">{{ t('dashboardV2.emptyDashboardHint') || 'Add panels from queries below to build your dashboard' }}</div>
+      </div>
+
+      <!-- Query editor (always visible) -->
+      <details class="query-editor-section" :open="!hasPanels">
+        <summary class="query-editor-toggle">{{ t('dashboardV2.queryEditor') || 'Query Editor' }}</summary>
+        <QueryPanel
+          :targets="targets"
+          :datasources="datasources"
+          :loading="globalLoading"
+          @add="addTarget"
+          @remove="removeTarget"
+          @toggle="toggleTarget"
+          @update="updateTarget"
+          @execute="handleExecuteSingle"
+          @execute-all="executeAll"
+        />
+
+        <!-- Query results + add panel buttons -->
+        <div v-if="hasResults" class="query-results-section">
+          <div class="results-actions">
+            <span class="results-label">{{ t('dashboardV2.addAsPanel') || 'Add as panel:' }}</span>
+            <NSpace size="small">
+              <NButton size="tiny" secondary @click="addPanelFromQuery('timeseries')">{{ t('dashboardV2.panelTimeseries') || 'Chart' }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('stat')">{{ t('dashboardV2.panelStat') || 'Stat' }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('gauge')">{{ t('dashboardV2.panelGauge') || 'Gauge' }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('bar')">{{ t('dashboardV2.panelBar') || 'Bar' }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('pie')">{{ t('dashboardV2.panelPie') || 'Pie' }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('table')">{{ t('dashboardV2.panelTable') || 'Table' }}</NButton>
+            </NSpace>
+          </div>
+          <QueryResultChart :targets="targets" :time-range="timeRange" :height="300" />
+        </div>
+      </details>
+    </template>
   </div>
 </template>
 
@@ -415,6 +422,16 @@ onMounted(() => {
   gap: 8px;
 }
 
+.dash-name-input {
+  width: 280px;
+}
+.var-select {
+  width: 160px;
+}
+.panel-title-input {
+  width: 180px;
+}
+
 /* Variable bar */
 .variable-bar {
   display: flex;
@@ -423,8 +440,8 @@ onMounted(() => {
   margin-bottom: 16px;
   padding: 12px;
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: 8px;
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
 }
 .var-item {
   display: flex;
@@ -440,7 +457,7 @@ onMounted(() => {
   font-size: 13px;
   padding: 4px 8px;
   background: var(--sre-bg-sunken);
-  border-radius: 4px;
+  border-radius: var(--sre-radius-xs);
   color: var(--sre-text-primary);
 }
 
@@ -515,8 +532,8 @@ onMounted(() => {
 
 /* Query editor */
 .query-editor-section {
-  border: 1px solid var(--sre-border);
-  border-radius: 8px;
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
   padding: 12px 16px;
   background: var(--sre-bg-sunken);
 }
@@ -532,7 +549,7 @@ onMounted(() => {
 }
 .query-results-section {
   margin-top: 12px;
-  border-top: 1px solid var(--sre-border);
+  border-top: var(--sre-hairline);
   padding-top: 12px;
 }
 .results-actions {

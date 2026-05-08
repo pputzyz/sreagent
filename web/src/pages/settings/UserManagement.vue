@@ -414,7 +414,7 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
   letter-spacing: 0.3px;
 }
 .user-role-chip[data-role="admin"]     { background: var(--sre-critical-soft); color: var(--sre-critical); }
-.user-role-chip[data-role="team_lead"] { background: rgba(245,158,11,0.14); color: var(--sre-warning); }
+.user-role-chip[data-role="team_lead"] { background: var(--sre-warning-soft); color: var(--sre-warning); }
 .user-role-chip[data-role="member"]    { background: var(--sre-primary-soft); color: var(--sre-primary); }
 .user-role-chip[data-role="viewer"]    { background: var(--sre-bg-elevated); color: var(--sre-text-secondary); }
 .user-status {

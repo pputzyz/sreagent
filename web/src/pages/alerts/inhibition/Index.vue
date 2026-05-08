@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, h } from 'vue'
 import {
-  NButton, NIcon, NSwitch, NDropdown, NInput, NEmpty, NSpin,
+  NButton, NIcon, NSwitch, NDropdown, NInput, NSpin,
   NModal, NForm, NFormItem, NSpace, useMessage, useDialog,
 } from 'naive-ui'
 import type { FormInst } from 'naive-ui'
@@ -13,6 +13,8 @@ import { useAuthStore } from '@/stores/auth'
 import { inhibitionRuleApi } from '@/api'
 import type { InhibitionRule } from '@/types'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
@@ -80,11 +82,11 @@ function relTime(t: string): string {
   if (Number.isNaN(ms)) return '-'
   const diff = Date.now() - ms
   const m = Math.round(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
+  if (m < 1) return t('inhibition.justNow')
+  if (m < 60) return t('inhibition.minAgo', { n: m })
   const hr = Math.round(m / 60)
-  if (hr < 24) return `${hr}h ago`
-  return `${Math.round(hr / 24)}d ago`
+  if (hr < 24) return t('inhibition.hourAgo', { n: hr })
+  return t('inhibition.dayAgo', { n: Math.round(hr / 24) })
 }
 
 // ---- modal ----
@@ -190,31 +192,33 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
 
 <template>
   <div class="inhib-page sre-stagger">
-    <PageHeader title="Inhibition Rules" subtitle="Suppress target alerts when source alert is firing">
+    <PageHeader :title="t('inhibition.title')" :subtitle="t('inhibition.description')">
       <template #actions>
         <NButton v-if="canManage" type="primary" @click="openCreate">
           <template #icon><NIcon :component="AddOutline" /></template>
-          New Rule
+          {{ t('inhibition.createRule') || 'New Rule' }}
         </NButton>
       </template>
     </PageHeader>
 
     <div class="inhib-toolbar">
-      <NInput v-model:value="searchKeyword" size="small" placeholder="Search by name" clearable style="width: 260px">
+      <NInput v-model:value="searchKeyword" size="small" :placeholder="t('common.search')" clearable class="inhib-search">
         <template #prefix><NIcon :component="SearchOutline" /></template>
       </NInput>
     </div>
 
-    <NSpin :show="loading">
-      <div v-if="!loading && filteredList.length === 0" class="inhib-empty">
-        <NEmpty description="No inhibition rules">
-          <template #extra>
-            <NButton v-if="canManage" type="primary" size="small" @click="openCreate">Create your first rule</NButton>
-          </template>
-        </NEmpty>
-      </div>
+    <LoadingSkeleton v-if="loading && filteredList.length === 0" :rows="6" variant="row" />
+    <EmptyState
+      v-else-if="!loading && filteredList.length === 0"
+      :icon="AddOutline"
+      :title="t('inhibition.noRules') || 'No inhibition rules'"
+      :description="t('inhibition.description') || 'Suppress target alerts when source alert is firing'"
+      :primary-text="t('inhibition.createRule') || 'Create your first rule'"
+      @primary="openCreate"
+    />
 
-      <div v-else class="inhib-list">
+    <NSpin v-else :show="loading">
+      <div class="inhib-list">
         <div
           v-for="rule in filteredList" :key="rule.id"
           class="sre-row-card inhib-row sre-lift"
@@ -224,33 +228,33 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
           <div class="inhib-main">
             <div class="inhib-headline">
               <span class="sre-dot" :data-severity="rule.is_enabled ? 'success' : 'muted'"></span>
-              <span class="inhib-status">{{ rule.is_enabled ? 'ENABLED' : 'DISABLED' }}</span>
+              <span class="inhib-status">{{ rule.is_enabled ? t('inhibition.statusEnabled') : t('inhibition.statusDisabled') }}</span>
               <span class="inhib-name">{{ rule.name }}</span>
             </div>
             <div v-if="rule.description" class="inhib-desc">{{ rule.description }}</div>
             <div class="inhib-row-config">
-              <span class="sre-label-eyebrow">Source</span>
+              <span class="sre-label-eyebrow">{{ t('inhibition.sourceLabel') }}</span>
               <span v-for="m in matchEntries(rule.source_match)" :key="'s-' + m" class="mono-chip">{{ m }}</span>
               <span v-if="!matchEntries(rule.source_match).length" class="muted">—</span>
             </div>
             <div class="inhib-row-config">
-              <span class="sre-label-eyebrow">Target</span>
+              <span class="sre-label-eyebrow">{{ t('inhibition.targetLabel') }}</span>
               <span v-for="m in matchEntries(rule.target_match)" :key="'t-' + m" class="mono-chip">{{ m }}</span>
               <span v-if="!matchEntries(rule.target_match).length" class="muted">—</span>
             </div>
             <div v-if="equalArr(rule.equal_labels).length" class="inhib-row-config">
-              <span class="sre-label-eyebrow">Equal</span>
+              <span class="sre-label-eyebrow">{{ t('inhibition.equalLabel') }}</span>
               <span class="mono-chip">{{ equalArr(rule.equal_labels).join(', ') }}</span>
             </div>
             <div class="inhib-footer tnum">
-              <span>{{ ((rule as any).hit_count) || 0 }} hits</span>
+              <span>{{ t('inhibition.hits', { n: ((rule as any).hit_count) || 0 }) }}</span>
               <template v-if="(rule as any).last_hit_at">
                 <span class="sre-meta-divider"></span>
-                <span>last {{ relTime((rule as any).last_hit_at) }}</span>
+                <span>{{ t('inhibition.lastHit') }}{{ relTime((rule as any).last_hit_at) }}</span>
               </template>
               <template v-else-if="rule.updated_at">
                 <span class="sre-meta-divider"></span>
-                <span>updated {{ relTime(rule.updated_at) }}</span>
+                <span>{{ t('inhibition.updatedAt') }}{{ relTime(rule.updated_at) }}</span>
               </template>
             </div>
           </div>
@@ -270,7 +274,7 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
     <NModal
       v-model:show="modalVisible"
       :title="editingId ? t('inhibition.editRule') : t('inhibition.createRule')"
-      preset="card" style="width: 640px" :mask-closable="false" :bordered="false"
+      preset="card" class="inhib-modal" :mask-closable="false" :bordered="false"
     >
       <NForm ref="formRef" :model="formData" label-placement="top">
         <NFormItem :label="t('inhibition.name')" path="name" :rule="{ required: true, message: t('common.required') }">
@@ -303,7 +307,7 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
 </template>
 
 <style scoped>
-.inhib-page { max-width: 1280px; }
+.inhib-page { max-width: 1280px; font-family: var(--sre-font-sans); }
 
 .inhib-toolbar { margin: 12px 0 14px; }
 

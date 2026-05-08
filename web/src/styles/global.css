@@ -64,6 +64,8 @@
   --sre-bg-sunken:      #05070a;
   --sre-bg-hover:       rgba(255, 255, 255, 0.045);
   --sre-bg-active:      rgba(255, 255, 255, 0.08);
+  --sre-bg-subtle:      rgba(128, 128, 128, 0.06);
+  --sre-overlay-subtle: rgba(255, 255, 255, 0.04);
 
   /* --- Borders --- */
   --sre-border:         rgba(255, 255, 255, 0.07);
@@ -211,6 +213,8 @@ body.light-theme {
   --sre-bg-sunken:      #eff2f6;
   --sre-bg-hover:       rgba(15, 23, 42, 0.04);
   --sre-bg-active:      rgba(15, 23, 42, 0.08);
+  --sre-bg-subtle:      rgba(128, 128, 128, 0.06);
+  --sre-overlay-subtle: rgba(15, 23, 42, 0.04);
 
   --sre-border:         #e4e7ec;
   --sre-border-strong:  #cfd4db;
@@ -953,11 +957,15 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 }
 .sre-config-status[data-tone="success"] {
   border-color: rgba(16,185,129,0.3);
-  background: rgba(16,185,129,0.06);
+  background: var(--sre-success-soft);
 }
 .sre-config-status[data-tone="error"] {
   border-color: rgba(239,68,68,0.3);
-  background: rgba(239,68,68,0.06);
+  background: var(--sre-critical-soft);
+}
+.sre-config-status[data-tone="warning"] {
+  border-color: rgba(245,158,11,0.3);
+  background: var(--sre-warning-soft);
 }
 
 .sre-config-sections {

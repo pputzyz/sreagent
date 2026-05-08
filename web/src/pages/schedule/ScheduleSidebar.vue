@@ -93,15 +93,15 @@ const { t } = useI18n()
   padding: 10px 16px;
   cursor: pointer;
   border-left: 3px solid transparent;
-  transition: all 0.15s;
+  transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .schedule-item:hover {
-  background: rgba(128, 128, 128, 0.06);
+  background: var(--sre-bg-hover);
 }
 
 .schedule-item.active {
-  background: rgba(24, 160, 88, 0.06);
+  background: var(--sre-success-soft);
   border-left-color: var(--sre-primary);
 }
 
@@ -124,7 +124,7 @@ const { t } = useI18n()
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #18a058;
+  background: var(--sre-success);
   margin-right: 4px;
 }
 

@@ -140,8 +140,21 @@ const chartPalette = computed(() => {
     splitLine: light ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.05)',
     pieCenterPrimary: light ? 'rgba(15,23,42,0.92)' : 'rgba(255,255,255,0.92)',
     pieCenterMuted: light ? 'rgba(15,23,42,0.50)' : 'rgba(255,255,255,0.45)',
+    // Severity colors (match CSS design tokens)
+    critical: '#ef4444',
+    warning: '#f59e0b',
+    info: '#3b82f6',
+    success: '#10b981',
+    fired: '#ef4444',
+    resolved: '#10b981',
   }
 })
+
+// ===== chart font config =====
+const chartFont = {
+  fontFamily: 'var(--sre-font-sans)',
+  fontFeatureSettings: '"tnum"',
+}
 
 // ===== charts =====
 const trendChartOption = computed(() => ({
@@ -150,12 +163,12 @@ const trendChartOption = computed(() => ({
     trigger: 'axis',
     backgroundColor: chartPalette.value.tooltipBg,
     borderColor: 'transparent',
-    textStyle: { color: chartPalette.value.tooltipText, fontSize: 12, fontFamily: 'Geist, sans-serif' },
+    textStyle: { color: chartPalette.value.tooltipText, fontSize: 12, ...chartFont },
   },
   legend: {
     data: [t('dashboard.fired'), t('dashboard.resolved')],
     bottom: 0,
-    textStyle: { color: chartPalette.value.legend, fontSize: 11, fontFamily: 'Geist, sans-serif' },
+    textStyle: { color: chartPalette.value.legend, fontSize: 11, ...chartFont },
     itemWidth: 14,
     itemHeight: 2,
     icon: 'rect',
@@ -165,13 +178,13 @@ const trendChartOption = computed(() => ({
     type: 'category',
     data: trendData.value.map(d => d.date),
     boundaryGap: false,
-    axisLabel: { color: chartPalette.value.axisLabel, fontSize: 11, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
+    axisLabel: { color: chartPalette.value.axisLabel, fontSize: 11, ...chartFont },
     axisLine: { lineStyle: { color: chartPalette.value.axisLine } },
     axisTick: { show: false },
   },
   yAxis: {
     type: 'value',
-    axisLabel: { color: chartPalette.value.axisLabel, fontSize: 11, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
+    axisLabel: { color: chartPalette.value.axisLabel, fontSize: 11, ...chartFont },
     axisLine: { show: false },
     axisTick: { show: false },
     splitLine: { lineStyle: { color: chartPalette.value.splitLine, type: 'dashed' } },
@@ -183,8 +196,8 @@ const trendChartOption = computed(() => ({
       smooth: false,
       showSymbol: false,
       data: trendData.value.map(d => d.fired_count),
-      lineStyle: { color: '#ef4444', width: 1.5 },
-      itemStyle: { color: '#ef4444' },
+      lineStyle: { color: chartPalette.value.fired, width: 1.5 },
+      itemStyle: { color: chartPalette.value.fired },
     },
     {
       name: t('dashboard.resolved'),
@@ -192,14 +205,14 @@ const trendChartOption = computed(() => ({
       smooth: false,
       showSymbol: false,
       data: trendData.value.map(d => d.resolved_count),
-      lineStyle: { color: '#18a058', width: 1.5 },
-      itemStyle: { color: '#18a058' },
+      lineStyle: { color: chartPalette.value.resolved, width: 1.5 },
+      itemStyle: { color: chartPalette.value.resolved },
       areaStyle: {
         color: {
           type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(24,160,88,0.25)' },
-            { offset: 1, color: 'rgba(24,160,88,0)' },
+            { offset: 0, color: 'rgba(16,185,129,0.25)' },
+            { offset: 1, color: 'rgba(16,185,129,0)' },
           ],
         },
       },
@@ -216,7 +229,7 @@ const severityChartOption = computed(() => {
       trigger: 'item',
       backgroundColor: chartPalette.value.tooltipBg,
       borderColor: 'transparent',
-      textStyle: { color: chartPalette.value.tooltipText, fontSize: 12, fontFamily: 'Geist, sans-serif' },
+      textStyle: { color: chartPalette.value.tooltipText, fontSize: 12, ...chartFont },
       formatter: '{b}: {c} ({d}%)',
     },
     series: [{
@@ -230,16 +243,16 @@ const severityChartOption = computed(() => {
         position: 'center',
         formatter: () => `{n|${total}}\n{l|Active}`,
         rich: {
-          n: { fontSize: 22, fontWeight: 600, color: chartPalette.value.pieCenterPrimary, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
+          n: { fontSize: 22, fontWeight: 600, color: chartPalette.value.pieCenterPrimary, ...chartFont },
           l: { fontSize: 10, color: chartPalette.value.pieCenterMuted, letterSpacing: 1, padding: [4, 0, 0, 0] },
         },
       },
       emphasis: { label: { show: true } },
       labelLine: { show: false },
       data: [
-        { value: sev.critical ?? 0, name: t('alert.critical'), itemStyle: { color: '#ef4444' } },
-        { value: sev.warning ?? 0,  name: t('alert.warning'),  itemStyle: { color: '#f59e0b' } },
-        { value: sev.info ?? 0,     name: t('alert.info'),     itemStyle: { color: '#3b82f6' } },
+        { value: sev.critical ?? 0, name: t('alert.critical'), itemStyle: { color: chartPalette.value.critical } },
+        { value: sev.warning ?? 0,  name: t('alert.warning'),  itemStyle: { color: chartPalette.value.warning } },
+        { value: sev.info ?? 0,     name: t('alert.info'),     itemStyle: { color: chartPalette.value.info } },
       ],
     }],
   }
@@ -260,8 +273,8 @@ async function refresh() {
     ])
     if (statsRes.status === 'fulfilled') stats.value = statsRes.value.data.data
     if (mttrRes.status === 'fulfilled') mttrStats.value = mttrRes.value.data.data
-    if (trendRes.status === 'fulfilled') trendData.value = trendRes.value.data.data || []
-    if (topRes.status === 'fulfilled') topRules.value = topRes.value.data.data || []
+    if (trendRes.status === 'fulfilled') trendData.value = trendRes.value.data || []
+    if (topRes.status === 'fulfilled') topRules.value = topRes.value.data || []
 
     const failed = [statsRes, mttrRes, trendRes, topRes].filter(r => r.status === 'rejected')
     if (failed.length === 4) {
@@ -359,17 +372,17 @@ onMounted(refresh)
           <v-chart :option="severityChartOption" autoresize style="height: 220px; flex: 1; min-width: 0" />
           <div class="sev-legend">
             <div class="sev-item">
-              <span class="sev-swatch" style="background: #ef4444"></span>
+              <span class="sev-swatch sev-swatch--critical"></span>
               <span class="sev-name">{{ t('alert.critical') }}</span>
               <span class="sev-num tnum">{{ stats.severity_breakdown?.critical ?? 0 }}</span>
             </div>
             <div class="sev-item">
-              <span class="sev-swatch" style="background: #f59e0b"></span>
+              <span class="sev-swatch sev-swatch--warning"></span>
               <span class="sev-name">{{ t('alert.warning') }}</span>
               <span class="sev-num tnum">{{ stats.severity_breakdown?.warning ?? 0 }}</span>
             </div>
             <div class="sev-item">
-              <span class="sev-swatch" style="background: #3b82f6"></span>
+              <span class="sev-swatch sev-swatch--info"></span>
               <span class="sev-name">{{ t('alert.info') }}</span>
               <span class="sev-num tnum">{{ stats.severity_breakdown?.info ?? 0 }}</span>
             </div>
@@ -424,11 +437,11 @@ onMounted(refresh)
 .kpi-card {
   position: relative;
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: 10px;
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
   padding: 20px;
   overflow: hidden;
-  transition: border-color 200ms ease, transform 200ms ease;
+  transition: border-color var(--sre-duration-base) ease, transform var(--sre-duration-base) ease;
 }
 .kpi-value {
   color: var(--sre-text-primary);
@@ -445,16 +458,16 @@ onMounted(refresh)
   height: 3px;
   background: var(--sre-text-tertiary);
 }
-.kpi-stripe[data-tone="critical"] { background: var(--sre-critical, #ef4444); }
-.kpi-stripe[data-tone="warning"]  { background: var(--sre-warning, #f59e0b); }
-.kpi-stripe[data-tone="success"]  { background: var(--sre-primary, #18a058); }
-.kpi-stripe[data-tone="info"]     { background: var(--sre-info, #3b82f6); }
+.kpi-stripe[data-tone="critical"] { background: var(--sre-critical); }
+.kpi-stripe[data-tone="warning"]  { background: var(--sre-warning); }
+.kpi-stripe[data-tone="success"]  { background: var(--sre-primary); }
+.kpi-stripe[data-tone="info"]     { background: var(--sre-info); }
 
 /* ===== Panel (chart container) ===== */
 .panel {
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: 10px;
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
   padding: 20px 24px;
 }
 .panel-header {
@@ -489,10 +502,10 @@ onMounted(refresh)
   gap: 16px;
   align-items: center;
   padding: 12px 8px;
-  border-radius: 6px;
+  border-radius: var(--sre-radius-sm);
   transition: background-color 150ms ease;
 }
-.rule-row:hover { background: var(--sre-bg-hover, rgba(255,255,255,0.03)); }
+.rule-row:hover { background: var(--sre-bg-hover); }
 .rule-name {
   font-family: var(--sre-font-sans);
   font-size: 13px;
@@ -504,12 +517,12 @@ onMounted(refresh)
 .rule-bar {
   height: 4px;
   border-radius: 2px;
-  background: var(--sre-bg-elevated, rgba(255,255,255,0.06));
+  background: var(--sre-bg-elevated);
   overflow: hidden;
 }
 .rule-bar__fill {
   height: 100%;
-  background: var(--sre-primary, #18a058);
+  background: var(--sre-primary);
   border-radius: 2px;
   transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -517,7 +530,7 @@ onMounted(refresh)
   font-family: var(--sre-font-mono);
   font-size: 14px;
   font-weight: 600;
-  color: var(--sre-primary, #18a058);
+  color: var(--sre-primary);
   font-variant-numeric: tabular-nums;
   min-width: 36px;
   text-align: right;
@@ -548,6 +561,9 @@ onMounted(refresh)
   border-radius: 2px;
   flex-shrink: 0;
 }
+.sev-swatch--critical { background: var(--sre-critical); }
+.sev-swatch--warning  { background: var(--sre-warning); }
+.sev-swatch--info     { background: var(--sre-info); }
 .sev-name {
   flex: 1;
   color: var(--sre-text-secondary);

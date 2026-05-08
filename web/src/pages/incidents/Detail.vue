@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, computed, h } from 'vue'
+import { ref, shallowRef, onMounted, computed, h, inject } from 'vue'
+import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { incidentApi, alertV2Api, userApi } from '@/api'
-import type { Incident, IncidentTimeline, AlertV2, User } from '@/types'
+import { incidentApi, alertV2Api } from '@/api'
+import type { Incident, IncidentTimeline, AlertV2 } from '@/types'
+import SnoozeModal from '@/components/incident/SnoozeModal.vue'
+import MergeModal from '@/components/incident/MergeModal.vue'
+import ReassignModal from '@/components/incident/ReassignModal.vue'
 import { formatTime } from '@/utils/format'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   ArrowBackOutline, SparklesOutline, VolumeOffOutline,
   TimeOutline, GitMergeOutline, PersonOutline,
   EllipsisHorizontal, RefreshOutline, ArrowUpCircleOutline,
+  AlertCircleOutline,
 } from '@vicons/ionicons5'
 import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
@@ -38,104 +45,14 @@ const pmLoading = ref(false)
 const pmSaving = ref(false)
 const pmAiLoading = ref(false)
 
-// Snooze
+// Modal visibility (consumed by extracted components)
 const showSnooze = ref(false)
-const snoozeLoading = ref(false)
-const snoozeDuration = ref<number | null>(null)
-const snoozeCustomUntil = ref('')
-const snoozePresets = computed(() => [
-  { label: '15m', minutes: 15 },
-  { label: '30m', minutes: 30 },
-  { label: '1h', minutes: 60 },
-  { label: '2h', minutes: 120 },
-  { label: '4h', minutes: 240 },
-  { label: t('query.timeCustom'), minutes: -1 },
-])
-
-async function doSnooze() {
-  let until: string
-  if (snoozeDuration.value === -1) {
-    if (!snoozeCustomUntil.value) { message.warning(t('incident.selectSnoozeEnd')); return }
-    until = new Date(snoozeCustomUntil.value).toISOString()
-  } else if (snoozeDuration.value) {
-    const d = new Date()
-    d.setMinutes(d.getMinutes() + snoozeDuration.value)
-    until = d.toISOString()
-  } else {
-    message.warning(t('incident.selectSnoozeDuration')); return
-  }
-  snoozeLoading.value = true
-  try {
-    await incidentApi.snooze(incidentId.value, until)
-    message.success(t('incident.snoozeSuccess'))
-    showSnooze.value = false
-    snoozeDuration.value = null
-    snoozeCustomUntil.value = ''
-    await load()
-  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { snoozeLoading.value = false }
-}
-
-// Merge
 const showMerge = ref(false)
-const mergeLoading = ref(false)
-const mergeSearch = ref('')
-const mergeSearchLoading = ref(false)
-const mergeResults = ref<Incident[]>([])
-const mergeTargetId = ref<number | null>(null)
-
-async function searchMergeIncidents() {
-  if (!mergeSearch.value.trim()) return
-  mergeSearchLoading.value = true
-  try {
-    const res = await incidentApi.list({ query: mergeSearch.value, page: 1, page_size: 10 })
-    mergeResults.value = (res.data.data?.list ?? []).filter((i: Incident) => i.id !== incidentId.value)
-  } catch (e: any) { message.error(e?.message ?? t('incident.searchFailed')) } finally { mergeSearchLoading.value = false }
-}
-
-async function doMerge() {
-  if (!mergeTargetId.value) { message.warning(t('incident.selectTargetIncident')); return }
-  mergeLoading.value = true
-  try {
-    await incidentApi.merge(incidentId.value, mergeTargetId.value)
-    message.success(t('incident.mergeSuccess'))
-    showMerge.value = false
-    router.push(`/incidents/${mergeTargetId.value}`)
-  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { mergeLoading.value = false }
-}
-
-// Reassign
 const showReassign = ref(false)
-const reassignLoading = ref(false)
-const reassignSearch = ref('')
-const reassignSearchLoading = ref(false)
-const reassignUsers = ref<User[]>([])
-const reassignUserId = ref<number | null>(null)
 
-async function searchUsers() {
-  reassignSearchLoading.value = true
-  try {
-    const res = await userApi.list({ page: 1, page_size: 50 })
-    const allUsers: User[] = res.data.data?.list ?? []
-    const q = reassignSearch.value.toLowerCase()
-    reassignUsers.value = q
-      ? allUsers.filter(u =>
-          (u.username?.toLowerCase().includes(q)) ||
-          (u.display_name?.toLowerCase().includes(q)))
-      : allUsers
-  } catch (e: any) { message.error(e?.message ?? t('incident.searchFailed')) } finally { reassignSearchLoading.value = false }
-}
-
-async function doReassign() {
-  if (!reassignUserId.value) { message.warning(t('incident.selectAssignee')); return }
-  reassignLoading.value = true
-  try {
-    await incidentApi.reassign(incidentId.value, reassignUserId.value)
-    message.success(t('incident.reassignSuccess'))
-    showReassign.value = false
-    reassignUserId.value = null
-    await load()
-  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { reassignLoading.value = false }
-}
+function onSnoozeDone() { load() }
+function onMergeDone(targetId: number) { router.push(`/incidents/${targetId}`) }
+function onReassignDone() { load() }
 
 const statusLabel: Record<string, string> = {
   triggered: 'incident.statusTriggered',
@@ -152,12 +69,12 @@ function relTime(ts?: string): string {
   if (!ts) return '—'
   const diff = Date.now() - new Date(ts).getTime()
   const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
+  if (m < 1) return t('common.justNow')
+  if (m < 60) return t('incident.relMAgo', { n: m })
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
+  if (h < 24) return t('incident.relHAgo', { n: h })
   const d = Math.floor(h / 24)
-  return `${d}d ago`
+  return t('incident.relDAgo', { n: d })
 }
 
 function durationStr(start?: string, end?: string): string {
@@ -269,10 +186,30 @@ function handleMoreAction(key: string) {
   }
 }
 
+// B4/B5: MdEditor computed properties from i18n locale + injected theme
+const isDark = inject<Ref<boolean>>('isDark', ref(false))
+const mdLanguage = computed(() => locale.value === 'zh-CN' ? 'zh-CN' : 'en-US')
+const mdTheme = computed(() => isDark.value ? 'dark' : 'light')
+
+// B8/B9: Map timeline entry.action to i18n labels
+const ACTION_LABEL_MAP: Record<string, string> = {
+  acknowledge: 'incident.acknowledge',
+  close: 'incident.close',
+  reopen: 'incident.reopen',
+  assign: 'incident.assignTo',
+  escalate: 'incident.escalate',
+  resolve: 'alert.resolve',
+  comment: 'incident.comment',
+  created: 'alert.created',
+  notified: 'alert.notified',
+}
+function actionLabel(action: string): string {
+  return t(ACTION_LABEL_MAP[action] ?? action)
+}
+
 onMounted(async () => {
   await load()
   await loadPostMortem()
-  await searchUsers()
 })
 </script>
 
@@ -322,7 +259,8 @@ onMounted(async () => {
       </div>
     </header>
 
-    <n-spin :show="loading">
+    <LoadingSkeleton v-if="loading && !incident" :rows="8" variant="detail" />
+    <n-spin v-else :show="loading">
       <div v-if="incident" class="detail-layout sre-fadein">
         <!-- LEFT MAIN -->
         <div class="detail-main">
@@ -361,30 +299,30 @@ onMounted(async () => {
           <n-tabs v-model:value="activeTab" type="line" animated class="detail-tabs">
 
             <!-- Overview -->
-            <n-tab-pane name="overview" tab="Overview">
+            <n-tab-pane name="overview" :tab="t('common.overview')">
               <div class="overview-grid">
                 <div class="ov-row">
-                  <div class="sre-label-eyebrow">Triggered</div>
+                  <div class="sre-label-eyebrow">{{ t('incident.triggeredAt') }}</div>
                   <div class="ov-value tnum">{{ formatTime(incident.triggered_at) }}</div>
                 </div>
                 <div class="ov-row">
-                  <div class="sre-label-eyebrow">Acknowledged</div>
+                  <div class="sre-label-eyebrow">{{ t('incident.acknowledgedAt') }}</div>
                   <div class="ov-value tnum">{{ incident.acknowledged_at ? formatTime(incident.acknowledged_at) : '—' }}</div>
                 </div>
                 <div class="ov-row">
-                  <div class="sre-label-eyebrow">Resolved</div>
+                  <div class="sre-label-eyebrow">{{ t('incident.resolvedAt') }}</div>
                   <div class="ov-value tnum">{{ incident.resolved_at ? formatTime(incident.resolved_at) : '—' }}</div>
                 </div>
                 <div class="ov-row">
-                  <div class="sre-label-eyebrow">Closed</div>
+                  <div class="sre-label-eyebrow">{{ t('incident.closedAt') }}</div>
                   <div class="ov-value tnum">{{ incident.closed_at ? formatTime(incident.closed_at) : '—' }}</div>
                 </div>
                 <div class="ov-row">
-                  <div class="sre-label-eyebrow">Alert count</div>
+                  <div class="sre-label-eyebrow">{{ t('incident.alertCount') }}</div>
                   <div class="ov-value tnum">{{ incident.alert_count }}</div>
                 </div>
                 <div class="ov-row">
-                  <div class="sre-label-eyebrow">Assignee</div>
+                  <div class="sre-label-eyebrow">{{ t('incident.assignee') }}</div>
                   <div class="ov-value">
                     {{ incident.assigned_user?.display_name ?? incident.assigned_user?.username ?? '—' }}
                   </div>
@@ -396,7 +334,7 @@ onMounted(async () => {
               </div>
 
               <div v-if="incident.labels && Object.keys(incident.labels).length" class="ov-labels">
-                <div class="sre-label-eyebrow" style="margin-bottom:8px">Labels</div>
+                <div class="sre-label-eyebrow labels-heading">{{ t('incident.labels') }}</div>
                 <div class="label-chips">
                   <span v-for="(v, k) in incident.labels" :key="k" class="label-chip">
                     {{ k }}={{ v }}
@@ -407,9 +345,13 @@ onMounted(async () => {
 
             <!-- Related alerts -->
             <n-tab-pane name="alerts" :tab="t('alertV2.title')">
-              <div v-if="!relatedAlerts.length" class="empty-state">
-                <n-empty :description="t('common.noData')" />
-              </div>
+              <EmptyState
+                v-if="!relatedAlerts.length"
+                :icon="AlertCircleOutline"
+                :title="t('common.noData')"
+                :description="t('incident.noEvents')"
+                size="sm"
+              />
               <div v-else class="alert-rows">
                 <div
                   v-for="a in relatedAlerts" :key="a.id"
@@ -422,7 +364,7 @@ onMounted(async () => {
                   <span class="sre-meta-divider" />
                   <span class="alert-meta tnum">{{ relTime(a.last_fired_at) }}</span>
                   <span class="sre-meta-divider" />
-                  <span class="alert-meta tnum">{{ a.fire_count }}× fired</span>
+                  <span class="alert-meta tnum">{{ t('incident.nxFired', { n: a.fire_count }) }}</span>
                   <span class="alert-status" :class="`s-${a.status}`">{{ a.status }}</span>
                 </div>
               </div>
@@ -430,19 +372,23 @@ onMounted(async () => {
 
             <!-- Timeline -->
             <n-tab-pane name="timeline" :tab="t('incident.timeline')">
-              <div v-if="!timeline.length" class="empty-state">
-                <n-empty :description="t('incident.noTimeline')" />
-              </div>
+              <EmptyState
+                v-if="!timeline.length"
+                :icon="TimeOutline"
+                :title="t('incident.noTimeline')"
+                :description="t('incident.noEvents')"
+                size="sm"
+              />
               <ol v-else class="tl-list">
                 <li v-for="entry in timeline" :key="entry.id" class="tl-item">
                   <span class="tl-dot" />
                   <div class="tl-body">
                     <div class="tl-line">
-                      <span class="tl-action">{{ entry.action }}</span>
+                      <span class="tl-action">{{ actionLabel(entry.action) }}</span>
                       <span class="tl-time tnum">{{ relTime(entry.created_at) }}</span>
                     </div>
                     <div v-if="entry.actor || entry.content" class="tl-sub">
-                      <span v-if="entry.actor">by {{ entry.actor.display_name ?? entry.actor.username }}</span>
+                      <span v-if="entry.actor">{{ t('incident.by', { name: entry.actor.display_name ?? entry.actor.username }) }}</span>
                       <span v-if="entry.actor && entry.content" class="sre-meta-divider" />
                       <span v-if="entry.content">{{ entry.content }}</span>
                     </div>
@@ -507,20 +453,20 @@ onMounted(async () => {
                     v-model="postMortem.title"
                     class="pm-title-input"
                     type="text"
-                    placeholder="Post-mortem title…"
+                    :placeholder="t('postMortem.titlePlaceholder')"
                   />
 
                   <MdEditor
                     v-model="postMortem.content"
                     :preview="true"
                     :toolbars-exclude="['github']"
-                    language="zh-CN"
-                    theme="dark"
-                    style="height: 520px; border-radius: 8px"
+                    :language="mdLanguage"
+                    :theme="mdTheme"
+                    class="pm-editor"
                   />
                 </div>
                 <div v-else class="empty-state pm-empty">
-                  <p class="pm-empty-text">No post-mortem yet</p>
+                  <p class="pm-empty-text">{{ t('postMortem.noPostMortem') }}</p>
                   <n-button type="primary" size="small" @click="loadPostMortem">
                     {{ t('common.create') }}
                   </n-button>
@@ -534,10 +480,10 @@ onMounted(async () => {
         <!-- RIGHT SIDEBAR -->
         <aside class="detail-sidebar">
           <section class="side-card">
-            <div class="sre-label-eyebrow card-eyebrow">Key info</div>
+            <div class="sre-label-eyebrow card-eyebrow">{{ t('incident.keyInfo') }}</div>
             <dl class="kv-list">
               <div class="kv-row">
-                <dt>Channel</dt>
+                <dt>{{ t('incident.channel') }}</dt>
                 <dd>
                   <a v-if="incident.channel" class="kv-link" @click="router.push(`/channels/${incident.channel_id}`)">
                     {{ incident.channel.name }}
@@ -546,51 +492,51 @@ onMounted(async () => {
                 </dd>
               </div>
               <div class="kv-row">
-                <dt>Severity</dt>
+                <dt>{{ t('incident.severity') }}</dt>
                 <dd class="kv-flex">
                   <span class="sre-dot" :data-severity="incident.severity" />
                   {{ t(severityLabel[incident.severity] ?? incident.severity) }}
                 </dd>
               </div>
               <div class="kv-row">
-                <dt>Status</dt>
+                <dt>{{ t('common.status') }}</dt>
                 <dd>{{ t(statusLabel[incident.status] ?? incident.status) }}</dd>
               </div>
               <div class="kv-row">
-                <dt>Triggered</dt>
+                <dt>{{ t('incident.triggeredAt') }}</dt>
                 <dd class="tnum">{{ formatTime(incident.triggered_at) }}</dd>
               </div>
               <div class="kv-row">
-                <dt>Acked</dt>
+                <dt>{{ t('incident.acknowledgedAt') }}</dt>
                 <dd class="tnum">{{ incident.acknowledged_at ? formatTime(incident.acknowledged_at) : '—' }}</dd>
               </div>
               <div class="kv-row">
-                <dt>Assignee</dt>
+                <dt>{{ t('incident.assignee') }}</dt>
                 <dd>{{ incident.assigned_user?.display_name ?? incident.assigned_user?.username ?? '—' }}</dd>
               </div>
               <div class="kv-row">
-                <dt>Alerts</dt>
+                <dt>{{ t('incident.alertCount') }}</dt>
                 <dd class="tnum">{{ incident.alert_count }}</dd>
               </div>
               <div class="kv-row">
-                <dt>Duration</dt>
+                <dt>{{ t('incident.duration') }}</dt>
                 <dd class="tnum">{{ durationStr(incident.triggered_at, incident.closed_at) }}</dd>
               </div>
             </dl>
           </section>
 
           <section class="side-card">
-            <div class="sre-label-eyebrow card-eyebrow">Timeline brief</div>
+            <div class="sre-label-eyebrow card-eyebrow">{{ t('incident.timelineBrief') }}</div>
             <ol v-if="timeline.length" class="brief-list">
               <li v-for="e in timeline.slice(0, 5)" :key="e.id" class="brief-item">
                 <span class="brief-dot" />
                 <div class="brief-body">
-                  <div class="brief-action">{{ e.action }}</div>
+                  <div class="brief-action">{{ actionLabel(e.action) }}</div>
                   <div class="brief-meta tnum">{{ relTime(e.created_at) }}</div>
                 </div>
               </li>
             </ol>
-            <p v-else class="brief-empty">No events yet</p>
+            <p v-else class="brief-empty">{{ t('incident.noEvents') }}</p>
           </section>
         </aside>
       </div>
@@ -604,127 +550,24 @@ onMounted(async () => {
       @created="load"
     />
 
-    <!-- Snooze -->
-    <n-modal
+    <!-- Extracted Modals -->
+    <SnoozeModal
       v-model:show="showSnooze"
-      :title="t('incident.snoozeIncident')"
-      preset="card"
-      style="width: 420px"
-      :bordered="false"
-    >
-      <div class="snooze-presets">
-        <button
-          v-for="p in snoozePresets" :key="p.minutes"
-          class="preset-btn" :class="{ active: snoozeDuration === p.minutes }"
-          @click="snoozeDuration = p.minutes"
-        >{{ p.label }}</button>
-      </div>
-      <div v-if="snoozeDuration === -1" style="margin-top:12px">
-        <n-date-picker
-          v-model:formatted-value="snoozeCustomUntil"
-          type="datetime"
-          :is-date-disabled="(ts: number) => ts < Date.now()"
-          style="width:100%"
-        />
-      </div>
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showSnooze = false">{{ t('incident.cancelBtn') }}</n-button>
-          <n-button type="primary" :loading="snoozeLoading" @click="doSnooze">{{ t('incident.confirmSnooze') }}</n-button>
-        </n-space>
-      </template>
-    </n-modal>
+      :incident-id="incidentId"
+      @done="onSnoozeDone"
+    />
 
-    <!-- Merge -->
-    <n-modal
+    <MergeModal
       v-model:show="showMerge"
-      :title="t('incident.mergeToTarget')"
-      preset="card"
-      style="width: 540px"
-      :bordered="false"
-    >
-      <p class="modal-hint">
-        {{ t('incident.mergeDescription') }}
-      </p>
-      <n-input-group>
-        <n-input
-          v-model:value="mergeSearch"
-          :placeholder="t('incident.searchIncidentHint')"
-          @keydown.enter="searchMergeIncidents"
-        />
-        <n-button :loading="mergeSearchLoading" @click="searchMergeIncidents">{{ t('incident.searchBtn') }}</n-button>
-      </n-input-group>
-      <div v-if="mergeResults.length" class="picker-list">
-        <div
-          v-for="inc in mergeResults" :key="inc.id"
-          class="picker-row sre-row-card"
-          :class="{ selected: mergeTargetId === inc.id }"
-          :data-severity="inc.severity"
-          @click="mergeTargetId = inc.id"
-        >
-          <span class="sre-dot" :data-severity="inc.severity" />
-          <span class="tnum incident-id-small">#{{ inc.id }}</span>
-          <span class="picker-title">{{ inc.title }}</span>
-        </div>
-      </div>
-      <n-empty v-else-if="mergeSearch && !mergeSearchLoading" :description="t('incident.noMatchingIncident')" style="padding:16px 0" />
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showMerge = false">{{ t('incident.cancelBtn') }}</n-button>
-          <n-popconfirm @positive-click="doMerge">
-            <template #trigger>
-              <n-button type="error" :loading="mergeLoading" :disabled="!mergeTargetId">
-                {{ t('incident.confirmMerge') }}
-              </n-button>
-            </template>
-            {{ t('incident.confirmMergeMsg') }}
-          </n-popconfirm>
-        </n-space>
-      </template>
-    </n-modal>
+      :incident-id="incidentId"
+      @done="onMergeDone"
+    />
 
-    <!-- Reassign -->
-    <n-modal
+    <ReassignModal
       v-model:show="showReassign"
-      :title="t('incident.reassign')"
-      preset="card"
-      style="width: 460px"
-      :bordered="false"
-    >
-      <n-input
-        v-model:value="reassignSearch"
-        :placeholder="t('incident.searchUserHint')"
-        clearable
-        style="margin-bottom:12px"
-        @update:value="searchUsers"
-      />
-      <n-spin :show="reassignSearchLoading">
-        <div class="picker-list">
-          <div
-            v-for="u in reassignUsers" :key="u.id"
-            class="picker-row user-row"
-            :class="{ selected: reassignUserId === u.id }"
-            @click="reassignUserId = u.id"
-          >
-            <n-avatar size="small" round>
-              {{ (u.display_name || u.username).charAt(0).toUpperCase() }}
-            </n-avatar>
-            <div class="user-meta">
-              <div class="user-name">{{ u.display_name || u.username }}</div>
-              <div class="user-handle">{{ u.username }}</div>
-            </div>
-          </div>
-        </div>
-      </n-spin>
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showReassign = false">{{ t('incident.cancelBtn') }}</n-button>
-          <n-button type="primary" :loading="reassignLoading" :disabled="!reassignUserId" @click="doReassign">
-            {{ t('incident.confirmReassign') }}
-          </n-button>
-        </n-space>
-      </template>
-    </n-modal>
+      :incident-id="incidentId"
+      @done="onReassignDone"
+    />
   </div>
 </template>
 
@@ -760,6 +603,7 @@ onMounted(async () => {
   font-size: 13px;
   color: var(--sre-text-tertiary);
   font-weight: 500;
+  font-family: var(--sre-font-mono);
 }
 .incident-title {
   margin: 0;
@@ -855,6 +699,10 @@ onMounted(async () => {
   padding-top: 14px;
   border-top: var(--sre-hairline);
 }
+.labels-heading {
+  margin-bottom: 8px;
+  color: var(--sre-text-tertiary);
+}
 .label-chips {
   display: flex;
   flex-wrap: wrap;
@@ -908,8 +756,8 @@ onMounted(async () => {
   border-radius: 4px;
   background: var(--sre-bg-elevated);
 }
-.alert-status.s-firing { color: #ef4444; background: rgba(239,68,68,0.12); }
-.alert-status.s-resolved { color: #22c55e; background: rgba(34,197,94,0.12); }
+.alert-status.s-firing { color: var(--sre-critical); background: var(--sre-critical-soft); }
+.alert-status.s-resolved { color: var(--sre-success); background: var(--sre-success-soft); }
 
 /* Timeline */
 .tl-list {
@@ -1021,6 +869,10 @@ onMounted(async () => {
   border-bottom: var(--sre-hairline);
 }
 .pm-title-input:focus { border-bottom-color: var(--sre-primary); }
+.pm-editor {
+  height: 520px;
+  border-radius: 8px;
+}
 .pm-empty { padding: 60px 0; text-align: center; }
 .pm-empty-text { color: var(--sre-text-secondary); margin-bottom: 16px; font-size: 13px; }
 
@@ -1086,70 +938,6 @@ onMounted(async () => {
 }
 .brief-meta { font-size: 11px; color: var(--sre-text-tertiary); margin-top: 2px; }
 .brief-empty { font-size: 12px; color: var(--sre-text-tertiary); margin: 0; }
-
-/* Modals */
-.modal-hint { font-size: 13px; color: var(--sre-text-secondary); margin: 0 0 12px; line-height: 1.5; }
-.snooze-presets { display: flex; flex-wrap: wrap; gap: 6px; }
-.preset-btn {
-  background: var(--sre-bg-elevated);
-  border: var(--sre-hairline);
-  color: var(--sre-text-secondary);
-  font-family: inherit;
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: var(--sre-radius-sm);
-  cursor: pointer;
-  transition: all 120ms ease;
-}
-.preset-btn:hover { color: var(--sre-text-primary); border-color: var(--sre-border-strong); }
-.preset-btn.active {
-  background: var(--sre-primary-soft);
-  border-color: var(--sre-primary);
-  color: var(--sre-primary);
-}
-
-.picker-list {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 280px;
-  overflow-y: auto;
-}
-.picker-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--sre-radius-sm);
-  background: var(--sre-bg-card);
-  border: var(--sre-hairline);
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-.picker-row:hover { background: var(--sre-bg-hover); }
-.picker-row.selected {
-  background: var(--sre-primary-soft);
-  border-color: var(--sre-primary);
-}
-.incident-id-small {
-  font-size: 12px;
-  color: var(--sre-text-tertiary);
-  font-weight: 500;
-}
-.picker-title {
-  font-size: 13px;
-  color: var(--sre-text-primary);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.user-row { padding: 10px 12px; }
-.user-meta { display: flex; flex-direction: column; gap: 1px; }
-.user-name { font-size: 13px; font-weight: 500; color: var(--sre-text-primary); }
-.user-handle { font-size: 11px; color: var(--sre-text-tertiary); font-family: var(--sre-font-mono); }
 
 /* Fade in */
 .sre-fadein {

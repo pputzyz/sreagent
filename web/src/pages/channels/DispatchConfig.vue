@@ -261,12 +261,12 @@ onMounted(load)
       v-model:show="showModal"
       :title="editingId ? t('common.edit') : t('channel.dispatchCreate')"
       preset="card"
-      style="width:560px"
+      class="ch-modal-lg"
       :bordered="false"
       :segmented="{ content: true }"
     >
-      <n-scrollbar style="max-height:70vh">
-        <n-form label-placement="top" size="small" style="padding-right:12px">
+      <n-scrollbar class="ch-form-scroll">
+        <n-form label-placement="top" size="small" class="ch-form-pad">
 
           <!-- Basic -->
           <n-form-item :label="t('common.name')" required>
@@ -280,27 +280,25 @@ onMounted(load)
               <n-input-number v-model:value="form.priority" :min="0" :max="9999" />
             </n-form-item-gi>
             <n-form-item-gi>
-              <n-checkbox v-model:checked="form.is_enabled" style="margin-top:22px">{{ t('common.enabled') }}</n-checkbox>
+              <n-checkbox v-model:checked="form.is_enabled" class="ch-checkbox-top">{{ t('common.enabled') }}</n-checkbox>
             </n-form-item-gi>
           </n-grid>
 
-          <n-divider title-placement="left" style="font-size:12px">{{ t('channel.triggerAndDelay') }}</n-divider>
+          <n-divider title-placement="left" class="ch-divider-label">{{ t('channel.triggerAndDelay') }}</n-divider>
 
           <!-- Delay -->
           <n-form-item :label="t('channel.dispatchDelay')">
-            <n-input-number v-model:value="form.delay_seconds" :min="0" :max="3600" style="width:120px" />
-            <span style="font-size:11px;color:var(--sre-text-secondary);margin-left:8px">
-              {{ t('channel.dispatchDelayHint') }}
-            </span>
+            <n-input-number v-model:value="form.delay_seconds" :min="0" :max="3600" class="ch-input-120" />
+            <span class="ch-form-hint">{{ t('channel.dispatchDelayHint') }}</span>
           </n-form-item>
 
           <!-- Repeat -->
           <n-grid :cols="2" :x-gap="12">
             <n-form-item-gi :label="t('channel.dispatchRepeatInterval')">
-              <n-input-number v-model:value="form.repeat_interval_seconds" :min="0" style="width:100px" />
+              <n-input-number v-model:value="form.repeat_interval_seconds" :min="0" class="ch-input-100" />
             </n-form-item-gi>
             <n-form-item-gi :label="t('channel.dispatchMaxRepeats')">
-              <n-input-number v-model:value="form.max_repeats" :min="0" style="width:100px" />
+              <n-input-number v-model:value="form.max_repeats" :min="0" class="ch-input-100" />
             </n-form-item-gi>
           </n-grid>
 
@@ -331,15 +329,15 @@ onMounted(load)
             </n-form-item>
             <n-grid :cols="2" :x-gap="12">
               <n-form-item-gi :label="t('channel.dispatchStartTime')">
-                <n-input v-model:value="form.active_start" placeholder="09:00" style="width:100px" />
+                <n-input v-model:value="form.active_start" placeholder="09:00" class="ch-input-100" />
               </n-form-item-gi>
               <n-form-item-gi :label="t('channel.dispatchEndTime')">
-                <n-input v-model:value="form.active_end" placeholder="18:00" style="width:100px" />
+                <n-input v-model:value="form.active_end" placeholder="18:00" class="ch-input-100" />
               </n-form-item-gi>
             </n-grid>
           </template>
 
-          <n-divider title-placement="left" style="font-size:12px">{{ t('channel.notifyAndEscalation') }}</n-divider>
+          <n-divider title-placement="left" class="ch-divider-label">{{ t('channel.notifyAndEscalation') }}</n-divider>
 
           <!-- Notify mode -->
           <n-form-item :label="t('channel.dispatchNotifyMode')">
@@ -355,11 +353,11 @@ onMounted(load)
               v-model:value="form.escalation_policy_id"
               :options="escalationOptions"
               clearable
-              style="width:260px"
+              class="ch-select-260"
             />
           </n-form-item>
 
-          <n-divider title-placement="left" style="font-size:12px">{{ t('channel.labelEnhancement') }}</n-divider>
+          <n-divider title-placement="left" class="ch-divider-label">{{ t('channel.labelEnhancement') }}</n-divider>
 
           <!-- Label enhancement rules -->
           <n-form-item :label="t('channel.dispatchLabelRules')">
@@ -448,4 +446,9 @@ onMounted(load)
   gap: 6px;
   flex-shrink: 0;
 }
+
+</style>
+
+<style>
+@import '@/styles/channels.css';
 </style>

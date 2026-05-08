@@ -7,6 +7,7 @@ import { alertEventApi, userApi, aiApi } from '@/api'
 import type { AlertEvent, AlertTimeline, User } from '@/types'
 import { formatTime, formatDuration } from '@/utils/format'
 import { getStatusLabelKey } from '@/utils/alert'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   ArrowBackOutline,
   RefreshOutline,
@@ -467,7 +468,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
               <div class="evt-ai-head">
                 <div class="sre-label-eyebrow">
                   <n-icon :component="BookOutline" :size="12" />
-                  SOP
+                  {{ t('alert.aiSuggestSOP') || 'SOP' }}
                 </div>
                 <n-button quaternary size="tiny" @click="generateSOP">
                   {{ sopReport ? t('alert.regenerateReport') : (t('alert.aiSuggestSOP') || 'Suggest SOP') }}
@@ -479,7 +480,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
                   <h4 class="evt-sop-title">{{ sopReport.title }}</h4>
                   <ol v-if="sopReport.steps?.length"><li v-for="(s, i) in sopReport.steps" :key="i">{{ s }}</li></ol>
                   <div v-if="sopReport.references?.length" class="evt-ai-block">
-                    <div class="sre-label-eyebrow">References</div>
+                    <div class="sre-label-eyebrow">{{ t('alert.references') || 'References' }}</div>
                     <ul><li v-for="(r, i) in sopReport.references" :key="i">{{ r }}</li></ul>
                   </div>
                 </div>
@@ -493,7 +494,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
       <aside class="evt-aside">
         <!-- Key Info -->
         <div class="evt-aside-card">
-          <div class="sre-label-eyebrow">Key Info</div>
+          <div class="sre-label-eyebrow">{{ t('alert.keyInfo') || 'Key Info' }}</div>
           <dl class="evt-meta">
             <div class="evt-meta-row">
               <dt>{{ t('alert.severity') }}</dt>
@@ -540,7 +541,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 
         <!-- Responders -->
         <div class="evt-aside-card" v-if="event.acked_by_user || event.assigned_to_user || event.oncall_user">
-          <div class="sre-label-eyebrow">Responders</div>
+          <div class="sre-label-eyebrow">{{ t('common.responders') || 'Responders' }}</div>
           <ul class="evt-responders">
             <li v-if="event.acked_by_user">
               <span class="evt-resp-avatar">{{ (event.acked_by_user.display_name || '?').charAt(0).toUpperCase() }}</span>
@@ -584,18 +585,18 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 
         <!-- Related -->
         <div class="evt-aside-card">
-          <div class="sre-label-eyebrow">Related</div>
+          <div class="sre-label-eyebrow">{{ t('alert.related') || 'Related' }}</div>
           <ul class="evt-related">
             <li v-if="event.rule_id">
               <span>{{ t('alert.rule') }}</span>
               <a class="evt-link" @click="gotoRule">{{ event.rule?.name || `#${event.rule_id}` }}</a>
             </li>
             <li v-if="event.generator_url">
-              <span>Source</span>
+              <span>{{ t('alert.source') || 'Source' }}</span>
               <a class="evt-link" :href="event.generator_url" target="_blank" rel="noopener">↗ View</a>
             </li>
             <li>
-              <span>Fingerprint</span>
+              <span>{{ t('alert.fingerprint') || 'Fingerprint' }}</span>
               <code class="evt-fp" @click="copyText(event.fingerprint, 'fingerprint copied')">
                 {{ event.fingerprint.slice(0, 12) }}…
                 <n-icon :component="CopyOutline" :size="10" />
@@ -647,16 +648,13 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
     </n-modal>
   </div>
 
-  <div v-else class="evt-loading">
-    <n-spin v-if="loading" />
-  </div>
+  <LoadingSkeleton v-else-if="loading" :rows="6" variant="row" />
 </template>
 
 <style scoped>
 .evt-page {
   max-width: 1400px;
   font-family: var(--sre-font-sans);
-  font-feature-settings: 'cv11', 'ss01';
   letter-spacing: -0.005em;
 }
 
@@ -781,7 +779,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 }
 .evt-chip:hover {
   border-color: var(--sre-primary-ring, var(--sre-text-primary));
-  background: var(--sre-primary-soft, rgba(128,128,128,0.05));
+  background: var(--sre-primary-soft);
 }
 .evt-chip-key { padding: 3px 7px; color: var(--sre-text-secondary); }
 .evt-chip-eq  { padding: 3px 1px; color: var(--sre-text-secondary); opacity: 0.6; }
@@ -833,7 +831,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-rule-expr {
   margin: 8px 0 0;
   padding: 8px 10px;
-  background: rgba(128,128,128,0.06);
+  background: var(--sre-bg-elevated);
   border-radius: 6px;
   font-family: var(--sre-font-mono);
   font-size: 11.5px;
@@ -886,7 +884,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-tl-operator {
   font-size: 12px;
   color: var(--sre-text-secondary);
-  background: rgba(128,128,128,0.08);
+  background: var(--sre-bg-hover);
   padding: 1px 6px;
   border-radius: 4px;
 }
@@ -898,7 +896,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-tl-note {
   margin: 4px 0 0;
   padding: 6px 9px;
-  background: rgba(128,128,128,0.05);
+  background: var(--sre-bg-subtle);
   border-radius: 6px;
   font-size: 12px;
   color: var(--sre-text-secondary);
@@ -938,7 +936,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-ai-summary {
   margin: 0 0 12px;
   padding: 10px 12px;
-  background: rgba(128,128,128,0.05);
+  background: var(--sre-bg-subtle);
   border-radius: 8px;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -990,11 +988,11 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   min-width: 0;
   word-break: break-all;
 }
-.evt-fire-count { color: var(--sre-critical, #ef4444); font-weight: 700; }
-.evt-silenced { color: var(--sre-aurora-3, #a78bfa); }
+.evt-fire-count { color: var(--sre-critical); font-weight: 700; }
+.evt-silenced { color: var(--sre-aurora-3); }
 
 .evt-link {
-  color: var(--sre-info, #3b82f6);
+  color: var(--sre-info);
   cursor: pointer;
   text-decoration: none;
 }
@@ -1006,7 +1004,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-resp-avatar {
   width: 28px; height: 28px;
   border-radius: 50%;
-  background: var(--sre-primary-soft, rgba(128,128,128,0.12));
+  background: var(--sre-primary-soft);
   color: var(--sre-text-primary);
   display: inline-flex;
   align-items: center;
@@ -1030,7 +1028,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   padding: 2px 0;
   border-radius: 4px;
 }
-.evt-aside-labels li:hover { background: rgba(128,128,128,0.05); }
+.evt-aside-labels li:hover { background: var(--sre-bg-subtle); }
 .evt-aside-k { color: var(--sre-text-secondary); }
 .evt-aside-v {
   color: var(--sre-text-primary);
@@ -1052,7 +1050,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   font-family: var(--sre-font-mono);
   font-size: 11px;
   color: var(--sre-text-secondary);
-  background: rgba(128,128,128,0.08);
+  background: var(--sre-bg-hover);
   padding: 2px 6px;
   border-radius: 4px;
   cursor: pointer;
@@ -1061,11 +1059,6 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   gap: 4px;
 }
 .evt-fp:hover { color: var(--sre-text-primary); }
-
-.evt-loading {
-  padding: 60px;
-  text-align: center;
-}
 
 /* Tabular nums */
 .tnum {

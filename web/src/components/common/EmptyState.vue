@@ -82,10 +82,10 @@ defineEmits<{
 .empty-state[data-size="sm"] .empty-icon { width: 40px; height: 40px; font-size: 20px; margin-bottom: 12px; }
 .empty-state[data-size="lg"] .empty-icon { width: 72px; height: 72px; font-size: 36px; margin-bottom: 20px; }
 
-.empty-state[data-variant="success"]  .empty-icon { color: var(--sre-primary);  background: var(--sre-primary-soft);  border-color: rgba(24,160,88,0.18); }
-.empty-state[data-variant="warning"]  .empty-icon { color: var(--sre-warning);  background: var(--sre-warning-soft); border-color: rgba(245,158,11,0.18); }
-.empty-state[data-variant="critical"] .empty-icon { color: var(--sre-critical); background: var(--sre-critical-soft); border-color: rgba(239,68,68,0.18); }
-.empty-state[data-variant="info"]     .empty-icon { color: var(--sre-info);     background: var(--sre-info-soft);    border-color: rgba(59,130,246,0.18); }
+.empty-state[data-variant="success"]  .empty-icon { color: var(--sre-primary);  background: var(--sre-primary-soft);  border-color: var(--sre-primary-ring); }
+.empty-state[data-variant="warning"]  .empty-icon { color: var(--sre-warning);  background: var(--sre-warning-soft); border-color: var(--sre-warning-soft); }
+.empty-state[data-variant="critical"] .empty-icon { color: var(--sre-critical); background: var(--sre-critical-soft); border-color: var(--sre-critical-soft); }
+.empty-state[data-variant="info"]     .empty-icon { color: var(--sre-info);     background: var(--sre-info-soft);    border-color: var(--sre-info-soft); }
 
 .empty-title {
   font-size: 15px; font-weight: 600;

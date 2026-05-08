@@ -260,7 +260,7 @@ onMounted(() => { fetchData(); fetchRefData() })
       </li>
     </ul>
 
-    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 600px" :bordered="false">
+    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" :bordered="false" class="sub-modal">
       <n-form label-placement="top">
         <n-form-item :label="t('subscribe.name')" required>
           <n-input v-model:value="form.name" placeholder="e.g. My Critical Alert Sub" />
@@ -370,4 +370,6 @@ onMounted(() => { fetchData(); fetchRefData() })
 
 .row-l3 { padding-left: 18px; display: flex; gap: 6px; align-items: center; }
 .meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
+
+.sub-modal { width: 600px; }
 </style>

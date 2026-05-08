@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, shallowRef, ref, computed, onMounted } from 'vue'
-import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NEmpty, NSpin, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, useMessage } from 'naive-ui'
+import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import type { DataSource, DataSourceType } from '@/types'
@@ -17,6 +17,8 @@ import {
 } from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 interface DSCard extends DataSource {
   _testing?: boolean
@@ -252,7 +254,7 @@ onMounted(fetchList)
 
 <template>
   <div class="datasources-page">
-    <PageHeader :title="t('datasource.title')" :subtitle="'Manage Prometheus / VictoriaMetrics / VictoriaLogs / Zabbix'">
+    <PageHeader :title="t('datasource.title')" :subtitle="t('datasource.subtitle')">
       <template #actions>
         <NButton quaternary @click="fetchList" :loading="loading">
           <template #icon><NIcon :component="RefreshOutline" /></template>
@@ -267,7 +269,7 @@ onMounted(fetchList)
 
     <div class="ds-toolbar">
       <NRadioGroup v-model:value="typeFilter" size="small">
-        <NRadioButton value="all">All</NRadioButton>
+        <NRadioButton value="all">{{ t('common.all') }}</NRadioButton>
         <NRadioButton value="prometheus">Prometheus</NRadioButton>
         <NRadioButton value="victoriametrics">VictoriaMetrics</NRadioButton>
         <NRadioButton value="victorialogs">VictoriaLogs</NRadioButton>
@@ -278,7 +280,8 @@ onMounted(fetchList)
       </NInput>
     </div>
 
-    <NSpin :show="loading">
+    <LoadingSkeleton v-if="loading" variant="card-grid" :rows="6" />
+    <template v-else>
       <div v-if="filteredList.length > 0" class="ds-grid sre-stagger">
         <div
           v-for="(ds, idx) in filteredList"
@@ -292,7 +295,7 @@ onMounted(fetchList)
           <div class="ds-status">
             <span class="sre-dot" :data-severity="healthSev(ds) || ''"></span>
             <span class="ds-status-text">{{ healthLabel(ds) }}</span>
-            <span v-if="!ds.is_enabled" class="ds-disabled">· Disabled</span>
+            <span v-if="!ds.is_enabled" class="ds-disabled">· {{ t('common.disabled') }}</span>
           </div>
 
           <div class="ds-name">{{ ds.name }}</div>
@@ -302,15 +305,15 @@ onMounted(fetchList)
 
           <div class="ds-stats">
             <div class="ds-stat-row">
-              <span class="sre-label-eyebrow">Latency</span>
+              <span class="sre-label-eyebrow">{{ t('datasource.latency') }}</span>
               <span class="ds-stat-val tnum">{{ ds._latencyMs != null ? ds._latencyMs + 'ms' : '—' }}</span>
             </div>
             <div class="ds-stat-row">
-              <span class="sre-label-eyebrow">Version</span>
+              <span class="sre-label-eyebrow">{{ t('datasource.version') }}</span>
               <span class="ds-stat-val mono">{{ ds.version || '—' }}</span>
             </div>
             <div class="ds-stat-row">
-              <span class="sre-label-eyebrow">Last check</span>
+              <span class="sre-label-eyebrow">{{ t('datasource.lastCheck') }}</span>
               <span class="ds-stat-val">{{ relTime(ds._lastCheckAt) }}</span>
             </div>
           </div>
@@ -318,7 +321,7 @@ onMounted(fetchList)
           <div class="ds-actions" @click.stop>
             <NButton size="tiny" :loading="ds._testing" @click="testHealth(ds)">
               <template #icon><NIcon :component="PulseOutline" /></template>
-              Test
+              {{ t('common.test') }}
             </NButton>
             <NDropdown :options="rowActions(ds)" trigger="click" @select="handleAction($event, ds)">
               <NButton quaternary circle size="small">
@@ -329,20 +332,15 @@ onMounted(fetchList)
         </div>
       </div>
 
-      <div v-else-if="!loading" class="ds-empty">
-        <NEmpty :description="t('datasource.noData')">
-          <template #icon>
-            <NIcon :component="ServerOutline" :size="56" />
-          </template>
-          <template #extra>
-            <NButton type="primary" @click="openCreate">
-              <template #icon><NIcon :component="AddOutline" /></template>
-              {{ t('datasource.addFirst') }}
-            </NButton>
-          </template>
-        </NEmpty>
+      <div v-else class="ds-empty">
+        <EmptyState
+          :icon="ServerOutline"
+          :title="t('datasource.noData')"
+          :primary-text="t('datasource.addFirst')"
+          @primary="openCreate"
+        />
       </div>
-    </NSpin>
+    </template>
 
     <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px" :bordered="false">
       <NForm label-placement="top">

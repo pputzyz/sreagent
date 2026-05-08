@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted } from 'vue'
-import { NRadioGroup, NRadioButton, NSelect, NDatePicker, NInput, NPagination, NEmpty, NSpin, NIcon } from 'naive-ui'
+import { NRadioGroup, NRadioButton, NSelect, NDatePicker, NInput, NPagination, NSpin, NIcon } from 'naive-ui'
 import { ListOutline, SearchOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { auditLogApi } from '@/api'
 import type { AuditLog } from '@/types'
 import { formatTime } from '@/utils/format'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const { t } = useI18n()
 
@@ -156,7 +157,7 @@ onMounted(fetchLogs)
           type="daterange"
           size="small"
           clearable
-          style="width: 280px"
+          class="filter-datepicker"
           @update:value="reset"
         />
       </div>
@@ -168,7 +169,7 @@ onMounted(fetchLogs)
           placeholder="Action"
           clearable
           size="small"
-          style="width: 160px"
+          class="filter-select-sm"
           @update:value="reset"
         />
         <NSelect
@@ -177,7 +178,7 @@ onMounted(fetchLogs)
           placeholder="Resource"
           clearable
           size="small"
-          style="width: 180px"
+          class="filter-select-md"
           @update:value="reset"
         />
         <NSelect
@@ -187,7 +188,7 @@ onMounted(fetchLogs)
           clearable
           filterable
           size="small"
-          style="width: 160px"
+          class="filter-select-sm"
           @update:value="reset"
         />
         <NInput
@@ -195,7 +196,7 @@ onMounted(fetchLogs)
           placeholder="Search detail / resource"
           size="small"
           clearable
-          style="flex: 1; min-width: 200px; max-width: 320px"
+          class="filter-search"
           @keydown.enter="reset"
           @clear="reset"
         >
@@ -211,15 +212,12 @@ onMounted(fetchLogs)
         <div v-if="loading && firstLoad" class="state-pad">
           <NSpin size="medium" />
         </div>
-        <NEmpty
+        <EmptyState
           v-else-if="!logs.length"
+          :icon="ListOutline"
+          :title="t('settings.auditLog') || 'Audit Log'"
           description="No audit records in this range"
-          class="state-pad"
-        >
-          <template #icon>
-            <NIcon :component="ListOutline" />
-          </template>
-        </NEmpty>
+        />
         <div v-else class="audit-list sre-stagger">
           <div
             v-for="log in logs"
@@ -307,6 +305,10 @@ onMounted(fetchLogs)
   gap: 10px;
   flex-wrap: wrap;
 }
+.filter-datepicker { width: 280px; }
+.filter-select-sm { width: 160px; }
+.filter-select-md { width: 180px; }
+.filter-search { flex: 1; min-width: 200px; max-width: 320px; }
 
 .timeline-wrap {
   position: relative;
@@ -402,7 +404,7 @@ onMounted(fetchLogs)
   letter-spacing: 0.3px;
 }
 .audit-action-chip[data-action="success"]  { background: var(--sre-primary-soft); color: var(--sre-primary); }
-.audit-action-chip[data-action="warning"]  { background: rgba(245,158,11,0.14); color: var(--sre-warning); }
+.audit-action-chip[data-action="warning"]  { background: var(--sre-warning-soft); color: var(--sre-warning); }
 .audit-action-chip[data-action="critical"] { background: var(--sre-critical-soft); color: var(--sre-critical); }
 .audit-action-chip[data-action="info"]     { background: var(--sre-info-soft); color: var(--sre-info); }
 

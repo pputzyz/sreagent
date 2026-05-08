@@ -11,6 +11,7 @@ import { useMessage, NButton, NSpace, NSwitch, NInputNumber, NSelect, NTag, NPop
 import { useI18n } from 'vue-i18n'
 import { channelV2Api } from '@/api'
 import { AddOutline } from '@vicons/ionicons5'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const props = defineProps<{ channelId: number }>()
 const { t } = useI18n()
@@ -139,7 +140,7 @@ function addDimension() {
   const val = dimensionInput.value.trim()
   if (!val || aggConfig.dimensions.includes(val)) return
   if (aggConfig.dimensions.length >= 5) {
-    message.warning('最多 5 个维度')
+    message.warning(t('channel.maxDimensionsReached'))
     return
   }
   aggConfig.dimensions.push(val)
@@ -154,7 +155,7 @@ function addStormThreshold() {
   const v = stormThresholdInput.value
   if (!v || v < 2 || aggConfig.storm_thresholds.includes(v)) return
   if (aggConfig.storm_thresholds.length >= 5) {
-    message.warning('最多 5 个阈值')
+    message.warning(t('channel.maxThresholdsReached'))
     return
   }
   aggConfig.storm_thresholds.push(v)
@@ -240,7 +241,7 @@ onMounted(load)
                   v-model:value="dimensionInput"
                   :placeholder="t('channel.aggregationDimensionsHint')"
                   size="small"
-                  style="width:200px"
+                  class="ch-input-200"
                   @keyup.enter="addDimension"
                 />
                 <n-button size="small" @click="addDimension">+</n-button>
@@ -254,10 +255,10 @@ onMounted(load)
 
           <template v-if="aggConfig.window_enabled">
             <n-form-item :label="t('channel.aggregationWindowOrigin')">
-              <n-select v-model:value="aggConfig.window_origin" :options="windowOriginOptions" style="width:200px" />
+              <n-select v-model:value="aggConfig.window_origin" :options="windowOriginOptions" class="ch-select-200" />
             </n-form-item>
             <n-form-item :label="t('channel.aggregationWindowMinutes')">
-              <n-input-number v-model:value="aggConfig.window_minutes" :min="1" :max="1440" style="width:120px" />
+              <n-input-number v-model:value="aggConfig.window_minutes" :min="1" :max="1440" class="ch-input-120" />
             </n-form-item>
           </template>
 
@@ -280,7 +281,7 @@ onMounted(load)
                   :max="10000"
                   :placeholder="t('channel.stormThresholdsHint')"
                   size="small"
-                  style="width:140px"
+                  class="ch-input-140"
                 />
                 <n-button size="small" @click="addStormThreshold">+</n-button>
               </n-input-group>
@@ -290,7 +291,7 @@ onMounted(load)
           <n-form-item :label="t('channel.strictMode')">
             <n-space align="center">
               <n-switch v-model:value="aggConfig.strict_mode" />
-              <span style="font-size:12px;color:var(--sre-text-secondary)">
+              <span class="ch-form-hint">
                 {{ t('channel.strictModeHint') }}
               </span>
             </n-space>
@@ -305,18 +306,18 @@ onMounted(load)
       <n-form label-placement="left" :label-width="160" size="small">
 
         <n-form-item :label="t('channel.flappingMode')">
-          <n-select v-model:value="flapConfig.mode" :options="flappingModeOptions" style="width:200px" />
+          <n-select v-model:value="flapConfig.mode" :options="flappingModeOptions" class="ch-select-200" />
         </n-form-item>
 
         <template v-if="flapConfig.mode !== 'off'">
           <n-form-item :label="t('channel.flappingMaxChanges')">
-            <n-input-number v-model:value="flapConfig.max_changes" :min="2" :max="100" style="width:100px" />
+            <n-input-number v-model:value="flapConfig.max_changes" :min="2" :max="100" class="ch-input-100" />
           </n-form-item>
           <n-form-item :label="t('channel.flappingWindowMinutes')">
-            <n-input-number v-model:value="flapConfig.window_minutes" :min="1" :max="1440" style="width:100px" />
+            <n-input-number v-model:value="flapConfig.window_minutes" :min="1" :max="1440" class="ch-input-100" />
           </n-form-item>
           <n-form-item v-if="flapConfig.mode === 'notify_then_silence'" :label="t('channel.flappingMuteMinutes')">
-            <n-input-number v-model:value="flapConfig.mute_minutes" :min="30" :max="1440" style="width:100px" />
+            <n-input-number v-model:value="flapConfig.mute_minutes" :min="30" :max="1440" class="ch-input-100" />
           </n-form-item>
         </template>
       </n-form>
@@ -341,7 +342,7 @@ onMounted(load)
       <p class="section-hint">{{ t('channel.exclusionRulesHint') }}</p>
 
       <div v-if="exclusionRules.length === 0 && !loadingExclusion" class="empty-rules">
-        <n-empty :description="t('channel.noExclusionRules')" size="small" />
+        <EmptyState :title="t('channel.noExclusionRules')" size="sm" />
       </div>
 
       <div v-else class="exclusion-list">
@@ -376,7 +377,7 @@ onMounted(load)
       v-model:show="showAddExclusionModal"
       :title="t('channel.addExclusionRule')"
       preset="card"
-      style="width:440px"
+      class="ch-modal-sm"
       :bordered="false"
     >
       <n-form label-placement="top" size="small">
@@ -394,13 +395,11 @@ onMounted(load)
             placeholder='[{"field":"severity","operator":"eq","value":"info"}]'
           />
           <template #feedback>
-            <span style="font-size:11px;color:var(--sre-text-secondary)">
-              JSON 数组，field 支持 severity/alertname/labels.xxx，operator 支持 eq/ne/contains/regex/in
-            </span>
+            <span class="ch-form-hint">{{ t('channel.exclusionRuleConditionsHint') }}</span>
           </template>
         </n-form-item>
-        <n-form-item label="Priority">
-          <n-input-number v-model:value="newExclusionForm.priority" :min="0" style="width:100px" />
+        <n-form-item :label="t('common.priority')">
+          <n-input-number v-model:value="newExclusionForm.priority" :min="0" class="ch-input-100" />
         </n-form-item>
         <n-form-item>
           <n-checkbox v-model:checked="newExclusionForm.is_enabled">{{ t('common.enabled') }}</n-checkbox>
@@ -496,4 +495,9 @@ onMounted(load)
   align-items: center;
   gap: 8px;
 }
+
+</style>
+
+<style>
+@import '@/styles/channels.css';
 </style>

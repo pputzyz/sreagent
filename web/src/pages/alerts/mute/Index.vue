@@ -2,7 +2,7 @@
 import { ref, shallowRef, reactive, computed, onMounted } from 'vue'
 import {
   useMessage, NButton, NIcon, NSwitch, NDropdown, NDrawer, NDrawerContent,
-  NRadioGroup, NRadioButton, NInput, NSelect, NEmpty, NSpin, NModal, NForm,
+  NRadioGroup, NRadioButton, NInput, NSelect, NSpin, NModal, NForm,
   NFormItem, NGrid, NGi, NDatePicker, NTimePicker, NCheckboxGroup, NCheckbox,
   NSpace, NDivider,
 } from 'naive-ui'
@@ -17,6 +17,8 @@ import { formatTime } from '@/utils/format'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -85,11 +87,11 @@ function statusToSev(r: MuteRule): string {
 }
 
 function statusText(r: MuteRule): string {
-  if (!r.is_enabled) return 'DISABLED'
-  if (isActiveNow(r)) return 'ACTIVE'
-  if (isFuture(r)) return 'SCHEDULED'
-  if (isExpired(r)) return 'EXPIRED'
-  return 'IDLE'
+  if (!r.is_enabled) return t('mute.statusDisabled')
+  if (isActiveNow(r)) return t('mute.statusActive')
+  if (isFuture(r)) return t('mute.statusScheduled')
+  if (isExpired(r)) return t('mute.statusExpired')
+  return t('mute.statusIdle')
 }
 
 function remainingMin(r: MuteRule): number {
@@ -111,8 +113,8 @@ function relTimeFuture(t: string | null): string {
 
 function describePeriodic(r: MuteRule): string {
   const days = (r.days_of_week || '').split(',').map(x => x.trim()).filter(Boolean)
-  const dayMap: Record<string, string> = { '0': 'Sun', '1': 'Mon', '2': 'Tue', '3': 'Wed', '4': 'Thu', '5': 'Fri', '6': 'Sat' }
-  const dayLabel = days.length ? days.map(d => dayMap[d] || d).join('/') : 'Daily'
+  const dayMap: Record<string, string> = { '0': t('mute.sunday'), '1': t('mute.monday'), '2': t('mute.tuesday'), '3': t('mute.wednesday'), '4': t('mute.thursday'), '5': t('mute.friday'), '6': t('mute.saturday') }
+  const dayLabel = days.length ? days.map(d => dayMap[d] || d).join('/') : t('mute.daily') || 'Daily'
   return `${dayLabel} ${r.periodic_start} - ${r.periodic_end} (${r.timezone || 'UTC'})`
 }
 
@@ -131,9 +133,9 @@ const filteredRules = computed(() => {
 })
 
 const typeOptions = [
-  { label: 'All Types', value: 'all' },
-  { label: 'One-time', value: 'once' },
-  { label: 'Periodic', value: 'periodic' },
+  { label: () => t('mute.allTypes'), value: 'all' },
+  { label: () => t('mute.oneTime'), value: 'once' },
+  { label: () => t('mute.periodic'), value: 'periodic' },
 ]
 
 // ---------- API ----------
@@ -320,7 +322,7 @@ onMounted(fetchRules)
 
 <template>
   <div class="mute-page sre-stagger">
-    <PageHeader title="Mute Rules" subtitle="Suppress alert notifications during specific time windows">
+    <PageHeader :title="t('mute.title')" :subtitle="t('mute.subtitle')">
       <template #actions>
         <NButton quaternary @click="fetchRules" :loading="loading">
           <template #icon><NIcon :component="RefreshOutline" /></template>
@@ -328,37 +330,38 @@ onMounted(fetchRules)
         </NButton>
         <NButton type="primary" @click="openCreate">
           <template #icon><NIcon :component="AddOutline" /></template>
-          New Rule
+          {{ t('mute.create') || 'New Rule' }}
         </NButton>
       </template>
     </PageHeader>
 
     <div class="mute-toolbar">
       <NRadioGroup v-model:value="statusFilter" size="small">
-        <NRadioButton value="all">All</NRadioButton>
-        <NRadioButton value="active">Active</NRadioButton>
-        <NRadioButton value="future">Scheduled</NRadioButton>
-        <NRadioButton value="expired">Expired</NRadioButton>
-        <NRadioButton value="disabled">Disabled</NRadioButton>
+        <NRadioButton value="all">{{ t('common.all') }}</NRadioButton>
+        <NRadioButton value="active">{{ t('common.active') }}</NRadioButton>
+        <NRadioButton value="future">{{ t('mute.schedule') || 'Scheduled' }}</NRadioButton>
+        <NRadioButton value="expired">{{ t('common.expired') || 'Expired' }}</NRadioButton>
+        <NRadioButton value="disabled">{{ t('common.disabled') }}</NRadioButton>
       </NRadioGroup>
       <div class="mute-filters">
-        <NInput v-model:value="searchKeyword" size="small" placeholder="Search by name" clearable style="width: 220px">
+        <NInput v-model:value="searchKeyword" size="small" :placeholder="t('common.search')" clearable class="mute-search">
           <template #prefix><NIcon :component="SearchOutline" /></template>
         </NInput>
-        <NSelect v-model:value="typeFilter" size="small" :options="typeOptions" style="width: 140px" />
+        <NSelect v-model:value="typeFilter" size="small" :options="typeOptions" class="mute-type-select" />
       </div>
     </div>
 
-    <NSpin :show="loading">
-      <div v-if="!loading && filteredRules.length === 0" class="mute-empty">
-        <NEmpty description="No mute rules">
-          <template #extra>
-            <NButton type="primary" size="small" @click="openCreate">Create your first rule</NButton>
-          </template>
-        </NEmpty>
-      </div>
-
-      <div v-else class="mute-list">
+    <LoadingSkeleton v-if="loading && filteredRules.length === 0" :rows="6" variant="row" />
+    <EmptyState
+      v-else-if="!loading && filteredRules.length === 0"
+      :icon="AddOutline"
+      :title="t('mute.noData') || 'No mute rules'"
+      :description="t('mute.subtitle') || 'Suppress alert notifications during specific time windows'"
+      :primary-text="t('mute.createFirst') || 'Create your first rule'"
+      @primary="openCreate"
+    />
+    <NSpin v-else :show="loading">
+      <div class="mute-list">
         <div
           v-for="rule in filteredRules" :key="rule.id"
           class="sre-row-card mute-row sre-lift"
@@ -372,29 +375,29 @@ onMounted(fetchRules)
               <span class="mute-name">{{ rule.name }}</span>
             </div>
             <div v-if="Object.keys(rule.match_labels || {}).length" class="mute-match">
-              <span class="sre-label-eyebrow">Match</span>
+              <span class="sre-label-eyebrow">{{ t('mute.matchLabel') }}</span>
               <span v-for="(v, k) in rule.match_labels" :key="k" class="mute-chip">{{ k }}={{ v }}</span>
             </div>
             <div class="mute-schedule">
-              <span class="sre-label-eyebrow">Schedule</span>
+              <span class="sre-label-eyebrow">{{ t('mute.schedule') }}</span>
               <span v-if="ruleType(rule) === 'once'">Once {{ formatTime(rule.start_time) }} → {{ formatTime(rule.end_time) }}</span>
               <span v-else-if="ruleType(rule) === 'periodic'">Periodic {{ describePeriodic(rule) }}</span>
-              <span v-else class="muted">No schedule</span>
+              <span v-else class="muted">{{ t('mute.noSchedule') }}</span>
             </div>
             <div class="mute-footer tnum">
-              <span>{{ ((rule as any).hit_count) || 0 }} hits</span>
+              <span>{{ t('mute.hits', { n: ((rule as any).hit_count) || 0 }) }}</span>
               <span class="sre-meta-divider"></span>
-              <span v-if="!rule.is_enabled">Disabled</span>
-              <span v-else-if="isActiveNow(rule)">Active · {{ remainingMin(rule) }}m remaining</span>
-              <span v-else-if="isFuture(rule)">Starts in {{ relTimeFuture(rule.start_time) }}</span>
-              <span v-else-if="isExpired(rule)">Expired</span>
-              <span v-else>Idle</span>
+              <span v-if="!rule.is_enabled">{{ t('common.disabled') }}</span>
+              <span v-else-if="isActiveNow(rule)">{{ t('mute.statusActive') }} · {{ t('mute.remaining', { n: remainingMin(rule) }) }}</span>
+              <span v-else-if="isFuture(rule)">{{ t('mute.startsIn', { n: relTimeFuture(rule.start_time) }) }}</span>
+              <span v-else-if="isExpired(rule)">{{ t('common.expired') }}</span>
+              <span v-else>{{ t('common.idle') }}</span>
             </div>
           </div>
           <div class="mute-actions" @click.stop>
             <NButton size="tiny" quaternary @click="previewHits(rule)">
               <template #icon><NIcon :component="EyeOutline" /></template>
-              Preview
+              {{ t('mute.previewBtn') }}
             </NButton>
             <NSwitch :value="rule.is_enabled" size="small" @update:value="toggle(rule)" />
             <NDropdown :options="rowActions(rule)" trigger="click" @select="(k: string) => handleAction(k, rule)">
@@ -411,8 +414,12 @@ onMounted(fetchRules)
     <NDrawer v-model:show="showPreview" :width="480" placement="right">
       <NDrawerContent :title="`Will be muted — ${previewRuleName}`" closable>
         <NSpin :show="previewLoading">
-          <div v-if="!previewLoading && previewItems.length === 0" class="mute-empty">
-            <NEmpty description="No alerts currently match this rule" />
+          <div v-if="!previewLoading && previewItems.length === 0" class="mute-preview-empty">
+            <EmptyState
+              icon="AddOutline"
+              :title="t('mute.previewNoMatch') || 'No alerts currently match this rule'"
+              size="sm"
+            />
           </div>
           <div v-else class="mute-preview-list">
             <div
@@ -462,29 +469,29 @@ onMounted(fetchRules)
         <NFormItem :label="t('mute.matchLabels')">
           <LabelMatcherEditor v-model:modelValue="form.match_labels" :add-label="t('mute.addLabel')" />
         </NFormItem>
-        <NDivider style="margin: 12px 0">{{ t('mute.oneTimeMute') }}</NDivider>
+        <NDivider class="mute-divider">{{ t('mute.oneTimeMute') }}</NDivider>
         <NGrid :x-gap="12" :cols="2">
           <NGi>
             <NFormItem :label="t('mute.startTime')">
-              <NDatePicker v-model:value="form.start_time" type="datetime" clearable style="width: 100%" />
+              <NDatePicker v-model:value="form.start_time" type="datetime" clearable class="mute-input-full" />
             </NFormItem>
           </NGi>
           <NGi>
             <NFormItem :label="t('mute.endTime')">
-              <NDatePicker v-model:value="form.end_time" type="datetime" clearable style="width: 100%" />
+              <NDatePicker v-model:value="form.end_time" type="datetime" clearable class="mute-input-full" />
             </NFormItem>
           </NGi>
         </NGrid>
-        <NDivider style="margin: 12px 0">{{ t('mute.periodicMute') }}</NDivider>
+        <NDivider class="mute-divider">{{ t('mute.periodicMute') }}</NDivider>
         <NGrid :x-gap="12" :cols="2">
           <NGi>
             <NFormItem :label="t('mute.periodicStart')">
-              <NTimePicker v-model:formatted-value="form.periodic_start" value-format="HH:mm" format="HH:mm" clearable style="width: 100%" />
+              <NTimePicker v-model:formatted-value="form.periodic_start" value-format="HH:mm" format="HH:mm" clearable class="mute-input-full" />
             </NFormItem>
           </NGi>
           <NGi>
             <NFormItem :label="t('mute.periodicEnd')">
-              <NTimePicker v-model:formatted-value="form.periodic_end" value-format="HH:mm" format="HH:mm" clearable style="width: 100%" />
+              <NTimePicker v-model:formatted-value="form.periodic_end" value-format="HH:mm" format="HH:mm" clearable class="mute-input-full" />
             </NFormItem>
           </NGi>
         </NGrid>
@@ -524,16 +531,20 @@ onMounted(fetchRules)
 </template>
 
 <style scoped>
-.mute-page { max-width: 1280px; }
+.mute-page { max-width: 1280px; font-family: var(--sre-font-sans); }
 
 .mute-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   margin: 12px 0 14px; gap: 12px; flex-wrap: wrap;
 }
 .mute-filters { display: flex; align-items: center; gap: 8px; }
+.mute-search { width: 220px; }
+.mute-type-select { width: 140px; }
 
 .mute-list { display: flex; flex-direction: column; gap: 8px; }
-.mute-empty { padding: 60px 0; text-align: center; }
+.mute-divider { margin: 12px 0; }
+.mute-input-full { width: 100%; }
+.mute-preview-empty { padding: 40px 0; text-align: center; }
 
 .mute-row {
   padding: 14px 18px; gap: 12px; cursor: pointer;

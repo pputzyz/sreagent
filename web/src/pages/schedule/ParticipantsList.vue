@@ -4,6 +4,8 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { scheduleApi } from '@/api'
 import type { ScheduleParticipant, User } from '@/types'
+import { AlertCircleOutline } from '@vicons/ionicons5'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const props = defineProps<{
   scheduleId: number | null
@@ -17,6 +19,7 @@ const { t } = useI18n()
 
 const participants = ref<ScheduleParticipant[]>([])
 const loading = ref(false)
+const fetchError = ref(false)
 const selectedUserId = ref<number | null>(null)
 const saving = ref(false)
 
@@ -33,10 +36,12 @@ const userOptions = computed(() =>
 async function fetchParticipants() {
   if (!props.scheduleId) return
   loading.value = true
+  fetchError.value = false
   try {
     const { data } = await scheduleApi.getParticipants(props.scheduleId)
     participants.value = data.data || []
   } catch {
+    fetchError.value = true
     participants.value = []
   } finally {
     loading.value = false
@@ -106,7 +111,20 @@ defineExpose({ fetchParticipants })
 </script>
 
 <template>
-  <n-spin :show="loading">
+  <!-- Error state -->
+  <div v-if="fetchError && !loading" class="participant-error">
+    <EmptyState
+      :icon="AlertCircleOutline"
+      :title="t('schedule.loadParticipantsError') || 'Unable to load participants'"
+      :description="t('schedule.loadParticipantsErrorHint') || 'An error occurred while fetching participant data.'"
+      :primary-text="t('common.retry') || 'Retry'"
+      @primary="fetchParticipants"
+      size="sm"
+      variant="warning"
+    />
+  </div>
+
+  <n-spin v-else :show="loading">
     <div class="participants-section">
       <div class="participants-list">
         <div
@@ -114,23 +132,34 @@ defineExpose({ fetchParticipants })
           :key="p.id"
           class="participant-item"
         >
-          <div class="participant-position" :style="{ background: getUserColor(p.user_id) + '22', color: getUserColor(p.user_id) }">
+          <div
+            class="participant-position"
+            :style="{ '--pos-color': getUserColor(p.user_id) }"
+          >
             {{ index + 1 }}
           </div>
-          <div class="participant-color-dot" :style="{ background: getUserColor(p.user_id) }" />
+          <div
+            class="participant-color-dot"
+            :style="{ '--dot-color': getUserColor(p.user_id) }"
+          />
           <span class="participant-name">{{ p.user?.display_name || p.user?.username || getUserName(p.user_id) }}</span>
-          <n-space :size="2" style="margin-left: auto">
-            <n-button size="tiny" quaternary :disabled="index === 0" @click="moveParticipant(index, 'up')">&#x2191;</n-button>
-            <n-button size="tiny" quaternary :disabled="index === participants.length - 1" @click="moveParticipant(index, 'down')">&#x2193;</n-button>
+          <div class="participant-actions">
+            <n-button class="arrow-btn" size="tiny" quaternary :disabled="index === 0" @click="moveParticipant(index, 'up')">&#8593;</n-button>
+            <n-button class="arrow-btn" size="tiny" quaternary :disabled="index === participants.length - 1" @click="moveParticipant(index, 'down')">&#8595;</n-button>
             <n-popconfirm @positive-click="removeParticipant(p.user_id)">
               <template #trigger>
                 <n-button size="tiny" quaternary type="error">{{ t('common.remove') }}</n-button>
               </template>
               {{ t('schedule.removeParticipantConfirm') }}
             </n-popconfirm>
-          </n-space>
+          </div>
         </div>
-        <n-empty v-if="participants.length === 0" :description="t('schedule.noParticipants')" style="padding: 16px 0" />
+
+        <EmptyState
+          v-if="!loading && participants.length === 0"
+          :title="t('schedule.noParticipants') || 'No participants'"
+          size="sm"
+        />
       </div>
 
       <div class="add-participant">
@@ -167,8 +196,8 @@ defineExpose({ fetchParticipants })
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  background: rgba(128, 128, 128, 0.05);
-  border-radius: 6px;
+  background: var(--sre-bg-hover);
+  border-radius: var(--sre-radius-sm);
 }
 
 .participant-position {
@@ -181,6 +210,8 @@ defineExpose({ fetchParticipants })
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  background: color-mix(in srgb, var(--pos-color) 13%, transparent);
+  color: var(--pos-color);
 }
 
 .participant-color-dot {
@@ -188,6 +219,7 @@ defineExpose({ fetchParticipants })
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--dot-color);
 }
 
 .participant-name {
@@ -195,9 +227,29 @@ defineExpose({ fetchParticipants })
   color: var(--sre-text-primary);
 }
 
+.participant-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.arrow-btn {
+  min-width: 36px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
 .add-participant {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.participant-error {
+  padding: 24px 0;
 }
 </style>

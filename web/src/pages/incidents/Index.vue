@@ -149,9 +149,9 @@ function durationText(triggeredAt: string | undefined, closedAt?: string | null)
   const d = Math.floor(diff / 86400); diff -= d * 86400
   const h = Math.floor(diff / 3600); diff -= h * 3600
   const m = Math.floor(diff / 60)
-  if (d > 0) return `${d}d ${h}h`
-  if (h > 0) return `${h}h ${m}m`
-  return `${m}m`
+  if (d > 0) return t('incident.durationDHM', { d, h })
+  if (h > 0) return t('incident.durationHM', { h, m })
+  return t('incident.durationM', { m })
 }
 
 function userInitial(u?: { display_name?: string; username?: string } | null): string {
@@ -204,15 +204,15 @@ onMounted(loadIncidents)
         <n-radio-group v-model:value="severityFilter" size="small" @update:value="loadIncidents">
           <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
           <n-radio-button value="critical">
-            <span class="dot" :style="{ background: SEVERITY_COLORS.critical }" />
+            <span class="dot" data-severity="critical" />
             {{ t('incident.severityCritical') }}
           </n-radio-button>
           <n-radio-button value="warning">
-            <span class="dot" :style="{ background: SEVERITY_COLORS.warning }" />
+            <span class="dot" data-severity="warning" />
             {{ t('incident.severityWarning') }}
           </n-radio-button>
           <n-radio-button value="info">
-            <span class="dot" :style="{ background: SEVERITY_COLORS.info }" />
+            <span class="dot" data-severity="info" />
             {{ t('incident.severityInfo') }}
           </n-radio-button>
         </n-radio-group>
@@ -238,8 +238,8 @@ onMounted(loadIncidents)
       <EmptyState
         v-else-if="isEmpty"
         :icon="ShieldCheckmarkOutline"
-        title="No active incidents"
-        description="All systems operating normally"
+        :title="t('incident.empty')"
+        :description="t('incident.emptyDesc')"
       />
 
       <div v-else class="incident-list">
@@ -250,12 +250,12 @@ onMounted(loadIncidents)
           :class="{ 'is-closed': row.status === 'closed' }"
           @click="gotoDetail(row.id)"
         >
-          <span class="status-bar" :style="{ background: SEVERITY_COLORS[row.severity] || 'var(--sre-text-tertiary)' }" />
+          <span class="status-bar" :data-severity="row.severity" />
 
           <div class="row-body">
             <div class="row-line-1">
-              <span class="dot dot-lg" :style="{ background: SEVERITY_COLORS[row.severity] || 'var(--sre-text-tertiary)' }" />
-              <span class="severity-text" :style="{ color: SEVERITY_COLORS[row.severity] }">
+              <span class="dot dot-lg" :data-severity="row.severity" />
+              <span class="severity-text" :data-severity="row.severity">
                 {{ t(severityLabel[row.severity] ?? row.severity) }}
               </span>
               <span class="incident-id">#{{ row.id }}</span>
@@ -278,10 +278,7 @@ onMounted(loadIncidents)
             </div>
 
             <div class="row-line-3">
-              <span class="status-pill" :style="{
-                color: STATUS_COLORS[row.status],
-                background: STATUS_BG[row.status],
-              }">
+              <span class="status-pill" :data-status="row.status">
                 {{ t(statusLabel[row.status] ?? row.status) }}
               </span>
 
@@ -332,12 +329,12 @@ onMounted(loadIncidents)
       v-model:show="showCreateModal"
       :title="t('incident.create')"
       preset="card"
-      style="width: 440px"
       :bordered="false"
+      class="create-modal"
     >
       <n-form label-placement="top" size="small">
         <n-form-item :label="t('incident.name')" required>
-          <n-input v-model:value="createForm.title" :placeholder="t('incident.name')" />
+          <n-input v-model:value="createForm.title" :placeholder="t('incident.namePlaceholder')" />
         </n-form-item>
         <n-form-item :label="t('incident.severity')">
           <n-select
@@ -361,7 +358,8 @@ onMounted(loadIncidents)
 </template>
 
 <style scoped>
-.incidents-page { max-width: 1400px; }
+.incidents-page { max-width: 1400px; font-family: var(--sre-font-sans); }
+.create-modal { width: 440px; }
 
 .primary-tabs {
   margin-bottom: 12px;
@@ -374,7 +372,7 @@ onMounted(loadIncidents)
   flex-wrap: wrap;
   padding: 10px 14px;
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
+  border: var(--sre-hairline);
   border-radius: 10px;
   margin-bottom: 16px;
 }
@@ -400,6 +398,25 @@ onMounted(loadIncidents)
 }
 .dot-lg { width: 10px; height: 10px; margin-right: 8px; }
 
+/* Severity / status data-attribute colors */
+.dot[data-severity="critical"],
+.dot-lg[data-severity="critical"],
+.status-bar[data-severity="critical"] { background: var(--sre-critical); }
+.dot[data-severity="warning"],
+.dot-lg[data-severity="warning"],
+.status-bar[data-severity="warning"] { background: var(--sre-warning); }
+.dot[data-severity="info"],
+.dot-lg[data-severity="info"],
+.status-bar[data-severity="info"] { background: var(--sre-info); }
+
+.severity-text[data-severity="critical"] { color: var(--sre-critical); }
+.severity-text[data-severity="warning"]  { color: var(--sre-warning); }
+.severity-text[data-severity="info"]     { color: var(--sre-info); }
+
+.status-pill[data-status="triggered"]  { color: var(--sre-critical); background: var(--sre-critical-soft); }
+.status-pill[data-status="processing"] { color: var(--sre-warning); background: var(--sre-warning-soft); }
+.status-pill[data-status="closed"]     { color: var(--sre-success); background: var(--sre-success-soft); }
+
 /* Incident list */
 .incident-list {
   display: flex;
@@ -411,7 +428,7 @@ onMounted(loadIncidents)
   display: flex;
   align-items: center;
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
+  border: var(--sre-hairline);
   border-radius: 10px;
   padding: 14px 18px 14px 22px;
   cursor: pointer;
@@ -419,8 +436,8 @@ onMounted(loadIncidents)
   overflow: hidden;
 }
 .incident-row:hover {
-  background: var(--sre-bg-hover, rgba(127, 127, 127, 0.06));
-  border-color: var(--sre-primary, #6366f1);
+  background: var(--sre-bg-hover);
+  border-color: var(--sre-primary);
 }
 .incident-row:hover .chevron {
   opacity: 1;
@@ -515,7 +532,7 @@ onMounted(loadIncidents)
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--sre-primary, #6366f1);
+  background: var(--sre-primary);
   color: white;
   font-size: 11px;
   font-weight: 600;
@@ -535,21 +552,6 @@ onMounted(loadIncidents)
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
-
-/* Empty state */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 20px;
-  background: var(--sre-bg-card);
-  border: 1px dashed var(--sre-border);
-  border-radius: 12px;
-}
-.empty-icon { color: var(--sre-text-tertiary); margin-bottom: 12px; opacity: 0.6; }
-.empty-title { font-size: 15px; font-weight: 600; color: var(--sre-text-primary); margin-bottom: 6px; }
-.empty-sub { font-size: 13px; color: var(--sre-text-tertiary); }
 
 .pagination {
   display: flex;

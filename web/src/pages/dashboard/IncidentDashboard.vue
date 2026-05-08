@@ -8,12 +8,14 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2StatsApi } from '@/api'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 const router = useRouter()
 
 const loading = ref(false)
+const firstLoaded = ref(false)
 const days = ref(30)
 
 const incidentStats = ref<any>(null)
@@ -34,6 +36,7 @@ async function load() {
     channelStats.value = csRes.data.data ?? []
     teamStats.value = tsRes.data.data ?? []
     incidentTrend.value = itRes.data.data ?? []
+    firstLoaded.value = true
   } catch (e: any) {
     message.error(e?.message ?? t('common.loadFailed'))
   } finally {
@@ -82,26 +85,29 @@ onMounted(load)
       </div>
     </div>
 
-    <n-spin :show="loading">
+    <!-- Loading skeleton -->
+    <LoadingSkeleton v-if="loading && !firstLoaded" :rows="5" variant="kpi" />
+
+    <n-spin v-else :show="loading">
       <!-- Top stat cards -->
-      <div v-if="incidentStats" class="stat-cards">
-        <div class="stat-card" @click="router.push('/incidents?status=triggered')">
+      <div v-if="incidentStats" class="stat-cards sre-stagger">
+        <div class="stat-card sre-lift" @click="router.push('/incidents?status=triggered')">
           <div class="stat-label">{{ t('dashboardV2.activeIncidents') }}</div>
-          <div class="stat-value" style="color:#e03131">{{ incidentStats.active_incidents ?? 0 }}</div>
+          <div class="stat-value stat-value--critical">{{ incidentStats.active_incidents ?? 0 }}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card sre-lift">
           <div class="stat-label">{{ t('dashboardV2.closedToday') }}</div>
-          <div class="stat-value" style="color:#2f9e44">{{ incidentStats.closed_today ?? 0 }}</div>
+          <div class="stat-value stat-value--success">{{ incidentStats.closed_today ?? 0 }}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card sre-lift">
           <div class="stat-label">{{ t('dashboardV2.criticalActive') }}</div>
-          <div class="stat-value" style="color:#e03131">{{ incidentStats.critical_active ?? 0 }}</div>
+          <div class="stat-value stat-value--critical">{{ incidentStats.critical_active ?? 0 }}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card sre-lift">
           <div class="stat-label">{{ t('dashboardV2.avgMTTR') }}</div>
           <div class="stat-value">{{ formatSeconds(incidentStats.avg_mttr_seconds) }}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card sre-lift">
           <div class="stat-label">{{ t('dashboardV2.totalPostMortems') }}</div>
           <div class="stat-value">{{ incidentStats.total_post_mortems ?? 0 }}</div>
           <div class="stat-sub">{{ incidentStats.published_post_mortems ?? 0 }} {{ t('dashboardV2.publishedPostMortems') }}</div>
@@ -115,12 +121,12 @@ onMounted(load)
           <div v-for="point in incidentTrend" :key="point.date" class="trend-day">
             <div class="trend-bars">
               <div
-                class="trend-bar triggered"
+                class="trend-bar trend-bar--triggered"
                 :style="{ height: `${(point.triggered / trendMax) * 80}px` }"
                 :title="`${point.date}: ${point.triggered} triggered`"
               />
               <div
-                class="trend-bar closed"
+                class="trend-bar trend-bar--closed"
                 :style="{ height: `${(point.closed / trendMax) * 80}px` }"
                 :title="`${point.date}: ${point.closed} closed`"
               />
@@ -129,8 +135,8 @@ onMounted(load)
           </div>
         </div>
         <div class="trend-legend">
-          <span class="legend-dot triggered" /> {{ t('dashboard.triggered') }}
-          <span class="legend-dot closed" style="margin-left:12px" /> {{ t('dashboard.closed') }}
+          <span class="legend-dot legend-dot--triggered" /> {{ t('dashboard.triggered') }}
+          <span class="legend-dot legend-dot--closed" style="margin-left:12px" /> {{ t('dashboard.closed') }}
         </div>
       </n-card>
 
@@ -155,14 +161,14 @@ onMounted(load)
                 class="stats-row"
                 @click="row.channel_id && router.push(`/channels/${row.channel_id}`)"
               >
-                <td>{{ row.channel_name || '—' }}</td>
+                <td class="stats-name">{{ row.channel_name || '—' }}</td>
                 <td><strong>{{ row.total }}</strong></td>
-                <td><span style="color:#e03131">{{ row.triggered }}</span></td>
-                <td><span style="color:#e03131">{{ row.critical }}</span></td>
-                <td><span style="color:#2f9e44">{{ row.closed }}</span></td>
+                <td><span class="stat-value--critical">{{ row.triggered }}</span></td>
+                <td><span class="stat-value--critical">{{ row.critical }}</span></td>
+                <td><span class="stat-value--success">{{ row.closed }}</span></td>
               </tr>
               <tr v-if="topChannels.length === 0">
-                <td colspan="5" style="text-align:center;color:var(--sre-text-secondary);padding:16px">{{ t('dashboard.noData') }}</td>
+                <td colspan="5" class="stats-empty">{{ t('dashboard.noData') }}</td>
               </tr>
             </tbody>
           </table>
@@ -183,14 +189,14 @@ onMounted(load)
             </thead>
             <tbody>
               <tr v-for="row in topTeams" :key="row.team_id" class="stats-row">
-                <td>{{ row.team_name || t('dashboard.ungrouped') }}</td>
+                <td class="stats-name">{{ row.team_name || t('dashboard.ungrouped') }}</td>
                 <td><strong>{{ row.total }}</strong></td>
-                <td><span style="color:#e03131">{{ row.critical }}</span></td>
-                <td><span style="color:#2f9e44">{{ row.closed }}</span></td>
+                <td><span class="stat-value--critical">{{ row.critical }}</span></td>
+                <td><span class="stat-value--success">{{ row.closed }}</span></td>
                 <td>{{ formatSeconds(row.avg_mttr_seconds) }}</td>
               </tr>
               <tr v-if="topTeams.length === 0">
-                <td colspan="5" style="text-align:center;color:var(--sre-text-secondary);padding:16px">{{ t('dashboard.noData') }}</td>
+                <td colspan="5" class="stats-empty">{{ t('dashboard.noData') }}</td>
               </tr>
             </tbody>
           </table>
@@ -229,14 +235,17 @@ onMounted(load)
 
 .stat-card {
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: 12px;
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
   padding: 18px 16px;
   cursor: pointer;
-  transition: box-shadow 0.2s;
+  transition: border-color var(--sre-duration-fast) ease, background var(--sre-duration-fast) ease;
 }
 
-.stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+.stat-card:hover {
+  border-color: var(--sre-border-strong);
+  background: var(--sre-bg-hover);
+}
 
 .stat-label {
   font-size: 12px;
@@ -251,13 +260,19 @@ onMounted(load)
   color: var(--sre-text-primary);
 }
 
+.stat-value--critical { color: var(--sre-critical); }
+.stat-value--success  { color: var(--sre-success); }
+
 .stat-sub {
   font-size: 11px;
   color: var(--sre-text-secondary);
   margin-top: 4px;
 }
 
-.section-card { border-radius: 12px; margin-bottom: 16px; }
+.section-card {
+  border-radius: var(--sre-radius-md);
+  margin-bottom: 16px;
+}
 
 .section-title {
   font-size: 13px;
@@ -299,8 +314,8 @@ onMounted(load)
   transition: height 0.3s;
 }
 
-.trend-bar.triggered { background: #e03131; }
-.trend-bar.closed    { background: #2f9e44; }
+.trend-bar--triggered { background: var(--sre-critical); }
+.trend-bar--closed    { background: var(--sre-success); }
 
 .trend-label {
   font-size: 9px;
@@ -324,8 +339,8 @@ onMounted(load)
   border-radius: 50%;
 }
 
-.legend-dot.triggered { background: #e03131; }
-.legend-dot.closed    { background: #2f9e44; }
+.legend-dot--triggered { background: var(--sre-critical); }
+.legend-dot--closed    { background: var(--sre-success); }
 
 /* Two-column layout */
 .two-col {
@@ -347,12 +362,12 @@ onMounted(load)
   color: var(--sre-text-secondary);
   padding: 4px 8px 8px;
   font-weight: 600;
-  border-bottom: 1px solid var(--sre-border);
+  border-bottom: var(--sre-hairline);
 }
 
 .stats-table td {
   padding: 8px;
-  border-bottom: 1px solid var(--sre-border);
+  border-bottom: var(--sre-hairline);
   color: var(--sre-text-primary);
 }
 
@@ -361,5 +376,20 @@ onMounted(load)
   transition: background 0.15s;
 }
 
-.stats-row:hover { background: rgba(128,128,128,0.06); }
+.stats-row:hover { background: var(--sre-bg-hover); }
+
+.stats-name {
+  font-weight: 500;
+}
+
+.stats-empty {
+  text-align: center;
+  color: var(--sre-text-secondary);
+  padding: 24px 16px;
+}
+
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+  .stat-cards { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+}
 </style>

@@ -167,15 +167,10 @@ function shiftStyle(shift: OnCallShift, day: Date): Record<string, string> {
   const top = (startMin / minutesInDay) * 100
   const height = Math.max(((endMin - startMin) / minutesInDay) * 100, 2)
 
-  const color = getUserColor(shift.user_id)
-  const active = isShiftActive(shift)
   return {
     top: `${top}%`,
     height: `${height}%`,
-    '--shift-color': color,
-    background: active ? color : `color-mix(in srgb, ${color} 10%, transparent)`,
-    color: active ? '#fff' : color,
-    borderLeftColor: active ? 'transparent' : color,
+    '--shift-color': getUserColor(shift.user_id),
   }
 }
 
@@ -361,7 +356,7 @@ onMounted(() => {
               <div v-if="currentOnCall" class="oncall-badge">
                 <span class="oncall-eyebrow">{{ t('schedule.currentOnCall') || 'On-call now' }}</span>
                 <div class="oncall-info">
-                  <span class="sre-dot" :style="{ background: getUserColor(currentOnCall.id) }"></span>
+                  <span class="sre-dot oncall-dot-current" :style="{ '--dot-color': getUserColor(currentOnCall.id) }"></span>
                   <span class="oncall-name">{{ currentOnCall.display_name || currentOnCall.username }}</span>
                   <span v-if="currentOnCall.email" class="oncall-email tnum">{{ currentOnCall.email }}</span>
                 </div>
@@ -493,7 +488,7 @@ onMounted(() => {
                   <div class="config-item">
                     <span class="config-label">{{ t('common.status') }}</span>
                     <span class="config-value">
-                      <span class="sre-dot" :style="{ background: selectedSchedule.is_enabled ? 'var(--sre-success, #10b981)' : 'var(--sre-text-secondary)' }"></span>
+                      <span class="sre-dot" :class="selectedSchedule.is_enabled ? 'sre-dot--success' : 'sre-dot--muted'"></span>
                       {{ selectedSchedule.is_enabled ? t('common.active') : t('common.disabled') }}
                     </span>
                   </div>
@@ -680,7 +675,7 @@ onMounted(() => {
   padding: 8px 12px;
   background: var(--sre-bg-sunken, rgba(0, 0, 0, 0.02));
   border: var(--sre-hairline);
-  border-radius: 8px;
+  border-radius: var(--sre-radius-sm);
   min-width: 0;
 }
 
@@ -704,6 +699,10 @@ onMounted(() => {
   font-weight: 500;
   color: var(--sre-text-primary);
   white-space: nowrap;
+}
+
+.oncall-dot-current {
+  background: var(--dot-color, var(--sre-primary));
 }
 
 .oncall-email {
@@ -807,7 +806,7 @@ onMounted(() => {
 
 .cal-day-num.today {
   background: var(--sre-primary);
-  color: #fff;
+  color: var(--sre-text-inverse);
 }
 
 .cal-body {
@@ -840,7 +839,7 @@ onMounted(() => {
   height: 1200px;
   border-right: var(--sre-hairline);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .cal-day-col.weekend {
@@ -848,7 +847,7 @@ onMounted(() => {
 }
 
 .cal-day-col.today {
-  background: rgba(0, 112, 243, 0.015);
+  background: var(--sre-primary-soft);
 }
 
 .cal-day-col:hover {
@@ -895,7 +894,7 @@ onMounted(() => {
   position: absolute;
   left: 4px;
   right: 4px;
-  border-left: 2px solid var(--shift-color, var(--sre-primary));
+  border-left: 4px solid var(--shift-color, var(--sre-primary));
   border-radius: 4px;
   padding: 4px 6px;
   font-size: 11px;
@@ -905,7 +904,10 @@ onMounted(() => {
   user-select: none;
   z-index: 1;
   box-sizing: border-box;
-  transition: filter 0.15s, transform 0.15s;
+  background: color-mix(in srgb, var(--shift-color, var(--sre-primary)) 10%, transparent);
+  color: var(--shift-color, var(--sre-primary));
+  transition: filter var(--sre-duration-fast) var(--sre-ease-out),
+              transform var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .shift-block:hover {
@@ -915,6 +917,9 @@ onMounted(() => {
 
 .shift-block.is-now {
   font-weight: 500;
+  background: var(--shift-color);
+  color: var(--sre-text-inverse);
+  border-left-color: transparent;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
@@ -978,6 +983,14 @@ onMounted(() => {
 
 .config-muted {
   color: var(--sre-text-secondary);
+}
+
+/* Dot modifier classes (used with global .sre-dot) */
+.sre-dot--success {
+  background: var(--sre-success);
+}
+.sre-dot--muted {
+  background: var(--sre-text-secondary);
 }
 
 /* Empty state */

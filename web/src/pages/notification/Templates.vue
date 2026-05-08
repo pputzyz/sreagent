@@ -8,6 +8,7 @@ import {
   AddOutline, SearchOutline, EllipsisHorizontalOutline,
   CreateOutline, EyeOutline, TrashOutline, DocumentTextOutline,
 } from '@vicons/ionicons5'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -225,23 +226,25 @@ onMounted(fetchData)
     <div class="toolbar">
       <n-input
         v-model:value="search" size="small" clearable
-        :placeholder="t('common.search')" style="width: 240px"
+        :placeholder="t('common.search')" class="tmpl-search-input"
       >
         <template #prefix><n-icon :component="SearchOutline" /></template>
       </n-input>
       <n-select
         v-model:value="typeFilter" size="small"
-        :options="filterTypeOptions" style="width: 140px"
+        :options="filterTypeOptions" class="tmpl-type-select"
       />
       <span class="count tnum">{{ filtered.length }} / {{ templates.length }}</span>
     </div>
 
-    <div v-if="loading" class="empty-state">{{ t('common.loading') }}…</div>
-    <div v-else-if="filtered.length === 0" class="empty-state">
-      <n-icon :component="DocumentTextOutline" size="40" />
-      <p>{{ t('template.noData') }}</p>
-      <n-button type="primary" size="small" @click="openCreate">{{ t('template.create') }}</n-button>
-    </div>
+    <div v-if="loading" class="tmpl-loading">{{ t('common.loading') }}</div>
+    <EmptyState
+      v-else-if="filtered.length === 0"
+      :icon="DocumentTextOutline"
+      :title="t('template.noData')"
+      :primary-text="t('template.create')"
+      @primary="openCreate"
+    />
 
     <div v-else class="tmpl-list sre-stagger">
       <div
@@ -269,7 +272,7 @@ onMounted(fetchData)
     </div>
 
     <!-- Create/Edit Modal -->
-    <n-modal v-model:show="showModal" preset="card" :title="editingId ? t('template.edit') : t('template.create')" style="width: 600px" :bordered="false">
+    <n-modal v-model:show="showModal" preset="card" :title="editingId ? t('template.edit') : t('template.create')" :bordered="false" class="tmpl-modal">
       <n-form label-placement="top">
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
@@ -290,15 +293,15 @@ onMounted(fetchData)
 
         <n-collapse>
           <n-collapse-item :title="t('template.availableVariables')" name="variables">
-            <n-code :code="availableVariables" language="text" style="font-size: 12px" />
+            <n-code :code="availableVariables" language="text" class="tmpl-variables-code" />
           </n-collapse-item>
         </n-collapse>
 
-        <n-form-item :label="t('template.content')" style="margin-top: 12px">
+        <n-form-item :label="t('template.content')" class="tmpl-content-field">
           <n-input
             v-model:value="form.content" type="textarea" :rows="12"
             :placeholder="t('common.enterContent')"
-            style="font-family: var(--sre-font-mono); font-size: 12px"
+            class="tmpl-content-input"
           />
         </n-form-item>
       </n-form>
@@ -315,11 +318,15 @@ onMounted(fetchData)
     </n-modal>
 
     <!-- Preview Modal -->
-    <n-modal v-model:show="showPreviewModal" preset="card" :title="t('template.previewResult')" style="width: 600px" :bordered="false">
+    <n-modal v-model:show="showPreviewModal" preset="card" :title="t('template.previewResult')" :bordered="false" class="tmpl-modal">
       <n-spin :show="previewLoading">
         <div class="preview-pane">
           <pre v-if="previewResult" class="preview-content">{{ previewResult }}</pre>
-          <n-empty v-else-if="!previewLoading" :description="t('common.noPreview')" style="padding: 20px 0" />
+          <EmptyState
+            v-else-if="!previewLoading"
+            :title="t('common.noPreview')"
+            size="sm"
+          />
         </div>
       </n-spin>
       <template #action>
@@ -353,13 +360,12 @@ onMounted(fetchData)
   font-variant-numeric: tabular-nums;
 }
 
-.empty-state {
+.tmpl-loading {
   display: flex; flex-direction: column; align-items: center;
-  gap: 12px;
   padding: 64px 0;
   color: var(--sre-text-tertiary);
+  font-size: 14px;
 }
-.empty-state p { margin: 0; font-size: 14px; }
 
 .tmpl-list { display: flex; flex-direction: column; gap: 6px; }
 
@@ -375,7 +381,7 @@ onMounted(fetchData)
 }
 .tmpl-row:hover {
   background: var(--sre-bg-hover);
-  border-color: rgba(255,255,255,0.14);
+  border-color: var(--sre-border-strong);
 }
 
 .tmpl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -391,7 +397,7 @@ onMounted(fetchData)
 .tmpl-type-chip[data-type="text"]     { background: var(--sre-bg-elevated); color: var(--sre-text-secondary); }
 .tmpl-type-chip[data-type="html"]     { background: var(--sre-info-soft); color: var(--sre-info); }
 .tmpl-type-chip[data-type="markdown"] { background: var(--sre-primary-soft); color: var(--sre-primary); }
-.tmpl-type-chip[data-type="lark"]     { background: rgba(99,102,241,0.14); color: #818cf8; }
+.tmpl-type-chip[data-type="lark"]     { background: var(--sre-info-soft); color: var(--sre-info); }
 .tmpl-builtin {
   font-size: 11px; padding: 2px 8px; border-radius: 4px;
   background: var(--sre-bg-elevated);
@@ -436,4 +442,14 @@ onMounted(fetchData)
   color: var(--sre-text-primary);
   line-height: 1.6;
 }
+
+/* Toolbar */
+.tmpl-search-input { width: 240px; }
+.tmpl-type-select { width: 140px; }
+
+/* Modal */
+.tmpl-modal { width: 600px; }
+.tmpl-content-field { margin-top: 12px; }
+.tmpl-content-input { font-family: var(--sre-font-mono); font-size: 12px; }
+.tmpl-variables-code { font-size: 12px; }
 </style>

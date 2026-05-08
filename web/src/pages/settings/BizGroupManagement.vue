@@ -650,13 +650,13 @@ onMounted(fetchList)
   gap: 6px;
   padding: 5px 8px 5px 0;
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: var(--sre-radius-sm);
   font-size: 13px;
   user-select: none;
   transition: background 120ms ease, color 120ms ease;
   line-height: 1.3;
 }
-:deep(.tn-row:hover) { background: rgba(255, 255, 255, 0.04); }
+:deep(.tn-row:hover) { background: var(--sre-bg-hover); }
 :deep(.tn-active) {
   background: var(--sre-primary-soft, rgba(99, 102, 241, 0.12)) !important;
   color: var(--sre-primary, #818cf8);
@@ -836,10 +836,10 @@ onMounted(fetchList)
 }
 .bg-role-admin {
   background: rgba(245, 158, 11, 0.08);
-  color: rgb(251, 191, 36);
+  color: var(--sre-warning);
   border-color: rgba(245, 158, 11, 0.2);
 }
-.bg-role-admin .sre-dot { background: rgb(251, 191, 36); }
+.bg-role-admin .sre-dot { background: var(--sre-warning); }
 .bg-role-member {
   background: rgba(255, 255, 255, 0.04);
   color: var(--sre-text-muted, rgba(255, 255, 255, 0.6));

@@ -320,7 +320,7 @@ onMounted(fetchData)
       </li>
     </ul>
 
-    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 600px" :bordered="false">
+    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" :bordered="false" class="media-modal">
       <n-form label-placement="top">
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
@@ -494,4 +494,6 @@ onMounted(fetchData)
 }
 .row-l3 { padding-left: 38px; }
 .meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
+
+.media-modal { width: 600px; }
 </style>

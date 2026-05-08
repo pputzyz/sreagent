@@ -1,0 +1,51 @@
+/* ============================================================
+   SREAgent Channels — shared utility classes (v2.6)
+   --------------------------------------------------------------
+   Used across channels/ pages (Index, Detail, DispatchConfig,
+   NoiseConfig) to eliminate inline style duplication.
+   All values reference design tokens from global.css.
+   ============================================================ */
+
+/* ---- Modal widths ---- */
+.ch-modal-sm  { width: 440px; }
+.ch-modal-create { width: 480px; }
+.ch-modal-edit   { width: 480px; }
+.ch-modal-lg  { width: 560px; }
+
+/* ---- Input widths ---- */
+.ch-input-100 { width: 100px; }
+.ch-input-120 { width: 120px; }
+.ch-input-140 { width: 140px; }
+.ch-input-200 { width: 200px; }
+
+/* ---- Select widths ---- */
+.ch-select-150 { width: 150px; }
+.ch-select-200 { width: 200px; }
+.ch-select-260 { width: 260px; }
+
+/* ---- Form hint (inline secondary text next to inputs) ---- */
+.ch-form-hint {
+  font-size: var(--sre-fs-xs);          /* 11px */
+  color: var(--sre-text-secondary);
+  margin-left: 8px;
+}
+
+/* ---- Divider with label (small font, 12px) ---- */
+.ch-divider-label {
+  font-size: var(--sre-fs-sm);
+}
+
+/* ---- Checkbox alignment helper ---- */
+.ch-checkbox-top {
+  margin-top: 22px;
+}
+
+/* ---- Scrollable modal form body ---- */
+.ch-form-scroll {
+  max-height: 70vh;
+}
+
+/* ---- Form padding within scroll container ---- */
+.ch-form-pad {
+  padding-right: 12px;
+}

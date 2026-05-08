@@ -19,6 +19,7 @@ import {
 } from 'naive-ui'
 import {
   RefreshOutline, TimeOutline, TrashOutline, DownloadOutline,
+  AlertCircleOutline,
 } from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
 import type { DataSource, DataSourceType } from '@/types'
@@ -489,7 +490,7 @@ onUnmounted(() => {
             v-model:value="autoRefreshSec"
             :options="autoRefreshOptions"
             size="small"
-            style="width:140px"
+            class="auto-refresh-select"
           >
             <template #arrow>
               <span class="select-prefix">
@@ -506,7 +507,7 @@ onUnmounted(() => {
           type="datetimerange"
           size="small"
           clearable
-          style="width:420px"
+          class="custom-date-picker"
         />
       </div>
 
@@ -517,7 +518,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Tabs -->
-    <NTabs v-model:value="activeTab" type="line" style="margin-bottom:12px">
+    <NTabs v-model:value="activeTab" type="line" class="tabs-margin">
       <NTabPane name="metrics" :tab="t('query.metricsTab')" />
       <NTabPane name="logs" :tab="t('query.logsTab')" />
     </NTabs>
@@ -532,7 +533,7 @@ onUnmounted(() => {
           filterable
           clearable
           size="small"
-          style="max-width:420px;flex:1"
+          class="ds-select"
         />
         <div v-if="selectedDs" class="ds-info">
           <NTag :color="{ color: typeColor(selectedDs.type), textColor: '#fff' }" size="small" :bordered="false">
@@ -558,7 +559,7 @@ onUnmounted(() => {
             @keyup.meta.enter="run"
           />
           <div class="editor-tools">
-            <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end" style="max-width:480px">
+            <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end" class="history-popover">
               <template #trigger>
                 <NTooltip>
                   <template #trigger>
@@ -599,17 +600,17 @@ onUnmounted(() => {
         <NSpace :size="8" align="center">
           <template v-if="!isLogs">
             <span class="field-label">Step</span>
-            <NSelect v-model:value="stepValue" :options="stepOptions" size="small" style="width:100px" />
+            <NSelect v-model:value="stepValue" :options="stepOptions" size="small" class="control-select-sm" />
             <span class="field-label">Limit</span>
-            <NSelect v-model:value="metricLimit" :options="metricLimitOptions" size="small" style="width:100px" />
+            <NSelect v-model:value="metricLimit" :options="metricLimitOptions" size="small" class="control-select-sm" />
           </template>
           <template v-else>
             <span class="field-label">Limit</span>
-            <NSelect v-model:value="logLimit" :options="logLimitOptions" size="small" style="width:100px" />
+            <NSelect v-model:value="logLimit" :options="logLimitOptions" size="small" class="control-select-sm" />
           </template>
         </NSpace>
         <NSpace :size="8" align="center">
-          <span class="shortcut-hint">Ctrl + Enter</span>
+          <span class="shortcut-hint">{{ t('query.shortcutHint') }}</span>
           <NButton type="primary" size="small" :loading="loading" :disabled="!expression.trim()" @click="run">
             {{ t('query.runQuery') }}
           </NButton>
@@ -622,10 +623,22 @@ onUnmounted(() => {
     </div>
 
     <!-- Error -->
-    <NAlert v-if="errorMsg" type="error" :title="errorMsg" closable style="margin:12px 0" @close="errorMsg = ''" />
+    <div v-if="errorMsg" class="error-card">
+      <div class="error-icon-wrap">
+        <NIcon size="18" color="#fff"><AlertCircleOutline /></NIcon>
+      </div>
+      <div class="error-body">
+        <div class="error-title">{{ t('query.queryFailed') }}</div>
+        <div class="error-message">{{ errorMsg }}</div>
+      </div>
+      <div class="error-actions">
+        <NButton size="small" @click="run">{{ t('common.retry') }}</NButton>
+        <NButton size="small" quaternary @click="errorMsg = ''">{{ t('common.close') }}</NButton>
+      </div>
+    </div>
 
     <!-- Loading -->
-    <div v-if="loading" style="display:flex;justify-content:center;padding:40px">
+    <div v-if="loading" class="loading-container">
       <NSpin size="medium" />
     </div>
 
@@ -635,7 +648,7 @@ onUnmounted(() => {
         <span class="results-count">
           {{ metricData.series.length }} {{ t('query.seriesCount') }}
           <template v-if="metricData.resultType"> · {{ metricData.resultType }}</template>
-          <NTag v-if="metricData._limited" type="warning" size="small" :bordered="false" style="margin-left:8px">
+          <NTag v-if="metricData._limited" type="warning" size="small" :bordered="false" class="tag-ml">
             {{ t('query.limitedTo', { n: metricLimit }) }}
           </NTag>
         </span>
@@ -655,7 +668,7 @@ onUnmounted(() => {
 
       <div v-if="resultMode === 'chart'" class="chart-container">
         <template v-if="ChartReady && VChart && chartOption">
-          <component :is="VChart" :option="chartOption" :autoresize="true" style="width:100%;height:400px" />
+          <component :is="VChart" :option="chartOption" :autoresize="true" class="chart-full" />
         </template>
         <div v-else class="chart-fallback">
           <p>{{ t('query.chartUnavailable') }}</p>
@@ -683,7 +696,7 @@ onUnmounted(() => {
           {{ t('query.showing') }} {{ logEntries.length }}
           <template v-if="logTotal > 0"> / {{ logTotal }}</template>
           {{ t('query.entries') }}
-          <NTag v-if="logTruncated" type="warning" size="small" :bordered="false" style="margin-left:8px">
+          <NTag v-if="logTruncated" type="warning" size="small" :bordered="false" class="tag-ml">
             {{ t('query.truncated') }}
           </NTag>
         </span>
@@ -882,6 +895,7 @@ onUnmounted(() => {
   border-radius: 12px;
   padding: 16px;
   border: 1px solid var(--sre-border, #e0e0e0);
+  overflow: hidden;
 }
 
 .results-header {
@@ -901,6 +915,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .chart-fallback {
@@ -939,7 +956,7 @@ onUnmounted(() => {
 }
 
 .history-item:hover {
-  background: var(--sre-bg-hover, rgba(0,0,0,0.04));
+  background: var(--sre-bg-hover);
   border-color: var(--sre-border, #e0e0e0);
 }
 
@@ -956,5 +973,120 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--sre-text-tertiary);
   margin-top: 2px;
+}
+
+/* ---- Inline-style replacements ---- */
+.custom-date-picker {
+  width: 420px;
+}
+.ds-select {
+  max-width: 420px;
+  flex: 1;
+}
+.control-select-sm {
+  width: 100px;
+}
+.auto-refresh-select {
+  width: 140px;
+}
+.chart-full {
+  width: 100%;
+  height: 400px;
+}
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+.tabs-margin {
+  margin-bottom: 12px;
+}
+.tag-ml {
+  margin-left: 8px;
+}
+
+/* ---- Error card ---- */
+.error-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  background: var(--sre-critical-soft);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--sre-radius-md);
+}
+.error-icon-wrap {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--sre-critical);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #fff;
+}
+.error-body {
+  flex: 1;
+  min-width: 0;
+}
+.error-title {
+  font-size: var(--sre-fs-md);
+  font-weight: var(--sre-fw-semibold);
+  color: var(--sre-text-primary);
+  margin: 0 0 4px;
+}
+.error-message {
+  font-size: var(--sre-fs-sm);
+  color: var(--sre-text-secondary);
+  line-height: var(--sre-lh-snug);
+  word-break: break-all;
+}
+.error-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ---- Mobile responsive ---- */
+@media (max-width: 768px) {
+  .query-page {
+    padding: 16px;
+  }
+  .toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .preset-group {
+    justify-content: center;
+  }
+  .toolbar-right {
+    justify-content: center;
+  }
+  .ds-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ds-select {
+    max-width: 100%;
+  }
+  .query-actions-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .custom-date-picker {
+    width: 100%;
+  }
+  .results-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .query-header {
+    flex-direction: column;
+    gap: 12px;
+  }
 }
 </style>

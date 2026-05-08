@@ -311,7 +311,7 @@ onMounted(async () => {
                 :placeholder="t('common.status')"
                 clearable
                 size="small"
-                style="width:150px"
+                class="ch-select-150"
                 @update:value="loadIncidents"
               />
               <n-button quaternary circle size="small" @click="loadIncidents">
@@ -438,7 +438,7 @@ onMounted(async () => {
               </n-form>
 
               <div class="danger-zone">
-                <div class="danger-eyebrow sre-label-eyebrow">Danger zone</div>
+                <div class="danger-eyebrow sre-label-eyebrow">{{ t('common.dangerZone') }}</div>
                 <div class="danger-body">
                   <div class="danger-text">
                     <div class="danger-title">{{ t('common.delete') }} {{ channel.name }}</div>
@@ -461,7 +461,7 @@ onMounted(async () => {
       v-model:show="showEditModal"
       :title="t('common.edit') + ' — ' + (channel?.name ?? '')"
       preset="card"
-      style="width:480px"
+      class="ch-modal-edit"
       :bordered="false"
     >
       <n-form label-placement="top" size="small">
@@ -566,10 +566,10 @@ onMounted(async () => {
   height: 3px;
   background: var(--sre-text-tertiary);
 }
-.kpi-stripe[data-tone="critical"] { background: var(--sre-danger, #e03131); }
-.kpi-stripe[data-tone="warning"]  { background: var(--sre-warning, #f08c00); }
-.kpi-stripe[data-tone="success"]  { background: var(--sre-success, #2f9e44); }
-.kpi-stripe[data-tone="info"]     { background: var(--sre-primary, #4263eb); }
+.kpi-stripe[data-tone="critical"] { background: var(--sre-danger); }
+.kpi-stripe[data-tone="warning"]  { background: var(--sre-warning); }
+.kpi-stripe[data-tone="success"]  { background: var(--sre-success); }
+.kpi-stripe[data-tone="info"]     { background: var(--sre-primary); }
 
 /* ───────── Tabs ───────── */
 .cd-tabs {
@@ -578,6 +578,12 @@ onMounted(async () => {
 :deep(.n-tabs .n-tabs-tab) {
   font-family: var(--sre-font-sans);
   font-weight: 500;
+}
+:deep(.n-tabs .n-tabs-tab--active) {
+  color: var(--sre-primary);
+}
+:deep(.n-tabs-bar) {
+  background-color: var(--sre-primary);
 }
 
 .tab-toolbar {
@@ -604,7 +610,7 @@ onMounted(async () => {
   transition: border-color .15s ease;
 }
 .incident-row:hover {
-  border-left-color: var(--sre-primary, #4263eb);
+  border-left-color: var(--sre-primary);
 }
 .i-id {
   font-size: 12px;
@@ -625,8 +631,8 @@ onMounted(async () => {
   color: var(--sre-text-secondary);
   font-weight: 500;
 }
-.i-status[data-status="triggered"] { color: var(--sre-danger, #e03131); }
-.i-status[data-status="processing"] { color: var(--sre-warning, #f08c00); }
+.i-status[data-status="triggered"] { color: var(--sre-danger); }
+.i-status[data-status="processing"] { color: var(--sre-warning); }
 .i-status[data-status="closed"] { color: var(--sre-text-tertiary); }
 .i-meta {
   font-size: 12px;
@@ -663,13 +669,13 @@ onMounted(async () => {
   margin-top: 8px;
 }
 .danger-zone {
-  border: 1px solid var(--sre-danger, #e03131);
-  border-radius: var(--sre-radius-md, 10px);
+  border: 1px solid var(--sre-danger);
+  border-radius: var(--sre-radius-md);
   padding: 16px 20px;
-  background: color-mix(in srgb, var(--sre-danger, #e03131) 4%, transparent);
+  background: color-mix(in srgb, var(--sre-danger) 4%, transparent);
 }
 .danger-eyebrow {
-  color: var(--sre-danger, #e03131);
+  color: var(--sre-danger);
   margin-bottom: 12px;
 }
 .danger-body {
@@ -700,4 +706,8 @@ onMounted(async () => {
   }
   .i-id, .i-status { display: none; }
 }
+</style>
+
+<style>
+@import '@/styles/channels.css';
 </style>

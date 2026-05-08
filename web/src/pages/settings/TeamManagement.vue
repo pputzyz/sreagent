@@ -502,7 +502,7 @@ onMounted(fetchTeams)
   letter-spacing: 0.4px;
 }
 .user-role-chip[data-role="admin"]     { background: var(--sre-critical-soft); color: var(--sre-critical); }
-.user-role-chip[data-role="team_lead"] { background: rgba(245,158,11,0.14); color: var(--sre-warning); }
+.user-role-chip[data-role="team_lead"] { background: var(--sre-warning-soft); color: var(--sre-warning); }
 .user-role-chip[data-role="member"]    { background: var(--sre-primary-soft); color: var(--sre-primary); }
 
 .empty-state-sm {

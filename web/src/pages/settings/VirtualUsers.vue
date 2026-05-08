@@ -268,7 +268,7 @@ onMounted(fetchList)
   background: var(--sre-bg-elevated);
   flex-shrink: 0;
 }
-.vuser-icon[data-type="bot"]     { color: #818cf8; }
+.vuser-icon[data-type="bot"]     { color: var(--sre-info); }
 .vuser-icon[data-type="channel"] { color: var(--sre-info); }
 
 .vuser-main { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -297,7 +297,7 @@ onMounted(fetchList)
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
-.vuser-type-chip[data-type="bot"]     { background: rgba(99,102,241,0.14); color: #818cf8; }
+.vuser-type-chip[data-type="bot"]     { background: var(--sre-info-soft); color: var(--sre-info); }
 .vuser-type-chip[data-type="channel"] { background: var(--sre-info-soft); color: var(--sre-info); }
 
 .empty-state {

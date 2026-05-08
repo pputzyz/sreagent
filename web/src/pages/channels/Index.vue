@@ -262,13 +262,13 @@ onMounted(loadChannels)
     <EmptyState
       v-else-if="sortedChannels.length === 0"
       :icon="LayersOutline"
-      title="No channels yet"
-      description="Create a channel to start aggregating incidents"
+      :title="t('channel.noChannels')"
+      :description="t('channel.noChannelsDesc')"
       :primary-text="t('channel.create')"
       @primary="showCreateModal = true"
     />
 
-    <div v-else class="channel-grid">
+    <div v-else class="channel-grid stagger-grid">
       <div
         v-for="ch in sortedChannels"
         :key="ch.id"
@@ -363,7 +363,7 @@ onMounted(loadChannels)
       v-model:show="showCreateModal"
       :title="t('channel.create')"
       preset="card"
-      style="width: 480px"
+      class="ch-modal-create"
       :bordered="false"
     >
       <n-form label-placement="top" size="small">
@@ -419,18 +419,6 @@ onMounted(loadChannels)
 .filter-sort { width: 160px; }
 .view-toggle { display: flex; gap: 4px; margin-left: auto; }
 
-.loading-wrap, .empty-wrap {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 320px;
-  gap: 8px;
-}
-.empty-icon { color: var(--sre-text-tertiary, #a0a0a0); margin-bottom: 4px; }
-.empty-title { font-size: 16px; font-weight: 600; color: var(--sre-text-primary); }
-.empty-desc { font-size: 13px; color: var(--sre-text-secondary); margin-bottom: 12px; }
-
 .channel-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -443,7 +431,7 @@ onMounted(loadChannels)
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
   border-radius: 12px;
-  padding: 18px 18px 14px;
+  padding: 16px 18px 14px calc(var(--sre-stripe-w) + 16px);
   cursor: pointer;
   overflow: hidden;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
@@ -453,7 +441,7 @@ onMounted(loadChannels)
 }
 .channel-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--sre-shadow-md);
   border-color: var(--sre-primary);
 }
 .channel-card:hover .card-star { opacity: 1; }
@@ -461,10 +449,10 @@ onMounted(loadChannels)
 
 .card-stripe {
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 4px;
-  background: var(--sre-primary, #5b8def);
-  border-radius: 12px 12px 0 0;
+  left: 0; top: 4px; bottom: 4px;
+  width: var(--sre-stripe-w);
+  background: var(--sre-primary);
+  border-radius: 0 4px 4px 0;
 }
 
 .card-star {
@@ -479,7 +467,7 @@ onMounted(loadChannels)
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--sre-text-tertiary, #999);
+  color: var(--sre-text-tertiary);
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.18s ease, background 0.18s ease, color 0.18s ease;
@@ -554,9 +542,9 @@ onMounted(loadChannels)
   color: var(--sre-text-secondary);
   min-width: 0;
 }
-.team-icon { color: var(--sre-text-tertiary, #999); }
+.team-icon { color: var(--sre-text-tertiary); }
 .team-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
-.team-name.muted { color: var(--sre-text-tertiary, #999); font-style: italic; }
+.team-name.muted { color: var(--sre-text-tertiary); font-style: italic; }
 
 .footer-right { display: flex; align-items: center; gap: 8px; }
 .status-dot {
@@ -580,4 +568,9 @@ onMounted(loadChannels)
   justify-content: center;
   padding: 16px 0;
 }
+
+</style>
+
+<style>
+@import '@/styles/channels.css';
 </style>
