@@ -27,6 +27,8 @@ import {
 import { alertEventApi, alertRuleApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -543,7 +545,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     </div>
 
     <!-- Event list -->
-    <NSpin :show="loading && firstLoad">
+    <LoadingSkeleton v-if="loading && firstLoad && events.length === 0" :rows="6" variant="row" />
+    <NSpin v-else :show="loading && !firstLoad">
       <div
         v-if="events.length > 0"
         class="event-list"
@@ -637,11 +640,12 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
       </div>
 
       <!-- Empty state -->
-      <div v-else-if="!loading" class="ae-empty">
-        <NIcon :component="ShieldCheckmarkOutline" :size="48" class="ae-empty-icon" />
-        <div class="ae-empty-title">All quiet</div>
-        <div class="ae-empty-sub">No active alerts firing</div>
-      </div>
+      <EmptyState
+        v-else-if="!loading"
+        :icon="ShieldCheckmarkOutline"
+        title="All quiet"
+        description="No active alerts firing"
+      />
     </NSpin>
 
     <!-- Pagination -->

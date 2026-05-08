@@ -6,6 +6,8 @@ import { useI18n } from 'vue-i18n'
 import { alertV2Api, channelV2Api } from '@/api'
 import type { AlertV2, Channel } from '@/types'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   RefreshOutline,
   SearchOutline,
@@ -161,12 +163,14 @@ onMounted(() => { loadAlerts(); loadChannels() })
     </div>
 
     <!-- List -->
-    <n-spin :show="loading">
-      <div v-if="isEmpty" class="empty-state">
-        <n-icon :component="ShieldCheckmarkOutline" size="48" class="empty-icon" />
-        <div class="empty-title">No active alerts</div>
-        <div class="empty-sub">All series quiet across your integrations.</div>
-      </div>
+    <LoadingSkeleton v-if="loading && alerts.length === 0" :rows="6" variant="row" />
+    <n-spin v-else :show="loading && alerts.length > 0">
+      <EmptyState
+        v-if="isEmpty"
+        :icon="ShieldCheckmarkOutline"
+        title="No active alerts"
+        description="All alert series are currently resolved"
+      />
 
       <div v-else class="alert-list sre-stagger">
         <div

@@ -8,6 +8,8 @@ import type { Incident } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { formatTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   RefreshOutline,
   AddOutline,
@@ -17,6 +19,7 @@ import {
   PersonOutline,
   TimeOutline,
   NotificationsOutline,
+  ShieldCheckmarkOutline,
 } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -224,14 +227,14 @@ onMounted(loadIncidents)
     </div>
 
     <!-- Incident list -->
-    <n-spin :show="loading">
-      <div v-if="isEmpty" class="empty-state">
-        <n-icon :component="AlertCircleOutline" size="48" class="empty-icon" />
-        <div class="empty-title">
-          {{ viewMode === 'mine' ? t('incident.emptyMine') : t('incident.empty') }}
-        </div>
-        <div class="empty-sub">{{ t('incident.emptySub') }}</div>
-      </div>
+    <n-spin :show="loading && incidents.length > 0">
+      <LoadingSkeleton v-if="loading && incidents.length === 0" :rows="6" variant="row" />
+      <EmptyState
+        v-else-if="isEmpty"
+        :icon="ShieldCheckmarkOutline"
+        title="No active incidents"
+        description="All systems operating normally"
+      />
 
       <div v-else class="incident-list">
         <div

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { shallowRef, computed, onMounted } from 'vue'
+import { shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { use } from 'echarts/core'
@@ -115,19 +115,47 @@ const kpis = computed<KpiCard[]>(() => [
   },
 ])
 
+// ===== theme-aware chart palette =====
+const isLightTheme = shallowRef<boolean>(typeof document !== 'undefined' && document.body.classList.contains('light-theme'))
+let themeObserver: MutationObserver | null = null
+onMounted(() => {
+  if (typeof document === 'undefined') return
+  themeObserver = new MutationObserver(() => {
+    isLightTheme.value = document.body.classList.contains('light-theme')
+  })
+  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+})
+onUnmounted(() => { themeObserver?.disconnect() })
+
+const chartPalette = computed(() => {
+  // light-on-light is unreadable: switch to slate-on-light when light theme is active.
+  // Values mirror the WCAG-compliant text tokens defined in global.css `body.light-theme`.
+  const light = isLightTheme.value
+  return {
+    tooltipBg: light ? 'rgba(15,23,42,0.92)' : 'rgba(0,0,0,0.85)',
+    tooltipText: light ? '#ffffff' : '#ffffff',
+    legend: light ? 'rgba(15,23,42,0.72)' : 'rgba(255,255,255,0.7)',
+    axisLabel: light ? 'rgba(15,23,42,0.56)' : 'rgba(255,255,255,0.5)',
+    axisLine: light ? 'rgba(15,23,42,0.10)' : 'rgba(255,255,255,0.08)',
+    splitLine: light ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.05)',
+    pieCenterPrimary: light ? 'rgba(15,23,42,0.92)' : 'rgba(255,255,255,0.92)',
+    pieCenterMuted: light ? 'rgba(15,23,42,0.50)' : 'rgba(255,255,255,0.45)',
+  }
+})
+
 // ===== charts =====
 const trendChartOption = computed(() => ({
   backgroundColor: 'transparent',
   tooltip: {
     trigger: 'axis',
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: chartPalette.value.tooltipBg,
     borderColor: 'transparent',
-    textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Geist, sans-serif' },
+    textStyle: { color: chartPalette.value.tooltipText, fontSize: 12, fontFamily: 'Geist, sans-serif' },
   },
   legend: {
     data: [t('dashboard.fired'), t('dashboard.resolved')],
     bottom: 0,
-    textStyle: { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontFamily: 'Geist, sans-serif' },
+    textStyle: { color: chartPalette.value.legend, fontSize: 11, fontFamily: 'Geist, sans-serif' },
     itemWidth: 14,
     itemHeight: 2,
     icon: 'rect',
@@ -137,16 +165,16 @@ const trendChartOption = computed(() => ({
     type: 'category',
     data: trendData.value.map(d => d.date),
     boundaryGap: false,
-    axisLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
-    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+    axisLabel: { color: chartPalette.value.axisLabel, fontSize: 11, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
+    axisLine: { lineStyle: { color: chartPalette.value.axisLine } },
     axisTick: { show: false },
   },
   yAxis: {
     type: 'value',
-    axisLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
+    axisLabel: { color: chartPalette.value.axisLabel, fontSize: 11, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
     axisLine: { show: false },
     axisTick: { show: false },
-    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)', type: 'dashed' } },
+    splitLine: { lineStyle: { color: chartPalette.value.splitLine, type: 'dashed' } },
   },
   series: [
     {
@@ -186,9 +214,9 @@ const severityChartOption = computed(() => {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(0,0,0,0.85)',
+      backgroundColor: chartPalette.value.tooltipBg,
       borderColor: 'transparent',
-      textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Geist, sans-serif' },
+      textStyle: { color: chartPalette.value.tooltipText, fontSize: 12, fontFamily: 'Geist, sans-serif' },
       formatter: '{b}: {c} ({d}%)',
     },
     series: [{
@@ -202,8 +230,8 @@ const severityChartOption = computed(() => {
         position: 'center',
         formatter: () => `{n|${total}}\n{l|Active}`,
         rich: {
-          n: { fontSize: 22, fontWeight: 600, color: 'rgba(255,255,255,0.92)', fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
-          l: { fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: 1, padding: [4, 0, 0, 0] },
+          n: { fontSize: 22, fontWeight: 600, color: chartPalette.value.pieCenterPrimary, fontFamily: 'Geist, sans-serif', fontFeatureSettings: '"tnum"' },
+          l: { fontSize: 10, color: chartPalette.value.pieCenterMuted, letterSpacing: 1, padding: [4, 0, 0, 0] },
         },
       },
       emphasis: { label: { show: true } },

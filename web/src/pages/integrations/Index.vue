@@ -4,6 +4,8 @@ import { useMessage, NButton, NIcon, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { integrationV2Api, channelV2Api } from '@/api'
 import RoutingRules from './RoutingRules.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   AddOutline,
   CopyOutline,
@@ -254,18 +256,18 @@ onMounted(load)
       </div>
     </section>
 
+    <!-- Loading skeleton -->
+    <LoadingSkeleton v-if="loading && filteredIntegrations.length === 0" :rows="6" variant="card-grid" />
+
     <!-- Empty state -->
-    <div v-if="!loading && filteredIntegrations.length === 0" class="integ-empty">
-      <n-icon :component="GitNetworkOutline" size="48" class="integ-empty-icon" />
-      <div class="integ-empty-title">No integrations yet</div>
-      <div class="integ-empty-sub">
-        Create your first integration to start receiving alerts from external systems.
-      </div>
-      <n-button type="primary" @click="openCreate">
-        <template #icon><n-icon :component="AddOutline" /></template>
-        Create Integration
-      </n-button>
-    </div>
+    <EmptyState
+      v-else-if="!loading && filteredIntegrations.length === 0"
+      :icon="GitNetworkOutline"
+      title="No integrations yet"
+      description="Connect external alert sources via webhook endpoints"
+      primary-text="Create Integration"
+      @primary="openCreate"
+    />
 
     <!-- Card grid -->
     <section v-else class="integ-grid sre-stagger">

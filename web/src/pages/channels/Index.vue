@@ -6,11 +6,13 @@ import { useI18n } from 'vue-i18n'
 import { channelV2Api } from '@/api'
 import type { Channel, ChannelStatus, ChannelAccessLevel } from '@/types'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   AddOutline, RefreshOutline, StarOutline, Star,
   PeopleOutline, SearchOutline, EllipsisHorizontal,
   GridOutline, ListOutline, FolderOpenOutline,
-  CreateOutline, TrashOutline,
+  CreateOutline, TrashOutline, LayersOutline,
 } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -255,19 +257,16 @@ onMounted(loadChannels)
     </div>
 
     <!-- Loading / Empty / Cards -->
-    <div v-if="loading" class="loading-wrap">
-      <n-spin size="large" />
-    </div>
+    <LoadingSkeleton v-if="loading" :rows="6" variant="card-grid" />
 
-    <div v-else-if="sortedChannels.length === 0" class="empty-wrap">
-      <n-icon :component="FolderOpenOutline" :size="56" class="empty-icon" />
-      <div class="empty-title">还没有协作空间</div>
-      <div class="empty-desc">{{ t('channel.subtitle') }}</div>
-      <n-button type="primary" @click="showCreateModal = true">
-        <template #icon><n-icon :component="AddOutline" /></template>
-        {{ t('channel.create') }}
-      </n-button>
-    </div>
+    <EmptyState
+      v-else-if="sortedChannels.length === 0"
+      :icon="LayersOutline"
+      title="No channels yet"
+      description="Create a channel to start aggregating incidents"
+      :primary-text="t('channel.create')"
+      @primary="showCreateModal = true"
+    />
 
     <div v-else class="channel-grid">
       <div
@@ -485,7 +484,7 @@ onMounted(loadChannels)
   opacity: 0;
   transition: opacity 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
-.card-star:hover { background: rgba(0,0,0,0.05); color: #f5a623; }
+.card-star:hover { background: var(--sre-bg-hover); color: #f5a623; }
 .card-star.starred { opacity: 1; color: #f5a623; }
 
 .card-body { flex: 1 1 auto; display: flex; flex-direction: column; }

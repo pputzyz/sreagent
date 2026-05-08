@@ -8,6 +8,8 @@ import type { AlertRule, DataSource, AlertSeverity, DataSourceType, QueryRespons
 import { kvArrayToRecord } from '@/utils/format'
 import KVEditor from '@/components/common/KVEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   AddOutline,
   CloudUploadOutline,
@@ -21,6 +23,7 @@ import {
   CopyOutline,
   TrashOutline,
   PowerOutline,
+  DocumentTextOutline,
 } from '@vicons/ionicons5'
 
 const message = useMessage()
@@ -651,19 +654,20 @@ onMounted(() => {
           </n-button>
         </div>
 
+        <!-- Loading skeleton -->
+        <LoadingSkeleton v-if="loading && filteredRules.length === 0" :rows="6" variant="row" />
+
         <!-- Empty state -->
-        <div v-if="!loading && filteredRules.length === 0" class="empty-state">
-          <n-icon :component="FileTrayOutline" :size="48" class="empty-icon" />
-          <div class="empty-title">{{ t('alert.noRules') }}</div>
-          <div class="empty-actions">
-            <n-button type="primary" size="small" @click="openCreate">
-              {{ t('alert.createFirstRule') }}
-            </n-button>
-            <n-button size="small" secondary @click="showImportExport = true">
-              {{ t('alert.importFile') }}
-            </n-button>
-          </div>
-        </div>
+        <EmptyState
+          v-else-if="!loading && filteredRules.length === 0"
+          :icon="DocumentTextOutline"
+          title="No alert rules"
+          description="Create your first rule to start monitoring"
+          :primary-text="t('alert.createFirstRule')"
+          :secondary-text="t('alert.importFile')"
+          @primary="openCreate"
+          @secondary="showImportExport = true"
+        />
 
         <!-- Rule list -->
         <div v-else class="rule-list" :class="{ 'sre-stagger': isFirstLoad }">

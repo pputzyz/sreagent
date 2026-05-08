@@ -4,6 +4,39 @@
 
 ---
 
+## [v2.6.0] - 2026-05-08
+
+### Changed — UI 重构 Phase 5（共享组件 + 设计系统文档 + 浅色审计）
+
+**共享组件抽取：**
+- `components/common/EmptyState.vue` 新增（替代散落的 NEmpty）：支持 size sm/md/lg、variant default/success/warning/critical/info、primary/secondary 操作按钮
+- `components/common/LoadingSkeleton.vue` 新增（替代 NSpin 大圈圈）：3 种 variant（row / card-grid / kpi），shimmer 动效
+
+**6 个高频页面接入新组件：**
+- incidents/Index、channels/Index、alerts/rules/Index、alerts/events/Index、alerts-v2/Index、integrations/Index
+- 加载态用 LoadingSkeleton 骨架屏（首次加载，避免空白闪烁）
+- 空状态用 EmptyState（统一图标+文案+CTA 按钮）
+
+**浅色主题对比度修复：**
+- `global.css` 两处 `.sre-row-card:hover` / `.sre-lift:hover` 边框色：硬编码 rgba(255,255,255,0.x) → var(--sre-border-strong)
+- `dashboard/Index.vue` ECharts 浅色模式不可读：新增 isLightTheme 监听 body.classList，chartPalette computed 提供 8 个动态颜色值（tooltipBg/legend/axis/grid/pieCenter）
+- `channels/Index.vue` `.card-star:hover` 背景：rgba(0,0,0,0.05) → var(--sre-bg-hover)
+
+**设计系统文档：**
+- `docs/design-system.md` 新建（~220 行）
+- 内容：设计哲学 / Typography (Geist + 拒绝清单) / Color (主色 + severity + surfaces + text + WCAG) / Spacing / Radius / Component patterns / Page anatomy / Anti-patterns 10 项 / Skill 应用 / Migration notes / File index / Decision log
+
+**v2.x UI 重构总结**（v2.1.0 → v2.6.0）：
+- 35+ 文件全站对齐 FlashCat "Operational Refinement" 美学
+- 字体 Geist + JetBrains Mono 替代 Inter/system
+- 4px severity stripe + sre-dot 圆点 + hairline borders 全站统一
+- 自定义 sre-row-card div 列表 取代 NDataTable（除审计外）
+- Skills 全程加持：frontend-design / vue 3.5 / web-design-guidelines
+
+vue-tsc ✅
+
+---
+
 ## [v2.5.0] - 2026-05-08
 
 ### Changed — UI 重构 Phase 4（Settings 子页 + Login）
