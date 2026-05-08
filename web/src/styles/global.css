@@ -87,7 +87,9 @@
   --sre-radius-pill: 9999px;
 
   /* --- Typography --- */
-  --sre-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+  /* Distinctive technical-refined pair: Geist for UI, JetBrains Mono for code/numbers */
+  --sre-font-display: "Geist", "PingFang SC", "Hiragino Sans GB", -apple-system, sans-serif;
+  --sre-font-sans: "Geist", "PingFang SC", "Hiragino Sans GB", -apple-system, BlinkMacSystemFont, "Segoe UI",
                    "Microsoft YaHei", "Hiragino Sans GB", Roboto, "Helvetica Neue",
                    Arial, sans-serif;
   --sre-font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace,
@@ -130,6 +132,15 @@
   --sre-ease-out:       cubic-bezier(0.22, 1, 0.36, 1);
   --sre-ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
   --sre-ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* --- FlashCat-style component tokens (v2.2+) --- */
+  --sre-stripe-w: 4px;                 /* severity left stripe width */
+  --sre-row-gap: 4px;                  /* card-list row gap */
+  --sre-row-pad-y: 14px;
+  --sre-row-pad-x: 18px;
+  --sre-card-pad: 20px;
+  --sre-section-gap: 24px;
+  --sre-hairline: 1px solid var(--sre-border);
 
   /* --- Z-index --- */
   --sre-z-sticky:  10;
@@ -661,4 +672,135 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
   }
   .conic-border::before { animation: none !important; opacity: 0.3 !important; }
   [data-reveal="out"] { opacity: 1; transform: none; }
+}
+
+/* ============================================================
+   FlashCat-style v2.2+ utilities
+   ============================================================ */
+
+/* Stagger reveal for card lists / KPIs */
+@keyframes sre-stagger-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sre-stagger > * {
+  opacity: 0;
+  animation: sre-stagger-up 360ms var(--sre-ease-out) forwards;
+}
+.sre-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.sre-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.sre-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.sre-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.sre-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.sre-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.sre-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.sre-stagger > *:nth-child(8) { animation-delay: 280ms; }
+.sre-stagger > *:nth-child(n+9) { animation-delay: 320ms; }
+
+/* Tabular numerics — apply to all metric/number displays */
+.tnum, [data-nums], .num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Editorial uppercase label */
+.sre-label-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--sre-text-tertiary);
+}
+
+/* Row card with severity stripe */
+.sre-row-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding: var(--sre-row-pad-y) var(--sre-row-pad-x);
+  padding-left: calc(var(--sre-row-pad-x) + var(--sre-stripe-w) + 6px);
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+  cursor: pointer;
+  transition: background var(--sre-duration-fast) var(--sre-ease-out),
+              border-color var(--sre-duration-fast) var(--sre-ease-out),
+              transform var(--sre-duration-fast) var(--sre-ease-out);
+}
+.sre-row-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: var(--sre-stripe-w);
+  background: var(--sre-text-tertiary);
+  border-top-left-radius: var(--sre-radius-md);
+  border-bottom-left-radius: var(--sre-radius-md);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out);
+}
+.sre-row-card[data-severity="critical"]::before { background: var(--sre-critical); }
+.sre-row-card[data-severity="warning"]::before  { background: var(--sre-warning); }
+.sre-row-card[data-severity="info"]::before     { background: var(--sre-info, #3b82f6); }
+.sre-row-card[data-severity="success"]::before  { background: var(--sre-primary); }
+.sre-row-card:hover {
+  background: var(--sre-bg-hover);
+  border-color: rgba(255,255,255,0.12);
+}
+.sre-row-card[data-dim="true"] { opacity: 0.6; }
+
+/* Severity / status dot */
+.sre-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--sre-text-tertiary);
+  flex-shrink: 0;
+}
+.sre-dot[data-severity="critical"] { background: var(--sre-critical); }
+.sre-dot[data-severity="warning"]  { background: var(--sre-warning); }
+.sre-dot[data-severity="info"]     { background: var(--sre-info, #3b82f6); }
+.sre-dot[data-severity="success"]  { background: var(--sre-primary); }
+.sre-dot[data-pulse]::before {
+  content: "";
+  display: block;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  animation: sre-dot-pulse 1.6s ease-in-out infinite;
+}
+@keyframes sre-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50%      { box-shadow: 0 0 0 4px transparent; }
+}
+
+/* Inline meta divider · */
+.sre-meta-divider {
+  display: inline-block;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--sre-text-tertiary);
+  opacity: 0.5;
+  margin: 0 8px;
+  vertical-align: middle;
+}
+
+/* KPI stat value */
+.sre-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Hover-lift card (KPI / dashboard cards) */
+.sre-lift {
+  transition: transform var(--sre-duration-fast) var(--sre-ease-out),
+              border-color var(--sre-duration-fast) var(--sre-ease-out),
+              box-shadow var(--sre-duration-base) var(--sre-ease-out);
+}
+.sre-lift:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.14);
 }

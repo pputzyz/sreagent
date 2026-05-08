@@ -5,11 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SREAgent - Intelligent SRE Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
       body {
         margin: 0;
         padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: "Geist", "PingFang SC", "Hiragino Sans GB", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-feature-settings: "ss01" 1, "ss02" 1, "cv11" 1;
+      }
+      /* Tabular figures for SRE dashboard numbers */
+      .tabular-nums, [data-nums] {
+        font-variant-numeric: tabular-nums;
       }
     </style>
   </head>
