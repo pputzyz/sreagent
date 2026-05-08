@@ -34,11 +34,11 @@ type updateRoutingRuleReq struct {
 }
 
 // ListByIntegration returns all routing rules for a shared integration.
-// GET /api/v1/integrations/:id/routing-rules
+// GET /api/v1/routing-rules?integration_id=X
 func (h *RoutingRuleHandler) ListByIntegration(c *gin.Context) {
-	integID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		ErrorWithMessage(c, 10001, "invalid integration id")
+	integID, err := strconv.ParseUint(c.Query("integration_id"), 10, 64)
+	if err != nil || integID == 0 {
+		ErrorWithMessage(c, 10001, "missing or invalid integration_id query param")
 		return
 	}
 	rules, err := h.repo.ListByIntegration(c.Request.Context(), uint(integID))
@@ -50,20 +50,19 @@ func (h *RoutingRuleHandler) ListByIntegration(c *gin.Context) {
 }
 
 // Create adds a new routing rule.
-// POST /api/v1/integrations/:id/routing-rules
+// POST /api/v1/routing-rules  (integration_id in body)
 func (h *RoutingRuleHandler) Create(c *gin.Context) {
-	integID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		ErrorWithMessage(c, 10001, "invalid integration id")
-		return
-	}
 	var req createRoutingRuleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorWithMessage(c, 10001, err.Error())
 		return
 	}
+	if req.IntegrationID == 0 {
+		ErrorWithMessage(c, 10001, "integration_id is required")
+		return
+	}
 	rule := &model.RoutingRule{
-		IntegrationID:   uint(integID),
+		IntegrationID:   req.IntegrationID,
 		TargetChannelID: req.TargetChannelID,
 		Conditions:      req.Conditions,
 		Priority:        req.Priority,

@@ -4,6 +4,19 @@
 
 ---
 
+## [v2.0.3] - 2026-05-08
+
+### Fixed — 启动 panic（路由冲突）
+
+- **Gin 路由参数冲突**：`/api/v1/integrations/:token/alerts`（webhook 接收）与 `/api/v1/integrations/:id/routing-rules`（路由规则 CRUD）共享前缀 `/integrations/:X`，但参数名不同，导致 Gin 启动 panic
+- **修复**：将路由规则 API 改为扁平路径
+  - `GET /api/v1/routing-rules?integration_id=X`（query string）
+  - `POST /api/v1/routing-rules`（integration_id 在 body）
+  - `PUT/DELETE /api/v1/routing-rules/:id`（不变）
+- 前端 `routingRuleApi.listByIntegration` 和 `create` 同步更新
+
+---
+
 ## [v2.0.2] - 2026-05-08
 
 ### Added — UI 缺口补齐

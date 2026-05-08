@@ -888,14 +888,14 @@ export const dashboardV2StatsApi = {
 // ===== v2: Routing Rules API =====
 export const routingRuleApi = {
   listByIntegration: (integrationId: number) =>
-    request.get<ApiResponse<RoutingRule[]>>(`/integrations/${integrationId}/routing-rules`),
+    request.get<ApiResponse<RoutingRule[]>>('/routing-rules', { params: { integration_id: integrationId } }),
 
   create: (integrationId: number, data: {
     target_channel_id: number
     conditions?: string
     priority?: number
     is_enabled?: boolean
-  }) => request.post<ApiResponse<RoutingRule>>(`/integrations/${integrationId}/routing-rules`, data),
+  }) => request.post<ApiResponse<RoutingRule>>('/routing-rules', { ...data, integration_id: integrationId }),
 
   update: (id: number, data: {
     target_channel_id?: number
