@@ -35,9 +35,9 @@ const common = {
   borderRadius:        '12px',
   borderRadiusSmall:   '8px',
   fontFamily:
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif',
+    '-apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   fontFamilyMono:
-    '"JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, Consolas, Menlo, monospace',
+    '"Cascadia Code", "SF Mono", "Consolas", "Menlo", ui-monospace, monospace',
 }
 
 const darkOverrides: GlobalThemeOverrides = {

@@ -442,7 +442,7 @@ onMounted(fetchData)
   padding-bottom: 14px; border-bottom: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
   margin-bottom: 14px;
 }
-.sub-title { font: 600 18px/1.2 'Geist', sans-serif; margin: 0; letter-spacing: -0.01em; }
+.sub-title { font: 600 18px/1.2 var(--sre-font-sans), sans-serif; margin: 0; letter-spacing: -0.01em; }
 .sub-sub { font-size: 12px; color: var(--sre-text-secondary); margin: 4px 0 0; }
 
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -464,10 +464,10 @@ onMounted(fetchData)
 .type-icon[data-type="http"]         { color: var(--sre-success); background: var(--sre-success-soft); }
 .type-icon[data-type="script"]       { color: var(--sre-warning); background: var(--sre-warning-soft); }
 
-.row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
+.row-name { font: 600 14px/1.3 var(--sre-font-sans), sans-serif; letter-spacing: -0.005em; }
 
 .type-chip {
-  font: 500 10px/1 'Geist Mono', monospace; text-transform: uppercase;
+  font: 500 10px/1 var(--sre-font-mono), monospace; text-transform: uppercase;
   padding: 3px 6px; border-radius: 4px; letter-spacing: .04em;
   background: var(--sre-bg-elevated); color: var(--sre-text-secondary);
 }
@@ -477,7 +477,7 @@ onMounted(fetchData)
 .type-chip[data-type="script"]       { background: var(--sre-warning-soft); color: var(--sre-warning); }
 
 .builtin-chip {
-  font: 500 10px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  font: 500 10px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
   background: var(--sre-info-soft); color: var(--sre-info); letter-spacing: .04em;
 }
 .status-text { font-size: 11px; color: var(--sre-success); }
@@ -487,7 +487,7 @@ onMounted(fetchData)
 
 .row-l2 { padding-left: 38px; }
 .target {
-  font: 12px/1.4 'Geist Mono', monospace;
+  font: 12px/1.4 var(--sre-font-mono), monospace;
   color: var(--sre-text-secondary);
   font-variant-numeric: tabular-nums;
   word-break: break-all;

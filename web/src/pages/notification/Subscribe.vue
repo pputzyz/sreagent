@@ -326,7 +326,7 @@ onMounted(() => { fetchData(); fetchRefData() })
   padding-bottom: 14px; border-bottom: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
   margin-bottom: 14px;
 }
-.sub-title { font: 600 18px/1.2 'Geist', sans-serif; margin: 0; letter-spacing: -0.01em; }
+.sub-title { font: 600 18px/1.2 var(--sre-font-sans), sans-serif; margin: 0; letter-spacing: -0.01em; }
 .sub-sub { font-size: 12px; color: var(--sre-text-secondary, #888); margin: 4px 0 0; }
 
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -339,28 +339,28 @@ onMounted(() => { fetchData(); fetchRefData() })
 .row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 
 .row-l1 { display: flex; align-items: center; gap: 10px; }
-.row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
+.row-name { font: 600 14px/1.3 var(--sre-font-sans), sans-serif; letter-spacing: -0.005em; }
 
 .subscriber { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px;
   border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06)); }
 .avatar {
   width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-  font: 600 10px/1 'Geist', sans-serif; background: rgba(129,140,248,0.18); color: #a5b4fc;
+  font: 600 10px/1 var(--sre-font-sans), sans-serif; background: rgba(129,140,248,0.18); color: #a5b4fc;
 }
 .subscriber[data-type="team"] .avatar { background: rgba(34,197,94,0.18); color: #86efac; }
 .sub-name { font-size: 12px; }
-.sub-kind { font: 500 10px/1 'Geist Mono', monospace; color: var(--sre-text-secondary, #888); text-transform: uppercase; letter-spacing: .04em; }
+.sub-kind { font: 500 10px/1 var(--sre-font-mono), monospace; color: var(--sre-text-secondary, #888); text-transform: uppercase; letter-spacing: .04em; }
 
 .row-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
 .row-l2 { padding-left: 18px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .label-chip {
-  font: 11px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  font: 11px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
   background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
 }
 .severities { display: inline-flex; gap: 4px; margin-left: 4px; }
 .sev-chip {
-  font: 500 10px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  font: 500 10px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
   text-transform: uppercase; letter-spacing: .04em;
 }
 .sev-chip[data-sev="critical"] { background: rgba(239,68,68,0.14); color: #fca5a5; }

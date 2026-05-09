@@ -302,7 +302,7 @@ onMounted(fetchData)
   padding-bottom: 14px; border-bottom: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
   margin-bottom: 14px;
 }
-.sub-title { font: 600 18px/1.2 'Geist', sans-serif; margin: 0; letter-spacing: -0.01em; }
+.sub-title { font: 600 18px/1.2 var(--sre-font-sans), sans-serif; margin: 0; letter-spacing: -0.01em; }
 .sub-sub { font-size: 12px; color: var(--sre-text-secondary, #888); margin: 4px 0 0; }
 
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -315,11 +315,11 @@ onMounted(fetchData)
 .row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 
 .row-l1 { display: flex; align-items: center; gap: 10px; }
-.row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
+.row-name { font: 600 14px/1.3 var(--sre-font-sans), sans-serif; letter-spacing: -0.005em; }
 
 .severities { display: flex; gap: 4px; flex-wrap: wrap; }
 .sev-chip {
-  font: 500 10px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  font: 500 10px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
   text-transform: uppercase; letter-spacing: .04em;
 }
 .sev-chip[data-sev="critical"] { background: rgba(239,68,68,0.14); color: #fca5a5; }
@@ -330,7 +330,7 @@ onMounted(fetchData)
 
 .row-l2 { padding-left: 18px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .label-chip, .media-chip {
-  font: 11px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
+  font: 11px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
   background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
 }
 .media-chip { background: rgba(129,140,248,0.12); color: #a5b4fc; }

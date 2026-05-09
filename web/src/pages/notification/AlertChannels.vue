@@ -474,7 +474,7 @@ onMounted(() => {
 
 <style scoped>
 .ac-page {
-  font-family: var(--sre-font-sans, 'Geist', system-ui, sans-serif);
+  font-family: var(--sre-font-sans, var(--sre-font-sans), system-ui, sans-serif);
   display: flex;
   flex-direction: column;
   gap: 14px;

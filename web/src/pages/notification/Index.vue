@@ -139,7 +139,7 @@ onUnmounted(() => window.removeEventListener('hashchange', onHash))
 
 <style scoped>
 .notif-shell {
-  font-family: var(--sre-font-sans, 'Geist', system-ui, sans-serif);
+  font-family: var(--sre-font-sans, var(--sre-font-sans), system-ui, sans-serif);
   max-width: 1400px;
 }
 .notif-header {
