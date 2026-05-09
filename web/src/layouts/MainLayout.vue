@@ -13,7 +13,6 @@ import type { UserNotifyConfig } from '@/types'
 import {
   GridOutline,
   ServerOutline,
-  AlertCircleOutline,
   CalendarOutline,
   SettingsOutline,
   LogOutOutline,
@@ -33,6 +32,7 @@ import {
   FlashOutline,
   GitNetworkOutline,
   BarChartOutline,
+  PulseOutline,
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -41,7 +41,45 @@ const authStore = useAuthStore()
 const { t, locale } = useI18n()
 const message = useMessage()
 
-// Sidebar collapse state
+// ===== Top-level module tabs =====
+type TabKey = 'monitor' | 'incident' | 'system'
+
+interface TopTab {
+  key: TabKey
+  label: string
+  icon: any
+}
+
+const topTabs = computed<TopTab[]>(() => [
+  { key: 'monitor',  label: t('menu.monitorAlert'), icon: PulseOutline },
+  { key: 'incident', label: t('menu.incidentMgmt'),  icon: BugOutline },
+  { key: 'system',   label: t('menu.systemConfig'),  icon: SettingsOutline },
+])
+
+const activeTab = ref<TabKey>('monitor')
+
+function resolveTabFromPath(p: string): TabKey {
+  if (p.startsWith('/incident-dashboard') || p.startsWith('/channels') ||
+      p.startsWith('/incidents') || p.startsWith('/alerts-v2')) return 'incident'
+  if (p.startsWith('/integrations') || p.startsWith('/notification') ||
+      p.startsWith('/schedule') || p.startsWith('/settings')) return 'system'
+  return 'monitor'
+}
+
+function switchTab(tab: TabKey) {
+  activeTab.value = tab
+  const first = tabFirstRoute[tab]
+  if (first && route.path !== first) router.push(first)
+}
+
+// First route for each tab (navigate on tab switch)
+const tabFirstRoute: Record<TabKey, string> = {
+  monitor:  '/dashboard',
+  incident: '/incident-dashboard',
+  system:   '/notification',
+}
+
+// ===== Sidebar collapse =====
 const collapsed = ref(JSON.parse(localStorage.getItem('sre-sider-collapsed') ?? 'false'))
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 
@@ -104,59 +142,50 @@ function selectTimezone(val: string) {
   updateClock()
 }
 
-// ===== Menu — 3 collapsible parent menus (no type:'group') =====
+// ===== Sidebar menu — tab-dependent =====
 function renderIcon(icon: any) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
-const menuOptions = computed<MenuOption[]>(() => {
-  const systemChildren: MenuOption[] = [
+const monitorChildren: MenuOption[] = [
+  { label: t('menu.dashboard'),      key: '/dashboard',          icon: renderIcon(GridOutline) },
+  { label: t('menu.alertRules'),      key: '/alerts/rules' },
+  { label: t('menu.activeAlerts'),    key: '/alerts/events' },
+  { label: t('menu.alertHistory'),    key: '/alerts/history' },
+  { label: t('menu.muteRules'),       key: '/alerts/mute-rules' },
+  { label: t('menu.inhibitionRules'), key: '/alerts/inhibition-rules' },
+  { label: t('menu.datasources'),     key: '/datasources',       icon: renderIcon(ServerOutline) },
+  { label: t('menu.dataQuery'),       key: '/query',             icon: renderIcon(SearchOutline) },
+]
+
+const incidentChildren: MenuOption[] = [
+  { label: t('menu.incidentDashboard'), key: '/incident-dashboard', icon: renderIcon(BarChartOutline) },
+  { label: t('menu.channels'),          key: '/channels',           icon: renderIcon(LayersOutline) },
+  { label: t('menu.incidents'),         key: '/incidents',          icon: renderIcon(BugOutline) },
+  { label: t('menu.alertsV2'),          key: '/alerts-v2',          icon: renderIcon(FlashOutline) },
+]
+
+const systemChildren = computed<MenuOption[]>(() => {
+  const items: MenuOption[] = [
     { label: t('menu.integrations'), key: '/integrations', icon: renderIcon(GitNetworkOutline) },
     { label: t('menu.notification'), key: '/notification', icon: renderIcon(NotificationsOutline) },
     { label: t('menu.schedule'),     key: '/schedule',     icon: renderIcon(CalendarOutline) },
   ]
   if (authStore.canManage) {
-    systemChildren.push({ label: t('menu.settings'), key: '/settings', icon: renderIcon(SettingsOutline) })
+    items.push({ label: t('menu.settings'), key: '/settings', icon: renderIcon(SettingsOutline) })
   }
-  return [
-    {
-      label: t('menu.alertCenter'),
-      key: 'alert-center',
-      icon: renderIcon(AlertCircleOutline),
-      children: [
-        { label: t('menu.dashboard'),      key: '/dashboard',          icon: renderIcon(GridOutline) },
-        { label: t('menu.alertRules'),      key: '/alerts/rules' },
-        { label: t('menu.activeAlerts'),    key: '/alerts/events' },
-        { label: t('menu.alertHistory'),    key: '/alerts/history' },
-        { label: t('menu.muteRules'),       key: '/alerts/mute-rules' },
-        { label: t('menu.inhibitionRules'), key: '/alerts/inhibition-rules' },
-        { label: t('menu.datasources'),     key: '/datasources',       icon: renderIcon(ServerOutline) },
-        { label: t('menu.dataQuery'),       key: '/query',             icon: renderIcon(SearchOutline) },
-      ],
-    },
-    {
-      label: t('menu.incidentMgmt'),
-      key: 'incident-mgmt',
-      icon: renderIcon(BugOutline),
-      children: [
-        { label: t('menu.incidentDashboard'), key: '/incident-dashboard', icon: renderIcon(BarChartOutline) },
-        { label: t('menu.channels'),          key: '/channels',           icon: renderIcon(LayersOutline) },
-        { label: t('menu.incidents'),         key: '/incidents',          icon: renderIcon(BugOutline) },
-        { label: t('menu.alertsV2'),          key: '/alerts-v2',          icon: renderIcon(FlashOutline) },
-      ],
-    },
-    {
-      label: t('menu.systemConfig'),
-      key: 'system-config',
-      icon: renderIcon(SettingsOutline),
-      children: systemChildren,
-    },
-  ]
+  return items
 })
 
-// Expand all parent menus by default; user can collapse individual ones
-const expandedKeys = ref<string[]>(['alert-center', 'incident-mgmt', 'system-config'])
+const menuOptions = computed<MenuOption[]>(() => {
+  switch (activeTab.value) {
+    case 'incident': return incidentChildren
+    case 'system':   return systemChildren.value
+    default:         return monitorChildren
+  }
+})
 
+// Resolve active menu key from route path
 function resolveActiveKey(p: string): string {
   if (p.startsWith('/incident-dashboard'))        return '/incident-dashboard'
   if (p.startsWith('/channels'))                  return '/channels'
@@ -176,9 +205,14 @@ function resolveActiveKey(p: string): string {
 }
 
 const menuSelectedKey = ref(resolveActiveKey(route.path))
+
+// Sync tab + menu on route change
 watch(
   () => route.path,
-  (p) => { menuSelectedKey.value = resolveActiveKey(p) },
+  (p) => {
+    activeTab.value = resolveTabFromPath(p)
+    menuSelectedKey.value = resolveActiveKey(p)
+  },
 )
 
 function handleMenuClick(key: string) {
@@ -224,7 +258,7 @@ function isImageAvatar(v: string | undefined | null): boolean {
 const headerAvatar = computed(() => authStore.user?.avatar || '')
 const headerAvatarIsImage = computed(() => isImageAvatar(headerAvatar.value))
 
-// ===== Breadcrumb =====
+// ===== Page title from route =====
 const pageTitle = computed(() => {
   const p = route.path
   if (p === '/dashboard')                         return t('menu.dashboard')
@@ -238,20 +272,27 @@ const pageTitle = computed(() => {
   if (p.startsWith('/notification'))              return t('menu.notification')
   if (p === '/schedule')                          return t('menu.schedule')
   if (p === '/settings')                          return t('menu.settings')
+  if (p.startsWith('/incident-dashboard'))        return t('menu.incidentDashboard')
+  if (p.startsWith('/channels'))                  return t('menu.channels')
+  if (p.startsWith('/incidents'))                 return t('menu.incidents')
+  if (p.startsWith('/alerts-v2'))                 return t('menu.alertsV2')
+  if (p.startsWith('/integrations'))              return t('menu.integrations')
   return ''
 })
 
-// ===== Profile Modal =====
+// ===== Profile Modal (unchanged logic, extracted for brevity) =====
 const showProfileModal = ref(false)
 const profileTab = ref('info')
 const profileSaving = ref(false)
-
 const profileForm = ref({ display_name: '', email: '', phone: '', avatar: '' })
 
 const presetAvatars = [
-  '👤','🧑‍💻','👩‍💻','🧑‍🔧','👩‍🔧','🧑‍🚀','👩‍🚀','🧑‍🔬','👩‍🔬',
-  '🧑‍💼','👩‍💼','🧑‍🎤','🧑‍🎨','🦊','🐺','🐧','🦅','🦁','🐯','🐻',
-  '🐼','🦉','🦄','🐉','🤖','👾','🛰️','🚀','⚡','🔥','🌟','🌈',
+  '\u{1F464}','\u{1F9D1}‍\u{1F4BB}','\u{1F469}‍\u{1F4BB}','\u{1F9D1}‍\u{1F527}','\u{1F469}‍\u{1F527}',
+  '\u{1F9D1}‍\u{1F680}','\u{1F469}‍\u{1F680}','\u{1F9D1}‍\u{1F52C}','\u{1F469}‍\u{1F52C}',
+  '\u{1F9D1}‍\u{1F4BC}','\u{1F469}‍\u{1F4BC}','\u{1F9D1}‍\u{1F3A4}','\u{1F9D1}‍\u{1F3A8}',
+  '\u{1F98A}','\u{1F43A}','\u{1F427}','\u{1F985}','\u{1F981}','\u{1F42F}','\u{1F43B}',
+  '\u{1F43C}','\u{1F989}','\u{1F984}','\u{1F409}','\u{1F916}','\u{1F47E}','\u{1F6F0}️',
+  '\u{1F680}','⚡','\u{1F525}','\u{1F31F}','\u{1F308}',
 ]
 
 const AVATAR_MAX_BYTES = 200 * 1024
@@ -407,177 +448,191 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 </script>
 
 <template>
-  <n-layout has-sider style="height: 100vh">
-
-    <!-- ===== Glass Sidebar ===== -->
-    <n-layout-sider
-      class="sre-sider"
-      bordered
-      collapse-mode="width"
-      :collapsed-width="64"
-      :width="232"
-      :collapsed="collapsed"
-      :native-scrollbar="false"
-    >
-      <!-- Logo -->
-      <div class="sider-logo" :class="{ collapsed }">
-        <img src="/logo.svg" alt="SREAgent" class="logo-mark" />
-        <transition name="fade">
-          <span v-if="!collapsed" class="logo-text">
+  <div class="app-shell">
+    <!-- ===== Top Tab Bar (glass) ===== -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <!-- Logo -->
+        <div class="top-logo" @click="router.push('/dashboard')">
+          <img src="/logo.svg" alt="SREAgent" class="top-logo-mark" />
+          <span class="top-logo-text">
             <span class="gradient-text">SRE</span>Agent
           </span>
-        </transition>
+        </div>
+
+        <!-- Top Tabs -->
+        <nav class="top-tabs">
+          <button
+            v-for="tab in topTabs"
+            :key="tab.key"
+            class="top-tab"
+            :class="{ active: activeTab === tab.key }"
+            @click="switchTab(tab.key)"
+          >
+            <n-icon :component="tab.icon" :size="16" />
+            <span>{{ tab.label }}</span>
+          </button>
+        </nav>
       </div>
 
-      <!-- Navigation — collapsible parent-child menu -->
-      <n-menu
-        class="sre-menu"
-        :collapsed="collapsed"
-        :collapsed-width="64"
-        :collapsed-icon-size="22"
-        :indent="18"
-        :options="menuOptions"
-        :value="menuSelectedKey"
-        :expanded-keys="expandedKeys"
-        @update:value="handleMenuClick"
-        @update:expanded-keys="(ks: string[]) => { expandedKeys = ks }"
-      />
-
-      <!-- Spacer -->
-      <div class="sider-spacer" />
-
-      <!-- Bottom: user profile + collapse toggle + version -->
-      <div class="sider-bottom">
-        <!-- User pill (moved from header) -->
-        <n-dropdown :options="userDropdownOptions" trigger="click" @select="handleUserDropdown">
-          <div class="sider-user-pill" :class="{ collapsed }">
-            <div class="user-avatar" :class="{ 'user-avatar--image': headerAvatarIsImage, 'user-avatar--emoji': !!headerAvatar && !headerAvatarIsImage }">
-              <img v-if="headerAvatarIsImage" :src="headerAvatar" alt="avatar" />
-              <template v-else-if="headerAvatar">{{ headerAvatar }}</template>
-              <template v-else>{{ userInitial }}</template>
+      <div class="top-bar-right">
+        <!-- Clock pill -->
+        <n-popover
+          v-model:show="showTzPanel"
+          trigger="click"
+          placement="bottom-end"
+          :show-arrow="false"
+          style="padding: 0"
+        >
+          <template #trigger>
+            <div class="clock-pill" :class="{ active: showTzPanel }">
+              <n-icon :component="TimeOutline" :size="13" class="clock-icon" />
+              <span class="clock-time">{{ timeDisplay }}</span>
+              <span class="clock-sep">·</span>
+              <span class="clock-date">{{ dateDisplay }}</span>
+              <span class="clock-tz">{{ tzAbbr }}</span>
             </div>
-            <transition name="fade">
-              <div v-if="!collapsed" class="sider-user-info">
-                <span class="sider-user-name">{{ displayName }}</span>
-                <span class="sider-user-role">{{ authStore.canManage ? 'Admin' : 'Member' }}</span>
+          </template>
+          <div class="tz-panel">
+            <div class="tz-panel-title">
+              <n-icon :component="EarthOutline" :size="14" />
+              {{ t('header.timezone') }}
+            </div>
+            <div
+              v-for="opt in timezoneOptions"
+              :key="opt.value"
+              class="tz-option"
+              :class="{ selected: timezone === opt.value }"
+              @click="selectTimezone(opt.value)"
+            >
+              <span class="tz-opt-abbr">{{ opt.abbr }}</span>
+              <span class="tz-opt-label">{{ opt.label }}</span>
+              <span v-if="timezone === opt.value" class="tz-opt-check">&#10003;</span>
+            </div>
+          </div>
+        </n-popover>
+
+        <div class="header-sep" />
+
+        <!-- ⌘K -->
+        <div class="ctrl-btn ctrl-btn--search" @click="openPalette" title="⌘K">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <kbd class="cmd-shortcut">⌘K</kbd>
+        </div>
+
+        <div class="header-sep" />
+
+        <!-- Language -->
+        <n-popselect
+          :value="locale"
+          :options="langOptions"
+          trigger="click"
+          :render-label="(opt: any) => opt.label"
+          @update:value="handleLangChange"
+        >
+          <div class="ctrl-btn">
+            <n-icon :component="EarthOutline" :size="15" />
+            <span class="ctrl-label">{{ locale === 'zh-CN' ? '中' : 'EN' }}</span>
+          </div>
+        </n-popselect>
+
+        <!-- Theme toggle -->
+        <div class="ctrl-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')">
+          <n-icon :component="isDark ? SunnyOutline : MoonOutline" :size="16" />
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== Body: sidebar + content ===== -->
+    <div class="app-body">
+      <!-- ===== Glass Sidebar (tab-dependent) ===== -->
+      <aside class="sre-sider" :class="{ collapsed }">
+        <!-- Navigation -->
+        <nav class="sider-nav">
+          <n-menu
+            class="sre-menu"
+            :collapsed="collapsed"
+            :collapsed-width="64"
+            :collapsed-icon-size="22"
+            :indent="18"
+            :options="menuOptions"
+            :value="menuSelectedKey"
+            @update:value="handleMenuClick"
+          />
+        </nav>
+
+        <!-- Spacer -->
+        <div class="sider-spacer" />
+
+        <!-- Bottom: user + collapse + version -->
+        <div class="sider-bottom">
+          <!-- User pill -->
+          <n-dropdown :options="userDropdownOptions" trigger="click" @select="handleUserDropdown">
+            <div class="sider-user-pill" :class="{ collapsed }">
+              <div class="user-avatar" :class="{ 'user-avatar--image': headerAvatarIsImage, 'user-avatar--emoji': !!headerAvatar && !headerAvatarIsImage }">
+                <img v-if="headerAvatarIsImage" :src="headerAvatar" alt="avatar" />
+                <template v-else-if="headerAvatar">{{ headerAvatar }}</template>
+                <template v-else>{{ userInitial }}</template>
               </div>
-            </transition>
+              <transition name="fade">
+                <div v-if="!collapsed" class="sider-user-info">
+                  <span class="sider-user-name">{{ displayName }}</span>
+                  <span class="sider-user-role">{{ authStore.canManage ? 'Admin' : 'Member' }}</span>
+                </div>
+              </transition>
+              <transition name="fade">
+                <n-icon v-if="!collapsed" :component="ChevronDownOutline" :size="12" class="sider-user-chevron" />
+              </transition>
+            </div>
+          </n-dropdown>
+
+          <!-- Collapse toggle -->
+          <div
+            class="sider-collapse-toggle"
+            :class="{ collapsed }"
+            :title="collapsed ? t('header.expandSidebar') : t('header.collapseSidebar')"
+            @click="toggleCollapsed"
+          >
+            <n-icon
+              :component="collapsed ? ChevronForwardOutline : ChevronBackOutline"
+              :size="14"
+              class="collapse-icon"
+            />
             <transition name="fade">
-              <n-icon v-if="!collapsed" :component="ChevronDownOutline" :size="12" class="sider-user-chevron" />
+              <span v-if="!collapsed" class="collapse-label">{{ t('header.collapseSidebar') }}</span>
             </transition>
           </div>
-        </n-dropdown>
 
-        <!-- Collapse toggle -->
-        <div
-          class="sider-collapse-toggle"
-          :class="{ collapsed }"
-          :title="collapsed ? t('header.expandSidebar') : t('header.collapseSidebar')"
-          @click="toggleCollapsed"
-        >
-          <n-icon
-            :component="collapsed ? ChevronForwardOutline : ChevronBackOutline"
-            :size="14"
-            class="collapse-icon"
-          />
           <transition name="fade">
-            <span v-if="!collapsed" class="collapse-label">{{ t('header.collapseSidebar') }}</span>
+            <div v-if="!collapsed" class="sider-version">v{{ appVersion }}</div>
           </transition>
         </div>
+      </aside>
 
-        <transition name="fade">
-          <div v-if="!collapsed" class="sider-version">v{{ appVersion }}</div>
-        </transition>
-      </div>
-    </n-layout-sider>
+      <!-- ===== Right: content ===== -->
+      <main class="main-area">
+        <!-- Content header -->
+        <div class="content-header">
+          <div class="content-header-left">
+            <h1 class="content-page-title">{{ pageTitle }}</h1>
+          </div>
+          <!-- Slot for page actions (can be extended) -->
+          <div class="content-header-right">
+            <slot name="actions" />
+          </div>
+        </div>
+
+        <!-- Page content -->
+        <div class="content-body">
+          <router-view />
+        </div>
+      </main>
+    </div>
 
     <CommandPalette />
-
-    <!-- ===== Right: header + content ===== -->
-    <n-layout>
-
-      <!-- Header Bar (glass) -->
-      <div class="header-bar">
-        <div class="header-left">
-          <span class="header-page-title">{{ pageTitle }}</span>
-        </div>
-
-        <div class="header-right">
-          <!-- Clock pill -->
-          <n-popover
-            v-model:show="showTzPanel"
-            trigger="click"
-            placement="bottom-end"
-            :show-arrow="false"
-            style="padding: 0"
-          >
-            <template #trigger>
-              <div class="clock-pill" :class="{ active: showTzPanel }">
-                <n-icon :component="TimeOutline" :size="13" class="clock-icon" />
-                <span class="clock-time">{{ timeDisplay }}</span>
-                <span class="clock-sep">·</span>
-                <span class="clock-date">{{ dateDisplay }}</span>
-                <span class="clock-tz">{{ tzAbbr }}</span>
-              </div>
-            </template>
-            <div class="tz-panel">
-              <div class="tz-panel-title">
-                <n-icon :component="EarthOutline" :size="14" />
-                {{ t('header.timezone') }}
-              </div>
-              <div
-                v-for="opt in timezoneOptions"
-                :key="opt.value"
-                class="tz-option"
-                :class="{ selected: timezone === opt.value }"
-                @click="selectTimezone(opt.value)"
-              >
-                <span class="tz-opt-abbr">{{ opt.abbr }}</span>
-                <span class="tz-opt-label">{{ opt.label }}</span>
-                <span v-if="timezone === opt.value" class="tz-opt-check">✓</span>
-              </div>
-            </div>
-          </n-popover>
-
-          <div class="header-sep" />
-
-          <!-- ⌘K -->
-          <div class="ctrl-btn ctrl-btn--search" @click="openPalette" title="⌘K">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <kbd class="cmd-shortcut">⌘K</kbd>
-          </div>
-
-          <div class="header-sep" />
-
-          <!-- Language -->
-          <n-popselect
-            :value="locale"
-            :options="langOptions"
-            trigger="click"
-            :render-label="(opt: any) => opt.label"
-            @update:value="handleLangChange"
-          >
-            <div class="ctrl-btn">
-              <n-icon :component="EarthOutline" :size="15" />
-              <span class="ctrl-label">{{ locale === 'zh-CN' ? '中' : 'EN' }}</span>
-            </div>
-          </n-popselect>
-
-          <!-- Theme toggle -->
-          <div class="ctrl-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')">
-            <n-icon :component="isDark ? SunnyOutline : MoonOutline" :size="16" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Main content -->
-      <n-layout-content class="sre-content" :native-scrollbar="false">
-        <router-view />
-      </n-layout-content>
-    </n-layout>
-  </n-layout>
+  </div>
 
   <!-- ===== Profile Modal ===== -->
   <n-modal
@@ -608,7 +663,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
             </div>
             <div class="avatar-upload-row">
               <n-button size="tiny" secondary @click="triggerAvatarUpload">
-                📎 {{ t('profile.uploadAvatar') }}
+                &#128206; {{ t('profile.uploadAvatar') }}
               </n-button>
               <n-button
                 v-if="profileForm.avatar"
@@ -731,14 +786,155 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 </template>
 
 <style scoped>
+/* ============================================================
+   App Shell — Top Tabs + Sidebar Layout
+   ============================================================ */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ===== Top Bar (glass) ===== */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 var(--sre-space-4);
+  background: var(--sre-glass-bg);
+  backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  -webkit-backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  border-bottom: 1px solid var(--sre-glass-border);
+  flex-shrink: 0;
+  z-index: var(--sre-z-sticky);
+  position: relative;
+}
+
+.top-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--sre-noise-url);
+  opacity: 0.02;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sre-space-8);
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sre-space-1);
+}
+
+/* Logo */
+.top-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--sre-space-2);
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  transition: opacity var(--sre-duration-fast) var(--sre-ease-out);
+}
+.top-logo:hover { opacity: 0.85; }
+
+.top-logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--sre-radius-sm);
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.45));
+}
+
+.top-logo-text {
+  font-size: var(--sre-fs-lg);
+  font-weight: var(--sre-fw-semibold);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  color: var(--sre-text-primary);
+}
+
+/* ===== Top Tabs ===== */
+.top-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--sre-space-1);
+}
+
+.top-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sre-space-2);
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--sre-radius-md);
+  background: transparent;
+  color: var(--sre-text-secondary);
+  font-size: var(--sre-fs-md);
+  font-weight: var(--sre-fw-medium);
+  font-family: var(--sre-font-sans);
+  cursor: pointer;
+  transition:
+    background var(--sre-duration-fast) var(--sre-ease-out),
+    color var(--sre-duration-fast) var(--sre-ease-out),
+    box-shadow var(--sre-duration-fast) var(--sre-ease-out);
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+}
+
+.top-tab:hover {
+  background: var(--sre-bg-hover);
+  color: var(--sre-text-primary);
+}
+
+.top-tab.active {
+  background: var(--sre-primary-soft);
+  color: var(--sre-primary);
+  box-shadow: 0 0 0 1px var(--sre-primary-ring);
+}
+
+.top-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--sre-primary);
+  opacity: 0.8;
+}
+
+/* ===== App Body ===== */
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 /* ===== Glass Sidebar ===== */
 .sre-sider {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--sre-glass-bg);
   backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
   -webkit-backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
   border-right: 1px solid var(--sre-glass-border);
   position: relative;
-  transition: width 280ms var(--sre-ease-spring) !important;
+  transition: width 280ms var(--sre-ease-spring);
+  overflow: hidden;
 }
 
 .sre-sider::before {
@@ -752,46 +948,25 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   z-index: 0;
 }
 
-.sider-logo {
-  display: flex;
-  align-items: center;
-  gap: var(--sre-space-3);
-  padding: 16px 18px;
-  height: 60px;
-  border-bottom: 1px solid var(--sre-glass-border);
-  position: relative;
-  z-index: 1;
-}
-.sider-logo.collapsed {
-  justify-content: center;
-  padding: 16px 12px;
+.sre-sider.collapsed {
+  width: 64px;
 }
 
-.logo-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--sre-radius-md);
-  flex-shrink: 0;
-  display: block;
-  filter: drop-shadow(0 4px 16px rgba(16, 185, 129, 0.45));
-}
-.logo-text {
-  font-size: var(--sre-fs-lg);
-  font-weight: var(--sre-fw-semibold);
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  color: var(--sre-text-primary);
-}
-
-/* ===== Menu ===== */
-.sre-menu {
+/* Sidebar nav (scrollable) */
+.sider-nav {
+  flex: 0 1 auto;
   padding: var(--sre-space-2);
   position: relative;
   z-index: 1;
-  flex: 0 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* Selected menu item — left accent bar */
+.sre-menu {
+  padding: 0;
+}
+
+/* Selected menu item accent bar */
 .sre-menu :deep(.n-menu-item-content--selected)::before {
   content: '';
   position: absolute;
@@ -802,6 +977,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   border-radius: 0 3px 3px 0;
   background: var(--sre-gradient-brand);
 }
+
 .sre-menu :deep(.n-menu-item-content) {
   position: relative;
   overflow: visible;
@@ -809,7 +985,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   min-height: 34px;
 }
 
-/* Spacer — pushes bottom section down */
+/* Spacer */
 .sider-spacer { flex: 1; }
 
 /* ===== Sidebar Bottom ===== */
@@ -823,7 +999,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   z-index: 1;
 }
 
-/* User pill in sidebar */
+/* User pill */
 .sider-user-pill {
   display: flex;
   align-items: center;
@@ -944,53 +1120,53 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   opacity: 0.6;
 }
 
-/* ===== Header bar (glass) ===== */
-.header-bar {
-  height: 60px;
+/* ===== Main Content Area ===== */
+.main-area {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--sre-space-6);
-  border-bottom: 1px solid var(--sre-glass-border);
-  background: var(--sre-glass-bg);
-  backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
-  -webkit-backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: var(--sre-z-sticky);
-  transition: background var(--sre-duration-slow) var(--sre-ease-out),
-              border-color var(--sre-duration-slow) var(--sre-ease-out);
-}
-.header-left {
-  display: flex;
-  align-items: center;
-}
-.header-page-title {
-  font-size: var(--sre-fs-lg);
-  font-weight: var(--sre-fw-semibold);
-  color: var(--sre-text-primary);
-  letter-spacing: -0.005em;
-  transition: opacity var(--sre-duration-fast) var(--sre-ease-out),
-              transform var(--sre-duration-fast) var(--sre-ease-out);
-}
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--sre-space-1);
-}
-
-.sre-content {
-  padding: var(--sre-space-6);
+  flex-direction: column;
+  overflow: hidden;
   background: transparent;
 }
 
-.header-sep {
-  width: 1px;
-  height: 18px;
-  background: var(--sre-border);
-  margin: 0 var(--sre-space-2);
-  opacity: 0.7;
+/* Content header */
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sre-space-4) var(--sre-space-6);
+  flex-shrink: 0;
+  min-height: 52px;
+}
+
+.content-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sre-space-3);
+}
+
+.content-page-title {
+  font-size: var(--sre-fs-xl);
+  font-weight: var(--sre-fw-semibold);
+  color: var(--sre-text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: var(--sre-lh-tight);
+}
+
+.content-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sre-space-2);
+}
+
+/* Content body */
+.content-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 var(--sre-space-6) var(--sre-space-6);
 }
 
 /* ===== Clock Pill ===== */
@@ -1154,6 +1330,15 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   color: var(--sre-text-muted);
   font-family: var(--sre-font-mono);
   pointer-events: none;
+}
+
+/* Separator */
+.header-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--sre-border);
+  margin: 0 var(--sre-space-2);
+  opacity: 0.7;
 }
 
 /* ===== Transitions ===== */

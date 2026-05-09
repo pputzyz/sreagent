@@ -29,6 +29,7 @@
   /* Gradients */
   --sre-gradient-brand: linear-gradient(135deg, #10b981 0%, #34d399 40%, #8b5cf6 100%);
   --sre-gradient-brand-soft: linear-gradient(135deg, rgba(16,185,129,0.16), rgba(139,92,246,0.16));
+  --sre-gradient-brand-subtle: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(139,92,246,0.06));
   --sre-gradient-heat:  linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
   --sre-gradient-calm:  linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   --sre-gradient-page-glow:
@@ -144,13 +145,14 @@
                     0 0 0 1px rgba(255,255,255,0.03) inset;
   --sre-shadow-md:  0 8px 24px -6px rgba(0, 0, 0, 0.35),
                     0 2px 8px rgba(0,0,0,0.20),
-                    inset 0 1px 0 rgba(255,255,255,0.04);
+                    inset 0 1px 0 rgba(255,255,255,0.03);
   --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.45),
                     0 4px 16px rgba(0,0,0,0.25),
                     inset 0 1px 0 rgba(255,255,255,0.03);
   --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.50),
                     inset 0 1px 0 rgba(255,255,255,0.02);
   --sre-shadow-glow-brand: 0 0 0 3px var(--sre-primary-ring), 0 12px 32px -8px rgba(16,185,129,0.30);
+  --sre-shadow-card-hover: 0 12px 32px -8px rgba(0,0,0,0.35), 0 0 0 1px rgba(16,185,129,0.12);
   --sre-shadow-ring: 0 0 0 3px var(--sre-primary-ring);
 
   /* --- Motion (motion-driven: spring + smooth) --- */
@@ -170,6 +172,7 @@
   --sre-card-pad: 20px;
   --sre-section-gap: 24px;
   --sre-block-gap: 48px;              /* vibrant block layout */
+  --sre-topbar-h: 56px;              /* top navigation bar height */
   --sre-hairline: 1px solid var(--sre-border);
 
   /* --- Z-index --- */
@@ -256,7 +259,7 @@ body.light-theme {
                     0 0 0 1px rgba(15,23,42,0.02) inset;
   --sre-shadow-md:  0 8px 24px -6px rgba(15, 23, 42, 0.10),
                     0 2px 8px rgba(15,23,42,0.05),
-                    inset 0 1px 0 rgba(255,255,255,0.6);
+                    inset 0 1px 0 rgba(255,255,255,0.5);
   --sre-shadow-lg:  0 18px 40px -12px rgba(15, 23, 42, 0.14),
                     0 4px 12px rgba(15,23,42,0.06),
                     inset 0 1px 0 rgba(255,255,255,0.5);
@@ -389,6 +392,18 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
   border: 1px solid var(--sre-border-strong);
 }
 
+.surface-glass-interactive {
+  cursor: pointer;
+  transition: border-color var(--sre-duration-base) var(--sre-ease-out),
+              background var(--sre-duration-base) var(--sre-ease-out);
+}
+.surface-glass-interactive:hover {
+  backdrop-filter: saturate(var(--sre-glass-saturate)) blur(20px);
+  -webkit-backdrop-filter: saturate(var(--sre-glass-saturate)) blur(20px);
+  border-color: var(--sre-border-strong);
+  background: color-mix(in srgb, var(--sre-glass-bg) 120%, transparent);
+}
+
 /* ============================================================
    Clay surfaces (soft 3D double-shadow cards)
    ============================================================ */
@@ -433,6 +448,23 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .surface-card--interactive:active {
   transform: translateY(0) scale(0.985);
   transition-duration: 80ms;
+}
+
+/* ============================================================
+   Content card — standard page card
+   ============================================================ */
+.content-card {
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-lg);
+  padding: var(--sre-space-6);
+  box-shadow: var(--sre-shadow-sm);
+  transition: box-shadow var(--sre-duration-base) var(--sre-ease-out),
+              border-color var(--sre-duration-base) var(--sre-ease-out);
+}
+.content-card:hover {
+  border-color: var(--sre-border-strong);
+  box-shadow: var(--sre-shadow-md);
 }
 
 /* ============================================================
@@ -573,6 +605,16 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .text-tertiary  { color: var(--sre-text-tertiary); }
 .text-muted     { color: var(--sre-text-muted); }
 .text-mono      { font-family: var(--sre-font-mono); }
+
+/* ============================================================
+   Page container
+   ============================================================ */
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--sre-space-6);
+  width: 100%;
+}
 
 /* ============================================================
    Conic border (subtle rotating rim light)

@@ -4,6 +4,34 @@
 
 ---
 
+## [v2.8.0] — 2026-05-09
+
+### Changed — 顶部 Tab + 侧边栏导航架构重构 (FlashCat 风格)
+
+**交互架构升级：**
+- 顶部 Tab 一级模块切换: 监控告警 / 故障管理 / 系统配置
+- 左侧二级导航随 Tab 动态切换，每个 Tab 独立菜单项
+- Tab 切换自动导航到模块首页（/dashboard / /incident-dashboard / /notification）
+- 路由变化自动同步 Tab 激活状态
+
+**视觉打磨：**
+- 全局 deepest dark 背景 (#070912)，更专业深邃
+- 卡片透明度微调，暗色模式更可见
+- 数据表格表头加粗 (font-weight: 600)，圆角统一 12px
+- 菜单选中态增强，亮色模式更高对比度
+- 新增 `.content-card`、`.surface-glass-interactive`、`.page-container` 语义类
+- 新增 `--sre-shadow-card-hover` 悬停发光阴影令牌
+
+**代码清理：**
+- MainLayout.vue 去 sidebar 可折叠父菜单，改顶部 Tab 导航
+- 移除未使用的 icon 导入 (AlertCircleOutline, ShieldCheckmarkOutline 等)
+- 修复 inject 类型标注
+
+**i18n：**
+- 新增 `monitorAlert` 翻译键 (zh-CN: 监控告警, en: Monitor & Alert)
+
+---
+
 ## [v2.7.0] — 2026-05-09
 
 ### Changed — UI 全局重设计: "Vibrant Glass + Clay" 融合风格

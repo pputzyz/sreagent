@@ -43,8 +43,8 @@ const common = {
 const darkOverrides: GlobalThemeOverrides = {
   common: {
     ...common,
-    bodyColor:     '#090D1A',
-    cardColor:     'rgba(255,255,255,0.035)',
+    bodyColor:     '#070912',
+    cardColor:     'rgba(255,255,255,0.04)',
     modalColor:    'rgba(18,22,36,0.95)',
     popoverColor:  'rgba(18,22,36,0.95)',
     tableColor:    'rgba(255,255,255,0.025)',
@@ -60,7 +60,7 @@ const darkOverrides: GlobalThemeOverrides = {
     placeholderColor:   'rgba(255,255,255,0.30)',
   },
   Card: {
-    color:         'rgba(255,255,255,0.035)',
+    color:         'rgba(255,255,255,0.04)',
     colorEmbedded: 'rgba(255,255,255,0.025)',
     borderColor:   'rgba(255,255,255,0.07)',
     borderRadius:  '16px',
@@ -76,7 +76,8 @@ const darkOverrides: GlobalThemeOverrides = {
     tdColor:           'rgba(255,255,255,0.02)',
     tdColorHover:      'rgba(255,255,255,0.05)',
     borderColor:       'rgba(255,255,255,0.06)',
-    borderRadius:      '14px',
+    borderRadius:      '12px',
+    thFontWeight:      '600',
   },
   Layout: {
     color:       '#090D1A',
@@ -153,7 +154,8 @@ const lightOverrides: GlobalThemeOverrides = {
     thColor:      '#f7f8fa',
     tdColorHover: 'rgba(15,23,42,0.03)',
     borderColor:  'rgba(15,23,42,0.06)',
-    borderRadius: '14px',
+    borderRadius: '12px',
+    thFontWeight: '600',
   },
   Layout: {
     color:       '#f1f4f9',
@@ -167,7 +169,7 @@ const lightOverrides: GlobalThemeOverrides = {
     itemHeight:             '38px',
     borderRadius:           '10px',
     itemColorHover:         'rgba(15,23,42,0.04)',
-    itemColorActive:        'rgba(16,185,129,0.10)',
+    itemColorActive:        'rgba(16,185,129,0.12)',
     itemColorActiveHover:   'rgba(16,185,129,0.15)',
     itemTextColor:          'rgba(15,23,42,0.55)',
     itemTextColorHover:     'rgba(15,23,42,0.93)',

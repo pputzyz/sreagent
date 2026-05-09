@@ -102,6 +102,7 @@ export default {
     incidentDashboard: 'Incident Board',
     // v2.7 collapsible parent menus
     alertCenter: 'Monitor & Alert',
+    monitorAlert: 'Monitor & Alert',
     incidentMgmt: 'Incidents',
     systemConfig: 'System',
   },

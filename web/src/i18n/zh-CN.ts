@@ -102,6 +102,7 @@ export default {
     incidentDashboard: '故障看板',
     // v2.7 collapsible parent menus
     alertCenter: '监控告警',
+    monitorAlert: '监控告警',
     incidentMgmt: '故障管理',
     systemConfig: '系统配置',
   },
