@@ -4,6 +4,29 @@
 
 ---
 
+## [v2.8.1] — 2026-05-10
+
+### Changed — 仪表盘 UI 升级: 高级 KPI 卡片 + 玻璃-粘土图表容器
+
+**仪表盘重设计 (Dashboard + IncidentDashboard)：**
+- KPI 卡片增加图标 (PulseOutline, TimerOutline, CheckmarkCircleOutline 等)，彩色顶部色条去除底部条纹
+- 图表容器统一使用 `.surface-clay` 风格，标题 + 操作栏分区清晰
+- Top Noisy Rules 增加排名徽章 (#1 主色, #2 强调色, #3 信息色)
+- IncidentDashboard KPI 行统一 5 列网格 + hover 交互
+- KPI 图标容器按 tone 着色 (critical/红, success/绿, info/蓝)
+
+**MainLayout 视觉打磨：**
+- 侧边栏分组标签增加小圆点指示器
+- 顶部 Tab 激活态改为发光阴影 (box-shadow glow) 替代 inset ring
+- Tab 点击添加 scale 反馈
+- 侧边栏用户 Pill 增加 border 过渡
+- 折叠按钮按钮态更平滑
+
+**设计系统：**
+- 新增 `.text-critical` / `.text-warning` / `.text-success` / `.text-info` 语义颜色工具类
+
+---
+
 ## [v2.8.0] — 2026-05-09
 
 ### Changed — 顶部 Tab + 侧边栏导航架构重构 (FlashCat 风格)
