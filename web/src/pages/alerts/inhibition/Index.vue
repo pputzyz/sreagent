@@ -77,8 +77,8 @@ function matchEntries(rec: Record<string, string>): string[] {
 function equalArr(s: string): string[] {
   return (s || '').split(',').map(x => x.trim()).filter(Boolean)
 }
-function relTime(t: string): string {
-  const ms = new Date(t).getTime()
+function relTime(timeStr: string): string {
+  const ms = new Date(timeStr).getTime()
   if (Number.isNaN(ms)) return '-'
   const diff = Date.now() - ms
   const m = Math.round(diff / 60000)

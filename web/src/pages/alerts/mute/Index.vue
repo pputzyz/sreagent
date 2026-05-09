@@ -416,7 +416,7 @@ onMounted(fetchRules)
         <NSpin :show="previewLoading">
           <div v-if="!previewLoading && previewItems.length === 0" class="mute-preview-empty">
             <EmptyState
-              icon="AddOutline"
+              :icon="AddOutline"
               :title="t('mute.previewNoMatch') || 'No alerts currently match this rule'"
               size="sm"
             />

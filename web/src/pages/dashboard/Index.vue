@@ -286,8 +286,8 @@ async function refresh() {
     ])
     if (statsRes.status === 'fulfilled') stats.value = statsRes.value.data.data
     if (mttrRes.status === 'fulfilled') mttrStats.value = mttrRes.value.data.data
-    if (trendRes.status === 'fulfilled') trendData.value = trendRes.value.data || []
-    if (topRes.status === 'fulfilled') topRules.value = topRes.value.data || []
+    if (trendRes.status === 'fulfilled') trendData.value = trendRes.value.data.data || []
+    if (topRes.status === 'fulfilled') topRules.value = topRes.value.data.data || []
 
     const failed = [statsRes, mttrRes, trendRes, topRes].filter(r => r.status === 'rejected')
     if (failed.length === 4) {

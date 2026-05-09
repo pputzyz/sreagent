@@ -259,7 +259,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <LoadingSkeleton v-if="loading && !incident" :rows="8" variant="detail" />
+    <LoadingSkeleton v-if="loading && !incident" :rows="8" variant="row" />
     <n-spin v-else :show="loading">
       <div v-if="incident" class="detail-layout sre-fadein">
         <!-- LEFT MAIN -->
