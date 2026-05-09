@@ -600,7 +600,7 @@ onMounted(fetchList)
 .page-subtitle {
   margin: 4px 0 0;
   font-size: 12.5px;
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.5));
+  color: var(--sre-text-muted);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -616,7 +616,7 @@ onMounted(fetchList)
 
 /* Tree */
 .bg-tree {
-  background: var(--sre-bg-card, rgba(255, 255, 255, 0.02));
+  background: var(--sre-bg-card);
   border: var(--sre-hairline);
   border-radius: var(--sre-radius-md, 10px);
   padding: 14px 12px;
@@ -641,7 +641,7 @@ onMounted(fetchList)
   gap: 8px;
   padding: 32px 0;
   font-size: 12.5px;
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.4));
+  color: var(--sre-text-muted);
 }
 :deep(.tn-wrap) { display: flex; flex-direction: column; }
 :deep(.tn-row) {
@@ -658,17 +658,17 @@ onMounted(fetchList)
 }
 :deep(.tn-row:hover) { background: var(--sre-bg-hover); }
 :deep(.tn-active) {
-  background: var(--sre-primary-soft, rgba(99, 102, 241, 0.12)) !important;
-  color: var(--sre-primary, #818cf8);
+  background: var(--sre-primary-soft) !important;
+  color: var(--sre-primary);
 }
-:deep(.tn-active .tn-icon) { color: var(--sre-primary, #818cf8); }
-:deep(.tn-path) { color: var(--sre-text-muted, rgba(255, 255, 255, 0.6)); }
+:deep(.tn-active .tn-icon) { color: var(--sre-primary); }
+:deep(.tn-path) { color: var(--sre-text-muted); }
 :deep(.tn-caret) {
   width: 14px;
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.45));
+  color: var(--sre-text-muted);
   flex-shrink: 0;
 }
 :deep(.tn-caret-empty) { visibility: hidden; }
@@ -695,16 +695,16 @@ onMounted(fetchList)
   justify-content: center;
   gap: 10px;
   padding: 80px 20px;
-  background: var(--sre-bg-card, rgba(255, 255, 255, 0.02));
+  background: var(--sre-bg-card);
   border: var(--sre-hairline);
   border-radius: var(--sre-radius-md, 10px);
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.45));
+  color: var(--sre-text-muted);
 }
 .bg-empty-title { margin: 0; font-size: 14px; font-weight: 500; }
 .bg-empty-sub { margin: 0; font-size: 12px; opacity: 0.7; }
 
 .bg-card {
-  background: var(--sre-bg-card, rgba(255, 255, 255, 0.02));
+  background: var(--sre-bg-card);
   border: var(--sre-hairline);
   border-radius: var(--sre-radius-md, 10px);
   padding: 18px 20px;
@@ -721,7 +721,7 @@ onMounted(fetchList)
 .bg-path {
   font-size: 11px;
   font-family: var(--sre-font-mono, ui-monospace, 'SF Mono', monospace);
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.5));
+  color: var(--sre-text-muted);
   letter-spacing: 0.02em;
 }
 .bg-name {
@@ -733,7 +733,7 @@ onMounted(fetchList)
 .bg-desc {
   margin: 0;
   font-size: 12.5px;
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.55));
+  color: var(--sre-text-muted);
   line-height: 1.5;
 }
 .bg-actions { display: flex; gap: 6px; flex-shrink: 0; }
@@ -770,14 +770,14 @@ onMounted(fetchList)
   font-size: 11px;
   font-family: var(--sre-font-mono, ui-monospace, 'SF Mono', monospace);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--sre-bg-hover);
   border: var(--sre-hairline);
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.7));
+  color: var(--sre-text-muted);
 }
 .bg-chip-info {
-  background: var(--sre-primary-soft, rgba(99, 102, 241, 0.1));
-  color: var(--sre-primary, #818cf8);
-  border-color: rgba(99, 102, 241, 0.2);
+  background: var(--sre-primary-soft);
+  color: var(--sre-primary);
+  border-color: var(--sre-primary-soft);
 }
 
 /* Members */
@@ -791,15 +791,15 @@ onMounted(fetchList)
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.55));
+  color: var(--sre-text-muted);
 }
 .bg-count {
   font-size: 11px;
   font-weight: 500;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--sre-text, rgba(255, 255, 255, 0.85));
+  background: var(--sre-bg-hover);
+  color: var(--sre-text-primary);
 }
 .bg-members {
   list-style: none;
@@ -819,7 +819,7 @@ onMounted(fetchList)
 .bg-member-name { font-size: 13.5px; font-weight: 500; line-height: 1.2; }
 .bg-member-meta {
   font-size: 11.5px;
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.45));
+  color: var(--sre-text-muted);
   margin-top: 2px;
   font-family: var(--sre-font-mono, ui-monospace, monospace);
 }
@@ -835,21 +835,21 @@ onMounted(fetchList)
   border: var(--sre-hairline);
 }
 .bg-role-admin {
-  background: rgba(245, 158, 11, 0.08);
+  background: var(--sre-warning-soft);
   color: var(--sre-warning);
-  border-color: rgba(245, 158, 11, 0.2);
+  border-color: var(--sre-warning-soft);
 }
 .bg-role-admin .sre-dot { background: var(--sre-warning); }
 .bg-role-member {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.6));
+  background: var(--sre-bg-hover);
+  color: var(--sre-text-muted);
 }
-.bg-role-member .sre-dot { background: rgba(255, 255, 255, 0.4); }
+.bg-role-member .sre-dot { background: var(--sre-text-tertiary); }
 .bg-members-empty {
   padding: 24px 0;
   text-align: center;
   font-size: 12.5px;
-  color: var(--sre-text-muted, rgba(255, 255, 255, 0.4));
+  color: var(--sre-text-muted);
 }
 
 .bg-hint { font-size: 11px; opacity: 0.5; }

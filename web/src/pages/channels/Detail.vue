@@ -504,7 +504,7 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 16px;
   padding: 4px 4px 20px;
-  border-bottom: 1px solid var(--sre-hairline);
+  border-bottom: var(--sre-hairline);
   margin-bottom: 24px;
 }
 .cd-header-left {
@@ -548,7 +548,7 @@ onMounted(async () => {
   position: relative;
   padding: 20px;
   background: var(--sre-bg-elev, var(--sre-bg-page));
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
   border-radius: var(--sre-radius-md, 10px);
   overflow: hidden;
 }
@@ -665,7 +665,7 @@ onMounted(async () => {
 .settings-form { width: 100%; }
 .form-actions {
   padding-top: 8px;
-  border-top: 1px solid var(--sre-hairline);
+  border-top: var(--sre-hairline);
   margin-top: 8px;
 }
 .danger-zone {

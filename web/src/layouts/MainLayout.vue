@@ -41,11 +41,7 @@ const authStore = useAuthStore()
 const { t, locale } = useI18n()
 const message = useMessage()
 
-// Sidebar collapse state: always-visible, user-controlled.
-// Defaults to expanded; the «/» chevron button toggles into icon-rail
-// (64px) mode. We removed the pin/hover-to-expand dance — users found
-// it jumpy, and "expanded by default + one-click collapse" is the
-// pattern nearly every SaaS app uses.
+// Sidebar collapse state
 const collapsed = ref(JSON.parse(localStorage.getItem('sre-sider-collapsed') ?? 'false'))
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 
@@ -66,8 +62,8 @@ onMounted(() => {
 })
 
 // ===== Clock =====
-const timeDisplay = ref('')   // HH:mm:ss
-const dateDisplay = ref('')   // YYYY-MM-DD
+const timeDisplay = ref('')
+const dateDisplay = ref('')
 const timezone = ref(localStorage.getItem('sre-timezone') || 'Asia/Shanghai')
 const showTzPanel = ref(false)
 
@@ -108,52 +104,58 @@ function selectTimezone(val: string) {
   updateClock()
 }
 
-// ===== Menu =====
+// ===== Menu — 3 collapsible parent menus (no type:'group') =====
 function renderIcon(icon: any) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
 const menuOptions = computed<MenuOption[]>(() => {
-  const items: MenuOption[] = [
-    // ===== 概览 =====
-    { type: 'group', label: '概览', key: 'g-overview', children: [
-      { label: t('menu.dashboard'),         key: '/dashboard',          icon: renderIcon(GridOutline) },
-      { label: t('menu.incidentDashboard'), key: '/incident-dashboard', icon: renderIcon(BarChartOutline) },
-    ]},
-    // ===== 故障管理 =====
-    { type: 'group', label: '故障管理', key: 'g-incident', children: [
-      { label: t('menu.channels'),  key: '/channels',  icon: renderIcon(LayersOutline) },
-      { label: t('menu.incidents'), key: '/incidents', icon: renderIcon(BugOutline) },
-      { label: t('menu.alertsV2'),  key: '/alerts-v2', icon: renderIcon(FlashOutline) },
-    ]},
-    // ===== 告警引擎 =====
-    { type: 'group', label: '告警引擎', key: 'g-engine', children: [
-      { label: t('menu.alertRules'),      key: '/alerts/rules',           icon: renderIcon(AlertCircleOutline) },
-      { label: t('menu.activeAlerts'),    key: '/alerts/events' },
-      { label: t('menu.alertHistory'),    key: '/alerts/history' },
-      { label: t('menu.muteRules'),       key: '/alerts/mute-rules' },
-      { label: t('menu.inhibitionRules'), key: '/alerts/inhibition-rules' },
-    ]},
-    // ===== 集成与数据 =====
-    { type: 'group', label: '集成与数据', key: 'g-integration', children: [
-      { label: t('menu.integrations'), key: '/integrations', icon: renderIcon(GitNetworkOutline) },
-      { label: t('menu.datasources'),  key: '/datasources',  icon: renderIcon(ServerOutline) },
-      { label: t('menu.dataQuery'),    key: '/query',        icon: renderIcon(SearchOutline) },
-    ]},
-    // ===== 通知与值班 =====
-    { type: 'group', label: '通知与值班', key: 'g-notify', children: [
-      { label: t('menu.notification'), key: '/notification', icon: renderIcon(NotificationsOutline) },
-      { label: t('menu.schedule'),     key: '/schedule',     icon: renderIcon(CalendarOutline) },
-    ]},
+  const systemChildren: MenuOption[] = [
+    { label: t('menu.integrations'), key: '/integrations', icon: renderIcon(GitNetworkOutline) },
+    { label: t('menu.notification'), key: '/notification', icon: renderIcon(NotificationsOutline) },
+    { label: t('menu.schedule'),     key: '/schedule',     icon: renderIcon(CalendarOutline) },
   ]
-  // Settings page is only visible to admin and team_lead roles
   if (authStore.canManage) {
-    items.push({ type: 'group', label: '系统', key: 'g-system', children: [
-      { label: t('menu.settings'), key: '/settings', icon: renderIcon(SettingsOutline) },
-    ]})
+    systemChildren.push({ label: t('menu.settings'), key: '/settings', icon: renderIcon(SettingsOutline) })
   }
-  return items
+  return [
+    {
+      label: t('menu.alertCenter'),
+      key: 'alert-center',
+      icon: renderIcon(AlertCircleOutline),
+      children: [
+        { label: t('menu.dashboard'),      key: '/dashboard',          icon: renderIcon(GridOutline) },
+        { label: t('menu.alertRules'),      key: '/alerts/rules' },
+        { label: t('menu.activeAlerts'),    key: '/alerts/events' },
+        { label: t('menu.alertHistory'),    key: '/alerts/history' },
+        { label: t('menu.muteRules'),       key: '/alerts/mute-rules' },
+        { label: t('menu.inhibitionRules'), key: '/alerts/inhibition-rules' },
+        { label: t('menu.datasources'),     key: '/datasources',       icon: renderIcon(ServerOutline) },
+        { label: t('menu.dataQuery'),       key: '/query',             icon: renderIcon(SearchOutline) },
+      ],
+    },
+    {
+      label: t('menu.incidentMgmt'),
+      key: 'incident-mgmt',
+      icon: renderIcon(BugOutline),
+      children: [
+        { label: t('menu.incidentDashboard'), key: '/incident-dashboard', icon: renderIcon(BarChartOutline) },
+        { label: t('menu.channels'),          key: '/channels',           icon: renderIcon(LayersOutline) },
+        { label: t('menu.incidents'),         key: '/incidents',          icon: renderIcon(BugOutline) },
+        { label: t('menu.alertsV2'),          key: '/alerts-v2',          icon: renderIcon(FlashOutline) },
+      ],
+    },
+    {
+      label: t('menu.systemConfig'),
+      key: 'system-config',
+      icon: renderIcon(SettingsOutline),
+      children: systemChildren,
+    },
+  ]
 })
+
+// Expand all parent menus by default; user can collapse individual ones
+const expandedKeys = ref<string[]>(['alert-center', 'incident-mgmt', 'system-config'])
 
 function resolveActiveKey(p: string): string {
   if (p.startsWith('/incident-dashboard'))        return '/incident-dashboard'
@@ -173,10 +175,6 @@ function resolveActiveKey(p: string): string {
   return p
 }
 
-// menuSelectedKey is driven by the route but can be briefly cleared so that
-// Naive UI's n-menu always fires @update:value (it suppresses the event when
-// the clicked key equals the current :value — this causes the "clicking
-// Settings does nothing" bug when the user is already on /settings).
 const menuSelectedKey = ref(resolveActiveKey(route.path))
 watch(
   () => route.path,
@@ -184,8 +182,6 @@ watch(
 )
 
 function handleMenuClick(key: string) {
-  // Temporarily clear the selected key so n-menu will fire @update:value
-  // even if the user clicks the item that is already active.
   menuSelectedKey.value = ''
   router.push(key)
 }
@@ -197,7 +193,7 @@ const langOptions = [
 ]
 function handleLangChange(val: string) { locale.value = val; localStorage.setItem('locale', val) }
 
-// ===== User =====
+// ===== User (sidebar bottom) =====
 const userDropdownOptions = computed<DropdownOption[]>(() => [
   { label: t('header.profile'),        key: 'profile',  icon: renderIcon(PersonOutline) },
   { label: t('header.changePassword'), key: 'password', icon: renderIcon(LockClosedOutline) },
@@ -221,8 +217,6 @@ async function handleUserDropdown(key: string) {
 const userInitial  = computed(() => (authStore.user?.display_name || authStore.user?.username || 'U').charAt(0).toUpperCase())
 const displayName  = computed(() => authStore.user?.display_name || authStore.user?.username || 'User')
 
-// True when the saved avatar is an uploaded image (data: URL or http(s) URL),
-// false for emoji presets / empty values.
 function isImageAvatar(v: string | undefined | null): boolean {
   if (!v) return false
   return v.startsWith('data:image/') || v.startsWith('http://') || v.startsWith('https://') || v.startsWith('/')
@@ -246,31 +240,20 @@ const pageTitle = computed(() => {
   if (p === '/settings')                          return t('menu.settings')
   return ''
 })
-const parentTitle = computed(() => {
-  const p = route.path
-  if (p.startsWith('/datasources/'))   return t('menu.datasources')
-  if (p.startsWith('/alerts/'))        return t('menu.alertManagement')
-  if (p.startsWith('/notification'))   return ''
-  return ''
-})
 
 // ===== Profile Modal =====
 const showProfileModal = ref(false)
-const profileTab = ref('info')  // 'info' | 'password' | 'notify'
+const profileTab = ref('info')
 const profileSaving = ref(false)
 
-// Tab: Basic info
 const profileForm = ref({ display_name: '', email: '', phone: '', avatar: '' })
 
-// Preset avatars (emoji-based, stored as plain text).
-// For custom images we store a base64 data: URL in the same `avatar` column.
 const presetAvatars = [
   '👤','🧑‍💻','👩‍💻','🧑‍🔧','👩‍🔧','🧑‍🚀','👩‍🚀','🧑‍🔬','👩‍🔬',
   '🧑‍💼','👩‍💼','🧑‍🎤','🧑‍🎨','🦊','🐺','🐧','🦅','🦁','🐯','🐻',
   '🐼','🦉','🦄','🐉','🤖','👾','🛰️','🚀','⚡','🔥','🌟','🌈',
 ]
 
-// Custom upload: base64-encoded data URL, capped at 200 KB.
 const AVATAR_MAX_BYTES = 200 * 1024
 const avatarFileInput = ref<HTMLInputElement | null>(null)
 
@@ -293,19 +276,15 @@ function onAvatarFileChange(e: Event) {
     return
   }
   const reader = new FileReader()
-  reader.onload = () => {
-    profileForm.value.avatar = String(reader.result || '')
-  }
+  reader.onload = () => { profileForm.value.avatar = String(reader.result || '') }
   reader.onerror = () => message.error(t('common.failed'))
   reader.readAsDataURL(file)
   input.value = ''
 }
 
-// Tab: Change password
 const pwdForm = ref({ old_password: '', new_password: '', confirm_password: '' })
 const pwdError = ref('')
 
-// Tab: Notify config (multi-config list)
 const userNotifyConfigs = ref<UserNotifyConfig[]>([])
 const newNotifyConfig = ref<{ media_type: 'lark_personal' | 'email' | 'webhook'; config: string }>({ media_type: 'lark_personal', config: '' })
 
@@ -314,6 +293,7 @@ const mediaTypeOptions = computed(() => [
   { label: t('profile.email'),        value: 'email' },
   { label: t('profile.webhook'),      value: 'webhook' },
 ])
+
 const configHint = computed(() => {
   switch (newNotifyConfig.value.media_type) {
     case 'lark_personal': return t('profile.larkUserIdHint')
@@ -324,18 +304,15 @@ const configHint = computed(() => {
 })
 
 async function openProfileModal() {
-  // 注意：不在此处重置 profileTab，由调用方决定打开哪个 tab
   profileSaving.value = false
   pwdError.value = ''
   pwdForm.value = { old_password: '', new_password: '', confirm_password: '' }
-  // Pre-fill from store
   profileForm.value = {
     display_name: authStore.user?.display_name || '',
     email:        authStore.user?.email || '',
     phone:        authStore.user?.phone || '',
     avatar:       authStore.user?.avatar || '',
   }
-  // Load notify configs list
   try {
     const cfgs = await userNotifyConfigApi.list()
     userNotifyConfigs.value = cfgs.data.data || []
@@ -382,7 +359,6 @@ async function addNotifyConfig() {
   profileSaving.value = true
   try {
     await userNotifyConfigApi.upsert({ ...newNotifyConfig.value, is_enabled: true })
-    // Reload list
     const cfgs = await userNotifyConfigApi.list()
     userNotifyConfigs.value = cfgs.data.data || []
     newNotifyConfig.value = { media_type: 'lark_personal', config: '' }
@@ -394,7 +370,6 @@ async function addNotifyConfig() {
   }
 }
 
-// ===== Lark Bind =====
 const larkOpenIdInput = ref('')
 const larkBindSaving = ref(false)
 
@@ -434,17 +409,17 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 <template>
   <n-layout has-sider style="height: 100vh">
 
-    <!-- ===== Sidebar (always visible, user-togglable collapse) ===== -->
+    <!-- ===== Glass Sidebar ===== -->
     <n-layout-sider
       class="sre-sider"
       bordered
       collapse-mode="width"
       :collapsed-width="64"
-      :width="224"
+      :width="232"
       :collapsed="collapsed"
       :native-scrollbar="false"
     >
-      <!-- Logo area -->
+      <!-- Logo -->
       <div class="sider-logo" :class="{ collapsed }">
         <img src="/logo.svg" alt="SREAgent" class="logo-mark" />
         <transition name="fade">
@@ -454,7 +429,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
         </transition>
       </div>
 
-      <!-- Navigation menu -->
+      <!-- Navigation — collapsible parent-child menu -->
       <n-menu
         class="sre-menu"
         :collapsed="collapsed"
@@ -463,11 +438,37 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
         :indent="18"
         :options="menuOptions"
         :value="menuSelectedKey"
+        :expanded-keys="expandedKeys"
         @update:value="handleMenuClick"
+        @update:expanded-keys="(ks: string[]) => { expandedKeys = ks }"
       />
 
-      <!-- Bottom: collapse toggle + version -->
+      <!-- Spacer -->
+      <div class="sider-spacer" />
+
+      <!-- Bottom: user profile + collapse toggle + version -->
       <div class="sider-bottom">
+        <!-- User pill (moved from header) -->
+        <n-dropdown :options="userDropdownOptions" trigger="click" @select="handleUserDropdown">
+          <div class="sider-user-pill" :class="{ collapsed }">
+            <div class="user-avatar" :class="{ 'user-avatar--image': headerAvatarIsImage, 'user-avatar--emoji': !!headerAvatar && !headerAvatarIsImage }">
+              <img v-if="headerAvatarIsImage" :src="headerAvatar" alt="avatar" />
+              <template v-else-if="headerAvatar">{{ headerAvatar }}</template>
+              <template v-else>{{ userInitial }}</template>
+            </div>
+            <transition name="fade">
+              <div v-if="!collapsed" class="sider-user-info">
+                <span class="sider-user-name">{{ displayName }}</span>
+                <span class="sider-user-role">{{ authStore.canManage ? 'Admin' : 'Member' }}</span>
+              </div>
+            </transition>
+            <transition name="fade">
+              <n-icon v-if="!collapsed" :component="ChevronDownOutline" :size="12" class="sider-user-chevron" />
+            </transition>
+          </div>
+        </n-dropdown>
+
+        <!-- Collapse toggle -->
         <div
           class="sider-collapse-toggle"
           :class="{ collapsed }"
@@ -476,13 +477,14 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
         >
           <n-icon
             :component="collapsed ? ChevronForwardOutline : ChevronBackOutline"
-            :size="16"
+            :size="14"
             class="collapse-icon"
           />
           <transition name="fade">
             <span v-if="!collapsed" class="collapse-label">{{ t('header.collapseSidebar') }}</span>
           </transition>
         </div>
+
         <transition name="fade">
           <div v-if="!collapsed" class="sider-version">v{{ appVersion }}</div>
         </transition>
@@ -494,22 +496,14 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
     <!-- ===== Right: header + content ===== -->
     <n-layout>
 
-      <!-- Header Bar -->
+      <!-- Header Bar (glass) -->
       <div class="header-bar">
-
-        <!-- Left: breadcrumb -->
         <div class="header-left">
-          <n-breadcrumb v-if="parentTitle" separator=">">
-            <n-breadcrumb-item>{{ parentTitle }}</n-breadcrumb-item>
-            <n-breadcrumb-item>{{ pageTitle }}</n-breadcrumb-item>
-          </n-breadcrumb>
-          <span v-else class="header-page-title">{{ pageTitle }}</span>
+          <span class="header-page-title">{{ pageTitle }}</span>
         </div>
 
-        <!-- Right: clock + controls -->
         <div class="header-right">
-
-          <!-- ① Time+Timezone pill (integrated component) -->
+          <!-- Clock pill -->
           <n-popover
             v-model:show="showTzPanel"
             trigger="click"
@@ -526,8 +520,6 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
                 <span class="clock-tz">{{ tzAbbr }}</span>
               </div>
             </template>
-
-            <!-- Timezone picker dropdown -->
             <div class="tz-panel">
               <div class="tz-panel-title">
                 <n-icon :component="EarthOutline" :size="14" />
@@ -549,7 +541,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
           <div class="header-sep" />
 
-          <!-- ① Search / ⌘K -->
+          <!-- ⌘K -->
           <div class="ctrl-btn ctrl-btn--search" @click="openPalette" title="⌘K">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -559,7 +551,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
           <div class="header-sep" />
 
-          <!-- ② Language — icon + text, no visible border -->
+          <!-- Language -->
           <n-popselect
             :value="locale"
             :options="langOptions"
@@ -573,37 +565,14 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
             </div>
           </n-popselect>
 
-          <!-- ③ Theme toggle -->
+          <!-- Theme toggle -->
           <div class="ctrl-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')">
             <n-icon :component="isDark ? SunnyOutline : MoonOutline" :size="16" />
           </div>
-
-          <div class="header-sep" />
-
-          <!-- ④ User -->
-          <n-dropdown :options="userDropdownOptions" trigger="click" @select="handleUserDropdown">
-            <div class="user-pill">
-              <div class="user-avatar" :class="{ 'user-avatar--image': headerAvatarIsImage, 'user-avatar--emoji': !!headerAvatar && !headerAvatarIsImage }">
-                <img v-if="headerAvatarIsImage" :src="headerAvatar" alt="avatar" />
-                <template v-else-if="headerAvatar">{{ headerAvatar }}</template>
-                <template v-else>{{ userInitial }}</template>
-              </div>
-              <span class="user-name">{{ displayName }}</span>
-              <n-icon :component="ChevronDownOutline" :size="12" class="user-chevron" />
-            </div>
-          </n-dropdown>
-
         </div>
       </div>
 
       <!-- Main content -->
-      <!-- v1.8.1: dropped <transition name="page" mode="out-in"> — the
-           opacity-0 + translateY leave state of the previous page rendered
-           as a blank viewport for ~180ms on every menu click, which users
-           perceived as "menu click does nothing / white screen". The
-           Naive UI + Vue Router handoff is already smooth enough without
-           an extra page-level transition, and child components can opt
-           into their own entrance animation if needed. -->
       <n-layout-content class="sre-content" :native-scrollbar="false">
         <router-view />
       </n-layout-content>
@@ -621,9 +590,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   >
     <n-tabs v-model:value="profileTab" type="line" animated>
 
-      <!-- Tab 1: Basic info -->
       <n-tab-pane name="info" :tab="t('profile.tabInfo')">
-        <!-- Avatar selector -->
         <div class="avatar-section">
           <div class="avatar-current">
             <img v-if="isImageAvatar(profileForm.avatar)" :src="profileForm.avatar" alt="avatar" class="avatar-preview-img" />
@@ -683,7 +650,6 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
         </div>
       </n-tab-pane>
 
-      <!-- Tab 2: Change password -->
       <n-tab-pane name="password" :tab="t('profile.tabPassword')">
         <n-form label-placement="top" size="small">
           <n-form-item :label="t('profile.oldPassword')">
@@ -700,7 +666,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
               :status="pwdError ? 'error' : undefined"
             />
             <template #feedback>
-              <span v-if="pwdError" style="color: var(--sre-danger)">{{ pwdError }}</span>
+              <span v-if="pwdError" style="color: var(--sre-critical)">{{ pwdError }}</span>
             </template>
           </n-form-item>
         </n-form>
@@ -710,9 +676,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
         </div>
       </n-tab-pane>
 
-      <!-- Tab 3: Multi-notify config -->
       <n-tab-pane name="notify" :tab="t('profile.tabNotify')">
-        <!-- List of existing configs -->
         <div class="notify-config-list">
           <div v-for="cfg in userNotifyConfigs" :key="cfg.media_type" class="notify-config-item">
             <div class="notify-config-info">
@@ -727,7 +691,6 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
           <n-empty v-if="userNotifyConfigs.length === 0" :description="t('profile.noNotifyConfig')" style="padding: 20px 0" />
         </div>
 
-        <!-- Add new config -->
         <n-divider>{{ t('profile.addNotify') }}</n-divider>
         <n-form label-placement="top" size="small">
           <n-form-item :label="t('profile.mediaType')">
@@ -742,7 +705,6 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
         </div>
       </n-tab-pane>
 
-      <!-- Tab 4: Lark Bind -->
       <n-tab-pane name="lark" :tab="t('settings.larkBind')">
         <n-space vertical size="large" style="padding: 8px 0">
           <n-alert type="info" :title="t('settings.larkBind')" style="font-size:13px">
@@ -769,24 +731,22 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 </template>
 
 <style scoped>
-/* ===== Icon Rail Sidebar ===== */
+/* ===== Glass Sidebar ===== */
 .sre-sider {
-  background:
-    linear-gradient(180deg, rgba(24,160,88,0.06) 0%, transparent 50%),
-    var(--sre-bg-card);
-  border-right: 1px solid var(--sre-border);
+  background: var(--sre-glass-bg);
+  backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  -webkit-backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  border-right: 1px solid var(--sre-glass-border);
   position: relative;
-  /* Smooth width transition for hover expand */
-  transition: width 220ms var(--sre-ease-out) !important;
+  transition: width 280ms var(--sre-ease-spring) !important;
 }
 
-/* Noise grain on sider */
 .sre-sider::before {
   content: '';
   position: absolute;
   inset: 0;
   background-image: var(--sre-noise-url);
-  opacity: 0.03;
+  opacity: 0.025;
   mix-blend-mode: overlay;
   pointer-events: none;
   z-index: 0;
@@ -796,29 +756,24 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   display: flex;
   align-items: center;
   gap: var(--sre-space-3);
-  padding: 14px 18px;
+  padding: 16px 18px;
   height: 60px;
-  border-bottom: 1px solid var(--sre-border);
-  transition: padding var(--sre-duration-base) var(--sre-ease-out);
+  border-bottom: 1px solid var(--sre-glass-border);
   position: relative;
   z-index: 1;
 }
 .sider-logo.collapsed {
   justify-content: center;
-  padding: 14px 12px;
+  padding: 16px 12px;
 }
 
-/* Collapse / expand chevron — floats on the outer edge of the sider,
-   straddling the border so it reads as an attached "tab". Always visible,
-   no hover-reveal, consistent with VSCode / Linear / Notion patterns. */
 .logo-mark {
   width: 32px;
   height: 32px;
   border-radius: var(--sre-radius-md);
   flex-shrink: 0;
   display: block;
-  filter: drop-shadow(0 4px 16px rgba(24, 160, 88, 0.50));
-  position: relative;
+  filter: drop-shadow(0 4px 16px rgba(16, 185, 129, 0.45));
 }
 .logo-text {
   font-size: var(--sre-fs-lg);
@@ -828,13 +783,15 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   color: var(--sre-text-primary);
 }
 
+/* ===== Menu ===== */
 .sre-menu {
-  padding: var(--sre-space-2) var(--sre-space-2);
+  padding: var(--sre-space-2);
   position: relative;
   z-index: 1;
+  flex: 0 1 auto;
 }
 
-/* Active menu item — left accent bar */
+/* Selected menu item — left accent bar */
 .sre-menu :deep(.n-menu-item-content--selected)::before {
   content: '';
   position: absolute;
@@ -848,50 +805,115 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 .sre-menu :deep(.n-menu-item-content) {
   position: relative;
   overflow: visible;
-  padding: 6px 12px !important;
+  padding: 6px 10px !important;
   min-height: 34px;
 }
 
-/* Group label: small uppercase, FlashCat style */
-.sre-menu :deep(.n-menu-item-group-title) {
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--sre-text-tertiary) !important;
-  padding: 16px 12px 6px !important;
-}
+/* Spacer — pushes bottom section down */
+.sider-spacer { flex: 1; }
 
-/* Hide group titles in collapsed (icon-rail) mode */
-.n-layout-sider--collapsed .sre-menu :deep(.n-menu-item-group-title),
-.n-layout-sider.n-layout-sider--collapsed .sre-menu :deep(.n-menu-item-group-title) {
-  display: none;
-}
-
-/* Bottom area: ⌘K + version */
+/* ===== Sidebar Bottom ===== */
 .sider-bottom {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: var(--sre-space-3);
-  border-top: 1px solid var(--sre-border);
   display: flex;
   flex-direction: column;
   gap: var(--sre-space-2);
-  background: var(--sre-bg-card);
+  padding: var(--sre-space-3);
+  border-top: 1px solid var(--sre-glass-border);
+  background: transparent;
   z-index: 1;
+}
+
+/* User pill in sidebar */
+.sider-user-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--sre-space-2);
+  padding: 8px 10px;
+  border-radius: var(--sre-radius-md);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--sre-duration-fast) var(--sre-ease-out);
+}
+.sider-user-pill:hover {
+  background: var(--sre-bg-hover);
+}
+.sider-user-pill.collapsed {
+  justify-content: center;
+  padding: 8px;
+}
+
+.sider-user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.sider-user-name {
+  font-size: var(--sre-fs-md);
+  font-weight: var(--sre-fw-medium);
+  color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.sider-user-role {
+  font-size: var(--sre-fs-2xs);
+  color: var(--sre-text-tertiary);
+  line-height: 1.3;
+}
+.sider-user-chevron {
+  color: var(--sre-text-tertiary);
+  flex-shrink: 0;
+  transition: transform var(--sre-duration-fast) var(--sre-ease-out);
+}
+.sider-user-pill:hover .sider-user-chevron {
+  transform: translateY(1px);
+}
+
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--sre-gradient-brand);
+  color: #fff;
+  font-size: var(--sre-fs-sm);
+  font-weight: var(--sre-fw-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 8px -2px rgba(16, 185, 129, 0.40),
+              inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.user-avatar--emoji {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--sre-border);
+}
+.user-avatar--image {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--sre-border);
+}
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .sider-collapse-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--sre-radius-md);
+  padding: 6px 10px;
+  border-radius: var(--sre-radius-sm);
   cursor: pointer;
-  transition: background var(--sre-duration-base) var(--sre-ease-out),
-              color var(--sre-duration-base) var(--sre-ease-out);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out),
+              color var(--sre-duration-fast) var(--sre-ease-out);
   color: var(--sre-text-tertiary);
   user-select: none;
   white-space: nowrap;
@@ -909,64 +931,30 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   transition: transform var(--sre-duration-base) var(--sre-ease-spring);
 }
 .collapse-label {
-  font-size: var(--sre-fs-sm);
+  font-size: var(--sre-fs-xs);
   font-weight: var(--sre-fw-medium);
 }
 
 .sider-version {
   text-align: center;
-  font-size: var(--sre-fs-xs);
-  color: var(--sre-text-secondary);
-  letter-spacing: 0.05em;
-  padding: 4px 0 2px;
-  opacity: 0.7;
-}
-
-/* ⌘K trigger in header */
-.ctrl-btn--search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: var(--sre-radius-pill);
-  border: 1px solid var(--sre-border);
-  background: var(--sre-bg-sunken);
-  color: var(--sre-text-tertiary);
-  cursor: pointer;
-  transition: background var(--sre-duration-base) var(--sre-ease-out),
-              border-color var(--sre-duration-base) var(--sre-ease-out),
-              color var(--sre-duration-base) var(--sre-ease-out);
-  font-size: var(--sre-fs-sm);
-}
-.ctrl-btn--search:hover {
-  background: var(--sre-primary-soft);
-  border-color: var(--sre-primary-ring);
-  color: var(--sre-primary);
-}
-.cmd-shortcut {
   font-size: var(--sre-fs-2xs);
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--sre-bg-elevated);
-  border: 1px solid var(--sre-border-strong);
-  color: var(--sre-text-muted);
-  font-family: var(--sre-font-mono);
-  pointer-events: none;
+  color: var(--sre-text-tertiary);
+  letter-spacing: 0.05em;
+  padding: 2px 0 0;
+  opacity: 0.6;
 }
 
-/* ===== Header bar ===== */
+/* ===== Header bar (glass) ===== */
 .header-bar {
   height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--sre-space-6);
-  border-bottom: 1px solid var(--sre-border);
-  /* v1.8.1: dropped backdrop-filter — it was the single most expensive
-     GPU op in the app and the header is always in the composited tree,
-     so it forced a blur of the entire page on every scroll/repaint.
-     Solid tinted background reads identically and composites for free. */
-  background: var(--sre-bg-card);
+  border-bottom: 1px solid var(--sre-glass-border);
+  background: var(--sre-glass-bg);
+  backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  -webkit-backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -979,10 +967,12 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   align-items: center;
 }
 .header-page-title {
-  font-size: var(--sre-fs-md);
+  font-size: var(--sre-fs-lg);
   font-weight: var(--sre-fw-semibold);
   color: var(--sre-text-primary);
   letter-spacing: -0.005em;
+  transition: opacity var(--sre-duration-fast) var(--sre-ease-out),
+              transform var(--sre-duration-fast) var(--sre-ease-out);
 }
 .header-right {
   display: flex;
@@ -990,18 +980,11 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   gap: var(--sre-space-1);
 }
 
-/* ===== Content shell ===== */
 .sre-content {
   padding: var(--sre-space-6);
   background: transparent;
 }
-.sre-content :deep(.n-scrollbar-content) {
-  min-height: calc(100vh - 60px);
-}
 
-/* Route transition removed — see template comment. */
-
-/* Subtle separator */
 .header-sep {
   width: 1px;
   height: 18px;
@@ -1019,9 +1002,9 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   border-radius: var(--sre-radius-pill);
   cursor: pointer;
   user-select: none;
-  transition: background var(--sre-duration-base) var(--sre-ease-out),
-              border-color var(--sre-duration-base) var(--sre-ease-out),
-              box-shadow var(--sre-duration-base) var(--sre-ease-out);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out),
+              border-color var(--sre-duration-fast) var(--sre-ease-out),
+              box-shadow var(--sre-duration-fast) var(--sre-ease-out);
   border: 1px solid var(--sre-border);
   background: var(--sre-bg-sunken);
 }
@@ -1042,7 +1025,6 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   color: var(--sre-text-primary);
   letter-spacing: 0.6px;
   font-feature-settings: "tnum" 1;
-  transition: opacity var(--sre-duration-fast);
 }
 .clock-sep {
   color: var(--sre-text-tertiary);
@@ -1115,7 +1097,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   font-weight: var(--sre-fw-bold);
 }
 
-/* ===== Control buttons (lang / theme) ===== */
+/* ===== Control buttons ===== */
 .ctrl-btn {
   display: inline-flex;
   align-items: center;
@@ -1125,9 +1107,9 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   border-radius: var(--sre-radius-md);
   cursor: pointer;
   color: var(--sre-text-secondary);
-  transition: background var(--sre-duration-base) var(--sre-ease-out),
-              color var(--sre-duration-base) var(--sre-ease-out),
-              transform var(--sre-duration-base) var(--sre-ease-out);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out),
+              color var(--sre-duration-fast) var(--sre-ease-out),
+              transform var(--sre-duration-fast) var(--sre-ease-spring);
   font-size: var(--sre-fs-md);
   font-weight: var(--sre-fw-medium);
 }
@@ -1135,107 +1117,55 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   background: var(--sre-bg-hover);
   color: var(--sre-text-primary);
 }
-.ctrl-btn:active { transform: scale(0.96); }
+.ctrl-btn:active { transform: scale(0.95); }
 .ctrl-label {
   font-size: var(--sre-fs-sm);
   font-weight: var(--sre-fw-semibold);
   letter-spacing: 0.4px;
 }
 
-/* ===== User pill ===== */
-.user-pill {
+/* ⌘K button */
+.ctrl-btn--search {
   display: flex;
   align-items: center;
-  gap: var(--sre-space-2);
-  padding: 4px 12px 4px 4px;
+  gap: 6px;
+  padding: 5px 10px;
   border-radius: var(--sre-radius-pill);
-  cursor: pointer;
-  transition: background var(--sre-duration-base) var(--sre-ease-out),
-              border-color var(--sre-duration-base) var(--sre-ease-out),
-              box-shadow var(--sre-duration-base) var(--sre-ease-out);
   border: 1px solid var(--sre-border);
   background: var(--sre-bg-sunken);
+  color: var(--sre-text-tertiary);
+  cursor: pointer;
+  transition: background var(--sre-duration-fast) var(--sre-ease-out),
+              border-color var(--sre-duration-fast) var(--sre-ease-out),
+              color var(--sre-duration-fast) var(--sre-ease-out);
+  font-size: var(--sre-fs-sm);
 }
-.user-pill:hover {
+.ctrl-btn--search:hover {
   background: var(--sre-primary-soft);
   border-color: var(--sre-primary-ring);
+  color: var(--sre-primary);
 }
-.user-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--sre-gradient-brand);
-  color: #fff;
-  font-size: var(--sre-fs-sm);
-  font-weight: var(--sre-fw-bold);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  box-shadow: 0 2px 8px -2px rgba(24, 160, 88, 0.45),
-              inset 0 1px 0 rgba(255,255,255,0.2);
+.cmd-shortcut {
+  font-size: var(--sre-fs-2xs);
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--sre-bg-elevated);
+  border: 1px solid var(--sre-border-strong);
+  color: var(--sre-text-muted);
+  font-family: var(--sre-font-mono);
+  pointer-events: none;
 }
-.user-avatar--emoji {
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 1;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--sre-border);
-}
-.user-avatar--image {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--sre-border);
-}
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.user-name {
-  font-size: var(--sre-fs-md);
-  font-weight: var(--sre-fw-medium);
-  color: var(--sre-text-primary);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.user-chevron {
-  color: var(--sre-text-tertiary);
-  flex-shrink: 0;
-  transition: transform var(--sre-duration-base) var(--sre-ease-out);
-}
-.user-pill:hover .user-chevron { transform: translateY(1px); }
 
 /* ===== Transitions ===== */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* v1.8.1: removed first-mount animations on sider/header/content.
-   The `animation-delay: 80ms` on .sre-content was showing an empty-looking
-   page for the delay duration whenever the layout re-mounted (e.g. after
-   hot-reload or full refresh), reinforcing the "app feels slow" complaint. */
-
-/* Logo text smooth appear on uncollapse */
-.logo-text {
-  transition: opacity var(--sre-duration-base) var(--sre-ease-out),
-              transform var(--sre-duration-base) var(--sre-ease-out);
-}
-
-/* Breadcrumb page title shimmer-in on route change */
-.header-page-title {
-  transition: opacity var(--sre-duration-fast) var(--sre-ease-out),
-              transform var(--sre-duration-fast) var(--sre-ease-out);
-}
-
 /* ===== Profile Modal ===== */
 .avatar-section { display: flex; align-items: flex-start; gap: 16px; padding: 12px 0 4px; }
 .avatar-current {
   width: 60px; height: 60px; border-radius: 14px; font-size: 30px;
-  background: linear-gradient(135deg, rgba(24,160,88,0.12), rgba(112,192,232,0.12));
-  border: 2px solid rgba(24,160,88,0.2);
+  background: var(--sre-gradient-brand-soft);
+  border: 2px solid var(--sre-primary-soft);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   overflow: hidden;
 }
@@ -1259,10 +1189,10 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; border: 2px solid transparent;
   transition: border-color 0.2s, background 0.2s, transform 0.15s;
-  background: rgba(128,128,128,0.06);
+  background: var(--sre-bg-subtle);
 }
-.avatar-option:hover { background: rgba(128,128,128,0.12); transform: translateY(-1px); }
-.avatar-option.selected { border-color: var(--sre-primary); background: rgba(24,160,88,0.10); }
+.avatar-option:hover { background: var(--sre-bg-hover); transform: translateY(-1px); }
+.avatar-option.selected { border-color: var(--sre-primary); background: var(--sre-primary-soft); }
 .avatar-upload-row {
   display: flex;
   align-items: center;
@@ -1274,7 +1204,6 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   border-top: 1px solid var(--sre-border);
 }
 
-/* Notify config list */
 .notify-config-list {
   display: flex;
   flex-direction: column;
@@ -1287,8 +1216,8 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  background: rgba(128, 128, 128, 0.06);
-  border-radius: 8px;
+  background: var(--sre-bg-subtle);
+  border-radius: var(--sre-radius-sm);
 }
 .notify-config-info {
   display: flex;
@@ -1306,4 +1235,3 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   white-space: nowrap;
 }
 </style>
-

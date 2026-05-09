@@ -100,6 +100,10 @@ export default {
     alertsV2: '告警视图',
     integrations: '集成中心',
     incidentDashboard: '故障看板',
+    // v2.7 collapsible parent menus
+    alertCenter: '监控告警',
+    incidentMgmt: '故障管理',
+    systemConfig: '系统配置',
   },
   header: {
     timezone: '时区',

@@ -100,6 +100,10 @@ export default {
     alertsV2: 'Alert View',
     integrations: 'Integrations',
     incidentDashboard: 'Incident Board',
+    // v2.7 collapsible parent menus
+    alertCenter: 'Monitor & Alert',
+    incidentMgmt: 'Incidents',
+    systemConfig: 'System',
   },
   header: {
     timezone: 'Timezone',

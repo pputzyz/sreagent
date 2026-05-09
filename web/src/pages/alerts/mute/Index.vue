@@ -571,7 +571,7 @@ onMounted(fetchRules)
   font-family: var(--sre-font-mono); font-size: 11px;
   background: var(--sre-bg-elevated); border-radius: 4px;
   padding: 2px 6px; color: var(--sre-text-secondary);
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
 }
 
 .mute-footer {

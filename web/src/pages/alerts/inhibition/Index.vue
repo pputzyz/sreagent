@@ -340,7 +340,7 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
   font-family: var(--sre-font-mono); font-size: 11px;
   background: var(--sre-bg-elevated); border-radius: 4px;
   padding: 2px 6px; color: var(--sre-text-secondary);
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
 }
 .muted { color: var(--sre-text-tertiary); }
 

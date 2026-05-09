@@ -127,6 +127,19 @@ onMounted(() => {
 })
 onUnmounted(() => { themeObserver?.disconnect() })
 
+function getChartColor(token: string): string {
+  if (typeof document === 'undefined') return '#000000'
+  return getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  hex = hex.replace('#', '')
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 const chartPalette = computed(() => {
   // light-on-light is unreadable: switch to slate-on-light when light theme is active.
   // Values mirror the WCAG-compliant text tokens defined in global.css `body.light-theme`.
@@ -140,13 +153,13 @@ const chartPalette = computed(() => {
     splitLine: light ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.05)',
     pieCenterPrimary: light ? 'rgba(15,23,42,0.92)' : 'rgba(255,255,255,0.92)',
     pieCenterMuted: light ? 'rgba(15,23,42,0.50)' : 'rgba(255,255,255,0.45)',
-    // Severity colors (match CSS design tokens)
-    critical: '#ef4444',
-    warning: '#f59e0b',
-    info: '#3b82f6',
-    success: '#10b981',
-    fired: '#ef4444',
-    resolved: '#10b981',
+    // Severity colors (resolved from CSS design tokens at runtime)
+    critical: getChartColor('--sre-critical'),
+    warning: getChartColor('--sre-warning'),
+    info: getChartColor('--sre-info'),
+    success: getChartColor('--sre-success'),
+    fired: getChartColor('--sre-critical'),
+    resolved: getChartColor('--sre-success'),
   }
 })
 
@@ -211,8 +224,8 @@ const trendChartOption = computed(() => ({
         color: {
           type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(16,185,129,0.25)' },
-            { offset: 1, color: 'rgba(16,185,129,0)' },
+            { offset: 0, color: hexToRgba(chartPalette.value.success, 0.25) },
+            { offset: 1, color: 'transparent' },
           ],
         },
       },

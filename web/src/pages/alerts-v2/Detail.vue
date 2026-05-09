@@ -12,6 +12,7 @@ import {
   VolumeOffOutline,
 } from '@vicons/ionicons5'
 import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -129,8 +130,9 @@ function refreshAll() {
       </div>
     </div>
 
-    <n-spin :show="loading">
-      <div v-if="alert" class="detail-layout">
+    <LoadingSkeleton v-if="loading && !alert" :rows="6" variant="row" />
+    <n-spin v-else :show="loading">
+      <div v-if="alert" class="detail-layout sre-fadein">
 
         <!-- LEFT: tabs -->
         <div class="detail-main">
@@ -470,12 +472,12 @@ function refreshAll() {
   border-radius: 4px;
 }
 .ev-status[data-status="firing"] {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  color: var(--sre-critical);
+  background: var(--sre-critical-soft);
 }
 .ev-status[data-status="resolved"] {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
+  color: var(--sre-success);
+  background: var(--sre-success-soft);
 }
 .ev-fp {
   font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);

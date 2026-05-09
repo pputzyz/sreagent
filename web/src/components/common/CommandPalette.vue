@@ -204,6 +204,10 @@ body.light-theme .cp-panel {
   font-family: var(--sre-font-sans);
   caret-color: var(--sre-primary);
 }
+.cp-input:focus-visible {
+  outline: 2px solid var(--sre-primary);
+  outline-offset: -2px;
+}
 .cp-input::placeholder { color: var(--sre-text-muted); }
 .cp-esc {
   flex-shrink: 0;

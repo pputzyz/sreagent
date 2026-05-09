@@ -1,41 +1,45 @@
 /* ============================================================
-   SREAgent Design System — v1.3
-   --------------------------------------------------------------
-   Token-driven. Every color / spacing / radius / shadow / motion
-   value should flow from a CSS variable so dark + light themes
-   stay coherent and future re-skins are one-file changes.
+   SREAgent Design System — v2.7 "Vibrant Glass + Clay"
+   Fusion: Vibrant & Block-based + Glassmorphism + Claymorphism + Motion-Driven
    ============================================================ */
 
-/* ===== Dark (default) ===== */
+/* ===== Dark (default) — Midnight Slate ===== */
 :root {
-  /* --- Brand --- */
-  --sre-brand-50:   #e7f8ef;
-  --sre-brand-100:  #b9eacf;
-  --sre-brand-200:  #89daac;
-  --sre-brand-300:  #58c988;
-  --sre-brand-400:  #2fba6c;
-  --sre-brand-500:  #18a058;   /* primary */
-  --sre-brand-600:  #138a4b;
-  --sre-brand-700:  #0e6f3b;
-  --sre-brand-accent: #06b6d4;  /* teal pair for gradients */
+  /* --- Brand (vibrant emerald + violet accent) --- */
+  --sre-brand-50:   #ecfdf5;
+  --sre-brand-100:  #d1fae5;
+  --sre-brand-200:  #a7f3d0;
+  --sre-brand-300:  #6ee7b7;
+  --sre-brand-400:  #34d399;
+  --sre-brand-500:  #10b981;   /* primary — vibrant emerald */
+  --sre-brand-600:  #059669;
+  --sre-brand-700:  #047857;
+  --sre-brand-accent: #8b5cf6;  /* violet accent for energy */
 
   --sre-primary:        var(--sre-brand-500);
   --sre-primary-hover:  var(--sre-brand-400);
-  --sre-primary-soft:   rgba(24, 160, 88, 0.14);
-  --sre-primary-ring:   rgba(24, 160, 88, 0.35);
+  --sre-primary-soft:   rgba(16, 185, 129, 0.15);
+  --sre-primary-ring:   rgba(16, 185, 129, 0.35);
 
-  /* Brand gradient — used by logos, key CTAs, avatar */
-  --sre-gradient-brand: linear-gradient(135deg, #18a058 0%, #22c55e 45%, #06b6d4 100%);
-  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(24,160,88,0.18), rgba(6,182,212,0.18));
+  /* Accent (violet) — used for highlights, badges, secondary CTAs */
+  --sre-accent:         #8b5cf6;
+  --sre-accent-soft:    rgba(139, 92, 246, 0.16);
+  --sre-accent-ring:    rgba(139, 92, 246, 0.35);
+
+  /* Gradients */
+  --sre-gradient-brand: linear-gradient(135deg, #10b981 0%, #34d399 40%, #8b5cf6 100%);
+  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(16,185,129,0.16), rgba(139,92,246,0.16));
   --sre-gradient-heat:  linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
-  --sre-gradient-calm:  linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-  --sre-gradient-page-glow: radial-gradient(1200px 600px at 8% -10%, rgba(24,160,88,0.10), transparent 60%),
-                            radial-gradient(900px 500px at 100% 0%, rgba(6,182,212,0.08), transparent 55%);
+  --sre-gradient-calm:  linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  --sre-gradient-page-glow:
+    radial-gradient(1000px 500px at 10% -8%, rgba(16,185,129,0.09), transparent 55%),
+    radial-gradient(800px 400px at 90% 0%, rgba(139,92,246,0.07), transparent 50%),
+    radial-gradient(600px 350px at 50% 100%, rgba(59,130,246,0.05), transparent 50%);
 
   /* --- Semantic --- */
   --sre-critical:       #ef4444;
   --sre-critical-soft:  rgba(239, 68, 68, 0.14);
-  --sre-danger:         #ef4444;   /* alias for legacy */
+  --sre-danger:         #ef4444;
   --sre-warning:        #f59e0b;
   --sre-warning-soft:   rgba(245, 158, 11, 0.14);
   --sre-info:           #3b82f6;
@@ -56,28 +60,34 @@
   /* --- User palette accent --- */
   --sre-user-slate: #64748b;
 
-  /* --- Surfaces (layered depth) --- */
-  --sre-bg-base:        #07090d;
-  --sre-bg-page:        #0b0e14;
-  --sre-bg-card:        #121722;
-  --sre-bg-elevated:    #192030;
-  --sre-bg-sunken:      #05070a;
-  --sre-bg-hover:       rgba(255, 255, 255, 0.045);
+  /* --- Surfaces (layered depth — glass + clay) --- */
+  --sre-bg-base:        #070912;
+  --sre-bg-page:        #090D1A;
+  --sre-bg-card:        rgba(255, 255, 255, 0.035);
+  --sre-bg-elevated:    rgba(255, 255, 255, 0.055);
+  --sre-bg-sunken:      rgba(0, 0, 0, 0.25);
+  --sre-bg-hover:       rgba(255, 255, 255, 0.05);
   --sre-bg-active:      rgba(255, 255, 255, 0.08);
   --sre-bg-subtle:      rgba(128, 128, 128, 0.06);
-  --sre-overlay-subtle: rgba(255, 255, 255, 0.04);
+  --sre-overlay-subtle: rgba(255, 255, 255, 0.03);
+
+  /* --- Glass surfaces --- */
+  --sre-glass-bg:         rgba(255, 255, 255, 0.04);
+  --sre-glass-border:     rgba(255, 255, 255, 0.08);
+  --sre-glass-blur:       16px;
+  --sre-glass-saturate:   150%;
 
   /* --- Borders --- */
   --sre-border:         rgba(255, 255, 255, 0.07);
-  --sre-border-strong:  rgba(255, 255, 255, 0.14);
+  --sre-border-strong:  rgba(255, 255, 255, 0.12);
   --sre-border-focus:   var(--sre-primary);
 
   /* --- Text --- */
-  --sre-text-primary:   rgba(255, 255, 255, 0.92);
+  --sre-text-primary:   rgba(255, 255, 255, 0.93);
   --sre-text-secondary: rgba(255, 255, 255, 0.60);
   --sre-text-tertiary:  rgba(255, 255, 255, 0.38);
-  --sre-text-muted:     rgba(255, 255, 255, 0.24);
-  --sre-text-inverse:   #0b0e14;
+  --sre-text-muted:     rgba(255, 255, 255, 0.22);
+  --sre-text-inverse:   #090D1A;
 
   /* --- Spacing (4px grid) --- */
   --sre-space-0:  0;
@@ -92,23 +102,20 @@
   --sre-space-12: 48px;
   --sre-space-16: 64px;
 
-  /* --- Radius --- */
-  --sre-radius-xs:   4px;
-  --sre-radius-sm:   6px;
-  --sre-radius-md:   10px;
-  --sre-radius-lg:   14px;
-  --sre-radius-xl:   20px;
-  --sre-radius-2xl:  28px;
+  /* --- Radius (clay-style: generous rounding) --- */
+  --sre-radius-xs:   6px;
+  --sre-radius-sm:   8px;
+  --sre-radius-md:   12px;
+  --sre-radius-lg:   16px;
+  --sre-radius-xl:   22px;
+  --sre-radius-2xl:  30px;
   --sre-radius-pill: 9999px;
 
   /* --- Typography --- */
-  /* Distinctive technical-refined pair: Geist for UI, JetBrains Mono for code/numbers */
   --sre-font-display: "Geist", "PingFang SC", "Hiragino Sans GB", -apple-system, sans-serif;
   --sre-font-sans: "Geist", "PingFang SC", "Hiragino Sans GB", -apple-system, BlinkMacSystemFont, "Segoe UI",
-                   "Microsoft YaHei", "Hiragino Sans GB", Roboto, "Helvetica Neue",
-                   Arial, sans-serif;
-  --sre-font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace,
-                   "Consolas", "Menlo", monospace;
+                   "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sre-font-mono: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, "Consolas", "Menlo", monospace;
 
   --sre-fs-2xs: 10px;
   --sre-fs-xs:  11px;
@@ -131,30 +138,38 @@
   --sre-lh-normal: 1.5;
   --sre-lh-loose:  1.7;
 
-  /* --- Shadows (dark optimised) --- */
-  --sre-shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.35);
-  --sre-shadow-sm:  0 2px 6px rgba(0, 0, 0, 0.30), 0 0 0 1px rgba(255,255,255,0.02) inset;
-  --sre-shadow-md:  0 6px 20px -4px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0,0,0,0.25);
-  --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0,0,0,0.30);
-  --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.60);
-  --sre-shadow-glow-brand: 0 0 0 3px var(--sre-primary-ring), 0 12px 30px -8px rgba(24,160,88,0.35);
+  /* --- Shadows (clay double-shadow style) --- */
+  --sre-shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.25);
+  --sre-shadow-sm:  0 2px 6px rgba(0, 0, 0, 0.20),
+                    0 0 0 1px rgba(255,255,255,0.03) inset;
+  --sre-shadow-md:  0 8px 24px -6px rgba(0, 0, 0, 0.35),
+                    0 2px 8px rgba(0,0,0,0.20),
+                    inset 0 1px 0 rgba(255,255,255,0.04);
+  --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.45),
+                    0 4px 16px rgba(0,0,0,0.25),
+                    inset 0 1px 0 rgba(255,255,255,0.03);
+  --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.50),
+                    inset 0 1px 0 rgba(255,255,255,0.02);
+  --sre-shadow-glow-brand: 0 0 0 3px var(--sre-primary-ring), 0 12px 32px -8px rgba(16,185,129,0.30);
   --sre-shadow-ring: 0 0 0 3px var(--sre-primary-ring);
 
-  /* --- Motion --- */
-  --sre-duration-fast:  120ms;
-  --sre-duration-base:  200ms;
-  --sre-duration-slow:  320ms;
-  --sre-ease-out:       cubic-bezier(0.22, 1, 0.36, 1);
+  /* --- Motion (motion-driven: spring + smooth) --- */
+  --sre-duration-fast:  150ms;
+  --sre-duration-base:  220ms;
+  --sre-duration-slow:  340ms;
+  --sre-ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
   --sre-ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
   --sre-ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --sre-ease-bounce:    cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-  /* --- FlashCat-style component tokens (v2.2+) --- */
-  --sre-stripe-w: 4px;                 /* severity left stripe width */
-  --sre-row-gap: 4px;                  /* card-list row gap */
+  /* --- FlashCat-style component tokens --- */
+  --sre-stripe-w: 4px;
+  --sre-row-gap: 6px;
   --sre-row-pad-y: 14px;
   --sre-row-pad-x: 18px;
   --sre-card-pad: 20px;
   --sre-section-gap: 24px;
+  --sre-block-gap: 48px;              /* vibrant block layout */
   --sre-hairline: 1px solid var(--sre-border);
 
   /* --- Z-index --- */
@@ -163,88 +178,93 @@
   --sre-z-modal:   1000;
   --sre-z-toast:   2000;
 
-  /* --- Aurora / 极光 (v2.0 UI redesign) --- */
-  --sre-aurora-1: #18a058;   /* emerald */
-  --sre-aurora-2: #06b6d4;   /* teal */
-  --sre-aurora-3: #a78bfa;   /* violet */
-  --sre-aurora-4: #f472b6;   /* pink */
-  /* v1.8.1 perf: big blur + 4 orbs was saturating GPU composite, causing
-     perceptible menu-click jank. Reduce blur 120→60px and drop opacity. */
-  --sre-aurora-blur: 60px;
-  --sre-aurora-opacity: 0.18;
+  /* --- Aurora (softened for midnight bg) --- */
+  --sre-aurora-1: #10b981;
+  --sre-aurora-2: #8b5cf6;
+  --sre-aurora-3: #3b82f6;
+  --sre-aurora-4: #f472b6;
+  --sre-aurora-blur: 80px;
+  --sre-aurora-opacity: 0.14;
 
-  /* Rotating conic (used for gradient borders + focus rings) */
+  /* --- Conic gradient (for animated borders) --- */
   --sre-conic-brand: conic-gradient(
     from var(--sre-conic-angle, 0deg),
-    #18a058, #06b6d4, #a78bfa, #f472b6, #18a058
+    #10b981, #8b5cf6, #3b82f6, #f472b6, #10b981
   );
   --sre-conic-critical: conic-gradient(
     from var(--sre-conic-angle, 0deg),
     #ef4444, #f59e0b, #ef4444
   );
 
-  /* Spotlight cursor */
-  --sre-spotlight-size: 520px;
-  --sre-spotlight-opacity: 0.12;
-
-  /* Noise texture (inline SVG data URL) */
+  /* --- Noise texture --- */
   --sre-noise-url: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
 
-  /* Glow shadows */
-  --sre-shadow-glow-critical: 0 0 0 1px rgba(239,68,68,0.4), 0 0 32px rgba(239,68,68,0.28);
-  --sre-shadow-glow-success:  0 0 0 1px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.22);
-  --sre-shadow-glow-accent:   0 0 0 1px rgba(6,182,212,0.35), 0 0 28px rgba(6,182,212,0.20);
-  --sre-shadow-soft-xl:       0 40px 80px -24px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.25);
+  /* --- Glow shadows --- */
+  --sre-shadow-glow-critical: 0 0 0 1px rgba(239,68,68,0.4), 0 0 32px rgba(239,68,68,0.25);
+  --sre-shadow-glow-success:  0 0 0 1px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.20);
+  --sre-shadow-glow-accent:   0 0 0 1px rgba(139,92,246,0.35), 0 0 28px rgba(139,92,246,0.18);
+  --sre-shadow-soft-xl:       0 40px 80px -24px rgba(0,0,0,0.50), 0 8px 24px rgba(0,0,0,0.20);
 }
 
-/* Register conic-angle so @keyframes can animate it */
+/* Register conic-angle for @property animation */
 @property --sre-conic-angle {
   syntax: '<angle>';
   inherits: false;
   initial-value: 0deg;
 }
 
-/* ===== Light theme overrides ===== */
+/* ===== Light theme — Soft Warm Gray ===== */
 body.light-theme {
-  --sre-bg-base:        #eef1f5;
-  --sre-bg-page:        #f3f5f8;
-  --sre-bg-card:        #ffffff;
-  --sre-bg-elevated:    #ffffff;
-  --sre-bg-sunken:      #eff2f6;
+  --sre-bg-base:        #e8ecf2;
+  --sre-bg-page:        #f1f4f9;
+  --sre-bg-card:        rgba(255, 255, 255, 0.82);
+  --sre-bg-elevated:    rgba(255, 255, 255, 0.90);
+  --sre-bg-sunken:      #e8ecf2;
   --sre-bg-hover:       rgba(15, 23, 42, 0.04);
-  --sre-bg-active:      rgba(15, 23, 42, 0.08);
-  --sre-bg-subtle:      rgba(128, 128, 128, 0.06);
-  --sre-overlay-subtle: rgba(15, 23, 42, 0.04);
+  --sre-bg-active:      rgba(15, 23, 42, 0.07);
+  --sre-bg-subtle:      rgba(15, 23, 42, 0.03);
+  --sre-overlay-subtle: rgba(15, 23, 42, 0.03);
 
-  --sre-border:         #e4e7ec;
-  --sre-border-strong:  #cfd4db;
+  --sre-glass-bg:       rgba(255, 255, 255, 0.55);
+  --sre-glass-border:   rgba(15, 23, 42, 0.08);
+  --sre-glass-blur:     14px;
+  --sre-glass-saturate: 160%;
 
-  --sre-text-primary:   rgba(15, 23, 42, 0.92);
-  --sre-text-secondary: rgba(15, 23, 42, 0.56);
-  --sre-text-tertiary:  rgba(15, 23, 42, 0.38);
+  --sre-border:         rgba(15, 23, 42, 0.08);
+  --sre-border-strong:  rgba(15, 23, 42, 0.14);
+
+  --sre-text-primary:   rgba(15, 23, 42, 0.93);
+  --sre-text-secondary: rgba(15, 23, 42, 0.55);
+  --sre-text-tertiary:  rgba(15, 23, 42, 0.36);
   --sre-text-muted:     rgba(15, 23, 42, 0.22);
   --sre-text-inverse:   #ffffff;
 
-  --sre-primary-soft:   rgba(24, 160, 88, 0.10);
+  --sre-primary-soft:   rgba(16, 185, 129, 0.10);
   --sre-critical-soft:  rgba(239, 68, 68, 0.10);
   --sre-warning-soft:   rgba(245, 158, 11, 0.10);
   --sre-info-soft:      rgba(59, 130, 246, 0.10);
   --sre-success-soft:   rgba(16, 185, 129, 0.10);
+  --sre-accent-soft:    rgba(139, 92, 246, 0.10);
 
-  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(24,160,88,0.10), rgba(6,182,212,0.10));
-  --sre-gradient-page-glow: radial-gradient(1100px 520px at 8% -10%, rgba(24,160,88,0.08), transparent 60%),
-                            radial-gradient(900px 440px at 100% 0%, rgba(6,182,212,0.06), transparent 55%);
+  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(139,92,246,0.10));
+  --sre-gradient-page-glow:
+    radial-gradient(900px 450px at 10% -8%, rgba(16,185,129,0.07), transparent 55%),
+    radial-gradient(700px 350px at 90% 0%, rgba(139,92,246,0.05), transparent 50%);
 
-  --sre-shadow-xs:  0 1px 2px rgba(15, 23, 42, 0.06);
-  --sre-shadow-sm:  0 2px 6px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15,23,42,0.02) inset;
-  --sre-shadow-md:  0 8px 24px -8px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15,23,42,0.06);
-  --sre-shadow-lg:  0 18px 40px -14px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15,23,42,0.08);
-  --sre-shadow-xl:  0 32px 64px -16px rgba(15, 23, 42, 0.22);
+  --sre-shadow-xs:  0 1px 2px rgba(15, 23, 42, 0.05);
+  --sre-shadow-sm:  0 2px 8px rgba(15, 23, 42, 0.06),
+                    0 0 0 1px rgba(15,23,42,0.02) inset;
+  --sre-shadow-md:  0 8px 24px -6px rgba(15, 23, 42, 0.10),
+                    0 2px 8px rgba(15,23,42,0.05),
+                    inset 0 1px 0 rgba(255,255,255,0.6);
+  --sre-shadow-lg:  0 18px 40px -12px rgba(15, 23, 42, 0.14),
+                    0 4px 12px rgba(15,23,42,0.06),
+                    inset 0 1px 0 rgba(255,255,255,0.5);
+  --sre-shadow-xl:  0 32px 64px -16px rgba(15, 23, 42, 0.18),
+                    inset 0 1px 0 rgba(255,255,255,0.4);
 
-  /* Aurora / spotlight tuned for light mode */
-  --sre-aurora-opacity: 0.22;
-  --sre-spotlight-opacity: 0.06;
-  --sre-shadow-soft-xl: 0 40px 80px -24px rgba(15,23,42,0.18), 0 8px 24px rgba(15,23,42,0.08);
+  --sre-aurora-opacity: 0.18;
+  --sre-shadow-soft-xl: 0 40px 80px -24px rgba(15,23,42,0.15), 0 8px 24px rgba(15,23,42,0.06);
 }
 
 /* ============================================================
@@ -252,9 +272,7 @@ body.light-theme {
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body {
-  height: 100%;
-}
+html, body { height: 100%; }
 
 body {
   margin: 0;
@@ -274,13 +292,11 @@ body {
               color var(--sre-duration-slow) var(--sre-ease-out);
 }
 
-/* Selection */
 ::selection {
   background: var(--sre-primary-soft);
   color: var(--sre-text-primary);
 }
 
-/* Focus-visible ring for any interactive element using default browser focus */
 :focus-visible {
   outline: 2px solid var(--sre-primary);
   outline-offset: 2px;
@@ -290,18 +306,15 @@ body {
 /* ============================================================
    Scrollbar
    ============================================================ */
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.20);
+  background: rgba(128, 128, 128, 0.18);
   border-radius: var(--sre-radius-pill);
-  transition: background var(--sre-duration-base) var(--sre-ease-out);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.40);
-}
-body.light-theme ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.18); }
-body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.32); }
+::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.35); }
+body.light-theme ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.14); }
+body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.28); }
 
 /* ============================================================
    Typography utilities
@@ -360,8 +373,48 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .severity-success  { color: var(--sre-success); }
 
 /* ============================================================
-   Surfaces & cards
+   Glass surfaces (core glassmorphism pattern)
    ============================================================ */
+.surface-glass {
+  background: var(--sre-glass-bg);
+  backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  -webkit-backdrop-filter: saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  border: 1px solid var(--sre-glass-border);
+}
+
+.surface-glass-strong {
+  background: color-mix(in srgb, var(--sre-bg-card) 78%, transparent);
+  backdrop-filter: saturate(170%) blur(18px);
+  -webkit-backdrop-filter: saturate(170%) blur(18px);
+  border: 1px solid var(--sre-border-strong);
+}
+
+/* ============================================================
+   Clay surfaces (soft 3D double-shadow cards)
+   ============================================================ */
+.surface-clay {
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border);
+  border-radius: var(--sre-radius-lg);
+  box-shadow: var(--sre-shadow-md);
+  transition: box-shadow var(--sre-duration-base) var(--sre-ease-out),
+              border-color var(--sre-duration-base) var(--sre-ease-out),
+              transform var(--sre-duration-base) var(--sre-ease-spring);
+}
+
+.surface-clay--interactive { cursor: pointer; }
+.surface-clay--interactive:hover {
+  border-color: var(--sre-border-strong);
+  box-shadow: var(--sre-shadow-lg);
+  transform: translateY(-2px);
+}
+.surface-clay--interactive:active {
+  transform: translateY(0) scale(0.985);
+  box-shadow: var(--sre-shadow-sm);
+  transition-duration: 80ms;
+}
+
+/* Legacy surface-card compat — now clay style */
 .surface-card {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
@@ -369,33 +422,30 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
   box-shadow: var(--sre-shadow-sm);
   transition: box-shadow var(--sre-duration-base) var(--sre-ease-out),
               border-color var(--sre-duration-base) var(--sre-ease-out),
-              transform var(--sre-duration-base) var(--sre-ease-out);
+              transform var(--sre-duration-base) var(--sre-ease-spring);
 }
-
 .surface-card--interactive { cursor: pointer; }
 .surface-card--interactive:hover {
   border-color: var(--sre-border-strong);
   box-shadow: var(--sre-shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+}
+.surface-card--interactive:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 80ms;
 }
 
-.surface-glass {
-  background: color-mix(in srgb, var(--sre-bg-card) 78%, transparent);
-  backdrop-filter: saturate(140%) blur(14px);
-  -webkit-backdrop-filter: saturate(140%) blur(14px);
-  border: 1px solid var(--sre-border);
-}
-
-/* Elevation utility */
+/* ============================================================
+   Elevation utilities
+   ============================================================ */
 .elevation-0 { box-shadow: none; }
 .elevation-1 { box-shadow: var(--sre-shadow-xs); }
 .elevation-2 { box-shadow: var(--sre-shadow-sm); }
 .elevation-3 { box-shadow: var(--sre-shadow-md); }
 .elevation-4 { box-shadow: var(--sre-shadow-lg); }
 
-/* Legacy compat */
 .card-hover {
-  transition: transform var(--sre-duration-base) var(--sre-ease-out),
+  transition: transform var(--sre-duration-base) var(--sre-ease-spring),
               box-shadow var(--sre-duration-base) var(--sre-ease-out);
 }
 .card-hover:hover {
@@ -404,7 +454,7 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 }
 
 /* ============================================================
-   Animations & motion
+   Animations & motion (motion-driven)
    ============================================================ */
 @keyframes sre-pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -420,7 +470,7 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .pulse-ring { animation: sre-pulse-ring 1.8s cubic-bezier(0.66, 0, 0, 1) infinite; }
 
 @keyframes sre-fade-in {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-in { animation: sre-fade-in var(--sre-duration-slow) var(--sre-ease-out) both; }
@@ -438,34 +488,23 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
   animation: sre-shimmer 1.6s linear infinite;
 }
 
-/* Page transition helper */
 .page-enter-active { animation: sre-fade-in var(--sre-duration-slow) var(--sre-ease-out); }
 
-/* ============================================================
-   Extended animations
-   ============================================================ */
-
-/* Slide up from slightly below — stronger entrance than sre-fade-in */
 @keyframes sre-slide-up {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .slide-up { animation: sre-slide-up var(--sre-duration-slow) var(--sre-ease-out) both; }
 
-/* Scale-in — card/modal pop */
 @keyframes sre-scale-in {
   from { opacity: 0; transform: scale(0.94) translateY(6px); }
   to   { opacity: 1; transform: scale(1)    translateY(0); }
 }
 .scale-in { animation: sre-scale-in var(--sre-duration-slow) var(--sre-ease-spring) both; }
 
-/* Spin — loading spinner */
-@keyframes sre-spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes sre-spin { to { transform: rotate(360deg); } }
 .spin { animation: sre-spin 0.8s linear infinite; }
 
-/* Bounce-in — success/completion micro */
 @keyframes sre-bounce-in {
   0%   { opacity: 0; transform: scale(0.3); }
   50%  { opacity: 1; transform: scale(1.05); }
@@ -474,32 +513,33 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 }
 .bounce-in { animation: sre-bounce-in 0.5s var(--sre-ease-spring) both; }
 
-/* Number count-up flicker (for stat values) */
 @keyframes sre-count-in {
   from { opacity: 0; transform: translateY(8px) scale(0.9); }
   to   { opacity: 1; transform: translateY(0)  scale(1); }
 }
 .count-in { animation: sre-count-in 0.4s var(--sre-ease-spring) both; }
 
-/* Glow pulse for critical/active indicators */
 @keyframes sre-glow-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
   50%       { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 .glow-pulse { animation: sre-glow-pulse 2s ease-in-out infinite; }
 
-/* ============================================================
-   Stagger helpers — apply to a container, children get delays
-   via CSS custom property --i set inline or nth-child rules
-   ============================================================ */
+/* Vibrant block entrance — slides up with spring */
+@keyframes sre-block-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.block-in { animation: sre-block-in 420ms var(--sre-ease-spring) both; }
 
-/* Generic stagger wrapper: children with --sre-stagger-i get spaced entrance */
+/* ============================================================
+   Stagger helpers
+   ============================================================ */
 .stagger-list > * {
   animation: sre-slide-up var(--sre-duration-slow) var(--sre-ease-out) both;
   animation-delay: calc(var(--sre-stagger-i, 0) * 55ms);
 }
 
-/* Grid card stagger — first 12 items */
 .stagger-grid > *:nth-child(1)  { --sre-stagger-i: 0; }
 .stagger-grid > *:nth-child(2)  { --sre-stagger-i: 1; }
 .stagger-grid > *:nth-child(3)  { --sre-stagger-i: 2; }
@@ -515,12 +555,6 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .stagger-grid > * {
   animation: sre-slide-up var(--sre-duration-slow) var(--sre-ease-out) both;
   animation-delay: calc(var(--sre-stagger-i, 0) * 50ms);
-}
-
-/* Horizontal slide for sidebar menu items */
-@keyframes sre-slide-right {
-  from { opacity: 0; transform: translateX(-10px); }
-  to   { opacity: 1; transform: translateX(0); }
 }
 
 /* ============================================================
@@ -541,41 +575,8 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .text-mono      { font-family: var(--sre-font-mono); }
 
 /* ============================================================
-   v2.0 Aurora × Soft Futurism
+   Conic border (subtle rotating rim light)
    ============================================================ */
-
-/* Aurora drift — slow organic float for background orbs */
-@keyframes sre-aurora-drift {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-  33%      { transform: translate3d(4%, -3%, 0) rotate(4deg) scale(1.06); }
-  66%      { transform: translate3d(-3%, 3%, 0) rotate(-3deg) scale(0.96); }
-}
-
-/* Conic angle rotation — drives .conic-border */
-@keyframes sre-conic-rotate {
-  to { --sre-conic-angle: 360deg; }
-}
-
-/* Stronger glass (for modals, palette, hero cards) */
-.surface-glass-strong {
-  /* v1.8.1: backdrop-filter is the heaviest GPU op a browser can run and
-     we had 20+ cards per page using blur(22px). Now only modal/palette
-     (explicitly .surface-glass-modal) pay the blur cost; regular cards
-     use a semi-opaque tint that looks nearly identical on dark bg. */
-  background: color-mix(in srgb, var(--sre-bg-card) 92%, transparent);
-  border: 1px solid var(--sre-border-strong);
-}
-.surface-glass-modal {
-  background: color-mix(in srgb, var(--sre-bg-card) 62%, transparent);
-  backdrop-filter: saturate(170%) blur(18px);
-  -webkit-backdrop-filter: saturate(170%) blur(18px);
-  border: 1px solid var(--sre-border-strong);
-}
-body.light-theme .surface-glass-strong {
-  background: color-mix(in srgb, #ffffff 78%, transparent);
-}
-
-/* Conic rainbow border — subtle rotating rim light */
 .conic-border {
   position: relative;
   isolation: isolate;
@@ -592,27 +593,22 @@ body.light-theme .surface-glass-strong {
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
-  /* v1.8.1: removed `animation: sre-conic-rotate 10s linear infinite`.
-     Every conic-border card was running an infinite @property animation,
-     and with @property --sre-conic-angle registered globally, each card's
-     rotation forces a full repaint on every frame. With 10+ such cards
-     on Dashboard this was a major source of jank. The gradient itself
-     still reads fine as a static ring. */
-  opacity: 0.45;
+  opacity: 0.40;
   pointer-events: none;
 }
 .conic-border--critical::before {
   background: var(--sre-conic-critical);
-  /* Critical borders keep a slow pulse — few on screen, signals urgency. */
   animation: sre-conic-rotate 4s linear infinite;
-  opacity: 0.95;
+  opacity: 0.90;
 }
-.conic-border--strong::before { opacity: 0.9; }
+.conic-border--strong::before { opacity: 0.85; }
 
-/* Noise grain overlay — adds depth to large surfaces */
-.noise-overlay {
-  position: relative;
-}
+@keyframes sre-conic-rotate { to { --sre-conic-angle: 360deg; } }
+
+/* ============================================================
+   Noise grain overlay
+   ============================================================ */
+.noise-overlay { position: relative; }
 .noise-overlay::after {
   content: '';
   position: absolute;
@@ -624,9 +620,11 @@ body.light-theme .surface-glass-strong {
   border-radius: inherit;
   z-index: 1;
 }
-body.light-theme .noise-overlay::after { opacity: 0.025; }
+body.light-theme .noise-overlay::after { opacity: 0.02; }
 
-/* 3D tilt — JS sets --tilt-x --tilt-y custom properties */
+/* ============================================================
+   3D Tilt (JS-driven)
+   ============================================================ */
 .tilt {
   transform:
     perspective(900px)
@@ -638,13 +636,15 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 }
 .tilt:hover { transition-duration: 60ms; }
 
-/* Glow variants for GlowCard */
+/* ============================================================
+   Glow variants
+   ============================================================ */
 .glow-critical { box-shadow: var(--sre-shadow-glow-critical); }
 .glow-success  { box-shadow: var(--sre-shadow-glow-success); }
 .glow-accent   { box-shadow: var(--sre-shadow-glow-accent); }
 
 /* ============================================================
-   Scroll Reveal (Step 3)
+   Scroll Reveal
    ============================================================ */
 [data-reveal="out"] {
   opacity: 0;
@@ -659,7 +659,7 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 }
 
 /* ============================================================
-   View Transitions (Step 3)
+   View Transitions
    ============================================================ */
 @keyframes sre-vt-fade-out {
   from { opacity: 1; transform: translateY(0) scale(1); }
@@ -679,7 +679,9 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
   }
 }
 
-/* Reduced motion */
+/* ============================================================
+   Reduced motion — honour OS preference
+   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -687,15 +689,25 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-  .conic-border::before { animation: none !important; opacity: 0.3 !important; }
+  .sre-stagger > *,
+  .stagger-list > *,
+  .stagger-grid > *,
+  .fade-in, .slide-up, .scale-in, .spin, .bounce-in, .count-in, .glow-pulse,
+  .block-in, .pulse, .pulse-ring { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .sre-lift:hover,
+  .sre-row-card:hover,
+  .surface-card--interactive:hover,
+  .surface-clay--interactive:hover,
+  .card-hover:hover { transform: none !important; }
+  .conic-border::before,
+  .conic-border--critical::before { animation: none !important; opacity: 0.3 !important; }
   [data-reveal="out"] { opacity: 1; transform: none; }
+  [data-reveal="in"] { transition: none !important; }
 }
 
 /* ============================================================
    FlashCat-style v2.2+ utilities
    ============================================================ */
-
-/* Stagger reveal for card lists / KPIs */
 @keyframes sre-stagger-up {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -714,22 +726,40 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 .sre-stagger > *:nth-child(8) { animation-delay: 280ms; }
 .sre-stagger > *:nth-child(n+9) { animation-delay: 320ms; }
 
-/* Tabular numerics — apply to all metric/number displays */
 .tnum, [data-nums], .num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
-/* Editorial uppercase label */
+/* ============================================================
+   Accessibility: touch targets & focus indicators
+   ============================================================ */
+.n-button--tiny-type.n-button--circle-type {
+  min-width: 32px !important;
+  min-height: 32px !important;
+}
+
+.sre-row-card:focus-visible,
+.sre-lift:focus-visible,
+.surface-card--interactive:focus-visible,
+.surface-clay--interactive:focus-visible,
+.ds-card:focus-visible,
+.sre-notify-card:focus-visible {
+  outline: 2px solid var(--sre-primary);
+  outline-offset: 2px;
+}
+
 .sre-label-eyebrow {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--sre-text-tertiary);
+  color: var(--sre-text-secondary);
 }
 
-/* Row card with severity stripe */
+/* ============================================================
+   Row card with severity stripe (FlashCat-style)
+   ============================================================ */
 .sre-row-card {
   position: relative;
   display: flex;
@@ -743,7 +773,7 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
   cursor: pointer;
   transition: background var(--sre-duration-fast) var(--sre-ease-out),
               border-color var(--sre-duration-fast) var(--sre-ease-out),
-              transform var(--sre-duration-fast) var(--sre-ease-out);
+              transform var(--sre-duration-fast) var(--sre-ease-spring);
 }
 .sre-row-card::before {
   content: "";
@@ -757,12 +787,14 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 }
 .sre-row-card[data-severity="critical"]::before { background: var(--sre-critical); }
 .sre-row-card[data-severity="warning"]::before  { background: var(--sre-warning); }
-.sre-row-card[data-severity="info"]::before     { background: var(--sre-info, #3b82f6); }
+.sre-row-card[data-severity="info"]::before     { background: var(--sre-info); }
 .sre-row-card[data-severity="success"]::before  { background: var(--sre-primary); }
 .sre-row-card:hover {
   background: var(--sre-bg-hover);
   border-color: var(--sre-border-strong);
+  transform: translateY(-1px);
 }
+.sre-row-card:active { transform: translateY(0); transition-duration: 60ms; }
 .sre-row-card[data-dim="true"] { opacity: 0.6; }
 
 /* Severity / status dot */
@@ -775,7 +807,7 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 }
 .sre-dot[data-severity="critical"] { background: var(--sre-critical); }
 .sre-dot[data-severity="warning"]  { background: var(--sre-warning); }
-.sre-dot[data-severity="info"]     { background: var(--sre-info, #3b82f6); }
+.sre-dot[data-severity="info"]     { background: var(--sre-info); }
 .sre-dot[data-severity="success"]  { background: var(--sre-primary); }
 .sre-dot[data-pulse]::before {
   content: "";
@@ -811,88 +843,68 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
   font-feature-settings: "tnum" 1;
 }
 
-/* Hover-lift card (KPI / dashboard cards) */
+/* Hover-lift card (KPI / dashboard cards) — clay style */
 .sre-lift {
-  transition: transform var(--sre-duration-fast) var(--sre-ease-out),
+  transition: transform var(--sre-duration-fast) var(--sre-ease-spring),
               border-color var(--sre-duration-fast) var(--sre-ease-out),
               box-shadow var(--sre-duration-base) var(--sre-ease-out);
 }
 .sre-lift:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   border-color: var(--sre-border-strong);
+  box-shadow: var(--sre-shadow-md);
 }
 
 /* ============================================================
-   Notification card list (v2.6) — vertical column row cards
-   used by notify rules, subscribe rules, and media list.
-   Distinct from .sre-row-card which is a horizontal stripe card
-   for alert rows.
+   Notification card list (v2.6)
    ============================================================ */
 .sre-notify-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 12px 14px;
-  border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06));
-  border-radius: 8px;
-  background: var(--sre-bg-card, rgba(255,255,255,0.02));
-  transition: border-color .15s, background .15s;
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+  background: var(--sre-bg-card);
+  transition: border-color var(--sre-duration-fast) var(--sre-ease-out),
+              background var(--sre-duration-fast) var(--sre-ease-out);
 }
 .sre-notify-card:hover {
-  border-color: var(--sre-hairline-strong, rgba(255,255,255,0.12));
-  background: rgba(255,255,255,0.03);
+  border-color: var(--sre-border-strong);
+  background: var(--sre-bg-hover);
 }
 
-/* Icon button — transparent 24x24 action trigger (row menus) */
+/* Icon button — accessible 36x36 touch target */
 .sre-icon-btn {
-  width: 24px;
-  height: 24px;
-  padding: 0;
+  min-width: 36px;
+  min-height: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
   border: 0;
   background: transparent;
-  border-radius: 4px;
+  border-radius: var(--sre-radius-sm);
   cursor: pointer;
-  color: var(--sre-text-secondary, #888);
+  color: var(--sre-text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background var(--sre-duration-fast) var(--sre-ease-out),
+              color var(--sre-duration-fast) var(--sre-ease-out);
 }
 .sre-icon-btn:hover {
-  background: rgba(255,255,255,0.06);
-  color: inherit;
+  background: var(--sre-bg-hover);
+  color: var(--sre-text-primary);
+}
+.sre-icon-btn:focus-visible {
+  outline: 2px solid var(--sre-primary);
+  outline-offset: 2px;
 }
 
-/* Three-dot menu indicator (pseudo-element construction) */
-.sre-dots {
-  width: 14px;
-  height: 4px;
-  position: relative;
-  display: inline-block;
-}
-.sre-dots::before,
-.sre-dots::after,
-.sre-dots {
-  content: '';
-  width: 3px;
-  height: 3px;
-  background: currentColor;
-  border-radius: 50%;
-}
-.sre-dots::before {
-  position: absolute;
-  left: -5px;
-  top: 0.5px;
-}
-.sre-dots::after {
-  position: absolute;
-  right: -5px;
-  top: 0.5px;
-}
-
-/* Status-dot modifiers — extends .sre-dot for on/off state */
+/* Status-dot modifiers */
 .sre-dot.on {
-  background: var(--sre-success, #22c55e);
-  box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+  background: var(--sre-success);
+  box-shadow: 0 0 0 3px var(--sre-success-soft);
 }
 .sre-dot.off {
   background: #555;
@@ -901,13 +913,12 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
 
 /* ============================================================
    Settings config pages — shared layout (v2.6)
-   Used by AIConfig, LarkBotConfig, OIDCConfig, SMTPConfig.
    ============================================================ */
 .sre-config-page {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-family: var(--sre-font-sans);
 }
 
 .sre-config-header {
@@ -932,7 +943,7 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
   line-height: 1.5;
 }
 .sre-config-header-sub code {
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--sre-font-mono);
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 4px;
@@ -1003,7 +1014,6 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
   grid-column: 1 / -1;
 }
 
-/* Compact form labels — settings pages use uppercase label style */
 .n-form-item-label {
   padding: 0 0 4px 0 !important;
   font-size: 11px !important;
@@ -1012,3 +1022,21 @@ body.light-theme .noise-overlay::after { opacity: 0.025; }
   color: var(--sre-text-tertiary) !important;
   text-transform: uppercase;
 }
+
+/* ============================================================
+   Vibrant block layout helper (v2.7)
+   ============================================================ */
+.vibrant-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sre-block-gap);
+}
+
+.vibrant-blocks > * {
+  animation: sre-block-in 420ms var(--sre-ease-spring) both;
+}
+.vibrant-blocks > *:nth-child(1) { animation-delay: 0ms; }
+.vibrant-blocks > *:nth-child(2) { animation-delay: 60ms; }
+.vibrant-blocks > *:nth-child(3) { animation-delay: 120ms; }
+.vibrant-blocks > *:nth-child(4) { animation-delay: 180ms; }
+.vibrant-blocks > *:nth-child(5) { animation-delay: 240ms; }

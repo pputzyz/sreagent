@@ -87,7 +87,7 @@ async function fetchList() {
     const { data } = await datasourceApi.list({ page: 1, page_size: 100 })
     datasources.value = (data.data.list || []) as DSCard[]
   } catch (err: any) {
-    message.error(err.message)
+    message.error(err?.message || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -161,7 +161,7 @@ async function handleSave() {
     showModal.value = false
     fetchList()
   } catch (err: any) {
-    message.error(err.message)
+    message.error(err?.message || t('common.loadFailed'))
   } finally {
     saving.value = false
   }
@@ -173,7 +173,7 @@ async function handleDelete(id: number) {
     message.success(t('datasource.deleted'))
     fetchList()
   } catch (err: any) {
-    message.error(err.message)
+    message.error(err?.message || t('common.loadFailed'))
   }
 }
 
@@ -193,7 +193,7 @@ async function testHealth(ds: DSCard) {
       message.error(`${ds.name} · ${r.message}`, { duration: 5000 })
     }
   } catch (err: any) {
-    message.error(err.message)
+    message.error(err?.message || t('common.loadFailed'))
   } finally {
     ds._testing = false
     datasources.value = [...datasources.value]

@@ -189,7 +189,7 @@ function rowActions(_integ: any) {
       key: 'delete',
       label: t('common.delete'),
       icon: () => h(NIcon, { component: TrashOutline }),
-      props: { style: 'color: var(--sre-error, #ef4444)' },
+      props: { style: 'color: var(--sre-error)' },
     },
   ]
 }
@@ -464,7 +464,7 @@ onMounted(load)
 /* Card */
 .integ-card {
   position: relative;
-  background: var(--sre-bg-card, #fff);
+  background: var(--sre-bg-card);
   border: var(--sre-hairline);
   border-radius: var(--sre-radius-md, 10px);
   padding: 20px;
@@ -478,14 +478,14 @@ onMounted(load)
     box-shadow var(--sre-duration-fast, 160ms) var(--sre-ease-out, ease-out);
 }
 .integ-card:hover {
-  border-color: var(--sre-primary, #2563eb);
+  border-color: var(--sre-primary);
 }
 
 .card-stripe {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: var(--sre-text-tertiary, #9ca3af);
+  background: var(--sre-text-tertiary);
 }
 .card-stripe[data-type='alertmanager'] { background: var(--sre-integ-alertmanager); }
 .card-stripe[data-type='grafana']      { background: var(--sre-integ-grafana); }
@@ -612,7 +612,7 @@ onMounted(load)
   padding: 80px 24px;
   border: var(--sre-hairline);
   border-radius: var(--sre-radius-md, 10px);
-  background: var(--sre-bg-card, #fff);
+  background: var(--sre-bg-card);
   gap: 8px;
 }
 .integ-empty-icon { color: var(--sre-text-tertiary); margin-bottom: 8px; }

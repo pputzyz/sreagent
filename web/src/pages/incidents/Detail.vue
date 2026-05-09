@@ -837,7 +837,13 @@ onMounted(async () => {
   outline: none;
   transition: border-color 120ms ease;
 }
-.comment-input:focus { border-color: var(--sre-primary); }
+.comment-input:focus {
+  border-color: var(--sre-primary);
+}
+.comment-input:focus-visible {
+  outline: 2px solid var(--sre-primary);
+  outline-offset: 1px;
+}
 .comment-actions {
   display: flex;
   justify-content: flex-end;
@@ -868,7 +874,13 @@ onMounted(async () => {
   padding: 4px 0;
   border-bottom: var(--sre-hairline);
 }
-.pm-title-input:focus { border-bottom-color: var(--sre-primary); }
+.pm-title-input:focus {
+  border-bottom-color: var(--sre-primary);
+}
+.pm-title-input:focus-visible {
+  outline: 2px solid var(--sre-primary);
+  outline-offset: 2px;
+}
 .pm-editor {
   height: 520px;
   border-radius: 8px;

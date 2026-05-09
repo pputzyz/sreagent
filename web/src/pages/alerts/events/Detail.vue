@@ -690,7 +690,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   font-size: 12px;
   color: var(--sre-text-secondary);
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
 }
 .evt-sev-label {
   font-weight: 600;
@@ -716,7 +716,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-action-bar {
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--sre-hairline);
+  border-top: var(--sre-hairline);
 }
 
 /* ── Grid ── */
@@ -732,7 +732,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 
 .evt-main {
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
   border-radius: 12px;
   padding: 4px 16px 16px;
   min-width: 0;
@@ -740,7 +740,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 
 .evt-section {
   padding: 14px 0;
-  border-bottom: 1px solid var(--sre-hairline);
+  border-bottom: var(--sre-hairline);
 }
 .evt-section:last-child { border-bottom: 0; }
 
@@ -768,7 +768,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   align-items: center;
   font-family: var(--sre-font-mono);
   font-size: 12px;
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
   border-radius: 6px;
   background: transparent;
   cursor: pointer;
@@ -813,7 +813,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 /* Rule card */
 .evt-rule-card {
   margin-top: 8px;
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
   border-radius: 8px;
   padding: 10px 12px;
 }
@@ -908,7 +908,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 .evt-comment-box {
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid var(--sre-hairline);
+  border-top: var(--sre-hairline);
 }
 .evt-comment-actions {
   display: flex;
@@ -958,7 +958,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 }
 .evt-aside-card {
   background: var(--sre-bg-card);
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
   border-radius: 12px;
   padding: 14px 16px;
   display: flex;
@@ -1012,7 +1012,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
   font-size: 12px;
   font-weight: 600;
   flex-shrink: 0;
-  border: 1px solid var(--sre-hairline);
+  border: var(--sre-hairline);
 }
 .evt-resp-info { min-width: 0; flex: 1; }
 .evt-resp-name { font-size: 12.5px; font-weight: 600; color: var(--sre-text-primary); }

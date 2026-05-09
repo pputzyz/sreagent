@@ -268,14 +268,14 @@ watch([() => form.value.username, () => form.value.password], () => {
   letter-spacing: -2px;
   line-height: 1;
   margin: 0 0 18px;
-  background: linear-gradient(135deg, var(--sre-text-primary) 0%, rgba(255,255,255,0.55) 100%);
+  background: linear-gradient(135deg, var(--sre-text-primary) 0%, color-mix(in srgb, var(--sre-text-primary) 55%, transparent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .login-layout.light .brand-title {
-  background: linear-gradient(135deg, #0f172a 0%, rgba(15,23,42,0.55) 100%);
+  background: linear-gradient(135deg, var(--sre-text-primary) 0%, color-mix(in srgb, var(--sre-text-primary) 55%, transparent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -339,13 +339,13 @@ watch([() => form.value.username, () => form.value.password], () => {
   height: 7px;
   border-radius: 50%;
   background: var(--sre-success);
-  box-shadow: 0 0 0 0 rgba(16,185,129,0.6);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--sre-success) 60%, transparent);
   animation: status-pulse 2.4s ease-out infinite;
 }
 @keyframes status-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); }
-  70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
-  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sre-success) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 /* ===== Form side (right 40%) ===== */
@@ -436,7 +436,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   padding: 10px 12px;
   border-radius: var(--sre-radius-sm);
   background: var(--sre-critical-soft);
-  border: 1px solid rgba(239,68,68,0.30);
+  border: 1px solid color-mix(in srgb, var(--sre-critical) 30%, transparent);
   font-size: 12px;
   color: var(--sre-critical);
   line-height: 1.4;
@@ -487,14 +487,14 @@ watch([() => form.value.username, () => form.value.password], () => {
   text-align: center;
   margin: 8px 0 0;
   padding: 10px 12px;
-  background: rgba(245,158,11,0.06);
+  background: var(--sre-warning-soft);
   border-radius: var(--sre-radius-sm);
-  border: 1px solid rgba(245,158,11,0.22);
+  border: 1px solid color-mix(in srgb, var(--sre-warning) 22%, transparent);
   line-height: 1.5;
 }
 .form-default-hint code {
   font-family: var(--sre-font-mono);
-  background: rgba(245,158,11,0.12);
+  background: var(--sre-warning-soft);
   padding: 1px 6px;
   border-radius: 3px;
   color: var(--sre-warning);

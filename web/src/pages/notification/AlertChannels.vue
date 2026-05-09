@@ -269,7 +269,7 @@ function rowMenuOptions(row: AlertChannel) {
     { label: t('alertChannel.testSend'), key: 'test' },
     { label: t('common.edit'), key: 'edit' },
     { type: 'divider' as const, key: 'd1' },
-    { label: t('common.delete'), key: 'delete', props: { style: 'color: var(--sre-danger, #ef4444)' } },
+    { label: t('common.delete'), key: 'delete', props: { style: 'color: var(--sre-danger)' } },
   ]
 }
 
@@ -588,9 +588,9 @@ onMounted(() => {
   line-height: 1.4;
 }
 .ac-chip-sev { font-weight: 600; letter-spacing: 0.4px; }
-.ac-chip-sev[data-severity='critical'] { color: var(--sre-danger, #ef4444); border-color: rgba(239, 68, 68, 0.25); }
-.ac-chip-sev[data-severity='warning'] { color: var(--sre-warning, #f59e0b); border-color: rgba(245, 158, 11, 0.25); }
-.ac-chip-sev[data-severity='info'] { color: var(--sre-info, #3b82f6); border-color: rgba(59, 130, 246, 0.25); }
+.ac-chip-sev[data-severity='critical'] { color: var(--sre-critical); border-color: var(--sre-critical-soft); }
+.ac-chip-sev[data-severity='warning'] { color: var(--sre-warning); border-color: var(--sre-warning-soft); }
+.ac-chip-sev[data-severity='info'] { color: var(--sre-info); border-color: var(--sre-info-soft); }
 
 .ac-webhook {
   display: inline-flex;

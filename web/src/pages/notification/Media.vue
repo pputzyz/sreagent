@@ -239,7 +239,7 @@ function rowMenuOptions(row: NotifyMedia) {
     {
       label: t('common.delete'), key: 'delete',
       disabled: row.is_builtin,
-      props: { style: row.is_builtin ? '' : 'color: var(--sre-danger, #ef4444)' },
+      props: { style: row.is_builtin ? '' : 'color: var(--sre-danger)' },
     },
   ]
 }
@@ -443,12 +443,12 @@ onMounted(fetchData)
   margin-bottom: 14px;
 }
 .sub-title { font: 600 18px/1.2 'Geist', sans-serif; margin: 0; letter-spacing: -0.01em; }
-.sub-sub { font-size: 12px; color: var(--sre-text-secondary, #888); margin: 4px 0 0; }
+.sub-sub { font-size: 12px; color: var(--sre-text-secondary); margin: 4px 0 0; }
 
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-.count { font-size: 12px; color: var(--sre-text-secondary, #888); margin-left: auto; font-variant-numeric: tabular-nums; }
+.count { font-size: 12px; color: var(--sre-text-secondary); margin-left: auto; font-variant-numeric: tabular-nums; }
 
-.loading, .empty { padding: 60px 20px; text-align: center; color: var(--sre-text-secondary, #888); }
+.loading, .empty { padding: 60px 20px; text-align: center; color: var(--sre-text-secondary); }
 .empty { display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .empty-text { font-size: 13px; }
 
@@ -457,43 +457,43 @@ onMounted(fetchData)
 .row-l1 { display: flex; align-items: center; gap: 10px; }
 .type-icon {
   width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 6px; background: rgba(255,255,255,0.04);
+  border-radius: 6px; background: var(--sre-bg-elevated);
 }
-.type-icon[data-type="lark_webhook"] { color: #818cf8; background: rgba(129,140,248,0.12); }
-.type-icon[data-type="email"]        { color: #94a3b8; background: rgba(148,163,184,0.10); }
-.type-icon[data-type="http"]         { color: #22c55e; background: rgba(34,197,94,0.10); }
-.type-icon[data-type="script"]       { color: #f59e0b; background: rgba(245,158,11,0.10); }
+.type-icon[data-type="lark_webhook"] { color: var(--sre-info); background: var(--sre-info-soft); }
+.type-icon[data-type="email"]        { color: var(--sre-text-secondary); background: var(--sre-bg-elevated); }
+.type-icon[data-type="http"]         { color: var(--sre-success); background: var(--sre-success-soft); }
+.type-icon[data-type="script"]       { color: var(--sre-warning); background: var(--sre-warning-soft); }
 
 .row-name { font: 600 14px/1.3 'Geist', sans-serif; letter-spacing: -0.005em; }
 
 .type-chip {
   font: 500 10px/1 'Geist Mono', monospace; text-transform: uppercase;
   padding: 3px 6px; border-radius: 4px; letter-spacing: .04em;
-  background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
+  background: var(--sre-bg-elevated); color: var(--sre-text-secondary);
 }
-.type-chip[data-type="lark_webhook"] { background: rgba(129,140,248,0.14); color: #a5b4fc; }
-.type-chip[data-type="email"]        { background: rgba(148,163,184,0.14); color: #cbd5e1; }
-.type-chip[data-type="http"]         { background: rgba(34,197,94,0.14);   color: #86efac; }
-.type-chip[data-type="script"]       { background: rgba(245,158,11,0.14);  color: #fcd34d; }
+.type-chip[data-type="lark_webhook"] { background: var(--sre-info-soft); color: var(--sre-info); }
+.type-chip[data-type="email"]        { background: var(--sre-bg-elevated); color: var(--sre-text-secondary); }
+.type-chip[data-type="http"]         { background: var(--sre-success-soft); color: var(--sre-success); }
+.type-chip[data-type="script"]       { background: var(--sre-warning-soft); color: var(--sre-warning); }
 
 .builtin-chip {
   font: 500 10px/1 'Geist Mono', monospace; padding: 3px 6px; border-radius: 4px;
-  background: rgba(56,189,248,0.10); color: #7dd3fc; letter-spacing: .04em;
+  background: var(--sre-info-soft); color: var(--sre-info); letter-spacing: .04em;
 }
-.status-text { font-size: 11px; color: var(--sre-success, #22c55e); }
-.status-text.off { color: var(--sre-text-secondary, #888); }
+.status-text { font-size: 11px; color: var(--sre-success); }
+.status-text.off { color: var(--sre-text-secondary); }
 
 .row-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 
 .row-l2 { padding-left: 38px; }
 .target {
   font: 12px/1.4 'Geist Mono', monospace;
-  color: var(--sre-text-secondary, #aaa);
+  color: var(--sre-text-secondary);
   font-variant-numeric: tabular-nums;
   word-break: break-all;
 }
 .row-l3 { padding-left: 38px; }
-.meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
+.meta { font-size: 12px; color: var(--sre-text-secondary); }
 
 .media-modal { width: 600px; }
 </style>

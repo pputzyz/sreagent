@@ -279,7 +279,7 @@ onMounted(fetchLogs)
   align-items: flex-end;
   justify-content: space-between;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--sre-hairline);
+  border-bottom: var(--sre-hairline);
 }
 .page-title {
   margin: 0;

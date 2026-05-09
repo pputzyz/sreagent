@@ -239,12 +239,21 @@ function typeBadge(tp: DataSourceType): string {
   }
   return m[tp] || tp
 }
+const _dsColorCache: Record<string, string> = {}
 function typeColor(tp: DataSourceType): string {
-  const m: Record<string, string> = {
-    prometheus: '#e6522c', victoriametrics: '#1a7f37',
-    victorialogs: '#0550ae', zabbix: '#d32f2f',
+  if (_dsColorCache[tp]) return _dsColorCache[tp]
+  const tokenMap: Record<string, string> = {
+    prometheus: '--sre-ds-prometheus', victoriametrics: '--sre-ds-victoriametrics',
+    victorialogs: '--sre-ds-victorialogs', zabbix: '--sre-ds-zabbix',
   }
-  return m[tp] || '#666'
+  const token = tokenMap[tp]
+  if (token && typeof document !== 'undefined') {
+    const val = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+    _dsColorCache[tp] = val || '#666'
+  } else {
+    _dsColorCache[tp] = '#666'
+  }
+  return _dsColorCache[tp]
 }
 
 // --- actions ---
@@ -314,7 +323,7 @@ const chartOption = computed(() => {
   return {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis', confine: true },
-    legend: { type: 'scroll', bottom: 0, textStyle: { color: '#888', fontSize: 12 } },
+    legend: { type: 'scroll', bottom: 0, textStyle: { color: (typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-tertiary').trim() || '#888' : '#888'), fontSize: 12 } },
     grid: { left: 80, right: 20, top: 20, bottom: 50 },
     xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 11 }, splitLine: { lineStyle: { type: 'dashed' } } },
@@ -754,8 +763,8 @@ onUnmounted(() => {
 }
 
 .toolbar-card {
-  background: var(--sre-bg-card, #fff);
-  border: 1px solid var(--sre-border, #e0e0e0);
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border);
   border-radius: 12px;
   padding: 12px 16px;
   margin-bottom: 12px;
@@ -790,7 +799,7 @@ onUnmounted(() => {
 }
 
 .countdown {
-  color: var(--n-color-primary, #2080f0);
+  color: var(--sre-primary);
   font-weight: 500;
 }
 
@@ -808,8 +817,8 @@ onUnmounted(() => {
 }
 
 .editor-card {
-  background: var(--sre-bg-card, #fff);
-  border: 1px solid var(--sre-border, #e0e0e0);
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 12px;
@@ -891,10 +900,10 @@ onUnmounted(() => {
 }
 
 .results-panel {
-  background: var(--sre-bg-card, #fff);
+  background: var(--sre-bg-card);
   border-radius: 12px;
   padding: 16px;
-  border: 1px solid var(--sre-border, #e0e0e0);
+  border: 1px solid var(--sre-border);
   overflow: hidden;
 }
 
@@ -957,7 +966,7 @@ onUnmounted(() => {
 
 .history-item:hover {
   background: var(--sre-bg-hover);
-  border-color: var(--sre-border, #e0e0e0);
+  border-color: var(--sre-border);
 }
 
 .history-expr {
@@ -1013,7 +1022,7 @@ onUnmounted(() => {
   padding: 16px;
   margin: 12px 0;
   background: var(--sre-critical-soft);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  border: 1px solid var(--sre-critical-soft);
   border-radius: var(--sre-radius-md);
 }
 .error-icon-wrap {

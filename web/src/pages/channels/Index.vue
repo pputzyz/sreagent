@@ -521,7 +521,7 @@ onMounted(loadChannels)
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
-.metric-value.is-active { color: var(--sre-danger, #e54545); }
+.metric-value.is-active { color: var(--sre-danger); }
 .metric-label {
   font-size: 11px;
   color: var(--sre-text-secondary);

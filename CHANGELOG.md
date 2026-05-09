@@ -4,6 +4,78 @@
 
 ---
 
+## [v2.7.0] — 2026-05-09
+
+### Changed — UI 全局重设计: "Vibrant Glass + Clay" 融合风格
+
+**设计系统升级：**
+- 色板: 午夜石板 (#090D1A) 替代纯黑，主色翠绿 #10B981 + 紫罗兰强调 #8B5CF6
+- 融合 4 种设计风格: Vibrant & Block-based + Glassmorphism + Claymorphism + Motion-Driven
+- 玻璃效果 (backdrop-filter blur) 应用于侧边栏、顶栏、模态框
+- 软土风格 (Claymorphism) 双阴影卡片，圆角 12-16px
+- 弹性动画 (spring physics)，200-340ms 过渡
+- 暗色模式: 半透明玻璃背景，柔和午夜底色
+- 亮色模式: 暖灰底 #F1F4F9 + 半透白卡片
+
+**侧边栏重构 (FlashCat 风格):**
+- 5 个平铺 `type:'group'` → 3 个可折叠父菜单: 监控告警、故障管理、系统配置
+- 用户头像/名称从顶栏移至侧边栏底部
+- 玻璃材质侧边栏，24px 模糊 + 饱和度增强
+- 顶部导航栏简化: 仅保留面包屑、时钟、搜索、语言、主题
+
+**删除死代码:**
+- SpotlightCursor (已在 v1.8.1 移除引用，清理残留)
+- 废弃的 CSS 动画和注释代码
+- 未使用的 page-enter/leave 过渡组件
+
+### Changed — 文件
+
+| 文件 | 变更 |
+|------|------|
+| `web/src/styles/global.css` | 重写: 新色板、玻璃/土质效果、块布局、弹性动效 |
+| `web/src/App.vue` | Naive UI 主题覆盖全面更新对齐新色板 |
+| `web/src/layouts/MainLayout.vue` | 3层可折叠菜单 + 玻璃侧边栏 + 用户区移至侧边栏底部 |
+| `web/src/i18n/zh-CN.ts` | 新增 menu.alertCenter/incidentMgmt/systemConfig |
+| `web/src/i18n/en.ts` | 新增 menu.alertCenter/incidentMgmt/systemConfig |
+| `web/package.json` | 版本 2.6.2 → 2.7.0 |
+| `CLAUDE.md` | 版本 2.6.2 → 2.7.0 |
+
+---
+## [Unreleased]
+
+### Changed — UX Accessibility & Quality Sweep
+
+**CRITICAL - Reduced Motion:**
+- `global.css`: 增强 `@media (prefers-reduced-motion)` 查询，显式禁用 `.sre-stagger`、`.sre-lift`、`.sre-row-card`、`.fade-in`、`.slide-up`、`.scale-in`、`.pulse` 等所有动画类，以及 hover lift 变换效果和 conic-border 旋转动画
+
+**CRITICAL - Focus States:**
+- `global.css`: 新增 `.sre-row-card`、`.sre-lift`、`.surface-card--interactive`、`.ds-card`、`.sre-notify-card` 的 `:focus-visible` 样式（2px `var(--sre-primary)` 描边）
+- `CommandPalette.vue`: `.cp-input` 添加 `:focus-visible` 内描边替代 `outline: none`
+- `incidents/Detail.vue`: `.comment-input` 和 `.pm-title-input` 添加 `:focus-visible` 样式
+
+**CRITICAL - Touch Targets:**
+- `global.css`: `.sre-icon-btn` 从 24x24 扩大到 36x36（符合 WCAG 2.5.5），添加 hover/focus-visible 过渡
+- `global.css`: Naive UI `n-button--tiny-type.n-button--circle-type` 最小尺寸设为 32x32
+
+**CRITICAL - Dark/Light Contrast:**
+- `BizGroupManagement.vue`: `.bg-chip` / `.bg-count` / `.bg-role-member` 硬编码 `rgba(255,255,255,*)` 替换为语义化 `var(--sre-bg-hover)` 令牌
+- `BizGroupManagement.vue`: `.bg-count` 修复无效 `--sre-text` 变量为 `--sre-text-primary`
+- `BizGroupManagement.vue`: `.bg-role-member .sre-dot` 硬编码 `rgba(255,255,255,0.4)` 替换为 `var(--sre-text-tertiary)`
+- `BizGroupManagement.vue`: 清理 linter 发现的不一致 fallback 值（`.bg-chip-info` border-color 等）
+
+**HIGH - Loading Feedback:**
+- `alerts-v2/Detail.vue`: 初始加载添加 `LoadingSkeleton`，避免空白闪烁
+
+**HIGH - Cursor Pointer:**
+- 验证所有可点击元素（`sre-row-card`、`sre-lift`、`surface-card--interactive`、`ds-card`、`stat-card`、`dash-card`）已有 `cursor: pointer`
+
+**MEDIUM - Error States:**
+- `datasources/Index.vue`: 3 处 `message.error(err.message)` 添加 fallback 为 `t('common.loadFailed')`
+
+**Global CSS 改进:**
+- `.sre-label-eyebrow` 颜色由 `--sre-text-tertiary` 提升为 `--sre-text-secondary`（确保浅色主题 4.5:1 对比度）
+- 新增 "Accessibility" 注释段，集中管理焦点样式和触摸目标
+
 ## [v2.6.2] - 2026-05-09
 
 ### Fixed — P4 全站质量修复完成
