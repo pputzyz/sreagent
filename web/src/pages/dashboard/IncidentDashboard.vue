@@ -1,14 +1,17 @@
 <script setup lang="ts">
 /**
- * IncidentDashboard.vue — v2 enhanced dashboard showing incident/channel/team stats.
- * Phase 5.6
+ * IncidentDashboard.vue — v2.8 premium incident stats dashboard.
  */
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2StatsApi } from '@/api'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import {
+  BugOutline, CheckmarkCircleOutline, AlertCircleOutline, TimerOutline,
+  DocumentTextOutline, RefreshOutline,
+} from '@vicons/ionicons5'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -52,244 +55,306 @@ function formatSeconds(s: number) {
   return `${m}m`
 }
 
-// Top 5 channels by total
-const topChannels = computed(() => [...channelStats.value].slice(0, 5))
-const topTeams = computed(() => [...teamStats.value].slice(0, 5))
+const topChannels = computed(() => [...channelStats.value].slice(0, 6))
+const topTeams = computed(() => [...teamStats.value].slice(0, 6))
+const trendMax = computed(() => Math.max(...incidentTrend.value.map((p: any) => p.triggered + p.closed), 1))
 
-// Trend sparkline: max triggered value for scaling
-const trendMax = computed(() => Math.max(...incidentTrend.value.map(p => p.triggered + p.closed), 1))
+const kpis = computed(() => {
+  const s = incidentStats.value
+  if (!s) return []
+  return [
+    { label: t('dashboardV2.activeIncidents'), value: s.active_incidents ?? 0, tone: 'critical' as const, icon: BugOutline, route: '/incidents?status=triggered' },
+    { label: t('dashboardV2.closedToday'), value: s.closed_today ?? 0, tone: 'success' as const, icon: CheckmarkCircleOutline },
+    { label: t('dashboardV2.criticalActive'), value: s.critical_active ?? 0, tone: 'critical' as const, icon: AlertCircleOutline },
+    { label: t('dashboardV2.avgMTTR'), value: formatSeconds(s.avg_mttr_seconds), tone: 'info' as const, icon: TimerOutline },
+    { label: t('dashboardV2.totalPostMortems'), value: s.total_post_mortems ?? 0, tone: 'info' as const, icon: DocumentTextOutline, sub: `${s.published_post_mortems ?? 0} published` },
+  ]
+})
 
 onMounted(load)
 </script>
 
 <template>
   <div class="incident-dashboard">
-    <!-- Header -->
-    <div class="dash-header">
-      <h2 class="dash-title">{{ t('dashboardV2.incidentStats') }}</h2>
-      <div class="dash-controls">
-        <n-select
-          v-model:value="days"
-          :options="[
-            { label: '7 ' + t('dashboardV2.days'), value: 7 },
-            { label: '30 ' + t('dashboardV2.days'), value: 30 },
-            { label: '90 ' + t('dashboardV2.days'), value: 90 },
-          ]"
-          style="width:110px"
-          size="small"
-          @update:value="load"
-        />
-        <n-button size="small" quaternary circle :loading="loading" @click="load">
-          <template #icon><n-icon><svg viewBox="0 0 24 24"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></n-icon></template>
-        </n-button>
-      </div>
-    </div>
-
-    <!-- Loading skeleton -->
+    <!-- KPI Row -->
     <LoadingSkeleton v-if="loading && !firstLoaded" :rows="5" variant="kpi" />
 
-    <n-spin v-else :show="loading">
-      <!-- Top stat cards -->
-      <div v-if="incidentStats" class="stat-cards sre-stagger">
-        <div class="stat-card sre-lift" @click="router.push('/incidents?status=triggered')">
-          <div class="stat-label">{{ t('dashboardV2.activeIncidents') }}</div>
-          <div class="stat-value stat-value--critical">{{ incidentStats.active_incidents ?? 0 }}</div>
-        </div>
-        <div class="stat-card sre-lift">
-          <div class="stat-label">{{ t('dashboardV2.closedToday') }}</div>
-          <div class="stat-value stat-value--success">{{ incidentStats.closed_today ?? 0 }}</div>
-        </div>
-        <div class="stat-card sre-lift">
-          <div class="stat-label">{{ t('dashboardV2.criticalActive') }}</div>
-          <div class="stat-value stat-value--critical">{{ incidentStats.critical_active ?? 0 }}</div>
-        </div>
-        <div class="stat-card sre-lift">
-          <div class="stat-label">{{ t('dashboardV2.avgMTTR') }}</div>
-          <div class="stat-value">{{ formatSeconds(incidentStats.avg_mttr_seconds) }}</div>
-        </div>
-        <div class="stat-card sre-lift">
-          <div class="stat-label">{{ t('dashboardV2.totalPostMortems') }}</div>
-          <div class="stat-value">{{ incidentStats.total_post_mortems ?? 0 }}</div>
-          <div class="stat-sub">{{ incidentStats.published_post_mortems ?? 0 }} {{ t('dashboardV2.publishedPostMortems') }}</div>
-        </div>
-      </div>
-
-      <!-- Incident trend bars -->
-      <n-card :bordered="false" class="section-card" v-if="incidentTrend.length">
-        <div class="section-title">{{ t('dashboardV2.incidentTrend') }}</div>
-        <div class="trend-chart">
-          <div v-for="point in incidentTrend" :key="point.date" class="trend-day">
-            <div class="trend-bars">
-              <div
-                class="trend-bar trend-bar--triggered"
-                :style="{ height: `${(point.triggered / trendMax) * 80}px` }"
-                :title="`${point.date}: ${point.triggered} triggered`"
-              />
-              <div
-                class="trend-bar trend-bar--closed"
-                :style="{ height: `${(point.closed / trendMax) * 80}px` }"
-                :title="`${point.date}: ${point.closed} closed`"
-              />
+    <template v-else>
+      <n-spin :show="loading">
+        <section v-if="incidentStats" class="kpi-grid sre-stagger">
+          <div
+            v-for="k in kpis"
+            :key="k.label"
+            class="kpi-card sre-lift"
+            :data-tone="k.tone"
+            :class="{ clickable: !!k.route }"
+            @click="k.route && router.push(k.route)"
+          >
+            <div class="kpi-icon-wrap">
+              <n-icon :component="k.icon" :size="20" />
             </div>
-            <div class="trend-label">{{ point.date.substring(5) }}</div>
+            <div class="kpi-body">
+              <div class="kpi-value number-display">{{ k.value }}</div>
+              <div class="kpi-label">{{ k.label }}</div>
+              <div v-if="k.sub" class="kpi-sub text-muted">{{ k.sub }}</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Trend + Controls -->
+        <div class="section-row">
+          <div class="chart-card surface-clay">
+            <div class="chart-card__header">
+              <span class="chart-card__title">{{ t('dashboardV2.incidentTrend') }}</span>
+              <div class="chart-card__actions">
+                <n-select
+                  v-model:value="days"
+                  :options="[
+                    { label: '7 ' + t('dashboardV2.days'), value: 7 },
+                    { label: '30 ' + t('dashboardV2.days'), value: 30 },
+                    { label: '90 ' + t('dashboardV2.days'), value: 90 },
+                  ]"
+                  style="width:110px"
+                  size="tiny"
+                  @update:value="load"
+                />
+                <n-button quaternary circle size="tiny" :loading="loading" @click="load">
+                  <template #icon><n-icon :component="RefreshOutline" :size="14" /></template>
+                </n-button>
+              </div>
+            </div>
+            <div class="chart-card__body">
+              <div v-if="incidentTrend.length" class="trend-chart">
+                <div v-for="point in incidentTrend" :key="point.date" class="trend-day">
+                  <div class="trend-bars">
+                    <div
+                      class="trend-bar trend-bar--triggered"
+                      :style="{ height: `${Math.max((point.triggered / trendMax) * 80, 2)}px` }"
+                      :title="`${point.date}: ${point.triggered} triggered`"
+                    />
+                    <div
+                      class="trend-bar trend-bar--closed"
+                      :style="{ height: `${Math.max((point.closed / trendMax) * 80, 2)}px` }"
+                      :title="`${point.date}: ${point.closed} closed`"
+                    />
+                  </div>
+                  <div class="trend-label">{{ point.date.substring(5) }}</div>
+                </div>
+              </div>
+              <div v-else class="chart-empty text-muted">{{ t('dashboard.noData') }}</div>
+              <div v-if="incidentTrend.length" class="trend-legend">
+                <span class="legend-dot legend-dot--triggered" /> Triggered
+                <span class="legend-dot legend-dot--closed" /> Closed
+              </div>
+            </div>
           </div>
         </div>
-        <div class="trend-legend">
-          <span class="legend-dot legend-dot--triggered" /> {{ t('dashboard.triggered') }}
-          <span class="legend-dot legend-dot--closed" style="margin-left:12px" /> {{ t('dashboard.closed') }}
+
+        <!-- Two-column: Channel + Team Stats -->
+        <div class="two-col">
+          <div class="chart-card surface-clay">
+            <div class="chart-card__header">
+              <span class="chart-card__title">{{ t('dashboardV2.channelStats') }}</span>
+            </div>
+            <div class="chart-card__body" style="padding-top:0">
+              <table class="stats-table">
+                <thead>
+                  <tr>
+                    <th>{{ t('channel.name') }}</th>
+                    <th class="num-col">{{ t('dashboard.total') }}</th>
+                    <th class="num-col">{{ t('dashboard.pending') }}</th>
+                    <th class="num-col">{{ t('dashboard.urgent') }}</th>
+                    <th class="num-col">{{ t('dashboard.closed') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="row in topChannels"
+                    :key="row.channel_id"
+                    class="stats-row"
+                    @click="row.channel_id && router.push(`/channels/${row.channel_id}`)"
+                  >
+                    <td class="stats-name">{{ row.channel_name || '—' }}</td>
+                    <td class="num-col"><strong>{{ row.total }}</strong></td>
+                    <td class="num-col"><span class="text-critical">{{ row.triggered }}</span></td>
+                    <td class="num-col"><span class="text-critical">{{ row.critical }}</span></td>
+                    <td class="num-col"><span class="text-success">{{ row.closed }}</span></td>
+                  </tr>
+                  <tr v-if="topChannels.length === 0">
+                    <td colspan="5" class="stats-empty">{{ t('dashboard.noData') }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="chart-card surface-clay">
+            <div class="chart-card__header">
+              <span class="chart-card__title">{{ t('dashboardV2.teamStats') }}</span>
+            </div>
+            <div class="chart-card__body" style="padding-top:0">
+              <table class="stats-table">
+                <thead>
+                  <tr>
+                    <th>{{ t('common.name') }}</th>
+                    <th class="num-col">{{ t('dashboard.total') }}</th>
+                    <th class="num-col">{{ t('dashboard.urgent') }}</th>
+                    <th class="num-col">{{ t('dashboard.closed') }}</th>
+                    <th class="num-col">{{ t('dashboard.avgMttr') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in topTeams" :key="row.team_id" class="stats-row">
+                    <td class="stats-name">{{ row.team_name || t('dashboard.ungrouped') }}</td>
+                    <td class="num-col"><strong>{{ row.total }}</strong></td>
+                    <td class="num-col"><span class="text-critical">{{ row.critical }}</span></td>
+                    <td class="num-col"><span class="text-success">{{ row.closed }}</span></td>
+                    <td class="num-col">{{ formatSeconds(row.avg_mttr_seconds) }}</td>
+                  </tr>
+                  <tr v-if="topTeams.length === 0">
+                    <td colspan="5" class="stats-empty">{{ t('dashboard.noData') }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </n-card>
-
-      <!-- Channel stats table -->
-      <div class="two-col">
-        <n-card :bordered="false" class="section-card">
-          <div class="section-title">{{ t('dashboardV2.channelStats') }}</div>
-          <table class="stats-table">
-            <thead>
-              <tr>
-                <th>{{ t('channel.name') }}</th>
-                <th>{{ t('dashboard.total') }}</th>
-                <th>{{ t('dashboard.pending') }}</th>
-                <th>{{ t('dashboard.urgent') }}</th>
-                <th>{{ t('dashboard.closed') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="row in topChannels"
-                :key="row.channel_id"
-                class="stats-row"
-                @click="row.channel_id && router.push(`/channels/${row.channel_id}`)"
-              >
-                <td class="stats-name">{{ row.channel_name || '—' }}</td>
-                <td><strong>{{ row.total }}</strong></td>
-                <td><span class="stat-value--critical">{{ row.triggered }}</span></td>
-                <td><span class="stat-value--critical">{{ row.critical }}</span></td>
-                <td><span class="stat-value--success">{{ row.closed }}</span></td>
-              </tr>
-              <tr v-if="topChannels.length === 0">
-                <td colspan="5" class="stats-empty">{{ t('dashboard.noData') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </n-card>
-
-        <!-- Team stats table -->
-        <n-card :bordered="false" class="section-card">
-          <div class="section-title">{{ t('dashboardV2.teamStats') }}</div>
-          <table class="stats-table">
-            <thead>
-              <tr>
-                <th>{{ t('common.name') }}</th>
-                <th>{{ t('dashboard.total') }}</th>
-                <th>{{ t('dashboard.urgent') }}</th>
-                <th>{{ t('dashboard.closed') }}</th>
-                <th>{{ t('dashboard.avgMttr') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in topTeams" :key="row.team_id" class="stats-row">
-                <td class="stats-name">{{ row.team_name || t('dashboard.ungrouped') }}</td>
-                <td><strong>{{ row.total }}</strong></td>
-                <td><span class="stat-value--critical">{{ row.critical }}</span></td>
-                <td><span class="stat-value--success">{{ row.closed }}</span></td>
-                <td>{{ formatSeconds(row.avg_mttr_seconds) }}</td>
-              </tr>
-              <tr v-if="topTeams.length === 0">
-                <td colspan="5" class="stats-empty">{{ t('dashboard.noData') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </n-card>
-      </div>
-
-    </n-spin>
+      </n-spin>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.incident-dashboard { max-width: 1400px; }
+.incident-dashboard {
+  max-width: 1440px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
-.dash-header {
+/* KPI Row */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.kpi-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-lg);
+  transition: border-color var(--sre-duration-base) var(--sre-ease-out),
+              box-shadow var(--sre-duration-base) var(--sre-ease-out),
+              transform var(--sre-duration-base) var(--sre-ease-spring);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 12px; right: 12px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--sre-text-tertiary);
+}
+.kpi-card[data-tone="critical"]::after { background: var(--sre-critical); }
+.kpi-card[data-tone="success"]::after  { background: var(--sre-gradient-brand); }
+.kpi-card[data-tone="info"]::after     { background: var(--sre-info); }
+.kpi-card:hover {
+  border-color: var(--sre-border-strong);
+  box-shadow: var(--sre-shadow-md);
+  transform: translateY(-1px);
+}
+.kpi-card.clickable { cursor: pointer; }
+.kpi-card:active { transform: translateY(0); transition-duration: 80ms; }
+
+.kpi-icon-wrap {
+  width: 42px; height: 42px;
+  border-radius: var(--sre-radius-md);
+  background: var(--sre-bg-elevated);
+  border: 1px solid var(--sre-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--sre-text-secondary);
+}
+.kpi-card[data-tone="critical"] .kpi-icon-wrap { color: var(--sre-critical); background: var(--sre-critical-soft); border-color: transparent; }
+.kpi-card[data-tone="success"]  .kpi-icon-wrap { color: var(--sre-primary); background: var(--sre-primary-soft); border-color: transparent; }
+.kpi-card[data-tone="info"]     .kpi-icon-wrap { color: var(--sre-info); background: var(--sre-info-soft); border-color: transparent; }
+
+.kpi-body { flex: 1; min-width: 0; }
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--sre-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.kpi-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sre-text-secondary);
+  margin-top: 2px;
+}
+
+.kpi-sub {
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+/* Chart Card */
+.chart-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.chart-card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  padding: 16px 20px 0;
 }
 
-.dash-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--sre-text-primary);
-  margin: 0;
-}
-
-.dash-controls { display: flex; align-items: center; gap: 8px; }
-
-.stat-cards {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  background: var(--sre-bg-card);
-  border: var(--sre-hairline);
-  border-radius: var(--sre-radius-md);
-  padding: 18px 16px;
-  cursor: pointer;
-  transition: border-color var(--sre-duration-fast) ease, background var(--sre-duration-fast) ease;
-}
-
-.stat-card:hover {
-  border-color: var(--sre-border-strong);
-  background: var(--sre-bg-hover);
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--sre-text-secondary);
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--sre-text-primary);
-}
-
-.stat-value--critical { color: var(--sre-critical); }
-.stat-value--success  { color: var(--sre-success); }
-
-.stat-sub {
-  font-size: 11px;
-  color: var(--sre-text-secondary);
-  margin-top: 4px;
-}
-
-.section-card {
-  border-radius: var(--sre-radius-md);
-  margin-bottom: 16px;
-}
-
-.section-title {
+.chart-card__title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--sre-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 14px;
+  color: var(--sre-text-primary);
+  letter-spacing: -0.005em;
 }
 
-/* Trend chart */
+.chart-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-card__body {
+  padding: 12px 20px 16px;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  font-size: 13px;
+}
+
+.section-row { display: flex; flex-direction: column; }
+
+/* Trend bars */
 .trend-chart {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 3px;
   height: 100px;
-  padding-bottom: 4px;
 }
 
 .trend-day {
@@ -298,6 +363,7 @@ onMounted(load)
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  min-width: 0;
 }
 
 .trend-bars {
@@ -308,18 +374,17 @@ onMounted(load)
 }
 
 .trend-bar {
-  width: 8px;
+  width: 7px;
   border-radius: 3px 3px 0 0;
   min-height: 2px;
   transition: height 0.3s;
 }
-
 .trend-bar--triggered { background: var(--sre-critical); }
-.trend-bar--closed    { background: var(--sre-success); }
+.trend-bar--closed    { background: var(--sre-primary); }
 
 .trend-label {
   font-size: 9px;
-  color: var(--sre-text-secondary);
+  color: var(--sre-text-tertiary);
   white-space: nowrap;
 }
 
@@ -329,20 +394,18 @@ onMounted(load)
   gap: 6px;
   font-size: 11px;
   color: var(--sre-text-secondary);
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .legend-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 8px; height: 8px;
   border-radius: 50%;
 }
-
 .legend-dot--triggered { background: var(--sre-critical); }
-.legend-dot--closed    { background: var(--sre-success); }
+.legend-dot--closed    { background: var(--sre-primary); }
 
-/* Two-column layout */
+/* Two columns */
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -359,37 +422,51 @@ onMounted(load)
 .stats-table th {
   text-align: left;
   font-size: 11px;
-  color: var(--sre-text-secondary);
-  padding: 4px 8px 8px;
   font-weight: 600;
+  color: var(--sre-text-tertiary);
+  padding: 6px 10px 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   border-bottom: var(--sre-hairline);
 }
 
 .stats-table td {
-  padding: 8px;
+  padding: 9px 10px;
   border-bottom: var(--sre-hairline);
   color: var(--sre-text-primary);
 }
+
+.num-col { text-align: right; }
 
 .stats-row {
   cursor: pointer;
   transition: background 0.15s;
 }
-
 .stats-row:hover { background: var(--sre-bg-hover); }
 
 .stats-name {
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
 }
 
 .stats-empty {
   text-align: center;
   color: var(--sre-text-secondary);
-  padding: 24px 16px;
+  padding: 32px 16px;
 }
 
-@media (max-width: 900px) {
+.text-critical { color: var(--sre-critical); font-weight: 500; }
+.text-success  { color: var(--sre-success); font-weight: 500; }
+
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .two-col { grid-template-columns: 1fr; }
-  .stat-cards { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 }
 </style>

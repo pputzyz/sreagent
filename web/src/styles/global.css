@@ -605,6 +605,10 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .text-tertiary  { color: var(--sre-text-tertiary); }
 .text-muted     { color: var(--sre-text-muted); }
 .text-mono      { font-family: var(--sre-font-mono); }
+.text-critical  { color: var(--sre-critical); font-weight: var(--sre-fw-medium); }
+.text-warning   { color: var(--sre-warning); font-weight: var(--sre-fw-medium); }
+.text-success   { color: var(--sre-success); font-weight: var(--sre-fw-medium); }
+.text-info      { color: var(--sre-info); font-weight: var(--sre-fw-medium); }
 
 /* ============================================================
    Page container
