@@ -88,6 +88,16 @@ const legendData = computed(() => {
   return rows
 })
 
+// Design system colors for ECharts (reads CSS variables at render time)
+const chartTheme = computed(() => {
+  const s = getComputedStyle(document.documentElement)
+  return {
+    axisPointer: s.getPropertyValue('--sre-text-tertiary').trim() || '#666',
+    legendPage: s.getPropertyValue('--sre-text-muted').trim() || '#888',
+    splitLine: s.getPropertyValue('--sre-border').trim() || '#333',
+  }
+})
+
 const chartOption = computed(() => {
   const allSeries = props.targets
     .filter(t => t.enabled && t.resultType === 'matrix')
@@ -107,14 +117,14 @@ const chartOption = computed(() => {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross', lineStyle: { color: '#999' } },
+      axisPointer: { type: 'cross', lineStyle: { color: chartTheme.value.axisPointer } },
       valueFormatter: (val: number) => formatValue(val, props.valueFormat),
     },
     legend: {
       type: 'scroll',
       bottom: 0,
       textStyle: { fontSize: 11 },
-      pageTextStyle: { color: '#666' },
+      pageTextStyle: { color: chartTheme.value.legendPage },
     },
     grid: { left: 60, right: 20, top: 30, bottom: 60 },
     xAxis: {
@@ -132,7 +142,7 @@ const chartOption = computed(() => {
     yAxis: {
       type: 'value',
       axisLabel: { fontSize: 11, formatter: (val: number) => formatValue(val, props.valueFormat) },
-      splitLine: { lineStyle: { type: 'dashed', color: '#eee' } },
+      splitLine: { lineStyle: { type: 'dashed', color: chartTheme.value.splitLine } },
     },
     series: allSeries,
     dataZoom: [
@@ -187,8 +197,8 @@ const hasData = computed(() =>
 
 <style scoped>
 .chart-container {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--sre-bg-card);
+  border-radius: 6px;
 }
 .chart-wrapper {
   position: relative;

@@ -765,7 +765,7 @@ onUnmounted(() => {
 .toolbar-card {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 12px;
 }
@@ -819,7 +819,7 @@ onUnmounted(() => {
 .editor-card {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   margin-bottom: 12px;
 }
@@ -901,7 +901,7 @@ onUnmounted(() => {
 
 .results-panel {
   background: var(--sre-bg-card);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   border: 1px solid var(--sre-border);
   overflow: hidden;

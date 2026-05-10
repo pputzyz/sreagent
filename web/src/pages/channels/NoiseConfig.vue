@@ -471,7 +471,7 @@ onMounted(load)
   padding: 10px 12px;
   background: var(--sre-bg-page);
   border: 1px solid var(--sre-border);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .excl-info {

@@ -156,7 +156,6 @@ function hintColor(item: PaletteItem) {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
   z-index: calc(var(--sre-z-modal) - 1);
 }
 
@@ -166,10 +165,8 @@ function hintColor(item: PaletteItem) {
   left: 50%;
   transform: translateX(-50%);
   width: min(640px, 90vw);
-  border-radius: var(--sre-radius-xl);
-  background: color-mix(in srgb, var(--sre-bg-card) 60%, transparent);
-  backdrop-filter: saturate(180%) blur(28px);
-  -webkit-backdrop-filter: saturate(180%) blur(28px);
+  border-radius: var(--sre-radius-lg);
+  background: var(--sre-bg-card);
   box-shadow: var(--sre-shadow-soft-xl);
   z-index: var(--sre-z-modal);
   overflow: hidden;
@@ -178,7 +175,7 @@ function hintColor(item: PaletteItem) {
   max-height: 60vh;
 }
 body.light-theme .cp-panel {
-  background: color-mix(in srgb, #ffffff 80%, transparent);
+  background: #f8f9fa;
 }
 
 /* ─── Search ──────────────────────────────────────────────── */
@@ -321,6 +318,6 @@ body.light-theme .cp-panel {
 .cp-panel-enter-from,
 .cp-panel-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(-12px) scale(0.96);
+  transform: translateX(-50%) scale(0.96);
 }
 </style>

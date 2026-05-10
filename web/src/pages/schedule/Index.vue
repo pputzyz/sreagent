@@ -611,7 +611,7 @@ onMounted(() => {
 .schedule-detail {
   background: var(--sre-bg-card);
   border: var(--sre-hairline);
-  border-radius: var(--sre-radius-md, 10px);
+  border-radius: var(--sre-radius-md, 8px);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -906,13 +906,11 @@ onMounted(() => {
   box-sizing: border-box;
   background: color-mix(in srgb, var(--shift-color, var(--sre-primary)) 10%, transparent);
   color: var(--shift-color, var(--sre-primary));
-  transition: filter var(--sre-duration-fast) var(--sre-ease-out),
-              transform var(--sre-duration-fast) var(--sre-ease-out);
+  transition: filter var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .shift-block:hover {
   filter: brightness(1.05);
-  transform: translateY(-1px);
 }
 
 .shift-block.is-now {

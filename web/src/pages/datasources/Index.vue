@@ -462,17 +462,16 @@ onMounted(fetchList)
   position: relative;
   background: var(--sre-bg-card);
   border: var(--sre-hairline);
-  border-radius: var(--sre-radius-md, 12px);
+  border-radius: var(--sre-radius-md, 8px);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .ds-card:hover {
-  transform: translateY(-2px);
   border-color: var(--sre-primary);
 }
 

@@ -536,18 +536,16 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
 <style scoped>
 /* ============================================================
-   App Shell
+   App Shell — v3.0 Modern Dark
    ============================================================ */
 .app-shell { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
 /* ===== Top Bar ===== */
 .topbar {
   display:flex; align-items:center; justify-content:space-between;
-  height:52px; padding:0 16px; flex-shrink:0;
-  background:var(--sre-glass-bg);
-  backdrop-filter:saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
-  -webkit-backdrop-filter:saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
-  border-bottom:1px solid var(--sre-glass-border);
+  height:var(--sre-topbar-h); padding:0 16px; flex-shrink:0;
+  background:var(--sre-bg-base);
+  border-bottom:1px solid var(--sre-border);
   z-index:var(--sre-z-sticky);
 }
 
@@ -560,11 +558,11 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   transition:opacity var(--sre-duration-fast) var(--sre-ease-out);
 }
 .topbar-logo:hover { opacity:0.8; }
-.logo-img { width:26px; height:26px; border-radius:6px; filter:drop-shadow(0 4px 12px rgba(16,185,129,0.45)); }
+.logo-img { width:24px; height:24px; border-radius:var(--sre-radius-sm); }
 .logo-label { font-size:15px; font-weight:600; color:var(--sre-text-primary); letter-spacing:-0.01em; white-space:nowrap; }
 
 .topbar-sep {
-  width:1px; height:22px; background:var(--sre-border); margin:0 12px; opacity:0.6;
+  width:1px; height:20px; background:var(--sre-border); margin:0 12px; opacity:0.6;
 }
 
 /* Top Tabs */
@@ -572,7 +570,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
 .topbar-tab {
   display:inline-flex; align-items:center; gap:7px;
-  padding:7px 14px; border:none; border-radius:var(--sre-radius-md);
+  padding:6px 14px; border:none; border-radius:var(--sre-radius-md);
   background:transparent; color:var(--sre-text-secondary);
   font-size:13px; font-weight:500; font-family:var(--sre-font-sans);
   cursor:pointer; white-space:nowrap; user-select:none;
@@ -584,9 +582,8 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   background:var(--sre-primary-soft);
   color:var(--sre-primary);
   font-weight:600;
-  box-shadow:0 0 0 1px rgba(16,185,129,0.20), 0 4px 12px -2px rgba(16,185,129,0.15);
 }
-.topbar-tab:active { transform:scale(0.97); transition-duration:80ms; }
+.topbar-tab:active { transition-duration:80ms; }
 
 /* Topbar utility buttons */
 .topbar-btn {
@@ -602,7 +599,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
 .topbar-clock {
   border:1px solid var(--sre-border); border-radius:var(--sre-radius-pill);
-  padding:5px 11px; gap:6px; background:var(--sre-bg-sunken);
+  padding:5px 11px; gap:6px; background:var(--sre-bg-card);
 }
 .topbar-clock:hover, .topbar-clock.active {
   background:var(--sre-primary-soft); border-color:var(--sre-primary-ring);
@@ -615,7 +612,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
 /* ===== Timezone Panel ===== */
 .tz-panel { min-width:220px; padding:4px 0; }
-.tz-panel-title { display:flex; align-items:center; gap:8px; padding:8px 16px 6px; font-size:11px; font-weight:600; color:var(--sre-text-tertiary); letter-spacing:0.08em; text-transform:uppercase; border-bottom:1px solid var(--sre-border); margin-bottom:4px; }
+.tz-panel-title { display:flex; align-items:center; gap:8px; padding:8px 16px 6px; font-size:11px; font-weight:600; color:var(--sre-text-tertiary); letter-spacing:0.06em; text-transform:uppercase; border-bottom:1px solid var(--sre-border); margin-bottom:4px; }
 .tz-item { display:flex; align-items:center; gap:8px; padding:7px 16px; cursor:pointer; font-size:13px; color:var(--sre-text-primary); transition:background var(--sre-duration-fast) var(--sre-ease-out); margin:0 4px; border-radius:6px; }
 .tz-item:hover { background:var(--sre-bg-hover); }
 .tz-item.selected { color:var(--sre-primary); background:var(--sre-primary-soft); }
@@ -628,11 +625,9 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
 /* ===== Sidebar ===== */
 .sidebar {
-  width:232px; flex-shrink:0; display:flex; flex-direction:column;
-  background:var(--sre-glass-bg);
-  backdrop-filter:saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
-  -webkit-backdrop-filter:saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
-  border-right:1px solid var(--sre-glass-border);
+  width:220px; flex-shrink:0; display:flex; flex-direction:column;
+  background:var(--sre-bg-base);
+  border-right:1px solid var(--sre-border);
   transition:width 280ms var(--sre-ease-spring);
   overflow:hidden; position:relative;
 }
@@ -644,7 +639,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 .sidebar-section-label {
   display:flex; align-items:center; gap:8px;
   padding:10px 12px 4px;
-  font-size:10px; font-weight:700; letter-spacing:0.08em;
+  font-size:10px; font-weight:700; letter-spacing:0.06em;
   text-transform:uppercase; color:var(--sre-text-tertiary);
   white-space:nowrap; overflow:hidden;
 }
@@ -661,7 +656,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 }
 :deep(.n-menu .n-menu-item-content--selected::before) {
   content:''; position:absolute; left:2px; top:7px; bottom:7px;
-  width:3px; border-radius:0 3px 3px 0; background:var(--sre-gradient-brand);
+  width:3px; border-radius:0 3px 3px 0; background:var(--sre-primary);
 }
 
 .sidebar-spacer { flex:1; }
@@ -669,7 +664,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 /* User area */
 .sidebar-bottom {
   display:flex; flex-direction:column; gap:6px; padding:8px;
-  border-top:1px solid var(--sre-glass-border); z-index:1;
+  border-top:1px solid var(--sre-border); z-index:1;
 }
 
 .sidebar-user {
@@ -677,7 +672,8 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   padding:8px 10px; border-radius:var(--sre-radius-md);
   cursor:pointer; user-select:none;
   border:1px solid transparent;
-  transition:all var(--sre-duration-fast) var(--sre-ease-out);
+  transition:background var(--sre-duration-fast) var(--sre-ease-out),
+              border-color var(--sre-duration-fast) var(--sre-ease-out);
 }
 .sidebar-user:hover {
   background:var(--sre-bg-hover);
@@ -686,12 +682,11 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 .sidebar-user.collapsed { justify-content:center; padding:8px; }
 
 .user-avatar {
-  width:30px; height:30px; border-radius:50%;
-  background:var(--sre-gradient-brand); color:#fff;
+  width:28px; height:28px; border-radius:50%;
+  background:var(--sre-primary-soft); color:var(--sre-primary);
   font-size:12px; font-weight:700;
   display:flex; align-items:center; justify-content:center;
   flex-shrink:0; overflow:hidden;
-  box-shadow:0 2px 8px -2px rgba(16,185,129,0.40), inset 0 1px 0 rgba(255,255,255,0.2);
 }
 .user-avatar.avatar-emoji { font-size:16px; font-weight:400; background:transparent; box-shadow:inset 0 0 0 1px var(--sre-border); }
 .user-avatar.avatar-img { background:transparent; box-shadow:inset 0 0 0 1px var(--sre-border); }
@@ -708,7 +703,8 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
   background:transparent; color:var(--sre-text-tertiary);
   font-size:11px; font-weight:500; font-family:var(--sre-font-sans);
   cursor:pointer; white-space:nowrap; overflow:hidden;
-  transition:all var(--sre-duration-fast) var(--sre-ease-out);
+  transition:background var(--sre-duration-fast) var(--sre-ease-out),
+              color var(--sre-duration-fast) var(--sre-ease-out);
 }
 .sidebar-collapse.collapsed { justify-content:center; }
 .sidebar-collapse:hover { background:var(--sre-primary-soft); color:var(--sre-primary); }
@@ -720,11 +716,9 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 
 .main-header {
   display:flex; align-items:center; justify-content:space-between;
-  padding:14px 24px; flex-shrink:0;
-  border-bottom:1px solid var(--sre-glass-border);
-  background:var(--sre-glass-bg);
-  backdrop-filter:saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
-  -webkit-backdrop-filter:saturate(var(--sre-glass-saturate)) blur(var(--sre-glass-blur));
+  padding:14px 20px; flex-shrink:0;
+  border-bottom:1px solid var(--sre-border);
+  background:var(--sre-bg-base);
 }
 .main-title {
   font-size:18px; font-weight:600; color:var(--sre-text-primary);
@@ -732,7 +726,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 }
 .main-actions { display:flex; align-items:center; gap:8px; }
 
-.main-content { flex:1; overflow-y:auto; padding:24px; }
+.main-content { flex:1; overflow-y:auto; padding:20px; }
 
 /* ===== Transitions ===== */
 .fade-enter-active, .fade-leave-active { transition:opacity 0.2s; }
@@ -744,8 +738,8 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
 .avatar-preview-img { width:100%; height:100%; object-fit:cover; }
 .avatar-actions { flex:1; min-width:0; display:flex; flex-direction:column; gap:10px; }
 .avatar-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(32px, 1fr)); gap:6px; max-height:120px; overflow-y:auto; padding:2px; }
-.avatar-option { width:32px; height:32px; border-radius:8px; font-size:17px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid transparent; transition:border-color 0.2s, background 0.2s, transform 0.15s; background:var(--sre-bg-subtle); }
-.avatar-option:hover { background:var(--sre-bg-hover); transform:translateY(-1px); }
+.avatar-option { width:32px; height:32px; border-radius:8px; font-size:17px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid transparent; transition:border-color 0.2s, background 0.2s; background:var(--sre-bg-subtle); }
+.avatar-option:hover { background:var(--sre-bg-hover); }
 .avatar-option.selected { border-color:var(--sre-primary); background:var(--sre-primary-soft); }
 .avatar-upload-row { display:flex; align-items:center; gap:8px; }
 .modal-footer { display:flex; justify-content:flex-end; padding-top:16px; margin-top:4px; border-top:1px solid var(--sre-border); }

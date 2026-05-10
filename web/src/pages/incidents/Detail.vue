@@ -883,7 +883,7 @@ onMounted(async () => {
 }
 .pm-editor {
   height: 520px;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 .pm-empty { padding: 60px 0; text-align: center; }
 .pm-empty-text { color: var(--sre-text-secondary); margin-bottom: 16px; font-size: 13px; }
@@ -956,8 +956,8 @@ onMounted(async () => {
   animation: sre-fadein 200ms ease-out;
 }
 @keyframes sre-fadein {
-  from { opacity: 0; transform: translateY(2px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (max-width: 980px) {

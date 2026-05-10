@@ -219,27 +219,6 @@ watch([() => form.value.username, () => form.value.password], () => {
   background: var(--sre-bg-page);
   overflow: hidden;
 }
-.login-brand::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--sre-noise-url);
-  opacity: 0.025;
-  pointer-events: none;
-  mix-blend-mode: overlay;
-}
-.login-brand::after {
-  content: '';
-  position: absolute;
-  bottom: -22%;
-  left: -12%;
-  width: 640px;
-  height: 640px;
-  background: radial-gradient(circle, var(--sre-aurora-1) 0%, transparent 70%);
-  opacity: 0.10;
-  pointer-events: none;
-  filter: blur(40px);
-}
 
 .brand-eyebrow {
   display: inline-flex;

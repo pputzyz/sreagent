@@ -4,6 +4,54 @@
 
 ---
 
+## [v3.0.0] — 2026-05-10
+
+### Changed — 全面 UI 重构：Modern Dark 设计系统 (Linear/Vercel/Raycast 风格)
+
+**设计系统重写 (global.css)：**
+- 背景色从 `#070912`/`#090D1A` 改为纯黑 `#09090B`/`#0A0A0B`
+- 卡片色从毛玻璃半透明改为实色 `#141416`
+- 品牌主色从 emerald `#10b981` 改为 `#22C55E` (green-500)
+- 强调色从 violet `#8b5cf6` 改为 `#6366F1` (indigo-500)
+- 文字色：主 `#EDEDEF`、次 `#A0A0AB`、三 `#63636E`
+- 圆角全面缩小：lg `16px→10px`、md `12px→8px`、sm `8px→6px`、xs `6px→4px`
+- 阴影简化为单层，移除 `inset` 高光
+- 移除 aurora 渐变、conic 边框、noise 纹理等装饰性 CSS 变量
+- 字体改为 Inter + JetBrains Mono（本地安装优先，系统字体回退）
+
+**主题覆盖 (App.vue)：**
+- Naive UI `darkOverrides` / `lightOverrides` 全面对齐新色板
+- 移除 `AuroraBackground` 组件引用
+- 新增 Tooltip 主题覆盖
+
+**布局重构 (MainLayout.vue)：**
+- TopBar 高度 56px → 48px
+- Sidebar 宽度 232px → 220px
+- 内容区 padding 24px → 20px
+- 移除所有 `backdrop-filter` / `blur` 毛玻璃效果
+- 用户头像简化（移除 gradient box-shadow）
+
+**页面级样式对齐（8 个并行 Agent）：**
+- alerts-v2/Index.vue + Detail.vue：圆角值改为设计令牌引用
+- channels/Index.vue + DispatchConfig.vue + NoiseConfig.vue：圆角 + 移除 translateY
+- incidents/Index.vue + Detail.vue：圆角 + 移除 translateX
+- datasources/Index.vue：移除 translateY 悬浮效果
+- explore/Index.vue：圆角 12px → 8px
+- schedule/Index.vue：圆角 + 移除 translateY
+- settings/Index.vue + TeamManagement.vue：移除 translateY 动画
+- Login.vue：移除 noise-overlay 和 aurora blur 伪元素
+- CommandPalette.vue：移除毛玻璃，改为实色卡片背景
+
+**ECharts 图表主题 (QueryResultChart.vue)：**
+- 新增 `chartTheme` 计算属性，通过 CSS 变量自动适配深色/浅色主题
+- 硬编码颜色 `#999`/`#666`/`#eee` 改为设计令牌引用
+
+**浅色模式 (global.css body.light-theme)：**
+- 背景改为 `#FAFAFA`/`#FFFFFF`，文字 `#18181B`/`#52525B`
+- 阴影适配浅色背景
+
+---
+
 ## [v2.8.2] — 2026-05-10
 
 ### Fixed — 安全修复 + Bug 修复 + 前端 i18n 全面完善

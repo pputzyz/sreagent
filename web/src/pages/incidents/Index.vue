@@ -373,7 +373,7 @@ onMounted(loadIncidents)
   padding: 10px 14px;
   background: var(--sre-bg-card);
   border: var(--sre-hairline);
-  border-radius: 10px;
+  border-radius: 8px;
   margin-bottom: 16px;
 }
 .filter-group {
@@ -429,7 +429,7 @@ onMounted(loadIncidents)
   align-items: center;
   background: var(--sre-bg-card);
   border: var(--sre-hairline);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 14px 18px 14px 22px;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
@@ -441,7 +441,6 @@ onMounted(loadIncidents)
 }
 .incident-row:hover .chevron {
   opacity: 1;
-  transform: translateX(2px);
 }
 .incident-row.is-closed { opacity: 0.72; }
 

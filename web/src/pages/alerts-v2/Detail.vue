@@ -360,7 +360,7 @@ function refreshAll() {
   font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   font-size: 12px;
   background: var(--sre-bg-elevated);
-  border-radius: 4px;
+  border-radius: var(--sre-radius-xs);
   padding: 2px 6px;
   color: var(--sre-text-secondary);
 }
@@ -381,7 +381,7 @@ function refreshAll() {
 .ov-desc {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-hairline, var(--sre-border));
-  border-radius: 8px;
+  border-radius: var(--sre-radius-sm);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -413,7 +413,7 @@ function refreshAll() {
   font-size: 11px;
   background: var(--sre-bg-elevated);
   border: 1px solid var(--sre-hairline, var(--sre-border));
-  border-radius: 4px;
+  border-radius: var(--sre-radius-xs);
   padding: 2px 6px;
 }
 .lc-k { color: var(--sre-text-tertiary); }
@@ -428,7 +428,7 @@ function refreshAll() {
 .sg-item {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-hairline, var(--sre-border));
-  border-radius: 8px;
+  border-radius: var(--sre-radius-sm);
   padding: 10px 12px;
 }
 .sg-label {
@@ -453,7 +453,7 @@ function refreshAll() {
   padding: 8px 12px;
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-hairline, var(--sre-border));
-  border-radius: 6px;
+  border-radius: var(--sre-radius-sm);
   font-size: 12px;
 }
 .event-row[data-status="resolved"] { opacity: 0.7; }
@@ -469,7 +469,7 @@ function refreshAll() {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--sre-radius-xs);
 }
 .ev-status[data-status="firing"] {
   color: var(--sre-critical);
@@ -501,7 +501,7 @@ function refreshAll() {
 .side-card {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-hairline, var(--sre-border));
-  border-radius: 10px;
+  border-radius: var(--sre-radius-lg);
   padding: 16px;
 }
 .side-card .sre-label-eyebrow { margin-bottom: 12px; }
@@ -554,7 +554,7 @@ function refreshAll() {
   gap: 2px;
   padding: 6px 8px;
   background: var(--sre-bg-elevated);
-  border-radius: 4px;
+  border-radius: var(--sre-radius-xs);
   font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   font-size: 11px;
 }

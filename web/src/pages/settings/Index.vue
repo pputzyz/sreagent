@@ -317,11 +317,9 @@ const teamsUsersList = computed(() => userMgmtRef.value?.usersList ?? [])
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(2px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 

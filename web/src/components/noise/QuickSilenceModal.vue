@@ -219,7 +219,7 @@ async function create() {
 
 .label-item.selected {
   border-color: var(--sre-primary);
-  background: rgba(24, 160, 88, 0.04);
+  background: rgba(34, 197, 94, 0.04);
 }
 
 .label-key  { color: var(--sre-primary); font-weight: 600; }

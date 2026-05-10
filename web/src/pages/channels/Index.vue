@@ -413,7 +413,7 @@ onMounted(loadChannels)
   padding: 12px 14px;
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
-  border-radius: 12px;
+  border-radius: 8px;
 }
 .filter-search { width: 280px; flex: 0 0 auto; }
 .filter-sort { width: 160px; }
@@ -430,7 +430,7 @@ onMounted(loadChannels)
   position: relative;
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px 18px 14px calc(var(--sre-stripe-w) + 16px);
   cursor: pointer;
   overflow: hidden;
@@ -440,7 +440,6 @@ onMounted(loadChannels)
   min-height: 188px;
 }
 .channel-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--sre-shadow-md);
   border-color: var(--sre-primary);
 }
@@ -465,7 +464,7 @@ onMounted(loadChannels)
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--sre-text-tertiary);
   cursor: pointer;

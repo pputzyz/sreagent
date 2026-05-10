@@ -414,7 +414,7 @@ onMounted(load)
   padding: 12px 14px;
   background: var(--sre-bg-page);
   border: 1px solid var(--sre-border);
-  border-radius: 10px;
+  border-radius: 8px;
   gap: 12px;
 }
 

@@ -402,7 +402,6 @@ onMounted(fetchTeams)
   min-height: 168px;
 }
 .team-card:hover {
-  transform: translateY(-2px);
   border-color: var(--sre-primary);
 }
 .team-card-head {
