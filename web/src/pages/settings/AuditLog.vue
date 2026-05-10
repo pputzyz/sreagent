@@ -138,18 +138,18 @@ onMounted(fetchLogs)
     <header class="page-header">
       <div>
         <h2 class="page-title">{{ t('settings.auditLog') || 'Audit Log' }}</h2>
-        <p class="page-subtitle">Track all configuration changes and user actions</p>
+        <p class="page-subtitle">{{ t('settings.auditSubtitle') }}</p>
       </div>
     </header>
 
     <div class="filter-bar">
       <div class="filter-row">
-        <span class="sre-label-eyebrow">TIME</span>
+        <span class="sre-label-eyebrow">{{ t('settings.auditTimeLabel') }}</span>
         <NRadioGroup v-model:value="rangePreset" size="small" @update:value="reset">
-          <NRadioButton value="today">Today</NRadioButton>
-          <NRadioButton value="7d">7d</NRadioButton>
-          <NRadioButton value="30d">30d</NRadioButton>
-          <NRadioButton value="custom">Custom</NRadioButton>
+          <NRadioButton value="today">{{ t('settings.auditToday') }}</NRadioButton>
+          <NRadioButton value="7d">{{ t('settings.audit7d') }}</NRadioButton>
+          <NRadioButton value="30d">{{ t('settings.audit30d') }}</NRadioButton>
+          <NRadioButton value="custom">{{ t('common.custom') }}</NRadioButton>
         </NRadioGroup>
         <NDatePicker
           v-if="rangePreset === 'custom'"
@@ -166,7 +166,7 @@ onMounted(fetchLogs)
         <NSelect
           v-model:value="filterAction"
           :options="actionOptions"
-          placeholder="Action"
+          :placeholder="t('settings.auditAction')"
           clearable
           size="small"
           class="filter-select-sm"
@@ -175,7 +175,7 @@ onMounted(fetchLogs)
         <NSelect
           v-model:value="filterResourceType"
           :options="resourceOptions"
-          placeholder="Resource"
+          :placeholder="t('settings.auditResource')"
           clearable
           size="small"
           class="filter-select-md"
@@ -184,7 +184,7 @@ onMounted(fetchLogs)
         <NSelect
           v-model:value="filterUser"
           :options="userOptions"
-          placeholder="User"
+          :placeholder="t('settings.auditUser')"
           clearable
           filterable
           size="small"
@@ -193,7 +193,7 @@ onMounted(fetchLogs)
         />
         <NInput
           v-model:value="search"
-          placeholder="Search detail / resource"
+          :placeholder="t('settings.auditSearchPlaceholder')"
           size="small"
           clearable
           class="filter-search"
@@ -216,7 +216,7 @@ onMounted(fetchLogs)
           v-else-if="!logs.length"
           :icon="ListOutline"
           :title="t('settings.auditLog') || 'Audit Log'"
-          description="No audit records in this range"
+          :description="t('settings.auditNoRecordsInRange')"
         />
         <div v-else class="audit-list sre-stagger">
           <div
@@ -230,7 +230,7 @@ onMounted(fetchLogs)
             <div class="audit-main">
               <div class="audit-headline">
                 <span class="audit-time tnum">{{ formatTime(log.created_at) }}</span>
-                <span class="audit-actor">{{ log.username || 'System' }}</span>
+                <span class="audit-actor">{{ log.username || t('settings.auditSystem') }}</span>
                 <span class="audit-action-chip" :data-action="actionTone(log.action)">
                   {{ (log.action || '').toUpperCase() }}
                 </span>
@@ -240,7 +240,7 @@ onMounted(fetchLogs)
                 <span
                   v-if="log.status && log.status !== 'success'"
                   class="audit-status-fail"
-                >failed</span>
+                >{{ t('settings.auditFailed') }}</span>
               </div>
               <div v-if="log.detail" class="audit-detail">{{ log.detail }}</div>
               <div v-if="log.ip" class="audit-meta">

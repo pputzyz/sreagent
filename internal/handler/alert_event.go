@@ -143,7 +143,10 @@ func (h *AlertEventHandler) Resolve(c *gin.Context) {
 	var req struct {
 		Resolution string `json:"resolution"`
 	}
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
 
 	userID := GetCurrentUserID(c)
 	if err := h.svc.Resolve(c.Request.Context(), id, userID, req.Resolution); err != nil {
@@ -172,7 +175,10 @@ func (h *AlertEventHandler) Close(c *gin.Context) {
 	var req struct {
 		Note string `json:"note"`
 	}
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
 
 	userID := GetCurrentUserID(c)
 	if err := h.svc.Close(c.Request.Context(), id, userID, req.Note); err != nil {

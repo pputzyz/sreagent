@@ -21,3 +21,31 @@ func DispatchModels() []interface{} {
 		&UserNotifyConfig{},
 	}
 }
+
+// V2Models returns all v2 feature models. These are primarily managed by SQL
+// migrations (000019–000033), but listing them here ensures AutoMigrate can
+// create them as a safety net when migrations haven't been run yet.
+func V2Models() []interface{} {
+	return []interface{}{
+		// Alerts v2
+		&Alert{},
+		&AlertEventV2{},
+		// Channels (collaboration spaces)
+		&Channel{},
+		&ChannelExclusionRule{},
+		&ChannelStar{},
+		// Incidents
+		&Incident{},
+		&IncidentAssignee{},
+		&IncidentTimeline{},
+		&PostMortem{},
+		// Integrations
+		&Integration{},
+		&RoutingRule{},
+		// Dispatch
+		&DispatchPolicy{},
+		&DispatchLog{},
+		// Alert rule templates
+		&AlertRuleTemplate{},
+	}
+}

@@ -4,6 +4,48 @@
 
 ---
 
+## [v2.8.2] — 2026-05-10
+
+### Fixed — 安全修复 + Bug 修复 + 前端 i18n 全面完善
+
+**安全修复：**
+- 修复 avatar 切片越界 panic（`auth.go:83`），当 avatar 长度 < 5 时会崩溃
+- 默认管理员密码改为从 `SREAGENT_ADMIN_PASSWORD` 环境变量读取，不再硬编码 `admin123`
+- 虚拟用户密码改用 `crypto/rand` 生成随机值，替代可预测的 `virtual-{username}-{len}` 格式
+- logger 构建错误不再静默忽略，失败时使用 fallback logger
+- post_mortem handler `formatStep` 修复死代码，使用 `fmt.Sprintf` 正确格式化
+- `handler.go` 新增 `GetCurrentUserIDOK` comma-ok 断言方法，支持 401 响应
+
+**Bug 修复：**
+- 修复心跳检查器使用字符串比较 `err.Error() != "record not found"` 代替 `errors.Is(err, gorm.ErrRecordNotFound)`
+- 修复 Resolve/Close handler 静默忽略 `ShouldBindJSON` 错误，改为正确返回 400 响应
+- V2 模型注册到 AutoMigrate（`model.V2Models()`），确保 Alert/Channel/Incident 等表自动迁移
+- AlertRule severity 枚举文档化：critical/warning/info 为主，p0-p4 标记为 Legacy
+
+**前端 i18n — 全面国际化：**
+- alerts-v2/Index.vue + Detail.vue：所有硬编码文本替换为 i18n 键（30+ 处）
+- Login.vue：品牌标语、功能特性、欢迎语等 8 处替换为 `auth.brand.*` 键
+- MainLayout.vue：语言选项、角色文本替换为 i18n 键
+- notification/Rules.vue + Subscribe.vue + Media.vue：严重等级、表单标签、占位符等替换为 i18n 键
+- settings/AuditLog.vue + OIDCConfig.vue + AIConfig.vue：筛选条件、配置项标签等 37 处替换为 i18n 键
+- components/RuleFormModal.vue + QuickSilenceModal.vue + QueryResultChart.vue：表单标签、按钮文本等替换为 i18n 键
+- 新增 `severity.*` 顶层 i18n 命名空间（critical/warning/info/p0-p4），供严重等级标签统一使用
+- 新增 `notifyRule.repeatDisplay` / `namePlaceholder` / `invalidJson` 等键
+- 新增 `subscribe.namePlaceholder` 等键
+- 新增 `settings.auditTimeToday` / `oidcIssuerRequired` / `aiSectionProvider` 等 30+ 键
+
+**前端改进：**
+- SecurityConfig 组件在设置页导航中注册，用户可访问安全配置
+- 抽取 `relTime()` 到 `utils/format.ts`，alerts-v2/Index.vue 和 dashboard-v2/Index.vue 复用
+- DispatchConfig.vue NTag `size="tiny"` 修正为 `size="small"`（Naive UI 有效值）
+- 严重等级标签颜色统一使用 CSS 变量（`--sre-critical-soft` 等），从全局 `.sev-chip` 类派生
+- 路由权限守卫：`/schedule`、`/integrations` 限 admin+team_lead，`/channels` 限 admin+team_lead+member
+
+**文档更新：**
+- `docs/api.md` 从 87 个端点扩充至 164 个，覆盖所有 v2 模块
+
+---
+
 ## [v2.8.1] — 2026-05-10
 
 ### Changed — 仪表盘 UI 升级: 高级 KPI 卡片 + 玻璃-粘土图表容器

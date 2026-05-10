@@ -30,14 +30,14 @@ const eventsLoading = ref(false)
 const activeTab = ref('overview')
 const showQuickSilence = ref(false)
 
-const SEVERITY_LABEL: Record<string, string> = {
-  critical: 'Critical', warning: 'Warning', info: 'Info',
+const SEVERITY_LABEL = computed(() => ({
+  critical: t('alert.critical'), warning: t('alert.warning'), info: t('alert.info'),
   p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3', p4: 'P4',
-}
+}))
 
 function severityLabel(s?: string) {
   if (!s) return ''
-  return SEVERITY_LABEL[s] ?? s.toUpperCase()
+  return SEVERITY_LABEL.value[s] ?? s.toUpperCase()
 }
 
 async function loadAlert() {
@@ -104,7 +104,7 @@ function refreshAll() {
             @click="showQuickSilence = true"
           >
             <template #icon><n-icon :component="VolumeOffOutline" /></template>
-            快速静默
+            {{ t('incident.quickSilence') }}
           </n-button>
           <n-button circle quaternary size="small" @click="refreshAll">
             <template #icon><n-icon :component="RefreshOutline" /></template>
@@ -139,9 +139,9 @@ function refreshAll() {
           <n-tabs v-model:value="activeTab" type="line" animated>
 
             <!-- Overview -->
-            <n-tab-pane name="overview" tab="Overview">
+            <n-tab-pane name="overview" :tab="t('common.overview')">
               <div class="ov-section" v-if="annotationEntries.length">
-                <div class="sre-label-eyebrow">Description</div>
+                <div class="sre-label-eyebrow">{{ t('common.description') }}</div>
                 <div class="ov-desc">
                   <div
                     v-for="[k, v] in annotationEntries"
@@ -155,7 +155,7 @@ function refreshAll() {
               </div>
 
               <div class="ov-section" v-if="labelEntries.length">
-                <div class="sre-label-eyebrow">Labels</div>
+                <div class="sre-label-eyebrow">{{ t('common.labels') }}</div>
                 <div class="chip-row">
                   <span
                     v-for="[k, v] in labelEntries"
@@ -166,22 +166,22 @@ function refreshAll() {
               </div>
 
               <div class="ov-section">
-                <div class="sre-label-eyebrow">Fire Summary</div>
+                <div class="sre-label-eyebrow">{{ t('alertV2.fireSummary') }}</div>
                 <div class="summary-grid">
                   <div class="sg-item">
-                    <div class="sg-label">Fire count</div>
+                    <div class="sg-label">{{ t('alertV2.fireCount') }}</div>
                     <div class="sg-value tnum">{{ alert.fire_count }}</div>
                   </div>
                   <div class="sg-item">
-                    <div class="sg-label">Event count</div>
+                    <div class="sg-label">{{ t('alertV2.eventCount') }}</div>
                     <div class="sg-value tnum">{{ alert.event_count }}</div>
                   </div>
                   <div class="sg-item">
-                    <div class="sg-label">First fired</div>
+                    <div class="sg-label">{{ t('alertV2.firstFiredAt') }}</div>
                     <div class="sg-value tnum">{{ formatTime(alert.first_fired_at) }}</div>
                   </div>
                   <div class="sg-item">
-                    <div class="sg-label">Last fired</div>
+                    <div class="sg-label">{{ t('alertV2.lastFiredAt') }}</div>
                     <div class="sg-value tnum">{{ formatTime(alert.last_fired_at) }}</div>
                   </div>
                 </div>
@@ -191,7 +191,7 @@ function refreshAll() {
             <!-- Events -->
             <n-tab-pane name="events" :tab="t('alertV2.events') || 'Events'">
               <n-spin :show="eventsLoading">
-                <div v-if="!events.length" class="ev-empty">No events</div>
+                <div v-if="!events.length" class="ev-empty">{{ t('alertV2.noEvents') }}</div>
                 <div v-else class="event-list">
                   <div
                     v-for="ev in events"
@@ -225,45 +225,45 @@ function refreshAll() {
         <!-- RIGHT: sidebar -->
         <aside class="detail-sidebar">
           <section class="side-card">
-            <div class="sre-label-eyebrow">Key info</div>
+            <div class="sre-label-eyebrow">{{ t('alertV2.keyInfo') }}</div>
             <dl class="kv-list">
               <div class="kv-item">
-                <dt>Severity</dt>
+                <dt>{{ t('incident.severity') }}</dt>
                 <dd>
                   <span class="sre-dot" :data-severity="alert.severity"></span>
                   {{ severityLabel(alert.severity) }}
                 </dd>
               </div>
               <div class="kv-item">
-                <dt>Status</dt>
+                <dt>{{ t('alertV2.status') }}</dt>
                 <dd>{{ alert.status }}</dd>
               </div>
               <div class="kv-item">
-                <dt>First fired</dt>
+                <dt>{{ t('alertV2.firstFiredAt') }}</dt>
                 <dd class="tnum">{{ formatTime(alert.first_fired_at) }}</dd>
               </div>
               <div class="kv-item">
-                <dt>Last fired</dt>
+                <dt>{{ t('alertV2.lastFiredAt') }}</dt>
                 <dd class="tnum">{{ formatTime(alert.last_fired_at) }}</dd>
               </div>
               <div v-if="alert.resolved_at" class="kv-item">
-                <dt>Resolved</dt>
+                <dt>{{ t('alertV2.resolved') }}</dt>
                 <dd class="tnum">{{ formatTime(alert.resolved_at) }}</dd>
               </div>
               <div class="kv-item">
-                <dt>Event count</dt>
+                <dt>{{ t('alertV2.eventCount') }}</dt>
                 <dd class="tnum">{{ alert.event_count }}</dd>
               </div>
               <div class="kv-item">
-                <dt>Fire count</dt>
+                <dt>{{ t('alertV2.fireCount') }}</dt>
                 <dd class="tnum">{{ alert.fire_count }}</dd>
               </div>
               <div v-if="alert.source" class="kv-item">
-                <dt>Source</dt>
+                <dt>{{ t('common.source') }}</dt>
                 <dd>{{ alert.source }}</dd>
               </div>
               <div v-if="alert.channel" class="kv-item">
-                <dt>Channel</dt>
+                <dt>{{ t('alertV2.channel') }}</dt>
                 <dd>
                   <a class="link" @click="router.push(`/channels/${alert.channel_id}`)">
                     {{ alert.channel.name }}
@@ -271,7 +271,7 @@ function refreshAll() {
                 </dd>
               </div>
               <div v-if="alert.incident" class="kv-item">
-                <dt>Incident</dt>
+                <dt>{{ t('alertV2.linkedIncident') }}</dt>
                 <dd>
                   <a class="link" @click="router.push(`/incidents/${alert.incident_id}`)">
                     #{{ alert.incident_id }}
@@ -279,10 +279,10 @@ function refreshAll() {
                 </dd>
               </div>
               <div v-if="alert.generator_url" class="kv-item">
-                <dt>Generator</dt>
+                <dt>{{ t('alertV2.generator') }}</dt>
                 <dd>
                   <a class="link" :href="alert.generator_url" target="_blank">
-                    Open ↗
+                    {{ t('alertV2.openLink') }}
                   </a>
                 </dd>
               </div>
@@ -290,7 +290,7 @@ function refreshAll() {
           </section>
 
           <section v-if="labelEntries.length" class="side-card">
-            <div class="sre-label-eyebrow">Labels</div>
+            <div class="sre-label-eyebrow">{{ t('common.labels') }}</div>
             <div class="side-labels">
               <div v-for="[k, v] in labelEntries" :key="k" class="side-label-row">
                 <span class="slr-k">{{ k }}</span>

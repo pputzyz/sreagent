@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"unicode"
@@ -122,7 +124,12 @@ func (s *UserService) CreateVirtual(ctx context.Context, user *model.User) error
 	}
 
 	// Generate a random unusable password (virtual users cannot log in)
-	randomPwd := fmt.Sprintf("virtual-%s-%d", user.Username, len(user.Username))
+	pwdBytes := make([]byte, 24)
+	if _, err := rand.Read(pwdBytes); err != nil {
+		s.logger.Error("failed to generate random password for virtual user", zap.Error(err))
+		return apperr.Wrap(apperr.ErrInternal, err)
+	}
+	randomPwd := "virtual-" + base64.RawURLEncoding.EncodeToString(pwdBytes)
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(randomPwd), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("failed to hash password for virtual user", zap.Error(err))

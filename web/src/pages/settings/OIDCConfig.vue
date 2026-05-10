@@ -75,7 +75,7 @@ async function save() {
 
 async function testConnection() {
   if (!form.issuer_url) {
-    message.warning('Issuer URL is required')
+    message.warning(t('settings.oidcIssuerUrlRequired'))
     return
   }
   testing.value = true
@@ -86,7 +86,7 @@ async function testConnection() {
       const ok = !!res?.data?.data?.success
       lastTestResult.value = {
         success: ok,
-        message: res?.data?.data?.message || (ok ? 'Discovery document fetched' : 'Discovery failed'),
+        message: res?.data?.data?.message || (ok ? t('settings.oidcDiscoveryFetched') : t('settings.oidcDiscoveryFailed')),
         time: new Date().toLocaleTimeString(),
       }
     } else {
@@ -94,7 +94,7 @@ async function testConnection() {
       const r = await fetch(url, { method: 'GET' })
       lastTestResult.value = {
         success: r.ok,
-        message: r.ok ? `Discovery OK (${r.status})` : `Discovery failed (${r.status})`,
+        message: r.ok ? `${t('settings.oidcDiscoveryOk')} (${r.status})` : `${t('settings.oidcDiscoveryFailed')} (${r.status})`,
         time: new Date().toLocaleTimeString(),
       }
     }
@@ -116,7 +116,7 @@ onMounted(fetchConfig)
       <header class="sre-config-header">
         <div>
           <h2 class="sre-config-header-title">SSO / OIDC</h2>
-          <p class="sre-config-header-sub">Single sign-on via Keycloak or any OIDC-compliant provider. Changes apply on next login.</p>
+          <p class="sre-config-header-sub">{{ t('settings.oidcSubtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">
           <NButton size="small" :loading="testing" @click="testConnection">
@@ -144,8 +144,8 @@ onMounted(fetchConfig)
 
       <div class="config-sections sre-stagger">
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Provider</h3>
-          <p class="sre-config-section-desc">Issuer discovery URL and OAuth2 client credentials registered with the IdP.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.oidcProviderSection') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.oidcProviderDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.oidcEnabled')" class="full-row">
               <NSwitch v-model:value="form.enabled" />
@@ -169,14 +169,14 @@ onMounted(fetchConfig)
         </section>
 
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Claim Mapping</h3>
-          <p class="sre-config-section-desc">Map ID-token claims to user fields and translate provider roles into SREAgent roles.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.oidcClaimMapping') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.oidcClaimMappingDesc') }}</p>
           <div class="sre-config-form-grid">
-            <NFormItem label="Username Claim">
-              <NInput v-model:value="form.username_claim" placeholder="preferred_username" />
+            <NFormItem :label="t('settings.oidcUsernameClaim')">
+              <NInput v-model:value="form.username_claim" :placeholder="t('settings.oidcUsernameClaimPlaceholder')" />
             </NFormItem>
-            <NFormItem label="Email Claim">
-              <NInput v-model:value="form.email_claim" placeholder="email" />
+            <NFormItem :label="t('settings.oidcEmailClaim')">
+              <NInput v-model:value="form.email_claim" :placeholder="t('settings.oidcEmailClaimPlaceholder')" />
             </NFormItem>
             <NFormItem :label="t('settings.oidcRoleClaim')" class="full-row">
               <NInput v-model:value="form.role_claim" :placeholder="t('settings.oidcRoleClaimPlaceholder')" />
@@ -188,8 +188,8 @@ onMounted(fetchConfig)
         </section>
 
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Behavior</h3>
-          <p class="sre-config-section-desc">Control how unknown users are handled when they authenticate for the first time.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.oidcBehavior') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.oidcBehaviorDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.oidcAutoProvision')">
               <NSwitch v-model:value="form.auto_provision" />

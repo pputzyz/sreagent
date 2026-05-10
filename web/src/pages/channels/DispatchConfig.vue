@@ -224,10 +224,10 @@ onMounted(load)
           <div class="policy-main">
             <div class="policy-header">
               <span class="policy-name">{{ policy.name }}</span>
-              <n-tag :type="policy.is_enabled ? 'success' : 'default'" size="tiny">
+              <n-tag :type="policy.is_enabled ? 'success' : 'default'" size="small">
                 {{ policy.is_enabled ? t('common.enabled') : t('common.disabled') }}
               </n-tag>
-              <n-tag size="tiny" type="info">P{{ policy.priority }}</n-tag>
+              <n-tag size="small" type="info">P{{ policy.priority }}</n-tag>
             </div>
             <div class="policy-meta">
               <span v-if="policy.delay_seconds > 0">{{ t('channel.delaySeconds', { n: policy.delay_seconds }) }}</span>

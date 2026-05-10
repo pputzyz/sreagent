@@ -73,10 +73,10 @@ const methodOptions = [
 
 function getTypeLabel(type: string) {
   const map: Record<string, string> = {
-    lark_webhook: 'Lark',
-    email: 'Email',
-    http: 'HTTP',
-    script: 'Script',
+    lark_webhook: t('media.typeLark'),
+    email: t('media.typeEmail'),
+    http: t('media.typeHttp'),
+    script: t('media.typeScript'),
   }
   return map[type] || type
 }
@@ -195,7 +195,7 @@ function openEdit(row: NotifyMedia) {
 
 async function handleSave() {
   if (!form.name.trim()) { message.warning(t('media.nameRequired')); return }
-  try { JSON.parse(form.variables) } catch { message.warning(t('media.variables') + ': Invalid JSON'); return }
+  try { JSON.parse(form.variables) } catch { message.warning(t('media.variables') + ': ' + t('media.invalidJson')); return }
   saving.value = true
   try {
     const payload = {
@@ -325,7 +325,7 @@ onMounted(fetchData)
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
             <n-form-item :label="t('media.name')" required>
-              <n-input v-model:value="form.name" placeholder="e.g. SRE Lark Group" />
+              <n-input v-model:value="form.name" :placeholder="t('media.namePlaceholder')" />
             </n-form-item>
           </n-gi>
           <n-gi>
@@ -368,7 +368,7 @@ onMounted(fetchData)
             </n-gi>
             <n-gi>
               <n-form-item :label="t('media.password')">
-                <n-input v-model:value="form.password" type="password" show-password-on="click" placeholder="Password" />
+                <n-input v-model:value="form.password" type="password" show-password-on="click" :placeholder="t('media.passwordPlaceholder')" />
               </n-form-item>
             </n-gi>
           </n-grid>
@@ -391,7 +391,7 @@ onMounted(fetchData)
             </n-gi>
           </n-grid>
           <n-form-item :label="t('media.headers')">
-            <KVEditor v-model:modelValue="form.headers" key-placeholder="Header Name" value-placeholder="Header Value" :add-label="t('media.addHeader')" />
+            <KVEditor v-model:modelValue="form.headers" :key-placeholder="t('media.headerName')" :value-placeholder="t('media.headerValue')" :add-label="t('media.addHeader')" />
           </n-form-item>
           <n-form-item :label="t('media.body')">
             <n-input v-model:value="form.body" type="textarea" :rows="4"

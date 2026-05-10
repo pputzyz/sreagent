@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
@@ -26,6 +27,7 @@ const props = withDefaults(defineProps<{
   valueFormat: 'short',
 })
 
+const { t } = useI18n()
 const legendMode = ref<'chart' | 'table'>('chart')
 
 function applyLegendFormat(format: string, labels: Record<string, string>): string {
@@ -57,13 +59,13 @@ function calcStats(values: Array<{ ts: number; value: number }>) {
 }
 
 // Legend table data
-const legendColumns = [
-  { title: 'Series', key: 'name', ellipsis: { tooltip: true } },
-  { title: 'Min', key: 'min', width: 100, align: 'right' as const },
-  { title: 'Max', key: 'max', width: 100, align: 'right' as const },
-  { title: 'Avg', key: 'avg', width: 100, align: 'right' as const },
-  { title: 'Last', key: 'last', width: 100, align: 'right' as const },
-]
+const legendColumns = computed(() => [
+  { title: t('query.series'), key: 'name', ellipsis: { tooltip: true } },
+  { title: t('query.min'), key: 'min', width: 100, align: 'right' as const },
+  { title: t('query.max'), key: 'max', width: 100, align: 'right' as const },
+  { title: t('query.avg'), key: 'avg', width: 100, align: 'right' as const },
+  { title: t('query.last'), key: 'last', width: 100, align: 'right' as const },
+])
 
 const legendData = computed(() => {
   const rows: Array<{ key: string; name: string; min: string; max: string; avg: string; last: string }> = []
@@ -153,8 +155,8 @@ const hasData = computed(() =>
     <div v-if="hasData" class="chart-wrapper">
       <div class="legend-toggle">
         <NTabs v-model:value="legendMode" type="segment" size="small" animated>
-          <NTabPane name="chart" tab="Chart" />
-          <NTabPane name="table" tab="Stats" />
+          <NTabPane name="chart" :tab="t('query.chart')" />
+          <NTabPane name="table" :tab="t('query.stats')" />
         </NTabs>
       </div>
 
@@ -178,7 +180,7 @@ const hasData = computed(() =>
     </div>
 
     <div v-else class="empty-chart" :style="{ height: height + 'px' }">
-      <span>No data to display</span>
+      <span>{{ t('common.noData') }}</span>
     </div>
   </div>
 </template>

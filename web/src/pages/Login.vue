@@ -13,6 +13,7 @@ const route = useRoute()
 const message = useMessage()
 const authStore = useAuthStore()
 const { t, locale } = useI18n()
+const appVersion = __APP_VERSION__
 
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
@@ -101,22 +102,22 @@ watch([() => form.value.username, () => form.value.password], () => {
     <aside class="login-brand">
       <div class="brand-eyebrow">
         <span class="brand-dot" />
-        <span>SREAGENT / MISSION CONTROL</span>
+        <span>{{ t('auth.brand.control') }}</span>
       </div>
       <h1 class="brand-title">SREAGENT</h1>
-      <p class="brand-tagline">Mission control for on-call engineers.</p>
+      <p class="brand-tagline">{{ t('auth.brand.tagline') }}</p>
 
       <ul class="brand-features">
-        <li class="feature-item">4-tier event model with deterministic state machine</li>
-        <li class="feature-item">Smart noise reduction &mdash; mute, suppress, deduplicate</li>
-        <li class="feature-item">AI-assisted post-mortem and root-cause hints</li>
-        <li class="feature-item">OnCall scheduling with handover and escalation</li>
+        <li class="feature-item">{{ t('auth.brand.feature1') }}</li>
+        <li class="feature-item">{{ t('auth.brand.feature2') }}</li>
+        <li class="feature-item">{{ t('auth.brand.feature3') }}</li>
+        <li class="feature-item">{{ t('auth.brand.feature4') }}</li>
       </ul>
 
       <div class="brand-foot">
-        <span class="brand-version">v1.6.0 &middot; build {{ new Date().getFullYear() }}</span>
+        <span class="brand-version">v{{ appVersion }} &middot; build {{ new Date().getFullYear() }}</span>
         <span class="brand-status">
-          <span class="status-pulse" /> all systems nominal
+          <span class="status-pulse" /> {{ t('auth.brand.systemStatus') }}
         </span>
       </div>
     </aside>
@@ -126,7 +127,7 @@ watch([() => form.value.username, () => form.value.password], () => {
       <form class="login-form" @submit.prevent="handleLogin">
         <header class="form-header">
           <h2 class="form-title">{{ t('auth.signIn') }}</h2>
-          <p class="form-subtitle">Welcome back. Pick up where the on-call rotation left off.</p>
+          <p class="form-subtitle">{{ t('auth.welcomeBack') }}</p>
         </header>
 
         <label class="field">
@@ -181,9 +182,7 @@ watch([() => form.value.username, () => form.value.password], () => {
           </n-button>
         </template>
 
-        <p class="form-default-hint">
-          First time? Default credentials <code>admin / admin123</code> &mdash; please change after sign-in.
-        </p>
+        <p class="form-default-hint" v-html="t('auth.defaultHint')" />
       </form>
     </section>
   </div>

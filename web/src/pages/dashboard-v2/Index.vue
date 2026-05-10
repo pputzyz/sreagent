@@ -10,6 +10,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { AddOutline, BarChartOutline, ChevronForwardOutline } from '@vicons/ionicons5'
+import { relTime } from '@/utils/format'
 
 const router = useRouter()
 const message = useMessage()
@@ -24,19 +25,6 @@ const pageSize = ref(20)
 
 const isEmpty = computed(() => firstLoaded.value && !loading.value && list.value.length === 0)
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
-
-function relTime(iso?: string): string {
-  if (!iso) return '—'
-  const diff = Date.now() - new Date(iso).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return t('common.justNow') || 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `${d}d ago`
-  return new Date(iso).toLocaleDateString()
-}
 
 async function fetchList() {
   loading.value = true

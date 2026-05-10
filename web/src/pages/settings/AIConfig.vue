@@ -92,8 +92,8 @@ onMounted(fetchConfig)
     <div class="sre-config-page">
       <header class="sre-config-header">
         <div>
-          <h2 class="sre-config-header-title">AI Configuration</h2>
-          <p class="sre-config-header-sub">Configure language model providers (OpenAI / Azure / Ollama / Custom) for root-cause analysis and alert summarization.</p>
+          <h2 class="sre-config-header-title">{{ t('settings.aiTitle') }}</h2>
+          <p class="sre-config-header-sub">{{ t('settings.aiSubtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">
           <NButton size="small" :loading="testing" @click="testConnection">
@@ -116,8 +116,8 @@ onMounted(fetchConfig)
 
       <div class="config-sections sre-stagger">
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Provider</h3>
-          <p class="sre-config-section-desc">Select the upstream LLM and supply credentials. The base URL is optional for OpenAI defaults.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.aiProviderSection') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.aiProviderDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.aiEnabled')" class="full-row">
               <NSwitch v-model:value="form.enabled" />
@@ -138,17 +138,17 @@ onMounted(fetchConfig)
         </section>
 
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Behavior</h3>
-          <p class="sre-config-section-desc">Tune sampling and the system prompt used as context for every analysis request.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.aiBehavior') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.aiBehaviorDesc') }}</p>
           <div class="sre-config-form-grid">
-            <NFormItem label="Temperature">
+            <NFormItem :label="t('settings.aiTemperature')">
               <NInputNumber v-model:value="form.temperature" :min="0" :max="2" :step="0.1" style="width: 100%" />
             </NFormItem>
-            <NFormItem label="Max Tokens">
+            <NFormItem :label="t('settings.aiMaxTokens')">
               <NInputNumber v-model:value="form.max_tokens" :min="64" :max="32000" :step="64" style="width: 100%" />
             </NFormItem>
-            <NFormItem label="System Prompt" class="full-row">
-              <NInput v-model:value="form.system_prompt" type="textarea" :rows="4" placeholder="You are an expert SRE assistant..." />
+            <NFormItem :label="t('settings.aiSystemPrompt')" class="full-row">
+              <NInput v-model:value="form.system_prompt" type="textarea" :rows="4" :placeholder="t('settings.aiSystemPromptPlaceholder')" />
             </NFormItem>
           </div>
         </section>

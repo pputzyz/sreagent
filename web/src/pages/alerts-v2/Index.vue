@@ -14,6 +14,7 @@ import {
   ChevronForwardOutline,
   ShieldCheckmarkOutline,
 } from '@vicons/ionicons5'
+import { relTime } from '@/utils/format'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -32,26 +33,14 @@ const searchQuery = ref('')
 const firstLoaded = ref(false)
 
 const SEVERITY_LABEL: Record<string, string> = {
-  critical: 'Critical',
-  warning: 'Warning',
-  info: 'Info',
+  critical: t('alert.critical'),
+  warning: t('alert.warning'),
+  info: t('alert.info'),
   p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3', p4: 'P4',
 }
 
 function severityLabel(s: string) {
   return SEVERITY_LABEL[s] ?? s.toUpperCase()
-}
-
-function relTime(ts?: string) {
-  if (!ts) return '—'
-  const diff = Math.max(0, Date.now() - new Date(ts).getTime())
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return t('common.justNow') || 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  return `${d}d ago`
 }
 
 async function loadAlerts() {
@@ -106,8 +95,8 @@ onMounted(() => { loadAlerts(); loadChannels() })
 <template>
   <div class="alertsv2-page">
     <PageHeader
-      title="Alerts"
-      subtitle="Aggregated alert series across all integrations"
+      :title="t('alertV2.title')"
+      :subtitle="t('alertV2.subtitle')"
     >
       <template #actions>
         <n-button circle quaternary @click="loadAlerts">
@@ -118,15 +107,15 @@ onMounted(() => { loadAlerts(); loadChannels() })
 
     <!-- Status segmented -->
     <div class="status-row">
-      <span class="sre-label-eyebrow">Status</span>
+      <span class="sre-label-eyebrow">{{ t('alertV2.status') }}</span>
       <n-radio-group
         v-model:value="statusFilter"
         size="medium"
         @update:value="loadAlerts"
       >
         <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
-        <n-radio-button value="firing">Firing</n-radio-button>
-        <n-radio-button value="resolved">Resolved</n-radio-button>
+        <n-radio-button value="firing">{{ t('alertV2.firing') }}</n-radio-button>
+        <n-radio-button value="resolved">{{ t('alertV2.resolved') }}</n-radio-button>
       </n-radio-group>
     </div>
 
@@ -154,7 +143,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
       <n-select
         v-model:value="channelFilter"
         :options="channelOptions"
-        placeholder="Channel"
+        :placeholder="t('alertV2.channel')"
         clearable
         size="small"
         style="width: 200px"
@@ -168,8 +157,8 @@ onMounted(() => { loadAlerts(); loadChannels() })
       <EmptyState
         v-if="isEmpty"
         :icon="ShieldCheckmarkOutline"
-        title="No active alerts"
-        description="All alert series are currently resolved"
+        :title="t('alertV2.noActiveAlerts')"
+        :description="t('alertV2.noActiveAlertsDesc')"
       />
 
       <div v-else class="alert-list sre-stagger">
@@ -188,22 +177,22 @@ onMounted(() => { loadAlerts(); loadChannels() })
               <span class="ar-title">{{ alert.title }}</span>
             </div>
             <div class="ar-key">
-              <span class="ar-label">alert_key:</span>
+              <span class="ar-label">{{ t('alertV2.alertKey') }}:</span>
               <code class="ar-keyval">{{ alert.alert_key }}</code>
             </div>
             <div class="ar-footer">
               <span class="tnum">{{ alert.event_count }} {{ t('alertV2.events') || 'events' }}</span>
               <span class="sre-meta-divider"></span>
-              <span>{{ alert.status === 'firing' ? 'firing' : 'resolved' }}</span>
+              <span>{{ alert.status === 'firing' ? t('alertV2.firing') : t('alertV2.resolved') }}</span>
               <span class="sre-meta-divider"></span>
               <span>{{ relTime(alert.last_fired_at) }}</span>
               <template v-if="alert.channel">
                 <span class="sre-meta-divider"></span>
-                <span>channel: {{ alert.channel.name }}</span>
+                <span>{{ t('alertV2.channel') }}: {{ alert.channel.name }}</span>
               </template>
               <template v-if="alert.incident_id">
                 <span class="sre-meta-divider"></span>
-                <span>incident #{{ alert.incident_id }}</span>
+                <span>{{ t('alertV2.linkedIncident') }} #{{ alert.incident_id }}</span>
               </template>
             </div>
           </div>

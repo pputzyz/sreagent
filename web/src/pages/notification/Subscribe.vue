@@ -248,7 +248,7 @@ onMounted(() => { fetchData(); fetchRefData() })
           <span v-if="!Object.keys(s.match_labels || {}).length" class="muted">—</span>
           <span class="severities">
             <span v-for="sv in (s.severities || '').split(',').filter(Boolean)" :key="sv"
-              class="sev-chip" :data-sev="severityDot(sv)">{{ sv }}</span>
+              class="sev-chip" :data-sev="severityDot(sv)">{{ t('severity.' + sv) }}</span>
           </span>
         </div>
 
@@ -263,7 +263,7 @@ onMounted(() => { fetchData(); fetchRefData() })
     <n-modal v-model:show="showModal" preset="card" :title="modalTitle" :bordered="false" class="sub-modal">
       <n-form label-placement="top">
         <n-form-item :label="t('subscribe.name')" required>
-          <n-input v-model:value="form.name" placeholder="e.g. My Critical Alert Sub" />
+          <n-input v-model:value="form.name" :placeholder="t('subscribe.namePlaceholder')" />
         </n-form-item>
 
         <n-form-item :label="t('subscribe.description')">
@@ -359,13 +359,7 @@ onMounted(() => { fetchData(); fetchRefData() })
   background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
 }
 .severities { display: inline-flex; gap: 4px; margin-left: 4px; }
-.sev-chip {
-  font: 500 10px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
-  text-transform: uppercase; letter-spacing: .04em;
-}
-.sev-chip[data-sev="critical"] { background: rgba(239,68,68,0.14); color: #fca5a5; }
-.sev-chip[data-sev="warning"]  { background: rgba(245,158,11,0.14); color: #fcd34d; }
-.sev-chip[data-sev="info"]     { background: rgba(56,189,248,0.14); color: #7dd3fc; }
+/* .sev-chip styles are in global.css */
 .muted { color: var(--sre-text-secondary, #666); font-size: 12px; }
 
 .row-l3 { padding-left: 18px; display: flex; gap: 6px; align-items: center; }

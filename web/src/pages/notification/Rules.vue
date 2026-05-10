@@ -105,8 +105,8 @@ function openEdit(row: NotifyRule) {
 
 async function handleSave() {
   if (!form.name.trim()) { message.warning(t('notifyRule.nameRequired')); return }
-  try { JSON.parse(form.pipeline) } catch { message.warning(t('notifyRule.pipeline') + ': Invalid JSON'); return }
-  try { JSON.parse(form.notify_configs) } catch { message.warning(t('notifyRule.notifyConfigs') + ': Invalid JSON'); return }
+  try { JSON.parse(form.pipeline) } catch { message.warning(t('notifyRule.pipeline') + ': ' + t('notifyRule.invalidJson')); return }
+  try { JSON.parse(form.notify_configs) } catch { message.warning(t('notifyRule.notifyConfigs') + ': ' + t('notifyRule.invalidJson')); return }
 
   saving.value = true
   try {
@@ -205,7 +205,7 @@ onMounted(fetchData)
           <span class="row-name">{{ r.name }}</span>
           <div class="severities">
             <span v-for="s in (r.severities || '').split(',').filter(Boolean)" :key="s"
-              class="sev-chip" :data-sev="severityDot(s)">{{ s }}</span>
+              class="sev-chip" :data-sev="severityDot(s)">{{ t('severity.' + s) }}</span>
           </div>
           <div class="row-actions">
             <n-switch :value="r.is_enabled" size="small" @update:value="(v: boolean) => toggleEnabled(r, v)" />
@@ -221,7 +221,7 @@ onMounted(fetchData)
           <span v-for="m in summarizeMedia(r)" :key="m" class="media-chip">{{ m }}</span>
         </div>
         <div class="row-l3">
-          <span class="meta tnum">repeat {{ r.repeat_interval }}s</span>
+          <span class="meta tnum">{{ t('notifyRule.repeatDisplay', { n: r.repeat_interval }) }}</span>
           <span class="sre-meta-divider">·</span>
           <span class="meta" v-if="r.description">{{ r.description }}</span>
         </div>
@@ -233,7 +233,7 @@ onMounted(fetchData)
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
             <n-form-item :label="t('notifyRule.name')" required>
-              <n-input v-model:value="form.name" placeholder="e.g. Critical Alert Notify" />
+              <n-input v-model:value="form.name" :placeholder="t('notifyRule.namePlaceholder')" />
             </n-form-item>
           </n-gi>
           <n-gi>
@@ -276,7 +276,7 @@ onMounted(fetchData)
           </n-gi>
           <n-gi>
             <n-form-item :label="t('notifyRule.callbackUrl')">
-              <n-input v-model:value="form.callback_url" placeholder="https://..." />
+              <n-input v-model:value="form.callback_url" :placeholder="t('notifyRule.callbackUrlPlaceholder')" />
             </n-form-item>
           </n-gi>
         </n-grid>
@@ -318,13 +318,7 @@ onMounted(fetchData)
 .row-name { font: 600 14px/1.3 var(--sre-font-sans), sans-serif; letter-spacing: -0.005em; }
 
 .severities { display: flex; gap: 4px; flex-wrap: wrap; }
-.sev-chip {
-  font: 500 10px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
-  text-transform: uppercase; letter-spacing: .04em;
-}
-.sev-chip[data-sev="critical"] { background: rgba(239,68,68,0.14); color: #fca5a5; }
-.sev-chip[data-sev="warning"]  { background: rgba(245,158,11,0.14); color: #fcd34d; }
-.sev-chip[data-sev="info"]     { background: rgba(56,189,248,0.14); color: #7dd3fc; }
+/* .sev-chip styles are in global.css */
 
 .row-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 

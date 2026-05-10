@@ -99,9 +99,9 @@ const expressionLang = computed(() => {
 
 const expressionPlaceholder = computed(() => {
   const tp = selectedDatasource.value?.type
-  if (tp === 'victorialogs') return 'e.g. error level:error _time:5m'
-  if (tp === 'zabbix') return 'e.g. system.cpu.util[,user]'
-  return 'e.g. avg(rate(cpu_usage_total[5m])) > 0.9'
+  if (tp === 'victorialogs') return t('alert.expressionPlaceholderLog')
+  if (tp === 'zabbix') return t('alert.expressionPlaceholderZabbix')
+  return t('alert.expressionPlaceholderDefault')
 })
 
 // Expression test
@@ -116,7 +116,7 @@ async function handleTestExpression() {
     const { data } = await datasourceApi.query(form.datasource_id, { expression: form.expression })
     queryResult.value = data.data
   } catch (err: any) {
-    message.error(err.message || 'Query failed')
+    message.error(err.message || t('common.failed'))
   } finally { queryTesting.value = false }
 }
 
@@ -177,7 +177,7 @@ async function loadTemplate(tpl: any) {
     category: tpl.category || '',
   })
   showTemplatePicker.value = false
-  message.success(t('alert.templateLoaded') || 'Template loaded')
+  message.success(t('alert.templateLoaded'))
 }
 
 async function saveAsTemplate() {
@@ -195,7 +195,7 @@ async function saveAsTemplate() {
   }
   try {
     await templateApi.create(payload)
-    message.success(t('alert.templateSaved') || 'Template saved')
+    message.success(t('alert.templateSaved'))
   } catch (err: any) {
     message.error(err.message || t('common.saveFailed'))
   }
@@ -256,7 +256,7 @@ async function handleSave() {
   if (!form.name.trim()) { message.warning(t('alert.nameRequired')); return }
   if (!form.expression.trim()) { message.warning(t('alert.expressionRequired')); return }
   if (form.datasource_id == null && !form.datasource_type) {
-    message.warning(t('alert.datasourceRequired') || 'A datasource or datasource type is required')
+    message.warning(t('alert.datasourceRequired'))
     return
   }
 
@@ -305,10 +305,10 @@ async function handleSave() {
   >
     <div v-if="!editingId" class="rfm-template-bar">
       <n-button size="small" secondary @click="openTemplatePicker">
-        {{ t('alert.loadFromTemplate') || 'Load from template' }}
+        {{ t('alert.loadFromTemplate') }}
       </n-button>
       <span v-if="appliedTemplateId" class="rfm-template-applied">
-        {{ t('alert.templateApplied') || 'Template applied' }}
+        {{ t('alert.templateApplied') }}
       </span>
     </div>
 
@@ -316,7 +316,7 @@ async function handleSave() {
     <n-modal
       v-model:show="showTemplatePicker"
       preset="card"
-      :title="t('alert.selectTemplate') || 'Select Template'"
+      :title="t('alert.selectTemplate')"
       class="rfm-tpl-modal"
     >
       <div class="rfm-tpl-search">
@@ -339,8 +339,8 @@ async function handleSave() {
         />
       </div>
       <div class="tpl-list">
-        <div v-if="templateLoading" class="tpl-loading">{{ t('common.loading') || 'Loading...' }}</div>
-        <div v-else-if="templates.length === 0" class="tpl-loading">{{ t('common.noData') || 'No data' }}</div>
+        <div v-if="templateLoading" class="tpl-loading">{{ t('common.loading') }}</div>
+        <div v-else-if="templates.length === 0" class="tpl-loading">{{ t('common.noData') }}</div>
         <div
           v-for="tpl in templates"
           :key="tpl.id"
@@ -372,12 +372,12 @@ async function handleSave() {
       <n-grid :x-gap="12" :cols="2">
         <n-gi>
           <n-form-item :label="t('common.name')" required>
-            <n-input v-model:value="form.name" placeholder="e.g. high_cpu_usage" />
+            <n-input v-model:value="form.name" :placeholder="t('alert.namePlaceholder')" />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item :label="t('alert.displayName')">
-            <n-input v-model:value="form.display_name" placeholder="e.g. High CPU Usage" />
+            <n-input v-model:value="form.display_name" :placeholder="t('alert.displayNamePlaceholder')" />
           </n-form-item>
         </n-gi>
       </n-grid>
@@ -393,11 +393,11 @@ async function handleSave() {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item :label="t('alert.datasourceType') || 'Datasource Type'">
+          <n-form-item :label="t('alert.datasourceType')">
             <n-select
               v-model:value="form.datasource_type"
               :options="datasourceTypeOptions"
-              :placeholder="t('alert.selectDatasourceType') || 'Auto or select type'"
+              :placeholder="t('alert.selectDatasourceType')"
               :disabled="form.datasource_id != null"
               clearable
             />
@@ -408,7 +408,7 @@ async function handleSave() {
       <n-grid :x-gap="12" :cols="2">
         <n-gi>
           <n-form-item :label="t('alert.groupName')">
-            <n-input v-model:value="form.group_name" placeholder="e.g. infrastructure" />
+            <n-input v-model:value="form.group_name" :placeholder="t('alert.groupNamePlaceholder')" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -422,14 +422,14 @@ async function handleSave() {
         <n-gi>
           <n-form-item :label="t('alert.groupWait')">
             <n-input-number v-model:value="form.group_wait_seconds" :min="0" :max="3600" :placeholder="t('alert.groupWaitPlaceholder')" class="rfm-input-full">
-              <template #suffix>{{ t('common.seconds') || 's' }}</template>
+              <template #suffix>{{ t('common.seconds') }}</template>
             </n-input-number>
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item :label="t('alert.groupInterval')">
             <n-input-number v-model:value="form.group_interval_seconds" :min="0" :max="86400" :placeholder="t('alert.groupIntervalPlaceholder')" class="rfm-input-full">
-              <template #suffix>{{ t('common.seconds') || 's' }}</template>
+              <template #suffix>{{ t('common.seconds') }}</template>
             </n-input-number>
           </n-form-item>
         </n-gi>
@@ -483,7 +483,7 @@ async function handleSave() {
       <n-grid :x-gap="12" :cols="2">
         <n-gi>
           <n-form-item :label="t('alert.forDuration')">
-            <n-input v-model:value="form.for_duration" placeholder="e.g. 5m, 10m, 1h" />
+            <n-input v-model:value="form.for_duration" :placeholder="t('alert.forDurationPlaceholder')" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -498,14 +498,14 @@ async function handleSave() {
       </n-form-item>
 
       <n-form-item :label="t('alert.annotations')">
-        <KVEditor v-model:modelValue="form.annotations" :add-label="t('alert.addAnnotation')" key-placeholder="Key (e.g. summary)" />
+        <KVEditor v-model:modelValue="form.annotations" :add-label="t('alert.addAnnotation')" :key-placeholder="t('alert.annotationKeyPlaceholder')" />
       </n-form-item>
     </n-form>
 
     <template #action>
       <div class="rfm-footer">
         <n-button size="small" secondary @click="saveAsTemplate">
-          {{ t('alert.saveAsTemplate') || 'Save as template' }}
+          {{ t('alert.saveAsTemplate') }}
         </n-button>
         <div class="rfm-footer-right">
           <n-button size="small" @click="emit('close')">{{ t('common.cancel') }}</n-button>

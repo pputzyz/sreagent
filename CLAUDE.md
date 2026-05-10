@@ -1,6 +1,6 @@
 # CLAUDE.md — SREAgent
 
-> **v2.8.1** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
+> **v2.8.2** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
 
 ## 代码约定
 
@@ -34,7 +34,7 @@ web/src/                     # Vue 3 前端
 
 ## 环境变量
 
-`SREAGENT_DATABASE_PASSWORD` / `SREAGENT_REDIS_PASSWORD` / `SREAGENT_JWT_SECRET` / `SREAGENT_SECRET_KEY`
+`SREAGENT_DATABASE_PASSWORD` / `SREAGENT_REDIS_PASSWORD` / `SREAGENT_JWT_SECRET` / `SREAGENT_SECRET_KEY` / `SREAGENT_ADMIN_PASSWORD`
 
 ## 开发命令
 

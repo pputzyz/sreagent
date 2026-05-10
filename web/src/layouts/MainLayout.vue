@@ -194,7 +194,10 @@ const pageTitle = computed(() => {
 })
 
 // ===== Language =====
-const langOptions = [{ label: '简体中文', value: 'zh-CN' }, { label: 'English', value: 'en' }]
+const langOptions = computed(() => [
+  { label: t('language.zh'), value: 'zh-CN' },
+  { label: t('language.en'), value: 'en' },
+])
 function handleLangChange(val: string) { locale.value = val; localStorage.setItem('locale', val) }
 
 // ===== User =====
@@ -422,7 +425,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
               <transition name="fade">
                 <div v-if="!collapsed" class="user-meta">
                   <span class="user-name">{{ displayName }}</span>
-                  <span class="user-role">{{ authStore.canManage ? 'Admin' : 'Member' }}</span>
+                  <span class="user-role">{{ authStore.canManage ? t('role.admin') : t('role.member') }}</span>
                 </div>
               </transition>
               <transition name="fade">
@@ -485,7 +488,7 @@ async function toggleNotifyConfig(cfg: UserNotifyConfig, enabled: boolean) {
           <n-form-item :label="t('auth.username')"><n-input :value="authStore.user?.username" disabled /></n-form-item>
           <n-form-item :label="t('settings.displayName')"><n-input v-model:value="profileForm.display_name" /></n-form-item>
           <n-form-item :label="t('settings.email')"><n-input v-model:value="profileForm.email" /></n-form-item>
-          <n-form-item :label="t('settings.phone') || '手机号'"><n-input v-model:value="profileForm.phone" placeholder="+86 138..." /></n-form-item>
+          <n-form-item :label="t('settings.phone')"><n-input v-model:value="profileForm.phone" placeholder="+86 138..." /></n-form-item>
         </n-form>
         <div class="modal-footer"><n-button type="primary" :loading="profileSaving" @click="saveProfile">{{ t('common.save') }}</n-button></div>
       </n-tab-pane>

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/service"
@@ -191,9 +193,7 @@ func buildPostMortemFromAnalysis(title string, a *service.AlertAnalysis) string 
 	}
 	steps := ""
 	for i, s := range a.RecommendedSteps {
-		steps += func() string {
-			return formatStep(i+1, s)
-		}()
+		steps += formatStep(i+1, s)
 	}
 
 	return `## 故障概述
@@ -237,15 +237,5 @@ func buildPostMortemFromAnalysis(title string, a *service.AlertAnalysis) string 
 }
 
 func formatStep(n int, s string) string {
-	return func() string {
-		return formatStepStr(n, s)
-	}()
-}
-
-func formatStepStr(n int, s string) string {
-	var b [4]byte
-	b[0] = byte('0' + n/10)
-	b[1] = byte('0' + n%10)
-	_ = b
-	return "- " + s + "\n"
+	return fmt.Sprintf("%d. %s\n", n, s)
 }

@@ -583,7 +583,13 @@ func initLogger(cfg config.LogConfig) *zap.Logger {
 	}
 	zapCfg.Level.SetLevel(level)
 
-	logger, _ := zapCfg.Build()
+	logger, err := zapCfg.Build()
+	if err != nil {
+		// Fallback to a basic production logger if config is invalid.
+		fallback, _ := zap.NewProduction()
+		fallback.Error("failed to build logger from config, using fallback", zap.Error(err))
+		return fallback
+	}
 	return logger
 }
 
@@ -655,6 +661,10 @@ func autoMigrate(db *gorm.DB) error {
 	// Dashboards (v2 — panel/variable config stored in JSON)
 	models = append(models, &model.Dashboard{})
 
+	// V2 feature models (alerts, channels, incidents, integrations, dispatch, templates)
+	// Primarily managed by SQL migrations, but included here as a safety net.
+	models = append(models, model.V2Models()...)
+
 	return db.AutoMigrate(models...)
 }
 
@@ -665,7 +675,12 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 		return
 	}
 
-	hashedPwd, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	defaultPwd := os.Getenv("SREAGENT_ADMIN_PASSWORD")
+	if defaultPwd == "" {
+		defaultPwd = "admin123"
+		logger.Warn("SREAGENT_ADMIN_PASSWORD not set, using default password — change it immediately after first login")
+	}
+	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(defaultPwd), bcrypt.DefaultCost)
 	if err != nil {
 		logger.Error("failed to hash password", zap.Error(err))
 		return
@@ -685,7 +700,7 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 		return
 	}
 
-	logger.Info("seeded default admin user (admin/admin123)")
+	logger.Info("seeded default admin user — change password immediately after first login")
 }
 
 // firstNonEmpty returns the first non-empty string from the arguments.

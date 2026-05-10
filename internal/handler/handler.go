@@ -83,6 +83,7 @@ func GetIDParam(c *gin.Context, paramName string) (uint, error) {
 }
 
 // GetCurrentUserID gets the authenticated user's ID from context.
+// Returns 0 if not found (should not happen on authenticated routes).
 func GetCurrentUserID(c *gin.Context) uint {
 	if id, exists := c.Get("user_id"); exists {
 		if uid, ok := id.(uint); ok {
@@ -90,6 +91,18 @@ func GetCurrentUserID(c *gin.Context) uint {
 		}
 	}
 	return 0
+}
+
+// GetCurrentUserIDOK is like GetCurrentUserID but also returns a bool
+// indicating whether the user ID was found. Use this in handlers where
+// a missing user ID should result in a 401 response.
+func GetCurrentUserIDOK(c *gin.Context) (uint, bool) {
+	if id, exists := c.Get("user_id"); exists {
+		if uid, ok := id.(uint); ok && uid > 0 {
+			return uid, true
+		}
+	}
+	return 0, false
 }
 
 // GetCurrentUsername gets the authenticated user's username from context.

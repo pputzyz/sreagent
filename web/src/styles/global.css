@@ -375,6 +375,21 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 
 .severity-info     { color: var(--sre-info); }
 .severity-success  { color: var(--sre-success); }
 
+/* Severity chip badges (pill-style, used in notification rules/subscriptions) */
+.sev-chip {
+  font: 500 10px/1 var(--sre-font-mono), monospace;
+  padding: 3px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.sev-chip[data-sev="critical"] { background: var(--sre-critical-soft); color: #fca5a5; }
+.sev-chip[data-sev="warning"]  { background: var(--sre-warning-soft); color: #fcd34d; }
+.sev-chip[data-sev="info"]     { background: var(--sre-info-soft); color: #7dd3fc; }
+body.light-theme .sev-chip[data-sev="critical"] { color: var(--sre-critical); }
+body.light-theme .sev-chip[data-sev="warning"]  { color: #b45309; }
+body.light-theme .sev-chip[data-sev="info"]     { color: #1d4ed8; }
+
 /* ============================================================
    Glass surfaces (core glassmorphism pattern)
    ============================================================ */

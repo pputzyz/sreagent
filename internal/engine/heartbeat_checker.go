@@ -3,11 +3,13 @@ package engine
 import (
 	"context"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -112,7 +114,7 @@ func (h *HeartbeatChecker) checkRule(ctx context.Context, rule *model.AlertRule,
 
 	// Look up any existing active event for this rule.
 	existingEvent, err := h.eventRepo.GetByFingerprint(ctx, fingerprint)
-	if err != nil && err.Error() != "record not found" {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		h.logger.Error("heartbeat: DB error looking up event",
 			zap.Uint("rule_id", rule.ID), zap.Error(err))
 		return

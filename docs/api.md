@@ -1,6 +1,6 @@
 # SREAgent REST API 参考手册
 
-> 基于源码自动生成。最后更新：2026-04-04。
+> 基于源码自动生成。最后更新：2026-05-10。
 
 ## 目录
 
@@ -28,8 +28,21 @@
 - [飞书机器人](#21-飞书机器人)
 - [引擎](#22-引擎)
 - [仪表盘](#23-仪表盘)
-- [Webhook](#24-webhook)
-- [告警操作页面](#25-告警操作页面)
+- [Event Pipeline](#24-event-pipeline可编程告警处理链)
+- [Webhook 与心跳](#25-webhook-与心跳)
+- [告警操作页面](#26-告警操作页面)
+- [告警规则模板](#27-告警规则模板)
+- [抑制规则](#28-抑制规则)
+- [标签注册表](#29-标签注册表)
+- [协作空间](#30-协作空间)
+- [排除规则](#31-排除规则)
+- [分派策略](#32-分派策略)
+- [集成中心](#33-集成中心)
+- [路由规则](#34-路由规则)
+- [故障](#35-故障)
+- [故障复盘](#36-故障复盘)
+- [告警（v2）](#37-告警v2)
+- [批量操作与导出](#38-批量操作与导出)
 
 ---
 
@@ -171,6 +184,12 @@ Authorization: Bearer <token>
 |------|------|------|----------|
 | `old_password` | string | 是 | |
 | `new_password` | string | 是 | 至少 6 个字符 |
+
+### PUT `/api/v1/me/lark-bind` — 绑定飞书账号
+
+**访问级别：** 已认证
+
+绑定当前用户的飞书账号，用于接收飞书个人通知。
 
 ---
 
@@ -343,12 +362,16 @@ Authorization: Bearer <token>
 |------|------|----------|------|
 | GET | `/alert-rules` | 已认证 | 列表（分页）。筛选：`?severity=critical&status=enabled&group_name=infra` |
 | GET | `/alert-rules/:id` | 已认证 | 按 ID 获取 |
+| GET | `/alert-rules/categories` | 已认证 | 获取所有规则分类列表 |
 | GET | `/alert-rules/export` | 已认证 | 导出为 YAML。筛选：`?group_name=infra` |
 | POST | `/alert-rules` | 管理权限 | 创建 |
 | PUT | `/alert-rules/:id` | 管理权限 | 更新 |
 | DELETE | `/alert-rules/:id` | 管理权限 | 删除 |
 | PATCH | `/alert-rules/:id/status` | 管理权限 | 切换状态 |
 | POST | `/alert-rules/import` | 管理权限 | 从 YAML/JSON 文件导入 |
+| POST | `/alert-rules/batch/enable` | 管理权限 | 批量启用 |
+| POST | `/alert-rules/batch/disable` | 管理权限 | 批量禁用 |
+| POST | `/alert-rules/batch/delete` | 管理权限 | 批量删除 |
 
 **创建 / 更新请求体：**
 
@@ -413,6 +436,8 @@ Authorization: Bearer <token>
 | POST | `/alert-events/:id/silence` | 操作权限 | 静默告警 |
 | POST | `/alert-events/batch/acknowledge` | 操作权限 | 批量确认 |
 | POST | `/alert-events/batch/close` | 操作权限 | 批量关闭 |
+| GET | `/alert-events/export` | 已认证 | 导出事件为 CSV。筛选参数同列表 |
+| GET | `/alert-events/groups` | 已认证 | 按规则分组统计事件数量 |
 
 **列表筛选参数：**
 
@@ -476,6 +501,7 @@ Authorization: Bearer <token>
 | 方法 | 路由 | 访问级别 | 说明 |
 |------|------|----------|------|
 | GET | `/mute-rules` | 已认证 | 列表（分页） |
+| GET | `/mute-rules/preview` | 已认证 | 预览静默效果（查看哪些告警会被静默） |
 | GET | `/mute-rules/:id` | 已认证 | 按 ID 获取 |
 | POST | `/mute-rules` | 管理权限 | 创建 |
 | PUT | `/mute-rules/:id` | 管理权限 | 更新 |
@@ -896,6 +922,8 @@ Authorization: Bearer <token>
 | GET | `/schedules` | 已认证 | 列表（分页）。筛选：`?team_id=1` |
 | GET | `/schedules/:id` | 已认证 | 按 ID 获取 |
 | GET | `/schedules/:id/oncall` | 已认证 | 获取当前值班用户 |
+| GET | `/schedules/:id/participants` | 已认证 | 获取轮转参与人列表 |
+| GET | `/schedules/:id/overrides` | 已认证 | 获取替班列表 |
 | POST | `/schedules` | 管理权限 | 创建 |
 | PUT | `/schedules/:id` | 管理权限 | 更新 |
 | DELETE | `/schedules/:id` | 管理权限 | 删除 |
@@ -944,6 +972,7 @@ Authorization: Bearer <token>
 | PUT | `/schedules/:id/shifts/:shiftId` | 管理权限 | 更新班次 |
 | DELETE | `/schedules/:id/shifts/:shiftId` | 管理权限 | 删除班次 |
 | POST | `/schedules/:id/generate-shifts` | 管理权限 | 根据轮转自动生成班次 |
+| GET | `/schedules/:id/ical` | 已认证 | 导出排班为 iCal 格式 |
 
 **创建 / 更新班次请求体：**
 
@@ -962,6 +991,8 @@ Authorization: Bearer <token>
 ```
 
 校验范围：1–52 周。
+
+**iCal 导出** — 返回 `text/calendar` Content-Type，带有 `Content-Disposition: attachment` 头。可用于将排班同步到 Outlook、Google Calendar 等日历应用。
 
 **生成响应：**
 
@@ -1097,6 +1128,12 @@ AI 驱动的告警分析。支持 LLM 生成的告警报告和 SOP 建议。
 
 返回告警评估引擎状态，包括活跃规则数量、评估指标和状态存储连通性。
 
+### GET `/metrics` — Prometheus 指标
+
+**访问级别：** 公开
+
+返回 Go 运行时和应用自定义指标，格式为 Prometheus exposition format。可用于 Prometheus 抓取配置。
+
 ---
 
 ## 23. 仪表盘
@@ -1210,7 +1247,7 @@ AI 驱动的告警分析。支持 LLM 生成的告警报告和 SOP 建议。
 
 ---
 
-## 25. Webhook
+## 25. Webhook 与心跳
 
 ### POST `/webhooks/alertmanager` — Alertmanager Webhook
 
@@ -1243,9 +1280,23 @@ AI 驱动的告警分析。支持 LLM 生成的告警报告和 SOP 建议。
 }
 ```
 
+### POST `/heartbeat/:token` — 心跳 Ping
+
+**访问级别：** 公开（通过 URL 中的 token 认证）
+
+心跳探活端点，外部系统定期调用以报告存活状态。如超时未收到 ping，将触发心跳丢失告警。
+
+**路径参数：** `:token` — 心跳监控点的唯一令牌。
+
+**响应：**
+
+```json
+{ "code": 0, "data": { "message": "pong" } }
+```
+
 ---
 
-## 25. 告警操作页面
+## 26. 告警操作页面
 
 通过令牌认证的 HTML 页面，从飞书通知卡片中链接。允许一键执行告警操作，无需访问完整 UI。
 
@@ -1277,13 +1328,456 @@ AI 驱动的告警分析。支持 LLM 生成的告警报告和 SOP 建议。
 
 ---
 
+## 27. 告警规则模板
+
+可复用的告警规则配置模板，支持按分类管理和一键应用创建规则。
+
+**模型字段：** `name`、`category`、`description`、`datasource_type`（prometheus | victoriametrics | zabbix | victorialogs）、`expression`、`for_duration`、`severity`（critical | warning | info）、`labels`（map）、`annotations`（map）、`group_name`、`eval_interval`、`is_builtin`、`usage_count`、`nodata_enabled`、`nodata_duration`、`ack_sla_minutes`。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/alert-rule-templates` | 已认证 | 列表（分页）。筛选：`?category=infra&search=cpu` |
+| GET | `/alert-rule-templates/categories` | 已认证 | 获取所有分类列表 |
+| GET | `/alert-rule-templates/:id` | 已认证 | 按 ID 获取 |
+| POST | `/alert-rule-templates` | 管理权限 | 创建 |
+| PUT | `/alert-rule-templates/:id` | 管理权限 | 更新 |
+| DELETE | `/alert-rule-templates/:id` | 管理权限 | 删除 |
+| POST | `/alert-rule-templates/:id/apply` | 管理权限 | 应用模板创建告警规则 |
+
+**创建 / 更新请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 模板名称 |
+| `category` | string | 否 | 分类（如 `infra`、`app`、`db`） |
+| `description` | string | 否 | 描述 |
+| `datasource_type` | string | 是 | 数据源类型 |
+| `expression` | string | 是 | PromQL / LogsQL 表达式 |
+| `for_duration` | string | 否 | 持续时间，例如 `"5m"` |
+| `severity` | string | 是 | critical、warning、info |
+| `labels` | map[string]string | 否 | 附加标签 |
+| `annotations` | map[string]string | 否 | 注解 |
+| `group_name` | string | 否 | 规则分组 |
+| `eval_interval` | int | 否 | 评估间隔（秒），默认 60 |
+| `nodata_enabled` | bool | 否 | 数据缺失时是否触发 |
+| `nodata_duration` | string | 否 | 数据缺失阈值，默认 `"5m"` |
+| `ack_sla_minutes` | int | 否 | 确认 SLA（分钟） |
+
+**应用模板请求体：** 与告警规则创建请求体相同（参见 [告警规则](#4-告警规则)），用于覆盖模板中的默认值。
+
+**应用响应：** 返回新创建的告警规则对象。
+
+---
+
+## 28. 抑制规则
+
+当源告警处于 firing 状态时，自动抑制目标告警的通知。常用于抑制由同一根因引起的下游告警。
+
+**模型字段：** `name`、`description`、`source_match`（map，源告警标签匹配器）、`target_match`（map，目标告警标签匹配器）、`equal_labels`（逗号分隔，源和目标必须相等的标签键）、`is_enabled`。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/inhibition-rules` | 已认证 | 列表（分页） |
+| GET | `/inhibition-rules/:id` | 已认证 | 按 ID 获取 |
+| POST | `/inhibition-rules` | 管理权限 | 创建 |
+| PUT | `/inhibition-rules/:id` | 管理权限 | 更新 |
+| DELETE | `/inhibition-rules/:id` | 管理权限 | 删除 |
+
+**创建 / 更新请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 名称 |
+| `description` | string | 否 | 描述 |
+| `source_match` | map[string]string | 否 | 源告警标签匹配器 |
+| `target_match` | map[string]string | 否 | 目标告警标签匹配器 |
+| `equal_labels` | string | 否 | 逗号分隔的相等标签键，例如 `"cluster,namespace"` |
+| `is_enabled` | bool | 否 | 是否启用 |
+
+---
+
+## 29. 标签注册表
+
+全局标签键值自动补全服务，从所有数据源聚合标签数据，用于规则配置时的标签选择。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/label-registry/keys` | 已认证 | 获取所有标签键。筛选：`?datasource_id=1,2` |
+| GET | `/label-registry/values?key=X` | 已认证 | 获取指定键的值。筛选：`?datasource_id=1,2` |
+| POST | `/label-registry/sync` | 仅管理员 | 触发全量标签同步 |
+
+**GetKeys 响应：**
+
+```json
+{ "code": 0, "data": ["job", "instance", "namespace", "severity"] }
+```
+
+**GetValues 响应：**
+
+```json
+{ "code": 0, "data": ["api-server", "web-server", "worker"] }
+```
+
+**Sync 响应：**
+
+```json
+{ "code": 0, "data": { "message": "sync triggered" } }
+```
+
+---
+
+## 30. 协作空间
+
+协作空间（Channel）是故障管理和告警路由的核心组织单元。每个空间可配置降噪规则、分派策略和自动关闭策略。
+
+**模型字段：** `name`、`description`、`team_id`、`status`（active | disabled）、`access_level`（public | private）、`aggregation_config`（JSON）、`flapping_config`（JSON）、`auto_close_enabled`、`auto_close_origin`（triggered | last_alert）、`auto_close_minutes`、`follow_alert_close`、`active_incident_count`、`sort_order`。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/channels` | 已认证 | 列表（分页）。筛选：`?query=xxx&status=active` |
+| GET | `/channels/:id` | 已认证 | 按 ID 获取 |
+| POST | `/channels` | 管理权限 | 创建 |
+| PUT | `/channels/:id` | 管理权限 | 更新 |
+| DELETE | `/channels/:id` | 管理权限 | 删除 |
+| POST | `/channels/:id/star` | 已认证 | 收藏 |
+| DELETE | `/channels/:id/star` | 已认证 | 取消收藏 |
+| GET | `/channels/:id/exclusion-rules` | 已认证 | 排除规则列表 |
+| POST | `/channels/:id/exclusion-rules` | 管理权限 | 创建排除规则 |
+| GET | `/channels/:id/dispatch-policies` | 已认证 | 分派策略列表 |
+| POST | `/channels/:id/dispatch-policies` | 管理权限 | 创建分派策略 |
+
+**创建 / 更新请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 空间名称（唯一） |
+| `description` | string | 否 | 描述 |
+| `team_id` | uint | 否 | 关联团队 ID |
+| `status` | string | 否 | 默认 `"active"` |
+| `access_level` | string | 否 | 默认 `"public"` |
+| `aggregation_config` | string (JSON) | 否 | 聚合降噪配置 |
+| `flapping_config` | string (JSON) | 否 | 抖动检测配置 |
+| `auto_close_enabled` | bool | 否 | 是否启用自动关闭 |
+| `auto_close_origin` | string | 否 | 计时起点：`"triggered"` 或 `"last_alert"` |
+| `auto_close_minutes` | int | 否 | 自动关闭时间（分钟） |
+| `follow_alert_close` | bool | 否 | 告警全部恢复时自动关闭故障 |
+| `sort_order` | int | 否 | 排序权重 |
+
+**列表响应增强：** 列表中每个对象额外包含 `is_starred` 字段，标识当前用户是否已收藏。
+
+---
+
+## 31. 排除规则
+
+协作空间级别的告警过滤规则，在告警进入故障流程前进行匹配和丢弃。
+
+**模型字段：** `channel_id`、`name`、`description`、`conditions`（JSON 数组，FilterCondition 格式）、`is_enabled`、`priority`。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| PUT | `/exclusion-rules/:id` | 管理权限 | 更新 |
+| DELETE | `/exclusion-rules/:id` | 管理权限 | 删除 |
+
+> 列表和创建端点挂载在协作空间下：`GET /channels/:id/exclusion-rules` 和 `POST /channels/:id/exclusion-rules`（参见 [协作空间](#30-协作空间)）。
+
+**创建请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 规则名称 |
+| `description` | string | 否 | 描述 |
+| `conditions` | string (JSON) | 否 | FilterCondition 数组，例如 `[{"field":"severity","operator":"eq","value":"info"}]` |
+| `is_enabled` | bool | 否 | 是否启用 |
+| `priority` | int | 否 | 优先级（值越小越先评估） |
+
+**更新请求体：** 同创建，所有字段可选。
+
+---
+
+## 32. 分派策略
+
+协作空间级别的告警分派配置，控制故障如何被通知、升级和重复提醒。
+
+**模型字段：** `channel_id`、`name`、`description`、`is_enabled`、`priority`、`match_conditions`（JSON）、`active_time_config`（JSON）、`delay_seconds`、`escalation_policy_id`、`repeat_interval_seconds`、`max_repeats`、`notify_mode`（personal_preference | unified）、`unified_media_id`、`label_enhancement_rules`（JSON）。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/dispatch-policies/:id` | 已认证 | 按 ID 获取 |
+| PUT | `/dispatch-policies/:id` | 管理权限 | 更新 |
+| DELETE | `/dispatch-policies/:id` | 管理权限 | 删除 |
+
+> 列表和创建端点挂载在协作空间下：`GET /channels/:id/dispatch-policies` 和 `POST /channels/:id/dispatch-policies`（参见 [协作空间](#30-协作空间)）。
+
+**创建 / 更新请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 策略名称 |
+| `description` | string | 否 | 描述 |
+| `is_enabled` | bool | 否 | 是否启用 |
+| `priority` | int | 否 | 优先级（值越小越先评估） |
+| `match_conditions` | string (JSON) | 否 | FilterCondition 数组，匹配时才生效 |
+| `active_time_config` | string (JSON) | 否 | 生效时间窗口配置（时区、星期、时间段） |
+| `delay_seconds` | int | 否 | 分派延迟（秒），0 = 立即。延迟期间如已确认则跳过 |
+| `escalation_policy_id` | uint | 否 | 关联升级策略 ID |
+| `repeat_interval_seconds` | int | 否 | 重复通知间隔（秒），0 = 不重复 |
+| `max_repeats` | int | 否 | 最大重复次数，0 = 无限 |
+| `notify_mode` | string | 否 | `"personal_preference"`（用户偏好）或 `"unified"`（统一媒介） |
+| `unified_media_id` | uint | 否 | 统一模式下的通知媒介 ID |
+| `label_enhancement_rules` | string (JSON) | 否 | 标签增强规则数组 |
+
+---
+
+## 33. 集成中心
+
+Webhook 集成管理，支持 Alertmanager、Grafana 和标准 JSON 格式的告警接入。每个集成生成唯一的 webhook token。
+
+**模型字段：** `name`、`description`、`type`（standard | alertmanager | grafana）、`mode`（exclusive | shared）、`channel_id`、`webhook_token`、`pipeline_config`（JSON）、`label_enhancement_config`（JSON）、`is_enabled`、`total_alerts`。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/integrations` | 已认证 | 列表（分页）。筛选：`?channel_id=1` |
+| GET | `/integrations/:id` | 已认证 | 按 ID 获取 |
+| POST | `/integrations` | 管理权限 | 创建 |
+| PUT | `/integrations/:id` | 管理权限 | 更新 |
+| DELETE | `/integrations/:id` | 管理权限 | 删除 |
+| POST | `/integrations/:token/alerts` | 公开（token 认证） | 接收告警 Webhook |
+
+**创建请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 集成名称 |
+| `description` | string | 否 | 描述 |
+| `type` | string | 是 | 类型：`standard`、`alertmanager`、`grafana` |
+| `mode` | string | 否 | 默认 `"exclusive"`（专属）或 `"shared"`（共享，需配置路由规则） |
+| `channel_id` | uint | 否 | 专属模式下的目标协作空间 ID |
+| `pipeline_config` | string (JSON) | 否 | 告警处理管道配置 |
+| `label_enhancement_config` | string (JSON) | 否 | 标签增强配置 |
+| `is_enabled` | bool | 否 | 是否启用 |
+
+**更新请求体：** 同创建，`type` 和 `mode` 不可修改。
+
+**接收告警 — `POST /integrations/:token/alerts`：**
+
+无需 JWT 认证，通过 URL 中的 token 标识集成。请求体格式取决于集成类型：
+
+- `alertmanager`：标准 Alertmanager webhook 格式
+- `grafana`：Grafana webhook 格式
+- `standard`：通用 JSON 格式
+
+**响应：**
+
+```json
+{ "code": 0, "data": { "received": true } }
+```
+
+---
+
+## 34. 路由规则
+
+用于共享集成的告警路由，根据告警属性将告警分发到不同的协作空间。
+
+**模型字段：** `integration_id`、`target_channel_id`、`conditions`（JSON，FilterCondition 数组）、`priority`、`is_enabled`。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/routing-rules?integration_id=X` | 已认证 | 按集成查询路由规则列表 |
+| POST | `/routing-rules` | 管理权限 | 创建 |
+| PUT | `/routing-rules/:id` | 管理权限 | 更新 |
+| DELETE | `/routing-rules/:id` | 管理权限 | 删除 |
+
+**创建请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `integration_id` | uint | 是 | 所属集成 ID |
+| `target_channel_id` | uint | 是 | 目标协作空间 ID |
+| `conditions` | string (JSON) | 否 | FilterCondition 数组 |
+| `priority` | int | 否 | 优先级（值越小越先匹配） |
+| `is_enabled` | bool | 否 | 是否启用 |
+
+**更新请求体：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `target_channel_id` | uint | 目标协作空间 ID |
+| `conditions` | string (JSON) | FilterCondition 数组 |
+| `priority` | int | 优先级 |
+| `is_enabled` | *bool | 是否启用 |
+
+---
+
+## 35. 故障
+
+故障（Incident）是告警响应的核心工作单元，可聚合多个告警事件，支持认领、暂缓、转派、合并和升级。
+
+**模型字段：** `title`、`description`、`severity`（critical | warning | info）、`status`（triggered | processing | closed）、`channel_id`、`labels`（map）、`assigned_to`、`triggered_at`、`acknowledged_at`、`resolved_at`、`closed_at`、`snoozed_until`、`alert_count`、`event_count`、`is_recovered`、`escalation_policy_id`、`current_escalation_step`、`merged_into_id`。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/incidents` | 已认证 | 列表（分页）。筛选：`?channel_id=&status=&severity=&query=&assigned_to=` |
+| GET | `/incidents/:id` | 已认证 | 按 ID 获取 |
+| POST | `/incidents` | 管理权限 | 手动创建 |
+| GET | `/incidents/:id/timeline` | 已认证 | 获取故障时间线 |
+| POST | `/incidents/:id/acknowledge` | 操作权限 | 认领 |
+| POST | `/incidents/:id/close` | 操作权限 | 关闭 |
+| POST | `/incidents/:id/reopen` | 操作权限 | 重开 |
+| POST | `/incidents/:id/snooze` | 操作权限 | 暂缓 |
+| POST | `/incidents/:id/reassign` | 操作权限 | 转派 |
+| POST | `/incidents/:id/merge` | 操作权限 | 合并到目标故障 |
+| POST | `/incidents/:id/escalate` | 操作权限 | 手动触发升级 |
+| POST | `/incidents/:id/comment` | 操作权限 | 添加评论 |
+
+**创建请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `title` | string | 是 | 故障标题 |
+| `description` | string | 否 | 描述 |
+| `severity` | string | 否 | 默认 `"warning"` |
+| `channel_id` | uint | 是 | 所属协作空间 ID |
+| `assigned_to` | uint | 否 | 初始指派用户 ID |
+
+**暂缓请求体：**
+
+```json
+{ "until": "2026-05-11T10:00:00+08:00" }
+```
+
+**转派请求体：**
+
+```json
+{ "user_id": 5 }
+```
+
+**合并请求体：**
+
+```json
+{ "target_id": 42 }
+```
+
+**评论请求体：**
+
+```json
+{ "content": "正在排查中" }
+```
+
+**时间线响应：** 返回时间线条目数组，每条包含 `action`、`actor_id`、`content`、`extra`、`created_at`。
+
+---
+
+## 36. 故障复盘
+
+故障复盘（Post-Mortem）用于记录故障根因分析、影响范围和改进措施。支持 AI 自动生成初稿。
+
+**模型字段：** `incident_id`、`title`、`content`（Markdown）、`status`（draft | published）、`author_id`、`published_at`。
+
+### 故障关联端点
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/incidents/:id/post-mortem` | 已认证 | 获取复盘（不存在时自动创建草稿） |
+| PUT | `/incidents/:id/post-mortem` | 操作权限 | 更新复盘内容 |
+| POST | `/incidents/:id/post-mortem/publish` | 管理权限 | 发布复盘 |
+| POST | `/incidents/:id/post-mortem/ai-generate` | 操作权限 | AI 生成复盘初稿 |
+| POST | `/incidents/:id/post-mortem/ai-summary` | 操作权限 | AI 摘要（仅预览，不保存） |
+
+### 全局列表
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/post-mortems` | 已认证 | 复盘列表（分页）。筛选：`?channel_id=&status=` |
+
+**更新请求体：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `title` | string | 复盘标题 |
+| `content` | string | Markdown 内容 |
+| `status` | string | 状态 |
+
+**AI 生成响应：** 返回更新后的复盘对象，`content` 字段包含 AI 生成的 Markdown 初稿（含故障概述、影响、根因分析、解决建议、预防措施）。
+
+**AI 摘要响应：** 返回 AI 分析结果（不保存到复盘），可用于预览。
+
+---
+
+## 37. 告警（v2）
+
+v2 告警模型，与协作空间和故障关联。每个告警可关联多个事件。
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/alerts` | 已认证 | 列表（分页）。筛选：`?channel_id=&incident_id=&status=&severity=&query=` |
+| GET | `/alerts/:id` | 已认证 | 按 ID 获取 |
+| GET | `/alerts/:id/events` | 已认证 | 获取告警事件列表（分页） |
+
+---
+
+## 38. 批量操作与导出
+
+跨模块的批量操作和数据导出端点。
+
+### 告警规则批量操作
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| POST | `/alert-rules/batch/enable` | 管理权限 | 批量启用规则 |
+| POST | `/alert-rules/batch/disable` | 管理权限 | 批量禁用规则 |
+| POST | `/alert-rules/batch/delete` | 管理权限 | 批量删除规则 |
+| GET | `/alert-rules/export` | 已认证 | 导出规则为 YAML |
+| POST | `/alert-rules/import` | 管理权限 | 从 YAML/JSON 导入规则 |
+
+**批量操作请求体：**
+
+```json
+{ "ids": [1, 2, 3] }
+```
+
+**批量操作响应：**
+
+```json
+{ "code": 0, "data": { "success": 3, "failed": 0 } }
+```
+
+### 告警事件批量操作与导出
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| POST | `/alert-events/batch/acknowledge` | 操作权限 | 批量确认 |
+| POST | `/alert-events/batch/close` | 操作权限 | 批量关闭 |
+| GET | `/alert-events/export` | 已认证 | 导出事件为 CSV。筛选参数同列表 |
+| GET | `/alert-events/groups` | 已认证 | 按规则分组统计 |
+
+**事件分组响应：**
+
+```json
+{
+  "code": 0,
+  "data": [
+    { "rule_id": 1, "rule_name": "HighCPU", "severity": "critical", "count": 5 },
+    { "rule_id": 2, "rule_name": "DiskFull", "severity": "warning", "count": 3 }
+  ]
+}
+```
+
+### 其他导出
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/schedules/:id/ical` | 已认证 | 导出排班为 iCal 格式 |
+| GET | `/metrics` | 公开 | Prometheus 指标（exposition format） |
+
+---
+
 ## 路由汇总
 
 | 类别 | 数量 | 访问级别 |
 |------|------|----------|
-| 公开（无需认证） | 10 | 健康检查、登录、OIDC、Webhook、飞书回调、操作页面 |
-| 只读（已认证） | 38 | 所有 GET/列表端点 |
-| 操作权限（member 及以上） | 12 | 告警操作、订阅规则 |
-| 管理权限（team_lead 及以上） | 39 | 配置 CRUD、渠道、规则、排班、团队、Pipeline |
-| 仅管理员 | 10 | 用户 CRUD、系统设置、AI/飞书配置 |
-| **合计** | **~87** | |
+| 公开（无需认证） | 13 | 健康检查、登录、OIDC、Webhook、集成接收、飞书回调、操作页面、Prometheus 指标 |
+| 只读（已认证） | 55 | 所有 GET/列表端点 |
+| 操作权限（member 及以上） | 22 | 告警操作、故障操作、订阅规则、复盘编辑 |
+| 管理权限（team_lead 及以上） | 62 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由 |
+| 仅管理员 | 12 | 用户 CRUD、系统设置、AI/飞书配置、标签同步 |
+| **合计** | **~164** | |

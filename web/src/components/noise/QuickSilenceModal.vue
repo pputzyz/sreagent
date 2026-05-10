@@ -20,7 +20,7 @@ const emit = defineEmits<{
   (e: 'created'): void
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const message = useMessage()
 const saving = ref(false)
 
@@ -140,16 +140,16 @@ async function create() {
           :min="1"
           :max="43200"
           style="width:120px;margin-top:8px"
-          placeholder="分钟数"
+          :placeholder="t('channel.silenceCustomMinutesPlaceholder')"
         />
       </n-form-item>
 
       <!-- Time range display -->
       <n-form-item :label="t('channel.silenceEffectiveTime')">
         <n-space>
-          <n-tag size="small">{{ new Date(startTime).toLocaleString('zh-CN', { hour12: false }) }}</n-tag>
+          <n-tag size="small">{{ new Date(startTime).toLocaleString(locale, { hour12: false }) }}</n-tag>
           <span style="color:var(--sre-text-secondary)">→</span>
-          <n-tag size="small" type="warning">{{ new Date(endTime).toLocaleString('zh-CN', { hour12: false }) }}</n-tag>
+          <n-tag size="small" type="warning">{{ new Date(endTime).toLocaleString(locale, { hour12: false }) }}</n-tag>
         </n-space>
       </n-form-item>
 

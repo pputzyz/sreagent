@@ -12,6 +12,7 @@ import {
   GridOutline,
   PersonAddOutline,
   DocumentTextOutline,
+  ShieldCheckmarkOutline,
 } from '@vicons/ionicons5'
 import UserManagement from './UserManagement.vue'
 import TeamManagement from './TeamManagement.vue'
@@ -22,6 +23,7 @@ import LarkBotConfig from './LarkBotConfig.vue'
 import OIDCConfig from './OIDCConfig.vue'
 import SMTPConfig from './SMTPConfig.vue'
 import AuditLog from './AuditLog.vue'
+import SecurityConfig from './SecurityConfig.vue'
 
 const { t } = useI18n()
 
@@ -76,6 +78,14 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         icon: markRaw(KeyOutline),
         component: markRaw(OIDCConfig),
         desc: 'Single sign-on and identity provider',
+      },
+      {
+        key: 'security',
+        label: t('settings.securityConfig'),
+        title: t('settings.securityConfig'),
+        icon: markRaw(ShieldCheckmarkOutline),
+        component: markRaw(SecurityConfig),
+        desc: 'JWT expiry, password policy and session controls',
       },
     ],
   },

@@ -105,7 +105,7 @@ const routes: RouteRecordRaw[] = [
         path: 'schedule',
         name: 'Schedule',
         component: () => import('@/pages/schedule/Index.vue'),
-        meta: { title: 'On-Call Schedule', icon: 'calendar' },
+        meta: { title: 'On-Call Schedule', icon: 'calendar', requiresRole: ['admin', 'team_lead'] },
       },
       {
         path: 'settings',
@@ -118,13 +118,13 @@ const routes: RouteRecordRaw[] = [
         path: 'channels',
         name: 'Channels',
         component: () => import('@/pages/channels/Index.vue'),
-        meta: { title: 'Channels' },
+        meta: { title: 'Channels', requiresRole: ['admin', 'team_lead', 'member'] },
       },
       {
         path: 'channels/:id',
         name: 'ChannelDetail',
         component: () => import('@/pages/channels/Detail.vue'),
-        meta: { title: 'Channel Detail' },
+        meta: { title: 'Channel Detail', requiresRole: ['admin', 'team_lead', 'member'] },
       },
       {
         path: 'incidents',
@@ -154,7 +154,7 @@ const routes: RouteRecordRaw[] = [
         path: 'integrations',
         name: 'Integrations',
         component: () => import('@/pages/integrations/Index.vue'),
-        meta: { title: 'Integrations' },
+        meta: { title: 'Integrations', requiresRole: ['admin', 'team_lead'] },
       },
       {
         path: 'incident-dashboard',
