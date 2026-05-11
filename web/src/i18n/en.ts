@@ -173,15 +173,15 @@ export default {
     ssoLogin: 'Sign in with SSO',
     ssoLoginSuccess: 'SSO login successful',
     brand: {
-      control: 'SREAGENT / MISSION CONTROL',
-      tagline: 'Mission control for on-call engineers.',
+      control: 'SREAGENT',
+      tagline: 'Unified observability and incident response platform.',
       feature1: '4-tier event model with deterministic state machine',
       feature2: 'Smart noise reduction — mute, suppress, deduplicate',
       feature3: 'AI-assisted post-mortem and root-cause hints',
       feature4: 'OnCall scheduling with handover and escalation',
       systemStatus: 'all systems nominal',
     },
-    welcomeBack: 'Welcome back. Pick up where the on-call rotation left off.',
+    welcomeBack: 'Welcome back. Sign in to continue.',
     defaultHint: 'First time? Use the default credentials to sign in. Please change your password afterward.',
   },
   dashboard: {

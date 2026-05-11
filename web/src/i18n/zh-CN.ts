@@ -173,15 +173,15 @@ export default {
     ssoLogin: '使用 SSO 单点登录',
     ssoLoginSuccess: 'SSO 登录成功',
     brand: {
-      control: 'SREAGENT / 任务控制中心',
-      tagline: '值班工程师的任务控制中心。',
+      control: 'SREAGENT',
+      tagline: '一站式可观测性与事件响应平台。',
       feature1: '四层事件模型与确定性状态机',
       feature2: '智能降噪 — 屏蔽、抑制、去重',
       feature3: 'AI 辅助复盘与根因分析',
       feature4: '值班排班与交接升级',
       systemStatus: '系统运行正常',
     },
-    welcomeBack: '欢迎回来。继续您的值班之旅。',
+    welcomeBack: '欢迎回来，登录以继续。',
     defaultHint: '首次使用请使用默认凭据登录，登录后请及时修改密码。',
   },
   dashboard: {
