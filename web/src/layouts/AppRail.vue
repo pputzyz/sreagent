@@ -38,6 +38,7 @@ const bottomItems: RailItem[] = [
       >
         <template #trigger>
           <button
+            v-ripple
             class="rail-icon-btn"
             :class="{ active: activeApp === item.key }"
             @click="emit('switch', item.key)"
@@ -60,6 +61,7 @@ const bottomItems: RailItem[] = [
       >
         <template #trigger>
           <button
+            v-ripple
             class="rail-icon-btn"
             :class="{ active: activeApp === item.key }"
             @click="emit('switch', item.key)"

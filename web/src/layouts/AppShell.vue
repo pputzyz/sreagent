@@ -86,7 +86,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         <!-- Clock -->
         <n-popover v-model:show="showTzPanel" trigger="click" placement="bottom-end" :show-arrow="false" style="padding:0">
           <template #trigger>
-            <button class="topbar-btn topbar-clock" :class="{ active: showTzPanel }">
+            <button v-ripple class="topbar-btn topbar-clock" :class="{ active: showTzPanel }">
               <n-icon :component="TimeOutline" :size="14" />
               <span class="clock-text">{{ timeDisplay }}</span>
               <span class="clock-tz">{{ tzAbbr }}</span>
@@ -109,21 +109,21 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         </n-popover>
 
         <!-- ⌘K -->
-        <button class="topbar-btn topbar-kbd" @click="openPalette" title="⌘K">
+        <button v-ripple class="topbar-btn topbar-kbd" @click="openPalette" title="⌘K">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <kbd>⌘K</kbd>
         </button>
 
         <!-- Lang -->
         <n-popselect :value="locale" :options="langOptions" trigger="click" :render-label="(o: any) => o.label" @update:value="handleLangChange">
-          <button class="topbar-btn">
+          <button v-ripple class="topbar-btn">
             <n-icon :component="EarthOutline" :size="15" />
             <span>{{ locale === 'zh-CN' ? '中' : 'EN' }}</span>
           </button>
         </n-popselect>
 
         <!-- Theme -->
-        <button class="topbar-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')">
+        <button v-ripple class="topbar-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')">
           <n-icon :component="isDark ? SunnyOutline : MoonOutline" :size="16" />
         </button>
       </div>
