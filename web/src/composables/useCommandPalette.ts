@@ -28,16 +28,24 @@ export function useCommandPalette() {
 
   // ── Navigate items (all app routes) ──────────────────────────────────
   const navigateItems = computed<PaletteItem[]>(() => [
-    { id: 'nav-dashboard',    label: 'Dashboard',          hint: 'Page',    group: 'navigate', icon: 'grid-outline',            action: () => router.push('/dashboard') },
-    { id: 'nav-datasources',  label: 'Data Sources',       hint: 'Page',    group: 'navigate', icon: 'server-outline',          action: () => router.push('/datasources') },
-    { id: 'nav-rules',        label: 'Alert Rules',        hint: 'Alerts',  group: 'navigate', icon: 'alert-circle-outline',    action: () => router.push('/alerts/rules') },
-    { id: 'nav-events',       label: 'Active Alerts',      hint: 'Alerts',  group: 'navigate', icon: 'flash-outline',           action: () => router.push('/alerts/events') },
-    { id: 'nav-history',      label: 'Alert History',      hint: 'Alerts',  group: 'navigate', icon: 'time-outline',            action: () => router.push('/alerts/history') },
-    { id: 'nav-mute',         label: 'Mute Rules',         hint: 'Alerts',  group: 'navigate', icon: 'volume-mute-outline',     action: () => router.push('/alerts/mute-rules') },
-    { id: 'nav-inhibition',   label: 'Inhibition Rules',   hint: 'Alerts',  group: 'navigate', icon: 'shield-outline',          action: () => router.push('/alerts/inhibition-rules') },
-    { id: 'nav-notification', label: 'Notifications',      hint: 'Page',    group: 'navigate', icon: 'notifications-outline',   action: () => router.push('/notification') },
-    { id: 'nav-schedule',     label: 'On-Call Schedule',   hint: 'Page',    group: 'navigate', icon: 'calendar-outline',        action: () => router.push('/schedule') },
-    { id: 'nav-settings',     label: 'Settings',           hint: 'Page',    group: 'navigate', icon: 'settings-outline',        action: () => router.push('/settings') },
+    // On-Call
+    { id: 'nav-overview',      label: 'On-Call Overview',    hint: 'On-Call', group: 'navigate', icon: 'grid-outline',            action: () => router.push('/oncall/overview') },
+    { id: 'nav-schedule',      label: 'On-Call Schedule',    hint: 'On-Call', group: 'navigate', icon: 'calendar-outline',        action: () => router.push('/oncall/schedule') },
+    { id: 'nav-spaces',        label: 'Spaces',             hint: 'On-Call', group: 'navigate', icon: 'people-outline',          action: () => router.push('/oncall/spaces') },
+    { id: 'nav-incidents',     label: 'Incidents',          hint: 'On-Call', group: 'navigate', icon: 'warning-outline',         action: () => router.push('/oncall/incidents') },
+    { id: 'nav-integrations',  label: 'Integrations',       hint: 'On-Call', group: 'navigate', icon: 'link-outline',            action: () => router.push('/oncall/integrations') },
+    // Alert
+    { id: 'nav-datasources',   label: 'Data Sources',       hint: 'Alert',   group: 'navigate', icon: 'server-outline',          action: () => router.push('/alert/datasources') },
+    { id: 'nav-explore',       label: 'Data Query',         hint: 'Alert',   group: 'navigate', icon: 'search-outline',          action: () => router.push('/alert/explore') },
+    { id: 'nav-dashboards',    label: 'Dashboards',         hint: 'Alert',   group: 'navigate', icon: 'bar-chart-outline',       action: () => router.push('/alert/dashboards') },
+    { id: 'nav-rules',         label: 'Alert Rules',        hint: 'Alert',   group: 'navigate', icon: 'alert-circle-outline',    action: () => router.push('/alert/rules') },
+    { id: 'nav-events',        label: 'Active Alerts',      hint: 'Alert',   group: 'navigate', icon: 'flash-outline',           action: () => router.push('/alert/events') },
+    { id: 'nav-history',       label: 'Alert History',      hint: 'Alert',   group: 'navigate', icon: 'time-outline',            action: () => router.push('/alert/history') },
+    { id: 'nav-suppression',   label: 'Mute Rules',         hint: 'Alert',   group: 'navigate', icon: 'volume-mute-outline',     action: () => router.push('/alert/suppression') },
+    { id: 'nav-inhibition',    label: 'Inhibition Rules',   hint: 'Alert',   group: 'navigate', icon: 'shield-outline',          action: () => router.push('/alert/suppression/inhibition') },
+    { id: 'nav-notification',  label: 'Notification Policies', hint: 'Alert', group: 'navigate', icon: 'notifications-outline',  action: () => router.push('/alert/notify/policies') },
+    // Platform
+    { id: 'nav-profile',       label: 'Profile',            hint: 'Platform', group: 'navigate', icon: 'settings-outline',        action: () => router.push('/platform/profile') },
   ])
 
   // ── Recent (last 5 navigations from localStorage) ────────────────────
