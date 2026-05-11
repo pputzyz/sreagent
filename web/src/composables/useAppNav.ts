@@ -8,7 +8,7 @@
  *   - The page title displayed in the main header
  */
 import { ref, computed, watch } from 'vue'
-import type { Ref } from 'vue'
+import type { Ref, Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -20,7 +20,7 @@ export type AppKey = 'oncall' | 'alert' | 'platform'
 export interface MenuItem {
   label: string
   key: string
-  icon?: any
+  icon?: Component
   children?: MenuItem[]
   show?: boolean
 }
@@ -245,7 +245,7 @@ export function useAppNav() {
 
   const pageTitle = computed<string>(() => {
     const item = flatMenuOptions.value.find(m => m.key === activeMenuKey.value)
-    return (item?.label as string) || ''
+    return item?.label || ''
   })
 
   // ---------- Watch route changes ----------
