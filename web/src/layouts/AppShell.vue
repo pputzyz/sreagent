@@ -1,0 +1,249 @@
+<script setup lang="ts">
+import { ref, computed, watch, inject, onMounted, onUnmounted } from 'vue'
+import type { Ref } from 'vue'
+import { NIcon, NPopover, NPopselect } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+import { useAppNav } from '@/composables/useAppNav'
+import { useCommandPalette } from '@/composables/useCommandPalette'
+import { useAuthStore } from '@/stores/auth'
+import AppRail from '@/layouts/AppRail.vue'
+import AppSidebar from '@/layouts/AppSidebar.vue'
+import CommandPalette from '@/components/common/CommandPalette.vue'
+import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
+
+const { t, locale } = useI18n()
+const authStore = useAuthStore()
+const { activeApp, switchApp, menuSections, activeMenuKey, pageTitle } = useAppNav()
+const { open: openPalette } = useCommandPalette()
+
+const isDark = inject<Ref<boolean>>('isDark', ref(true))
+const toggleTheme = inject<() => void>('toggleTheme', () => {})
+
+// ===== Profile fetch =====
+onMounted(() => {
+  if (authStore.isLoggedIn && !authStore.user) authStore.fetchProfile()
+})
+
+// ===== Sidebar collapsed =====
+const collapsed = ref(JSON.parse(localStorage.getItem('sre-sider-collapsed') ?? 'false'))
+watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
+
+// ===== Clock =====
+const timeDisplay = ref('')
+const timezone = ref(localStorage.getItem('sre-timezone') || 'Asia/Shanghai')
+const showTzPanel = ref(false)
+const timezoneOptions = [
+  { label: 'Asia/Shanghai', abbr: 'CST', value: 'Asia/Shanghai' },
+  { label: 'UTC', abbr: 'UTC', value: 'UTC' },
+  { label: 'Asia/Tokyo', abbr: 'JST', value: 'Asia/Tokyo' },
+  { label: 'Asia/Singapore', abbr: 'SGT', value: 'Asia/Singapore' },
+  { label: 'Europe/London', abbr: 'GMT', value: 'Europe/London' },
+  { label: 'America/New_York', abbr: 'EST', value: 'America/New_York' },
+  { label: 'America/Los_Angeles', abbr: 'PST', value: 'America/Los_Angeles' },
+]
+const tzAbbr = computed(() => timezoneOptions.find(o => o.value === timezone.value)?.abbr || 'TZ')
+
+function updateClock() {
+  timeDisplay.value = new Date().toLocaleTimeString('en-GB', {
+    timeZone: timezone.value, hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+}
+
+let clockInterval: ReturnType<typeof setInterval>
+onMounted(() => { updateClock(); clockInterval = setInterval(updateClock, 1000) })
+onUnmounted(() => clearInterval(clockInterval))
+
+function selectTimezone(val: string) {
+  timezone.value = val
+  localStorage.setItem('sre-timezone', val)
+  showTzPanel.value = false
+  updateClock()
+}
+
+// ===== Language =====
+const langOptions = computed(() => [
+  { label: t('language.zh'), value: 'zh-CN' },
+  { label: t('language.en'), value: 'en' },
+])
+function handleLangChange(val: string) { locale.value = val; localStorage.setItem('locale', val) }
+</script>
+
+<template>
+  <div class="app-shell">
+    <!-- ===== Top Bar ===== -->
+    <header class="topbar">
+      <div class="topbar-start">
+        <!-- Logo -->
+        <router-link to="/dashboard" class="topbar-logo">
+          <img src="/logo.svg" alt="SREAgent" class="logo-img" />
+          <span class="logo-label"><span class="gradient-text">SRE</span>Agent</span>
+        </router-link>
+
+        <div class="topbar-sep" />
+      </div>
+
+      <div class="topbar-end">
+        <!-- Clock -->
+        <n-popover v-model:show="showTzPanel" trigger="click" placement="bottom-end" :show-arrow="false" style="padding:0">
+          <template #trigger>
+            <button class="topbar-btn topbar-clock" :class="{ active: showTzPanel }">
+              <n-icon :component="TimeOutline" :size="14" />
+              <span class="clock-text">{{ timeDisplay }}</span>
+              <span class="clock-tz">{{ tzAbbr }}</span>
+            </button>
+          </template>
+          <div class="tz-panel">
+            <div class="tz-panel-title">{{ t('header.timezone') }}</div>
+            <div
+              v-for="opt in timezoneOptions"
+              :key="opt.value"
+              class="tz-item"
+              :class="{ selected: timezone === opt.value }"
+              @click="selectTimezone(opt.value)"
+            >
+              <span class="tz-abbr">{{ opt.abbr }}</span>
+              <span class="tz-label">{{ opt.label }}</span>
+              <span v-if="timezone === opt.value" class="tz-check">&#10003;</span>
+            </div>
+          </div>
+        </n-popover>
+
+        <!-- ⌘K -->
+        <button class="topbar-btn topbar-kbd" @click="openPalette" title="⌘K">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <kbd>⌘K</kbd>
+        </button>
+
+        <!-- Lang -->
+        <n-popselect :value="locale" :options="langOptions" trigger="click" :render-label="(o: any) => o.label" @update:value="handleLangChange">
+          <button class="topbar-btn">
+            <n-icon :component="EarthOutline" :size="15" />
+            <span>{{ locale === 'zh-CN' ? '中' : 'EN' }}</span>
+          </button>
+        </n-popselect>
+
+        <!-- Theme -->
+        <button class="topbar-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')">
+          <n-icon :component="isDark ? SunnyOutline : MoonOutline" :size="16" />
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== Body ===== -->
+    <div class="app-body">
+      <!-- Rail -->
+      <AppRail :active-app="activeApp" @switch="switchApp" />
+
+      <!-- Sidebar -->
+      <AppSidebar
+        :sections="menuSections"
+        :active-key="activeMenuKey"
+        :collapsed="collapsed"
+        @update:collapsed="collapsed = $event"
+        @navigate="() => {}"
+      />
+
+      <!-- Main -->
+      <main class="main">
+        <div class="main-header">
+          <h1 class="main-title">{{ pageTitle }}</h1>
+          <div class="main-actions">
+            <slot name="actions" />
+          </div>
+        </div>
+        <div class="main-content">
+          <router-view />
+        </div>
+      </main>
+    </div>
+
+    <CommandPalette />
+  </div>
+</template>
+
+<style scoped>
+/* ============================================================
+   App Shell — v3.0 Modern Dark
+   ============================================================ */
+.app-shell { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+
+/* ===== Top Bar ===== */
+.topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  height:var(--sre-topbar-h); padding:0 16px; flex-shrink:0;
+  background:var(--sre-bg-base);
+  border-bottom:1px solid var(--sre-border);
+  z-index:var(--sre-z-sticky);
+}
+
+.topbar-start { display:flex; align-items:center; gap:0; }
+.topbar-end { display:flex; align-items:center; gap:4px; }
+
+.topbar-logo {
+  display:flex; align-items:center; gap:8px; text-decoration:none;
+  padding:4px 8px 4px 0; border-radius:var(--sre-radius-sm);
+  transition:opacity var(--sre-duration-fast) var(--sre-ease-out);
+}
+.topbar-logo:hover { opacity:0.8; }
+.logo-img { width:24px; height:24px; border-radius:var(--sre-radius-sm); }
+.logo-label { font-size:15px; font-weight:600; color:var(--sre-text-primary); letter-spacing:-0.01em; white-space:nowrap; }
+
+.topbar-sep {
+  width:1px; height:20px; background:var(--sre-border); margin:0 12px; opacity:0.6;
+}
+
+/* Topbar utility buttons */
+.topbar-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:6px 9px; min-height:32px; border:none; border-radius:var(--sre-radius-sm);
+  background:transparent; color:var(--sre-text-secondary);
+  font-size:12px; font-weight:500; font-family:var(--sre-font-sans);
+  cursor:pointer; white-space:nowrap;
+  transition:background var(--sre-duration-fast) var(--sre-ease-out),
+             color var(--sre-duration-fast) var(--sre-ease-out);
+}
+.topbar-btn:hover { background:var(--sre-bg-hover); color:var(--sre-text-primary); }
+
+.topbar-clock {
+  border:1px solid var(--sre-border); border-radius:var(--sre-radius-pill);
+  padding:5px 11px; gap:6px; background:var(--sre-bg-card);
+}
+.topbar-clock:hover, .topbar-clock.active {
+  background:var(--sre-primary-soft); border-color:var(--sre-primary-ring);
+}
+.clock-text { font-family:var(--sre-font-mono); font-size:13px; font-weight:600; color:var(--sre-text-primary); font-feature-settings:"tnum" 1; }
+.clock-tz { font-size:10px; font-weight:700; color:var(--sre-primary); background:var(--sre-primary-soft); padding:1px 6px; border-radius:4px; }
+
+.topbar-kbd { gap:5px; }
+.topbar-kbd kbd { font-size:10px; padding:1px 5px; border-radius:4px; background:var(--sre-bg-elevated); border:1px solid var(--sre-border-strong); color:var(--sre-text-muted); font-family:var(--sre-font-mono); }
+
+/* ===== Timezone Panel ===== */
+.tz-panel { min-width:220px; padding:4px 0; }
+.tz-panel-title { display:flex; align-items:center; gap:8px; padding:8px 16px 6px; font-size:11px; font-weight:600; color:var(--sre-text-tertiary); letter-spacing:0.06em; text-transform:uppercase; border-bottom:1px solid var(--sre-border); margin-bottom:4px; }
+.tz-item { display:flex; align-items:center; gap:8px; padding:7px 16px; cursor:pointer; font-size:13px; color:var(--sre-text-primary); transition:background var(--sre-duration-fast) var(--sre-ease-out); margin:0 4px; border-radius:6px; }
+.tz-item:hover { background:var(--sre-bg-hover); }
+.tz-item.selected { color:var(--sre-primary); background:var(--sre-primary-soft); }
+.tz-abbr { font-weight:700; font-size:11px; width:32px; color:var(--sre-primary); flex-shrink:0; }
+.tz-label { flex:1; }
+.tz-check { font-weight:700; color:var(--sre-primary); font-size:12px; }
+
+/* ===== App Body ===== */
+.app-body { display:flex; flex:1; min-height:0; }
+
+/* ===== Main Content ===== */
+.main { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; }
+
+.main-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px; flex-shrink:0;
+  border-bottom:1px solid var(--sre-border);
+  background:var(--sre-bg-base);
+}
+.main-title {
+  font-size:18px; font-weight:600; color:var(--sre-text-primary);
+  letter-spacing:-0.01em; margin:0; line-height:1.2;
+}
+.main-actions { display:flex; align-items:center; gap:8px; }
+
+.main-content { flex:1; overflow-y:auto; padding:20px; }
+</style>
