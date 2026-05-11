@@ -107,12 +107,12 @@ export function useAppNav() {
             ],
           },
           {
-            label: '协作空间',
+            label: t('menu.channels'),
             items: [
               { label: t('menu.channels'),       key: '/oncall/channels' },
               { label: t('menu.incidents'),       key: '/oncall/incidents' },
-              { label: '状态页面',                key: '/oncall/status-page' },
-              { label: '故障复盘',                key: '/oncall/postmortem' },
+              { label: t('menu.statusPage'),      key: '/oncall/status-page' },
+              { label: t('menu.postmortems'),     key: '/oncall/postmortem' },
             ],
           },
           {
@@ -128,11 +128,11 @@ export function useAppNav() {
             })(),
           },
           {
-            label: '配置中心',
+            label: t('menu.configCenter'),
             items: [
               { label: t('menu.notifyChannels'),  key: '/oncall/notify-rules' },
-              { label: '路由规则',                 key: '/oncall/routing-rules' },
-              { label: '业务分组',                 key: '/oncall/biz-groups' },
+              { label: t('menu.routingRules'),     key: '/oncall/routing-rules' },
+              { label: t('menu.bizGroups'),        key: '/oncall/biz-groups' },
               { label: t('menu.subscriptions'),    key: '/oncall/subscriptions' },
             ],
           },
@@ -160,7 +160,7 @@ export function useAppNav() {
             items: [
               { label: t('menu.datasources'), key: '/alert/datasources' },
               { label: t('menu.dataQuery'),   key: '/alert/query' },
-              { label: '仪表盘',              key: '/alert/dashboards' },
+              { label: t('menu.dashboard'),   key: '/alert/dashboards' },
             ],
           },
           {
@@ -179,17 +179,17 @@ export function useAppNav() {
         return [
           {
             items: [
-              { label: '个人中心', key: '/platform/profile' },
+              { label: t('menu.profile'), key: '/platform/profile' },
             ],
           },
           {
-            label: '组织管理',
+            label: t('menu.orgManagement'),
             items: (() => {
               const items: MenuItem[] = []
-              if (authStore.isAdmin)     items.push({ label: '成员管理', key: '/platform/users' })
-              if (authStore.canManage)   items.push({ label: '团队管理', key: '/platform/teams' })
-              items.push({ label: '角色权限', key: '/platform/roles' })
-              if (authStore.isAdmin)     items.push({ label: '单点登录', key: '/platform/oidc' })
+              if (authStore.isAdmin)     items.push({ label: t('menu.members'), key: '/platform/users' })
+              if (authStore.canManage)   items.push({ label: t('menu.teams'), key: '/platform/teams' })
+              items.push({ label: t('menu.roles'), key: '/platform/roles' })
+              if (authStore.isAdmin)     items.push({ label: t('menu.sso'), key: '/platform/oidc' })
               return items
             })(),
           },
@@ -197,21 +197,21 @@ export function useAppNav() {
             items: (() => {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
-                items.push({ label: '审计日志', key: '/platform/audit-log' })
+                items.push({ label: t('menu.audit'), key: '/platform/audit-log' })
               }
               return items
             })(),
           },
           {
-            label: '系统设置',
+            label: t('menu.systemSettings'),
             items: (() => {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
                 items.push(
-                  { label: '邮件服务',  key: '/platform/smtp' },
-                  { label: '飞书机器人', key: '/platform/lark-bot' },
-                  { label: 'AI 配置',    key: '/platform/ai-config' },
-                  { label: '安全设置',   key: '/platform/security' },
+                  { label: t('menu.smtp'),      key: '/platform/smtp' },
+                  { label: t('menu.larkBot'),    key: '/platform/lark-bot' },
+                  { label: t('menu.aiConfig'),   key: '/platform/ai-config' },
+                  { label: t('menu.security'),   key: '/platform/security' },
                 )
               }
               return items
