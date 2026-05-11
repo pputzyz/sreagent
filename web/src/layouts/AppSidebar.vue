@@ -103,8 +103,10 @@ function handleMenuUpdate(key: string) {
   flex-direction: column;
   width: 220px;
   height: 100%;
-  background: var(--sre-bg-card);
-  border-right: 1px solid var(--sre-border);
+  background: var(--sre-glass-bg);
+  -webkit-backdrop-filter: blur(var(--sre-glass-blur)) saturate(var(--sre-glass-saturate));
+  backdrop-filter: blur(var(--sre-glass-blur)) saturate(var(--sre-glass-saturate));
+  border-right: 1px solid var(--sre-glass-border);
   flex-shrink: 0;
   transition: width 280ms var(--sre-ease-spring);
   overflow: hidden;
@@ -128,7 +130,7 @@ function handleMenuUpdate(key: string) {
   align-items: center;
   justify-content: space-between;
   padding: 12px 12px 8px;
-  border-bottom: 1px solid var(--sre-border);
+  border-bottom: 1px solid var(--sre-glass-border);
   min-height: 44px;
 }
 

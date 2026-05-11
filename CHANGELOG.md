@@ -4,7 +4,36 @@
 
 ---
 
-## [v4.2.1] — 2026-05-11
+## [v4.3.0] — 2026-05-11
+
+### Changed — 视觉系统升级：Glassmorphism + OLED 深色主题
+
+**Dark Theme 全面升级：**
+- 背景色从暖石色调（#0c0a09）切换到深邃 OLED 蓝黑色（#050a14）
+- 新增 `--sre-gradient-mesh` 多色径向渐变用于页面背景
+- 新增 `--sre-shadow-glow` 品牌色辉光阴影
+- 文本色从暖白（#fafaf9）切换到冷白（#f1f5f9），层次更分明
+
+**Glassmorphism 全面应用：**
+- 所有 surface（glass/clay/card）加入 `backdrop-filter: blur()` 毛玻璃效果
+- 卡片、行卡、通知卡、配置区块全部升级为半透明毛玻璃
+- hover 时增加微妙的 `box-shadow` 提升层次感
+
+**组件视觉升级：**
+- AppRail：毛玻璃背景，active 图标带辉光效果（`box-shadow: 0 0 16px -4px`）
+- AppSidebar：毛玻璃背景 + 玻璃边框
+- AppShell topbar：毛玻璃背景
+- main-content 区域叠加 mesh 渐变背景
+- 登录页：完全重设计 — 全屏动画渐变 mesh 背景 + 居中 glass card
+
+**登录页重设计：**
+- 去掉 60/40 分栏布局，改为全屏居中 glass card
+- 三个动画渐变色球（teal/blue/amber）做 mesh 背景
+- card 带 24px blur + 品牌色辉光阴影
+- logo + 品牌名移入 card 顶部
+- 底部 footer 显示版本号 + 系统状态
+
+---
 
 ### Fixed — 头像裂图 + 登录页清理
 

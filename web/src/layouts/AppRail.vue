@@ -166,10 +166,12 @@ function handleLogout() {
 .app-rail {
   display: flex;
   flex-direction: column;
-  width: 48px;
+  width: 52px;
   height: 100%;
-  background: var(--sre-bg-base);
-  border-right: 1px solid var(--sre-border);
+  background: var(--sre-glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-right: 1px solid var(--sre-glass-border);
   flex-shrink: 0;
 }
 
@@ -178,8 +180,8 @@ function handleLogout() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 6px;
+  gap: 6px;
+  padding: 10px 8px;
 }
 
 .rail-spacer {
@@ -190,8 +192,8 @@ function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border: none;
   border-radius: 10px;
   background: transparent;
@@ -200,24 +202,25 @@ function handleLogout() {
   transition:
     background var(--sre-duration-base) var(--sre-ease-out),
     color var(--sre-duration-base) var(--sre-ease-out),
-    box-shadow var(--sre-duration-base) var(--sre-ease-out);
+    box-shadow var(--sre-duration-base) var(--sre-ease-out),
+    transform var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .rail-icon-btn:hover {
-  background: var(--sre-bg-hover);
+  background: rgba(148, 163, 184, 0.08);
   color: var(--sre-text-primary);
-  box-shadow: var(--sre-shadow-xs);
+  box-shadow: 0 0 12px -2px rgba(13, 148, 136, 0.15);
 }
 
 .rail-icon-btn:active {
-  transform: scale(0.92);
+  transform: scale(0.90);
   transition-duration: 80ms;
 }
 
 .rail-icon-btn.active {
-  background: var(--sre-primary-soft);
+  background: rgba(13, 148, 136, 0.15);
   color: var(--sre-primary);
-  box-shadow: inset 3px 0 0 var(--sre-primary);
+  box-shadow: inset 3px 0 0 var(--sre-primary), 0 0 16px -4px rgba(13, 148, 136, 0.25);
 }
 
 /* Rail tooltip content */

@@ -203,8 +203,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .topbar {
   display:flex; align-items:center; justify-content:space-between;
   height:var(--sre-topbar-h); padding:0 16px; flex-shrink:0;
-  background:var(--sre-bg-base);
-  border-bottom:1px solid var(--sre-border);
+  background:var(--sre-glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-bottom:1px solid var(--sre-glass-border);
   z-index:var(--sre-z-sticky);
 }
 
@@ -269,8 +271,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .main-header {
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 20px; flex-shrink:0;
-  border-bottom:1px solid var(--sre-border);
-  background:var(--sre-bg-base);
+  border-bottom:1px solid var(--sre-glass-border);
+  background:var(--sre-glass-bg);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  backdrop-filter: blur(16px) saturate(120%);
 }
 .main-title {
   font-size:18px; font-weight:600; color:var(--sre-text-primary);
@@ -278,5 +282,8 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 }
 .main-actions { display:flex; align-items:center; gap:8px; }
 
-.main-content { flex:1; overflow-y:auto; padding:20px; }
+.main-content {
+  flex:1; overflow-y:auto; padding:20px;
+  background: var(--sre-gradient-mesh), var(--sre-bg-page);
+}
 </style>
