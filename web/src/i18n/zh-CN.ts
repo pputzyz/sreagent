@@ -182,7 +182,7 @@ export default {
       systemStatus: '系统运行正常',
     },
     welcomeBack: '欢迎回来。继续您的值班之旅。',
-    defaultHint: '首次使用？默认凭据 <code>admin / admin123</code> — 登录后请修改。',
+    defaultHint: '首次使用请使用默认凭据登录，登录后请及时修改密码。',
   },
   dashboard: {
     title: '仪表盘',

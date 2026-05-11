@@ -21,6 +21,7 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 
 const showUserMenu = ref(false)
+const avatarError = ref(false)
 
 interface RailItem {
   key: AppKey
@@ -102,12 +103,13 @@ function handleLogout() {
         <template #trigger>
           <button class="rail-avatar-btn" :class="{ active: showUserMenu }">
             <n-avatar
-              v-if="authStore.user?.avatar"
+              v-if="authStore.user?.avatar && !avatarError"
               :src="authStore.user.avatar"
               :size="28"
               round
+              @error="avatarError = true"
             />
-            <n-avatar v-else :size="28" round>{{ userInitial }}</n-avatar>
+            <n-avatar v-else :size="28" round :style="{ fontSize: '12px', fontWeight: 700 }">{{ userInitial }}</n-avatar>
           </button>
         </template>
 

@@ -182,7 +182,7 @@ export default {
       systemStatus: 'all systems nominal',
     },
     welcomeBack: 'Welcome back. Pick up where the on-call rotation left off.',
-    defaultHint: 'First time? Default credentials <code>admin / admin123</code> — please change after sign-in.',
+    defaultHint: 'First time? Use the default credentials to sign in. Please change your password afterward.',
   },
   dashboard: {
     title: 'Dashboard',

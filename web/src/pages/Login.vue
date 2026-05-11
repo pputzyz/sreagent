@@ -46,7 +46,7 @@ async function handleLogin() {
   try {
     await authStore.login(form.value.username, form.value.password)
     message.success(t('auth.loginSuccess'))
-    router.push((route.query.redirect as string) || '/dashboard')
+    router.push((route.query.redirect as string) || '/oncall/overview')
   } catch (err: any) {
     loginError.value = err.message || t('auth.loginFailed')
   } finally {
@@ -182,7 +182,7 @@ watch([() => form.value.username, () => form.value.password], () => {
           </n-button>
         </template>
 
-        <p class="form-default-hint" v-html="t('auth.defaultHint')" />
+        <p class="form-default-hint">{{ t('auth.defaultHint') }}</p>
       </form>
     </section>
   </div>
@@ -461,22 +461,10 @@ watch([() => form.value.username, () => form.value.password], () => {
 
 .form-default-hint {
   font-size: 11px;
-  color: var(--sre-warning);
+  color: var(--sre-text-tertiary);
   text-align: center;
   margin: 8px 0 0;
-  padding: 10px 12px;
-  background: var(--sre-warning-soft);
-  border-radius: var(--sre-radius-sm);
-  border: 1px solid color-mix(in srgb, var(--sre-warning) 22%, transparent);
   line-height: 1.5;
-}
-.form-default-hint code {
-  font-family: var(--sre-font-mono);
-  background: var(--sre-warning-soft);
-  padding: 1px 6px;
-  border-radius: 3px;
-  color: var(--sre-warning);
-  font-size: 11px;
 }
 
 /* ===== Responsive ===== */
