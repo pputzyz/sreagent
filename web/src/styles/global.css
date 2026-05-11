@@ -1,48 +1,47 @@
 /* ============================================================
-   SREAgent Design System — v3.0 "Modern Dark"
-   Inspired by Linear / Vercel / Raycast
+   SREAgent Design System — v3.1 "Soft Warm SaaS"
+   Teal + Amber · Warm White · Plus Jakarta Sans
    ============================================================ */
 
-/* ===== Dark (default) — Pure Black ===== */
-/* Fonts: Inter (local install) + system fallback for intranet compatibility */
+/* ===== Light (default) — Warm White ===== */
+/* Fonts: Plus Jakarta Sans (local install) + system fallback for intranet compatibility */
 :root {
-  /* --- Brand (green-500 + indigo-500) --- */
-  --sre-brand-50:   #f0fdf4;
-  --sre-brand-100:  #dcfce7;
-  --sre-brand-200:  #bbf7d0;
-  --sre-brand-300:  #86efac;
-  --sre-brand-400:  #4ade80;
-  --sre-brand-500:  #22c55e;   /* primary — green-500 */
-  --sre-brand-600:  #16a34a;
-  --sre-brand-700:  #15803d;
-  --sre-brand-accent: #6366f1;  /* indigo-500 */
+  /* --- Brand (teal-600 + amber-500) --- */
+  --sre-brand-50:   #f0fdfa;
+  --sre-brand-100:  #ccfbf1;
+  --sre-brand-200:  #99f6e4;
+  --sre-brand-300:  #5eead4;
+  --sre-brand-400:  #2dd4bf;
+  --sre-brand-500:  #14b8a6;
+  --sre-brand-600:  #0d9488;   /* primary — teal-600 */
+  --sre-brand-700:  #0f766e;
+  --sre-brand-accent: #f59e0b;  /* amber-500 */
 
-  --sre-primary:        var(--sre-brand-500);
-  --sre-primary-hover:  var(--sre-brand-400);
-  --sre-primary-soft:   rgba(34, 197, 94, 0.15);
-  --sre-primary-ring:   rgba(34, 197, 94, 0.35);
+  --sre-primary:        var(--sre-brand-600);
+  --sre-primary-hover:  var(--sre-brand-500);
+  --sre-primary-soft:   rgba(13, 148, 136, 0.10);
+  --sre-primary-ring:   rgba(13, 148, 136, 0.30);
 
-  /* Accent (indigo) — used for highlights, badges, secondary CTAs */
-  --sre-accent:         #6366f1;
-  --sre-accent-soft:    rgba(99, 102, 241, 0.16);
-  --sre-accent-ring:    rgba(99, 102, 241, 0.35);
+  --sre-accent:         #f59e0b;
+  --sre-accent-soft:    rgba(245, 158, 11, 0.10);
+  --sre-accent-ring:    rgba(245, 158, 11, 0.30);
 
   /* Gradients — minimal, only where functional */
-  --sre-gradient-brand: linear-gradient(135deg, #22c55e 0%, #4ade80 40%, #6366f1 100%);
-  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(99,102,241,0.12));
-  --sre-gradient-brand-subtle: linear-gradient(135deg, rgba(34,197,94,0.05), rgba(99,102,241,0.05));
+  --sre-gradient-brand: linear-gradient(135deg, #0d9488 0%, #14b8a6 40%, #f59e0b 100%);
+  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(13,148,136,0.08), rgba(245,158,11,0.08));
+  --sre-gradient-brand-subtle: linear-gradient(135deg, rgba(13,148,136,0.04), rgba(245,158,11,0.04));
   --sre-gradient-heat:  linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
 
   /* --- Semantic --- */
   --sre-critical:       #ef4444;
-  --sre-critical-soft:  rgba(239, 68, 68, 0.14);
+  --sre-critical-soft:  rgba(239, 68, 68, 0.08);
   --sre-danger:         #ef4444;
   --sre-warning:        #f59e0b;
-  --sre-warning-soft:   rgba(245, 158, 11, 0.14);
+  --sre-warning-soft:   rgba(245, 158, 11, 0.08);
   --sre-info:           #3b82f6;
-  --sre-info-soft:      rgba(59, 130, 246, 0.14);
-  --sre-success:        #22c55e;
-  --sre-success-soft:   rgba(34, 197, 94, 0.14);
+  --sre-info-soft:      rgba(59, 130, 246, 0.08);
+  --sre-success:        #0d9488;
+  --sre-success-soft:   rgba(13, 148, 136, 0.08);
 
   /* --- Datasource type accents --- */
   --sre-ds-prometheus:      #e6522c;
@@ -57,34 +56,33 @@
   /* --- User palette accent --- */
   --sre-user-slate: #64748b;
 
-  /* --- Surfaces (solid, flat — Modern Dark) --- */
-  --sre-bg-base:        #09090b;
-  --sre-bg-page:        #0a0a0b;
-  --sre-bg-card:        #141416;
-  --sre-bg-elevated:    #1c1c1f;
-  --sre-bg-sunken:      #050505;
-  --sre-bg-hover:       rgba(255, 255, 255, 0.04);
-  --sre-bg-active:      rgba(255, 255, 255, 0.07);
-  --sre-bg-subtle:      rgba(255, 255, 255, 0.02);
-  --sre-overlay-subtle: rgba(255, 255, 255, 0.02);
+  /* --- Surfaces (warm white, Soft Warm) --- */
+  --sre-bg-base:        #fafaf9;
+  --sre-bg-page:        #fafaf9;
+  --sre-bg-card:        #ffffff;
+  --sre-bg-elevated:    #ffffff;
+  --sre-bg-sunken:      #f5f5f4;
+  --sre-bg-hover:       rgba(0, 0, 0, 0.03);
+  --sre-bg-active:      rgba(0, 0, 0, 0.06);
+  --sre-bg-subtle:      rgba(0, 0, 0, 0.02);
+  --sre-overlay-subtle: rgba(0, 0, 0, 0.02);
 
-  /* Glass surfaces — kept for compat, simplified */
-  --sre-glass-bg:         #141416;
-  --sre-glass-border:     rgba(255, 255, 255, 0.06);
+  --sre-glass-bg:         #ffffff;
+  --sre-glass-border:     rgba(0, 0, 0, 0.06);
   --sre-glass-blur:       0px;
   --sre-glass-saturate:   100%;
 
   /* --- Borders --- */
-  --sre-border:         rgba(255, 255, 255, 0.06);
-  --sre-border-strong:  rgba(255, 255, 255, 0.10);
+  --sre-border:         rgba(0, 0, 0, 0.06);
+  --sre-border-strong:  rgba(0, 0, 0, 0.10);
   --sre-border-focus:   var(--sre-primary);
 
   /* --- Text --- */
-  --sre-text-primary:   #ededef;
-  --sre-text-secondary: #a0a0ab;
-  --sre-text-tertiary:  #63636e;
-  --sre-text-muted:     rgba(255, 255, 255, 0.18);
-  --sre-text-inverse:   #0a0a0b;
+  --sre-text-primary:   #1c1917;
+  --sre-text-secondary: #78716c;
+  --sre-text-tertiary:  #a8a29e;
+  --sre-text-muted:     rgba(0, 0, 0, 0.15);
+  --sre-text-inverse:   #ffffff;
 
   /* --- Spacing (4px grid) --- */
   --sre-space-0:  0;
@@ -99,18 +97,18 @@
   --sre-space-12: 48px;
   --sre-space-16: 64px;
 
-  /* --- Radius (tight, precise — Modern Dark) --- */
+  /* --- Radius (soft, warm) --- */
   --sre-radius-xs:   4px;
   --sre-radius-sm:   6px;
   --sre-radius-md:   8px;
-  --sre-radius-lg:   10px;
-  --sre-radius-xl:   14px;
-  --sre-radius-2xl:  20px;
+  --sre-radius-lg:   12px;
+  --sre-radius-xl:   16px;
+  --sre-radius-2xl:  24px;
   --sre-radius-pill: 9999px;
 
   /* --- Typography --- */
-  --sre-font-display: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --sre-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI",
+  --sre-font-display: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --sre-font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI",
                    Roboto, "Helvetica Neue", Arial, sans-serif;
   --sre-font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Menlo", ui-monospace, monospace;
 
@@ -135,14 +133,14 @@
   --sre-lh-normal: 1.5;
   --sre-lh-loose:  1.7;
 
-  /* --- Shadows (minimal, single-layer) --- */
-  --sre-shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.30);
-  --sre-shadow-sm:  0 2px 6px rgba(0, 0, 0, 0.25);
-  --sre-shadow-md:  0 8px 24px -6px rgba(0, 0, 0, 0.40);
-  --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.50);
-  --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.55);
+  /* --- Shadows (soft, warm for light bg) --- */
+  --sre-shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.04);
+  --sre-shadow-sm:  0 2px 6px rgba(0, 0, 0, 0.06);
+  --sre-shadow-md:  0 8px 24px -6px rgba(0, 0, 0, 0.08);
+  --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.10);
+  --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.12);
   --sre-shadow-glow-brand: 0 0 0 3px var(--sre-primary-ring);
-  --sre-shadow-card-hover: 0 0 0 1px rgba(34,197,94,0.12);
+  --sre-shadow-card-hover: 0 0 0 1px rgba(13,148,136,0.10);
   --sre-shadow-ring: 0 0 0 3px var(--sre-primary-ring);
 
   /* --- Motion (spring + smooth) --- */
@@ -172,47 +170,50 @@
   --sre-z-toast:   2000;
 }
 
-/* ===== Light theme — Clean White ===== */
-body.light-theme {
-  --sre-bg-base:        #f4f4f5;
-  --sre-bg-page:        #fafafa;
-  --sre-bg-card:        #ffffff;
-  --sre-bg-elevated:    #ffffff;
-  --sre-bg-sunken:      #f4f4f5;
-  --sre-bg-hover:       rgba(0, 0, 0, 0.03);
-  --sre-bg-active:      rgba(0, 0, 0, 0.06);
-  --sre-bg-subtle:      rgba(0, 0, 0, 0.02);
-  --sre-overlay-subtle: rgba(0, 0, 0, 0.02);
+/* ===== Dark theme (opt-in) ===== */
+body.dark-theme {
+  --sre-bg-base:        #0c0a09;
+  --sre-bg-page:        #1c1917;
+  --sre-bg-card:        #292524;
+  --sre-bg-elevated:    #44403c;
+  --sre-bg-sunken:      #0c0a09;
+  --sre-bg-hover:       rgba(255, 255, 255, 0.05);
+  --sre-bg-active:      rgba(255, 255, 255, 0.08);
+  --sre-bg-subtle:      rgba(255, 255, 255, 0.02);
+  --sre-overlay-subtle: rgba(255, 255, 255, 0.02);
 
-  --sre-glass-bg:       #ffffff;
-  --sre-glass-border:   rgba(0, 0, 0, 0.06);
+  --sre-glass-bg:       #292524;
+  --sre-glass-border:   rgba(255, 255, 255, 0.08);
   --sre-glass-blur:     0px;
   --sre-glass-saturate: 100%;
 
-  --sre-border:         rgba(0, 0, 0, 0.06);
-  --sre-border-strong:  rgba(0, 0, 0, 0.10);
+  --sre-border:         rgba(255, 255, 255, 0.08);
+  --sre-border-strong:  rgba(255, 255, 255, 0.14);
 
-  --sre-text-primary:   #18181b;
-  --sre-text-secondary: #52525b;
-  --sre-text-tertiary:  #a1a1aa;
-  --sre-text-muted:     rgba(0, 0, 0, 0.15);
-  --sre-text-inverse:   #ffffff;
+  --sre-text-primary:   #fafaf9;
+  --sre-text-secondary: #d6d3d1;
+  --sre-text-tertiary:  #a8a29e;
+  --sre-text-muted:     rgba(255, 255, 255, 0.18);
+  --sre-text-inverse:   #1c1917;
 
-  --sre-primary-soft:   rgba(34, 197, 94, 0.10);
-  --sre-critical-soft:  rgba(239, 68, 68, 0.10);
-  --sre-warning-soft:   rgba(245, 158, 11, 0.10);
-  --sre-info-soft:      rgba(59, 130, 246, 0.10);
-  --sre-success-soft:   rgba(34, 197, 94, 0.10);
-  --sre-accent-soft:    rgba(99, 102, 241, 0.10);
+  --sre-primary-soft:   rgba(13, 148, 136, 0.15);
+  --sre-critical-soft:  rgba(239, 68, 68, 0.14);
+  --sre-warning-soft:   rgba(245, 158, 11, 0.14);
+  --sre-info-soft:      rgba(59, 130, 246, 0.14);
+  --sre-success-soft:   rgba(13, 148, 136, 0.14);
+  --sre-accent-soft:    rgba(245, 158, 11, 0.14);
 
-  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(99,102,241,0.08));
+  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(13,148,136,0.10), rgba(245,158,11,0.10));
 
-  --sre-shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.04);
-  --sre-shadow-sm:  0 2px 6px rgba(0, 0, 0, 0.05);
-  --sre-shadow-md:  0 8px 24px -6px rgba(0, 0, 0, 0.08);
-  --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.10);
-  --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.12);
+  --sre-shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.25);
+  --sre-shadow-sm:  0 2px 6px rgba(0, 0, 0, 0.20);
+  --sre-shadow-md:  0 8px 24px -6px rgba(0, 0, 0, 0.35);
+  --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.45);
+  --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.50);
 }
+
+body.dark-theme ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.18); }
+body.dark-theme ::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.35); }
 
 /* ============================================================
    Base reset
@@ -254,12 +255,10 @@ body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.18);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: var(--sre-radius-pill);
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.35); }
-body.light-theme ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.12); }
-body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.24); }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.24); }
 
 /* ============================================================
    Typography utilities
@@ -325,15 +324,15 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2
   text-transform: uppercase;
   letter-spacing: .04em;
 }
-.sev-chip[data-sev="critical"] { background: var(--sre-critical-soft); color: #fca5a5; }
-.sev-chip[data-sev="warning"]  { background: var(--sre-warning-soft); color: #fcd34d; }
-.sev-chip[data-sev="info"]     { background: var(--sre-info-soft); color: #7dd3fc; }
-body.light-theme .sev-chip[data-sev="critical"] { color: var(--sre-critical); }
-body.light-theme .sev-chip[data-sev="warning"]  { color: #b45309; }
-body.light-theme .sev-chip[data-sev="info"]     { color: #1d4ed8; }
+.sev-chip[data-sev="critical"] { background: var(--sre-critical-soft); color: #dc2626; }
+.sev-chip[data-sev="warning"]  { background: var(--sre-warning-soft); color: #d97706; }
+.sev-chip[data-sev="info"]     { background: var(--sre-info-soft); color: #2563eb; }
+body.dark-theme .sev-chip[data-sev="critical"] { color: #fca5a5; }
+body.dark-theme .sev-chip[data-sev="warning"]  { color: #fcd34d; }
+body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 
 /* ============================================================
-   Surfaces — flat, solid (Modern Dark)
+   Surfaces — flat, solid (Soft Warm)
    ============================================================ */
 .surface-glass {
   background: var(--sre-glass-bg);
@@ -811,7 +810,7 @@ body.light-theme .sev-chip[data-sev="info"]     { color: #1d4ed8; }
   border: var(--sre-hairline);
 }
 .sre-config-status[data-tone="success"] {
-  border-color: rgba(34,197,94,0.3);
+  border-color: rgba(13,148,136,0.3);
   background: var(--sre-success-soft);
 }
 .sre-config-status[data-tone="error"] {
