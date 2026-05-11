@@ -4,6 +4,14 @@
 
 ---
 
+## [v3.0.1] — 2026-05-11
+
+### Fixed
+
+- 修复 `Detail.vue` 中 `severityLabel` 函数的 TypeScript TS7053 类型错误（用 `Record<string, string>` 断言解决索引签名缺失问题）
+
+---
+
 ## [v3.0.0] — 2026-05-10
 
 ### Changed — 全面 UI 重构：Modern Dark 设计系统 (Linear/Vercel/Raycast 风格)
