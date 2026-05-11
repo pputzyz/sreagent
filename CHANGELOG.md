@@ -4,6 +4,16 @@
 
 ---
 
+## [v4.1.1] — 2026-05-11
+
+### Fixed — 内网访问页面卡住
+
+- 移除 `index.html` 中 Google Fonts CDN 外链（fonts.googleapis.com）
+- 内网环境下 DNS 解析/连接超时会阻塞页面渲染
+- 改用系统字体栈 fallback，PingFang SC / Microsoft YaHei 等
+
+---
+
 ## [v4.1.0] — 2026-05-11
 
 ### Added — UI 视觉美化层
