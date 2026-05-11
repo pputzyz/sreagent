@@ -152,7 +152,11 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
           </div>
         </div>
         <div class="main-content">
-          <router-view />
+          <router-view v-slot="{ Component, route }">
+            <Transition name="sre-page" mode="out-in">
+              <component :is="Component" :key="route.path" />
+            </Transition>
+          </router-view>
         </div>
       </main>
     </div>
