@@ -325,9 +325,9 @@ onMounted(fetchData)
 .row-l2 { padding-left: 18px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .label-chip, .media-chip {
   font: 11px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;
-  background: rgba(255,255,255,0.05); color: var(--sre-text-secondary, #aaa);
+  background: var(--sre-bg-hover); color: var(--sre-text-secondary, #aaa);
 }
-.media-chip { background: rgba(129,140,248,0.12); color: #a5b4fc; }
+.media-chip { background: var(--sre-accent-soft); color: var(--sre-accent); }
 .arrow { color: var(--sre-text-secondary, #666); margin: 0 4px; font-size: 12px; }
 .muted { color: var(--sre-text-secondary, #666); font-size: 12px; }
 

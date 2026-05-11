@@ -108,14 +108,14 @@ watch(() => props.datasourceId, () => {
 
 <style scoped>
 .promql-editor {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--sre-border);
   border-radius: 6px;
   overflow: hidden;
   min-height: 42px;
 }
 .promql-editor:focus-within {
-  border-color: #18a058;
-  box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.15);
+  border-color: var(--sre-primary);
+  box-shadow: 0 0 0 2px var(--sre-primary-soft);
 }
 .promql-editor.disabled {
   opacity: 0.6;

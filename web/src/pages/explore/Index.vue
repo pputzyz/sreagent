@@ -249,9 +249,9 @@ function typeColor(tp: DataSourceType): string {
   const token = tokenMap[tp]
   if (token && typeof document !== 'undefined') {
     const val = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-    _dsColorCache[tp] = val || '#666'
+    _dsColorCache[tp] = val || '#78716c'
   } else {
-    _dsColorCache[tp] = '#666'
+    _dsColorCache[tp] = '#78716c'
   }
   return _dsColorCache[tp]
 }
@@ -323,7 +323,7 @@ const chartOption = computed(() => {
   return {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis', confine: true },
-    legend: { type: 'scroll', bottom: 0, textStyle: { color: (typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-tertiary').trim() || '#888' : '#888'), fontSize: 12 } },
+    legend: { type: 'scroll', bottom: 0, textStyle: { color: (typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-tertiary').trim() || '#78716c' : '#78716c'), fontSize: 12 } },
     grid: { left: 80, right: 20, top: 20, bottom: 50 },
     xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 11 }, splitLine: { lineStyle: { type: 'dashed' } } },
@@ -545,7 +545,7 @@ onUnmounted(() => {
           class="ds-select"
         />
         <div v-if="selectedDs" class="ds-info">
-          <NTag :color="{ color: typeColor(selectedDs.type), textColor: '#fff' }" size="small" :bordered="false">
+          <NTag :color="{ color: typeColor(selectedDs.type), textColor: '#fafaf9' }" size="small" :bordered="false">
             {{ typeBadge(selectedDs.type) }}
           </NTag>
           <span class="ds-endpoint">{{ selectedDs.endpoint }}</span>
@@ -634,7 +634,7 @@ onUnmounted(() => {
     <!-- Error -->
     <div v-if="errorMsg" class="error-card">
       <div class="error-icon-wrap">
-        <NIcon size="18" color="#fff"><AlertCircleOutline /></NIcon>
+        <NIcon size="18" color="#fafaf9"><AlertCircleOutline /></NIcon>
       </div>
       <div class="error-body">
         <div class="error-title">{{ t('query.queryFailed') }}</div>
@@ -1035,7 +1035,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  color: #fff;
+  color: #fafaf9;
 }
 .error-body {
   flex: 1;

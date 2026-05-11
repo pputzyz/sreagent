@@ -342,12 +342,12 @@ onMounted(() => { fetchData(); fetchRefData() })
 .row-name { font: 600 14px/1.3 var(--sre-font-sans), sans-serif; letter-spacing: -0.005em; }
 
 .subscriber { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px;
-  border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06)); }
+  border-radius: 999px; background: var(--sre-bg-hover); border: 1px solid var(--sre-hairline, rgba(255,255,255,0.06)); }
 .avatar {
   width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-  font: 600 10px/1 var(--sre-font-sans), sans-serif; background: rgba(129,140,248,0.18); color: #a5b4fc;
+  font: 600 10px/1 var(--sre-font-sans), sans-serif; background: var(--sre-accent-soft); color: var(--sre-accent);
 }
-.subscriber[data-type="team"] .avatar { background: rgba(34,197,94,0.18); color: #86efac; }
+.subscriber[data-type="team"] .avatar { background: var(--sre-primary-soft); color: var(--sre-primary); }
 .sub-name { font-size: 12px; }
 .sub-kind { font: 500 10px/1 var(--sre-font-mono), monospace; color: var(--sre-text-secondary, #888); text-transform: uppercase; letter-spacing: .04em; }
 

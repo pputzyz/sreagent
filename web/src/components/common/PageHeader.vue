@@ -54,7 +54,7 @@ const hasActions = !!slots.actions
   min-height: 38px;
   border-radius: var(--sre-radius-pill);
   background: var(--sre-gradient-brand);
-  box-shadow: 0 0 12px rgba(24, 160, 88, 0.35);
+  box-shadow: 0 0 12px var(--sre-primary-ring);
   margin-top: 2px;
 }
 

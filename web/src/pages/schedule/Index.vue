@@ -918,7 +918,7 @@ onMounted(() => {
   background: var(--shift-color);
   color: var(--sre-text-inverse);
   border-left-color: transparent;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--sre-shadow-xs);
 }
 
 .shift-user {

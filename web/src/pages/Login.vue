@@ -424,7 +424,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   height: 18px;
   border-radius: 50%;
   background: var(--sre-critical);
-  color: #fff;
+  color: #fafaf9;
   display: inline-flex;
   align-items: center;
   justify-content: center;

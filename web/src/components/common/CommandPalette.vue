@@ -155,7 +155,7 @@ function hintColor(item: PaletteItem) {
 .cp-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.40);
   z-index: calc(var(--sre-z-modal) - 1);
 }
 
@@ -175,7 +175,7 @@ function hintColor(item: PaletteItem) {
   max-height: 60vh;
 }
 body.light-theme .cp-panel {
-  background: #f8f9fa;
+  background: var(--sre-bg-card);
 }
 
 /* ─── Search ──────────────────────────────────────────────── */
@@ -227,7 +227,7 @@ body.light-theme .cp-panel {
   flex: 1;
   padding: 8px 0;
   scrollbar-width: thin;
-  scrollbar-color: rgba(128,128,128,0.2) transparent;
+  scrollbar-color: rgba(128,128,128,0.15) transparent;
 }
 .cp-empty {
   padding: 32px 20px;

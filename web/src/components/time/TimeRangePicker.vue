@@ -92,7 +92,7 @@ const displayLabel = computed(() => {
 }
 .time-display {
   font-size: 13px;
-  color: #666;
+  color: var(--sre-text-secondary);
   max-width: 400px;
   overflow: hidden;
   text-overflow: ellipsis;
