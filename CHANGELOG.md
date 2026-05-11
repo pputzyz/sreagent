@@ -4,6 +4,35 @@
 
 ---
 
+## [v4.0.0] — 2026-05-11
+
+### Changed — 应用架构重构：三栏布局 + 三应用分区
+
+**导航重构：**
+- 顶部 Tab（Monitor/Incident/System）改为左侧图标栏（On-Call/Alert/Platform）
+- 新增三栏布局：图标栏（48px）+ 菜单栏（220px）+ 内容区
+- 菜单栏支持多级折叠
+- 个人中心从弹窗改为独立页面
+
+**路由重组：**
+- 新增 `/oncall/` 前缀：故障响应相关页面
+- 新增 `/alert/` 前缀：告警引擎 + 通知管道页面
+- 新增 `/platform/` 前缀：平台管理页面
+- 所有旧路由添加向后兼容重定向
+
+**新增页面：**
+- 状态页面（On-Call）— 即将上线
+- 角色权限（Platform）— 即将上线
+- 个人中心（Platform）— 独立页面替代弹窗
+
+**文件变更：**
+- 新增：`useAppNav.ts`, `AppShell.vue`, `AppRail.vue`, `AppSidebar.vue`
+- 删除：`MainLayout.vue`（750行）
+- 新增 11 个页面组件（3 stub + 1 profile + 7 wrapper）
+- 修改：路由、命令面板、i18n
+
+---
+
 ## [v3.1.0] — 2026-05-11
 
 ### Changed — UI 重构：Soft Warm 清新温暖设计风格
