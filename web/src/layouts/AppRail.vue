@@ -80,9 +80,8 @@ function handleLogout() {
             :data-app="item.key"
             @click="emit('switch', item.key)"
           >
-            <div class="rail-icon-circle" :data-app="item.key">
-              <n-icon :component="item.icon" :size="20" color="#fff" />
-            </div>
+            <n-icon :component="item.icon" :size="20" />
+            <span class="rail-dot" />
           </button>
         </template>
         <div class="rail-tooltip-content">
@@ -95,7 +94,7 @@ function handleLogout() {
     <div class="rail-spacer" />
 
     <div class="rail-bottom">
-      <!-- User avatar with colorful ring -->
+      <!-- User avatar -->
       <n-popover
         trigger="click"
         placement="right"
@@ -104,16 +103,14 @@ function handleLogout() {
       >
         <template #trigger>
           <button class="rail-avatar-btn" :class="{ active: showUserMenu }">
-            <div class="avatar-ring">
-              <n-avatar
-                v-if="authStore.user?.avatar && !avatarError"
-                :src="authStore.user.avatar"
-                :size="30"
-                round
-                @error="avatarError = true"
-              />
-              <n-avatar v-else :size="30" round :style="{ fontSize: '12px', fontWeight: 700 }">{{ userInitial }}</n-avatar>
-            </div>
+            <n-avatar
+              v-if="authStore.user?.avatar && !avatarError"
+              :src="authStore.user.avatar"
+              :size="30"
+              round
+              @error="avatarError = true"
+            />
+            <n-avatar v-else :size="30" round :style="{ fontSize: '12px', fontWeight: 600 }">{{ userInitial }}</n-avatar>
           </button>
         </template>
 
@@ -154,9 +151,8 @@ function handleLogout() {
             data-app="platform"
             @click="emit('switch', 'platform')"
           >
-            <div class="rail-icon-circle" data-app="platform">
-              <n-icon :component="SettingsOutline" :size="20" color="#fff" />
-            </div>
+            <n-icon :component="SettingsOutline" :size="20" />
+            <span class="rail-dot" />
           </button>
         </template>
         <div class="rail-tooltip-content">
@@ -175,9 +171,8 @@ function handleLogout() {
   width: 56px;
   height: 100%;
   background: var(--sre-bg-card);
-  border-right: 2px solid var(--sre-border);
+  border-right: 1px solid var(--sre-border);
   flex-shrink: 0;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.04);
 }
 
 .rail-top,
@@ -185,7 +180,7 @@ function handleLogout() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   padding: 12px 8px;
 }
 
@@ -193,58 +188,54 @@ function handleLogout() {
   flex: 1;
 }
 
-/* Icon button — transparent container */
+/* Icon button */
 .rail-icon-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--sre-radius-md);
   background: transparent;
+  color: var(--sre-text-tertiary);
   cursor: pointer;
   padding: 0;
   transition:
-    transform var(--sre-duration-base) var(--sre-ease-spring),
-    background var(--sre-duration-base) var(--sre-ease-out);
+    background var(--sre-duration-fast) var(--sre-ease-out),
+    color var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .rail-icon-btn:hover {
   background: var(--sre-bg-hover);
+  color: var(--sre-text-secondary);
 }
 
-.rail-icon-btn:hover .rail-icon-circle {
-  transform: scale(1.12);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+.rail-icon-btn.active {
+  background: var(--sre-bg-active);
+  color: var(--sre-text-primary);
 }
 
-.rail-icon-btn:active .rail-icon-circle {
-  animation: sre-jelly 400ms ease-in-out;
+/* Colored dot indicator — only visible when active */
+.rail-dot {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity var(--sre-duration-fast) var(--sre-ease-out);
 }
 
-.rail-icon-btn.active .rail-icon-circle {
-  box-shadow: 0 0 0 3px rgba(255,107,107,0.25), 0 4px 14px rgba(0,0,0,0.15);
-  animation: sre-float 3s ease-in-out infinite;
+.rail-icon-btn.active .rail-dot {
+  opacity: 1;
 }
 
-/* Icon circle — colorful gradient background */
-.rail-icon-circle {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    transform var(--sre-duration-base) var(--sre-ease-spring),
-    box-shadow var(--sre-duration-base) var(--sre-ease-out);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-}
-
-.rail-icon-circle[data-app="oncall"]   { background: var(--sre-gradient-oncall); }
-.rail-icon-circle[data-app="alert"]    { background: var(--sre-gradient-alert); }
-.rail-icon-circle[data-app="platform"] { background: var(--sre-gradient-platform); }
+.rail-icon-btn[data-app="oncall"] .rail-dot   { background: var(--sre-brand-oncall); }
+.rail-icon-btn[data-app="alert"] .rail-dot    { background: var(--sre-brand-alert); }
+.rail-icon-btn[data-app="platform"] .rail-dot { background: var(--sre-brand-platform); }
 
 /* Rail tooltip */
 .rail-tooltip-content {
@@ -265,45 +256,27 @@ function handleLogout() {
   margin-top: 2px;
 }
 
-/* User avatar with gradient ring */
+/* User avatar */
 .rail-avatar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--sre-radius-md);
   background: transparent;
   cursor: pointer;
   padding: 0;
-  transition: transform var(--sre-duration-base) var(--sre-ease-spring);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .rail-avatar-btn:hover {
-  transform: scale(1.08);
+  background: var(--sre-bg-hover);
 }
 
-.rail-avatar-btn:active {
-  animation: sre-jelly 400ms ease-in-out;
-}
-
-.avatar-ring {
-  padding: 2px;
-  border-radius: 50%;
-  background: var(--sre-gradient-rainbow);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: box-shadow var(--sre-duration-base) var(--sre-ease-out);
-}
-
-.rail-avatar-btn:hover .avatar-ring {
-  box-shadow: 0 0 12px rgba(255,107,107,0.3);
-}
-
-.rail-avatar-btn.active .avatar-ring {
-  box-shadow: 0 0 16px rgba(255,107,107,0.4);
+.rail-avatar-btn.active {
+  background: var(--sre-bg-active);
 }
 
 /* User popover */
@@ -352,18 +325,16 @@ function handleLogout() {
   font-size: 13px;
   color: var(--sre-text-secondary);
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--sre-radius-sm);
   margin: 0 4px;
   transition:
     background var(--sre-duration-fast) var(--sre-ease-out),
-    color var(--sre-duration-fast) var(--sre-ease-out),
-    transform var(--sre-duration-fast) var(--sre-ease-spring);
+    color var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .user-popover-item:hover {
   background: var(--sre-bg-hover);
   color: var(--sre-text-primary);
-  transform: translateX(2px);
 }
 
 .user-popover-item--danger {

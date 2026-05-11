@@ -179,7 +179,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
             <slot name="actions" />
           </div>
         </div>
-        <div class="main-content">
+        <div class="main-content" :data-app="activeApp">
           <router-view v-slot="{ Component, route }">
             <Transition name="sre-page" mode="out-in">
               <component :is="Component" :key="route.path" />
@@ -204,20 +204,9 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .topbar {
   display:flex; align-items:center; justify-content:space-between;
   height:var(--sre-topbar-h); padding:0 16px; flex-shrink:0;
-  position: relative;
   background:var(--sre-bg-card);
-  border-bottom:2px solid var(--sre-border);
+  border-bottom:1px solid var(--sre-border);
   z-index:var(--sre-z-sticky);
-}
-
-/* Rainbow accent line at bottom of topbar */
-.topbar::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0; bottom: -2px;
-  height: 2px;
-  background: var(--sre-gradient-rainbow);
-  opacity: 0.6;
 }
 
 .topbar-start { display:flex; align-items:center; gap:0; }
@@ -281,7 +270,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .main-header {
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 20px; flex-shrink:0;
-  border-bottom:2px solid var(--sre-border);
+  border-bottom:1px solid var(--sre-border);
   background:var(--sre-bg-card);
 }
 .main-title {

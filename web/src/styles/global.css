@@ -1,6 +1,6 @@
 /* ============================================================
-   SREAgent Design System — v4.0 "Vibrant Clay"
-   Multi-color · Claymorphism · Playful · DevOps Platform
+   SREAgent Design System — v4.5 "Refined"
+   Subtle · Professional · Modern · DevOps Platform
    ============================================================ */
 
 /* ===== Light (default) — Warm White ===== */
@@ -231,10 +231,10 @@ body.dark-theme {
   --sre-success-soft:   rgba(13, 148, 136, 0.16);
   --sre-accent-soft:    rgba(245, 158, 11, 0.16);
 
-  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(255,107,107,0.12), rgba(79,172,254,0.12));
-  --sre-gradient-mesh: radial-gradient(ellipse at 20% 50%, rgba(255,107,107,0.06) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 20%, rgba(79,172,254,0.06) 0%, transparent 50%),
-                        radial-gradient(ellipse at 60% 80%, rgba(168,85,247,0.04) 0%, transparent 50%);
+  --sre-gradient-brand-soft: linear-gradient(135deg, rgba(255,107,107,0.06), rgba(79,172,254,0.06));
+  --sre-gradient-mesh: radial-gradient(ellipse at 20% 50%, rgba(255,107,107,0.03) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 20%, rgba(79,172,254,0.03) 0%, transparent 50%),
+                        radial-gradient(ellipse at 60% 80%, rgba(168,85,247,0.02) 0%, transparent 50%);
 
   /* Claymorphism shadows for dark */
   --sre-clay-shadow: 6px 6px 14px rgba(0,0,0,0.30), -3px -3px 10px rgba(148,163,184,0.04);
@@ -366,12 +366,12 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
 
 .sre-page-enter-from {
   opacity: 0;
-  transform: scale(0.97) translateY(6px);
+  transform: translateY(4px);
 }
 
 .sre-page-leave-to {
   opacity: 0;
-  transform: scale(0.98) translateY(-4px);
+  transform: translateY(-2px);
 }
 
 /* ============================================================
@@ -399,28 +399,34 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
 }
 
 /* ============================================================
-   Menu Hover Animations — Playful & Colorful
+   Menu Hover Animations — Refined & Subtle
    ============================================================ */
 .app-sidebar .n-menu-item-content {
   transition:
-    transform var(--sre-duration-fast) var(--sre-ease-spring),
-    background var(--sre-duration-base) var(--sre-ease-out),
-    box-shadow var(--sre-duration-base) var(--sre-ease-out);
-  border-radius: 10px;
+    background var(--sre-duration-fast) var(--sre-ease-out),
+    color var(--sre-duration-fast) var(--sre-ease-out);
+  border-radius: 8px;
 }
 
 .app-sidebar .n-menu-item-content:hover {
-  transform: translateX(3px);
   background: var(--sre-bg-hover);
-}
-
-.app-sidebar .n-menu-item-content:active {
-  transform: translateX(3px) scale(0.97);
-  transition-duration: 60ms;
 }
 
 .app-sidebar .n-menu-item-content--selected {
   background: var(--sre-primary-soft);
+}
+
+/* ============================================================
+   Per-app background tints — subtle section differentiation
+   ============================================================ */
+.main-content[data-app="oncall"] {
+  background: color-mix(in srgb, var(--sre-brand-oncall) 3%, var(--sre-bg-page));
+}
+.main-content[data-app="alert"] {
+  background: color-mix(in srgb, var(--sre-brand-alert) 3%, var(--sre-bg-page));
+}
+.main-content[data-app="platform"] {
+  background: color-mix(in srgb, var(--sre-brand-platform) 3%, var(--sre-bg-page));
 }
 
 .app-sidebar .n-menu-item-content--selected::before {
@@ -517,15 +523,15 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
    ============================================================ */
 .surface-glass {
   background: var(--sre-bg-card);
-  border: 2px solid var(--sre-border);
-  border-radius: 16px;
+  border: 1px solid var(--sre-border);
+  border-radius: 12px;
   box-shadow: var(--sre-clay-shadow);
 }
 
 .surface-glass-strong {
   background: var(--sre-bg-card);
-  border: 2px solid var(--sre-border-strong);
-  border-radius: 16px;
+  border: 1px solid var(--sre-border-strong);
+  border-radius: 12px;
   box-shadow: var(--sre-clay-shadow);
 }
 
@@ -548,8 +554,8 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 /* Clay surfaces — soft 3D cards */
 .surface-clay {
   background: var(--sre-bg-card);
-  border: 2px solid var(--sre-border);
-  border-radius: 16px;
+  border: 1px solid var(--sre-border);
+  border-radius: 12px;
   box-shadow: var(--sre-clay-shadow);
   transition: box-shadow var(--sre-duration-base) var(--sre-ease-spring),
               transform var(--sre-duration-base) var(--sre-ease-spring);
@@ -569,8 +575,8 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 /* Legacy surface-card compat */
 .surface-card {
   background: var(--sre-bg-card);
-  border: 2px solid var(--sre-border);
-  border-radius: 16px;
+  border: 1px solid var(--sre-border);
+  border-radius: 12px;
   box-shadow: var(--sre-clay-shadow);
   transition: box-shadow var(--sre-duration-base) var(--sre-ease-spring),
               transform var(--sre-duration-base) var(--sre-ease-spring);
@@ -591,8 +597,8 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
    ============================================================ */
 .content-card {
   background: var(--sre-bg-card);
-  border: 2px solid var(--sre-border);
-  border-radius: 16px;
+  border: 1px solid var(--sre-border);
+  border-radius: 12px;
   padding: var(--sre-space-6);
   box-shadow: var(--sre-clay-shadow);
   transition: box-shadow var(--sre-duration-base) var(--sre-ease-spring),
@@ -701,50 +707,14 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 /* ============================================================
    Playful animations — Claymorphism micro-interactions
    ============================================================ */
-@keyframes sre-bounce-hover {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.08); }
-  60%  { transform: scale(0.96); }
-  80%  { transform: scale(1.02); }
-  100% { transform: scale(1); }
-}
-
-@keyframes sre-wiggle {
-  0%, 100% { transform: rotate(0deg); }
-  25%      { transform: rotate(-3deg); }
-  75%      { transform: rotate(3deg); }
-}
-
-@keyframes sre-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
-}
-
-@keyframes sre-jelly {
-  0%   { transform: scale(1, 1); }
-  25%  { transform: scale(0.93, 1.07); }
-  50%  { transform: scale(1.05, 0.95); }
-  75%  { transform: scale(0.97, 1.03); }
-  100% { transform: scale(1, 1); }
-}
-
 @keyframes sre-gradient-flow {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-@keyframes sre-color-breathe {
-  0%, 100% { opacity: 0.6; }
-  50%      { opacity: 1; }
-}
-
 /* Utility animation classes */
-.hover-bounce:hover  { animation: sre-bounce-hover 500ms var(--sre-ease-spring); }
-.hover-wiggle:hover  { animation: sre-wiggle 400ms ease-in-out; }
-.hover-float:hover   { animation: sre-float 2s ease-in-out infinite; }
-.jelly:active        { animation: sre-jelly 400ms ease-in-out; }
-.gradient-flow       { background-size: 200% 200%; animation: sre-gradient-flow 4s ease infinite; }
+.gradient-flow { background-size: 200% 200%; animation: sre-gradient-flow 4s ease infinite; }
 
 /* ============================================================
    Stagger helpers

@@ -83,17 +83,19 @@ function handleMenuUpdate(key: string) {
       </button>
     </div>
 
-    <!-- Nav area -->
-    <nav class="sidebar-nav">
-      <n-menu
-        :collapsed="collapsed"
-        :collapsed-width="64"
-        :collapsed-icon-size="22"
-        :options="menuOptions"
-        :value="activeKey"
-        :indent="16"
-        @update:value="handleMenuUpdate"
-      />
+    <!-- Nav area — hidden when collapsed to prevent stacking -->
+    <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed && !pinned }">
+      <div class="sidebar-nav-inner">
+        <n-menu
+          :collapsed="false"
+          :collapsed-width="64"
+          :collapsed-icon-size="22"
+          :options="menuOptions"
+          :value="activeKey"
+          :indent="16"
+          @update:value="handleMenuUpdate"
+        />
+      </div>
     </nav>
   </aside>
 </template>
@@ -106,7 +108,7 @@ function handleMenuUpdate(key: string) {
   width: 220px;
   height: 100%;
   background: var(--sre-bg-card);
-  border-right: 2px solid var(--sre-border);
+  border-right: 1px solid var(--sre-border);
   flex-shrink: 0;
   transition: width 280ms var(--sre-ease-spring);
   overflow: hidden;
@@ -120,30 +122,39 @@ function handleMenuUpdate(key: string) {
   width: 64px;
 }
 
-/* Nav area — scrollable */
+/* Nav area — scrollable, hidden when collapsed */
 .sidebar-nav {
-  flex: 0 1 auto;
+  flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 8px;
+  opacity: 1;
+  transition: opacity 200ms var(--sre-ease-out);
 }
 
-/* Naive UI menu overrides — colorful accent */
+.sidebar-nav.nav-hidden {
+  opacity: 0;
+  pointer-events: none;
+  padding: 0;
+}
+
+.sidebar-nav-inner {
+  min-width: 200px;
+}
+
+/* Naive UI menu overrides — clean accent */
 .sidebar-nav :deep(.n-menu-item) {
-  border-radius: 10px;
+  border-radius: 8px;
   margin-bottom: 2px;
-  transition:
-    background var(--sre-duration-fast) var(--sre-ease-out),
-    transform var(--sre-duration-fast) var(--sre-ease-spring);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .sidebar-nav :deep(.n-menu-item:hover) {
-  background: color-mix(in srgb, var(--sidebar-accent) 8%, transparent);
-  transform: translateX(2px);
+  background: var(--sre-bg-hover);
 }
 
 .sidebar-nav :deep(.n-menu-item--selected) {
-  background: color-mix(in srgb, var(--sidebar-accent) 12%, transparent) !important;
+  background: color-mix(in srgb, var(--sidebar-accent) 8%, transparent) !important;
 }
 
 .sidebar-nav :deep(.n-menu-item-content--selected .n-menu-item-content__icon) {
@@ -155,22 +166,16 @@ function handleMenuUpdate(key: string) {
   font-weight: 600;
 }
 
-/* Selected left indicator — gradient accent bar */
+/* Selected left indicator — solid accent bar */
 .sidebar-nav :deep(.n-menu-item--selected::before) {
   content: '';
   position: absolute;
   left: 4px;
-  top: 8px;
-  bottom: 8px;
+  top: 10px;
+  bottom: 10px;
   width: 3px;
   border-radius: 3px;
-  background: linear-gradient(180deg, var(--sidebar-accent), color-mix(in srgb, var(--sidebar-accent) 60%, #fff));
-  animation: sre-slide-in 300ms var(--sre-ease-spring);
-}
-
-@keyframes sre-slide-in {
-  from { transform: scaleY(0); opacity: 0; }
-  to   { transform: scaleY(1); opacity: 1; }
+  background: var(--sidebar-accent);
 }
 
 /* Group label */
@@ -189,7 +194,7 @@ function handleMenuUpdate(key: string) {
   align-items: center;
   justify-content: space-between;
   padding: 12px 12px 8px;
-  border-bottom: 2px solid var(--sre-border);
+  border-bottom: 1px solid var(--sre-border);
   min-height: 44px;
 }
 
@@ -203,7 +208,7 @@ function handleMenuUpdate(key: string) {
   transition: color var(--sre-duration-base) var(--sre-ease-out);
 }
 
-/* Pin/collapse button — colorful gradient dot */
+/* Pin/collapse button */
 .sidebar-pin-btn {
   display: flex;
   align-items: center;
@@ -211,21 +216,19 @@ function handleMenuUpdate(key: string) {
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--sre-radius-sm);
   background: transparent;
   color: var(--sre-text-tertiary);
   cursor: pointer;
   flex-shrink: 0;
   transition:
     background var(--sre-duration-fast) var(--sre-ease-out),
-    color var(--sre-duration-fast) var(--sre-ease-out),
-    transform var(--sre-duration-fast) var(--sre-ease-spring);
+    color var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .sidebar-pin-btn:hover {
-  background: color-mix(in srgb, var(--sidebar-accent) 12%, transparent);
+  background: var(--sre-bg-hover);
   color: var(--sidebar-accent);
-  transform: scale(1.1);
 }
 
 /* Fade transition */

@@ -108,8 +108,6 @@ watch([() => form.value.username, () => form.value.password], () => {
     <!-- Centered card -->
     <div class="login-center">
       <div class="login-card">
-        <!-- Rainbow accent line at top -->
-        <div class="card-rainbow-line" />
         <!-- Brand header inside card -->
         <div class="card-brand">
           <div class="brand-logo-row">
@@ -287,29 +285,16 @@ watch([() => form.value.username, () => form.value.password], () => {
   max-width: 420px;
   position: relative;
   background: var(--sre-bg-card);
-  border: 2px solid var(--sre-border);
-  border-radius: 20px;
+  border: 1px solid var(--sre-border);
+  border-radius: 16px;
   padding: 40px 36px 28px;
-  box-shadow: var(--sre-clay-shadow);
-  animation: card-bounce 600ms var(--sre-ease-spring) both;
-  overflow: hidden;
+  box-shadow: var(--sre-shadow-lg);
+  animation: card-in 400ms var(--sre-ease-out) both;
 }
 
-/* Rainbow accent line at top of card */
-.card-rainbow-line {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--sre-gradient-rainbow);
-  background-size: 200% 200%;
-  animation: sre-gradient-flow 4s ease infinite;
-}
-
-@keyframes card-bounce {
-  0%   { opacity: 0; transform: translateY(30px) scale(0.94); }
-  50%  { transform: translateY(-6px) scale(1.01); }
-  70%  { transform: translateY(2px) scale(0.995); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ===== Brand inside card ===== */
@@ -317,7 +302,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   text-align: center;
   margin-bottom: 32px;
   padding-bottom: 28px;
-  border-bottom: 2px solid var(--sre-border);
+  border-bottom: 1px solid var(--sre-border);
 }
 
 .brand-logo-row {
@@ -369,9 +354,8 @@ watch([() => form.value.username, () => form.value.password], () => {
 .login-form > *:nth-child(8) { animation-delay: 540ms; }
 
 @keyframes form-rise {
-  0%   { opacity: 0; transform: translateY(16px) scale(0.96); }
-  60%  { transform: translateY(-3px) scale(1.01); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .form-header {
@@ -410,19 +394,10 @@ watch([() => form.value.username, () => form.value.password], () => {
   font-weight: 600;
   letter-spacing: 0.2px;
   margin-top: 4px;
-  background: var(--sre-gradient-rainbow) !important;
-  background-size: 200% 200% !important;
-  border: none;
-  color: #fff;
-  transition: box-shadow var(--sre-duration-base) var(--sre-ease-out),
-              transform var(--sre-duration-base) var(--sre-ease-spring);
+  transition: box-shadow var(--sre-duration-base) var(--sre-ease-out);
 }
 .submit-btn:hover {
-  box-shadow: 0 8px 24px -8px rgba(255,107,107,0.4), 0 0 20px rgba(79,172,254,0.2);
-  animation: sre-gradient-flow 3s ease infinite, sre-bounce-hover 500ms var(--sre-ease-spring);
-}
-.submit-btn:active {
-  transform: scale(0.97);
+  box-shadow: var(--sre-shadow-md);
 }
 
 .error-banner {
@@ -492,7 +467,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   justify-content: space-between;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 2px solid var(--sre-border);
+  border-top: 1px solid var(--sre-border);
   font-family: var(--sre-font-mono);
   font-size: 10px;
   color: var(--sre-text-tertiary);
@@ -524,7 +499,7 @@ watch([() => form.value.username, () => form.value.password], () => {
 /* ===== Light mode adjustments ===== */
 .login-layout.light .login-card {
   background: var(--sre-bg-card);
-  box-shadow: var(--sre-clay-shadow);
+  box-shadow: var(--sre-shadow-lg);
 }
 
 /* ===== Responsive ===== */

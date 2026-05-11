@@ -4,6 +4,52 @@
 
 ---
 
+## [v4.5.0] — 2026-05-11
+
+### Changed — UI 精细化：去掉 AI 风，走精致现代路线
+
+**设计方向调整（基于 ui-ux-pro-max 指导）：**
+- Style: Soft UI Evolution — 柔和阴影、改进对比度、现代美学
+- 去掉所有"AI 风"元素：彩虹渐变、弹跳动画、彩色圆形图标背景
+
+**AppRail 重写：**
+- 去掉彩色渐变圆形图标背景，改为简洁单色图标
+- 新增小色点指示器（6px dot）标识当前 active app
+- 去掉弹跳/浮动/jelly 动画，改为简单的背景色切换
+- 用户头像去掉彩虹渐变光环
+
+**AppSidebar 修复：**
+- collapsed 且未 pin 时完全隐藏 nav（opacity: 0 + pointer-events: none）
+- 解决了 collapsed 状态下菜单项堆叠的问题
+- 菜单项 hover 去掉 translateX 移动，改为简单背景色变化
+- 选中指示器从渐变色改为纯色
+- border 从 2px 改为 1px
+
+**AppShell 更新：**
+- topbar 去掉彩虹渐变底线
+- border 从 2px 改为 1px
+- 新增 per-app 背景色区分：main-content 根据 data-app 应用微妙色调
+  - On-Call: 微妙珊瑚色调
+  - Alert: 微妙蓝色调
+  - Platform: 微妙紫色调
+
+**登录页精简：**
+- 去掉彩虹渐变细线
+- 登录按钮改为标准主题色（去掉彩虹渐变）
+- 卡片动画从弹跳改为简单 fade + translateY
+- 阴影从 claymorphism 改为柔和 shadow
+
+**global.css 清理：**
+- 删除过度动画 keyframes：bounce-hover、wiggle、float、jelly、color-breathe
+- 删除工具类：.hover-bounce、.hover-wiggle、.hover-float、.jelly
+- 页面过渡从 scale + translateY 改为简单 translateY
+- 所有 2px border 改为 1px，16px radius 改为 12px
+- 暗色主题 gradient mesh 透明度降低（更微妙）
+
+---
+
+## [v4.4.0] — 2026-05-11
+
 ## [v4.4.0] — 2026-05-11
 
 ### Changed — 视觉重构：Vibrant Clay 色彩丰富的 DevOps 平台
