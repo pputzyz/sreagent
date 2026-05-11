@@ -40,11 +40,13 @@ func (s *IncidentService) Create(ctx context.Context, inc *model.Incident) error
 	}
 
 	// Add triggered timeline entry
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: inc.ID,
 		Action:     model.IncidentActionTriggered,
 		Content:    "Incident triggered",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", inc.ID))
+	}
 
 	s.logger.Info("incident created", zap.Uint("id", inc.ID), zap.String("title", inc.Title))
 	return nil
@@ -95,15 +97,19 @@ func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) erro
 	}
 
 	// Record assignee ack
-	_ = s.repo.AcknowledgeAssignee(ctx, id, userID)
+	if err := s.repo.AcknowledgeAssignee(ctx, id, userID); err != nil {
+		zap.L().Error("failed to acknowledge assignee", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
 	// Timeline
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: id,
 		Action:     model.IncidentActionAcknowledged,
 		ActorID:    &userID,
 		Content:    "Incident acknowledged",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
 	s.logger.Info("incident acknowledged", zap.Uint("id", id), zap.Uint("user_id", userID))
 	return nil
@@ -131,12 +137,14 @@ func (s *IncidentService) Close(ctx context.Context, id, userID uint) error {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: id,
 		Action:     model.IncidentActionClosed,
 		ActorID:    &userID,
 		Content:    "Incident closed",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
 	s.logger.Info("incident closed", zap.Uint("id", id), zap.Uint("user_id", userID))
 	return nil
@@ -163,12 +171,14 @@ func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: id,
 		Action:     model.IncidentActionReopened,
 		ActorID:    &userID,
 		Content:    "Incident reopened",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
 	s.logger.Info("incident reopened", zap.Uint("id", id), zap.Uint("user_id", userID))
 	return nil
@@ -192,12 +202,14 @@ func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until tim
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: id,
 		Action:     model.IncidentActionSnoozed,
 		ActorID:    &userID,
 		Content:    "Incident snoozed until " + until.Format(time.RFC3339),
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
 	return nil
 }
@@ -218,19 +230,23 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 	}
 
 	// Add new assignee record
-	_ = s.repo.AddAssignee(ctx, &model.IncidentAssignee{
+	if err := s.repo.AddAssignee(ctx, &model.IncidentAssignee{
 		IncidentID: id,
 		UserID:     newAssignee,
 		AssignedAt: time.Now(),
 		Source:     "manual",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add assignee", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: id,
 		Action:     model.IncidentActionReassigned,
 		ActorID:    &userID,
 		Content:    "Incident reassigned",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
 	s.logger.Info("incident reassigned", zap.Uint("id", id), zap.Uint("new_assignee", newAssignee))
 	return nil
@@ -262,12 +278,14 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: sourceID,
 		Action:     model.IncidentActionMerged,
 		ActorID:    &userID,
 		Content:    "Merged into another incident",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", sourceID))
+	}
 
 	s.logger.Info("incident merged", zap.Uint("source", sourceID), zap.Uint("target", targetID))
 	return nil
@@ -337,12 +355,14 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: id,
 		Action:     model.IncidentActionEscalated,
 		ActorID:    &userID,
 		Content:    "Incident escalated",
-	})
+	}); err != nil {
+		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+	}
 
 	s.logger.Info("incident escalated", zap.Uint("id", id), zap.Int("step", inc.CurrentEscalationStep))
 	return nil
@@ -366,11 +386,13 @@ func (s *IncidentService) CloseExpiredIncidents(ctx context.Context) {
 				zap.Uint("id", inc.ID), zap.Error(err))
 			continue
 		}
-		_ = s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+		if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 			IncidentID: inc.ID,
 			Action:     model.IncidentActionClosed,
 			Content:    "Incident auto-closed due to timeout",
-		})
+		}); err != nil {
+			zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", inc.ID))
+		}
 		s.logger.Info("auto-close: incident closed", zap.Uint("id", inc.ID))
 	}
 }

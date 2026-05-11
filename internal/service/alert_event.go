@@ -14,6 +14,10 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// dispatchSem bounds the number of concurrent goroutines spawned for
+// notification dispatch when no worker pool is configured.
+var dispatchSem = make(chan struct{}, 100)
+
 // OnCallResolver is used by AlertEventService to find the current on-call person.
 type OnCallResolver interface {
 	GetCurrentOnCallForAlert(ctx context.Context, alertLabels map[string]string) (*model.User, error)
@@ -401,7 +405,17 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 				)
 			}
 		} else {
-			go dispatch(context.Background())
+			select {
+			case dispatchSem <- struct{}{}:
+				go func() {
+					defer func() { <-dispatchSem }()
+					dispatch(context.Background())
+				}()
+			default:
+				s.logger.Warn("dispatch semaphore full, dropping notification dispatch",
+					zap.Uint("event_id", eventID),
+				)
+			}
 		}
 	}
 
@@ -434,7 +448,17 @@ func (s *AlertEventService) triggerLarkCardUpdate(event *model.AlertEvent) {
 	if s.workerPool != nil {
 		s.workerPool.Submit(context.Background(), fn) // best-effort; don't block caller
 	} else {
-		go fn(context.Background())
+		select {
+		case dispatchSem <- struct{}{}:
+			go func() {
+				defer func() { <-dispatchSem }()
+				fn(context.Background())
+			}()
+		default:
+			s.logger.Warn("dispatch semaphore full, dropping lark card update",
+				zap.Uint("event_id", e.ID),
+			)
+		}
 	}
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { shallowRef, computed, onMounted, onUnmounted } from 'vue'
+import { shallowRef, computed, onMounted, onUnmounted, type Component } from 'vue'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { use } from 'echarts/core'
@@ -65,12 +65,14 @@ function formatRelative(ts: number): string {
 }
 
 const lastSyncText = shallowRef(formatRelative(Date.now()))
-setInterval(() => { lastSyncText.value = formatRelative(lastSyncAt.value) }, 30_000)
+let syncInterval: ReturnType<typeof setInterval>
+onMounted(() => { syncInterval = setInterval(() => { lastSyncText.value = formatRelative(lastSyncAt.value) }, 30_000) })
+onUnmounted(() => clearInterval(syncInterval))
 
 const apiHours = computed(() => range.value === 1 ? 24 : range.value === 7 ? 168 : 720)
 const apiDays = computed(() => range.value === 1 ? 1 : range.value)
 
-type KpiDef = { label: string; value: string; tone: 'critical' | 'warning' | 'success' | 'info'; icon: any; sub?: string }
+type KpiDef = { label: string; value: string; tone: 'critical' | 'warning' | 'success' | 'info'; icon: Component; sub?: string }
 const kpis = computed<KpiDef[]>(() => [
   {
     label: t('dashboard.activeAlerts'),
@@ -425,7 +427,7 @@ onMounted(refresh)
 }
 .kpi-card[data-tone="critical"]::after { background: var(--sre-critical); }
 .kpi-card[data-tone="warning"]::after  { background: var(--sre-warning); }
-.kpi-card[data-tone="success"]::after  { background: var(--sre-gradient-brand); }
+.kpi-card[data-tone="success"]::after  { background: var(--sre-success); }
 .kpi-card[data-tone="info"]::after     { background: var(--sre-info); }
 
 .kpi-card:hover {
@@ -573,7 +575,7 @@ onMounted(refresh)
 
 .rule-bar-fill {
   height: 100%;
-  background: var(--sre-gradient-brand);
+  background: var(--sre-primary);
   border-radius: 3px;
   transition: width 500ms var(--sre-ease-spring);
 }

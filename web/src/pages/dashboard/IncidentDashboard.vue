@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * IncidentDashboard.vue — v2.8 premium incident stats dashboard.
+ * IncidentDashboard.vue — Incident stats dashboard.
  */
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -21,10 +21,40 @@ const loading = ref(false)
 const firstLoaded = ref(false)
 const days = ref(30)
 
-const incidentStats = ref<any>(null)
-const channelStats = ref<any[]>([])
-const teamStats = ref<any[]>([])
-const incidentTrend = ref<any[]>([])
+interface IncidentStats {
+  active_incidents?: number
+  closed_today?: number
+  critical_active?: number
+  avg_mttr_seconds?: number
+  total_post_mortems?: number
+  published_post_mortems?: number
+}
+interface ChannelStatsRow {
+  channel_id?: number
+  channel_name?: string
+  total: number
+  triggered: number
+  critical: number
+  closed: number
+}
+interface TeamStatsRow {
+  team_id?: number
+  team_name?: string
+  total: number
+  critical: number
+  closed: number
+  avg_mttr_seconds?: number
+}
+interface TrendPoint {
+  date: string
+  triggered: number
+  closed: number
+}
+
+const incidentStats = ref<IncidentStats | null>(null)
+const channelStats = ref<ChannelStatsRow[]>([])
+const teamStats = ref<TeamStatsRow[]>([])
+const incidentTrend = ref<TrendPoint[]>([])
 
 async function load() {
   loading.value = true
@@ -47,7 +77,7 @@ async function load() {
   }
 }
 
-function formatSeconds(s: number) {
+function formatSeconds(s: number | undefined) {
   if (!s || s === 0) return '—'
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
@@ -57,7 +87,7 @@ function formatSeconds(s: number) {
 
 const topChannels = computed(() => [...channelStats.value].slice(0, 6))
 const topTeams = computed(() => [...teamStats.value].slice(0, 6))
-const trendMax = computed(() => Math.max(...incidentTrend.value.map((p: any) => p.triggered + p.closed), 1))
+const trendMax = computed(() => Math.max(...incidentTrend.value.map(p => p.triggered + p.closed), 1))
 
 const kpis = computed(() => {
   const s = incidentStats.value
@@ -67,7 +97,7 @@ const kpis = computed(() => {
     { label: t('dashboardV2.closedToday'), value: s.closed_today ?? 0, tone: 'success' as const, icon: CheckmarkCircleOutline },
     { label: t('dashboardV2.criticalActive'), value: s.critical_active ?? 0, tone: 'critical' as const, icon: AlertCircleOutline },
     { label: t('dashboardV2.avgMTTR'), value: formatSeconds(s.avg_mttr_seconds), tone: 'info' as const, icon: TimerOutline },
-    { label: t('dashboardV2.totalPostMortems'), value: s.total_post_mortems ?? 0, tone: 'info' as const, icon: DocumentTextOutline, sub: `${s.published_post_mortems ?? 0} published` },
+    { label: t('dashboardV2.totalPostMortems'), value: s.total_post_mortems ?? 0, tone: 'info' as const, icon: DocumentTextOutline, sub: `${s.published_post_mortems ?? 0} ${t('dashboardV2.published') || 'published'}` },
   ]
 })
 
@@ -143,8 +173,8 @@ onMounted(load)
               </div>
               <div v-else class="chart-empty text-muted">{{ t('dashboard.noData') }}</div>
               <div v-if="incidentTrend.length" class="trend-legend">
-                <span class="legend-dot legend-dot--triggered" /> Triggered
-                <span class="legend-dot legend-dot--closed" /> Closed
+                <span class="legend-dot legend-dot--triggered" /> {{ t('dashboardV2.triggered') || 'Triggered' }}
+                <span class="legend-dot legend-dot--closed" /> {{ t('dashboardV2.closed') || 'Closed' }}
               </div>
             </div>
           </div>
@@ -262,7 +292,7 @@ onMounted(load)
   background: var(--sre-text-tertiary);
 }
 .kpi-card[data-tone="critical"]::after { background: var(--sre-critical); }
-.kpi-card[data-tone="success"]::after  { background: var(--sre-gradient-brand); }
+.kpi-card[data-tone="success"]::after  { background: var(--sre-success); }
 .kpi-card[data-tone="info"]::after     { background: var(--sre-info); }
 .kpi-card:hover {
   border-color: var(--sre-border-strong);

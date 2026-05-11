@@ -4,6 +4,44 @@
 
 ---
 
+## [v4.6.0] — 2026-05-11
+
+### Changed — 设计系统 v5.0：Clean Neutral + Agent Review 修复
+
+**global.css 设计系统重构：**
+- 字体从 Plus Jakarta Sans（未加载）改为 Inter（Google Fonts 正确加载）
+- 配色从暖色 stone 改为中性灰色（Tailwind gray scale）
+- 阴影从 claymorphism 改为 clean Tailwind-style shadows
+- 去除所有 clay-shadow、gradient-rainbow、gradient-brand、ease-bounce、hover-nudge 等过时变量
+- Dark theme 修复：`--sre-success-soft` 从错误的 teal 改为正确的 green
+- 新增 `--sre-shadow-glow` 到 `:root`（之前仅在 dark theme 定义）
+- 删除 ~190 行死 CSS（与 AppRail/AppSidebar scoped 样式重复）
+- 删除未使用的 `.stagger-list`（无 nth-child 延迟规则）
+- 统一 surface 类：`.surface-clay`、`.surface-glass` 改用标准阴影
+
+**Login.vue 安全修复：**
+- 修复开放重定向漏洞：`redirect` 参数现在验证以 `/` 开头且不以 `//` 开头
+- Mesh blob 性能优化：blur 移到静态父元素，子元素仅动画 transform
+- 新增 `prefers-reduced-motion` 媒体查询保护
+- `langOptions` 改为 `computed()` 以响应 locale 变化
+
+**Dashboard 类型安全：**
+- IncidentDashboard 的 4 个 `ref<any>` 改为完整接口定义
+- Index.vue 的 `KpiDef.icon` 从 `any` 改为 `Component`
+- Index.vue 的 `setInterval` 移入 `onMounted` 并在 `onUnmounted` 清理
+- 修复硬编码英文字符串（"published"、"Triggered"、"Closed"）改用 i18n
+
+**AppShell 安全修复：**
+- localStorage JSON.parse 包装在 try/catch 中防止崩溃
+- hoverTimeout 在 onUnmounted 时清理
+
+**后端安全修复：**
+- SSRF 修复：`datasource.go` 的 `LabelValues` 使用 `url.PathEscape()` 编码用户输入
+- Goroutine 泄漏修复：`alert_event.go` 添加 100 容量信号量限制并发 dispatch
+- 静默错误修复：`incident.go` 的 11 处 `_ = s.repo.AddTimeline(...)` 改为错误日志记录
+
+---
+
 ## [v4.5.0] — 2026-05-11
 
 ### Changed — UI 精细化：去掉 AI 风，走精致现代路线

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -264,7 +265,7 @@ func (h *DataSourceHandler) LabelValues(c *gin.Context) {
 		return
 	}
 
-	body, err := h.svc.ProxyToDatasource(c.Request.Context(), id, "/api/v1/label/"+key+"/values", nil)
+	body, err := h.svc.ProxyToDatasource(c.Request.Context(), id, "/api/v1/label/"+url.PathEscape(key)+"/values", nil)
 	if err != nil {
 		Error(c, err)
 		return

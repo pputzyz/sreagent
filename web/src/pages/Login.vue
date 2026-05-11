@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, onMounted, watch } from 'vue'
+import { ref, computed, inject, onMounted, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
@@ -26,10 +26,10 @@ const oidcEnabled = ref(false)
 const oidcLoginUrl = ref('')
 const oidcLoading = ref(false)
 
-const langOptions = [
+const langOptions = computed(() => [
   { label: t('language.zh'), value: 'zh-CN' },
   { label: t('language.en'), value: 'en' },
-]
+])
 
 function handleLangChange(val: string) {
   locale.value = val
@@ -46,7 +46,9 @@ async function handleLogin() {
   try {
     await authStore.login(form.value.username, form.value.password)
     message.success(t('auth.loginSuccess'))
-    router.push((route.query.redirect as string) || '/oncall/overview')
+    const raw = (route.query.redirect as string) || ''
+    const safeRedirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/oncall/overview'
+    router.push(safeRedirect)
   } catch (err: any) {
     loginError.value = err.message || t('auth.loginFailed')
   } finally {
@@ -207,14 +209,20 @@ watch([() => form.value.username, () => form.value.password], () => {
   z-index: 0;
   background: var(--sre-bg-base);
   overflow: hidden;
+  filter: blur(100px);
+  transform: translateZ(0);
 }
 
 .mesh-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
   opacity: 0.4;
   animation: mesh-float 20s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-blob { animation: none !important; }
 }
 
 .mesh-blob--coral {
@@ -322,7 +330,7 @@ watch([() => form.value.username, () => form.value.password], () => {
 .brand-name {
   font-family: var(--sre-font-display);
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -1px;
 }
 
@@ -381,11 +389,9 @@ watch([() => form.value.username, () => form.value.password], () => {
   gap: 6px;
 }
 .field-label {
-  font-family: var(--sre-font-mono);
-  font-size: 11px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--sre-text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sre-text-secondary);
 }
 
 .submit-btn {
@@ -417,7 +423,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   height: 18px;
   border-radius: 50%;
   background: var(--sre-critical);
-  color: #fafaf9;
+  color: var(--sre-text-inverse);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -430,11 +436,8 @@ watch([() => form.value.username, () => form.value.password], () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: var(--sre-font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--sre-text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
   margin: 4px 0;
 }
 .form-divider::before,
@@ -468,17 +471,14 @@ watch([() => form.value.username, () => form.value.password], () => {
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid var(--sre-border);
-  font-family: var(--sre-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--sre-text-tertiary);
-  letter-spacing: 0.5px;
 }
 
 .footer-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  text-transform: uppercase;
 }
 
 .status-dot {

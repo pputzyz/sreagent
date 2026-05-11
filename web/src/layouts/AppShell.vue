@@ -29,12 +29,16 @@ onMounted(() => {
 })
 
 // ===== Sidebar collapsed =====
-const collapsed = ref(JSON.parse(localStorage.getItem('sre-sider-collapsed') ?? 'false'))
+function safeParse(json: string | null, fallback: boolean): boolean {
+  try { return json ? JSON.parse(json) : fallback } catch { return fallback }
+}
+const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), false))
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
-const pinned = ref(JSON.parse(localStorage.getItem('sre-sider-pinned') ?? 'false'))
+const pinned = ref(safeParse(localStorage.getItem('sre-sider-pinned'), false))
 watch(pinned, v => localStorage.setItem('sre-sider-pinned', JSON.stringify(v)))
 const showPasswordModal = ref(false)
 let hoverTimeout: ReturnType<typeof setTimeout> | null = null
+onUnmounted(() => { if (hoverTimeout) clearTimeout(hoverTimeout) })
 
 function handleNavEnter() {
   if (pinned.value) return
@@ -103,7 +107,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         <!-- Logo -->
         <router-link to="/dashboard" class="topbar-logo">
           <img src="/logo.svg" alt="SREAgent" class="logo-img" />
-          <span class="logo-label"><span class="gradient-text">SRE</span>Agent</span>
+          <span class="logo-label">SREAgent</span>
         </router-link>
 
         <div class="topbar-sep" />
@@ -196,7 +200,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 <style scoped>
 /* ============================================================
-   App Shell — v4.4 Vibrant Clay
+   App Shell — v5.0 Clean Neutral
    ============================================================ */
 .app-shell { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
@@ -281,6 +285,6 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 .main-content {
   flex:1; overflow-y:auto; padding:20px;
-  background: var(--sre-gradient-mesh), var(--sre-bg-page);
+  background: var(--sre-bg-page);
 }
 </style>
