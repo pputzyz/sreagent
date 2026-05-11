@@ -2,6 +2,7 @@
 import { NIcon, NTooltip } from 'naive-ui'
 import { FlashOutline, AlertCircleOutline, SettingsOutline } from '@vicons/ionicons5'
 import type { AppKey } from '@/composables/useAppNav'
+import MascotFox from '@/components/common/MascotFox.vue'
 
 defineProps<{
   activeApp: AppKey
@@ -52,6 +53,10 @@ const bottomItems: RailItem[] = [
 
     <div class="rail-spacer" />
 
+    <div class="rail-mascot">
+      <MascotFox />
+    </div>
+
     <div class="rail-bottom">
       <n-tooltip
         v-for="item in bottomItems"
@@ -97,6 +102,13 @@ const bottomItems: RailItem[] = [
 
 .rail-spacer {
   flex: 1;
+}
+
+.rail-mascot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
 }
 
 .rail-icon-btn {

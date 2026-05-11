@@ -1,0 +1,23 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Ears -->
+  <polygon points="6,4 12,14 0,14" fill="#f59e0b"/>
+  <polygon points="26,4 32,14 20,14" fill="#f59e0b"/>
+  <!-- Inner ears -->
+  <polygon points="7,6 11,13 3,13" fill="#0d9488" opacity="0.6"/>
+  <polygon points="25,6 29,13 21,13" fill="#0d9488" opacity="0.6"/>
+  <!-- Face -->
+  <ellipse cx="16" cy="18" rx="12" ry="11" fill="#f59e0b"/>
+  <!-- White cheeks -->
+  <ellipse cx="11" cy="20" rx="4" ry="3" fill="white" opacity="0.7"/>
+  <ellipse cx="21" cy="20" rx="4" ry="3" fill="white" opacity="0.7"/>
+  <!-- Eyes -->
+  <circle cx="11" cy="17" r="1.5" fill="#1c1917"/>
+  <circle cx="21" cy="17" r="1.5" fill="#1c1917"/>
+  <!-- Eye shine -->
+  <circle cx="11.5" cy="16.5" r="0.5" fill="white"/>
+  <circle cx="21.5" cy="16.5" r="0.5" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="16" cy="21" rx="1.5" ry="1" fill="#1c1917"/>
+  <!-- Mouth -->
+  <path d="M14 23 Q16 25 18 23" stroke="#1c1917" stroke-width="0.7" fill="none"/>
+</svg>
