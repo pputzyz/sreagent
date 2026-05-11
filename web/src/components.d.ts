@@ -17,6 +17,7 @@ declare module 'vue' {
     KVEditor: typeof import('./components/common/KVEditor.vue')['default']
     LabelMatcherEditor: typeof import('./components/common/LabelMatcherEditor.vue')['default']
     LoadingSkeleton: typeof import('./components/common/LoadingSkeleton.vue')['default']
+    MascotFox: typeof import('./components/common/MascotFox.vue')['default']
     MergeModal: typeof import('./components/incident/MergeModal.vue')['default']
     NAlert: typeof import('naive-ui')['NAlert']
     NAvatar: typeof import('naive-ui')['NAvatar']
