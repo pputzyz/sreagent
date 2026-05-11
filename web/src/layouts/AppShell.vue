@@ -166,6 +166,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
           :collapsed="collapsed"
           :pinned="pinned"
           :app-name="activeAppLabel"
+          :active-app="activeApp"
           @toggle-collapse="toggleCollapse"
         />
       </div>
@@ -195,7 +196,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 <style scoped>
 /* ============================================================
-   App Shell — v3.0 Modern Dark
+   App Shell — v4.4 Vibrant Clay
    ============================================================ */
 .app-shell { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
@@ -203,11 +204,20 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .topbar {
   display:flex; align-items:center; justify-content:space-between;
   height:var(--sre-topbar-h); padding:0 16px; flex-shrink:0;
-  background:var(--sre-glass-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  border-bottom:1px solid var(--sre-glass-border);
+  position: relative;
+  background:var(--sre-bg-card);
+  border-bottom:2px solid var(--sre-border);
   z-index:var(--sre-z-sticky);
+}
+
+/* Rainbow accent line at bottom of topbar */
+.topbar::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -2px;
+  height: 2px;
+  background: var(--sre-gradient-rainbow);
+  opacity: 0.6;
 }
 
 .topbar-start { display:flex; align-items:center; gap:0; }
@@ -271,10 +281,8 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .main-header {
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 20px; flex-shrink:0;
-  border-bottom:1px solid var(--sre-glass-border);
-  background:var(--sre-glass-bg);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
-  backdrop-filter: blur(16px) saturate(120%);
+  border-bottom:2px solid var(--sre-border);
+  background:var(--sre-bg-card);
 }
 .main-title {
   font-size:18px; font-weight:600; color:var(--sre-text-primary);

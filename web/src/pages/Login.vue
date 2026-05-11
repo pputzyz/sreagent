@@ -86,9 +86,9 @@ watch([() => form.value.username, () => form.value.password], () => {
   <div class="login-layout" :class="{ light: !isDark }">
     <!-- Animated mesh background -->
     <div class="mesh-bg">
-      <div class="mesh-blob mesh-blob--teal" />
+      <div class="mesh-blob mesh-blob--coral" />
       <div class="mesh-blob mesh-blob--blue" />
-      <div class="mesh-blob mesh-blob--amber" />
+      <div class="mesh-blob mesh-blob--purple" />
     </div>
 
     <!-- Top right controls -->
@@ -105,9 +105,11 @@ watch([() => form.value.username, () => form.value.password], () => {
       </n-button>
     </div>
 
-    <!-- Centered glass card -->
+    <!-- Centered card -->
     <div class="login-center">
       <div class="login-card">
+        <!-- Rainbow accent line at top -->
+        <div class="card-rainbow-line" />
         <!-- Brand header inside card -->
         <div class="card-brand">
           <div class="brand-logo-row">
@@ -217,29 +219,29 @@ watch([() => form.value.username, () => form.value.password], () => {
   animation: mesh-float 20s ease-in-out infinite;
 }
 
-.mesh-blob--teal {
+.mesh-blob--coral {
   width: 500px;
   height: 500px;
-  background: rgba(13, 148, 136, 0.35);
+  background: rgba(255, 107, 107, 0.30);
   top: -10%;
   left: -5%;
   animation-delay: 0s;
 }
 
 .mesh-blob--blue {
-  width: 400px;
-  height: 400px;
-  background: rgba(59, 130, 246, 0.25);
+  width: 420px;
+  height: 420px;
+  background: rgba(79, 172, 254, 0.25);
   top: 50%;
   right: -8%;
   animation-delay: -7s;
   animation-duration: 25s;
 }
 
-.mesh-blob--amber {
-  width: 350px;
-  height: 350px;
-  background: rgba(245, 158, 11, 0.20);
+.mesh-blob--purple {
+  width: 380px;
+  height: 380px;
+  background: rgba(168, 85, 247, 0.22);
   bottom: -10%;
   left: 30%;
   animation-delay: -14s;
@@ -253,9 +255,9 @@ watch([() => form.value.username, () => form.value.password], () => {
   75%      { transform: translate(40px, 20px) scale(1.05); }
 }
 
-.login-layout.light .mesh-blob--teal { background: rgba(13, 148, 136, 0.15); }
-.login-layout.light .mesh-blob--blue { background: rgba(59, 130, 246, 0.10); }
-.login-layout.light .mesh-blob--amber { background: rgba(245, 158, 11, 0.10); }
+.login-layout.light .mesh-blob--coral  { background: rgba(255, 107, 107, 0.12); }
+.login-layout.light .mesh-blob--blue   { background: rgba(79, 172, 254, 0.10); }
+.login-layout.light .mesh-blob--purple { background: rgba(168, 85, 247, 0.10); }
 .login-layout.light .mesh-blob { opacity: 0.5; }
 
 /* ===== Controls ===== */
@@ -269,7 +271,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   gap: 8px;
 }
 
-/* ===== Centered glass card ===== */
+/* ===== Centered card ===== */
 .login-center {
   position: relative;
   z-index: 1;
@@ -283,22 +285,31 @@ watch([() => form.value.username, () => form.value.password], () => {
 .login-card {
   width: 100%;
   max-width: 420px;
-  background: var(--sre-glass-bg);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid var(--sre-glass-border);
+  position: relative;
+  background: var(--sre-bg-card);
+  border: 2px solid var(--sre-border);
   border-radius: 20px;
   padding: 40px 36px 28px;
-  box-shadow:
-    0 24px 80px -12px rgba(0, 0, 0, 0.50),
-    0 0 0 1px rgba(148, 163, 184, 0.06),
-    0 0 60px -20px rgba(13, 148, 136, 0.15);
-  animation: card-rise 600ms var(--sre-ease-out) both;
+  box-shadow: var(--sre-clay-shadow);
+  animation: card-bounce 600ms var(--sre-ease-spring) both;
+  overflow: hidden;
 }
 
-@keyframes card-rise {
-  from { opacity: 0; transform: translateY(24px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+/* Rainbow accent line at top of card */
+.card-rainbow-line {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--sre-gradient-rainbow);
+  background-size: 200% 200%;
+  animation: sre-gradient-flow 4s ease infinite;
+}
+
+@keyframes card-bounce {
+  0%   { opacity: 0; transform: translateY(30px) scale(0.94); }
+  50%  { transform: translateY(-6px) scale(1.01); }
+  70%  { transform: translateY(2px) scale(0.995); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ===== Brand inside card ===== */
@@ -306,7 +317,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   text-align: center;
   margin-bottom: 32px;
   padding-bottom: 28px;
-  border-bottom: 1px solid var(--sre-glass-border);
+  border-bottom: 2px solid var(--sre-border);
 }
 
 .brand-logo-row {
@@ -358,8 +369,9 @@ watch([() => form.value.username, () => form.value.password], () => {
 .login-form > *:nth-child(8) { animation-delay: 540ms; }
 
 @keyframes form-rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  0%   { opacity: 0; transform: translateY(16px) scale(0.96); }
+  60%  { transform: translateY(-3px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .form-header {
@@ -398,14 +410,19 @@ watch([() => form.value.username, () => form.value.password], () => {
   font-weight: 600;
   letter-spacing: 0.2px;
   margin-top: 4px;
+  background: var(--sre-gradient-rainbow) !important;
+  background-size: 200% 200% !important;
+  border: none;
+  color: #fff;
   transition: box-shadow var(--sre-duration-base) var(--sre-ease-out),
-              transform var(--sre-duration-base) var(--sre-ease-out);
+              transform var(--sre-duration-base) var(--sre-ease-spring);
 }
 .submit-btn:hover {
-  box-shadow: 0 8px 24px -8px var(--sre-primary-ring), var(--sre-shadow-glow);
+  box-shadow: 0 8px 24px -8px rgba(255,107,107,0.4), 0 0 20px rgba(79,172,254,0.2);
+  animation: sre-gradient-flow 3s ease infinite, sre-bounce-hover 500ms var(--sre-ease-spring);
 }
 .submit-btn:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .error-banner {
@@ -475,7 +492,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   justify-content: space-between;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid var(--sre-glass-border);
+  border-top: 2px solid var(--sre-border);
   font-family: var(--sre-font-mono);
   font-size: 10px;
   color: var(--sre-text-tertiary);
@@ -506,10 +523,8 @@ watch([() => form.value.username, () => form.value.password], () => {
 
 /* ===== Light mode adjustments ===== */
 .login-layout.light .login-card {
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow:
-    0 24px 80px -12px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(0, 0, 0, 0.06);
+  background: var(--sre-bg-card);
+  box-shadow: var(--sre-clay-shadow);
 }
 
 /* ===== Responsive ===== */

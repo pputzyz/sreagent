@@ -174,7 +174,7 @@ export default {
     ssoLoginSuccess: 'SSO login successful',
     brand: {
       control: 'SREAGENT',
-      tagline: 'Unified observability and incident response platform.',
+      tagline: 'All-in-one DevOps platform.',
       feature1: '4-tier event model with deterministic state machine',
       feature2: 'Smart noise reduction — mute, suppress, deduplicate',
       feature3: 'AI-assisted post-mortem and root-cause hints',

@@ -174,7 +174,7 @@ export default {
     ssoLoginSuccess: 'SSO 登录成功',
     brand: {
       control: 'SREAGENT',
-      tagline: '一站式可观测性与事件响应平台。',
+      tagline: '一站式 DevOps 平台。',
       feature1: '四层事件模型与确定性状态机',
       feature2: '智能降噪 — 屏蔽、抑制、去重',
       feature3: 'AI 辅助复盘与根因分析',

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { NMenu, NIcon } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import { ChevronBackOutline, ChevronForwardOutline } from '@vicons/ionicons5'
-import type { MenuSection } from '@/composables/useAppNav'
+import type { MenuSection, AppKey } from '@/composables/useAppNav'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -13,6 +13,7 @@ const props = defineProps<{
   collapsed: boolean
   appName: string
   pinned: boolean
+  activeApp: AppKey
 }>()
 
 const emit = defineEmits<{
@@ -71,7 +72,7 @@ function handleMenuUpdate(key: string) {
 </script>
 
 <template>
-  <aside class="app-sidebar" :class="{ collapsed }">
+  <aside class="app-sidebar" :class="{ collapsed }" :data-app="activeApp">
     <!-- Header with app name + collapse toggle -->
     <div class="sidebar-header">
       <transition name="fade">
@@ -99,18 +100,21 @@ function handleMenuUpdate(key: string) {
 
 <style scoped>
 .app-sidebar {
+  --sidebar-accent: var(--sre-primary);
   display: flex;
   flex-direction: column;
   width: 220px;
   height: 100%;
-  background: var(--sre-glass-bg);
-  -webkit-backdrop-filter: blur(var(--sre-glass-blur)) saturate(var(--sre-glass-saturate));
-  backdrop-filter: blur(var(--sre-glass-blur)) saturate(var(--sre-glass-saturate));
-  border-right: 1px solid var(--sre-glass-border);
+  background: var(--sre-bg-card);
+  border-right: 2px solid var(--sre-border);
   flex-shrink: 0;
   transition: width 280ms var(--sre-ease-spring);
   overflow: hidden;
 }
+
+.app-sidebar[data-app="oncall"]   { --sidebar-accent: var(--sre-brand-oncall); }
+.app-sidebar[data-app="alert"]    { --sidebar-accent: var(--sre-brand-alert); }
+.app-sidebar[data-app="platform"] { --sidebar-accent: var(--sre-brand-platform); }
 
 .app-sidebar.collapsed {
   width: 64px;
@@ -124,25 +128,82 @@ function handleMenuUpdate(key: string) {
   padding: 8px;
 }
 
+/* Naive UI menu overrides — colorful accent */
+.sidebar-nav :deep(.n-menu-item) {
+  border-radius: 10px;
+  margin-bottom: 2px;
+  transition:
+    background var(--sre-duration-fast) var(--sre-ease-out),
+    transform var(--sre-duration-fast) var(--sre-ease-spring);
+}
+
+.sidebar-nav :deep(.n-menu-item:hover) {
+  background: color-mix(in srgb, var(--sidebar-accent) 8%, transparent);
+  transform: translateX(2px);
+}
+
+.sidebar-nav :deep(.n-menu-item--selected) {
+  background: color-mix(in srgb, var(--sidebar-accent) 12%, transparent) !important;
+}
+
+.sidebar-nav :deep(.n-menu-item-content--selected .n-menu-item-content__icon) {
+  color: var(--sidebar-accent) !important;
+}
+
+.sidebar-nav :deep(.n-menu-item-content--selected .n-menu-item-content__label) {
+  color: var(--sidebar-accent) !important;
+  font-weight: 600;
+}
+
+/* Selected left indicator — gradient accent bar */
+.sidebar-nav :deep(.n-menu-item--selected::before) {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--sidebar-accent), color-mix(in srgb, var(--sidebar-accent) 60%, #fff));
+  animation: sre-slide-in 300ms var(--sre-ease-spring);
+}
+
+@keyframes sre-slide-in {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+/* Group label */
+.sidebar-nav :deep(.n-menu-group-label) {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sre-text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 12px 4px;
+}
+
 /* Sidebar header */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 12px 8px;
-  border-bottom: 1px solid var(--sre-glass-border);
+  border-bottom: 2px solid var(--sre-border);
   min-height: 44px;
 }
 
 .sidebar-app-name {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--sre-text-primary);
+  font-weight: 700;
+  color: var(--sidebar-accent);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
+  transition: color var(--sre-duration-base) var(--sre-ease-out);
 }
 
+/* Pin/collapse button — colorful gradient dot */
 .sidebar-pin-btn {
   display: flex;
   align-items: center;
@@ -150,19 +211,21 @@ function handleMenuUpdate(key: string) {
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: var(--sre-radius-sm);
+  border-radius: 50%;
   background: transparent;
   color: var(--sre-text-tertiary);
   cursor: pointer;
   flex-shrink: 0;
   transition:
     background var(--sre-duration-fast) var(--sre-ease-out),
-    color var(--sre-duration-fast) var(--sre-ease-out);
+    color var(--sre-duration-fast) var(--sre-ease-out),
+    transform var(--sre-duration-fast) var(--sre-ease-spring);
 }
 
 .sidebar-pin-btn:hover {
-  background: var(--sre-primary-soft);
-  color: var(--sre-primary);
+  background: color-mix(in srgb, var(--sidebar-accent) 12%, transparent);
+  color: var(--sidebar-accent);
+  transform: scale(1.1);
 }
 
 /* Fade transition */

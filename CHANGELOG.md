@@ -4,6 +4,53 @@
 
 ---
 
+## [v4.4.0] — 2026-05-11
+
+### Changed — 视觉重构：Vibrant Clay 色彩丰富的 DevOps 平台
+
+**配色系统重构：**
+- 去掉单色 teal 贯穿全部，改为每个功能区独立主色
+  - On-Call: 珊瑚橙 `#FF6B6B` → 暖橙 `#FFA07A`
+  - Alert: 电光蓝 `#4FACFE` → 青色 `#00F2FE`
+  - Platform: 梦幻紫 `#A855F7` → 粉紫 `#D946EF`
+- 新增彩虹渐变 `--sre-gradient-rainbow` 用于强调元素
+- 新增 Claymorphism 阴影变量（双重阴影 + 厚边框 + 大圆角）
+
+**动画系统：**
+- 新增 keyframes：`sre-bounce-hover`、`sre-wiggle`、`sre-float`、`sre-jelly`、`sre-gradient-flow`、`sre-color-breathe`
+- 新增工具类：`.hover-bounce`、`.hover-wiggle`、`.hover-float`、`.jelly`、`.gradient-flow`
+- 页面过渡：fade + scale(0.97) 组合
+
+**AppRail 重写：**
+- 图标包裹在彩色渐变圆形背景中（每个 app 独立颜色）
+- hover 时放大 + 阴影增强
+- active 时浮动动画 + 彩色光晕
+- 用户头像外加彩虹渐变光环
+
+**AppSidebar 更新：**
+- 去掉 glassmorphism backdrop-filter，改为 claymorphism
+- 新增 `data-app` 属性 + `--sidebar-accent` CSS 变量
+- 选中菜单项左侧彩色渐变指示器
+- hover 时菜单项微移 + 彩色背景
+- app 名称使用对应 app 颜色
+
+**AppShell 更新：**
+- topbar 去掉 glassmorphism，改为 claymorphism + 彩虹渐变底线
+- main-header 去掉 glassmorphism
+
+**登录页重设计：**
+- 背景 blob 颜色从 teal/blue/amber 改为 coral/blue/purple
+- 登录卡片去掉 glassmorphism，改为 claymorphism
+- 卡片顶部新增彩虹渐变细线（3px）
+- 登录按钮改为彩虹渐变背景 + hover 弹跳动画
+- 表单入场动画改为弹跳效果
+- 卡片入场改为弹跳动画
+
+**品牌更新：**
+- tagline 从"一站式可观测性与事件响应平台"改为"一站式 DevOps 平台"
+
+---
+
 ## [v4.3.0] — 2026-05-11
 
 ### Changed — 视觉系统升级：Glassmorphism + OLED 深色主题
