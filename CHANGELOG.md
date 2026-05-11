@@ -4,6 +4,36 @@
 
 ---
 
+## [v3.1.0] — 2026-05-11
+
+### Changed — UI 重构：Soft Warm 清新温暖设计风格
+
+**设计系统重写 (global.css)：**
+- 主色调从 green-500 `#22c55e` 改为 teal-600 `#0d9488`
+- 强调色从 indigo-500 `#6366f1` 改为 amber-500 `#f59e0b`
+- 默认主题从 Dark 切换为 Light（暖白 `#fafaf9`）
+- Dark 模式改为 opt-in，使用 stone 色系暖灰（`#1c1917`/`#292524`/`#44403c`）
+- 字体从 Inter 改为 Plus Jakarta Sans（Google Fonts 加载）
+- 圆角 lg 从 10px 增大到 12px，xl 从 14px 到 16px，2xl 从 20px 到 24px
+- 阴影改为更柔和的低透明度版本（适配浅色背景）
+
+**主题覆盖 (App.vue)：**
+- Naive UI `darkOverrides` / `lightOverrides` 全面对齐新色板
+- 默认 `isDark` 从 `true` 改为 `false`
+- `applyBodyClass` 切换为 `dark-theme` / `light-theme` body class
+
+**硬编码颜色迁移（12 个文件）：**
+- `notification/Subscribe.vue` + `Rules.vue`：紫色/绿色硬编码 → CSS 变量
+- `dashboard/Index.vue`：ECharts 图表主题从冷灰改为暖石色
+- `explore/Index.vue` + `Login.vue`：`#fff`/`#666` → CSS 变量
+- `schedule/Index.vue`：box-shadow → `var(--sre-shadow-xs)`
+- `CommandPalette.vue`：`#f8f9fa` → `var(--sre-bg-card)`
+- `PromQLEditor.vue`：边框/焦点色 → CSS 变量
+- `QueryResultChart.vue` + `TimeRangePicker.vue`：灰色文字 → CSS 变量
+- `QuickSilenceModal.vue` + `PageHeader.vue`：绿色 rgba → CSS 变量
+
+---
+
 ## [v3.0.1] — 2026-05-11
 
 ### Fixed
