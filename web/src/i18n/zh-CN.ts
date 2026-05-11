@@ -152,6 +152,11 @@ export default {
     changePassword: '修改密码',
     logout: '退出登录',
   },
+  rail: {
+    oncallDesc: '事件响应与值班排班',
+    alertDesc: '告警规则与数据查询',
+    platformDesc: '组织、角色与系统配置',
+  },
   auth: {
     login: '登录',
     logout: '退出登录',

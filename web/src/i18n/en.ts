@@ -152,6 +152,11 @@ export default {
     changePassword: 'Change Password',
     logout: 'Logout',
   },
+  rail: {
+    oncallDesc: 'Incident response & scheduling',
+    alertDesc: 'Alert rules & data exploration',
+    platformDesc: 'Organization, roles & system config',
+  },
   auth: {
     login: 'Login',
     logout: 'Logout',

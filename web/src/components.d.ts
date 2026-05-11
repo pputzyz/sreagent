@@ -10,6 +10,7 @@ declare module 'vue' {
     AnimatedNumber: typeof import('./components/common/AnimatedNumber.vue')['default']
     AuroraBackground: typeof import('./components/common/AuroraBackground.vue')['default']
     BatchOperations: typeof import('./components/alert/BatchOperations.vue')['default']
+    ChangePasswordModal: typeof import('./components/common/ChangePasswordModal.vue')['default']
     CommandPalette: typeof import('./components/common/CommandPalette.vue')['default']
     EmptyState: typeof import('./components/common/EmptyState.vue')['default']
     GlowCard: typeof import('./components/common/GlowCard.vue')['default']

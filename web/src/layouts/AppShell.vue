@@ -9,12 +9,16 @@ import { useAuthStore } from '@/stores/auth'
 import AppRail from '@/layouts/AppRail.vue'
 import AppSidebar from '@/layouts/AppSidebar.vue'
 import CommandPalette from '@/components/common/CommandPalette.vue'
+import ChangePasswordModal from '@/components/common/ChangePasswordModal.vue'
+import { useRouter } from 'vue-router'
 import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const { activeApp, switchApp, menuSections, activeMenuKey, pageTitle } = useAppNav()
 const { open: openPalette } = useCommandPalette()
+
+const router = useRouter()
 
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
@@ -27,6 +31,29 @@ onMounted(() => {
 // ===== Sidebar collapsed =====
 const collapsed = ref(JSON.parse(localStorage.getItem('sre-sider-collapsed') ?? 'false'))
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
+const pinned = ref(JSON.parse(localStorage.getItem('sre-sider-pinned') ?? 'false'))
+watch(pinned, v => localStorage.setItem('sre-sider-pinned', JSON.stringify(v)))
+const showPasswordModal = ref(false)
+let hoverTimeout: ReturnType<typeof setTimeout> | null = null
+
+function handleNavEnter() {
+  if (pinned.value) return
+  if (hoverTimeout) { clearTimeout(hoverTimeout); hoverTimeout = null }
+  collapsed.value = false
+}
+function handleNavLeave() {
+  if (pinned.value) return
+  hoverTimeout = setTimeout(() => { collapsed.value = true }, 300)
+}
+function toggleCollapse() {
+  if (pinned.value) { pinned.value = false; collapsed.value = true }
+  else { pinned.value = true; collapsed.value = false }
+}
+
+const activeAppLabel = computed(() => {
+  const labels: Record<string, string> = { oncall: 'On-Call', alert: 'Alert', platform: 'Platform' }
+  return labels[activeApp.value] || 'SREAgent'
+})
 
 // ===== Clock =====
 const timeDisplay = ref('')
@@ -131,17 +158,17 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
     <!-- ===== Body ===== -->
     <div class="app-body">
-      <!-- Rail -->
-      <AppRail :active-app="activeApp" @switch="switchApp" />
-
-      <!-- Sidebar -->
-      <AppSidebar
-        :sections="menuSections"
-        :active-key="activeMenuKey"
-        :collapsed="collapsed"
-        @update:collapsed="collapsed = $event"
-        @navigate="() => {}"
-      />
+      <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
+        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" />
+        <AppSidebar
+          :sections="menuSections"
+          :active-key="activeMenuKey"
+          :collapsed="collapsed"
+          :pinned="pinned"
+          :app-name="activeAppLabel"
+          @toggle-collapse="toggleCollapse"
+        />
+      </div>
 
       <!-- Main -->
       <main class="main">
@@ -161,6 +188,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </main>
     </div>
 
+    <ChangePasswordModal v-model:show="showPasswordModal" />
     <CommandPalette />
   </div>
 </template>
@@ -233,6 +261,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 /* ===== App Body ===== */
 .app-body { display:flex; flex:1; min-height:0; }
+.nav-zone { display:flex; height:100%; flex-shrink:0; }
 
 /* ===== Main Content ===== */
 .main { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; }
