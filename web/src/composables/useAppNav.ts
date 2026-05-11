@@ -109,10 +109,10 @@ export function useAppNav() {
           {
             label: t('menu.channels'),
             items: [
-              { label: t('menu.channels'),       key: '/oncall/channels' },
+              { label: t('menu.channels'),       key: '/oncall/spaces' },
               { label: t('menu.incidents'),       key: '/oncall/incidents' },
               { label: t('menu.statusPage'),      key: '/oncall/status-page' },
-              { label: t('menu.postmortems'),     key: '/oncall/postmortem' },
+              { label: t('menu.postmortems'),     key: '/oncall/postmortems' },
             ],
           },
           {
@@ -130,10 +130,10 @@ export function useAppNav() {
           {
             label: t('menu.configCenter'),
             items: [
-              { label: t('menu.notifyChannels'),  key: '/oncall/notify-rules' },
-              { label: t('menu.routingRules'),     key: '/oncall/routing-rules' },
-              { label: t('menu.bizGroups'),        key: '/oncall/biz-groups' },
-              { label: t('menu.subscriptions'),    key: '/oncall/subscriptions' },
+              { label: t('menu.notifyChannels'),  key: '/oncall/config/notify-rules' },
+              { label: t('menu.routingRules'),     key: '/oncall/config/routing-rules' },
+              { label: t('menu.bizGroups'),        key: '/oncall/config/biz-groups' },
+              { label: t('menu.subscriptions'),    key: '/oncall/config/subscribe-rules' },
             ],
           },
         ]
@@ -152,24 +152,24 @@ export function useAppNav() {
               { label: t('menu.alertRules'),      key: '/alert/rules' },
               { label: t('menu.activeAlerts'),     key: '/alert/events' },
               { label: t('menu.alertHistory'),     key: '/alert/history' },
-              { label: t('menu.muteRules'),        key: '/alert/mute-rules' },
+              { label: t('menu.muteRules'),        key: '/alert/suppression' },
             ],
           },
           {
             label: t('menu.data'),
             items: [
               { label: t('menu.datasources'), key: '/alert/datasources' },
-              { label: t('menu.dataQuery'),   key: '/alert/query' },
+              { label: t('menu.dataQuery'),   key: '/alert/explore' },
               { label: t('menu.dashboard'),   key: '/alert/dashboards' },
             ],
           },
           {
             label: t('menu.notification'),
             items: [
-              { label: t('menu.notifyPolicies'),  key: '/alert/notify-policies' },
-              { label: t('menu.templates'),        key: '/alert/templates' },
-              { label: t('menu.notifyChannels'),   key: '/alert/channels' },
-              { label: t('menu.subscriptions'),    key: '/alert/subscriptions' },
+              { label: t('menu.notifyPolicies'),  key: '/alert/notify/policies' },
+              { label: t('menu.templates'),        key: '/alert/notify/templates' },
+              { label: t('menu.notifyChannels'),   key: '/alert/notify/channels' },
+              { label: t('menu.subscriptions'),    key: '/alert/notify/subscriptions' },
             ],
           },
         ]
@@ -186,10 +186,10 @@ export function useAppNav() {
             label: t('menu.orgManagement'),
             items: (() => {
               const items: MenuItem[] = []
-              if (authStore.isAdmin)     items.push({ label: t('menu.members'), key: '/platform/users' })
-              if (authStore.canManage)   items.push({ label: t('menu.teams'), key: '/platform/teams' })
-              items.push({ label: t('menu.roles'), key: '/platform/roles' })
-              if (authStore.isAdmin)     items.push({ label: t('menu.sso'), key: '/platform/oidc' })
+              if (authStore.isAdmin)     items.push({ label: t('menu.members'), key: '/platform/org/members' })
+              if (authStore.canManage)   items.push({ label: t('menu.teams'), key: '/platform/org/teams' })
+              items.push({ label: t('menu.roles'), key: '/platform/org/roles' })
+              if (authStore.isAdmin)     items.push({ label: t('menu.sso'), key: '/platform/org/sso' })
               return items
             })(),
           },
@@ -197,7 +197,7 @@ export function useAppNav() {
             items: (() => {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
-                items.push({ label: t('menu.audit'), key: '/platform/audit-log' })
+                items.push({ label: t('menu.audit'), key: '/platform/audit' })
               }
               return items
             })(),
@@ -208,10 +208,10 @@ export function useAppNav() {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
                 items.push(
-                  { label: t('menu.smtp'),      key: '/platform/smtp' },
-                  { label: t('menu.larkBot'),    key: '/platform/lark-bot' },
-                  { label: t('menu.aiConfig'),   key: '/platform/ai-config' },
-                  { label: t('menu.security'),   key: '/platform/security' },
+                  { label: t('menu.smtp'),      key: '/platform/settings/smtp' },
+                  { label: t('menu.larkBot'),    key: '/platform/settings/lark' },
+                  { label: t('menu.aiConfig'),   key: '/platform/settings/ai' },
+                  { label: t('menu.security'),   key: '/platform/settings/security' },
                 )
               }
               return items
