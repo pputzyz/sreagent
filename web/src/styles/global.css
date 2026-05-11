@@ -168,6 +168,17 @@
   --sre-z-overlay: 100;
   --sre-z-modal:   1000;
   --sre-z-toast:   2000;
+
+  /* Visual Polish */
+  --sre-ripple-color: var(--sre-primary-soft);
+  --sre-ripple-duration: 600ms;
+  --sre-hover-nudge-x: 2px;
+  --sre-hover-scale-press: 0.98;
+  --sre-hover-scale-bounce: 0.85;
+  --sre-page-enter-duration: var(--sre-duration-slow);
+  --sre-page-leave-duration: var(--sre-duration-fast);
+  --sre-scrollbar-width: 5px;
+  --sre-mascot-size: 32px;
 }
 
 /* ===== Dark theme (opt-in) ===== */
@@ -212,9 +223,6 @@ body.dark-theme {
   --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.50);
 }
 
-body.dark-theme ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.18); }
-body.dark-theme ::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.35); }
-
 /* ============================================================
    Base reset
    ============================================================ */
@@ -250,15 +258,153 @@ body {
 }
 
 /* ============================================================
-   Scrollbar
+   Scrollbar — thin, warm, hover-reveal
    ============================================================ */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: var(--sre-radius-pill);
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.24); }
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--sre-radius-pill);
+  transition: background var(--sre-duration-base) var(--sre-ease-out);
+}
+
+*:hover > ::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+body.dark-theme *:hover > ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ============================================================
+   Ripple Effect
+   ============================================================ */
+.sre-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.sre-ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--sre-primary-soft);
+  transform: scale(0);
+  animation: sre-ripple-expand 600ms var(--sre-ease-out) forwards;
+  pointer-events: none;
+  width: 100px;
+  height: 100px;
+  margin-left: -50px;
+  margin-top: -50px;
+  left: var(--ripple-x, 50%);
+  top: var(--ripple-y, 50%);
+  opacity: 0.4;
+}
+
+@keyframes sre-ripple-expand {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   Page Transitions
+   ============================================================ */
+.sre-page-enter-active {
+  transition:
+    opacity var(--sre-duration-slow) var(--sre-ease-out),
+    transform var(--sre-duration-slow) var(--sre-ease-out);
+}
+
+.sre-page-leave-active {
+  transition:
+    opacity var(--sre-duration-fast) var(--sre-ease-out),
+    transform var(--sre-duration-fast) var(--sre-ease-out);
+}
+
+.sre-page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.sre-page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ============================================================
+   Rail Icon Animations
+   ============================================================ */
+.rail-icon:active {
+  transform: scale(0.85);
+  transition: transform 80ms var(--sre-ease-bounce);
+}
+
+.rail-icon:not(:active) {
+  transition:
+    background var(--sre-duration-base) var(--sre-ease-out),
+    color var(--sre-duration-base) var(--sre-ease-out),
+    transform var(--sre-duration-slow) var(--sre-ease-spring);
+}
+
+.rail-icon.active {
+  animation: sre-rail-active-pulse 3s ease-in-out infinite;
+}
+
+@keyframes sre-rail-active-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--sre-primary-soft); }
+  50% { box-shadow: 0 0 0 4px var(--sre-primary-soft); }
+}
+
+/* ============================================================
+   Menu Hover Animations
+   ============================================================ */
+.app-sidebar .n-menu-item-content {
+  transition:
+    transform var(--sre-duration-fast) var(--sre-ease-out),
+    background var(--sre-duration-base) var(--sre-ease-out);
+  border-radius: var(--sre-radius-md);
+}
+
+.app-sidebar .n-menu-item-content:hover {
+  transform: translateX(2px);
+}
+
+.app-sidebar .n-menu-item-content:active {
+  transform: translateX(2px) scale(0.98);
+  transition-duration: 60ms;
+}
+
+.app-sidebar .n-menu-item-content--selected::before {
+  animation: sre-active-bar-in 280ms var(--sre-ease-spring) both;
+}
+
+@keyframes sre-active-bar-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
 
 /* ============================================================
    Typography utilities
