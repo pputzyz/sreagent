@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* ===== Light (default) — Warm White ===== */
-/* Fonts: Plus Jakarta Sans (local install) + system fallback for intranet compatibility */
+/* Fonts: system font stack (no external CDN — intranet safe) */
 :root {
   /* --- Brand (teal-600 + amber-500) --- */
   --sre-brand-50:   #f0fdfa;
