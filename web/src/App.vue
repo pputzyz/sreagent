@@ -10,31 +10,31 @@ import type { GlobalThemeOverrides } from 'naive-ui'
 import { ref, provide, watch, onMounted, computed } from 'vue'
 
 const savedTheme = localStorage.getItem('sre-theme')
-const isDark = ref(savedTheme ? savedTheme === 'dark' : true)
+const isDark = ref(savedTheme ? savedTheme === 'dark' : false)
 const theme = computed(() => isDark.value ? darkTheme : null)
 
-// --- v3.0 "Modern Dark" brand tokens ---
+// --- v3.1 "Soft Warm SaaS" brand tokens (teal/amber) ---
 const common = {
-  primaryColor:        '#22c55e',
-  primaryColorHover:   '#4ade80',
-  primaryColorPressed: '#16a34a',
-  primaryColorSuppl:   '#4ade80',
+  primaryColor:        '#0d9488',
+  primaryColorHover:   '#14b8a6',
+  primaryColorPressed: '#0f766e',
+  primaryColorSuppl:   '#14b8a6',
   errorColor:          '#ef4444',
   errorColorHover:     '#f87171',
   errorColorPressed:   '#dc2626',
   warningColor:        '#f59e0b',
   warningColorHover:   '#fbbf24',
   warningColorPressed: '#d97706',
-  infoColor:           '#6366f1',
-  infoColorHover:      '#818cf8',
-  infoColorPressed:    '#4f46e5',
-  successColor:        '#22c55e',
-  successColorHover:   '#4ade80',
-  successColorPressed: '#16a34a',
+  infoColor:           '#3b82f6',
+  infoColorHover:      '#60a5fa',
+  infoColorPressed:    '#2563eb',
+  successColor:        '#0d9488',
+  successColorHover:   '#14b8a6',
+  successColorPressed: '#0f766e',
   borderRadius:        '8px',
   borderRadiusSmall:   '6px',
   fontFamily:
-    '"Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   fontFamilyMono:
     '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Menlo", ui-monospace, monospace',
 }
@@ -42,27 +42,27 @@ const common = {
 const darkOverrides: GlobalThemeOverrides = {
   common: {
     ...common,
-    bodyColor:     '#0a0a0b',
-    cardColor:     '#141416',
-    modalColor:    '#141416',
-    popoverColor:  '#141416',
-    tableColor:    '#141416',
+    bodyColor:     '#1c1917',
+    cardColor:     '#292524',
+    modalColor:    '#292524',
+    popoverColor:  '#292524',
+    tableColor:    '#292524',
     tableColorHover: 'rgba(255,255,255,0.04)',
     borderColor:   'rgba(255,255,255,0.06)',
     dividerColor:  'rgba(255,255,255,0.06)',
     hoverColor:    'rgba(255,255,255,0.04)',
-    textColorBase:      '#ededef',
-    textColor1:         '#ededef',
-    textColor2:         '#a0a0ab',
-    textColor3:         '#63636e',
+    textColorBase:      '#fafaf9',
+    textColor1:         '#fafaf9',
+    textColor2:         '#d6d3d1',
+    textColor3:         '#a8a29e',
     textColorDisabled:  'rgba(255,255,255,0.22)',
     placeholderColor:   'rgba(255,255,255,0.25)',
   },
   Card: {
-    color:         '#141416',
-    colorEmbedded: '#0a0a0b',
+    color:         '#292524',
+    colorEmbedded: '#1c1917',
     borderColor:   'rgba(255,255,255,0.06)',
-    borderRadius:  '10px',
+    borderRadius:  '12px',
   },
   Button: {
     borderRadiusMedium: '8px',
@@ -71,32 +71,32 @@ const darkOverrides: GlobalThemeOverrides = {
     fontWeight:         '500',
   },
   DataTable: {
-    thColor:           '#141416',
-    tdColor:           '#0a0a0b',
+    thColor:           '#292524',
+    tdColor:           '#1c1917',
     tdColorHover:      'rgba(255,255,255,0.04)',
     borderColor:       'rgba(255,255,255,0.06)',
-    borderRadius:      '10px',
+    borderRadius:      '12px',
     thFontWeight:      '600',
   },
   Layout: {
-    color:       '#0a0a0b',
-    siderColor:  '#09090b',
-    headerColor: '#09090b',
+    color:       '#1c1917',
+    siderColor:  '#1c1917',
+    headerColor: '#1c1917',
   },
-  Modal:  { color: '#141416', borderRadius: '10px' },
-  Drawer: { color: '#141416' },
+  Modal:  { color: '#292524', borderRadius: '12px' },
+  Drawer: { color: '#292524' },
   Tag:    { borderRadius: '6px' },
   Menu: {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(255,255,255,0.04)',
-    itemColorActive:        'rgba(34,197,94,0.12)',
-    itemColorActiveHover:   'rgba(34,197,94,0.16)',
-    itemTextColor:          '#a0a0ab',
-    itemTextColorHover:     '#ededef',
-    itemTextColorActive:    '#4ade80',
-    itemIconColorActive:    '#4ade80',
-    itemIconColorActiveHover:'#4ade80',
+    itemColorActive:        'rgba(13,148,136,0.12)',
+    itemColorActiveHover:   'rgba(13,148,136,0.16)',
+    itemTextColor:          '#d6d3d1',
+    itemTextColorHover:     '#fafaf9',
+    itemTextColorActive:    '#14b8a6',
+    itemIconColorActive:    '#14b8a6',
+    itemIconColorActiveHover:'#14b8a6',
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -106,20 +106,20 @@ const darkOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#22c55e',
+    railColorActive: '#0d9488',
   },
   Slider: {
-    fillColor: '#22c55e',
+    fillColor: '#0d9488',
   },
   Progress: {
-    fillColor: '#22c55e',
+    fillColor: '#0d9488',
   },
   Popover: {
-    color: '#141416',
-    borderRadius: '10px',
+    color: '#292524',
+    borderRadius: '12px',
   },
   Tooltip: {
-    color: '#1c1c1f',
+    color: '#44403c',
     borderRadius: '6px',
   },
 }
@@ -127,7 +127,7 @@ const darkOverrides: GlobalThemeOverrides = {
 const lightOverrides: GlobalThemeOverrides = {
   common: {
     ...common,
-    bodyColor:     '#fafafa',
+    bodyColor:     '#fafaf9',
     cardColor:     '#ffffff',
     modalColor:    '#ffffff',
     popoverColor:  '#ffffff',
@@ -136,16 +136,16 @@ const lightOverrides: GlobalThemeOverrides = {
     borderColor:   'rgba(0,0,0,0.06)',
     dividerColor:  'rgba(0,0,0,0.06)',
     hoverColor:    'rgba(0,0,0,0.03)',
-    textColorBase: '#18181b',
-    textColor1:    '#18181b',
-    textColor2:    '#52525b',
-    textColor3:    '#a1a1aa',
+    textColorBase: '#1c1917',
+    textColor1:    '#1c1917',
+    textColor2:    '#78716c',
+    textColor3:    '#a8a29e',
   },
   Card: {
     color:         '#ffffff',
-    colorEmbedded: '#f4f4f5',
+    colorEmbedded: '#f5f5f4',
     borderColor:   'rgba(0,0,0,0.06)',
-    borderRadius:  '10px',
+    borderRadius:  '12px',
   },
   Button: {
     borderRadiusMedium: '8px',
@@ -155,31 +155,31 @@ const lightOverrides: GlobalThemeOverrides = {
   },
   DataTable: {
     tdColor:      '#ffffff',
-    thColor:      '#f4f4f5',
+    thColor:      '#f5f5f4',
     tdColorHover: 'rgba(0,0,0,0.03)',
     borderColor:  'rgba(0,0,0,0.06)',
-    borderRadius: '10px',
+    borderRadius: '12px',
     thFontWeight: '600',
   },
   Layout: {
-    color:       '#fafafa',
+    color:       '#fafaf9',
     siderColor:  '#ffffff',
     headerColor: '#ffffff',
   },
-  Modal:  { color: '#ffffff', borderRadius: '10px' },
+  Modal:  { color: '#ffffff', borderRadius: '12px' },
   Drawer: { color: '#ffffff' },
   Tag:    { borderRadius: '6px' },
   Menu: {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(0,0,0,0.03)',
-    itemColorActive:        'rgba(34,197,94,0.10)',
-    itemColorActiveHover:   'rgba(34,197,94,0.14)',
-    itemTextColor:          '#52525b',
-    itemTextColorHover:     '#18181b',
-    itemTextColorActive:    '#16a34a',
-    itemIconColorActive:    '#16a34a',
-    itemIconColorActiveHover:'#16a34a',
+    itemColorActive:        'rgba(13,148,136,0.10)',
+    itemColorActiveHover:   'rgba(13,148,136,0.14)',
+    itemTextColor:          '#78716c',
+    itemTextColorHover:     '#1c1917',
+    itemTextColorActive:    '#0f766e',
+    itemIconColorActive:    '#0f766e',
+    itemIconColorActiveHover:'#0f766e',
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -189,13 +189,13 @@ const lightOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#22c55e',
+    railColorActive: '#0d9488',
   },
   Slider: {
-    fillColor: '#22c55e',
+    fillColor: '#0d9488',
   },
   Progress: {
-    fillColor: '#22c55e',
+    fillColor: '#0d9488',
   },
   Select: {
     peers: {
@@ -204,10 +204,10 @@ const lightOverrides: GlobalThemeOverrides = {
   },
   Popover: {
     color: '#ffffff',
-    borderRadius: '10px',
+    borderRadius: '12px',
   },
   Tooltip: {
-    color: '#18181b',
+    color: '#1c1917',
     borderRadius: '6px',
   },
 }
@@ -218,8 +218,10 @@ const themeOverrides = computed<GlobalThemeOverrides>(() =>
 
 function applyBodyClass(dark: boolean) {
   if (dark) {
+    document.body.classList.add('dark-theme')
     document.body.classList.remove('light-theme')
   } else {
+    document.body.classList.remove('dark-theme')
     document.body.classList.add('light-theme')
   }
 }
