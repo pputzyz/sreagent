@@ -37,7 +37,7 @@ const SEVERITY_LABEL = computed(() => ({
 
 function severityLabel(s?: string) {
   if (!s) return ''
-  return SEVERITY_LABEL.value[s] ?? s.toUpperCase()
+  return (SEVERITY_LABEL.value as Record<string, string>)[s] ?? s.toUpperCase()
 }
 
 async function loadAlert() {
