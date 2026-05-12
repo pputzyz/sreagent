@@ -1,2 +1,4 @@
 export { useCrudModal } from './useCrudModal'
 export { usePaginatedList } from './usePaginatedList'
+export { useAIChat } from './useAIChat'
+export type { ChatMode } from './useAIChat'

@@ -7,6 +7,9 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AIChatButton: typeof import('./components/ai/AIChatButton.vue')['default']
+    AIChatMessage: typeof import('./components/ai/AIChatMessage.vue')['default']
+    AIChatPanel: typeof import('./components/ai/AIChatPanel.vue')['default']
     AnimatedNumber: typeof import('./components/common/AnimatedNumber.vue')['default']
     AuroraBackground: typeof import('./components/common/AuroraBackground.vue')['default']
     BatchOperations: typeof import('./components/alert/BatchOperations.vue')['default']
@@ -61,6 +64,8 @@ declare module 'vue' {
     NText: typeof import('naive-ui')['NText']
     PageHeader: typeof import('./components/common/PageHeader.vue')['default']
     PanelCard: typeof import('./components/query/PanelCard.vue')['default']
+    PetCorner: typeof import('./components/pet/PetCorner.vue')['default']
+    PetPanel: typeof import('./components/pet/PetPanel.vue')['default']
     PromQLEditor: typeof import('./components/query/PromQLEditor.vue')['default']
     QueryPanel: typeof import('./components/query/QueryPanel.vue')['default']
     QueryResultChart: typeof import('./components/query/QueryResultChart.vue')['default']

@@ -10,6 +10,9 @@ import AppRail from '@/layouts/AppRail.vue'
 import AppSidebar from '@/layouts/AppSidebar.vue'
 import CommandPalette from '@/components/common/CommandPalette.vue'
 import ChangePasswordModal from '@/components/common/ChangePasswordModal.vue'
+import AIChatButton from '@/components/ai/AIChatButton.vue'
+import AIChatPanel from '@/components/ai/AIChatPanel.vue'
+import PetCorner from '@/components/pet/PetCorner.vue'
 import { useRouter } from 'vue-router'
 import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
 
@@ -65,7 +68,12 @@ function safeParse(json: string | null, fallback: boolean): boolean {
 const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), false))
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 const showPasswordModal = ref(false)
+const showAIChat = ref(false)
 const pinned = ref(false)
+
+function toggleAIChat() {
+  showAIChat.value = !showAIChat.value
+}
 
 function toggleCollapse() {
   collapsed.value = !collapsed.value
@@ -227,6 +235,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
     <ChangePasswordModal v-model:show="showPasswordModal" />
     <CommandPalette />
+
+    <!-- AI Chat floating button + drawer -->
+    <AIChatButton :active="showAIChat" @click="toggleAIChat" />
+    <AIChatPanel v-model:show="showAIChat" />
   </div>
 </template>
 

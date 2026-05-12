@@ -1670,4 +1670,33 @@ export default {
     conditionsPlaceholder: '[{"field":"severity","operator":"=","value":"critical"}]\nLeave empty or pass [] to match all alerts (catch-all rule)',
     conditionsHint: 'Available fields: severity / title / description / labels.xxx; operators: = / != / =~ / !~',
   },
+
+  // ===== AI Chat =====
+  ai: {
+    chatTitle: 'AI Assistant',
+    inputPlaceholder: 'Type a message...',
+    alertMode: 'Alert Analysis',
+    generalMode: 'General Chat',
+    petMode: 'Pet Chat',
+    send: 'Send',
+    clear: 'Clear',
+  },
+
+  // ===== Pet System =====
+  pet: {
+    hunger: 'Hunger',
+    mood: 'Mood',
+    feed: 'Feed',
+    play: 'Play',
+    chat: 'Chat',
+    viewDetail: 'View Details',
+    settings: 'Pet Settings',
+    name: 'Name',
+    namePlaceholder: 'Give your pet a name',
+    interactionHistory: 'Interaction History',
+    interactionType: 'Type',
+    interactionValue: 'Value',
+    interactionTime: 'Time',
+    levelUp: 'Level Up',
+  },
 }

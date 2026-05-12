@@ -1691,4 +1691,33 @@ export default {
     conditionsPlaceholder: '[{"field":"severity","operator":"=","value":"critical"}]\n留空或 [] 表示匹配所有告警（兜底规则）',
     conditionsHint: 'field 可选: severity / title / description / labels.xxx；operator: = / != / =~ / !~',
   },
+
+  // ===== AI Chat =====
+  ai: {
+    chatTitle: 'AI 助手',
+    inputPlaceholder: '输入消息...',
+    alertMode: '告警分析',
+    generalMode: '通用对话',
+    petMode: '宠物对话',
+    send: '发送',
+    clear: '清空',
+  },
+
+  // ===== Pet System =====
+  pet: {
+    hunger: '饥饿',
+    mood: '心情',
+    feed: '喂食',
+    play: '玩耍',
+    chat: '对话',
+    viewDetail: '查看详情',
+    settings: '宠物设置',
+    name: '名字',
+    namePlaceholder: '给你的宠物起个名字',
+    interactionHistory: '互动记录',
+    interactionType: '类型',
+    interactionValue: '数值',
+    interactionTime: '时间',
+    levelUp: '升级',
+  },
 }

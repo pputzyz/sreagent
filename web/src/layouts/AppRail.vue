@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { NIcon, NTooltip, NPopover, NAvatar } from 'naive-ui'
 import { CallOutline, NotificationsOutline, SettingsOutline, PersonOutline, KeyOutline, LogOutOutline } from '@vicons/ionicons5'
+import PetCorner from '@/components/pet/PetCorner.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import type { AppKey } from '@/composables/useAppNav'
@@ -94,6 +95,9 @@ function handleLogout() {
     <div class="rail-spacer" />
 
     <div class="rail-bottom">
+      <!-- Pet corner -->
+      <PetCorner />
+
       <!-- User avatar -->
       <n-popover
         trigger="click"

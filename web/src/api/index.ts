@@ -37,6 +37,9 @@ import type {
   AlertGroupItem,
   InhibitionRule,
   LogEntry,
+  ChatMessage,
+  Pet,
+  PetInteraction,
   Channel,
   ChannelForm,
   Incident,
@@ -527,6 +530,36 @@ export const aiApi = {
 
   suggestSOP: (eventId: number) =>
     request.post<ApiResponse<{ title: string; steps: string[]; references: string[] }>>('/ai/suggest-sop', { event_id: eventId }),
+}
+
+// ===== AI Chat API =====
+export const aiChatApi = {
+  send: (data: { mode: 'alert' | 'general' | 'pet'; message: string; context?: string }) =>
+    request.post<ApiResponse<{ reply: string }>>('/ai/chat', data),
+
+  getHistory: (mode: 'alert' | 'general' | 'pet') =>
+    request.get<ApiResponse<ChatMessage[]>>('/ai/history', { params: { mode } }),
+
+  clearHistory: (mode: 'alert' | 'general' | 'pet') =>
+    request.delete<ApiResponse<null>>('/ai/history', { params: { mode } }),
+}
+
+// ===== Pet API =====
+export const petApi = {
+  get: () =>
+    request.get<ApiResponse<Pet>>('/pet'),
+
+  update: (data: { name?: string }) =>
+    request.put<ApiResponse<Pet>>('/pet', data),
+
+  feed: () =>
+    request.post<ApiResponse<Pet>>('/pet/feed'),
+
+  play: () =>
+    request.post<ApiResponse<Pet>>('/pet/play'),
+
+  getInteractions: () =>
+    request.get<ApiResponse<PetInteraction[]>>('/pet/interactions'),
 }
 
 // ===== Lark Bot API =====

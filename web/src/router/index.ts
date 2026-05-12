@@ -54,6 +54,7 @@ const routes: RouteRecordRaw[] = [
       // ===== Platform =====
       { path: 'platform', redirect: '/platform/profile' },
       { path: 'platform/profile', component: () => import('@/pages/platform/Profile.vue'), meta: { title: '个人中心' } },
+      { path: 'pet', component: () => import('@/pages/pet/Index.vue'), meta: { title: '我的宠物' } },
       { path: 'platform/org/members', component: () => import('@/pages/settings/UserManagement.vue'), meta: { title: '成员管理', requiresRole: ['admin'] } },
       { path: 'platform/org/teams', component: () => import('@/pages/settings/TeamManagement.vue'), meta: { title: '团队管理', requiresRole: ['admin', 'team_lead'] } },
       { path: 'platform/org/roles', component: () => import('@/pages/platform/Roles.vue'), meta: { title: '角色权限' } },
