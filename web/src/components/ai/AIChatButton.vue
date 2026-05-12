@@ -33,12 +33,12 @@ defineEmits<{
   border: none;
   border-radius: 50%;
   background: var(--sre-primary);
-  color: var(--sre-text-inverse, #fff);
+  color: var(--sre-text-inverse);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--sre-shadow-md);
   transition:
     transform var(--sre-duration-fast) var(--sre-ease-out),
     box-shadow var(--sre-duration-fast) var(--sre-ease-out);
@@ -46,11 +46,11 @@ defineEmits<{
 
 .ai-chat-btn:hover {
   transform: scale(1.08);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--sre-shadow-lg);
 }
 
 .ai-chat-btn--active {
   background: var(--sre-primary-hover, var(--sre-primary));
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--sre-shadow-lg);
 }
 </style>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { NButton, NProgress, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { usePetStore } from '@/stores/pet'
@@ -12,21 +11,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const petStore = usePetStore()
-
-const hungerDisplay = computed(() => {
-  if (!petStore.pet) return 0
-  return 100 - petStore.pet.hunger
-})
-
-const moodDisplay = computed(() => petStore.pet?.mood || 0)
-
-function handleFeed() {
-  petStore.feed()
-}
-
-function handlePlay() {
-  petStore.play()
-}
 
 function handleChat() {
   emit('close')
@@ -56,25 +40,26 @@ function goToDetail() {
           <span class="pet-bar-label">{{ t('pet.hunger') }}</span>
           <n-progress
             type="line"
-            :percentage="hungerDisplay"
+            :percentage="petStore.hungerPercent"
             :show-indicator="false"
             :height="8"
             :border-radius="4"
+            :status="petStore.hungerPercent > 70 ? 'error' : petStore.hungerPercent > 40 ? 'warning' : 'success'"
             style="flex: 1"
           />
-          <span class="pet-bar-value">{{ hungerDisplay }}%</span>
+          <span class="pet-bar-value">{{ petStore.hungerPercent }}%</span>
         </div>
         <div class="pet-bar-row">
           <span class="pet-bar-label">{{ t('pet.mood') }}</span>
           <n-progress
             type="line"
-            :percentage="moodDisplay"
+            :percentage="petStore.moodPercent"
             :show-indicator="false"
             :height="8"
             :border-radius="4"
             style="flex: 1"
           />
-          <span class="pet-bar-value">{{ moodDisplay }}%</span>
+          <span class="pet-bar-value">{{ petStore.moodPercent }}%</span>
         </div>
         <div class="pet-bar-row">
           <span class="pet-bar-label">EXP</span>
@@ -92,8 +77,8 @@ function goToDetail() {
 
       <!-- Actions -->
       <div class="pet-actions">
-        <n-button size="small" @click="handleFeed">{{ t('pet.feed') }}</n-button>
-        <n-button size="small" @click="handlePlay">{{ t('pet.play') }}</n-button>
+        <n-button size="small" @click="petStore.feed()">{{ t('pet.feed') }}</n-button>
+        <n-button size="small" @click="petStore.play()">{{ t('pet.play') }}</n-button>
         <n-button size="small" @click="handleChat">
           <template #icon>
             <n-icon :component="ChatbubbleEllipsesOutline" />
@@ -108,8 +93,19 @@ function goToDetail() {
       </div>
     </div>
 
+    <div v-else-if="petStore.loading" class="pet-panel-empty">
+      {{ t('pet.loading') }}
+    </div>
+
+    <div v-else-if="petStore.error" class="pet-panel-error">
+      <span>{{ petStore.error }}</span>
+      <n-button size="tiny" quaternary @click="petStore.fetchPet()">
+        {{ t('pet.retry') }}
+      </n-button>
+    </div>
+
     <div v-else class="pet-panel-empty">
-      Loading...
+      {{ t('pet.loading') }}
     </div>
   </div>
 </template>
@@ -201,5 +197,16 @@ function goToDetail() {
   text-align: center;
   color: var(--sre-text-tertiary);
   font-size: 13px;
+}
+
+.pet-panel-error {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--sre-critical);
+  font-size: 12px;
+  text-align: center;
 }
 </style>

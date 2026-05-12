@@ -410,7 +410,7 @@ onMounted(refresh)
   border-radius: var(--sre-radius-lg);
   transition: border-color var(--sre-duration-base) var(--sre-ease-out),
               box-shadow var(--sre-duration-base) var(--sre-ease-out),
-              transform var(--sre-duration-base) var(--sre-ease-spring);
+              transform var(--sre-duration-base) var(--sre-ease-out);
   position: relative;
   overflow: hidden;
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
-import { NDrawer, NDrawerContent, NSelect, NButton, NIcon, NInput } from 'naive-ui'
-import { TrashOutline, SendOutline } from '@vicons/ionicons5'
+import { ref, watch, nextTick, onMounted, computed } from 'vue'
+import { NDrawer, NDrawerContent, NSelect, NButton, NIcon, NInput, NPopconfirm } from 'naive-ui'
+import { TrashOutline, SendOutline, RefreshOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { useAIChat } from '@/composables/useAIChat'
 import type { ChatMode } from '@/composables/useAIChat'
@@ -18,7 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { messages, loading, mode, error, sendMessage, loadHistory, clearHistory, switchMode } = useAIChat()
+const { messages, loading, mode, error, lastFailedInput, sendMessage, retryLast, loadHistory, clearHistory, switchMode } = useAIChat()
 
 const inputText = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
@@ -28,6 +28,27 @@ const modeOptions = [
   { label: t('ai.generalMode'), value: 'general' },
   { label: t('ai.petMode'), value: 'pet' },
 ]
+
+const suggestedPrompts = computed(() => {
+  const prompts: Record<ChatMode, string[]> = {
+    alert: [
+      t('ai.suggestAlert1'),
+      t('ai.suggestAlert2'),
+      t('ai.suggestAlert3'),
+    ],
+    general: [
+      t('ai.suggestGeneral1'),
+      t('ai.suggestGeneral2'),
+      t('ai.suggestGeneral3'),
+    ],
+    pet: [
+      t('ai.suggestPet1'),
+      t('ai.suggestPet2'),
+      t('ai.suggestPet3'),
+    ],
+  }
+  return prompts[mode.value] || prompts.general
+})
 
 watch(() => props.show, (val) => {
   if (val) {
@@ -53,6 +74,15 @@ async function handleSend() {
   if (!text) return
   inputText.value = ''
   await sendMessage(text, props.alertContext)
+}
+
+function handleRetry() {
+  retryLast()
+}
+
+function handleSuggestion(prompt: string) {
+  inputText.value = prompt
+  handleSend()
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -94,17 +124,21 @@ onMounted(() => {
               style="width: 120px"
               @update:value="handleModeChange"
             />
-            <n-button
-              quaternary
-              size="small"
-              circle
-              :title="t('ai.clear')"
-              @click="clearHistory"
-            >
-              <template #icon>
-                <n-icon :component="TrashOutline" />
+            <n-popconfirm @positive-click="clearHistory">
+              <template #trigger>
+                <n-button
+                  quaternary
+                  size="small"
+                  circle
+                  :title="t('ai.clear')"
+                >
+                  <template #icon>
+                    <n-icon :component="TrashOutline" />
+                  </template>
+                </n-button>
               </template>
-            </n-button>
+              {{ t('ai.clearConfirm') }}
+            </n-popconfirm>
           </div>
         </div>
       </template>
@@ -122,10 +156,28 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-if="error" class="chat-error">{{ error }}</div>
+        <div v-if="error" class="chat-error">
+          <span>{{ error }}</span>
+          <n-button size="tiny" quaternary @click="handleRetry">
+            <template #icon>
+              <n-icon :component="RefreshOutline" />
+            </template>
+            {{ t('ai.retry') }}
+          </n-button>
+        </div>
 
         <div v-if="messages.length === 0 && !loading" class="chat-empty">
-          {{ t('ai.inputPlaceholder') }}
+          <div class="chat-empty-text">{{ t('ai.emptyHint') }}</div>
+          <div class="chat-suggestions">
+            <button
+              v-for="(prompt, i) in suggestedPrompts"
+              :key="i"
+              class="chat-suggestion"
+              @click="handleSuggestion(prompt)"
+            >
+              {{ prompt }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -222,6 +274,10 @@ onMounted(() => {
 }
 
 .chat-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 12px;
   margin-bottom: 12px;
   font-size: 12px;
@@ -232,12 +288,45 @@ onMounted(() => {
 
 .chat-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1;
   min-height: 200px;
+  gap: 16px;
+}
+
+.chat-empty-text {
   color: var(--sre-text-tertiary);
   font-size: 13px;
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.chat-suggestion {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  background: var(--sre-bg-elevated);
+  border: 1px solid var(--sre-border);
+  border-radius: var(--sre-radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background var(--sre-duration-fast) var(--sre-ease-out),
+    border-color var(--sre-duration-fast) var(--sre-ease-out);
+}
+
+.chat-suggestion:hover {
+  background: var(--sre-bg-hover);
+  border-color: var(--sre-primary);
+  color: var(--sre-text-primary);
 }
 
 .chat-footer {

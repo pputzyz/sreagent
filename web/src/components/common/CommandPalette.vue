@@ -309,7 +309,7 @@ body.light-theme .cp-panel {
 
 .cp-panel-enter-active {
   transition: opacity 200ms var(--sre-ease-out),
-              transform 200ms var(--sre-ease-spring);
+              transform 200ms var(--sre-ease-out);
 }
 .cp-panel-leave-active {
   transition: opacity 140ms ease-in,

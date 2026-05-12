@@ -625,6 +625,7 @@ export interface ChatMessage {
   content: string
   context?: string
   created_at?: string
+  _failed?: boolean
 }
 
 // ===== Pet =====

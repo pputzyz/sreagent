@@ -88,7 +88,7 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   cursor: pointer;
-  transition: transform var(--sre-duration-base) var(--sre-ease-spring);
+  transition: transform var(--sre-duration-base) var(--sre-ease-out);
 }
 
 .mascot-container:hover {

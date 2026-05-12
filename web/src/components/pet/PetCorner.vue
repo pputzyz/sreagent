@@ -61,14 +61,13 @@ function handleChat() {
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 40px;
+  min-width: 40px;
   height: 40px;
   border: none;
   border-radius: var(--sre-radius-md);
   background: transparent;
   cursor: pointer;
   padding: 0;
-  overflow: hidden;
   transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 

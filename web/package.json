@@ -25,6 +25,7 @@
     "codemirror": "^6.0.2",
     "date-fns": "^4.1.0",
     "echarts": "^5.5.1",
+    "marked": "^18.0.3",
     "md-editor-v3": "^6.5.0",
     "naive-ui": "^2.40.1",
     "pinia": "^2.3.0",

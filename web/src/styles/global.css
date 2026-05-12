@@ -136,7 +136,6 @@
   --sre-duration-slow:  200ms;
   --sre-ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
   --sre-ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
-  --sre-ease-spring:    cubic-bezier(0.16, 1, 0.3, 1);
 
   /* --- Component tokens --- */
   --sre-stripe-w: 3px;
@@ -343,7 +342,7 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
   transition:
     background var(--sre-duration-base) var(--sre-ease-out),
     color var(--sre-duration-base) var(--sre-ease-out),
-    transform var(--sre-duration-slow) var(--sre-ease-spring);
+    transform var(--sre-duration-slow) var(--sre-ease-out);
 }
 
 .rail-icon.active {

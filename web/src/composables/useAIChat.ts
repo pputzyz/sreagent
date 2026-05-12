@@ -9,6 +9,7 @@ export function useAIChat() {
   const loading = ref(false)
   const mode = ref<ChatMode>('general')
   const error = ref<string | null>(null)
+  const lastFailedInput = ref<string | null>(null)
 
   async function sendMessage(text: string, context?: string) {
     if (!text.trim() || loading.value) return
@@ -18,10 +19,12 @@ export function useAIChat() {
       content: text,
       context,
       created_at: new Date().toISOString(),
+      _failed: false,
     }
     messages.value.push(userMsg)
     loading.value = true
     error.value = null
+    lastFailedInput.value = null
     try {
       const resp = await aiChatApi.send({ mode: mode.value, message: text, context })
       messages.value.push({
@@ -32,10 +35,21 @@ export function useAIChat() {
       })
     } catch (e: any) {
       error.value = e?.message || '发送失败'
-      messages.value.pop()
+      lastFailedInput.value = text
+      const lastMsg = messages.value[messages.value.length - 1]
+      if (lastMsg && lastMsg.role === 'user') {
+        lastMsg._failed = true
+      }
     } finally {
       loading.value = false
     }
+  }
+
+  async function retryLast() {
+    if (!lastFailedInput.value) return
+    const text = lastFailedInput.value
+    lastFailedInput.value = null
+    await sendMessage(text)
   }
 
   async function loadHistory() {
@@ -56,8 +70,10 @@ export function useAIChat() {
     if (mode.value === newMode) return
     mode.value = newMode
     messages.value = []
+    lastFailedInput.value = null
+    error.value = null
     loadHistory()
   }
 
-  return { messages, loading, mode, error, sendMessage, loadHistory, clearHistory, switchMode }
+  return { messages, loading, mode, error, lastFailedInput, sendMessage, retryLast, loadHistory, clearHistory, switchMode }
 }

@@ -1680,6 +1680,18 @@ export default {
     petMode: 'Pet Chat',
     send: 'Send',
     clear: 'Clear',
+    clearConfirm: 'Clear all chat history?',
+    retry: 'Retry',
+    emptyHint: 'Try asking me something:',
+    suggestAlert1: 'What caused this alert?',
+    suggestAlert2: 'Suggest a runbook for this incident',
+    suggestAlert3: 'Analyze recent alert trends',
+    suggestGeneral1: 'Explain the SRE error budget concept',
+    suggestGeneral2: 'How to optimize Prometheus query performance?',
+    suggestGeneral3: 'Best practices for on-call shifts',
+    suggestPet1: 'How is my pet doing?',
+    suggestPet2: 'Tell me an interesting story',
+    suggestPet3: 'What is your favorite food?',
   },
 
   // ===== Pet System =====
@@ -1698,5 +1710,7 @@ export default {
     interactionValue: 'Value',
     interactionTime: 'Time',
     levelUp: 'Level Up',
+    loading: 'Loading...',
+    retry: 'Retry',
   },
 }

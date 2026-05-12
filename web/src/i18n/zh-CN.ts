@@ -1701,6 +1701,18 @@ export default {
     petMode: '宠物对话',
     send: '发送',
     clear: '清空',
+    clearConfirm: '确定要清空对话历史吗？',
+    retry: '重试',
+    emptyHint: '试试问我点什么：',
+    suggestAlert1: '这条告警的根因是什么？',
+    suggestAlert2: '推荐一个处理这个事件的 SOP',
+    suggestAlert3: '帮我分析最近的告警趋势',
+    suggestGeneral1: '解释一下 SRE 的错误预算概念',
+    suggestGeneral2: '如何优化 Prometheus 查询性能？',
+    suggestGeneral3: '推荐一些值班期间的最佳实践',
+    suggestPet1: '我的宠物现在怎么样了？',
+    suggestPet2: '给我讲个有趣的故事吧',
+    suggestPet3: '你最喜欢什么食物？',
   },
 
   // ===== Pet System =====
@@ -1719,5 +1731,7 @@ export default {
     interactionValue: '数值',
     interactionTime: '时间',
     levelUp: '升级',
+    loading: '加载中...',
+    retry: '重试',
   },
 }

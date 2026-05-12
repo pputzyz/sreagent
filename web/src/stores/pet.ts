@@ -7,20 +7,24 @@ export const usePetStore = defineStore('pet', () => {
   const pet = ref<Pet | null>(null)
   const interactions = ref<PetInteraction[]>([])
   const loading = ref(false)
+  const error = ref<string | null>(null)
 
   const expForNextLevel = computed(() => (pet.value?.level || 1) * 100)
   const expProgress = computed(() => {
     if (!pet.value) return 0
     return Math.min((pet.value.exp / expForNextLevel.value) * 100, 100)
   })
+  const hungerPercent = computed(() => pet.value?.hunger ?? 0)
+  const moodPercent = computed(() => pet.value?.mood ?? 0)
 
   async function fetchPet() {
     loading.value = true
+    error.value = null
     try {
       const resp = await petApi.get()
       pet.value = resp.data.data
-    } catch {
-      /* ignore */
+    } catch (e: any) {
+      error.value = e?.message || '加载失败'
     } finally {
       loading.value = false
     }
@@ -45,8 +49,8 @@ export const usePetStore = defineStore('pet', () => {
     try {
       const resp = await petApi.getInteractions()
       interactions.value = resp.data.data || []
-    } catch {
-      /* ignore */
+    } catch (e: any) {
+      error.value = e?.message || '加载互动记录失败'
     }
   }
 
@@ -54,8 +58,11 @@ export const usePetStore = defineStore('pet', () => {
     pet,
     interactions,
     loading,
+    error,
     expForNextLevel,
     expProgress,
+    hungerPercent,
+    moodPercent,
     fetchPet,
     updateName,
     feed,

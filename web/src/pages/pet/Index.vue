@@ -16,11 +16,6 @@ onMounted(async () => {
   await Promise.all([petStore.fetchPet(), petStore.fetchInteractions()])
 })
 
-const hungerDisplay = computed(() => {
-  if (!petStore.pet) return 0
-  return 100 - petStore.pet.hunger
-})
-
 const interactionColumns = computed<DataTableColumns<PetInteraction>>(() => [
   {
     title: t('pet.interactionType'),
@@ -61,6 +56,13 @@ async function handleNameUpdate(val: string) {
 
 <template>
   <div class="pet-page">
+    <div v-if="petStore.error && !petStore.pet" class="pet-error-banner">
+      <span>{{ petStore.error }}</span>
+      <n-button size="small" quaternary @click="petStore.fetchPet()">
+        {{ t('pet.retry') }}
+      </n-button>
+    </div>
+
     <div class="pet-grid">
       <!-- Left: Avatar + Status -->
       <n-card class="pet-card pet-card--main">
@@ -76,24 +78,25 @@ async function handleNameUpdate(val: string) {
           <div class="pet-bar-item">
             <div class="pet-bar-header">
               <span class="pet-bar-label">{{ t('pet.hunger') }}</span>
-              <span class="pet-bar-value">{{ hungerDisplay }}%</span>
+              <span class="pet-bar-value">{{ petStore.hungerPercent }}%</span>
             </div>
             <n-progress
               type="line"
-              :percentage="hungerDisplay"
+              :percentage="petStore.hungerPercent"
               :show-indicator="false"
               :height="10"
               :border-radius="5"
+              :status="petStore.hungerPercent > 70 ? 'error' : petStore.hungerPercent > 40 ? 'warning' : 'success'"
             />
           </div>
           <div class="pet-bar-item">
             <div class="pet-bar-header">
               <span class="pet-bar-label">{{ t('pet.mood') }}</span>
-              <span class="pet-bar-value">{{ petStore.pet.mood }}%</span>
+              <span class="pet-bar-value">{{ petStore.moodPercent }}%</span>
             </div>
             <n-progress
               type="line"
-              :percentage="petStore.pet.mood"
+              :percentage="petStore.moodPercent"
               :show-indicator="false"
               :height="10"
               :border-radius="5"
@@ -159,6 +162,18 @@ async function handleNameUpdate(val: string) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.pet-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--sre-critical);
+  background: var(--sre-critical-soft);
+  border-radius: var(--sre-radius-sm);
 }
 
 .pet-grid {
