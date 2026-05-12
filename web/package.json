@@ -16,6 +16,8 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.42.0",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@prometheus-io/codemirror-promql": "^0.311.3",
     "@vicons/ionicons5": "^0.12.0",
     "@vicons/tabler": "^0.12.0",
