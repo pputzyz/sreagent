@@ -903,6 +903,12 @@ export const incidentApi = {
     request.post<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem/ai-summary`),
 }
 
+// ===== Post-Mortem List API =====
+export const postMortemApi = {
+  list: (params?: { channel_id?: number; status?: string; page?: number; page_size?: number }) =>
+    request.get<ApiResponse<PageData<any>>>('/post-mortems', { params }),
+}
+
 // ===== v2 Dashboard Stats API =====
 export const dashboardV2StatsApi = {
   incidentStats: () =>

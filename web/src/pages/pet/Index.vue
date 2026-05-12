@@ -7,7 +7,8 @@ import { useRouter } from 'vue-router'
 import { usePetStore } from '@/stores/pet'
 import type { PetType } from '@/stores/pet'
 import type { PetInteraction } from '@/types'
-import { ChatbubbleEllipsesOutline } from '@vicons/ionicons5'
+import { MessageCircle } from 'lucide-vue-next'
+import PetAvatar from '@/components/common/PetAvatar.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -17,14 +18,14 @@ const celebrating = ref(false)
 const prevLevel = ref(petStore.pet?.level ?? 0)
 
 const petTypes: { type: PetType; emoji: string; label: string }[] = [
-  { type: 'fox', emoji: '\u{1F98A}', label: 'Fox' },
-  { type: 'cat', emoji: '\u{1F431}', label: 'Cat' },
-  { type: 'owl', emoji: '\u{1F989}', label: 'Owl' },
-  { type: 'panda', emoji: '\u{1F43C}', label: 'Panda' },
-  { type: 'tiger', emoji: '\u{1F42F}', label: 'Tiger' },
-  { type: 'bunny', emoji: '\u{1F430}', label: 'Bunny' },
-  { type: 'dragon', emoji: '\u{1F409}', label: 'Dragon' },
-  { type: 'penguin', emoji: '\u{1F427}', label: 'Penguin' },
+  { type: 'fox', emoji: '\u{1F98A}', label: t('pet.typeFox') },
+  { type: 'cat', emoji: '\u{1F431}', label: t('pet.typeCat') },
+  { type: 'owl', emoji: '\u{1F989}', label: t('pet.typeOwl') },
+  { type: 'panda', emoji: '\u{1F43C}', label: t('pet.typePanda') },
+  { type: 'tiger', emoji: '\u{1F42F}', label: t('pet.typeTiger') },
+  { type: 'bunny', emoji: '\u{1F430}', label: t('pet.typeBunny') },
+  { type: 'dragon', emoji: '\u{1F409}', label: t('pet.typeDragon') },
+  { type: 'penguin', emoji: '\u{1F427}', label: t('pet.typePenguin') },
 ]
 
 // Watch for level-up celebration
@@ -108,7 +109,7 @@ async function handlePlay() {
       <n-card class="pet-card pet-card--main">
         <div class="pet-avatar-section">
           <div class="pet-avatar pet-float" :class="{ 'pet-avatar--celebrate': celebrating }">
-            {{ petStore.petEmoji }}
+            <PetAvatar :type="petStore.petType" :size="80" />
           </div>
           <div v-if="petStore.pet" class="pet-main-info">
             <div class="pet-name-display">{{ petStore.pet.name }}</div>
@@ -167,7 +168,7 @@ async function handlePlay() {
           <n-button @click="handlePlay">{{ t('pet.play') }}</n-button>
           <n-button @click="router.push('/')">
             <template #icon>
-              <n-icon :component="ChatbubbleEllipsesOutline" />
+              <n-icon :component="MessageCircle" />
             </template>
             {{ t('pet.chat') }}
           </n-button>
@@ -196,7 +197,7 @@ async function handlePlay() {
                 :class="{ 'pet-type-option--active': pt.type === petStore.petType }"
                 @click="petStore.setPetType(pt.type)"
               >
-                <span class="pet-type-emoji">{{ pt.emoji }}</span>
+                <PetAvatar :type="pt.type" :size="32" :animated="false" />
                 <span class="pet-type-label">{{ pt.label }}</span>
               </button>
             </div>

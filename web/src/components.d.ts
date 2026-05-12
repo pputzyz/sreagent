@@ -64,6 +64,7 @@ declare module 'vue' {
     NText: typeof import('naive-ui')['NText']
     PageHeader: typeof import('./components/common/PageHeader.vue')['default']
     PanelCard: typeof import('./components/query/PanelCard.vue')['default']
+    PetAvatar: typeof import('./components/common/PetAvatar.vue')['default']
     PetCorner: typeof import('./components/pet/PetCorner.vue')['default']
     PetPanel: typeof import('./components/pet/PetPanel.vue')['default']
     PromQLEditor: typeof import('./components/query/PromQLEditor.vue')['default']
@@ -79,5 +80,6 @@ declare module 'vue' {
     RuleFormModal: typeof import('./components/alert/RuleFormModal.vue')['default']
     SnoozeModal: typeof import('./components/incident/SnoozeModal.vue')['default']
     TimeRangePicker: typeof import('./components/time/TimeRangePicker.vue')['default']
+    UserAvatar: typeof import('./components/common/UserAvatar.vue')['default']
   }
 }

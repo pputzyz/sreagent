@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { PetType } from '@/stores/pet'
 import { usePetStore } from '@/stores/pet'
+import PetAvatar from '@/components/common/PetAvatar.vue'
 
 const props = withDefaults(defineProps<{
   petType?: PetType
@@ -9,16 +11,17 @@ const props = withDefaults(defineProps<{
   petType: 'fox',
 })
 
+const { t } = useI18n()
 const petStore = usePetStore()
 
 type MascotState = 'wave' | 'idle' | 'sleep'
 
 const petTypeLabel = computed(() => {
   const labels: Record<PetType, string> = {
-    fox: 'Fox', cat: 'Cat', owl: 'Owl', panda: 'Panda',
-    tiger: 'Tiger', bunny: 'Bunny', dragon: 'Dragon', penguin: 'Penguin',
+    fox: t('pet.typeFox'), cat: t('pet.typeCat'), owl: t('pet.typeOwl'), panda: t('pet.typePanda'),
+    tiger: t('pet.typeTiger'), bunny: t('pet.typeBunny'), dragon: t('pet.typeDragon'), penguin: t('pet.typePenguin'),
   }
-  return labels[props.petType] || 'Fox'
+  return labels[props.petType] || t('pet.typeFox')
 })
 
 const state = ref<MascotState>('wave')
@@ -57,12 +60,14 @@ onUnmounted(() => {
     v-if="showMascot"
     class="mascot-container"
     :class="`mascot-${state}`"
-    :title="state === 'sleep' ? `${petTypeLabel} sleeping...` : `Hi from ${petTypeLabel}!`"
+    :title="state === 'sleep' ? t('pet.sleeping', { name: petTypeLabel }) : t('pet.hiFrom', { name: petTypeLabel })"
     @click="handleClick"
   >
-    <!-- Non-fox pets: show emoji with floating animation -->
+    <!-- All pets: use PetAvatar component -->
     <template v-if="props.petType !== 'fox'">
-      <span class="mascot-emoji pet-float" :class="`mascot-state-${state}`">{{ petStore.petEmoji }}</span>
+      <div class="mascot-avatar-wrap pet-float" :class="`mascot-state-${state}`">
+        <PetAvatar :type="props.petType" :size="32" />
+      </div>
     </template>
     <!-- Fox: original SVG mascot -->
     <svg v-else class="mascot-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -126,6 +131,14 @@ onUnmounted(() => {
 .mascot-emoji {
   font-size: 28px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.mascot-avatar-wrap {
   display: flex;
   align-items: center;
   justify-content: center;

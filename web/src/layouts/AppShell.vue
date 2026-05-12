@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, inject, onMounted, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
-import type { ChatMode } from '@/composables/useAIChat'
 import { NIcon, NPopover, NPopselect } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAppNav } from '@/composables/useAppNav'
@@ -17,6 +16,7 @@ import PetCorner from '@/components/pet/PetCorner.vue'
 import { useRouter } from 'vue-router'
 import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
 import { MessageCircle, PawPrint } from 'lucide-vue-next'
+import { usePetStore } from '@/stores/pet'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -24,6 +24,7 @@ const { activeApp, switchApp, menuSections, activeMenuKey, pageTitle } = useAppN
 const { open: openPalette, registerAction } = useCommandPalette()
 
 const router = useRouter()
+const petStore = usePetStore()
 
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
@@ -35,29 +36,29 @@ onMounted(() => {
   // ── Command palette actions ──────────────────────────────────
   registerAction({
     id: 'act-theme',
-    label: 'Toggle Dark Mode',
-    hint: 'Action',
+    label: t('command.toggleDarkMode'),
+    hint: t('command.action'),
     icon: 'contrast-outline',
     action: toggleTheme,
   })
   registerAction({
     id: 'act-switch-oncall',
-    label: 'Switch to On-Call',
-    hint: 'Action',
+    label: t('command.switchToOncall'),
+    hint: t('command.action'),
     icon: 'grid-outline',
     action: () => switchApp('oncall'),
   })
   registerAction({
     id: 'act-switch-alert',
-    label: 'Switch to Alert',
-    hint: 'Action',
+    label: t('command.switchToAlert'),
+    hint: t('command.action'),
     icon: 'flash-outline',
     action: () => switchApp('alert'),
   })
   registerAction({
     id: 'act-switch-platform',
-    label: 'Switch to Platform',
-    hint: 'Action',
+    label: t('command.switchToPlatform'),
+    hint: t('command.action'),
     icon: 'settings-outline',
     action: () => switchApp('platform'),
   })
@@ -71,16 +72,13 @@ const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), fal
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 const showPasswordModal = ref(false)
 const showAIChat = ref(false)
-const aiChatInitialMode = ref<ChatMode>('general')
 const pinned = ref(false)
 
-function toggleAIChat(mode?: ChatMode) {
-  if (mode) aiChatInitialMode.value = mode
+function toggleAIChat() {
   showAIChat.value = !showAIChat.value
 }
 
 function openPetChat() {
-  aiChatInitialMode.value = 'pet'
   showAIChat.value = true
 }
 
@@ -103,7 +101,7 @@ function handleNavLeave() {
 }
 
 const activeAppLabel = computed(() => {
-  const labels: Record<string, string> = { oncall: 'On-Call', alert: 'Alert', platform: 'Platform' }
+  const labels: Record<string, string> = { oncall: t('rail.oncall'), alert: t('rail.alert'), platform: t('rail.platform') }
   return labels[activeApp.value] || 'SREAgent'
 })
 
@@ -149,7 +147,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 <template>
   <div class="app-shell">
-    <a href="#main-content" class="skip-to-content">Skip to content</a>
+    <a href="#main-content" class="skip-to-content">{{ t('a11y.skipToContent') }}</a>
     <!-- ===== Top Bar ===== -->
     <header class="topbar">
       <div class="topbar-start">
@@ -212,7 +210,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <!-- ===== Body ===== -->
     <div class="app-body">
       <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
-        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" @pet-chat="openPetChat" @open-chat="toggleAIChat" />
+        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" @pet-chat="openPetChat" />
         <AppSidebar
           :sections="menuSections"
           :active-key="activeMenuKey"
@@ -247,18 +245,36 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
     <!-- AI Chat floating button + drawer -->
     <AIChatButton :active="showAIChat" @click="toggleAIChat()" />
-    <AIChatPanel v-model:show="showAIChat" :initial-mode="aiChatInitialMode" />
+    <AIChatPanel v-model:show="showAIChat" />
 
     <!-- Floating Ask AI button -->
     <button class="float-ai-btn" @click="toggleAIChat()" :title="t('ai.askAI')">
-      <MessageCircle :size="22" color="white" :stroke-width="2" />
-      <span class="float-ai-label">Ask AI</span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(255,255,255,0.2)"/>
+        <path d="M8 9.5C8 8.67 8.67 8 9.5 8s1.5.67 1.5 1.5S10.33 11 9.5 11 8 10.33 8 9.5zm5 0c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S14.33 11 13.5 11 12 10.33 12 9.5zm-1 4.5h2c.55 0 1 .45 1 1v1c0 .55-.45 1-1 1h-2c-.55 0-1-.45-1-1v-1c0-.55.45-1 1-1z" fill="white"/>
+        <circle cx="12" cy="12" r="9.5" stroke="white" stroke-width="1.5" fill="none" opacity="0.5"/>
+      </svg>
+      <span class="float-ai-label">{{ t('ai.askAI') }}</span>
     </button>
 
-    <!-- Floating Pet button -->
-    <button class="float-pet-btn" @click="router.push('/pet')" :title="t('pet.viewDetail')">
-      <PawPrint :size="20" color="white" :stroke-width="2" />
-    </button>
+    <!-- Floating Pet button with level/attribute summary -->
+    <div class="float-pet-wrap">
+      <button class="float-pet-btn" @click="router.push('/pet')" :title="t('pet.viewDetail')">
+        <PawPrint :size="20" color="white" :stroke-width="2" />
+      </button>
+      <div v-if="petStore.pet" class="float-pet-summary">
+        <span class="float-pet-name">{{ petStore.pet.name }}</span>
+        <span class="float-pet-level">Lv.{{ petStore.pet.level }}</span>
+        <div class="float-pet-bars">
+          <div class="float-pet-bar" :title="`${t('pet.hunger')}: ${petStore.hungerPercent}%`">
+            <div class="float-pet-bar-fill hunger" :style="{ width: `${petStore.hungerPercent}%` }" />
+          </div>
+          <div class="float-pet-bar" :title="`${t('pet.mood')}: ${petStore.moodPercent}%`">
+            <div class="float-pet-bar-fill mood" :style="{ width: `${petStore.moodPercent}%` }" />
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -403,11 +419,18 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   transform: scale(0.97);
 }
 
-.float-pet-btn {
+.float-pet-wrap {
   position: fixed;
   bottom: 88px;
   right: 24px;
   z-index: var(--sre-z-tooltip);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-direction: row-reverse;
+}
+
+.float-pet-btn {
   width: 48px; height: 48px;
   border-radius: 50%;
   border: none;
@@ -417,12 +440,74 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
   transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
-  animation: sre-float 3s ease-in-out infinite;
+  flex-shrink: 0;
 }
 .float-pet-btn:hover {
-  transform: scale(1.1);
+  transform: scale(1.08);
   box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
-  animation: none;
+}
+
+.float-pet-summary {
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border);
+  border-radius: var(--sre-radius-md);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 200ms var(--sre-ease-out), transform 200ms var(--sre-ease-out);
+  pointer-events: none;
+  min-width: 100px;
+}
+
+.float-pet-wrap:hover .float-pet-summary {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.float-pet-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  white-space: nowrap;
+}
+
+.float-pet-level {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sre-lavender);
+}
+
+.float-pet-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.float-pet-bar {
+  height: 4px;
+  background: var(--sre-bg-sunken);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.float-pet-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 500ms var(--sre-ease-out);
+}
+
+.float-pet-bar-fill.hunger {
+  background: var(--sre-coral);
+}
+
+.float-pet-bar-fill.mood {
+  background: var(--sre-amber);
 }
 
 .float-ai-label {

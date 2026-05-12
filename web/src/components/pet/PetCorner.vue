@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { NPopover } from 'naive-ui'
 import { usePetStore } from '@/stores/pet'
 import PetPanel from './PetPanel.vue'
+import PetAvatar from '@/components/common/PetAvatar.vue'
 
 const emit = defineEmits<{
   chat: []
@@ -55,7 +56,9 @@ function handleChat() {
         }"
         @click="showPanel = !showPanel"
       >
-        <span class="pet-emoji pet-float" :class="{ 'pet-emoji--bounce': bouncing, 'pet-emoji--hungry': isHungry }">{{ statusEmoji }}</span>
+        <div class="pet-avatar-wrap" :class="{ 'pet-avatar--bounce': bouncing, 'pet-avatar--hungry': isHungry }">
+          <PetAvatar :type="petStore.petType" :size="36" />
+        </div>
         <span v-if="petStore.pet" class="pet-info">
           <span class="pet-name">{{ petStore.pet.name }}</span>
           <span class="pet-level">Lv.{{ petStore.pet.level }}</span>
@@ -99,44 +102,32 @@ function handleChat() {
   50% { transform: scale(1.05); }
 }
 
-.pet-emoji {
-  font-size: 28px;
+.pet-avatar-wrap {
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 200ms var(--sre-ease-out);
 }
 
-@keyframes pet-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-
-.pet-float {
-  animation: pet-float 3s ease-in-out infinite;
-}
-
-.pet-emoji--bounce {
+.pet-avatar--bounce {
   animation: pet-status-bounce 500ms var(--sre-ease-out);
 }
 
 @keyframes pet-status-bounce {
   0% { transform: scale(1); }
-  30% { transform: scale(1.25); }
+  30% { transform: scale(1.2); }
   60% { transform: scale(0.95); }
   100% { transform: scale(1); }
 }
 
-.pet-emoji--hungry {
+.pet-avatar--hungry {
   animation: pet-hungry-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes pet-hungry-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
+  50% { transform: scale(1.06); }
 }
 
 .pet-info {

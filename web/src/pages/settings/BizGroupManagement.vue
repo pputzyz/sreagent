@@ -55,8 +55,8 @@ const form = reactive({
 })
 
 const memberRoleOptions = [
-  { label: 'Admin', value: 'admin' },
-  { label: 'Member', value: 'member' },
+  { label: t('settings.admin'), value: 'admin' },
+  { label: t('settings.member'), value: 'member' },
 ]
 
 const allUserOptions = computed(() =>

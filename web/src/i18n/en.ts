@@ -151,8 +151,12 @@ export default {
     profile: 'Profile',
     changePassword: 'Change Password',
     logout: 'Logout',
+    defaultUser: 'User',
   },
   rail: {
+    oncall: 'On-Call',
+    alert: 'Alert',
+    platform: 'Platform',
     oncallDesc: 'Incident response & on-call scheduling',
     alertDesc: 'Alert rules & data exploration',
     platformDesc: 'Organization, roles & system config',
@@ -1338,6 +1342,7 @@ export default {
   palette: {
     searchPlaceholder: 'Search pages, actions…',
     noResults: 'No results for "{q}"',
+    trySomethingElse: 'Try something else',
     recent: 'Recent',
     navigate: 'Navigate',
     actions: 'Actions',
@@ -1683,6 +1688,7 @@ export default {
     clearConfirm: 'Clear all chat history?',
     retry: 'Retry',
     askAI: 'Ask AI',
+    thinking: 'Thinking…',
     emptyTitle: 'How can I help?',
     emptyHint: 'Try asking:',
     suggestAlert1: 'What caused this alert?',
@@ -1721,5 +1727,31 @@ export default {
     loadInteractionsFailed: 'Failed to load interaction history',
     type: 'Pet Type',
     changeType: 'Change Pet',
+    typeFox: 'Fox',
+    typeCat: 'Cat',
+    typeOwl: 'Owl',
+    typePanda: 'Panda',
+    typeTiger: 'Tiger',
+    typeBunny: 'Bunny',
+    typeDragon: 'Dragon',
+    typePenguin: 'Penguin',
+    sleeping: '{name} is sleeping…',
+    hiFrom: 'Hi from {name}!',
+  },
+
+  // ===== Command Palette Actions =====
+  command: {
+    toggleDarkMode: 'Toggle Dark Mode',
+    switchToOncall: 'Switch to On-Call',
+    switchToAlert: 'Switch to Alert',
+    switchToPlatform: 'Switch to Platform',
+    action: 'Action',
+    switchToChinese: '切换到中文',
+    switchToEnglish: 'Switch to English',
+  },
+
+  // ===== Accessibility =====
+  a11y: {
+    skipToContent: 'Skip to content',
   },
 }

@@ -5,7 +5,8 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { usePetStore } from '@/stores/pet'
 import type { PetType } from '@/stores/pet'
-import { ChatbubbleEllipsesOutline } from '@vicons/ionicons5'
+import PetAvatar from '@/components/common/PetAvatar.vue'
+import { MessageCircle } from 'lucide-vue-next'
 
 const emit = defineEmits<{
   close: []
@@ -21,14 +22,14 @@ const playPressed = ref(false)
 const showTypeSelector = ref(false)
 
 const petTypes: { type: PetType; emoji: string; label: string }[] = [
-  { type: 'fox', emoji: '\u{1F98A}', label: 'Fox' },
-  { type: 'cat', emoji: '\u{1F431}', label: 'Cat' },
-  { type: 'owl', emoji: '\u{1F989}', label: 'Owl' },
-  { type: 'panda', emoji: '\u{1F43C}', label: 'Panda' },
-  { type: 'tiger', emoji: '\u{1F42F}', label: 'Tiger' },
-  { type: 'bunny', emoji: '\u{1F430}', label: 'Bunny' },
-  { type: 'dragon', emoji: '\u{1F409}', label: 'Dragon' },
-  { type: 'penguin', emoji: '\u{1F427}', label: 'Penguin' },
+  { type: 'fox', emoji: '\u{1F98A}', label: t('pet.typeFox') },
+  { type: 'cat', emoji: '\u{1F431}', label: t('pet.typeCat') },
+  { type: 'owl', emoji: '\u{1F989}', label: t('pet.typeOwl') },
+  { type: 'panda', emoji: '\u{1F43C}', label: t('pet.typePanda') },
+  { type: 'tiger', emoji: '\u{1F42F}', label: t('pet.typeTiger') },
+  { type: 'bunny', emoji: '\u{1F430}', label: t('pet.typeBunny') },
+  { type: 'dragon', emoji: '\u{1F409}', label: t('pet.typeDragon') },
+  { type: 'penguin', emoji: '\u{1F427}', label: t('pet.typePenguin') },
 ]
 
 const expNearlyFull = computed(() => petStore.expProgress > 85)
@@ -74,7 +75,7 @@ function selectPetType(type: PetType) {
     <div v-if="petStore.pet" class="pet-panel-body">
       <!-- Header -->
       <div class="pet-panel-header">
-        <span class="pet-panel-emoji pet-float">{{ petStore.petEmoji }}</span>
+        <PetAvatar :type="petStore.petType" :size="48" />
         <div>
           <div class="pet-panel-name">{{ petStore.pet.name }}</div>
           <div class="pet-panel-level">Lv.{{ petStore.pet.level }}</div>
@@ -91,7 +92,7 @@ function selectPetType(type: PetType) {
             :class="{ 'pet-type-option--active': pt.type === petStore.petType }"
             @click="selectPetType(pt.type)"
           >
-            <span class="pet-type-emoji">{{ pt.emoji }}</span>
+            <PetAvatar :type="pt.type" :size="32" :animated="false" />
             <span class="pet-type-label">{{ pt.label }}</span>
           </button>
         </div>
@@ -144,7 +145,7 @@ function selectPetType(type: PetType) {
         <n-button size="small" :class="{ 'pet-action--pressed': playPressed }" @click="handlePlay">{{ t('pet.play') }}</n-button>
         <n-button size="small" @click="handleChat">
           <template #icon>
-            <n-icon :component="ChatbubbleEllipsesOutline" />
+            <n-icon :component="MessageCircle" />
           </template>
           {{ t('pet.chat') }}
         </n-button>

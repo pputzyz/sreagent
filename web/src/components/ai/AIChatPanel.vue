@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
-import { NDrawer, NDrawerContent, NSelect, NButton, NIcon, NInput, NPopconfirm } from 'naive-ui'
+import { NDrawer, NDrawerContent, NButton, NIcon, NInput, NPopconfirm } from 'naive-ui'
 import { TrashOutline, SendOutline, RefreshOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { useAIChat } from '@/composables/useAIChat'
-import type { ChatMode } from '@/composables/useAIChat'
 import AIChatMessage from './AIChatMessage.vue'
 
 const props = defineProps<{
   show: boolean
   alertContext?: string
-  initialMode?: ChatMode
 }>()
 
 const emit = defineEmits<{
@@ -18,43 +16,19 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { messages, loading, mode, error, lastFailedInput, sendMessage, retryLast, loadHistory, clearHistory, switchMode } = useAIChat()
+const { messages, loading, error, lastFailedInput, sendMessage, retryLast, loadHistory, clearHistory } = useAIChat()
 
 const inputText = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 
-const modeOptions = [
-  { label: t('ai.alertMode'), value: 'alert' },
-  { label: t('ai.generalMode'), value: 'general' },
-  { label: t('ai.petMode'), value: 'pet' },
-]
-
-const suggestedPrompts = computed(() => {
-  const prompts: Record<ChatMode, string[]> = {
-    alert: [
-      t('ai.suggestAlert1'),
-      t('ai.suggestAlert2'),
-      t('ai.suggestAlert3'),
-    ],
-    general: [
-      t('ai.suggestGeneral1'),
-      t('ai.suggestGeneral2'),
-      t('ai.suggestGeneral3'),
-    ],
-    pet: [
-      t('ai.suggestPet1'),
-      t('ai.suggestPet2'),
-      t('ai.suggestPet3'),
-    ],
-  }
-  return prompts[mode.value] || prompts.general
-})
+const suggestedPrompts = computed(() => [
+  t('ai.suggestGeneral1'),
+  t('ai.suggestGeneral2'),
+  t('ai.suggestGeneral3'),
+])
 
 watch(() => props.show, (val) => {
   if (val) {
-    if (props.initialMode && props.initialMode !== mode.value) {
-      switchMode(props.initialMode)
-    }
     loadHistory()
   }
 })
@@ -93,10 +67,6 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-function handleModeChange(val: ChatMode) {
-  switchMode(val)
-}
-
 function handleClose() {
   emit('update:show', false)
 }
@@ -118,13 +88,6 @@ onMounted(() => {
         <div class="chat-header">
           <span class="chat-title">{{ t('ai.chatTitle') }}</span>
           <div class="chat-header-actions">
-            <n-select
-              :value="mode"
-              :options="modeOptions"
-              size="small"
-              style="width: 120px"
-              @update:value="handleModeChange"
-            />
             <n-popconfirm @positive-click="clearHistory">
               <template #trigger>
                 <n-button
@@ -169,7 +132,19 @@ onMounted(() => {
         </div>
 
         <div v-if="messages.length === 0 && !loading" class="chat-empty">
-          <div class="chat-empty-icon">🤖</div>
+          <div class="chat-empty-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="20" fill="var(--sre-primary-soft)"/>
+              <circle cx="24" cy="24" r="16" fill="var(--sre-bg-elevated)" stroke="var(--sre-primary)" stroke-width="1.5"/>
+              <circle cx="18" cy="21" r="2.5" fill="var(--sre-primary)"/>
+              <circle cx="30" cy="21" r="2.5" fill="var(--sre-primary)"/>
+              <circle cx="19" cy="20" r="1" fill="white"/>
+              <circle cx="31" cy="20" r="1" fill="white"/>
+              <path d="M19 29 Q24 33 29 29" stroke="var(--sre-primary)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <circle cx="24" cy="10" r="3" fill="var(--sre-primary)" opacity="0.6"/>
+              <line x1="24" y1="7" x2="24" y2="4" stroke="var(--sre-primary)" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+            </svg>
+          </div>
           <div class="chat-empty-title">{{ t('ai.emptyTitle') }}</div>
           <div class="chat-empty-text">{{ t('ai.emptyHint') }}</div>
           <div class="chat-suggestions">
@@ -188,23 +163,26 @@ onMounted(() => {
 
       <template #footer>
         <div class="chat-footer">
-          <n-input
-            v-model:value="inputText"
-            type="textarea"
-            :placeholder="t('ai.inputPlaceholder')"
-            :autosize="{ minRows: 1, maxRows: 4 }"
-            @keydown="handleKeydown"
-          />
+          <div class="chat-input-wrap">
+            <n-input
+              v-model:value="inputText"
+              type="textarea"
+              :placeholder="t('ai.inputPlaceholder')"
+              :autosize="{ minRows: 2, maxRows: 5 }"
+              @keydown="handleKeydown"
+              class="chat-input"
+            />
+          </div>
           <n-button
             type="primary"
             :loading="loading"
             :disabled="!inputText.trim()"
             @click="handleSend"
+            class="chat-send-btn"
           >
             <template #icon>
               <n-icon :component="SendOutline" />
             </template>
-            {{ t('ai.send') }}
           </n-button>
         </div>
       </template>
@@ -382,12 +360,34 @@ onMounted(() => {
 
 .chat-footer {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-end;
+  padding: 4px 0;
 }
 
-.chat-footer :deep(.n-input) {
+.chat-input-wrap {
   flex: 1;
+  min-width: 0;
+}
+
+.chat-input :deep(.n-input-wrapper) {
+  padding: 8px 12px;
+}
+
+.chat-input :deep(.n-input__textarea) {
+  min-height: 40px;
+  line-height: 1.5;
+}
+
+.chat-send-btn {
+  flex-shrink: 0;
+  height: 40px;
+  width: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
 @media (prefers-reduced-motion: reduce) {

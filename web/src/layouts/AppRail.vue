@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { NTooltip, NPopover, NAvatar } from 'naive-ui'
-import { Zap, Bell, Settings, MessageCircle, User, KeyRound, LogOut } from 'lucide-vue-next'
+import { NTooltip, NPopover } from 'naive-ui'
+import { Zap, Bell, Settings, User, KeyRound, LogOut } from 'lucide-vue-next'
 import PetCorner from '@/components/pet/PetCorner.vue'
+import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import type { AppKey } from '@/composables/useAppNav'
@@ -16,7 +17,6 @@ const emit = defineEmits<{
   switch: [app: AppKey]
   'change-password': []
   'pet-chat': []
-  'openChat': []
 }>()
 
 const router = useRouter()
@@ -24,7 +24,12 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 
 const showUserMenu = ref(false)
-const avatarError = ref(false)
+
+const avatarPreset = computed(() => {
+  const uid = authStore.user?.id
+  if (!uid) return undefined
+  return localStorage.getItem(`sre-avatar-preset-${uid}`) || undefined
+})
 
 interface RailItem {
   key: AppKey
@@ -35,8 +40,8 @@ interface RailItem {
 }
 
 const topItems: RailItem[] = [
-  { key: 'oncall', icon: Zap, label: 'On-Call', desc: t('rail.oncallDesc'), colorClass: 'nav-icon-oncall' },
-  { key: 'alert', icon: Bell, label: 'Alert', desc: t('rail.alertDesc'), colorClass: 'nav-icon-alert' },
+  { key: 'oncall', icon: Zap, label: t('rail.oncall'), desc: t('rail.oncallDesc'), colorClass: 'nav-icon-oncall' },
+  { key: 'alert', icon: Bell, label: t('rail.alert'), desc: t('rail.alertDesc'), colorClass: 'nav-icon-alert' },
 ]
 
 const userInitial = computed(() =>
@@ -44,11 +49,11 @@ const userInitial = computed(() =>
 )
 
 const displayName = computed(() =>
-  authStore.user?.display_name || authStore.user?.username || 'User',
+  authStore.user?.display_name || authStore.user?.username || t('header.defaultUser'),
 )
 
 const userRole = computed(() =>
-  authStore.canManage ? 'Admin' : 'Member',
+  authStore.canManage ? t('settings.admin') : t('settings.member'),
 )
 
 function goToProfile() {
@@ -105,24 +110,6 @@ function handleLogout() {
         <PetCorner @chat="emit('pet-chat')" />
       </div>
 
-      <!-- AI Chat entry -->
-      <div class="rail-ai-entry">
-        <n-tooltip placement="right" :show-arrow="false">
-          <template #trigger>
-            <button class="rail-icon-btn" @click="emit('openChat')">
-              <div class="rail-icon-circle nav-icon-ai">
-                <MessageCircle :size="18" color="white" :stroke-width="2" />
-              </div>
-              <span class="rail-ai-label">Ask AI</span>
-            </button>
-          </template>
-          <div class="rail-tooltip-content">
-            <div class="rail-tooltip-title">AI Chat</div>
-            <div class="rail-tooltip-desc">Ask AI for help</div>
-          </div>
-        </n-tooltip>
-      </div>
-
       <!-- User avatar -->
       <n-popover
         trigger="click"
@@ -132,20 +119,23 @@ function handleLogout() {
       >
         <template #trigger>
           <button class="rail-avatar-btn" :class="{ active: showUserMenu }">
-            <n-avatar
-              v-if="authStore.user?.avatar && !avatarError"
-              :src="authStore.user.avatar"
+            <UserAvatar
+              :src="authStore.user?.avatar || undefined"
+              :preset-id="avatarPreset"
+              :name="displayName"
               :size="30"
-              round
-              @error="avatarError = true"
             />
-            <n-avatar v-else :size="30" round :style="{ fontSize: '12px', fontWeight: 600 }">{{ userInitial }}</n-avatar>
           </button>
         </template>
 
         <div class="user-popover">
           <div class="user-popover-header">
-            <n-avatar :size="32" round>{{ userInitial }}</n-avatar>
+            <UserAvatar
+              :src="authStore.user?.avatar || undefined"
+              :preset-id="avatarPreset"
+              :name="displayName"
+              :size="32"
+            />
             <div class="user-popover-info">
               <div class="user-popover-name">{{ displayName }}</div>
               <div class="user-popover-role">{{ userRole }}</div>
@@ -187,7 +177,7 @@ function handleLogout() {
           </button>
         </template>
         <div class="rail-tooltip-content">
-          <div class="rail-tooltip-title">Platform</div>
+          <div class="rail-tooltip-title">{{ t('rail.platform') }}</div>
           <div class="rail-tooltip-desc">{{ t('rail.platformDesc') }}</div>
         </div>
       </n-tooltip>
@@ -276,7 +266,6 @@ function handleLogout() {
 .nav-icon-oncall { background: linear-gradient(135deg, #FF6B6B, #FF8E8E); }
 .nav-icon-alert { background: linear-gradient(135deg, #4FACFE, #7BC4FF); }
 .nav-icon-platform { background: linear-gradient(135deg, #A855F7, #C084FC); }
-.nav-icon-ai { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
 
 @keyframes sre-jelly {
   0% { transform: scale(1.08); }
@@ -304,18 +293,6 @@ function handleLogout() {
 .rail-icon-btn[data-app="oncall"] .rail-dot   { background: var(--sre-brand-oncall); }
 .rail-icon-btn[data-app="alert"] .rail-dot    { background: var(--sre-brand-alert); }
 .rail-icon-btn[data-app="platform"] .rail-dot { background: var(--sre-brand-platform); }
-
-/* AI Chat entry */
-.rail-ai-entry {
-  padding: 8px 0;
-}
-
-.rail-ai-label {
-  font-size: 10px;
-  color: var(--sre-text-tertiary);
-  margin-top: 2px;
-  line-height: 1;
-}
 
 /* Enhanced pet corner */
 .rail-pet-enhanced :deep(.pet-corner) {

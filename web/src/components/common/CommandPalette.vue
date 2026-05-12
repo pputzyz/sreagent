@@ -19,8 +19,8 @@ const isTyping = computed(() => query.value.length > 0)
 
 // Register built-in actions once
 onMounted(() => {
-  registerAction({ id: 'act-theme', label: 'Toggle Dark / Light Mode', hint: 'Action', icon: 'contrast-outline', action: toggleTheme })
-  registerAction({ id: 'act-lang-en', label: 'Switch to English', hint: 'Action', icon: 'language-outline', action: () => { /* handled elsewhere */ } })
+  registerAction({ id: 'act-theme', label: t('command.toggleDarkMode'), hint: t('command.action'), icon: 'contrast-outline', action: toggleTheme })
+  registerAction({ id: 'act-lang-en', label: t('command.switchToEnglish'), hint: t('command.action'), icon: 'language-outline', action: () => { /* handled elsewhere */ } })
 })
 
 // Flat list of all visible items for keyboard nav
@@ -92,7 +92,7 @@ function globalIndex(sectionIdx: number, itemIdx: number) {
 
 function hintColor(item: PaletteItem) {
   if (item.group === 'recent') return 'var(--sre-text-tertiary)'
-  if (item.hint === 'Action') return 'var(--sre-info)'
+  if (item.hint === t('command.action')) return 'var(--sre-info)'
   return 'var(--sre-text-tertiary)'
 }
 </script>
