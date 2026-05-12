@@ -61,6 +61,15 @@ const emit = defineEmits<{
   box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
 }
 
+.ai-chat-fab:not(.ai-chat-fab--active) {
+  animation: ai-breathe 3s ease-in-out infinite;
+}
+
+@keyframes ai-breathe {
+  0%, 100% { box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+  50% { box-shadow: 0 4px 20px rgba(245, 158, 11, 0.55); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ai-chat-fab:hover {
     transform: none;

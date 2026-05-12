@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -30,7 +32,11 @@ func (s *StatusServiceService) Create(ctx context.Context, svc *model.StatusServ
 func (s *StatusServiceService) GetByID(ctx context.Context, id uint) (*model.StatusService, error) {
 	svc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, apperr.Wrap(apperr.ErrNotFound, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperr.Wrap(apperr.ErrNotFound, err)
+		}
+		s.logger.Error("failed to get status service", zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return svc, nil
 }

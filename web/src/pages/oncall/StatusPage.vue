@@ -37,7 +37,7 @@ const allOperational = computed(() => services.value.length > 0 && services.valu
 
 function handleNotify() {
   if (!email.value || !email.value.includes('@')) {
-    message.warning(t('statusPageModule.notifyPlaceholder'))
+    message.warning(t('statusPageModule.invalidEmail'))
     return
   }
   submitting.value = true
@@ -69,7 +69,7 @@ function statusBg(status: string) {
 function statusLabel(status: string) {
   if (status === 'operational') return t('statusPageModule.serviceOperational')
   if (status === 'degraded') return t('statusPageModule.serviceDegraded')
-  if (status === 'maintenance') return t('statusPageModule.serviceMaintenance') || 'Maintenance'
+  if (status === 'maintenance') return t('statusPageModule.serviceMaintenance')
   return t('statusPageModule.serviceOutage')
 }
 </script>
@@ -97,7 +97,7 @@ function statusLabel(status: string) {
             </div>
             <div v-else class="status-all-ok" style="color: var(--sre-warning);">
               <AlertCircle :size="14" />
-              <span>{{ t('statusPageModule.partialOutage') || 'Some systems experiencing issues' }}</span>
+              <span>{{ t('statusPageModule.partialOutage') }}</span>
             </div>
           </div>
         </div>
@@ -124,7 +124,7 @@ function statusLabel(status: string) {
 
         <div v-else-if="!loading" class="status-empty">
           <Server :size="32" style="color: var(--sre-text-tertiary); margin-bottom: 8px;" />
-          <span style="color: var(--sre-text-tertiary); font-size: 13px;">{{ t('statusPageModule.noServices') || 'No services configured yet' }}</span>
+          <span style="color: var(--sre-text-tertiary); font-size: 13px;">{{ t('statusPageModule.noServices') }}</span>
         </div>
       </NSpin>
     </div>

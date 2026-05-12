@@ -226,7 +226,7 @@ async function handleSave() {
       message.success(t('bizGroup.updated'))
     } else {
       await bizGroupApi.create(payload)
-      message.success(t('bizGroup.created'))
+      message.success(t('bizGroup.createSuccess'))
     }
     showModal.value = false
     await fetchList()
