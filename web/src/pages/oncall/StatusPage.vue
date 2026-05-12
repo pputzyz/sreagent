@@ -62,10 +62,6 @@ function statusLabel(status: string) {
   <div class="page-container">
     <!-- Hero Section -->
     <div class="status-hero">
-      <div class="status-hero-badge">
-        <Clock :size="14" />
-        <span>{{ t('statusPageModule.comingSoon') }}</span>
-      </div>
       <h1 class="page-title" style="margin-bottom: 8px;">{{ t('statusPageModule.title') }}</h1>
       <p class="page-subtitle" style="max-width: 560px; margin: 0 auto 24px;">
         {{ t('statusPageModule.subtitle') }}
@@ -163,21 +159,6 @@ function statusLabel(status: string) {
   text-align: center;
   padding: 48px 0 40px;
   animation: sre-fade-in 400ms var(--sre-ease-out) both;
-}
-
-.status-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
-  border-radius: var(--sre-radius-pill);
-  background: var(--sre-accent-soft);
-  color: var(--sre-accent);
-  font-size: var(--sre-fs-sm);
-  font-weight: var(--sre-fw-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
 }
 
 .status-hero-desc {
