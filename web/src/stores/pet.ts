@@ -4,12 +4,27 @@ import { petApi } from '@/api'
 import type { Pet, PetInteraction } from '@/types'
 import i18n from '@/i18n'
 
+export type PetType = 'fox' | 'cat' | 'owl' | 'panda' | 'tiger' | 'bunny' | 'dragon' | 'penguin'
+
+const petEmojiMap: Record<PetType, string> = {
+  fox: '\u{1F98A}',
+  cat: '\u{1F431}',
+  owl: '\u{1F989}',
+  panda: '\u{1F43C}',
+  tiger: '\u{1F42F}',
+  bunny: '\u{1F430}',
+  dragon: '\u{1F409}',
+  penguin: '\u{1F427}',
+}
+
 export const usePetStore = defineStore('pet', () => {
   const pet = ref<Pet | null>(null)
+  const petType = ref<PetType>((localStorage.getItem('sre-pet-type') as PetType) || 'fox')
   const interactions = ref<PetInteraction[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  const petEmoji = computed(() => petEmojiMap[petType.value] || '\u{1F98A}')
   const expForNextLevel = computed(() => (pet.value?.level || 1) * 100)
   const expProgress = computed(() => {
     if (!pet.value) return 0
@@ -55,8 +70,15 @@ export const usePetStore = defineStore('pet', () => {
     }
   }
 
+  function setPetType(type: PetType) {
+    petType.value = type
+    localStorage.setItem('sre-pet-type', type)
+  }
+
   return {
     pet,
+    petType,
+    petEmoji,
     interactions,
     loading,
     error,
@@ -69,5 +91,6 @@ export const usePetStore = defineStore('pet', () => {
     feed,
     play,
     fetchInteractions,
+    setPetType,
   }
 })

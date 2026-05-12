@@ -16,6 +16,7 @@ import AIChatPanel from '@/components/ai/AIChatPanel.vue'
 import PetCorner from '@/components/pet/PetCorner.vue'
 import { useRouter } from 'vue-router'
 import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
+import { MessageCircle, PawPrint } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -211,7 +212,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <!-- ===== Body ===== -->
     <div class="app-body">
       <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
-        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" @pet-chat="openPetChat" />
+        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" @pet-chat="openPetChat" @open-chat="toggleAIChat" />
         <AppSidebar
           :sections="menuSections"
           :active-key="activeMenuKey"
@@ -247,6 +248,17 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <!-- AI Chat floating button + drawer -->
     <AIChatButton :active="showAIChat" @click="toggleAIChat()" />
     <AIChatPanel v-model:show="showAIChat" :initial-mode="aiChatInitialMode" />
+
+    <!-- Floating Ask AI button -->
+    <button class="float-ai-btn" @click="toggleAIChat()" :title="t('ai.askAI')">
+      <MessageCircle :size="22" color="white" :stroke-width="2" />
+      <span class="float-ai-label">Ask AI</span>
+    </button>
+
+    <!-- Floating Pet button -->
+    <button class="float-pet-btn" @click="router.push('/pet')" :title="t('pet.viewDetail')">
+      <PawPrint :size="20" color="white" :stroke-width="2" />
+    </button>
   </div>
 </template>
 
@@ -361,5 +373,60 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 }
 .page-leave-active {
   animation: sre-page-enter 200ms var(--sre-ease-out) reverse both;
+}
+
+/* ===== Floating Buttons ===== */
+.float-ai-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: var(--sre-z-tooltip);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 28px;
+  border: none;
+  background: linear-gradient(135deg, #FF6B6B, #FF8E8E);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3);
+  transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
+  font-size: 14px;
+  font-weight: 600;
+}
+.float-ai-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 24px rgba(255, 107, 107, 0.4);
+}
+.float-ai-btn:active {
+  transform: scale(0.97);
+}
+
+.float-pet-btn {
+  position: fixed;
+  bottom: 88px;
+  right: 24px;
+  z-index: var(--sre-z-tooltip);
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #A855F7, #C084FC);
+  color: white;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+  transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
+  animation: sre-float 3s ease-in-out infinite;
+}
+.float-pet-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
+  animation: none;
+}
+
+.float-ai-label {
+  font-size: 13px;
+  font-weight: 600;
 }
 </style>

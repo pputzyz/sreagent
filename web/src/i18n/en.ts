@@ -1682,6 +1682,8 @@ export default {
     clear: 'Clear',
     clearConfirm: 'Clear all chat history?',
     retry: 'Retry',
+    askAI: 'Ask AI',
+    emptyTitle: 'How can I help?',
     emptyHint: 'Try asking:',
     suggestAlert1: 'What caused this alert?',
     suggestAlert2: 'Generate a runbook for this alert',
@@ -1717,5 +1719,7 @@ export default {
     exp: 'EXP',
     loadFailed: 'Failed to load pet info',
     loadInteractionsFailed: 'Failed to load interaction history',
+    type: 'Pet Type',
+    changeType: 'Change Pet',
   },
 }

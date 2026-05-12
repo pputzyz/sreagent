@@ -1,7 +1,25 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import type { PetType } from '@/stores/pet'
+import { usePetStore } from '@/stores/pet'
+
+const props = withDefaults(defineProps<{
+  petType?: PetType
+}>(), {
+  petType: 'fox',
+})
+
+const petStore = usePetStore()
 
 type MascotState = 'wave' | 'idle' | 'sleep'
+
+const petTypeLabel = computed(() => {
+  const labels: Record<PetType, string> = {
+    fox: 'Fox', cat: 'Cat', owl: 'Owl', panda: 'Panda',
+    tiger: 'Tiger', bunny: 'Bunny', dragon: 'Dragon', penguin: 'Penguin',
+  }
+  return labels[props.petType] || 'Fox'
+})
 
 const state = ref<MascotState>('wave')
 const showMascot = ref(localStorage.getItem('sre-hide-mascot') !== 'true')
@@ -39,10 +57,15 @@ onUnmounted(() => {
     v-if="showMascot"
     class="mascot-container"
     :class="`mascot-${state}`"
-    :title="state === 'sleep' ? 'Sleeping...' : 'Hi!'"
+    :title="state === 'sleep' ? `${petTypeLabel} sleeping...` : `Hi from ${petTypeLabel}!`"
     @click="handleClick"
   >
-    <svg class="mascot-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <!-- Non-fox pets: show emoji with floating animation -->
+    <template v-if="props.petType !== 'fox'">
+      <span class="mascot-emoji pet-float" :class="`mascot-state-${state}`">{{ petStore.petEmoji }}</span>
+    </template>
+    <!-- Fox: original SVG mascot -->
+    <svg v-else class="mascot-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <!-- Ears -->
       <g class="mascot-ear">
         <polygon points="6,4 12,14 0,14" fill="#f59e0b"/>
@@ -98,6 +121,30 @@ onUnmounted(() => {
 .mascot-svg {
   width: 100%;
   height: 100%;
+}
+
+.mascot-emoji {
+  font-size: 28px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.mascot-state-sleep {
+  opacity: 0.6;
+  filter: grayscale(0.3);
+}
+
+@keyframes pet-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.pet-float {
+  animation: pet-float 3s ease-in-out infinite;
 }
 
 /* Idle: subtle ear twitch */

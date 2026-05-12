@@ -1703,6 +1703,8 @@ export default {
     clear: '清空',
     clearConfirm: '确定要清空对话历史吗？',
     retry: '重试',
+    askAI: '问 AI',
+    emptyTitle: '有什么可以帮你的？',
     emptyHint: '试试问我：',
     suggestAlert1: '这条告警的根因是什么？',
     suggestAlert2: '生成一条处理此告警的 SOP',
@@ -1738,5 +1740,7 @@ export default {
     exp: '经验',
     loadFailed: '加载宠物信息失败',
     loadInteractionsFailed: '加载互动记录失败',
+    type: '宠物类型',
+    changeType: '更换宠物',
   },
 }

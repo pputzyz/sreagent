@@ -13,11 +13,11 @@ const showPanel = ref(false)
 const bouncing = ref(false)
 
 const statusEmoji = computed(() => {
-  if (!petStore.pet) return '🦊'
+  if (!petStore.pet) return petStore.petEmoji
   if (petStore.pet.hunger > 80) return '😰'
   if (petStore.pet.mood > 80) return '😊'
   if (petStore.pet.mood < 30) return '😢'
-  return '🦊'
+  return petStore.petEmoji
 })
 
 const isHungry = computed(() => petStore.pet && petStore.pet.hunger > 80)
@@ -49,10 +49,13 @@ function handleChat() {
     <template #trigger>
       <button
         class="pet-corner"
-        :class="{ 'pet-corner--active': showPanel }"
+        :class="{
+          'pet-corner--active': showPanel,
+          'pet-corner--hungry': isHungry,
+        }"
         @click="showPanel = !showPanel"
       >
-        <span class="pet-emoji" :class="{ 'pet-emoji--bounce': bouncing, 'pet-emoji--hungry': isHungry }">{{ statusEmoji }}</span>
+        <span class="pet-emoji pet-float" :class="{ 'pet-emoji--bounce': bouncing, 'pet-emoji--hungry': isHungry }">{{ statusEmoji }}</span>
         <span v-if="petStore.pet" class="pet-info">
           <span class="pet-name">{{ petStore.pet.name }}</span>
           <span class="pet-level">Lv.{{ petStore.pet.level }}</span>
@@ -68,14 +71,14 @@ function handleChat() {
 .pet-corner {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-width: 40px;
-  height: 40px;
+  gap: 8px;
+  min-width: 48px;
+  height: 48px;
   border: none;
   border-radius: var(--sre-radius-md);
   background: transparent;
   cursor: pointer;
-  padding: 0;
+  padding: 0 4px;
   transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 
@@ -87,15 +90,33 @@ function handleChat() {
   background: var(--sre-bg-active);
 }
 
+.pet-corner--hungry {
+  animation: pet-hungry-pulse-corner 1.5s ease-in-out infinite;
+}
+
+@keyframes pet-hungry-pulse-corner {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
 .pet-emoji {
-  font-size: 20px;
+  font-size: 28px;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 200ms var(--sre-ease-out);
+}
+
+@keyframes pet-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.pet-float {
+  animation: pet-float 3s ease-in-out infinite;
 }
 
 .pet-emoji--bounce {
@@ -138,25 +159,28 @@ function handleChat() {
 }
 
 .pet-name {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--sre-text-primary);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100px;
+  max-width: 120px;
 }
 
 .pet-level {
-  font-size: 10px;
-  color: var(--sre-text-tertiary);
+  font-size: 11px;
+  color: var(--sre-primary);
+  font-weight: 700;
   line-height: 1.2;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pet-emoji--bounce,
-  .pet-emoji--hungry {
+  .pet-emoji--hungry,
+  .pet-float,
+  .pet-corner--hungry {
     animation: none;
   }
 }

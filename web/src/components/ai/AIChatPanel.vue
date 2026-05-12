@@ -169,7 +169,8 @@ onMounted(() => {
         </div>
 
         <div v-if="messages.length === 0 && !loading" class="chat-empty">
-          <div class="chat-empty-emoji">🦊</div>
+          <div class="chat-empty-icon">🤖</div>
+          <div class="chat-empty-title">{{ t('ai.emptyTitle') }}</div>
           <div class="chat-empty-text">{{ t('ai.emptyHint') }}</div>
           <div class="chat-suggestions">
             <button
@@ -178,6 +179,7 @@ onMounted(() => {
               class="chat-suggestion"
               @click="handleSuggestion(prompt)"
             >
+              <span class="chat-suggestion-icon">💡</span>
               {{ prompt }}
             </button>
           </div>
@@ -312,7 +314,7 @@ onMounted(() => {
   gap: 12px;
 }
 
-.chat-empty-emoji {
+.chat-empty-icon {
   font-size: 40px;
   line-height: 1;
   animation: chat-empty-wave 2.5s var(--sre-ease-out) infinite;
@@ -325,6 +327,12 @@ onMounted(() => {
   30% { transform: rotate(-8deg); }
   45% { transform: rotate(6deg); }
   60% { transform: rotate(0deg); }
+}
+
+.chat-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
 }
 
 .chat-empty-text {
@@ -367,6 +375,11 @@ onMounted(() => {
   box-shadow: none;
 }
 
+.chat-suggestion-icon {
+  margin-right: 4px;
+  font-size: 13px;
+}
+
 .chat-footer {
   display: flex;
   gap: 8px;
@@ -378,7 +391,7 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-empty-emoji,
+  .chat-empty-icon,
   .chat-loading-label {
     animation: none;
   }

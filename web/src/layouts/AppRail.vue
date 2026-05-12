@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { NIcon, NTooltip, NPopover, NAvatar } from 'naive-ui'
-import { CallOutline, NotificationsOutline, SettingsOutline, PersonOutline, KeyOutline, LogOutOutline } from '@vicons/ionicons5'
+import { NTooltip, NPopover, NAvatar } from 'naive-ui'
+import { Zap, Bell, Settings, MessageCircle, User, KeyRound, LogOut } from 'lucide-vue-next'
 import PetCorner from '@/components/pet/PetCorner.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -16,6 +16,7 @@ const emit = defineEmits<{
   switch: [app: AppKey]
   'change-password': []
   'pet-chat': []
+  'openChat': []
 }>()
 
 const router = useRouter()
@@ -27,14 +28,15 @@ const avatarError = ref(false)
 
 interface RailItem {
   key: AppKey
-  icon: typeof CallOutline
+  icon: typeof Zap
   label: string
   desc: string
+  colorClass: string
 }
 
 const topItems: RailItem[] = [
-  { key: 'oncall', icon: CallOutline, label: 'On-Call', desc: t('rail.oncallDesc') },
-  { key: 'alert', icon: NotificationsOutline, label: 'Alert', desc: t('rail.alertDesc') },
+  { key: 'oncall', icon: Zap, label: 'On-Call', desc: t('rail.oncallDesc'), colorClass: 'nav-icon-oncall' },
+  { key: 'alert', icon: Bell, label: 'Alert', desc: t('rail.alertDesc'), colorClass: 'nav-icon-alert' },
 ]
 
 const userInitial = computed(() =>
@@ -82,7 +84,9 @@ function handleLogout() {
             :data-app="item.key"
             @click="emit('switch', item.key)"
           >
-            <n-icon :component="item.icon" :size="24" />
+            <div class="rail-icon-circle" :class="item.colorClass">
+              <component :is="item.icon" :size="18" color="white" :stroke-width="2" />
+            </div>
             <span class="rail-dot" />
           </button>
         </template>
@@ -97,7 +101,27 @@ function handleLogout() {
 
     <div class="rail-bottom">
       <!-- Pet corner -->
-      <PetCorner @chat="emit('pet-chat')" />
+      <div class="rail-pet-enhanced">
+        <PetCorner @chat="emit('pet-chat')" />
+      </div>
+
+      <!-- AI Chat entry -->
+      <div class="rail-ai-entry">
+        <n-tooltip placement="right" :show-arrow="false">
+          <template #trigger>
+            <button class="rail-icon-btn" @click="emit('openChat')">
+              <div class="rail-icon-circle nav-icon-ai">
+                <MessageCircle :size="18" color="white" :stroke-width="2" />
+              </div>
+              <span class="rail-ai-label">Ask AI</span>
+            </button>
+          </template>
+          <div class="rail-tooltip-content">
+            <div class="rail-tooltip-title">AI Chat</div>
+            <div class="rail-tooltip-desc">Ask AI for help</div>
+          </div>
+        </n-tooltip>
+      </div>
 
       <!-- User avatar -->
       <n-popover
@@ -129,16 +153,16 @@ function handleLogout() {
           </div>
           <div class="user-popover-divider" />
           <div class="user-popover-item" @click="goToProfile">
-            <n-icon :component="PersonOutline" :size="16" />
+            <User :size="16" />
             <span>{{ t('header.profile') }}</span>
           </div>
           <div class="user-popover-item" @click="handleChangePassword">
-            <n-icon :component="KeyOutline" :size="16" />
+            <KeyRound :size="16" />
             <span>{{ t('header.changePassword') }}</span>
           </div>
           <div class="user-popover-divider" />
           <div class="user-popover-item user-popover-item--danger" @click="handleLogout">
-            <n-icon :component="LogOutOutline" :size="16" />
+            <LogOut :size="16" />
             <span>{{ t('header.logout') }}</span>
           </div>
         </div>
@@ -156,7 +180,9 @@ function handleLogout() {
             data-app="platform"
             @click="emit('switch', 'platform')"
           >
-            <n-icon :component="SettingsOutline" :size="24" />
+            <div class="rail-icon-circle nav-icon-platform">
+              <Settings :size="18" color="white" :stroke-width="2" />
+            </div>
             <span class="rail-dot" />
           </button>
         </template>
@@ -197,6 +223,7 @@ function handleLogout() {
 .rail-icon-btn {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 40px;
@@ -216,13 +243,46 @@ function handleLogout() {
 .rail-icon-btn:hover {
   background: color-mix(in srgb, var(--sre-bg-hover) 100%, transparent);
   color: var(--sre-text-secondary);
-  transform: scale(1.05);
 }
 
 .rail-icon-btn.active {
   background: var(--sre-bg-active);
   color: var(--sre-text-primary);
-  box-shadow: inset 0 0 0 1.5px var(--sre-border-strong);
+}
+
+/* Colored icon circles */
+.rail-icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
+}
+
+.rail-icon-btn:hover .rail-icon-circle {
+  transform: scale(1.08);
+}
+
+.rail-icon-btn:active .rail-icon-circle {
+  animation: sre-jelly 400ms ease-in-out;
+}
+
+.rail-icon-btn.active .rail-icon-circle {
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.3);
+}
+
+.nav-icon-oncall { background: linear-gradient(135deg, #FF6B6B, #FF8E8E); }
+.nav-icon-alert { background: linear-gradient(135deg, #4FACFE, #7BC4FF); }
+.nav-icon-platform { background: linear-gradient(135deg, #A855F7, #C084FC); }
+.nav-icon-ai { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
+
+@keyframes sre-jelly {
+  0% { transform: scale(1.08); }
+  30% { transform: scale(0.92); }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); }
 }
 
 /* Colored dot indicator — only visible when active */
@@ -244,6 +304,33 @@ function handleLogout() {
 .rail-icon-btn[data-app="oncall"] .rail-dot   { background: var(--sre-brand-oncall); }
 .rail-icon-btn[data-app="alert"] .rail-dot    { background: var(--sre-brand-alert); }
 .rail-icon-btn[data-app="platform"] .rail-dot { background: var(--sre-brand-platform); }
+
+/* AI Chat entry */
+.rail-ai-entry {
+  padding: 8px 0;
+}
+
+.rail-ai-label {
+  font-size: 10px;
+  color: var(--sre-text-tertiary);
+  margin-top: 2px;
+  line-height: 1;
+}
+
+/* Enhanced pet corner */
+.rail-pet-enhanced :deep(.pet-corner) {
+  font-size: 48px;
+}
+
+.rail-pet-enhanced :deep(.pet-emoji) {
+  font-size: 48px;
+  animation: pet-float 3s ease-in-out infinite;
+}
+
+@keyframes pet-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
 
 /* Rail tooltip */
 .rail-tooltip-content {

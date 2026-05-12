@@ -1,16 +1,40 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref, watch } from 'vue'
 import { NCard, NButton, NProgress, NInput, NDataTable, NIcon } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { usePetStore } from '@/stores/pet'
+import type { PetType } from '@/stores/pet'
 import type { PetInteraction } from '@/types'
 import { ChatbubbleEllipsesOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
 const router = useRouter()
 const petStore = usePetStore()
+
+const celebrating = ref(false)
+const prevLevel = ref(petStore.pet?.level ?? 0)
+
+const petTypes: { type: PetType; emoji: string; label: string }[] = [
+  { type: 'fox', emoji: '\u{1F98A}', label: 'Fox' },
+  { type: 'cat', emoji: '\u{1F431}', label: 'Cat' },
+  { type: 'owl', emoji: '\u{1F989}', label: 'Owl' },
+  { type: 'panda', emoji: '\u{1F43C}', label: 'Panda' },
+  { type: 'tiger', emoji: '\u{1F42F}', label: 'Tiger' },
+  { type: 'bunny', emoji: '\u{1F430}', label: 'Bunny' },
+  { type: 'dragon', emoji: '\u{1F409}', label: 'Dragon' },
+  { type: 'penguin', emoji: '\u{1F427}', label: 'Penguin' },
+]
+
+// Watch for level-up celebration
+watch(() => petStore.pet?.level, (newLevel) => {
+  if (newLevel && newLevel > prevLevel.value && prevLevel.value > 0) {
+    celebrating.value = true
+    setTimeout(() => { celebrating.value = false }, 2000)
+  }
+  prevLevel.value = newLevel ?? 0
+})
 
 onMounted(async () => {
   await Promise.all([petStore.fetchPet(), petStore.fetchInteractions()])
@@ -83,10 +107,15 @@ async function handlePlay() {
       <!-- Left: Avatar + Status -->
       <n-card class="pet-card pet-card--main">
         <div class="pet-avatar-section">
-          <div class="pet-avatar">🦊</div>
+          <div class="pet-avatar pet-float" :class="{ 'pet-avatar--celebrate': celebrating }">
+            {{ petStore.petEmoji }}
+          </div>
           <div v-if="petStore.pet" class="pet-main-info">
             <div class="pet-name-display">{{ petStore.pet.name }}</div>
-            <div class="pet-level-display">Lv.{{ petStore.pet.level }}</div>
+            <div class="pet-level-display" :class="{ 'pet-level--celebrate': celebrating }">
+              Lv.{{ petStore.pet.level }}
+              <span v-if="celebrating" class="pet-celebrate-stars">✨</span>
+            </div>
           </div>
         </div>
 
@@ -157,6 +186,21 @@ async function handlePlay() {
               @keydown.enter="(e: KeyboardEvent) => handleNameUpdate((e.target as HTMLInputElement).value)"
             />
           </div>
+          <div class="pet-form-item">
+            <label class="pet-form-label">{{ t('pet.type') }}</label>
+            <div class="pet-type-grid">
+              <button
+                v-for="pt in petTypes"
+                :key="pt.type"
+                class="pet-type-option"
+                :class="{ 'pet-type-option--active': pt.type === petStore.petType }"
+                @click="petStore.setPetType(pt.type)"
+              >
+                <span class="pet-type-emoji">{{ pt.emoji }}</span>
+                <span class="pet-type-label">{{ pt.label }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </n-card>
     </div>
@@ -216,8 +260,46 @@ async function handlePlay() {
 }
 
 .pet-avatar {
-  font-size: 64px;
+  font-size: 80px;
   line-height: 1;
+  transition: transform 200ms var(--sre-ease-out);
+}
+
+@keyframes pet-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.pet-float {
+  animation: pet-float 3s ease-in-out infinite;
+}
+
+@keyframes pet-celebrate {
+  0% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.2) rotate(-5deg); }
+  50% { transform: scale(1.3) rotate(5deg); }
+  75% { transform: scale(1.2) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.pet-avatar--celebrate {
+  animation: pet-celebrate 0.8s ease-in-out;
+}
+
+.pet-level--celebrate {
+  color: var(--sre-primary) !important;
+  font-size: 16px;
+  transition: all 300ms var(--sre-ease-out);
+}
+
+.pet-celebrate-stars {
+  display: inline-block;
+  animation: pet-star-spin 1s ease-in-out infinite;
+}
+
+@keyframes pet-star-spin {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.3); }
 }
 
 .pet-main-info {
@@ -294,5 +376,68 @@ async function handlePlay() {
   font-size: 13px;
   font-weight: 600;
   color: var(--sre-text-secondary);
+}
+
+.pet-type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.pet-type-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 1px solid var(--sre-border);
+  border-radius: var(--sre-radius-md);
+  background: var(--sre-bg-primary);
+  cursor: pointer;
+  transition: all 150ms var(--sre-ease-out);
+}
+
+.pet-type-option:hover {
+  border-color: var(--sre-primary);
+  background: var(--sre-primary-soft);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pet-type-option--active {
+  border-color: var(--sre-primary);
+  background: var(--sre-primary-soft);
+  box-shadow: 0 0 0 2px var(--sre-primary-soft);
+}
+
+.pet-type-option:active {
+  transform: scale(0.92);
+}
+
+.pet-type-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.pet-type-label {
+  font-size: 10px;
+  color: var(--sre-text-tertiary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-float,
+  .pet-avatar--celebrate,
+  .pet-celebrate-stars {
+    animation: none;
+  }
+  .pet-type-option:hover {
+    transform: none;
+  }
+  .pet-type-option:active {
+    transform: none;
+  }
 }
 </style>

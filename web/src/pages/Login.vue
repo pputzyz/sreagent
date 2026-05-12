@@ -194,7 +194,28 @@ watch([() => form.value.username, () => form.value.password], () => {
   font-family: var(--sre-font-sans);
   color: var(--sre-text-primary);
   background: var(--sre-bg-base);
-  background-image: radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--sre-primary) 4%, transparent), transparent 60%);
+}
+
+/* ===== Mesh Blobs — warmer palette ===== */
+.login-layout::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 50% at 15% 20%, #FF6B6B22, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 80% 15%, #4FACFE1A, transparent 55%),
+    radial-gradient(ellipse 45% 45% at 25% 80%, #F59E0B18, transparent 55%),
+    radial-gradient(ellipse 45% 50% at 75% 70%, #A855F715, transparent 55%);
+  animation: blob-drift 20s ease-in-out infinite alternate;
+}
+
+@keyframes blob-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(20px, -15px) scale(1.03); }
+  66%  { transform: translate(-15px, 10px) scale(0.98); }
+  100% { transform: translate(10px, -5px) scale(1.01); }
 }
 
 /* ===== Controls ===== */
@@ -225,10 +246,23 @@ watch([() => form.value.username, () => form.value.password], () => {
   position: relative;
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
+  border-top: 3px solid transparent;
   border-radius: 16px;
   padding: 40px 36px 28px;
   box-shadow: var(--sre-shadow-lg);
   animation: card-in 400ms var(--sre-ease-out) both;
+  background-clip: padding-box;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(135deg, #FF6B6B, #4FACFE, #A855F7);
 }
 
 @keyframes card-in {
@@ -256,12 +290,13 @@ watch([() => form.value.username, () => form.value.password], () => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
+  filter: drop-shadow(0 0 12px rgba(255, 107, 107, 0.3));
   animation: brand-logo-breathe 4s ease-in-out infinite;
 }
 
 @keyframes brand-logo-breathe {
-  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-  50% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sre-primary) 25%, transparent)); }
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 107, 107, 0.2)); }
+  50% { filter: drop-shadow(0 0 18px rgba(255, 107, 107, 0.45)); }
 }
 
 .brand-name {
@@ -346,12 +381,16 @@ watch([() => form.value.username, () => form.value.password], () => {
   font-weight: 600;
   letter-spacing: 0.2px;
   margin-top: 4px;
+  background: linear-gradient(135deg, #FF6B6B, #FF8E8E) !important;
+  border: none !important;
   transition:
     box-shadow var(--sre-duration-base) var(--sre-ease-out),
-    transform 100ms var(--sre-ease-out);
+    transform 100ms var(--sre-ease-out),
+    background 200ms var(--sre-ease-out);
 }
 .submit-btn:hover {
   box-shadow: var(--sre-shadow-md);
+  background: linear-gradient(135deg, #FF5252, #FF6B6B) !important;
 }
 .submit-btn:active {
   transform: scale(0.97);
@@ -436,15 +475,14 @@ watch([() => form.value.username, () => form.value.password], () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--sre-success);
-  box-shadow: 0 0 8px var(--sre-success);
-  animation: status-pulse 2.4s ease-out infinite;
+  background: #FF6B6B;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
+  animation: status-pulse 2s ease-in-out infinite;
 }
 
 @keyframes status-pulse {
-  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sre-success) 55%, transparent); }
-  70%  { box-shadow: 0 0 0 6px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 107, 107, 0); }
 }
 
 /* ===== Light mode adjustments ===== */

@@ -1,56 +1,72 @@
 <script setup lang="ts">
-import { NIcon } from 'naive-ui'
-import { ChatbubbleEllipsesOutline } from '@vicons/ionicons5'
+import { MessageCircle } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   active?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   click: []
 }>()
 </script>
 
 <template>
   <button
-    class="ai-chat-btn"
-    :class="{ 'ai-chat-btn--active': active }"
-    aria-label="AI Chat"
-    @click="$emit('click')"
+    class="ai-chat-fab"
+    :class="{ 'ai-chat-fab--active': active }"
+    :aria-label="t('ai.askAI')"
+    @click="emit('click')"
   >
-    <n-icon :component="ChatbubbleEllipsesOutline" :size="24" />
+    <MessageCircle :size="20" color="white" :stroke-width="2" />
+    <span class="ai-chat-fab-label">{{ t('ai.askAI') }}</span>
   </button>
 </template>
 
 <style scoped>
-.ai-chat-btn {
+.ai-chat-fab {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: var(--sre-z-float, 100);
-  width: 48px;
-  height: 48px;
-  border: none;
-  border-radius: 50%;
-  background: var(--sre-primary);
-  color: var(--sre-text-inverse);
-  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: var(--sre-shadow-md);
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 24px;
+  border: none;
+  background: linear-gradient(135deg, #F59E0B, #FBBF24);
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
   transition:
     transform var(--sre-duration-fast) var(--sre-ease-out),
     box-shadow var(--sre-duration-fast) var(--sre-ease-out);
 }
 
-.ai-chat-btn:hover {
-  transform: scale(1.08);
-  box-shadow: var(--sre-shadow-lg);
+.ai-chat-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
 }
 
-.ai-chat-btn--active {
-  background: var(--sre-primary-hover, var(--sre-primary));
-  box-shadow: var(--sre-shadow-lg);
+.ai-chat-fab:active {
+  transform: scale(0.97);
+}
+
+.ai-chat-fab--active {
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-chat-fab:hover {
+    transform: none;
+  }
+  .ai-chat-fab:active {
+    transform: none;
+  }
 }
 </style>
