@@ -80,7 +80,7 @@ function handleLogout() {
             :data-app="item.key"
             @click="emit('switch', item.key)"
           >
-            <n-icon :component="item.icon" :size="20" />
+            <n-icon :component="item.icon" :size="24" />
             <span class="rail-dot" />
           </button>
         </template>
@@ -151,7 +151,7 @@ function handleLogout() {
             data-app="platform"
             @click="emit('switch', 'platform')"
           >
-            <n-icon :component="SettingsOutline" :size="20" />
+            <n-icon :component="SettingsOutline" :size="24" />
             <span class="rail-dot" />
           </button>
         </template>
