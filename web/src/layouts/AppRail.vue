@@ -15,6 +15,7 @@ defineProps<{
 const emit = defineEmits<{
   switch: [app: AppKey]
   'change-password': []
+  'pet-chat': []
 }>()
 
 const router = useRouter()
@@ -96,7 +97,7 @@ function handleLogout() {
 
     <div class="rail-bottom">
       <!-- Pet corner -->
-      <PetCorner />
+      <PetCorner @chat="emit('pet-chat')" />
 
       <!-- User avatar -->
       <n-popover

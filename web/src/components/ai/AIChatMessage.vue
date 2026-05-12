@@ -40,7 +40,7 @@ defineProps<{
 
 .chat-msg--user .chat-bubble {
   background: var(--sre-primary);
-  color: var(--sre-text-inverse, #fff);
+  color: var(--sre-text-inverse);
   border-bottom-right-radius: 4px;
 }
 

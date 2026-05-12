@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, inject, onMounted, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
+import type { ChatMode } from '@/composables/useAIChat'
 import { NIcon, NPopover, NPopselect } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAppNav } from '@/composables/useAppNav'
@@ -69,10 +70,17 @@ const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), fal
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 const showPasswordModal = ref(false)
 const showAIChat = ref(false)
+const aiChatInitialMode = ref<ChatMode>('general')
 const pinned = ref(false)
 
-function toggleAIChat() {
+function toggleAIChat(mode?: ChatMode) {
+  if (mode) aiChatInitialMode.value = mode
   showAIChat.value = !showAIChat.value
+}
+
+function openPetChat() {
+  aiChatInitialMode.value = 'pet'
+  showAIChat.value = true
 }
 
 function toggleCollapse() {
@@ -203,7 +211,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <!-- ===== Body ===== -->
     <div class="app-body">
       <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
-        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" />
+        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" @pet-chat="openPetChat" />
         <AppSidebar
           :sections="menuSections"
           :active-key="activeMenuKey"
@@ -237,8 +245,8 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <CommandPalette />
 
     <!-- AI Chat floating button + drawer -->
-    <AIChatButton :active="showAIChat" @click="toggleAIChat" />
-    <AIChatPanel v-model:show="showAIChat" />
+    <AIChatButton :active="showAIChat" @click="toggleAIChat()" />
+    <AIChatPanel v-model:show="showAIChat" :initial-mode="aiChatInitialMode" />
   </div>
 </template>
 

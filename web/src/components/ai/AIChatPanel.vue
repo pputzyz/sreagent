@@ -10,6 +10,7 @@ import AIChatMessage from './AIChatMessage.vue'
 const props = defineProps<{
   show: boolean
   alertContext?: string
+  initialMode?: ChatMode
 }>()
 
 const emit = defineEmits<{
@@ -29,7 +30,12 @@ const modeOptions = [
 ]
 
 watch(() => props.show, (val) => {
-  if (val) loadHistory()
+  if (val) {
+    if (props.initialMode && props.initialMode !== mode.value) {
+      switchMode(props.initialMode)
+    }
+    loadHistory()
+  }
 })
 
 watch(messages, () => {

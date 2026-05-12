@@ -4,6 +4,10 @@ import { NPopover } from 'naive-ui'
 import { usePetStore } from '@/stores/pet'
 import PetPanel from './PetPanel.vue'
 
+const emit = defineEmits<{
+  chat: []
+}>()
+
 const petStore = usePetStore()
 const showPanel = ref(false)
 
@@ -18,6 +22,11 @@ const statusEmoji = computed(() => {
 onMounted(() => {
   petStore.fetchPet()
 })
+
+function handleChat() {
+  showPanel.value = false
+  emit('chat')
+}
 </script>
 
 <template>
@@ -43,7 +52,7 @@ onMounted(() => {
       </button>
     </template>
 
-    <PetPanel @close="showPanel = false" />
+    <PetPanel @close="showPanel = false" @chat="handleChat" />
   </n-popover>
 </template>
 
@@ -60,21 +69,15 @@ onMounted(() => {
   cursor: pointer;
   padding: 0;
   overflow: hidden;
-  transition:
-    background var(--sre-duration-fast) var(--sre-ease-out),
-    width var(--sre-duration-fast) var(--sre-ease-out);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .pet-corner:hover {
   background: var(--sre-bg-hover);
-  width: auto;
-  padding: 0 8px;
 }
 
 .pet-corner--active {
   background: var(--sre-bg-active);
-  width: auto;
-  padding: 0 8px;
 }
 
 .pet-emoji {
@@ -91,6 +94,19 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity var(--sre-duration-fast) var(--sre-ease-out),
+    transform var(--sre-duration-fast) var(--sre-ease-out);
+  pointer-events: none;
+}
+
+.pet-corner:hover .pet-info,
+.pet-corner--active .pet-info {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .pet-name {
