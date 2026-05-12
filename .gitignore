@@ -45,5 +45,7 @@ web/.vite/
 # Air (hot reload)
 tmp/
 
-# Superpowers
+# Superpowers / Agents
 .superpowers/
+.agents/
+skills-lock.json
