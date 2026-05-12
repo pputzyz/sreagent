@@ -88,7 +88,7 @@
   --sre-radius-xs:   4px;
   --sre-radius-sm:   6px;
   --sre-radius-md:   8px;
-  --sre-radius-lg:   12px;
+  --sre-radius-lg:   10px;
   --sre-radius-xl:   16px;
   --sre-radius-2xl:  20px;
   --sre-radius-pill: 9999px;
@@ -1081,3 +1081,57 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
   .rail-icon-btn:hover,
   .app-sidebar .n-menu-item-content:hover { transform: none !important; }
 }
+
+/* === Animation System (v4.8) === */
+
+@keyframes sre-page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sre-card-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sre-row-enter {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.page-enter-active {
+  animation: sre-page-enter 300ms var(--sre-ease-out) both;
+}
+
+.page-leave-active {
+  animation: sre-page-enter 200ms var(--sre-ease-out) reverse both;
+}
+
+.stagger-card > * {
+  animation: sre-card-enter 400ms var(--sre-ease-out) both;
+}
+.stagger-card > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-card > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-card > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-card > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-card > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-card > *:nth-child(6) { animation-delay: 250ms; }
+
+.stagger-row > * {
+  animation: sre-row-enter 300ms var(--sre-ease-out) both;
+}
+.stagger-row > *:nth-child(1)  { animation-delay: 0ms; }
+.stagger-row > *:nth-child(2)  { animation-delay: 30ms; }
+.stagger-row > *:nth-child(3)  { animation-delay: 60ms; }
+.stagger-row > *:nth-child(4)  { animation-delay: 90ms; }
+.stagger-row > *:nth-child(5)  { animation-delay: 120ms; }
+.stagger-row > *:nth-child(6)  { animation-delay: 150ms; }
+.stagger-row > *:nth-child(7)  { animation-delay: 180ms; }
+.stagger-row > *:nth-child(8)  { animation-delay: 210ms; }
+.stagger-row > *:nth-child(9)  { animation-delay: 240ms; }
+.stagger-row > *:nth-child(10) { animation-delay: 270ms; }
+
+/* Per-app subtle background tints (5%) */
+.bg-app-oncall   { background-color: color-mix(in srgb, var(--sre-brand-oncall) 5%, var(--sre-bg-page)); }
+.bg-app-alert    { background-color: color-mix(in srgb, var(--sre-brand-alert) 5%, var(--sre-bg-page)); }
+.bg-app-platform { background-color: color-mix(in srgb, var(--sre-brand-platform) 5%, var(--sre-bg-page)); }
