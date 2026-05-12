@@ -172,10 +172,11 @@ func (s *AIService) TestConnection(ctx context.Context) error {
 // chatCompletionRequest represents an OpenAI-compatible chat completion request.
 type chatCompletionRequest struct {
 	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
+	Messages []ChatMessage `json:"messages"`
 }
 
-type chatMessage struct {
+// ChatMessage represents a single message in a chat conversation.
+type ChatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
@@ -227,6 +228,76 @@ Respond in Chinese (简体中文).`
 	}
 
 	return &analysis, nil
+}
+
+// Chat sends a multi-turn conversation to the LLM and returns the assistant reply.
+// The caller supplies the system prompt, conversation history, and the new user message.
+func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []ChatMessage, userMessage string) (string, error) {
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to load AI config: %w", err)
+	}
+	if !cfg.Enabled {
+		return "", fmt.Errorf("AI is not enabled")
+	}
+
+	messages := make([]ChatMessage, 0, 1+len(history)+1)
+	messages = append(messages, ChatMessage{Role: "system", Content: systemPrompt})
+	messages = append(messages, history...)
+	messages = append(messages, ChatMessage{Role: "user", Content: userMessage})
+
+	reqBody := chatCompletionRequest{
+		Model:    cfg.Model,
+		Messages: messages,
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	baseURL := strings.TrimRight(cfg.BaseURL, "/")
+	url := baseURL + "/chat/completions"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to call AI API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read AI response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var completionResp chatCompletionResponse
+	if err := json.Unmarshal(respBody, &completionResp); err != nil {
+		return "", fmt.Errorf("failed to parse AI response: %w", err)
+	}
+
+	if completionResp.Error != nil {
+		return "", fmt.Errorf("AI API error: %s", completionResp.Error.Message)
+	}
+
+	if len(completionResp.Choices) == 0 {
+		return "", fmt.Errorf("AI API returned no choices")
+	}
+
+	return completionResp.Choices[0].Message.Content, nil
 }
 
 // callLLMJSON sends a prompt to the LLM and parses the JSON response into the target.
@@ -296,7 +367,7 @@ func truncateString(s string, maxLen int) string {
 func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemPrompt, userPrompt string) (string, error) {
 	reqBody := chatCompletionRequest{
 		Model: cfg.Model,
-		Messages: []chatMessage{
+		Messages: []ChatMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},

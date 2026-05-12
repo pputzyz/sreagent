@@ -136,6 +136,12 @@ func main() {
 	userNotifyConfigRepo := repository.NewUserNotifyConfigRepository(db)
 	systemSettingRepo := repository.NewSystemSettingRepository(db)
 
+	// Pet repository
+	petRepo := repository.NewPetRepository(db)
+
+	// Chat history repository
+	chatHistoryRepo := repository.NewChatHistoryRepository(db)
+
 	// Initialize services
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -191,6 +197,12 @@ func main() {
 	// Dispatch services
 	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, zapLogger)
 	userNotifyConfigSvc := service.NewUserNotifyConfigService(userNotifyConfigRepo, zapLogger)
+
+	// Pet service
+	petSvc := service.NewPetService(petRepo, zapLogger)
+
+	// Chat history service
+	chatHistorySvc := service.NewChatHistoryService(chatHistoryRepo)
 
 	// Seed default notification media and templates
 	seedSvc := service.NewSeedService(notifyMediaRepo, messageTemplateRepo, zapLogger)
@@ -458,7 +470,7 @@ func main() {
 		Team:             handler.NewTeamHandler(teamSvc),
 		Schedule:         handler.NewScheduleHandler(scheduleSvc),
 		Dashboard:        handler.NewDashboardHandler(db, zapLogger),
-		AI:               handler.NewAIHandler(aiSvc, eventSvc),
+		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc),
 		LarkBot:          handler.NewLarkBotHandler(larkBotSvc),
 		Engine:           engineHandler,
 		AlertAction:      alertActionHandler,
@@ -486,6 +498,7 @@ func main() {
 		Integration:         handler.NewIntegrationHandler(integrationSvc),
 		RoutingRule:         handler.NewRoutingRuleHandler(routingRuleRepo),
 		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
+		Pet:                 handler.NewPetHandler(petSvc),
 	}
 
 	// Inject audit service into handlers that support it
@@ -664,6 +677,12 @@ func autoMigrate(db *gorm.DB) error {
 	// V2 feature models (alerts, channels, incidents, integrations, dispatch, templates)
 	// Primarily managed by SQL migrations, but included here as a safety net.
 	models = append(models, model.V2Models()...)
+
+	// Virtual pet system
+	models = append(models, &model.Pet{}, &model.PetInteraction{})
+
+	// Chat history
+	models = append(models, &model.ChatHistory{})
 
 	return db.AutoMigrate(models...)
 }

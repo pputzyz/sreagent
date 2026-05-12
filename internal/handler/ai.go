@@ -3,18 +3,138 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
 // AIHandler handles AI/LLM-related API endpoints.
 type AIHandler struct {
-	aiSvc    *service.AIService
-	eventSvc *service.AlertEventService
+	aiSvc          *service.AIService
+	eventSvc       *service.AlertEventService
+	chatHistorySvc *service.ChatHistoryService
 }
 
 // NewAIHandler creates a new AIHandler.
-func NewAIHandler(aiSvc *service.AIService, eventSvc *service.AlertEventService) *AIHandler {
-	return &AIHandler{aiSvc: aiSvc, eventSvc: eventSvc}
+func NewAIHandler(aiSvc *service.AIService, eventSvc *service.AlertEventService, chatHistorySvc *service.ChatHistoryService) *AIHandler {
+	return &AIHandler{aiSvc: aiSvc, eventSvc: eventSvc, chatHistorySvc: chatHistorySvc}
+}
+
+// systemPrompts maps chat modes to their system prompts.
+var systemPrompts = map[string]string{
+	"alert":   "你是一位资深 SRE 助手，擅长分析告警、定位根因、推荐 SOP。用中文回答，简洁专业。",
+	"general": "你是一位友好的 AI 助手，可以回答任何问题。用中文回答。",
+	"pet":     "你是一只活泼、好奇、偶尔犯傻的狐狸宠物。你的名字由用户决定。回复风格简短有趣，偶尔卖萌。用中文回答。",
+}
+
+// Chat handles multi-turn chat conversations.
+func (h *AIHandler) Chat(c *gin.Context) {
+	var req struct {
+		Mode    string `json:"mode" binding:"required"`
+		Message string `json:"message" binding:"required"`
+		Context string `json:"context,omitempty"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+
+	systemPrompt, ok := systemPrompts[req.Mode]
+	if !ok {
+		ErrorWithMessage(c, 10001, "invalid mode: must be alert, general, or pet")
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+
+	// Load recent history (20 messages) for context
+	historyMsgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, req.Mode)
+	if err != nil {
+		ErrorWithMessage(c, 50001, "failed to load chat history: "+err.Error())
+		return
+	}
+
+	// Convert to ChatMessage slice (limit to last 20)
+	history := make([]service.ChatMessage, 0, len(historyMsgs))
+	if len(historyMsgs) > 20 {
+		historyMsgs = historyMsgs[len(historyMsgs)-20:]
+	}
+	for _, msg := range historyMsgs {
+		history = append(history, service.ChatMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	// Call LLM
+	reply, err := h.aiSvc.Chat(c.Request.Context(), systemPrompt, history, req.Message)
+	if err != nil {
+		ErrorWithMessage(c, 50003, "AI chat failed: "+err.Error())
+		return
+	}
+
+	// Save user message
+	userMsg := &model.ChatHistory{
+		UserID:  userID,
+		Mode:    req.Mode,
+		Role:    "user",
+		Content: req.Message,
+		Context: req.Context,
+	}
+	if err := h.chatHistorySvc.Save(c.Request.Context(), userMsg); err != nil {
+		ErrorWithMessage(c, 50001, "failed to save user message: "+err.Error())
+		return
+	}
+
+	// Save assistant reply
+	assistantMsg := &model.ChatHistory{
+		UserID:  userID,
+		Mode:    req.Mode,
+		Role:    "assistant",
+		Content: reply,
+	}
+	if err := h.chatHistorySvc.Save(c.Request.Context(), assistantMsg); err != nil {
+		ErrorWithMessage(c, 50001, "failed to save assistant message: "+err.Error())
+		return
+	}
+
+	Success(c, gin.H{"reply": reply, "mode": req.Mode})
+}
+
+// GetHistory returns chat history for the current user and mode.
+func (h *AIHandler) GetHistory(c *gin.Context) {
+	mode := c.Query("mode")
+	if mode == "" {
+		ErrorWithMessage(c, 10001, "mode query parameter is required")
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+
+	msgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, mode)
+	if err != nil {
+		ErrorWithMessage(c, 50001, "failed to load chat history: "+err.Error())
+		return
+	}
+
+	Success(c, msgs)
+}
+
+// ClearHistory deletes chat history for the current user and mode.
+func (h *AIHandler) ClearHistory(c *gin.Context) {
+	mode := c.Query("mode")
+	if mode == "" {
+		ErrorWithMessage(c, 10001, "mode query parameter is required")
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+
+	if err := h.chatHistorySvc.ClearHistory(c.Request.Context(), userID, mode); err != nil {
+		ErrorWithMessage(c, 50001, "failed to clear chat history: "+err.Error())
+		return
+	}
+
+	Success(c, gin.H{"message": "chat history cleared", "mode": mode})
 }
 
 // GenerateReport generates an AI-powered alert report.

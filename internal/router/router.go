@@ -55,6 +55,7 @@ type Handlers struct {
 	Integration    *handler.IntegrationHandler    // webhook integrations (集成中心)
 	RoutingRule    *handler.RoutingRuleHandler    // routing rules for shared integrations (路由规则)
 	PostMortem     *handler.PostMortemHandler     // incident post-mortems (故障复盘)
+	Pet            *handler.PetHandler            // virtual pet system (宠物系统)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -513,6 +514,19 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 				ai.POST("/test", manage, handlers.AI.TestConnection)
 				ai.GET("/config", adminOnly, handlers.AI.GetConfig)
 				ai.PUT("/config", adminOnly, handlers.AI.UpdateConfig)
+				ai.POST("/chat", handlers.AI.Chat)
+				ai.GET("/history", handlers.AI.GetHistory)
+				ai.DELETE("/history", handlers.AI.ClearHistory)
+			}
+
+			// Pet — virtual pet system
+			pet := auth.Group("/pet")
+			{
+				pet.GET("", handlers.Pet.GetPet)
+				pet.PUT("", handlers.Pet.UpdatePet)
+				pet.POST("/feed", handlers.Pet.FeedPet)
+				pet.POST("/play", handlers.Pet.PlayWithPet)
+				pet.GET("/interactions", handlers.Pet.GetInteractions)
 			}
 
 			// Lark Bot config — admin only
