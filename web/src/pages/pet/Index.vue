@@ -52,6 +52,22 @@ async function handleNameUpdate(val: string) {
     await petStore.updateName(val.trim())
   }
 }
+
+async function handleFeed() {
+  try {
+    await petStore.feed()
+  } catch {
+    // error already handled by store
+  }
+}
+
+async function handlePlay() {
+  try {
+    await petStore.play()
+  } catch {
+    // error already handled by store
+  }
+}
 </script>
 
 <template>
@@ -104,7 +120,7 @@ async function handleNameUpdate(val: string) {
           </div>
           <div class="pet-bar-item">
             <div class="pet-bar-header">
-              <span class="pet-bar-label">EXP</span>
+              <span class="pet-bar-label">{{ t('pet.exp') }}</span>
               <span class="pet-bar-value">{{ petStore.pet.exp }}/{{ petStore.expForNextLevel }}</span>
             </div>
             <n-progress
@@ -118,8 +134,8 @@ async function handleNameUpdate(val: string) {
         </div>
 
         <div class="pet-actions-row">
-          <n-button type="primary" @click="petStore.feed()">{{ t('pet.feed') }}</n-button>
-          <n-button @click="petStore.play()">{{ t('pet.play') }}</n-button>
+          <n-button type="primary" @click="handleFeed">{{ t('pet.feed') }}</n-button>
+          <n-button @click="handlePlay">{{ t('pet.play') }}</n-button>
           <n-button @click="router.push('/')">
             <template #icon>
               <n-icon :component="ChatbubbleEllipsesOutline" />
@@ -213,6 +229,10 @@ async function handleNameUpdate(val: string) {
   font-size: 20px;
   font-weight: 700;
   color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
 }
 
 .pet-level-display {

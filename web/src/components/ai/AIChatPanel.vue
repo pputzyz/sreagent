@@ -70,6 +70,7 @@ function scrollToBottom() {
 }
 
 async function handleSend() {
+  if (loading.value) return
   const text = inputText.value.trim()
   if (!text) return
   inputText.value = ''
@@ -154,6 +155,7 @@ onMounted(() => {
           <div class="chat-loading-dots">
             <span /><span /><span />
           </div>
+          <span class="chat-loading-label">{{ t('ai.thinking') }}</span>
         </div>
 
         <div v-if="error" class="chat-error">
@@ -167,6 +169,7 @@ onMounted(() => {
         </div>
 
         <div v-if="messages.length === 0 && !loading" class="chat-empty">
+          <div class="chat-empty-emoji">🦊</div>
           <div class="chat-empty-text">{{ t('ai.emptyHint') }}</div>
           <div class="chat-suggestions">
             <button
@@ -273,6 +276,19 @@ onMounted(() => {
   40% { opacity: 1; transform: scale(1); }
 }
 
+.chat-loading-label {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  margin-left: 8px;
+  opacity: 0;
+  animation: chat-label-fade 600ms var(--sre-ease-out) 800ms forwards;
+}
+
+@keyframes chat-label-fade {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 .chat-error {
   display: flex;
   align-items: center;
@@ -293,7 +309,22 @@ onMounted(() => {
   justify-content: center;
   flex: 1;
   min-height: 200px;
-  gap: 16px;
+  gap: 12px;
+}
+
+.chat-empty-emoji {
+  font-size: 40px;
+  line-height: 1;
+  animation: chat-empty-wave 2.5s var(--sre-ease-out) infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes chat-empty-wave {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(12deg); }
+  30% { transform: rotate(-8deg); }
+  45% { transform: rotate(6deg); }
+  60% { transform: rotate(0deg); }
 }
 
 .chat-empty-text {
@@ -327,6 +358,13 @@ onMounted(() => {
   background: var(--sre-bg-hover);
   border-color: var(--sre-primary);
   color: var(--sre-text-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.chat-suggestion:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .chat-footer {
@@ -337,5 +375,16 @@ onMounted(() => {
 
 .chat-footer :deep(.n-input) {
   flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-empty-emoji,
+  .chat-loading-label {
+    animation: none;
+  }
+  .chat-suggestion:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }
 </style>

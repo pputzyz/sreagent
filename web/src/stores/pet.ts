@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { petApi } from '@/api'
 import type { Pet, PetInteraction } from '@/types'
+import i18n from '@/i18n'
 
 export const usePetStore = defineStore('pet', () => {
   const pet = ref<Pet | null>(null)
@@ -24,7 +25,7 @@ export const usePetStore = defineStore('pet', () => {
       const resp = await petApi.get()
       pet.value = resp.data.data
     } catch (e: any) {
-      error.value = e?.message || '加载失败'
+      error.value = e?.message || i18n.global.t('pet.loadFailed')
     } finally {
       loading.value = false
     }
@@ -50,7 +51,7 @@ export const usePetStore = defineStore('pet', () => {
       const resp = await petApi.getInteractions()
       interactions.value = resp.data.data || []
     } catch (e: any) {
-      error.value = e?.message || '加载互动记录失败'
+      error.value = e?.message || i18n.global.t('pet.loadInteractionsFailed')
     }
   }
 

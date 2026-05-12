@@ -256,6 +256,12 @@ watch([() => form.value.username, () => form.value.password], () => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
+  animation: brand-logo-breathe 4s ease-in-out infinite;
+}
+
+@keyframes brand-logo-breathe {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
+  50% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sre-primary) 25%, transparent)); }
 }
 
 .brand-name {
@@ -325,16 +331,30 @@ watch([() => form.value.username, () => form.value.password], () => {
   color: var(--sre-text-secondary);
 }
 
+.login-form :deep(.n-input--focus) {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sre-primary) 20%, transparent);
+  transition: box-shadow 200ms var(--sre-ease-out);
+}
+
+.login-form :deep(.n-input) {
+  transition: box-shadow 200ms var(--sre-ease-out);
+}
+
 .submit-btn {
   height: 44px;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.2px;
   margin-top: 4px;
-  transition: box-shadow var(--sre-duration-base) var(--sre-ease-out);
+  transition:
+    box-shadow var(--sre-duration-base) var(--sre-ease-out),
+    transform 100ms var(--sre-ease-out);
 }
 .submit-btn:hover {
   box-shadow: var(--sre-shadow-md);
+}
+.submit-btn:active {
+  transform: scale(0.97);
 }
 
 .error-banner {
@@ -441,5 +461,17 @@ watch([() => form.value.username, () => form.value.password], () => {
   }
   .brand-name { font-size: 24px; }
   .brand-logo { width: 28px; height: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo {
+    animation: none;
+  }
+  .submit-btn:active {
+    transform: none;
+  }
+  .login-form :deep(.n-input--focus) {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--sre-primary) 25%, transparent);
+  }
 }
 </style>

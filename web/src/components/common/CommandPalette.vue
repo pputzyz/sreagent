@@ -15,6 +15,7 @@ const toggleTheme = inject<() => void>('toggleTheme', () => {})
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const activeIndex = ref(0)
+const isTyping = computed(() => query.value.length > 0)
 
 // Register built-in actions once
 onMounted(() => {
@@ -91,7 +92,7 @@ function globalIndex(sectionIdx: number, itemIdx: number) {
 
 function hintColor(item: PaletteItem) {
   if (item.group === 'recent') return 'var(--sre-text-tertiary)'
-  if (item.hint === 'Action') return 'var(--sre-aurora-3)'
+  if (item.hint === 'Action') return 'var(--sre-info)'
   return 'var(--sre-text-tertiary)'
 }
 </script>
@@ -102,10 +103,10 @@ function hintColor(item: PaletteItem) {
       <div v-if="visible" class="cp-backdrop" @click.self="close" />
     </transition>
     <transition name="cp-panel">
-      <div v-if="visible" class="cp-panel conic-border noise-overlay" @keydown="onKeydown">
+      <div v-if="visible" class="cp-panel conic-border noise-overlay" role="dialog" aria-modal="true" :aria-label="t('palette.searchPlaceholder')" @keydown="onKeydown">
         <!-- Search input -->
         <div class="cp-search">
-          <svg class="cp-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="cp-search-icon" :class="{ 'cp-search-icon--active': isTyping }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
@@ -122,7 +123,11 @@ function hintColor(item: PaletteItem) {
         <!-- Results -->
         <div class="cp-body">
           <template v-if="allItems.length === 0">
-            <div class="cp-empty">{{ t('palette.noResults', { q: query }) }}</div>
+            <div class="cp-empty">
+              <span class="cp-empty-icon">🔍</span>
+              <span>{{ t('palette.noResults', { q: query }) }}</span>
+              <span class="cp-empty-hint">{{ t('palette.trySomethingElse') }}</span>
+            </div>
           </template>
           <template v-for="(section, si) in sections()" :key="section.key">
             <div class="cp-group-label">{{ section.label }}</div>
@@ -167,7 +172,7 @@ function hintColor(item: PaletteItem) {
   width: min(640px, 90vw);
   border-radius: var(--sre-radius-lg);
   background: var(--sre-bg-card);
-  box-shadow: var(--sre-shadow-soft-xl);
+  box-shadow: var(--sre-shadow-xl);
   z-index: var(--sre-z-modal);
   overflow: hidden;
   display: flex;
@@ -190,6 +195,17 @@ body.light-theme .cp-panel {
 .cp-search-icon {
   color: var(--sre-text-tertiary);
   flex-shrink: 0;
+  transition: color var(--sre-duration-fast) var(--sre-ease-out);
+}
+
+.cp-search-icon--active {
+  color: var(--sre-primary);
+  animation: cp-search-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes cp-search-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 .cp-input {
   flex: 1;
@@ -234,6 +250,21 @@ body.light-theme .cp-panel {
   text-align: center;
   color: var(--sre-text-tertiary);
   font-size: var(--sre-fs-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-empty-icon {
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.cp-empty-hint {
+  font-size: var(--sre-fs-xs);
+  color: var(--sre-text-muted);
 }
 .cp-group-label {
   padding: 6px 20px 4px;
@@ -319,5 +350,11 @@ body.light-theme .cp-panel {
 .cp-panel-leave-to {
   opacity: 0;
   transform: translateX(-50%) scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-search-icon--active {
+    animation: none;
+  }
 }
 </style>

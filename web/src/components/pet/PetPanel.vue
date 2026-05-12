@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { NButton, NProgress, NIcon } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -13,6 +14,31 @@ const emit = defineEmits<{
 const router = useRouter()
 const { t } = useI18n()
 const petStore = usePetStore()
+
+const feedPressed = ref(false)
+const playPressed = ref(false)
+
+const expNearlyFull = computed(() => petStore.expProgress > 85)
+
+async function handleFeed() {
+  feedPressed.value = true
+  setTimeout(() => { feedPressed.value = false }, 200)
+  try {
+    await petStore.feed()
+  } catch {
+    // error already handled by store
+  }
+}
+
+async function handlePlay() {
+  playPressed.value = true
+  setTimeout(() => { playPressed.value = false }, 200)
+  try {
+    await petStore.play()
+  } catch {
+    // error already handled by store
+  }
+}
 
 function handleChat() {
   emit('close')
@@ -64,8 +90,8 @@ function goToDetail() {
           />
           <span class="pet-bar-value">{{ petStore.moodPercent }}%</span>
         </div>
-        <div class="pet-bar-row">
-          <span class="pet-bar-label">EXP</span>
+        <div class="pet-bar-row" :class="{ 'pet-bar-row--celebrate': expNearlyFull }">
+          <span class="pet-bar-label">{{ t('pet.exp') }}</span>
           <n-progress
             type="line"
             :percentage="petStore.expProgress"
@@ -80,8 +106,8 @@ function goToDetail() {
 
       <!-- Actions -->
       <div class="pet-actions">
-        <n-button size="small" @click="petStore.feed()">{{ t('pet.feed') }}</n-button>
-        <n-button size="small" @click="petStore.play()">{{ t('pet.play') }}</n-button>
+        <n-button size="small" :class="{ 'pet-action--pressed': feedPressed }" @click="handleFeed">{{ t('pet.feed') }}</n-button>
+        <n-button size="small" :class="{ 'pet-action--pressed': playPressed }" @click="handlePlay">{{ t('pet.play') }}</n-button>
         <n-button size="small" @click="handleChat">
           <template #icon>
             <n-icon :component="ChatbubbleEllipsesOutline" />
@@ -108,7 +134,7 @@ function goToDetail() {
     </div>
 
     <div v-else class="pet-panel-empty">
-      {{ t('pet.loading') }}
+      {{ t('pet.emptyState') }}
     </div>
   </div>
 </template>
@@ -140,6 +166,10 @@ function goToDetail() {
   font-size: 15px;
   font-weight: 600;
   color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
 }
 
 .pet-panel-level {
@@ -181,6 +211,41 @@ function goToDetail() {
   flex-wrap: wrap;
 }
 
+.pet-actions :deep(.n-button) {
+  transition: transform 120ms var(--sre-ease-out);
+}
+
+.pet-actions :deep(.n-button:active) {
+  transform: scale(0.94);
+}
+
+.pet-action--pressed :deep(.n-button),
+.pet-action--pressed {
+  transform: scale(0.94) !important;
+}
+
+.pet-bar-row--celebrate {
+  position: relative;
+  overflow: hidden;
+}
+
+.pet-bar-row--celebrate::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.12), transparent);
+  animation: pet-exp-shimmer 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pet-exp-shimmer {
+  0% { left: -60%; }
+  100% { left: 120%; }
+}
+
 .pet-detail-link {
   font-size: 12px;
   color: var(--sre-primary);
@@ -211,5 +276,15 @@ function goToDetail() {
   color: var(--sre-critical);
   font-size: 12px;
   text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-actions :deep(.n-button:active),
+  .pet-action--pressed {
+    transform: none !important;
+  }
+  .pet-bar-row--celebrate::after {
+    animation: none;
+  }
 }
 </style>

@@ -111,7 +111,17 @@ onUnmounted(() => {
   97% { transform: rotate(-3deg); transform-origin: 16px 14px; }
 }
 
-/* Wave: paw movement */
+/* Wave: paw movement + glow */
+.mascot-wave .mascot-svg {
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.35));
+  animation: mascot-wave-glow 2s ease-in-out infinite;
+}
+
+@keyframes mascot-wave-glow {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.25)); }
+  50% { filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.45)); }
+}
+
 .mascot-wave .mascot-paw {
   animation: mascot-wave-paw 0.6s ease-in-out 3;
   transform-origin: 28px 14px;
@@ -125,12 +135,12 @@ onUnmounted(() => {
 
 /* Sleep: breathing + Zzz */
 .mascot-sleep .mascot-body {
-  animation: mascot-breathe 3s ease-in-out infinite;
+  animation: mascot-breathe 4.5s ease-in-out infinite;
 }
 
 @keyframes mascot-breathe {
-  0%, 100% { transform: scaleY(1); transform-origin: 16px 24px; }
-  50% { transform: scaleY(0.97); transform-origin: 16px 24px; }
+  0%, 100% { transform: scaleY(1) translateY(0); transform-origin: 16px 24px; }
+  50% { transform: scaleY(0.96) translateY(0.5px); transform-origin: 16px 24px; }
 }
 
 .mascot-zzz {
@@ -145,5 +155,18 @@ onUnmounted(() => {
   0% { opacity: 0; transform: translate(0, 0) scale(0.8); }
   20% { opacity: 0.6; }
   100% { opacity: 0; transform: translate(8px, -16px) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-idle .mascot-ear,
+  .mascot-wave .mascot-paw,
+  .mascot-sleep .mascot-body,
+  .mascot-zzz {
+    animation: none;
+  }
+  .mascot-wave .mascot-svg {
+    animation: none;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.3));
+  }
 }
 </style>
