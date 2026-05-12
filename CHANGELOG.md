@@ -4,6 +4,19 @@
 
 ---
 
+## [v4.9.2] — 2026-05-13
+
+### Fixed — 代码审查修复 + 公开状态页端点
+
+- 移除 global.css 中已删除的 sre-jelly 动画残留引用
+- 补全 en.ts statusPageModule + rolesModule 英文翻译
+- 补全 zh-CN.ts statusPageModule.invalidEmail 翻译键
+- 修复 bizGroup.created 重复键（toast 改为 createSuccess）
+- 新增公开端点 `GET /api/v1/status-services`（无需认证）
+- 修复 StatusService.GetByID 错误遮蔽（区分 not-found 和 DB 错误）
+- 修复 StatusPage.vue 验证消息键 + 移除内联 fallback
+- AIChatButton 补充呼吸灯动画效果
+
 ## [v4.8.0] — 2026-05-12
 
 ### Added — AI Chat + 宠物系统 + UI 动画系统
