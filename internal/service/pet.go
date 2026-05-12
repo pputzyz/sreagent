@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -24,6 +25,10 @@ func (s *PetService) GetOrCreate(ctx context.Context, userID uint) (*model.Pet, 
 	pet, err := s.repo.GetByUserID(ctx, userID)
 	if err == nil {
 		return pet, nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		s.logger.Error("failed to get pet", zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	// Create default pet
 	pet = &model.Pet{
@@ -53,20 +58,19 @@ func (s *PetService) Update(ctx context.Context, pet *model.Pet) error {
 
 // Feed reduces hunger by 20 (min 0), adds 5 exp, and logs the interaction.
 func (s *PetService) Feed(ctx context.Context, userID uint) (*model.Pet, error) {
+	// Ensure pet exists
 	pet, err := s.GetOrCreate(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	pet.Hunger = maxInt(pet.Hunger-20, 0)
-	pet.Exp += 5
-	s.checkLevelUp(pet)
-
-	if err := s.repo.Update(ctx, pet); err != nil {
-		s.logger.Error("failed to update pet after feed", zap.Error(err))
+	// Atomic update
+	if err := s.repo.FeedAtomic(ctx, userID, 20, 5); err != nil {
+		s.logger.Error("failed to feed pet", zap.Error(err))
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
+	// Log interaction
 	if err := s.repo.CreateInteraction(ctx, &model.PetInteraction{
 		PetID: pet.ID,
 		Type:  "feed",
@@ -75,25 +79,34 @@ func (s *PetService) Feed(ctx context.Context, userID uint) (*model.Pet, error) 
 		s.logger.Warn("failed to log feed interaction", zap.Error(err))
 	}
 
+	// Re-fetch to get current state and handle level-up
+	pet, err = s.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	s.checkLevelUp(pet)
+	if err := s.repo.Update(ctx, pet); err != nil {
+		s.logger.Warn("failed to save level-up", zap.Error(err))
+	}
+
 	return pet, nil
 }
 
 // Play increases mood by 15 (max 100), adds 5 exp, and logs the interaction.
 func (s *PetService) Play(ctx context.Context, userID uint) (*model.Pet, error) {
+	// Ensure pet exists
 	pet, err := s.GetOrCreate(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	pet.Mood = minInt(pet.Mood+15, 100)
-	pet.Exp += 5
-	s.checkLevelUp(pet)
-
-	if err := s.repo.Update(ctx, pet); err != nil {
-		s.logger.Error("failed to update pet after play", zap.Error(err))
+	// Atomic update
+	if err := s.repo.PlayAtomic(ctx, userID, 15, 5); err != nil {
+		s.logger.Error("failed to play with pet", zap.Error(err))
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
+	// Log interaction
 	if err := s.repo.CreateInteraction(ctx, &model.PetInteraction{
 		PetID: pet.ID,
 		Type:  "play",
@@ -102,30 +115,50 @@ func (s *PetService) Play(ctx context.Context, userID uint) (*model.Pet, error) 
 		s.logger.Warn("failed to log play interaction", zap.Error(err))
 	}
 
+	// Re-fetch to get current state and handle level-up
+	pet, err = s.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	s.checkLevelUp(pet)
+	if err := s.repo.Update(ctx, pet); err != nil {
+		s.logger.Warn("failed to save level-up", zap.Error(err))
+	}
+
 	return pet, nil
 }
 
 // AddChatExp adds 2 exp for chatting with the pet.
 func (s *PetService) AddChatExp(ctx context.Context, userID uint) (*model.Pet, error) {
+	// Ensure pet exists
 	pet, err := s.GetOrCreate(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	pet.Exp += 2
-	s.checkLevelUp(pet)
-
-	if err := s.repo.Update(ctx, pet); err != nil {
-		s.logger.Error("failed to update pet after chat exp", zap.Error(err))
+	// Atomic update
+	if err := s.repo.AddExpAtomic(ctx, userID, 2); err != nil {
+		s.logger.Error("failed to add chat exp", zap.Error(err))
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
+	// Log interaction
 	if err := s.repo.CreateInteraction(ctx, &model.PetInteraction{
 		PetID: pet.ID,
 		Type:  "chat",
 		Value: 2,
 	}); err != nil {
 		s.logger.Warn("failed to log chat interaction", zap.Error(err))
+	}
+
+	// Re-fetch to get current state and handle level-up
+	pet, err = s.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	s.checkLevelUp(pet)
+	if err := s.repo.Update(ctx, pet); err != nil {
+		s.logger.Warn("failed to save level-up", zap.Error(err))
 	}
 
 	return pet, nil

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { NButton, NProgress, NIcon } from 'naive-ui'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { usePetStore } from '@/stores/pet'
 import { ChatbubbleEllipsesOutline } from '@vicons/ionicons5'
@@ -9,6 +10,7 @@ const emit = defineEmits<{
   chat: []
 }>()
 
+const router = useRouter()
 const { t } = useI18n()
 const petStore = usePetStore()
 
@@ -19,6 +21,7 @@ function handleChat() {
 
 function goToDetail() {
   emit('close')
+  router.push('/pet')
 }
 </script>
 

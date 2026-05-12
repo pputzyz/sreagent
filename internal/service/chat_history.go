@@ -7,7 +7,10 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
-const defaultChatHistoryLimit = 50
+const (
+	defaultChatHistoryLimit  = 50
+	maxChatHistoryPerMode    = 200
+)
 
 // ChatHistoryService provides business logic for chat history management.
 type ChatHistoryService struct {
@@ -19,9 +22,14 @@ func NewChatHistoryService(repo *repository.ChatHistoryRepository) *ChatHistoryS
 	return &ChatHistoryService{repo: repo}
 }
 
-// Save persists a chat message.
+// Save persists a chat message and prunes old messages to stay within the retention limit.
 func (s *ChatHistoryService) Save(ctx context.Context, msg *model.ChatHistory) error {
-	return s.repo.Create(ctx, msg)
+	if err := s.repo.Create(ctx, msg); err != nil {
+		return err
+	}
+	// Prune old messages (best effort — pruning failure should not fail the save)
+	_ = s.repo.PruneOld(ctx, msg.UserID, msg.Mode, maxChatHistoryPerMode)
+	return nil
 }
 
 // GetHistory returns recent chat messages for a user and mode.

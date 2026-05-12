@@ -1098,14 +1098,6 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
   to   { opacity: 1; transform: translateX(0); }
 }
 
-.page-enter-active {
-  animation: sre-page-enter 300ms var(--sre-ease-out) both;
-}
-
-.page-leave-active {
-  animation: sre-page-enter 200ms var(--sre-ease-out) reverse both;
-}
-
 .stagger-card > * {
   animation: sre-card-enter 400ms var(--sre-ease-out) both;
 }

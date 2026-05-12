@@ -41,6 +41,36 @@ func (r *PetRepository) CreateInteraction(ctx context.Context, interaction *mode
 	return r.db.WithContext(ctx).Create(interaction).Error
 }
 
+// FeedAtomic atomically reduces hunger and adds exp.
+func (r *PetRepository) FeedAtomic(ctx context.Context, userID uint, hungerDelta, expDelta int) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Pet{}).
+		Where("user_id = ?", userID).
+		Updates(map[string]interface{}{
+			"hunger": gorm.Expr("GREATEST(hunger - ?, 0)", hungerDelta),
+			"exp":    gorm.Expr("exp + ?", expDelta),
+		}).Error
+}
+
+// PlayAtomic atomically increases mood and adds exp.
+func (r *PetRepository) PlayAtomic(ctx context.Context, userID uint, moodDelta, expDelta int) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Pet{}).
+		Where("user_id = ?", userID).
+		Updates(map[string]interface{}{
+			"mood": gorm.Expr("LEAST(mood + ?, 100)", moodDelta),
+			"exp":  gorm.Expr("exp + ?", expDelta),
+		}).Error
+}
+
+// AddExpAtomic atomically adds exp.
+func (r *PetRepository) AddExpAtomic(ctx context.Context, userID uint, expDelta int) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Pet{}).
+		Where("user_id = ?", userID).
+		Update("exp", gorm.Expr("exp + ?", expDelta)).Error
+}
+
 // ListInteractions returns recent interactions for a pet, ordered by created_at DESC.
 func (r *PetRepository) ListInteractions(ctx context.Context, petID uint, limit int) ([]model.PetInteraction, error) {
 	var interactions []model.PetInteraction

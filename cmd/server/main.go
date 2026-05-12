@@ -470,7 +470,7 @@ func main() {
 		Team:             handler.NewTeamHandler(teamSvc),
 		Schedule:         handler.NewScheduleHandler(scheduleSvc),
 		Dashboard:        handler.NewDashboardHandler(db, zapLogger),
-		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc),
+		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc, petSvc),
 		LarkBot:          handler.NewLarkBotHandler(larkBotSvc),
 		Engine:           engineHandler,
 		AlertAction:      alertActionHandler,

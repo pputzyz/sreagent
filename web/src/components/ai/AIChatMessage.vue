@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import type { ChatMessage } from '@/types'
 
 const props = defineProps<{
@@ -9,7 +10,8 @@ const props = defineProps<{
 
 const renderedContent = computed(() => {
   if (props.message.role === 'assistant') {
-    return marked.parse(props.message.content, { breaks: true }) as string
+    const raw = marked.parse(props.message.content, { breaks: true }) as string
+    return DOMPurify.sanitize(raw)
   }
   return ''
 })
@@ -83,7 +85,6 @@ const renderedContent = computed(() => {
   margin-top: 4px;
 }
 
-/* Markdown styles for assistant messages */
 .chat-markdown :deep(p) {
   margin: 0 0 8px;
 }

@@ -41,3 +41,17 @@ func (r *ChatHistoryRepository) DeleteByUserAndMode(ctx context.Context, userID 
 		Where("user_id = ? AND mode = ?", userID, mode).
 		Delete(&model.ChatHistory{}).Error
 }
+
+// PruneOld deletes messages older than the newest N for a user and mode.
+func (r *ChatHistoryRepository) PruneOld(ctx context.Context, userID uint, mode string, keep int) error {
+	return r.db.WithContext(ctx).
+		Where("user_id = ? AND mode = ? AND id NOT IN (?)",
+			userID, mode,
+			r.db.Model(&model.ChatHistory{}).
+				Select("id").
+				Where("user_id = ? AND mode = ?", userID, mode).
+				Order("created_at DESC").
+				Limit(keep),
+		).
+		Delete(&model.ChatHistory{}).Error
+}
