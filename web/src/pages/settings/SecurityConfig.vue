@@ -52,7 +52,7 @@ onMounted(fetchConfig)
     <div class="sre-config-page">
       <header class="sre-config-header">
         <div>
-          <h2 class="sre-config-header-title">{{ t('settings.securityConfig') || 'Security' }}</h2>
+          <h2 class="sre-config-header-title">{{ t('settings.securityConfig') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.jwtExpireHint') }}</p>
         </div>
         <div class="sre-config-header-actions">

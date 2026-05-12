@@ -56,7 +56,7 @@ async function save() {
 
 async function testConnection() {
   if (!form.default_webhook) {
-    message.warning('Default webhook URL is required to send a test card')
+    message.warning(t('settings.larkWebhookRequired'))
     return
   }
   testing.value = true
@@ -68,11 +68,11 @@ async function testConnection() {
       const ok = !!res?.data?.data?.success
       lastTestResult.value = {
         success: ok,
-        message: res?.data?.data?.message || (ok ? 'Test card sent' : 'Test failed'),
+        message: res?.data?.data?.message || (ok ? t('settings.larkTestCardSent') : t('settings.larkTestFailed')),
         time: new Date().toLocaleTimeString(),
       }
     } else {
-      lastTestResult.value = { success: true, message: 'Configuration looks valid (no live test endpoint available)', time: new Date().toLocaleTimeString() }
+      lastTestResult.value = { success: true, message: t('settings.larkConfigValid'), time: new Date().toLocaleTimeString() }
     }
     lastTestResult.value!.success ? message.success(lastTestResult.value!.message) : message.error(lastTestResult.value!.message)
   } catch (err: any) {
@@ -91,8 +91,8 @@ onMounted(fetchConfig)
     <div class="sre-config-page">
       <header class="sre-config-header">
         <div>
-          <h2 class="sre-config-header-title">Lark Bot Integration</h2>
-          <p class="sre-config-header-sub">Lark bot for direct messages, alert card updates, and slash commands. Callback endpoint: <code>/lark/event</code></p>
+          <h2 class="sre-config-header-title">{{ t('settings.larkBotTitle') }}</h2>
+          <p class="sre-config-header-sub">{{ t('settings.larkBotSubtitle') }} <code>/lark/event</code></p>
         </div>
         <div class="sre-config-header-actions">
           <NButton size="small" :loading="testing" @click="testConnection">
@@ -115,8 +115,8 @@ onMounted(fetchConfig)
 
       <div class="config-sections sre-stagger">
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">App Credentials</h3>
-          <p class="sre-config-section-desc">Obtain these values from the Lark Open Platform developer console for your custom app.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.larkAppCredentials') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkAppCredentialsDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkBotEnabled')" class="full-row">
               <NSwitch v-model:value="form.bot_enabled" />
@@ -137,8 +137,8 @@ onMounted(fetchConfig)
         </section>
 
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Defaults</h3>
-          <p class="sre-config-section-desc">The default webhook is used when a notification rule does not specify its own target.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.larkDefaults') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkDefaultsDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkDefaultWebhook')" class="full-row">
               <NInput v-model:value="form.default_webhook" :placeholder="t('settings.larkWebhookPlaceholder')" />

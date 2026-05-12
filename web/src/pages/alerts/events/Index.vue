@@ -167,7 +167,7 @@ async function fetchEvents() {
     events.value = list
     total.value = data.data.total
   } catch (err: any) {
-    message.error(err?.message || 'Failed to load')
+    message.error(err?.message || t('common.loadFailed'))
   } finally {
     loading.value = false
     firstLoad.value = false
@@ -462,7 +462,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           v-model:value="search"
           size="small"
           clearable
-          :placeholder="t('alert.alertNameSearch') || 'Search alert name'"
+          :placeholder="t('alert.alertNameSearch')"
           class="ae-filter-search"
           @update:value="refilter"
         />
@@ -471,7 +471,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           :options="severityOptions"
           size="small"
           clearable
-          :placeholder="t('alert.severity') || 'Severity'"
+          :placeholder="t('alert.severity')"
           class="ae-filter-sev"
           @update:value="refilter"
         />
@@ -481,7 +481,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           size="small"
           clearable
           filterable
-          :placeholder="t('alert.rule') || 'Rule'"
+          :placeholder="t('alert.rule')"
           class="ae-filter-rule"
           @update:value="refilter"
         />
@@ -516,13 +516,13 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
       <div v-if="selected.size > 0" class="ae-selection-bar">
         <span class="ae-selection-count tnum">{{ selected.size }} {{ t('alert.selected') }}</span>
         <NButton size="small" type="primary" @click="batchAck">
-          {{ t('alert.batchAck') || 'Acknowledge' }}
+          {{ t('alert.batchAck') }}
         </NButton>
         <NButton size="small" @click="batchCloseAction">
-          {{ t('alert.batchClose') || 'Close' }}
+          {{ t('alert.batchClose') }}
         </NButton>
         <NButton size="small" type="warning" ghost @click="batchSilence">
-          {{ t('alert.silence') || 'Silence' }}
+          {{ t('alert.silence') }}
         </NButton>
         <div class="ae-spacer" />
         <NButton circle quaternary size="small" @click="clearSelection">

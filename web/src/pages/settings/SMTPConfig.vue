@@ -90,8 +90,8 @@ onMounted(fetchConfig)
     <div class="sre-config-page">
       <header class="sre-config-header">
         <div>
-          <h2 class="sre-config-header-title">SMTP Email</h2>
-          <p class="sre-config-header-sub">Outbound email server used by escalation policies and direct notifications.</p>
+          <h2 class="sre-config-header-title">{{ t('settings.smtpTitle') }}</h2>
+          <p class="sre-config-header-sub">{{ t('settings.smtpSubtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">
           <NButton size="small" :loading="testing" :disabled="!testTo" @click="testConnection">
@@ -114,8 +114,8 @@ onMounted(fetchConfig)
 
       <div class="config-sections sre-stagger">
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Server</h3>
-          <p class="sre-config-section-desc">Connection details and SMTP authentication. STARTTLS is recommended on port 587.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.smtpServerSection') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.smtpServerDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('smtp.enabled')" class="full-row">
               <NSwitch v-model:value="form.enabled" />
@@ -145,21 +145,21 @@ onMounted(fetchConfig)
         </section>
 
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Sender</h3>
-          <p class="sre-config-section-desc">Identity used in the From header. The display name appears in most email clients.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.smtpSenderSection') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.smtpSenderDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('smtp.from')">
               <NInput v-model:value="form.from" :placeholder="t('smtp.fromPlaceholder')" />
             </NFormItem>
-            <NFormItem label="From Name">
-              <NInput v-model:value="form.from_name" placeholder="SREAgent Alerts" />
+            <NFormItem :label="t('settings.smtpFromName')">
+              <NInput v-model:value="form.from_name" :placeholder="t('settings.smtpFromNamePlaceholder')" />
             </NFormItem>
           </div>
         </section>
 
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Test Delivery</h3>
-          <p class="sre-config-section-desc">Send a real test message using the configuration above. Save first if you have unsaved changes.</p>
+          <h3 class="sre-config-section-title">{{ t('settings.smtpTestDelivery') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.smtpTestDeliveryDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('smtp.testRecipient')" class="full-row">
               <NInput v-model:value="testTo" :placeholder="t('smtp.testRecipientPlaceholder')" />

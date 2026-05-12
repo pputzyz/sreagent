@@ -237,35 +237,28 @@ function handleLogout() {
 .rail-icon-circle {
   width: 36px;
   height: 36px;
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
+  transition: box-shadow 200ms var(--sre-ease-out);
 }
 
 .rail-icon-btn:hover .rail-icon-circle {
-  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .rail-icon-btn:active .rail-icon-circle {
-  animation: sre-jelly 400ms ease-in-out;
+  transform: scale(0.96);
 }
 
 .rail-icon-btn.active .rail-icon-circle {
-  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 0 0 2px var(--sre-primary-ring);
 }
 
-.nav-icon-oncall { background: linear-gradient(135deg, #FF6B6B, #FF8E8E); }
-.nav-icon-alert { background: linear-gradient(135deg, #4FACFE, #7BC4FF); }
-.nav-icon-platform { background: linear-gradient(135deg, #A855F7, #C084FC); }
-
-@keyframes sre-jelly {
-  0% { transform: scale(1.08); }
-  30% { transform: scale(0.92); }
-  60% { transform: scale(1.04); }
-  100% { transform: scale(1); }
-}
+.nav-icon-oncall { background: var(--sre-brand-oncall); }
+.nav-icon-alert { background: var(--sre-brand-alert); }
+.nav-icon-platform { background: var(--sre-brand-platform); }
 
 /* Colored dot indicator — only visible when active */
 .rail-dot {

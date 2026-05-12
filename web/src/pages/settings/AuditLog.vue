@@ -26,30 +26,30 @@ const filterResourceType = ref<string | null>(null)
 const filterUser = ref<string | null>(null)
 const search = ref('')
 
-const actionOptions = [
-  { label: 'CREATE', value: 'create' },
-  { label: 'UPDATE', value: 'update' },
-  { label: 'DELETE', value: 'delete' },
-  { label: 'TOGGLE', value: 'toggle' },
-  { label: 'ACKNOWLEDGE', value: 'acknowledge' },
-  { label: 'ASSIGN', value: 'assign' },
-  { label: 'RESOLVE', value: 'resolve' },
-  { label: 'CLOSE', value: 'close' },
-  { label: 'SILENCE', value: 'silence' },
-  { label: 'LOGIN', value: 'login' },
-  { label: 'LOGOUT', value: 'logout' },
-]
+const actionOptions = computed(() => [
+  { label: t('settings.actionCreate'), value: 'create' },
+  { label: t('settings.actionUpdate'), value: 'update' },
+  { label: t('settings.actionDelete'), value: 'delete' },
+  { label: t('settings.actionToggle'), value: 'toggle' },
+  { label: t('settings.actionAcknowledge'), value: 'acknowledge' },
+  { label: t('settings.actionAssign'), value: 'assign' },
+  { label: t('settings.actionResolve'), value: 'resolve' },
+  { label: t('settings.actionClose'), value: 'close' },
+  { label: t('settings.actionSilence'), value: 'silence' },
+  { label: t('settings.actionLogin'), value: 'login' },
+  { label: t('settings.actionLogout'), value: 'logout' },
+])
 
-const resourceOptions = [
-  { label: 'alert_rule', value: 'alert_rule' },
-  { label: 'alert_event', value: 'alert_event' },
-  { label: 'incident', value: 'incident' },
-  { label: 'user', value: 'user' },
-  { label: 'team', value: 'team' },
-  { label: 'datasource', value: 'datasource' },
-  { label: 'notify_rule', value: 'notify_rule' },
-  { label: 'mute_rule', value: 'mute_rule' },
-]
+const resourceOptions = computed(() => [
+  { label: t('settings.resourceAlertRule'), value: 'alert_rule' },
+  { label: t('settings.resourceAlertEvent'), value: 'alert_event' },
+  { label: t('settings.resourceIncident'), value: 'incident' },
+  { label: t('settings.resourceUser'), value: 'user' },
+  { label: t('settings.resourceTeam'), value: 'team' },
+  { label: t('settings.resourceDatasource'), value: 'datasource' },
+  { label: t('settings.resourceNotifyRule'), value: 'notify_rule' },
+  { label: t('settings.resourceMuteRule'), value: 'mute_rule' },
+])
 
 const userOptions = computed(() => {
   const seen = new Set<string>()
@@ -137,7 +137,7 @@ onMounted(fetchLogs)
   <div class="audit-page">
     <header class="page-header">
       <div>
-        <h2 class="page-title">{{ t('settings.auditLog') || 'Audit Log' }}</h2>
+        <h2 class="page-title">{{ t('settings.auditLog') }}</h2>
         <p class="page-subtitle">{{ t('settings.auditSubtitle') }}</p>
       </div>
     </header>

@@ -139,6 +139,9 @@ func main() {
 	// Pet repository
 	petRepo := repository.NewPetRepository(db)
 
+	// Status service repository
+	statusServiceRepo := repository.NewStatusServiceRepository(db)
+
 	// Chat history repository
 	chatHistoryRepo := repository.NewChatHistoryRepository(db)
 
@@ -200,6 +203,9 @@ func main() {
 
 	// Pet service
 	petSvc := service.NewPetService(petRepo, zapLogger)
+
+	// Status service
+	statusServiceSvc := service.NewStatusServiceService(statusServiceRepo, zapLogger)
 
 	// Chat history service
 	chatHistorySvc := service.NewChatHistoryService(chatHistoryRepo)
@@ -499,6 +505,7 @@ func main() {
 		RoutingRule:         handler.NewRoutingRuleHandler(routingRuleRepo),
 		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
 		Pet:                 handler.NewPetHandler(petSvc),
+		StatusService:       handler.NewStatusServiceHandler(statusServiceSvc),
 	}
 
 	// Inject audit service into handlers that support it
@@ -683,6 +690,9 @@ func autoMigrate(db *gorm.DB) error {
 
 	// Chat history
 	models = append(models, &model.ChatHistory{})
+
+	// Status page services
+	models = append(models, &model.StatusService{})
 
 	return db.AutoMigrate(models...)
 }

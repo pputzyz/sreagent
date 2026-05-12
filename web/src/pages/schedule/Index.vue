@@ -405,7 +405,7 @@ onMounted(() => {
                   class="cal-day-header"
                   :class="{ today: isToday(day), weekend: isWeekend(day) }"
                 >
-                  <span class="cal-day-name">{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i] }}</span>
+                  <span class="cal-day-name">{{ [t('schedule.mon'),t('schedule.tue'),t('schedule.wed'),t('schedule.thu'),t('schedule.fri'),t('schedule.sat'),t('schedule.sun')][i] }}</span>
                   <span class="cal-day-num tnum" :class="{ today: isToday(day) }">{{ day.getDate() }}</span>
                 </div>
               </div>

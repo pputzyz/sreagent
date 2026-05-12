@@ -36,9 +36,9 @@ const mediaList = shallowRef<NotifyMedia[]>([])
 const templateList = shallowRef<MessageTemplate[]>([])
 
 const severityOptions = [
-  { label: 'Critical', value: 'critical' },
-  { label: 'Warning', value: 'warning' },
-  { label: 'Info', value: 'info' },
+  { label: () => t('alert.critical'), value: 'critical' },
+  { label: () => t('alert.warning'), value: 'warning' },
+  { label: () => t('alert.info'), value: 'info' },
 ]
 
 const statusOptions = computed(() => [
@@ -62,7 +62,7 @@ const mediaOptions = computed(() =>
   mediaList.value.map((m) => ({ label: m.name, value: m.id })),
 )
 const templateOptions = computed(() => [
-  { label: t('common.noData') + ' (默认)', value: null as any },
+  { label: t('alertChannel.defaultTemplate'), value: null as any },
   ...templateList.value.map((tp) => ({ label: tp.name, value: tp.id })),
 ])
 
@@ -353,7 +353,7 @@ onMounted(() => {
           </div>
 
           <div class="ac-line">
-            <span class="ac-line-label">Match</span>
+            <span class="ac-line-label">{{ t('alertChannel.match') }}</span>
             <div v-if="labelEntries(row.match_labels).length" class="ac-match">
               <span
                 v-for="[k, v] in labelEntries(row.match_labels)"
@@ -365,7 +365,7 @@ onMounted(() => {
 
             <template v-if="severityBadges(row.severities).length">
               <span class="sre-meta-divider">·</span>
-              <span class="ac-line-label">Severity</span>
+              <span class="ac-line-label">{{ t('alertChannel.severityLabel') }}</span>
               <div class="ac-match">
                 <span
                   v-for="s in severityBadges(row.severities)"
@@ -378,7 +378,7 @@ onMounted(() => {
           </div>
 
           <div class="ac-line">
-            <span class="ac-line-label">Webhook</span>
+            <span class="ac-line-label">{{ t('alertChannel.webhookLabel') }}</span>
             <span class="ac-webhook">{{ mediaName(row.media_id) }}</span>
             <template v-if="mediaWebhookHint(row.media_id)">
               <span class="sre-meta-divider">·</span>
@@ -397,8 +397,8 @@ onMounted(() => {
           </div>
 
           <div class="ac-line ac-line-meta">
-            <span class="ac-line-label">Throttle</span>
-            <span class="tnum">{{ row.throttle_min }} min</span>
+            <span class="ac-line-label">{{ t('alertChannel.throttleLabel') }}</span>
+            <span class="tnum">{{ row.throttle_min }} {{ t('alertChannel.throttleUnit') }}</span>
             <template v-if="row.template_id">
               <span class="sre-meta-divider">·</span>
               <span>{{ t('alertChannel.template') }}: {{ templateList.find(tp => tp.id === row.template_id)?.name || '#' + row.template_id }}</span>

@@ -1,10 +1,12 @@
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { aiChatApi } from '@/api'
 import type { ChatMessage } from '@/types'
 
 export type ChatMode = 'alert' | 'general' | 'pet'
 
 export function useAIChat() {
+  const { t } = useI18n()
   const messages = ref<ChatMessage[]>([])
   const loading = ref(false)
   const mode = ref<ChatMode>('general')
@@ -34,7 +36,7 @@ export function useAIChat() {
         created_at: new Date().toISOString(),
       })
     } catch (e: any) {
-      error.value = e?.message || '发送失败'
+      error.value = e?.message || t('ai.sendFailed')
       lastFailedInput.value = text
       const lastMsg = messages.value[messages.value.length - 1]
       if (lastMsg && lastMsg.role === 'user') {

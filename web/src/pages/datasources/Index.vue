@@ -59,10 +59,10 @@ const defaultForm = {
 const form = reactive({ ...defaultForm })
 
 const typeOptions = [
-  { label: 'Prometheus', value: 'prometheus' },
-  { label: 'VictoriaMetrics', value: 'victoriametrics' },
-  { label: 'VictoriaLogs', value: 'victorialogs' },
-  { label: 'Zabbix', value: 'zabbix' },
+  { label: () => t('datasource.typePrometheus'), value: 'prometheus' },
+  { label: () => t('datasource.typeVictoriaMetrics'), value: 'victoriametrics' },
+  { label: () => t('datasource.typeVictoriaLogs'), value: 'victorialogs' },
+  { label: () => t('datasource.typeZabbix'), value: 'zabbix' },
 ]
 
 const authTypeOptions = [
@@ -226,14 +226,14 @@ function healthLabel(ds: DSCard) {
   if (ds.status === 'unhealthy') return t('datasource.unhealthy')
   return t('datasource.unknown')
 }
-function typeLabel(t: string) {
+function typeLabel(type: string) {
   const m: Record<string, string> = {
-    prometheus: 'Prometheus',
-    victoriametrics: 'VictoriaMetrics',
-    victorialogs: 'VictoriaLogs',
-    zabbix: 'Zabbix',
+    prometheus: t('datasource.typePrometheus'),
+    victoriametrics: t('datasource.typeVictoriaMetrics'),
+    victorialogs: t('datasource.typeVictoriaLogs'),
+    zabbix: t('datasource.typeZabbix'),
   }
-  return m[t] || t
+  return m[type] || type
 }
 function relTime(iso?: string) {
   if (!iso) return '—'
@@ -270,12 +270,12 @@ onMounted(fetchList)
     <div class="ds-toolbar">
       <NRadioGroup v-model:value="typeFilter" size="small">
         <NRadioButton value="all">{{ t('common.all') }}</NRadioButton>
-        <NRadioButton value="prometheus">Prometheus</NRadioButton>
-        <NRadioButton value="victoriametrics">VictoriaMetrics</NRadioButton>
-        <NRadioButton value="victorialogs">VictoriaLogs</NRadioButton>
-        <NRadioButton value="zabbix">Zabbix</NRadioButton>
+        <NRadioButton value="prometheus">{{ t('datasource.typePrometheus') }}</NRadioButton>
+        <NRadioButton value="victoriametrics">{{ t('datasource.typeVictoriaMetrics') }}</NRadioButton>
+        <NRadioButton value="victorialogs">{{ t('datasource.typeVictoriaLogs') }}</NRadioButton>
+        <NRadioButton value="zabbix">{{ t('datasource.typeZabbix') }}</NRadioButton>
       </NRadioGroup>
-      <NInput v-model:value="search" :placeholder="t('common.search') || 'Search'" clearable size="small" class="ds-search">
+      <NInput v-model:value="search" :placeholder="t('common.search')" clearable size="small" class="ds-search">
         <template #prefix><NIcon :component="SearchOutline" /></template>
       </NInput>
     </div>

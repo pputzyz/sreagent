@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { NDataTable } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import type { QueryTarget } from '@/types/query'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   targets: QueryTarget[]
@@ -19,9 +22,9 @@ function formatTimestamp(ts: number): string {
 }
 
 const columns = [
-  { title: 'Labels', key: 'labels', ellipsis: { tooltip: true } },
-  { title: 'Value', key: 'value', width: 200 },
-  { title: 'Timestamp', key: 'timestamp', width: 200 },
+  { title: t('query.labelsHeader'), key: 'labels', ellipsis: { tooltip: true } },
+  { title: t('query.value'), key: 'value', width: 200 },
+  { title: t('query.timestamp'), key: 'timestamp', width: 200 },
 ]
 
 const tableData = computed<TableRow[]>(() => {

@@ -330,7 +330,7 @@ onMounted(fetchRules)
         </NButton>
         <NButton type="primary" @click="openCreate">
           <template #icon><NIcon :component="AddOutline" /></template>
-          {{ t('mute.create') || 'New Rule' }}
+          {{ t('mute.create') }}
         </NButton>
       </template>
     </PageHeader>
@@ -339,8 +339,8 @@ onMounted(fetchRules)
       <NRadioGroup v-model:value="statusFilter" size="small">
         <NRadioButton value="all">{{ t('common.all') }}</NRadioButton>
         <NRadioButton value="active">{{ t('common.active') }}</NRadioButton>
-        <NRadioButton value="future">{{ t('mute.schedule') || 'Scheduled' }}</NRadioButton>
-        <NRadioButton value="expired">{{ t('common.expired') || 'Expired' }}</NRadioButton>
+        <NRadioButton value="future">{{ t('mute.schedule') }}</NRadioButton>
+        <NRadioButton value="expired">{{ t('common.expired') }}</NRadioButton>
         <NRadioButton value="disabled">{{ t('common.disabled') }}</NRadioButton>
       </NRadioGroup>
       <div class="mute-filters">
@@ -355,9 +355,9 @@ onMounted(fetchRules)
     <EmptyState
       v-else-if="!loading && filteredRules.length === 0"
       :icon="AddOutline"
-      :title="t('mute.noData') || 'No mute rules'"
-      :description="t('mute.subtitle') || 'Suppress alert notifications during specific time windows'"
-      :primary-text="t('mute.createFirst') || 'Create your first rule'"
+      :title="t('mute.noData')"
+      :description="t('mute.subtitle')"
+      :primary-text="t('mute.createFirst')"
       @primary="openCreate"
     />
     <NSpin v-else :show="loading">

@@ -173,8 +173,8 @@ onMounted(load)
               </div>
               <div v-else class="chart-empty text-muted">{{ t('dashboard.noData') }}</div>
               <div v-if="incidentTrend.length" class="trend-legend">
-                <span class="legend-dot legend-dot--triggered" /> {{ t('dashboardV2.triggered') || 'Triggered' }}
-                <span class="legend-dot legend-dot--closed" /> {{ t('dashboardV2.closed') || 'Closed' }}
+                <span class="legend-dot legend-dot--triggered" /> {{ t('dashboardV2.triggered') }}
+                <span class="legend-dot legend-dot--closed" /> {{ t('dashboardV2.closed') }}
               </div>
             </div>
           </div>

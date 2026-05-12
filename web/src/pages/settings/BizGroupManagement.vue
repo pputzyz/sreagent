@@ -356,16 +356,16 @@ onMounted(fetchList)
   <div class="bg-page sre-stagger">
     <header class="page-header">
       <div>
-        <h2 class="page-title">Business Groups</h2>
+        <h2 class="page-title">{{ t('bizGroup.bizGroupsTitle') }}</h2>
         <p class="page-subtitle">
-          Hierarchical organization for permission scope and notification routing
+          {{ t('bizGroup.bizGroupsSubtitle') }}
           <span class="sre-meta-divider" />
-          <span class="tnum">{{ totalGroups }}</span> groups
+          <span class="tnum">{{ totalGroups }}</span> {{ t('bizGroup.groupsCount') }}
         </p>
       </div>
       <NButton type="primary" size="small" @click="openCreate">
         <template #icon><NIcon :component="AddOutline" /></template>
-        New Group
+        {{ t('bizGroup.newGroup') }}
       </NButton>
     </header>
 
@@ -373,7 +373,7 @@ onMounted(fetchList)
       <!-- Tree -->
       <aside class="bg-tree sre-lift">
         <div class="bg-tree-head">
-          <span class="sre-label-eyebrow">Hierarchy</span>
+          <span class="sre-label-eyebrow">{{ t('bizGroup.hierarchy') }}</span>
         </div>
         <NSpin :show="loading">
           <div v-if="tree.length === 0 && !loading" class="bg-tree-empty">
@@ -400,7 +400,7 @@ onMounted(fetchList)
         <div v-if="!selected" class="bg-empty sre-lift">
           <NIcon :component="FolderOutline" :size="36" />
           <p class="bg-empty-title">{{ t('bizGroup.selectGroup') }}</p>
-          <p class="bg-empty-sub">Pick a group from the tree to manage its members and metadata.</p>
+          <p class="bg-empty-sub">{{ t('bizGroup.pickGroupHint') }}</p>
         </div>
 
         <template v-else>
@@ -430,19 +430,19 @@ onMounted(fetchList)
 
             <dl class="bg-meta">
               <div class="bg-meta-cell">
-                <dt class="sre-label-eyebrow">Parent</dt>
+                <dt class="sre-label-eyebrow">{{ t('bizGroup.parent') }}</dt>
                 <dd>{{ selectedParent || '—' }}</dd>
               </div>
               <div class="bg-meta-cell">
-                <dt class="sre-label-eyebrow">Path</dt>
+                <dt class="sre-label-eyebrow">{{ t('bizGroup.path') }}</dt>
                 <dd class="mono">/{{ selected.name }}</dd>
               </div>
               <div class="bg-meta-cell">
-                <dt class="sre-label-eyebrow">Children</dt>
+                <dt class="sre-label-eyebrow">{{ t('bizGroup.children') }}</dt>
                 <dd class="tnum">{{ selectedDescendants }}</dd>
               </div>
               <div class="bg-meta-cell">
-                <dt class="sre-label-eyebrow">Created</dt>
+                <dt class="sre-label-eyebrow">{{ t('bizGroup.created') }}</dt>
                 <dd>{{ relTime(selected.created_at) }}</dd>
               </div>
             </dl>
@@ -452,11 +452,11 @@ onMounted(fetchList)
               class="bg-tags"
             >
               <div v-if="Object.keys(selected.labels || {}).length" class="bg-tags-row">
-                <span class="sre-label-eyebrow">Labels</span>
+                <span class="sre-label-eyebrow">{{ t('bizGroup.labels') }}</span>
                 <span v-for="(v, k) in selected.labels" :key="`l-${k}`" class="bg-chip">{{ k }}={{ v }}</span>
               </div>
               <div v-if="Object.keys(selected.match_labels || {}).length" class="bg-tags-row">
-                <span class="sre-label-eyebrow">Match</span>
+                <span class="sre-label-eyebrow">{{ t('bizGroup.match') }}</span>
                 <span v-for="(v, k) in selected.match_labels" :key="`m-${k}`" class="bg-chip bg-chip-info">
                   {{ k }}{{ (v.startsWith('!=') || v.startsWith('=~') || v.startsWith('!~')) ? v : '=' + v }}
                 </span>
@@ -468,7 +468,7 @@ onMounted(fetchList)
             <div class="bg-section-head">
               <div class="bg-section-title">
                 <NIcon :component="PeopleOutline" :size="14" />
-                <span class="sre-label-eyebrow">Members</span>
+                <span class="sre-label-eyebrow">{{ t('bizGroup.members') }}</span>
                 <span class="bg-count tnum">{{ members.length }}</span>
               </div>
               <NButton size="small" type="primary" tertiary @click="openAddMember">
@@ -512,7 +512,7 @@ onMounted(fetchList)
     <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 520px" :bordered="false">
       <NForm label-placement="top">
         <NFormItem :label="t('common.name')" required>
-          <NInput v-model:value="form.name" placeholder="e.g. infrastructure/database" />
+          <NInput v-model:value="form.name" :placeholder="t('bizGroup.namePlaceholder')" />
           <template #feedback>
             <span class="bg-hint">{{ t('bizGroup.nameHint') }}</span>
           </template>

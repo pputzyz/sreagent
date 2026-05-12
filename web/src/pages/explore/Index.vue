@@ -608,13 +608,13 @@ onUnmounted(() => {
       <div v-if="selectedDsId != null" class="query-actions-row">
         <NSpace :size="8" align="center">
           <template v-if="!isLogs">
-            <span class="field-label">Step</span>
+            <span class="field-label">{{ t('query.step') }}</span>
             <NSelect v-model:value="stepValue" :options="stepOptions" size="small" class="control-select-sm" />
-            <span class="field-label">Limit</span>
+            <span class="field-label">{{ t('query.limit') }}</span>
             <NSelect v-model:value="metricLimit" :options="metricLimitOptions" size="small" class="control-select-sm" />
           </template>
           <template v-else>
-            <span class="field-label">Limit</span>
+            <span class="field-label">{{ t('query.limit') }}</span>
             <NSelect v-model:value="logLimit" :options="logLimitOptions" size="small" class="control-select-sm" />
           </template>
         </NSpace>

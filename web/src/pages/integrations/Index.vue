@@ -29,9 +29,9 @@ const filterMode = ref<'all' | 'exclusive' | 'shared'>('all')
 
 const typeFilterOptions = computed(() => [
   { label: t('common.all'), value: 'all' },
-  { label: 'Standard', value: 'standard' },
-  { label: 'AlertManager', value: 'alertmanager' },
-  { label: 'Grafana', value: 'grafana' },
+  { label: t('integration.typeStandard'), value: 'standard' },
+  { label: t('integration.typeAlertManager'), value: 'alertmanager' },
+  { label: t('integration.typeGrafana'), value: 'grafana' },
 ])
 const modeFilterOptions = computed(() => [
   { label: t('common.all'), value: 'all' },
@@ -65,9 +65,9 @@ const defaultForm = () => ({
 const form = ref(defaultForm())
 
 const typeOptions = computed(() => [
-  { label: 'Standard', value: 'standard' },
-  { label: 'AlertManager', value: 'alertmanager' },
-  { label: 'Grafana', value: 'grafana' },
+  { label: t('integration.typeStandard'), value: 'standard' },
+  { label: t('integration.typeAlertManager'), value: 'alertmanager' },
+  { label: t('integration.typeGrafana'), value: 'grafana' },
 ])
 const modeOptions = computed(() => [
   { label: t('integration.modeExclusive'), value: 'exclusive' },
@@ -110,9 +110,9 @@ function copyWebhook(integ: any) {
 }
 
 function typeLabel(type: string) {
-  if (type === 'alertmanager') return 'AlertManager'
-  if (type === 'grafana') return 'Grafana'
-  return 'Standard'
+  if (type === 'alertmanager') return t('integration.typeAlertManager')
+  if (type === 'grafana') return t('integration.typeGrafana')
+  return t('integration.typeStandard')
 }
 
 function formatNumber(n: number | null | undefined): string {

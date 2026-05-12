@@ -226,7 +226,7 @@ const severityChartOption = computed(() => {
       itemStyle: { borderColor: 'transparent', borderWidth: 3 },
       label: {
         show: true, position: 'center' as const,
-        formatter: () => `{n|${total}}\n{l|Active}`,
+        formatter: () => `{n|${total}}\n{l|${t('dashboard.active')}}`,
         rich: {
           n: { fontSize: 24, fontWeight: 600, color: cp.value.pieCenter, ...chartFont },
           l: { fontSize: 10, color: cp.value.pieMuted, letterSpacing: 1, padding: [4, 0, 0, 0] },
@@ -327,7 +327,7 @@ onMounted(refresh)
       <!-- Top Noisy Rules -->
       <div class="chart-card surface-clay">
         <div class="chart-card__header">
-          <span class="chart-card__title">Top Noisy Rules</span>
+          <span class="chart-card__title">{{ t('dashboard.topNoisyRules') }}</span>
         </div>
         <div class="chart-card__body">
           <div v-if="!topRules.length" class="chart-empty text-muted">{{ t('dashboard.noData') }}</div>

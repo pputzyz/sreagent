@@ -66,9 +66,9 @@ const channelOptions = computed(() => [
 ])
 
 const severityOptions = [
-  { label: 'Critical', value: 'critical' },
-  { label: 'Warning', value: 'warning' },
-  { label: 'Info', value: 'info' },
+  { label: () => t('alert.critical'), value: 'critical' },
+  { label: () => t('alert.warning'), value: 'warning' },
+  { label: () => t('alert.info'), value: 'info' },
 ]
 
 function goDetail(a: AlertV2) {

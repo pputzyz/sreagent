@@ -1,0 +1,13 @@
+CREATE TABLE status_services (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    deleted_at DATETIME(3) NULL,
+    name VARCHAR(128) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'operational',
+    description VARCHAR(512) NOT NULL DEFAULT '',
+    url VARCHAR(512) NOT NULL DEFAULT '',
+    icon VARCHAR(64) NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    INDEX idx_status_services_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

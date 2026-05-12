@@ -3,13 +3,13 @@
     <div v-for="(item, idx) in modelValue" :key="idx" class="kv-row">
       <n-input
         v-model:value="item.key"
-        :placeholder="keyPlaceholder"
+        :placeholder="resolvedKeyPlaceholder"
         size="small"
         @update:value="emitUpdate"
       />
       <n-input
         v-model:value="item.value"
-        :placeholder="valuePlaceholder"
+        :placeholder="resolvedValuePlaceholder"
         size="small"
         @update:value="emitUpdate"
       />
@@ -19,14 +19,18 @@
     </div>
     <n-button dashed size="small" @click="addItem">
       <template #icon><n-icon :component="AddOutline" /></template>
-      {{ addLabel }}
+      {{ resolvedAddLabel }}
     </n-button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { NInput, NButton, NIcon } from 'naive-ui'
 import { AddOutline, CloseOutline } from '@vicons/ionicons5'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export interface KVItem {
   key: string
@@ -39,10 +43,14 @@ const props = withDefaults(defineProps<{
   valuePlaceholder?: string
   addLabel?: string
 }>(), {
-  keyPlaceholder: 'Key',
-  valuePlaceholder: 'Value',
-  addLabel: 'Add',
+  keyPlaceholder: '',
+  valuePlaceholder: '',
+  addLabel: '',
 })
+
+const resolvedKeyPlaceholder = computed(() => props.keyPlaceholder || t('common.key'))
+const resolvedValuePlaceholder = computed(() => props.valuePlaceholder || t('common.value'))
+const resolvedAddLabel = computed(() => props.addLabel || t('common.add'))
 
 const emit = defineEmits<{
   'update:modelValue': [value: KVItem[]]

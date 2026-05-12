@@ -1,14 +1,39 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NGrid, NGi, NCard, NSpin } from 'naive-ui'
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server } from 'lucide-vue-next'
+import { statusServiceApi, type StatusServiceItem } from '@/api'
 
 const { t } = useI18n()
 const message = useMessage()
 
 const email = ref('')
 const submitting = ref(false)
+const services = ref<StatusServiceItem[]>([])
+const loading = ref(true)
+
+const iconMap: Record<string, any> = { Server, Globe, Layers, Activity, Zap, Shield, AlertCircle, Clock }
+
+const features = [
+  { title: 'statusPageModule.feature1Title', desc: 'statusPageModule.feature1Desc', icon: Activity },
+  { title: 'statusPageModule.feature2Title', desc: 'statusPageModule.feature2Desc', icon: Globe },
+  { title: 'statusPageModule.feature3Title', desc: 'statusPageModule.feature3Desc', icon: Bell },
+  { title: 'statusPageModule.feature4Title', desc: 'statusPageModule.feature4Desc', icon: Shield },
+]
+
+onMounted(async () => {
+  try {
+    const res = await statusServiceApi.list()
+    services.value = res.data.data || []
+  } catch {
+    // fallback to empty
+  } finally {
+    loading.value = false
+  }
+})
+
+const allOperational = computed(() => services.value.length > 0 && services.value.every(s => s.status === 'operational'))
 
 function handleNotify() {
   if (!email.value || !email.value.includes('@')) {
@@ -23,37 +48,28 @@ function handleNotify() {
   }, 800)
 }
 
-const mockServices = [
-  { name: 'statusPageModule.apiGateway', status: 'operational', icon: Server, uptime: '99.99%' },
-  { name: 'statusPageModule.webApp', status: 'operational', icon: Globe, uptime: '99.98%' },
-  { name: 'statusPageModule.database', status: 'operational', icon: Layers, uptime: '99.99%' },
-  { name: 'statusPageModule.monitoring', status: 'operational', icon: Activity, uptime: '100%' },
-  { name: 'statusPageModule.messageQueue', status: 'degraded', icon: Zap, uptime: '99.85%' },
-  { name: 'statusPageModule.cdn', status: 'operational', icon: Shield, uptime: '99.97%' },
-]
-
-const features = [
-  { title: 'statusPageModule.feature1Title', desc: 'statusPageModule.feature1Desc', icon: Activity },
-  { title: 'statusPageModule.feature2Title', desc: 'statusPageModule.feature2Desc', icon: Globe },
-  { title: 'statusPageModule.feature3Title', desc: 'statusPageModule.feature3Desc', icon: Bell },
-  { title: 'statusPageModule.feature4Title', desc: 'statusPageModule.feature4Desc', icon: Shield },
-]
+function getIcon(iconName: string) {
+  return iconMap[iconName] || Server
+}
 
 function statusColor(status: string) {
   if (status === 'operational') return 'var(--sre-success)'
   if (status === 'degraded') return 'var(--sre-warning)'
+  if (status === 'maintenance') return 'var(--sre-info)'
   return 'var(--sre-critical)'
 }
 
 function statusBg(status: string) {
   if (status === 'operational') return 'var(--sre-success-soft)'
   if (status === 'degraded') return 'var(--sre-warning-soft)'
+  if (status === 'maintenance') return 'var(--sre-info-soft)'
   return 'var(--sre-critical-soft)'
 }
 
 function statusLabel(status: string) {
   if (status === 'operational') return t('statusPageModule.serviceOperational')
   if (status === 'degraded') return t('statusPageModule.serviceDegraded')
+  if (status === 'maintenance') return t('statusPageModule.serviceMaintenance') || 'Maintenance'
   return t('statusPageModule.serviceOutage')
 }
 </script>
@@ -71,42 +87,46 @@ function statusLabel(status: string) {
 
     <!-- Preview: Service Status Cards -->
     <div class="status-preview-section">
-      <div class="status-preview-header">
-        <div class="status-preview-title-row">
-          <span class="eyebrow">{{ t('statusPageModule.previewTitle') }}</span>
-          <div class="status-all-ok">
-            <CheckCircle :size="14" style="color: var(--sre-success);" />
-            <span>{{ t('statusPageModule.allSystemsOperational') }}</span>
+      <NSpin :show="loading">
+        <div class="status-preview-header">
+          <div class="status-preview-title-row">
+            <span class="eyebrow">{{ t('statusPageModule.previewTitle') }}</span>
+            <div v-if="allOperational" class="status-all-ok">
+              <CheckCircle :size="14" style="color: var(--sre-success);" />
+              <span>{{ t('statusPageModule.allSystemsOperational') }}</span>
+            </div>
+            <div v-else class="status-all-ok" style="color: var(--sre-warning);">
+              <AlertCircle :size="14" />
+              <span>{{ t('statusPageModule.partialOutage') || 'Some systems experiencing issues' }}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="status-services-grid stagger-card">
-        <div
-          v-for="svc in mockServices"
-          :key="svc.name"
-          class="status-service-card surface-card"
-        >
-          <div class="svc-icon" :style="{ background: statusBg(svc.status), color: statusColor(svc.status) }">
-            <component :is="svc.icon" :size="18" />
+        <div v-if="services.length > 0" class="status-services-grid stagger-card">
+          <div
+            v-for="svc in services"
+            :key="svc.id"
+            class="status-service-card surface-card"
+          >
+            <div class="svc-icon" :style="{ background: statusBg(svc.status), color: statusColor(svc.status) }">
+              <component :is="getIcon(svc.icon)" :size="18" />
+            </div>
+            <div class="svc-info">
+              <span class="svc-name">{{ svc.name }}</span>
+              <span v-if="svc.description" class="svc-desc">{{ svc.description }}</span>
+              <span class="svc-status" :style="{ color: statusColor(svc.status) }">
+                <span class="svc-dot" :style="{ background: statusColor(svc.status) }" />
+                {{ statusLabel(svc.status) }}
+              </span>
+            </div>
           </div>
-          <div class="svc-info">
-            <span class="svc-name">{{ t(svc.name) }}</span>
-            <span class="svc-status" :style="{ color: statusColor(svc.status) }">
-              <span class="svc-dot" :style="{ background: statusColor(svc.status) }" />
-              {{ statusLabel(svc.status) }}
-            </span>
-          </div>
-          <span class="svc-uptime number-display">{{ svc.uptime }}</span>
         </div>
-      </div>
 
-      <div class="status-meta-row">
-        <span class="text-caption text-tertiary">
-          <Clock :size="12" style="vertical-align: -2px; margin-right: 4px;" />
-          {{ t('statusPageModule.lastUpdated') }}: 2 min ago
-        </span>
-      </div>
+        <div v-else-if="!loading" class="status-empty">
+          <Server :size="32" style="color: var(--sre-text-tertiary); margin-bottom: 8px;" />
+          <span style="color: var(--sre-text-tertiary); font-size: 13px;">{{ t('statusPageModule.noServices') || 'No services configured yet' }}</span>
+        </div>
+      </NSpin>
     </div>
 
     <!-- Notify CTA -->
@@ -246,6 +266,15 @@ function statusLabel(status: string) {
   color: var(--sre-text-primary);
 }
 
+.svc-desc {
+  font-size: var(--sre-fs-xs);
+  color: var(--sre-text-tertiary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .svc-status {
   display: flex;
   align-items: center;
@@ -261,11 +290,12 @@ function statusLabel(status: string) {
   flex-shrink: 0;
 }
 
-.svc-uptime {
-  font-size: var(--sre-fs-sm);
-  font-weight: var(--sre-fw-semibold);
-  color: var(--sre-text-secondary);
-  flex-shrink: 0;
+.status-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
 }
 
 .status-meta-row {

@@ -117,7 +117,7 @@ function timelineDotSeverity(action: string): string {
 }
 
 // ── Copy ──
-function copyText(value: string, hint = 'copied') {
+function copyText(value: string, hint = t('common.copied')) {
   navigator.clipboard.writeText(value).then(() => message.success(hint))
 }
 
@@ -291,7 +291,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
         <div class="evt-header-actions">
           <n-button quaternary size="small" @click="refreshAll">
             <template #icon><n-icon :component="RefreshOutline" /></template>
-            {{ t('common.refresh') || 'Refresh' }}
+            {{ t('common.refresh') }}
           </n-button>
           <n-button v-if="event.rule_id" quaternary size="small" @click="gotoRule">
             <template #icon><n-icon :component="OpenOutline" /></template>
@@ -336,9 +336,9 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
       <main class="evt-main">
         <n-tabs v-model:value="activeTab" type="line" animated size="medium">
           <!-- Overview -->
-          <n-tab-pane name="overview" :tab="t('alert.overview') || 'Overview'">
+          <n-tab-pane name="overview" :tab="t('alert.overview')">
             <section class="evt-section">
-              <div class="sre-label-eyebrow">{{ t('alert.summary') || 'Summary' }}</div>
+              <div class="sre-label-eyebrow">{{ t('alert.summary') }}</div>
               <div class="evt-summary">
                 <template v-if="event.annotations?.summary || event.annotations?.description">
                   <p v-if="event.annotations.summary" class="evt-summary-text">{{ event.annotations.summary }}</p>
@@ -382,7 +382,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
                   <div class="evt-rule-name">{{ event.rule.name }}</div>
                   <n-button quaternary size="tiny" @click="gotoRule">
                     <template #icon><n-icon :component="OpenOutline" /></template>
-                    {{ t('common.open') || 'Open' }}
+                    {{ t('common.open') }}
                   </n-button>
                 </div>
                 <pre v-if="event.rule.expression" class="evt-rule-expr">{{ event.rule.expression }}</pre>
@@ -468,10 +468,10 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
               <div class="evt-ai-head">
                 <div class="sre-label-eyebrow">
                   <n-icon :component="BookOutline" :size="12" />
-                  {{ t('alert.aiSuggestSOP') || 'SOP' }}
+                  {{ t('alert.aiSuggestSOP') }}
                 </div>
                 <n-button quaternary size="tiny" @click="generateSOP">
-                  {{ sopReport ? t('alert.regenerateReport') : (t('alert.aiSuggestSOP') || 'Suggest SOP') }}
+                  {{ sopReport ? t('alert.regenerateReport') : t('alert.aiSuggestSOP') }}
                 </n-button>
               </div>
               <n-spin :show="sopLoading">
@@ -480,7 +480,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
                   <h4 class="evt-sop-title">{{ sopReport.title }}</h4>
                   <ol v-if="sopReport.steps?.length"><li v-for="(s, i) in sopReport.steps" :key="i">{{ s }}</li></ol>
                   <div v-if="sopReport.references?.length" class="evt-ai-block">
-                    <div class="sre-label-eyebrow">{{ t('alert.references') || 'References' }}</div>
+                    <div class="sre-label-eyebrow">{{ t('alert.references') }}</div>
                     <ul><li v-for="(r, i) in sopReport.references" :key="i">{{ r }}</li></ul>
                   </div>
                 </div>
@@ -494,7 +494,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
       <aside class="evt-aside">
         <!-- Key Info -->
         <div class="evt-aside-card">
-          <div class="sre-label-eyebrow">{{ t('alert.keyInfo') || 'Key Info' }}</div>
+          <div class="sre-label-eyebrow">{{ t('alert.keyInfo') }}</div>
           <dl class="evt-meta">
             <div class="evt-meta-row">
               <dt>{{ t('alert.severity') }}</dt>
@@ -541,7 +541,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 
         <!-- Responders -->
         <div class="evt-aside-card" v-if="event.acked_by_user || event.assigned_to_user || event.oncall_user">
-          <div class="sre-label-eyebrow">{{ t('common.responders') || 'Responders' }}</div>
+          <div class="sre-label-eyebrow">{{ t('common.responders') }}</div>
           <ul class="evt-responders">
             <li v-if="event.acked_by_user">
               <span class="evt-resp-avatar">{{ (event.acked_by_user.display_name || '?').charAt(0).toUpperCase() }}</span>
@@ -585,19 +585,19 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
 
         <!-- Related -->
         <div class="evt-aside-card">
-          <div class="sre-label-eyebrow">{{ t('alert.related') || 'Related' }}</div>
+          <div class="sre-label-eyebrow">{{ t('alert.related') }}</div>
           <ul class="evt-related">
             <li v-if="event.rule_id">
               <span>{{ t('alert.rule') }}</span>
               <a class="evt-link" @click="gotoRule">{{ event.rule?.name || `#${event.rule_id}` }}</a>
             </li>
             <li v-if="event.generator_url">
-              <span>{{ t('alert.source') || 'Source' }}</span>
+              <span>{{ t('alert.source') }}</span>
               <a class="evt-link" :href="event.generator_url" target="_blank" rel="noopener">↗ View</a>
             </li>
             <li>
-              <span>{{ t('alert.fingerprint') || 'Fingerprint' }}</span>
-              <code class="evt-fp" @click="copyText(event.fingerprint, 'fingerprint copied')">
+              <span>{{ t('alert.fingerprint') }}</span>
+              <code class="evt-fp" @click="copyText(event.fingerprint, t('alert.fingerprintCopied'))">
                 {{ event.fingerprint.slice(0, 12) }}…
                 <n-icon :component="CopyOutline" :size="10" />
               </code>

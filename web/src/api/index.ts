@@ -965,3 +965,33 @@ export const alertV2Api = {
   listEvents: (id: number, params?: { page?: number; page_size?: number }) =>
     request.get<ApiResponse<PageData<AlertEventV2>>>(`/alerts/${id}/events`, { params }),
 }
+
+// ===== Status Service API =====
+export interface StatusServiceItem {
+  id: number
+  name: string
+  status: 'operational' | 'degraded' | 'outage' | 'maintenance'
+  description: string
+  url: string
+  icon: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export const statusServiceApi = {
+  list: () =>
+    request.get<ApiResponse<StatusServiceItem[]>>('/status-services'),
+
+  get: (id: number) =>
+    request.get<ApiResponse<StatusServiceItem>>(`/status-services/${id}`),
+
+  create: (data: { name: string; status: string; description?: string; url?: string; icon?: string; sort_order?: number }) =>
+    request.post<ApiResponse<StatusServiceItem>>('/status-services', data),
+
+  update: (id: number, data: { name?: string; status?: string; description?: string; url?: string; icon?: string; sort_order?: number }) =>
+    request.put<ApiResponse<StatusServiceItem>>(`/status-services/${id}`, data),
+
+  delete: (id: number) =>
+    request.delete<ApiResponse<null>>(`/status-services/${id}`),
+}

@@ -7,8 +7,11 @@ import { LineChart, BarChart, PieChart, GaugeChart } from 'echarts/charts'
 import { TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { datasourceApi } from '@/api'
+import { useI18n } from 'vue-i18n'
 import type { PanelConfig, PanelTarget } from '@/types/dashboard'
 import type { QueryResponse } from '@/types'
+
+const { t } = useI18n()
 
 use([CanvasRenderer, LineChart, BarChart, PieChart, GaugeChart, TooltipComponent, LegendComponent, GridComponent])
 
@@ -68,7 +71,7 @@ async function fetchData() {
     resultType.value = type
     series.value = allSeries
   } catch (err: any) {
-    error.value = err?.response?.data?.message || err?.message || 'Query failed'
+    error.value = err?.response?.data?.message || err?.message || t('query.queryFailed')
   } finally {
     loading.value = false
   }
@@ -234,7 +237,7 @@ const tableColumns = computed(() => {
     ellipsis: { tooltip: true },
     render(row: any) { return row.labels?.[k] || '-' },
   }))
-  cols.push({ title: 'Value', key: 'value', width: 120, render(row: any) { return row.value?.toFixed(4) || '-' } })
+  cols.push({ title: t('query.value'), key: 'value', width: 120, render(row: any) { return row.value?.toFixed(4) || '-' } })
   return cols
 })
 
@@ -250,7 +253,7 @@ onMounted(fetchData)
 <template>
   <div class="panel-card">
     <div class="panel-card-header">
-      <span class="panel-title">{{ panel.title || 'Panel' }}</span>
+      <span class="panel-title">{{ panel.title || t('query.panel') }}</span>
       <NSpinComponent v-if="loading" :size="14" />
       <span v-if="error" class="panel-error">{{ error }}</span>
     </div>
@@ -262,7 +265,7 @@ onMounted(fetchData)
         <NEmpty :description="error" size="small" />
       </template>
       <template v-else-if="!series.length">
-        <NEmpty description="No data" size="small" />
+        <NEmpty :description="t('query.noResults')" size="small" />
       </template>
 
       <!-- Timeseries -->

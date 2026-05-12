@@ -45,7 +45,7 @@ const userMgmtRef = ref<InstanceType<typeof UserManagement> | null>(null)
 
 const navGroups = shallowRef<SettingsNavGroup[]>([
   {
-    label: 'PLATFORM',
+    label: t('settings.groupPlatform'),
     items: [
       {
         key: 'ai',
@@ -53,7 +53,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.aiConfig'),
         icon: markRaw(HardwareChipOutline),
         component: markRaw(AIConfig),
-        desc: 'Configure language model providers and credentials',
+        desc: t('settings.descAiConfig'),
       },
       {
         key: 'larkbot',
@@ -61,7 +61,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.larkBot'),
         icon: markRaw(ChatbubblesOutline),
         component: markRaw(LarkBotConfig),
-        desc: 'Lark bot integration and webhook callbacks',
+        desc: t('settings.descLarkBot'),
       },
       {
         key: 'smtp',
@@ -69,7 +69,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.smtpConfig'),
         icon: markRaw(MailOutline),
         component: markRaw(SMTPConfig),
-        desc: 'Outbound email server settings',
+        desc: t('settings.descSmtp'),
       },
       {
         key: 'oidc',
@@ -77,7 +77,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.oidcConfig'),
         icon: markRaw(KeyOutline),
         component: markRaw(OIDCConfig),
-        desc: 'Single sign-on and identity provider',
+        desc: t('settings.descOidc'),
       },
       {
         key: 'security',
@@ -85,12 +85,12 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.securityConfig'),
         icon: markRaw(ShieldCheckmarkOutline),
         component: markRaw(SecurityConfig),
-        desc: 'JWT expiry, password policy and session controls',
+        desc: t('settings.descSecurity'),
       },
     ],
   },
   {
-    label: 'ORGANIZATION',
+    label: t('settings.groupOrganization'),
     items: [
       {
         key: 'users',
@@ -98,7 +98,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.userManagement'),
         icon: markRaw(PeopleOutline),
         component: markRaw(UserManagement),
-        desc: 'Manage platform users, roles and credentials',
+        desc: t('settings.descUserManagement'),
       },
       {
         key: 'teams',
@@ -106,7 +106,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.teamManagement'),
         icon: markRaw(BusinessOutline),
         component: markRaw(TeamManagement),
-        desc: 'Group users into teams for on-call rotation',
+        desc: t('settings.descTeamManagement'),
       },
       {
         key: 'bizgroups',
@@ -114,7 +114,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('bizGroup.title'),
         icon: markRaw(GridOutline),
         component: markRaw(BizGroupManagement),
-        desc: 'Business group scopes for alert rules',
+        desc: t('settings.descBizGroup'),
       },
       {
         key: 'virtual',
@@ -122,12 +122,12 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.virtualUsers'),
         icon: markRaw(PersonAddOutline),
         component: markRaw(VirtualUsers),
-        desc: 'External contacts that receive notifications',
+        desc: t('settings.descVirtualUsers'),
       },
     ],
   },
   {
-    label: 'AUDIT',
+    label: t('settings.groupAudit'),
     items: [
       {
         key: 'audit',
@@ -135,7 +135,7 @@ const navGroups = shallowRef<SettingsNavGroup[]>([
         title: t('settings.auditLog'),
         icon: markRaw(DocumentTextOutline),
         component: markRaw(AuditLog),
-        desc: 'Operational audit trail of administrative actions',
+        desc: t('settings.descAuditLog'),
       },
     ],
   },
