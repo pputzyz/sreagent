@@ -3,7 +3,7 @@ package model
 // Pet represents a user's virtual pet.
 type Pet struct {
 	BaseModel
-	UserID  uint   `json:"user_id" gorm:"uniqueIndex;not null"`
+	UserID  uint   `json:"user_id" gorm:"not null"`
 	Name    string `json:"name" gorm:"size:50;not null;default:'小狐'"`
 	Species string `json:"species" gorm:"size:20;not null;default:'fox'"`
 	Level   int    `json:"level" gorm:"not null;default:1"`
@@ -15,7 +15,7 @@ type Pet struct {
 // PetInteraction records a single interaction with a pet.
 type PetInteraction struct {
 	BaseModel
-	PetID uint   `json:"pet_id" gorm:"index;not null"`
+	PetID uint   `json:"pet_id" gorm:"not null"`
 	Type  string `json:"type" gorm:"size:20;not null"` // feed, play, chat, level_up
 	Value int    `json:"value" gorm:"not null;default:0"`
 }
