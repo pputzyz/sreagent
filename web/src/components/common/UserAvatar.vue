@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   src?: string
@@ -36,6 +36,9 @@ const initial = computed(() =>
   (props.name || 'U').charAt(0).toUpperCase()
 )
 
+const imgError = ref(false)
+watch(() => props.src, () => { imgError.value = false })
+
 // Preset SVG avatar IDs
 const presetAvatars: Record<string, string> = {
   'engineer': 'engineer',
@@ -61,11 +64,12 @@ const presetAvatars: Record<string, string> = {
   >
     <!-- Uploaded image -->
     <img
-      v-if="src"
+      v-if="src && !imgError"
       :src="src"
       :alt="name || 'Avatar'"
       class="user-avatar-img"
       loading="lazy"
+      @error="imgError = true"
     />
 
     <!-- Preset SVG avatars -->

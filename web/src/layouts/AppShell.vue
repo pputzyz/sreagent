@@ -102,7 +102,7 @@ function handleNavLeave() {
 
 const activeAppLabel = computed(() => {
   const labels: Record<string, string> = { oncall: t('rail.oncall'), alert: t('rail.alert'), platform: t('rail.platform') }
-  return labels[activeApp.value] || 'SREAgent'
+  return labels[activeApp.value] || 'Nexus'
 })
 
 // ===== Clock =====
@@ -153,8 +153,8 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       <div class="topbar-start">
         <!-- Logo -->
         <router-link to="/dashboard" class="topbar-logo">
-          <img src="/logo.svg" alt="SREAgent" class="logo-img" />
-          <span class="logo-label">SREAgent</span>
+          <img src="/logo.svg" alt="Nexus" class="logo-img" />
+          <span class="logo-label">Nexus</span>
         </router-link>
 
         <div class="topbar-sep" />
@@ -210,7 +210,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <!-- ===== Body ===== -->
     <div class="app-body">
       <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
-        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" @pet-chat="openPetChat" />
+        <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" />
         <AppSidebar
           :sections="menuSections"
           :active-key="activeMenuKey"
@@ -249,10 +249,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
     <!-- Floating Ask AI button -->
     <button class="float-ai-btn" @click="toggleAIChat()" :title="t('ai.askAI')">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(255,255,255,0.2)"/>
-        <path d="M8 9.5C8 8.67 8.67 8 9.5 8s1.5.67 1.5 1.5S10.33 11 9.5 11 8 10.33 8 9.5zm5 0c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S14.33 11 13.5 11 12 10.33 12 9.5zm-1 4.5h2c.55 0 1 .45 1 1v1c0 .55-.45 1-1 1h-2c-.55 0-1-.45-1-1v-1c0-.55.45-1 1-1z" fill="white"/>
-        <circle cx="12" cy="12" r="9.5" stroke="white" stroke-width="1.5" fill="none" opacity="0.5"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" fill="white"/>
+        <path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z" fill="white" opacity="0.7"/>
+        <path d="M5 13l.75 2.25L8 16l-2.25.75L5 19l-.75-2.25L2 16l2.25-.75L5 13z" fill="white" opacity="0.7"/>
       </svg>
       <span class="float-ai-label">{{ t('ai.askAI') }}</span>
     </button>

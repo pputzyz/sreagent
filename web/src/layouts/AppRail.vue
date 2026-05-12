@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { NTooltip, NPopover } from 'naive-ui'
 import { Zap, Bell, Settings, User, KeyRound, LogOut } from 'lucide-vue-next'
-import PetCorner from '@/components/pet/PetCorner.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -16,7 +15,6 @@ defineProps<{
 const emit = defineEmits<{
   switch: [app: AppKey]
   'change-password': []
-  'pet-chat': []
 }>()
 
 const router = useRouter()
@@ -105,11 +103,6 @@ function handleLogout() {
     <div class="rail-spacer" />
 
     <div class="rail-bottom">
-      <!-- Pet corner -->
-      <div class="rail-pet-enhanced">
-        <PetCorner @chat="emit('pet-chat')" />
-      </div>
-
       <!-- User avatar -->
       <n-popover
         trigger="click"
@@ -293,21 +286,6 @@ function handleLogout() {
 .rail-icon-btn[data-app="oncall"] .rail-dot   { background: var(--sre-brand-oncall); }
 .rail-icon-btn[data-app="alert"] .rail-dot    { background: var(--sre-brand-alert); }
 .rail-icon-btn[data-app="platform"] .rail-dot { background: var(--sre-brand-platform); }
-
-/* Enhanced pet corner */
-.rail-pet-enhanced :deep(.pet-corner) {
-  font-size: 48px;
-}
-
-.rail-pet-enhanced :deep(.pet-emoji) {
-  font-size: 48px;
-  animation: pet-float 3s ease-in-out infinite;
-}
-
-@keyframes pet-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
 
 /* Rail tooltip */
 .rail-tooltip-content {

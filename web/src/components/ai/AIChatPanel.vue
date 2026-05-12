@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import { NDrawer, NDrawerContent, NButton, NIcon, NInput, NPopconfirm } from 'naive-ui'
-import { TrashOutline, SendOutline, RefreshOutline } from '@vicons/ionicons5'
+import { Trash2, Send, RefreshCw, Sparkles } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAIChat } from '@/composables/useAIChat'
 import AIChatMessage from './AIChatMessage.vue'
@@ -79,8 +79,11 @@ onMounted(() => {
 <template>
   <n-drawer
     :show="show"
-    :width="400"
+    :width="420"
+    :min-width="320"
+    :max-width="800"
     placement="right"
+    resizable
     @update:show="handleClose"
   >
     <n-drawer-content :title="t('ai.chatTitle')" closable>
@@ -97,7 +100,7 @@ onMounted(() => {
                   :title="t('ai.clear')"
                 >
                   <template #icon>
-                    <n-icon :component="TrashOutline" />
+                    <n-icon :component="Trash2" />
                   </template>
                 </n-button>
               </template>
@@ -125,7 +128,7 @@ onMounted(() => {
           <span>{{ error }}</span>
           <n-button size="tiny" quaternary @click="handleRetry">
             <template #icon>
-              <n-icon :component="RefreshOutline" />
+              <n-icon :component="RefreshCw" />
             </template>
             {{ t('ai.retry') }}
           </n-button>
@@ -134,15 +137,11 @@ onMounted(() => {
         <div v-if="messages.length === 0 && !loading" class="chat-empty">
           <div class="chat-empty-icon">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="24" cy="24" r="20" fill="var(--sre-primary-soft)"/>
-              <circle cx="24" cy="24" r="16" fill="var(--sre-bg-elevated)" stroke="var(--sre-primary)" stroke-width="1.5"/>
-              <circle cx="18" cy="21" r="2.5" fill="var(--sre-primary)"/>
-              <circle cx="30" cy="21" r="2.5" fill="var(--sre-primary)"/>
-              <circle cx="19" cy="20" r="1" fill="white"/>
-              <circle cx="31" cy="20" r="1" fill="white"/>
-              <path d="M19 29 Q24 33 29 29" stroke="var(--sre-primary)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-              <circle cx="24" cy="10" r="3" fill="var(--sre-primary)" opacity="0.6"/>
-              <line x1="24" y1="7" x2="24" y2="4" stroke="var(--sre-primary)" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+              <rect x="4" y="4" width="40" height="40" rx="12" fill="var(--sre-primary-soft)" stroke="var(--sre-primary)" stroke-width="1.5"/>
+              <path d="M24 14l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="var(--sre-primary)" opacity="0.8"/>
+              <circle cx="16" cy="16" r="2" fill="var(--sre-primary)" opacity="0.4"/>
+              <circle cx="32" cy="14" r="1.5" fill="var(--sre-primary)" opacity="0.3"/>
+              <circle cx="34" cy="32" r="1.5" fill="var(--sre-primary)" opacity="0.3"/>
             </svg>
           </div>
           <div class="chat-empty-title">{{ t('ai.emptyTitle') }}</div>
@@ -168,7 +167,7 @@ onMounted(() => {
               v-model:value="inputText"
               type="textarea"
               :placeholder="t('ai.inputPlaceholder')"
-              :autosize="{ minRows: 2, maxRows: 5 }"
+              :autosize="{ minRows: 3, maxRows: 5 }"
               @keydown="handleKeydown"
               class="chat-input"
             />
@@ -181,7 +180,7 @@ onMounted(() => {
             class="chat-send-btn"
           >
             <template #icon>
-              <n-icon :component="SendOutline" />
+              <n-icon :component="Send" />
             </template>
           </n-button>
         </div>
@@ -362,27 +361,42 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   align-items: flex-end;
-  padding: 4px 0;
+  padding: 8px 0;
 }
 
 .chat-input-wrap {
   flex: 1;
   min-width: 0;
+  background: var(--sre-bg-elevated);
+  border: 1.5px solid var(--sre-border);
+  border-radius: var(--sre-radius-md);
+  transition: border-color var(--sre-duration-fast) var(--sre-ease-out);
+}
+
+.chat-input-wrap:focus-within {
+  border-color: var(--sre-primary);
+  box-shadow: 0 0 0 3px var(--sre-primary-soft);
 }
 
 .chat-input :deep(.n-input-wrapper) {
-  padding: 8px 12px;
+  padding: 10px 14px;
+  background: transparent !important;
 }
 
 .chat-input :deep(.n-input__textarea) {
-  min-height: 40px;
-  line-height: 1.5;
+  min-height: 52px;
+  line-height: 1.6;
+}
+
+.chat-input :deep(.n-input--textarea .n-input__border),
+.chat-input :deep(.n-input--textarea .n-input__state-border) {
+  display: none;
 }
 
 .chat-send-btn {
   flex-shrink: 0;
-  height: 40px;
-  width: 40px;
+  height: 44px;
+  width: 44px;
   padding: 0;
   display: flex;
   align-items: center;

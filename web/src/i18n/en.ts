@@ -177,7 +177,7 @@ export default {
     ssoLogin: 'Sign in with SSO',
     ssoLoginSuccess: 'SSO login successful',
     brand: {
-      control: 'SREAGENT',
+      control: 'NEXUS',
       tagline: 'All-in-one DevOps platform.',
       feature1: 'Full incident lifecycle management',
       feature2: 'Smart noise reduction — filter noise, focus on what matters',
@@ -1231,7 +1231,7 @@ export default {
     oidcProviderSection: 'Provider',
     oidcProviderDesc: 'Issuer discovery URL and OAuth2 client credentials registered with the IdP.',
     oidcClaimMapping: 'Claim Mapping',
-    oidcClaimMappingDesc: 'Map ID-token claims to user fields and translate provider roles into SREAgent roles.',
+    oidcClaimMappingDesc: 'Map ID-token claims to user fields and translate provider roles into Nexus roles.',
     oidcUsernameClaim: 'Username Claim',
     oidcUsernameClaimPlaceholder: 'preferred_username',
     oidcEmailClaim: 'Email Claim',

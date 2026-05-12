@@ -177,7 +177,7 @@ export default {
     ssoLogin: '使用 SSO 单点登录',
     ssoLoginSuccess: 'SSO 登录成功',
     brand: {
-      control: 'SREAGENT',
+      control: 'NEXUS',
       tagline: '一站式 DevOps 平台。',
       feature1: '事件全生命周期管理',
       feature2: '智能降噪 — 过滤噪音，聚焦关键告警',
@@ -1247,7 +1247,7 @@ export default {
     oidcProviderSection: '提供商',
     oidcProviderDesc: 'Issuer 发现 URL 和在 IdP 注册的 OAuth2 客户端凭据。',
     oidcClaimMapping: '声明映射',
-    oidcClaimMappingDesc: '将 ID Token 声明映射到用户字段，并将提供商角色转换为 SREAgent 角色。',
+    oidcClaimMappingDesc: '将 ID Token 声明映射到用户字段，并将提供商角色转换为 Nexus 角色。',
     oidcUsernameClaim: '用户名声明',
     oidcUsernameClaimPlaceholder: 'preferred_username',
     oidcEmailClaim: '邮箱声明',
