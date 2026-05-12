@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { NIcon, NTooltip, NPopover, NAvatar } from 'naive-ui'
-import { FlashOutline, AlertCircleOutline, SettingsOutline, PersonOutline, KeyOutline, LogOutOutline } from '@vicons/ionicons5'
+import { CallOutline, NotificationsOutline, SettingsOutline, PersonOutline, KeyOutline, LogOutOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import type { AppKey } from '@/composables/useAppNav'
@@ -25,14 +25,14 @@ const avatarError = ref(false)
 
 interface RailItem {
   key: AppKey
-  icon: typeof FlashOutline
+  icon: typeof CallOutline
   label: string
   desc: string
 }
 
 const topItems: RailItem[] = [
-  { key: 'oncall', icon: FlashOutline, label: 'On-Call', desc: t('rail.oncallDesc') },
-  { key: 'alert', icon: AlertCircleOutline, label: 'Alert', desc: t('rail.alertDesc') },
+  { key: 'oncall', icon: CallOutline, label: 'On-Call', desc: t('rail.oncallDesc') },
+  { key: 'alert', icon: NotificationsOutline, label: 'Alert', desc: t('rail.alertDesc') },
 ]
 
 const userInitial = computed(() =>
@@ -204,17 +204,20 @@ function handleLogout() {
   padding: 0;
   transition:
     background var(--sre-duration-fast) var(--sre-ease-out),
-    color var(--sre-duration-fast) var(--sre-ease-out);
+    color var(--sre-duration-fast) var(--sre-ease-out),
+    transform var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .rail-icon-btn:hover {
-  background: var(--sre-bg-hover);
+  background: color-mix(in srgb, var(--sre-bg-hover) 100%, transparent);
   color: var(--sre-text-secondary);
+  transform: scale(1.05);
 }
 
 .rail-icon-btn.active {
   background: var(--sre-bg-active);
   color: var(--sre-text-primary);
+  box-shadow: inset 0 0 0 1.5px var(--sre-border-strong);
 }
 
 /* Colored dot indicator — only visible when active */

@@ -65,9 +65,24 @@ function safeParse(json: string | null, fallback: boolean): boolean {
 const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), false))
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 const showPasswordModal = ref(false)
+const pinned = ref(false)
 
 function toggleCollapse() {
   collapsed.value = !collapsed.value
+}
+
+// Hover expand: when collapsed, hovering the nav zone temporarily expands it
+let hoverTimeout: ReturnType<typeof setTimeout> | null = null
+
+function handleNavEnter() {
+  if (!collapsed.value) return
+  if (hoverTimeout) { clearTimeout(hoverTimeout); hoverTimeout = null }
+  pinned.value = true
+}
+
+function handleNavLeave() {
+  if (!collapsed.value) return
+  hoverTimeout = setTimeout(() => { pinned.value = false }, 200)
 }
 
 const activeAppLabel = computed(() => {
@@ -179,12 +194,13 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
     <!-- ===== Body ===== -->
     <div class="app-body">
-      <div class="nav-zone">
+      <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
         <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" />
         <AppSidebar
           :sections="menuSections"
           :active-key="activeMenuKey"
           :collapsed="collapsed"
+          :pinned="pinned"
           :app-name="activeAppLabel"
           :active-app="activeApp"
           @toggle-collapse="toggleCollapse"
