@@ -437,7 +437,7 @@ onMounted(fetchLogs)
   background: var(--sre-bg-elevated);
   padding: 4px 8px;
   border-radius: 4px;
-  border-left: 2px solid var(--sre-hairline);
+  border: 1px solid var(--sre-hairline);
   word-break: break-word;
   white-space: pre-wrap;
 }

@@ -4,6 +4,46 @@
 
 ---
 
+## [v4.7.0] — 2026-05-12
+
+### Changed — UI 全面重构：去 AI 味 + 无障碍 + 交互优化
+
+**Phase 1 · quieter — 去除 AI slop：**
+- Login.vue：删除 mesh blob 动画背景、gradient-text 渐变文字
+- global.css：bounce easing (`cubic-bezier(0.34,1.56,0.64,1)`) → 指数减速 (`cubic-bezier(0.16,1,0.3,1)`)
+- 删除 `sre-bounce-in`、`sre-glow-pulse`、`sre-rail-active-pulse` 等过度动画
+
+**Phase 2 · typeset + colorize — 字体与主题统一：**
+- 字体：Plus Jakarta Sans → Inter（`@fontsource/inter` 本地加载）
+- 暗色主题：暖棕 stone → 冷蓝灰 navy（`#0a1018`、`rgba(15,23,42,0.65)`）
+- 浅色主题：stone-50 `#fafaf9` → slate-50 `#f8fafc`
+- 图表配色：explore、dashboard、QueryResultChart 统一为 slate 色系
+
+**Phase 3 · layout — 列表行简化：**
+- incidents/Index.vue：3 行布局 → 2 行（标题行 + 元数据行），操作移入 hover dropdown
+- alerts-v2/Index.vue：同上，删除冗余 severity 文字，添加 status pill
+
+**Phase 4 · distill — 侧边栏精简：**
+- AppShell.vue：删除 hover-expand 行为（`handleNavEnter/Leave`、`hoverTimeout`、`pinned`）
+- AppSidebar.vue：删除 `pinned` prop，简化为纯点击切换
+
+**Phase 5 · harden — 键盘快捷键 + 无障碍：**
+- AppShell.vue：添加 skip-to-content 链接、`aria-label`、命令面板动作（主题切换、App 切换）
+- 为 icon-only 按钮添加 `aria-label`
+
+**Phase 6 · onboard — 空状态引导：**
+- i18n：新增 incidents/alerts/channels 空状态描述文案 + 筛选提示
+- 列表空状态：有筛选时显示"无匹配结果"，无筛选时显示功能介绍
+
+**Phase 7 · polish — 最终打磨：**
+- 全局 bounce easing → exponential ease-out（9 处修复）
+- schedule shift blocks：`border-left: 4px` → 背景色着色
+- AuditLog：`border-left: 2px` → `border: 1px`
+- AppSidebar width transition easing 修正
+- 反模式扫描：12 → 2（剩余 2 个 P3 可接受权衡）
+
+---
+
 ## [v4.6.0] — 2026-05-11
 
 ### Changed — 设计系统 v5.0：Clean Neutral + Agent Review 修复

@@ -32,17 +32,6 @@ const channelFilter = ref<number | null>(null)
 const searchQuery = ref('')
 const firstLoaded = ref(false)
 
-const SEVERITY_LABEL: Record<string, string> = {
-  critical: t('alert.critical'),
-  warning: t('alert.warning'),
-  info: t('alert.info'),
-  p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3', p4: 'P4',
-}
-
-function severityLabel(s: string) {
-  return SEVERITY_LABEL[s] ?? s.toUpperCase()
-}
-
 async function loadAlerts() {
   loading.value = true
   try {
@@ -87,6 +76,9 @@ function goDetail(a: AlertV2) {
 }
 
 const isEmpty = computed(() => firstLoaded.value && !loading.value && alerts.value.length === 0)
+const hasFilters = computed(() =>
+  statusFilter.value !== '' || severityFilter.value !== '' || channelFilter.value !== null || searchQuery.value.trim() !== ''
+)
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 onMounted(() => { loadAlerts(); loadChannels() })
@@ -99,7 +91,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
       :subtitle="t('alertV2.subtitle')"
     >
       <template #actions>
-        <n-button circle quaternary @click="loadAlerts">
+        <n-button circle quaternary @click="loadAlerts" aria-label="Refresh">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
       </template>
@@ -158,7 +150,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
         v-if="isEmpty"
         :icon="ShieldCheckmarkOutline"
         :title="t('alertV2.noActiveAlerts')"
-        :description="t('alertV2.noActiveAlertsDesc')"
+        :description="hasFilters ? t('alertV2.emptyFiltered') : t('alertV2.noActiveAlertsDesc')"
       />
 
       <div v-else class="alert-list sre-stagger">
@@ -173,23 +165,18 @@ onMounted(() => { loadAlerts(); loadChannels() })
           <div class="ar-main">
             <div class="ar-headline">
               <span class="sre-dot" :data-severity="alert.severity"></span>
-              <span class="ar-sev-label">{{ severityLabel(alert.severity) }}</span>
               <span class="ar-title">{{ alert.title }}</span>
-            </div>
-            <div class="ar-key">
-              <span class="ar-label">{{ t('alertV2.alertKey') }}:</span>
-              <code class="ar-keyval">{{ alert.alert_key }}</code>
+              <span class="ar-status" :data-status="alert.status">{{ alert.status === 'firing' ? t('alertV2.firing') : t('alertV2.resolved') }}</span>
+              <span class="ar-count tnum">{{ alert.event_count }}</span>
             </div>
             <div class="ar-footer">
-              <span class="tnum">{{ alert.event_count }} {{ t('alertV2.events') || 'events' }}</span>
-              <span class="sre-meta-divider"></span>
-              <span>{{ alert.status === 'firing' ? t('alertV2.firing') : t('alertV2.resolved') }}</span>
-              <span class="sre-meta-divider"></span>
-              <span>{{ relTime(alert.last_fired_at) }}</span>
+              <code class="ar-keyval">{{ alert.alert_key }}</code>
               <template v-if="alert.channel">
                 <span class="sre-meta-divider"></span>
-                <span>{{ t('alertV2.channel') }}: {{ alert.channel.name }}</span>
+                <span>{{ alert.channel.name }}</span>
               </template>
+              <span class="sre-meta-divider"></span>
+              <span>{{ relTime(alert.last_fired_at) }}</span>
               <template v-if="alert.incident_id">
                 <span class="sre-meta-divider"></span>
                 <span>{{ t('alertV2.linkedIncident') }} #{{ alert.incident_id }}</span>
@@ -257,13 +244,6 @@ onMounted(() => { loadAlerts(); loadChannels() })
   font-weight: 600;
   color: var(--sre-text-primary);
 }
-.ar-sev-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--sre-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
 .ar-title {
   font-weight: 600;
   overflow: hidden;
@@ -272,14 +252,30 @@ onMounted(() => { loadAlerts(); loadChannels() })
   flex: 1;
   min-width: 0;
 }
-.ar-key {
-  font-size: 12px;
-  color: var(--sre-text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.ar-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--sre-radius-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.ar-label { color: var(--sre-text-tertiary); }
+.ar-status[data-status="firing"] {
+  background: var(--sre-critical-soft);
+  color: var(--sre-critical);
+}
+.ar-status[data-status="resolved"] {
+  background: var(--sre-success-soft, rgba(34,197,94,0.12));
+  color: var(--sre-success, #22c55e);
+}
+.ar-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sre-text-secondary);
+  flex-shrink: 0;
+  min-width: 20px;
+  text-align: right;
+}
 .ar-keyval {
   font-family: var(--sre-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   font-size: 12px;

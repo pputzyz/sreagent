@@ -92,9 +92,9 @@ const legendData = computed(() => {
 const chartTheme = computed(() => {
   const s = getComputedStyle(document.documentElement)
   return {
-    axisPointer: s.getPropertyValue('--sre-text-tertiary').trim() || '#78716c',
-    legendPage: s.getPropertyValue('--sre-text-muted').trim() || '#a8a29e',
-    splitLine: s.getPropertyValue('--sre-border').trim() || '#44403c',
+    axisPointer: s.getPropertyValue('--sre-text-tertiary').trim() || '#64748b',
+    legendPage: s.getPropertyValue('--sre-text-muted').trim() || '#94a3b8',
+    splitLine: s.getPropertyValue('--sre-border').trim() || '#1e293b',
   }
 })
 

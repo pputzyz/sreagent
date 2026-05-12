@@ -16,7 +16,7 @@ import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/io
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const { activeApp, switchApp, menuSections, activeMenuKey, pageTitle } = useAppNav()
-const { open: openPalette } = useCommandPalette()
+const { open: openPalette, registerAction } = useCommandPalette()
 
 const router = useRouter()
 
@@ -26,6 +26,36 @@ const toggleTheme = inject<() => void>('toggleTheme', () => {})
 // ===== Profile fetch =====
 onMounted(() => {
   if (authStore.isLoggedIn && !authStore.user) authStore.fetchProfile()
+
+  // ── Command palette actions ──────────────────────────────────
+  registerAction({
+    id: 'act-theme',
+    label: 'Toggle Dark Mode',
+    hint: 'Action',
+    icon: 'contrast-outline',
+    action: toggleTheme,
+  })
+  registerAction({
+    id: 'act-switch-oncall',
+    label: 'Switch to On-Call',
+    hint: 'Action',
+    icon: 'grid-outline',
+    action: () => switchApp('oncall'),
+  })
+  registerAction({
+    id: 'act-switch-alert',
+    label: 'Switch to Alert',
+    hint: 'Action',
+    icon: 'flash-outline',
+    action: () => switchApp('alert'),
+  })
+  registerAction({
+    id: 'act-switch-platform',
+    label: 'Switch to Platform',
+    hint: 'Action',
+    icon: 'settings-outline',
+    action: () => switchApp('platform'),
+  })
 })
 
 // ===== Sidebar collapsed =====
@@ -34,24 +64,10 @@ function safeParse(json: string | null, fallback: boolean): boolean {
 }
 const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), false))
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
-const pinned = ref(safeParse(localStorage.getItem('sre-sider-pinned'), false))
-watch(pinned, v => localStorage.setItem('sre-sider-pinned', JSON.stringify(v)))
 const showPasswordModal = ref(false)
-let hoverTimeout: ReturnType<typeof setTimeout> | null = null
-onUnmounted(() => { if (hoverTimeout) clearTimeout(hoverTimeout) })
 
-function handleNavEnter() {
-  if (pinned.value) return
-  if (hoverTimeout) { clearTimeout(hoverTimeout); hoverTimeout = null }
-  collapsed.value = false
-}
-function handleNavLeave() {
-  if (pinned.value) return
-  hoverTimeout = setTimeout(() => { collapsed.value = true }, 300)
-}
 function toggleCollapse() {
-  if (pinned.value) { pinned.value = false; collapsed.value = true }
-  else { pinned.value = true; collapsed.value = false }
+  collapsed.value = !collapsed.value
 }
 
 const activeAppLabel = computed(() => {
@@ -101,6 +117,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 <template>
   <div class="app-shell">
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
     <!-- ===== Top Bar ===== -->
     <header class="topbar">
       <div class="topbar-start">
@@ -140,21 +157,21 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         </n-popover>
 
         <!-- ⌘K -->
-        <button v-ripple class="topbar-btn topbar-kbd" @click="openPalette" title="⌘K">
+        <button v-ripple class="topbar-btn topbar-kbd" @click="openPalette" title="⌘K" aria-label="Search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <kbd>⌘K</kbd>
         </button>
 
         <!-- Lang -->
         <n-popselect :value="locale" :options="langOptions" trigger="click" :render-label="(o: any) => o.label" @update:value="handleLangChange">
-          <button v-ripple class="topbar-btn">
+          <button v-ripple class="topbar-btn" aria-label="Change language">
             <n-icon :component="EarthOutline" :size="15" />
             <span>{{ locale === 'zh-CN' ? '中' : 'EN' }}</span>
           </button>
         </n-popselect>
 
         <!-- Theme -->
-        <button v-ripple class="topbar-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')">
+        <button v-ripple class="topbar-btn" @click="toggleTheme" :title="isDark ? t('header.lightMode') : t('header.darkMode')" :aria-label="isDark ? t('header.lightMode') : t('header.darkMode')">
           <n-icon :component="isDark ? SunnyOutline : MoonOutline" :size="16" />
         </button>
       </div>
@@ -162,13 +179,12 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
     <!-- ===== Body ===== -->
     <div class="app-body">
-      <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
+      <div class="nav-zone">
         <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" />
         <AppSidebar
           :sections="menuSections"
           :active-key="activeMenuKey"
           :collapsed="collapsed"
-          :pinned="pinned"
           :app-name="activeAppLabel"
           :active-app="activeApp"
           @toggle-collapse="toggleCollapse"
@@ -176,7 +192,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </div>
 
       <!-- Main -->
-      <main class="main">
+      <main id="main-content" class="main">
         <div class="main-header">
           <h1 class="main-title">{{ pageTitle }}</h1>
           <div class="main-actions">
@@ -286,5 +302,20 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .main-content {
   flex:1; overflow-y:auto; padding:20px;
   background: var(--sre-bg-page);
+}
+
+/* Skip-to-content link */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--sre-primary);
+  color: var(--sre-text-inverse);
+  padding: 8px 16px;
+  z-index: 100;
+  transition: top 0.2s;
+}
+.skip-to-content:focus {
+  top: 0;
 }
 </style>

@@ -86,13 +86,6 @@ watch([() => form.value.username, () => form.value.password], () => {
 
 <template>
   <div class="login-layout" :class="{ light: !isDark }">
-    <!-- Animated mesh background -->
-    <div class="mesh-bg">
-      <div class="mesh-blob mesh-blob--coral" />
-      <div class="mesh-blob mesh-blob--blue" />
-      <div class="mesh-blob mesh-blob--purple" />
-    </div>
-
     <!-- Top right controls -->
     <div class="login-controls">
       <n-select
@@ -114,7 +107,7 @@ watch([() => form.value.username, () => form.value.password], () => {
         <div class="card-brand">
           <div class="brand-logo-row">
             <img src="/logo.svg" alt="SREAgent" class="brand-logo" />
-            <span class="brand-name"><span class="gradient-text">SRE</span>Agent</span>
+            <span class="brand-name">SREAgent</span>
           </div>
           <p class="brand-tagline">{{ t('auth.brand.tagline') }}</p>
         </div>
@@ -200,71 +193,9 @@ watch([() => form.value.username, () => form.value.password], () => {
   overflow: hidden;
   font-family: var(--sre-font-sans);
   color: var(--sre-text-primary);
-}
-
-/* ===== Animated mesh background ===== */
-.mesh-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
   background: var(--sre-bg-base);
-  overflow: hidden;
-  filter: blur(100px);
-  transform: translateZ(0);
+  background-image: radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--sre-primary) 4%, transparent), transparent 60%);
 }
-
-.mesh-blob {
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.4;
-  animation: mesh-float 20s ease-in-out infinite;
-  will-change: transform;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mesh-blob { animation: none !important; }
-}
-
-.mesh-blob--coral {
-  width: 500px;
-  height: 500px;
-  background: rgba(255, 107, 107, 0.30);
-  top: -10%;
-  left: -5%;
-  animation-delay: 0s;
-}
-
-.mesh-blob--blue {
-  width: 420px;
-  height: 420px;
-  background: rgba(79, 172, 254, 0.25);
-  top: 50%;
-  right: -8%;
-  animation-delay: -7s;
-  animation-duration: 25s;
-}
-
-.mesh-blob--purple {
-  width: 380px;
-  height: 380px;
-  background: rgba(168, 85, 247, 0.22);
-  bottom: -10%;
-  left: 30%;
-  animation-delay: -14s;
-  animation-duration: 22s;
-}
-
-@keyframes mesh-float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25%      { transform: translate(60px, -40px) scale(1.1); }
-  50%      { transform: translate(-30px, 50px) scale(0.95); }
-  75%      { transform: translate(40px, 20px) scale(1.05); }
-}
-
-.login-layout.light .mesh-blob--coral  { background: rgba(255, 107, 107, 0.12); }
-.login-layout.light .mesh-blob--blue   { background: rgba(79, 172, 254, 0.10); }
-.login-layout.light .mesh-blob--purple { background: rgba(168, 85, 247, 0.10); }
-.login-layout.light .mesh-blob { opacity: 0.5; }
 
 /* ===== Controls ===== */
 .login-controls {

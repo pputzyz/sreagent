@@ -12,7 +12,6 @@ const props = defineProps<{
   activeKey: string
   collapsed: boolean
   appName: string
-  pinned: boolean
   activeApp: AppKey
 }>()
 
@@ -78,13 +77,13 @@ function handleMenuUpdate(key: string) {
       <transition name="fade">
         <span v-if="!collapsed" class="sidebar-app-name">{{ appName }}</span>
       </transition>
-      <button class="sidebar-pin-btn" :title="pinned ? t('header.expandSidebar') : t('header.collapseSidebar')" @click="emit('toggle-collapse')">
+      <button class="sidebar-pin-btn" :title="collapsed ? t('header.expandSidebar') : t('header.collapseSidebar')" @click="emit('toggle-collapse')">
         <n-icon :component="collapsed ? ChevronForwardOutline : ChevronBackOutline" :size="14" />
       </button>
     </div>
 
     <!-- Nav area — hidden when collapsed to prevent stacking -->
-    <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed && !pinned }">
+    <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed }">
       <div class="sidebar-nav-inner">
         <n-menu
           :collapsed="false"
@@ -110,7 +109,7 @@ function handleMenuUpdate(key: string) {
   background: var(--sre-bg-card);
   border-right: 1px solid var(--sre-border);
   flex-shrink: 0;
-  transition: width 280ms var(--sre-ease-spring);
+  transition: width 280ms var(--sre-ease-out);
   overflow: hidden;
 }
 

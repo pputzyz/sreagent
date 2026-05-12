@@ -406,8 +406,7 @@ onMounted(load)
 .trend-bar {
   width: 7px;
   border-radius: 3px 3px 0 0;
-  min-height: 2px;
-  transition: height 0.3s;
+  height: 2px;
 }
 .trend-bar--triggered { background: var(--sre-critical); }
 .trend-bar--closed    { background: var(--sre-primary); }

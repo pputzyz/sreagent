@@ -16,10 +16,10 @@ import {
   SearchOutline,
   ChevronForwardOutline,
   AlertCircleOutline,
-  PersonOutline,
   TimeOutline,
   NotificationsOutline,
   ShieldCheckmarkOutline,
+  EllipsisHorizontal,
 } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -137,6 +137,22 @@ async function createIncident() {
   }
 }
 
+function actionOptions(row: Incident) {
+  const opts: { label: string; key: string }[] = []
+  if (row.status !== 'closed' && row.status !== 'processing') {
+    opts.push({ label: t('incident.acknowledge'), key: 'acknowledge' })
+  }
+  if (row.status !== 'closed') {
+    opts.push({ label: t('incident.close'), key: 'close' })
+  }
+  return opts
+}
+
+function handleAction(key: string, row: Incident) {
+  if (key === 'acknowledge') acknowledgeIncident(row.id)
+  else if (key === 'close') closeIncident(row.id)
+}
+
 function gotoDetail(id: number) {
   router.push(`/incidents/${id}`)
 }
@@ -160,6 +176,9 @@ function userInitial(u?: { display_name?: string; username?: string } | null): s
 }
 
 const isEmpty = computed(() => !loading.value && incidents.value.length === 0)
+const hasFilters = computed(() =>
+  statusFilter.value !== '' || severityFilter.value !== '' || searchQuery.value.trim() !== '' || viewMode.value === 'mine'
+)
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 onMounted(loadIncidents)
@@ -169,7 +188,7 @@ onMounted(loadIncidents)
   <div class="incidents-page">
     <PageHeader :title="t('incident.title')" :subtitle="t('incident.subtitle')">
       <template #actions>
-        <n-button circle quaternary @click="loadIncidents">
+        <n-button circle quaternary @click="loadIncidents" aria-label="Refresh">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
         <n-button type="primary" @click="showCreateModal = true">
@@ -239,7 +258,7 @@ onMounted(loadIncidents)
         v-else-if="isEmpty"
         :icon="ShieldCheckmarkOutline"
         :title="t('incident.empty')"
-        :description="t('incident.emptyDesc')"
+        :description="hasFilters ? t('incident.emptyFiltered') : t('incident.emptyDesc')"
       />
 
       <div v-else class="incident-list">
@@ -255,61 +274,48 @@ onMounted(loadIncidents)
           <div class="row-body">
             <div class="row-line-1">
               <span class="dot dot-lg" :data-severity="row.severity" />
-              <span class="severity-text" :data-severity="row.severity">
-                {{ t(severityLabel[row.severity] ?? row.severity) }}
-              </span>
-              <span class="incident-id">#{{ row.id }}</span>
               <span class="incident-title">{{ row.title }}</span>
+              <span class="status-pill" :data-status="row.status">
+                {{ t(statusLabel[row.status] ?? row.status) }}
+              </span>
+              <span class="assignee" v-if="row.assigned_user">
+                <span class="avatar">{{ userInitial(row.assigned_user) }}</span>
+              </span>
             </div>
 
             <div class="row-line-2">
               <span v-if="row.channel?.name" class="meta-item">
-                <n-icon :component="NotificationsOutline" size="14" />
+                <n-icon :component="NotificationsOutline" size="12" />
                 {{ row.channel.name }}
               </span>
               <span class="meta-item">
-                <n-icon :component="TimeOutline" size="14" />
-                {{ t('incident.duration') }}: {{ durationText(row.triggered_at, row.closed_at) }}
+                <n-icon :component="TimeOutline" size="12" />
+                {{ durationText(row.triggered_at, row.closed_at) }}
               </span>
               <span class="meta-item">
-                <n-icon :component="AlertCircleOutline" size="14" />
-                {{ t('incident.alertCount') }}: {{ row.alert_count ?? 0 }}
+                <n-icon :component="AlertCircleOutline" size="12" />
+                {{ row.alert_count ?? 0 }}
               </span>
-            </div>
-
-            <div class="row-line-3">
-              <span class="status-pill" :data-status="row.status">
-                {{ t(statusLabel[row.status] ?? row.status) }}
-              </span>
-
-              <span class="assignee">
-                <span class="avatar" v-if="row.assigned_user">
-                  {{ userInitial(row.assigned_user) }}
-                </span>
-                <n-icon v-else :component="PersonOutline" size="14" />
-                <span class="assignee-name">
-                  {{ row.assigned_user?.display_name ?? row.assigned_user?.username ?? t('incident.unassigned') }}
-                </span>
-              </span>
-
-              <span class="trigger-time">
-                {{ t('incident.triggeredAt') }}: {{ formatTime(row.triggered_at) }}
-              </span>
-
-              <span class="row-actions" @click.stop>
-                <n-button
-                  v-if="row.status !== 'closed' && row.status !== 'processing'"
-                  size="tiny" type="primary" tertiary
-                  @click="acknowledgeIncident(row.id, $event)"
-                >{{ t('incident.acknowledge') }}</n-button>
-                <n-button
-                  v-if="row.status !== 'closed'"
-                  size="tiny" tertiary
-                  @click="closeIncident(row.id, $event)"
-                >{{ t('incident.close') }}</n-button>
+              <span class="meta-item">
+                {{ formatTime(row.triggered_at) }}
               </span>
             </div>
           </div>
+
+          <n-dropdown
+            v-if="actionOptions(row).length > 0"
+            :options="actionOptions(row)"
+            trigger="click"
+            placement="bottom-end"
+            @select="(key: string) => handleAction(key, row)"
+          >
+            <n-icon
+              :component="EllipsisHorizontal"
+              class="action-trigger"
+              size="18"
+              @click.stop
+            />
+          </n-dropdown>
 
           <n-icon :component="ChevronForwardOutline" class="chevron" size="18" />
         </div>
@@ -409,10 +415,6 @@ onMounted(loadIncidents)
 .dot-lg[data-severity="info"],
 .status-bar[data-severity="info"] { background: var(--sre-info); }
 
-.severity-text[data-severity="critical"] { color: var(--sre-critical); }
-.severity-text[data-severity="warning"]  { color: var(--sre-warning); }
-.severity-text[data-severity="info"]     { color: var(--sre-info); }
-
 .status-pill[data-status="triggered"]  { color: var(--sre-critical); background: var(--sre-critical-soft); }
 .status-pill[data-status="processing"] { color: var(--sre-warning); background: var(--sre-warning-soft); }
 .status-pill[data-status="closed"]     { color: var(--sre-success); background: var(--sre-success-soft); }
@@ -430,7 +432,7 @@ onMounted(loadIncidents)
   background: var(--sre-bg-card);
   border: var(--sre-hairline);
   border-radius: 8px;
-  padding: 14px 18px 14px 22px;
+  padding: 10px 14px 10px 20px;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
   overflow: hidden;
@@ -440,6 +442,9 @@ onMounted(loadIncidents)
   border-color: var(--sre-primary);
 }
 .incident-row:hover .chevron {
+  opacity: 1;
+}
+.incident-row:hover .action-trigger {
   opacity: 1;
 }
 .incident-row.is-closed { opacity: 0.72; }
@@ -456,7 +461,7 @@ onMounted(loadIncidents)
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -465,17 +470,7 @@ onMounted(loadIncidents)
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  flex-wrap: wrap;
-}
-.severity-text {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-}
-.incident-id {
-  font-size: 12px;
-  color: var(--sre-text-tertiary);
-  font-family: var(--sre-font-mono);
+  min-width: 0;
 }
 .incident-title {
   font-weight: 600;
@@ -491,38 +486,30 @@ onMounted(loadIncidents)
 .row-line-2 {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--sre-text-secondary);
+  gap: 14px;
+  font-size: var(--sre-fs-xs, 11px);
+  color: var(--sre-text-tertiary);
 }
 .meta-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  white-space: nowrap;
 }
 
-.row-line-3 {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--sre-text-tertiary);
-}
 .status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  padding: 1px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
+  flex-shrink: 0;
 }
 .assignee {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: var(--sre-text-secondary);
+  flex-shrink: 0;
 }
 .avatar {
   display: inline-flex;
@@ -536,12 +523,20 @@ onMounted(loadIncidents)
   font-size: 11px;
   font-weight: 600;
 }
-.assignee-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trigger-time { color: var(--sre-text-tertiary); }
-.row-actions {
-  margin-left: auto;
-  display: inline-flex;
-  gap: 6px;
+
+.action-trigger {
+  flex-shrink: 0;
+  margin-left: 4px;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--sre-text-tertiary);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+.action-trigger:hover {
+  background: var(--sre-bg-active, rgba(0,0,0,0.06));
+  color: var(--sre-text-secondary);
 }
 
 .chevron {

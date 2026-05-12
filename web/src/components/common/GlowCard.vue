@@ -57,7 +57,7 @@ const classes = computed(() => [
   transition:
     box-shadow var(--sre-duration-base) var(--sre-ease-out),
     border-color var(--sre-duration-base) var(--sre-ease-out),
-    transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform 360ms var(--sre-ease-out);
 }
 
 .glow-card--interactive { cursor: pointer; }

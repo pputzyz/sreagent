@@ -894,7 +894,6 @@ onMounted(() => {
   position: absolute;
   left: 4px;
   right: 4px;
-  border-left: 4px solid var(--shift-color, var(--sre-primary));
   border-radius: 4px;
   padding: 4px 6px;
   font-size: 11px;
@@ -904,7 +903,7 @@ onMounted(() => {
   user-select: none;
   z-index: 1;
   box-sizing: border-box;
-  background: color-mix(in srgb, var(--shift-color, var(--sre-primary)) 10%, transparent);
+  background: color-mix(in srgb, var(--shift-color, var(--sre-primary)) 14%, transparent);
   color: var(--shift-color, var(--sre-primary));
   transition: filter var(--sre-duration-fast) var(--sre-ease-out);
 }

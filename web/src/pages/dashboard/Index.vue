@@ -130,14 +130,14 @@ function hexToRgba(hex: string, alpha: number): string {
 const cp = computed(() => {
   const light = isLightTheme.value
   return {
-    tooltipBg: light ? 'rgba(41,37,36,0.92)' : 'rgba(28,25,23,0.92)',
-    tooltipText: '#fafaf9',
-    legend: light ? 'rgba(41,37,36,0.65)' : 'rgba(214,209,209,0.65)',
-    axisLabel: light ? 'rgba(41,37,36,0.50)' : 'rgba(214,209,209,0.45)',
-    axisLine: light ? 'rgba(41,37,36,0.10)' : 'rgba(214,209,209,0.07)',
-    splitLine: light ? 'rgba(41,37,36,0.05)' : 'rgba(214,209,209,0.04)',
-    pieCenter: light ? 'rgba(41,37,36,0.92)' : 'rgba(214,209,209,0.90)',
-    pieMuted: light ? 'rgba(41,37,36,0.45)' : 'rgba(214,209,209,0.40)',
+    tooltipBg: light ? 'rgba(17,24,39,0.92)' : 'rgba(15,23,42,0.92)',
+    tooltipText: '#f1f5f9',
+    legend: light ? 'rgba(17,24,39,0.65)' : 'rgba(203,213,225,0.65)',
+    axisLabel: light ? 'rgba(17,24,39,0.50)' : 'rgba(203,213,225,0.45)',
+    axisLine: light ? 'rgba(17,24,39,0.10)' : 'rgba(203,213,225,0.07)',
+    splitLine: light ? 'rgba(17,24,39,0.05)' : 'rgba(203,213,225,0.04)',
+    pieCenter: light ? 'rgba(17,24,39,0.92)' : 'rgba(203,213,225,0.90)',
+    pieMuted: light ? 'rgba(17,24,39,0.45)' : 'rgba(203,213,225,0.40)',
     critical: chartToken('--sre-critical'),
     warning: chartToken('--sre-warning'),
     info: chartToken('--sre-info'),
@@ -577,7 +577,7 @@ onMounted(refresh)
   height: 100%;
   background: var(--sre-primary);
   border-radius: 3px;
-  transition: width 500ms var(--sre-ease-spring);
+  transition: width 500ms var(--sre-ease-out);
 }
 
 .rule-count {

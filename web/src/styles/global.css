@@ -135,7 +135,7 @@
   --sre-duration-slow:  200ms;
   --sre-ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
   --sre-ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
-  --sre-ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --sre-ease-spring:    cubic-bezier(0.16, 1, 0.3, 1);
 
   /* --- Component tokens --- */
   --sre-stripe-w: 3px;
@@ -344,12 +344,7 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
 }
 
 .rail-icon.active {
-  animation: sre-rail-active-pulse 3s ease-in-out infinite;
-}
-
-@keyframes sre-rail-active-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--sre-primary-soft); }
-  50% { box-shadow: 0 0 0 4px var(--sre-primary-soft); }
+  box-shadow: 0 0 0 3px var(--sre-primary-soft);
 }
 
 /* ============================================================
@@ -384,7 +379,7 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
 }
 
 .app-sidebar .n-menu-item-content--selected::before {
-  animation: sre-active-bar-in 280ms var(--sre-ease-spring) both;
+  animation: sre-active-bar-in 280ms var(--sre-ease-out) both;
   background: var(--sidebar-accent, var(--sre-primary));
   border-radius: 2px;
   width: 3px;
@@ -404,12 +399,8 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
 /* ============================================================
    Typography utilities
    ============================================================ */
-.gradient-text {
-  background: linear-gradient(135deg, var(--sre-primary), var(--sre-info));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  color: transparent;
+.text-brand {
+  color: var(--sre-primary);
 }
 
 .page-title {
@@ -617,30 +608,20 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
   from { opacity: 0; transform: scale(0.94) translateY(6px); }
   to   { opacity: 1; transform: scale(1)    translateY(0); }
 }
-.scale-in { animation: sre-scale-in var(--sre-duration-slow) var(--sre-ease-spring) both; }
+.scale-in { animation: sre-scale-in var(--sre-duration-slow) var(--sre-ease-out) both; }
 
 @keyframes sre-spin { to { transform: rotate(360deg); } }
 .spin { animation: sre-spin 0.8s linear infinite; }
 
-@keyframes sre-bounce-in {
-  0%   { opacity: 0; transform: scale(0.3); }
-  50%  { opacity: 1; transform: scale(1.05); }
-  70%  { transform: scale(0.9); }
-  100% { transform: scale(1); }
-}
-.bounce-in { animation: sre-bounce-in 0.5s var(--sre-ease-spring) both; }
+.bounce-in { animation: sre-fade-in var(--sre-duration-slow) var(--sre-ease-out) both; }
 
 @keyframes sre-count-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.9); }
-  to   { opacity: 1; transform: translateY(0)  scale(1); }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.count-in { animation: sre-count-in 0.4s var(--sre-ease-spring) both; }
+.count-in { animation: sre-count-in 0.4s var(--sre-ease-out) both; }
 
-@keyframes sre-glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  50%       { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-}
-.glow-pulse { animation: sre-glow-pulse 2s ease-in-out infinite; }
+.glow-pulse { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
 
 /* Block entrance */
 @keyframes sre-block-in {
@@ -730,8 +711,8 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
    Accessibility: touch targets & focus indicators
    ============================================================ */
 .n-button--tiny-type.n-button--circle-type {
-  min-width: 32px !important;
-  min-height: 32px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
 }
 
 .sre-row-card:focus-visible,
@@ -1047,7 +1028,7 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
   .sre-stagger > *,
   .stagger-list > *,
   .stagger-grid > *,
-  .fade-in, .slide-up, .scale-in, .spin, .bounce-in, .count-in, .glow-pulse,
+  .fade-in, .slide-up, .scale-in, .spin, .bounce-in, .count-in,
   .block-in, .pulse, .pulse-ring { animation: none !important; opacity: 1 !important; transform: none !important; }
   .sre-lift:hover,
   .sre-row-card:hover,
