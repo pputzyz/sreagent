@@ -125,11 +125,6 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			})
 		}
 
-		// Status page public endpoint (no auth required)
-		if handlers.StatusService != nil {
-			api.GET("/status-services", handlers.StatusService.List)
-		}
-
 		// ----- Authenticated routes (JWT required) -----
 		auth := api.Group("")
 		auth.Use(middleware.JWTAuth(&cfg.JWT))
