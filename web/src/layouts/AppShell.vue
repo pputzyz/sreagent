@@ -217,7 +217,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         </div>
         <div class="main-content" :data-app="activeApp">
           <router-view v-slot="{ Component, route }">
-            <Transition name="sre-page" mode="out-in">
+            <Transition name="page" mode="out-in">
               <component :is="Component" :key="route.path" />
             </Transition>
           </router-view>
@@ -333,5 +333,13 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 }
 .skip-to-content:focus {
   top: 0;
+}
+
+/* Page transition animation */
+.page-enter-active {
+  animation: sre-page-enter 300ms var(--sre-ease-out) both;
+}
+.page-leave-active {
+  animation: sre-page-enter 200ms var(--sre-ease-out) reverse both;
 }
 </style>
