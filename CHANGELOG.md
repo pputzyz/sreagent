@@ -4,6 +4,49 @@
 
 ---
 
+## [v4.8.0] — 2026-05-12
+
+### Added — AI Chat + 宠物系统 + UI 动画系统
+
+**AI Chat（AI 对话）：**
+- 右下角浮动按钮，点击展开 400px 右侧抽屉
+- 三种模式：告警分析 / 通用对话 / 宠物对话
+- 多轮对话上下文（自动加载最近 20 条历史）
+- 后端：`POST /ai/chat`、`GET /ai/history`、`DELETE /ai/history`
+- 新增 `chat_histories` 表（迁移: 000034）
+- 组件：AIChatPanel、AIChatMessage、AIChatButton
+- Composable：useAIChat
+
+**宠物系统（Pet System）：**
+- 狐狸宠物，自动创建（名字"小狐"）
+- 喂食（饥饿 -20，经验 +5）、玩耍（心情 +15，经验 +5）
+- 升级公式：所需经验 = 等级 × 100
+- 互动历史记录
+- 角落常驻显示（PetCorner）+ 弹出面板（PetPanel）+ 独立详情页（/pet）
+- 后端：`GET/PUT /pet`、`POST /pet/feed`、`POST /pet/play`、`GET /pet/interactions`
+- 新增 `pets` + `pet_interactions` 表（迁移: 000035）
+- Pinia store：usePetStore
+
+**UI 动画系统：**
+- 页面切换动画：fade + translateY(8px)
+- 卡片入场 stagger 动画（`.stagger-card`）
+- 列表行入场 stagger 动画（`.stagger-row`）
+- Per-app 背景色彩染（5%）：`.bg-app-oncall`、`.bg-app-alert`、`.bg-app-platform`
+- Rail 图标从 20px 放大到 24px
+- 卡片圆角从 12px 微调到 10px
+
+**i18n：**
+- 新增 `ai.*` 和 `pet.*` 中英文翻译
+
+### 技术细节
+
+- 迁移: 000034 (chat_histories)、000035 (pets + pet_interactions)
+- 新增 composable: useAIChat
+- 新增 Pinia store: usePetStore
+- 新增 8 个 Vue 组件（ai/ 3 个 + pet/ 3 个 + pages/pet/ 1 个 + composable 1 个）
+
+---
+
 ## [v4.7.1] — 2026-05-12
 
 ### Changed — UI 视觉深度 + 交互反馈 + 图标优化
