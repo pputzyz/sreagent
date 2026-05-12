@@ -4,6 +4,41 @@
 
 ---
 
+## [v4.7.1] — 2026-05-12
+
+### Changed — UI 视觉深度 + 交互反馈 + 图标优化
+
+**卡片视觉层级：**
+- 全局阴影从极淡 (`0 1px 2px rgba(0,0,0,0.05)`) 升级到可见深度
+- 新增 `--sre-shadow-lift` 用于 hover 浮起效果
+- 所有卡片 hover 时 `translateY(-1px)` 浮起 + 阴影增强
+- 涉及：surface-card、surface-clay、surface-glass、content-card、sre-row-card、sre-notify-card、sre-lift
+
+**间距节奏优化：**
+- 新增 `--sre-card-pad-compact: 16px`（KPI 卡片、列表行）
+- 新增 `--sre-card-pad-relaxed: 24px`（图表卡片、内容区域）
+- dashboard KPI 卡片更紧凑，图表区域更舒展
+- incidents/alerts 列表行间距用语义化 token
+
+**交互细节：**
+- 图标按钮 hover 时 `scale(1.05)` 微放大
+- 侧边栏菜单项 hover 时 `translateX(2px)` 微右移 + 文字颜色变深
+- 选中菜单项左边框指示器加宽 + 发光效果
+- rail 按钮 active 状态加 inset border ring
+
+**侧边栏 hover 展开恢复：**
+- 恢复被误删的 hover 展开功能（collapsed 状态下鼠标悬停临时展开）
+- 新增 `pinned` 状态管理
+
+**图标更换：**
+- On-Call: `FlashOutline`（闪电）→ `CallOutline`（电话）— 更直观
+- Alert: `AlertCircleOutline`（感叹号）→ `NotificationsOutline`（铃铛）— 更显眼
+
+**配色：**
+- per-app 背景色从 3% 提升到 5%（更易区分 oncall/alert/platform）
+
+---
+
 ## [v4.7.0] — 2026-05-12
 
 ### Changed — UI 全面重构：去 AI 味 + 无障碍 + 交互优化

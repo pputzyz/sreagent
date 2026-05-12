@@ -423,7 +423,7 @@ onMounted(loadIncidents)
 .incident-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sre-row-gap);
 }
 .incident-row {
   position: relative;

@@ -404,7 +404,7 @@ onMounted(refresh)
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 20px 22px;
+  padding: var(--sre-card-pad-compact) 18px;
   background: var(--sre-bg-card);
   border: var(--sre-hairline);
   border-radius: var(--sre-radius-lg);
@@ -487,7 +487,7 @@ onMounted(refresh)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 0;
+  padding: var(--sre-card-pad-relaxed) var(--sre-card-pad-relaxed) 0;
 }
 
 .chart-card__title {
@@ -504,7 +504,7 @@ onMounted(refresh)
 }
 
 .chart-card__body {
-  padding: 12px 16px 16px;
+  padding: 14px var(--sre-card-pad-relaxed) var(--sre-card-pad-relaxed);
 }
 
 .chart-empty {
@@ -519,7 +519,7 @@ onMounted(refresh)
 .two-up {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--sre-card-pad-relaxed);
 }
 
 /* ===== Top Noisy Rules ===== */

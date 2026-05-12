@@ -226,7 +226,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
 .alert-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sre-row-gap);
 }
 
 .ar-main {

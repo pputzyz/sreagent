@@ -11,6 +11,7 @@ const props = defineProps<{
   sections: MenuSection[]
   activeKey: string
   collapsed: boolean
+  pinned: boolean
   appName: string
   activeApp: AppKey
 }>()
@@ -71,19 +72,19 @@ function handleMenuUpdate(key: string) {
 </script>
 
 <template>
-  <aside class="app-sidebar" :class="{ collapsed }" :data-app="activeApp">
+  <aside class="app-sidebar" :class="{ collapsed, pinned: collapsed && pinned }" :data-app="activeApp">
     <!-- Header with app name + collapse toggle -->
     <div class="sidebar-header">
       <transition name="fade">
         <span v-if="!collapsed" class="sidebar-app-name">{{ appName }}</span>
       </transition>
-      <button class="sidebar-pin-btn" :title="collapsed ? t('header.expandSidebar') : t('header.collapseSidebar')" @click="emit('toggle-collapse')">
+      <button class="sidebar-pin-btn" :title="pinned ? t('header.expandSidebar') : (collapsed ? t('header.expandSidebar') : t('header.collapseSidebar'))" @click="emit('toggle-collapse')">
         <n-icon :component="collapsed ? ChevronForwardOutline : ChevronBackOutline" :size="14" />
       </button>
     </div>
 
     <!-- Nav area — hidden when collapsed to prevent stacking -->
-    <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed }">
+    <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed && !pinned }">
       <div class="sidebar-nav-inner">
         <n-menu
           :collapsed="false"
@@ -121,6 +122,10 @@ function handleMenuUpdate(key: string) {
   width: 64px;
 }
 
+.app-sidebar.collapsed.pinned {
+  width: 220px;
+}
+
 /* Nav area — scrollable, hidden when collapsed */
 .sidebar-nav {
   flex: 1;
@@ -152,6 +157,10 @@ function handleMenuUpdate(key: string) {
   background: var(--sre-bg-hover);
 }
 
+.sidebar-nav :deep(.n-menu-item:hover .n-menu-item-content__label) {
+  color: var(--sre-text-primary);
+}
+
 .sidebar-nav :deep(.n-menu-item--selected) {
   background: color-mix(in srgb, var(--sidebar-accent) 8%, transparent) !important;
 }
@@ -170,11 +179,12 @@ function handleMenuUpdate(key: string) {
   content: '';
   position: absolute;
   left: 4px;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
+  top: 8px;
+  bottom: 8px;
+  width: 3.5px;
   border-radius: 3px;
   background: var(--sidebar-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--sidebar-accent) 30%, transparent);
 }
 
 /* Group label */
