@@ -102,7 +102,7 @@ function handleNavLeave() {
 
 const activeAppLabel = computed(() => {
   const labels: Record<string, string> = { oncall: t('rail.oncall'), alert: t('rail.alert'), platform: t('rail.platform') }
-  return labels[activeApp.value] || 'Nexus'
+  return labels[activeApp.value] || 'SREAgent'
 })
 
 // ===== Clock =====
@@ -153,8 +153,8 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       <div class="topbar-start">
         <!-- Logo -->
         <router-link to="/dashboard" class="topbar-logo">
-          <img src="/logo.svg" alt="Nexus" class="logo-img" />
-          <span class="logo-label">Nexus</span>
+          <img src="/logo.svg" alt="SREAgent" class="logo-img" />
+          <span class="logo-label">SREAgent</span>
         </router-link>
 
         <div class="topbar-sep" />
@@ -513,5 +513,42 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 .float-ai-label {
   font-size: 13px;
   font-weight: 600;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .nav-zone {
+    display: none;
+  }
+  .main-content {
+    padding: 12px;
+  }
+  .main-header {
+    padding: 10px 12px;
+  }
+  .topbar-sep {
+    display: none;
+  }
+  .logo-label {
+    display: none;
+  }
+  .topbar-kbd {
+    display: none;
+  }
+  .float-ai-btn {
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 16px;
+  }
+  .float-ai-label {
+    display: none;
+  }
+  .float-pet-wrap {
+    bottom: 76px;
+    right: 16px;
+  }
+  .float-pet-summary {
+    display: none;
+  }
 }
 </style>

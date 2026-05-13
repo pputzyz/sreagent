@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, shallowRef, onMounted, computed, h } from 'vue'
-import { useMessage, NButton, NIcon, NDropdown } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { integrationV2Api, channelV2Api } from '@/api'
 import RoutingRules from './RoutingRules.vue'
@@ -18,6 +18,7 @@ import {
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 
 const loading = ref(false)
 const integrations = shallowRef<any[]>([])
@@ -105,7 +106,7 @@ function webhookShort(token: string) {
 function copyWebhook(integ: any) {
   if (!integ.webhook_token) return
   navigator.clipboard.writeText(webhookUrl(integ.webhook_token)).then(() =>
-    message.success(t('common.copied') || '已复制'),
+    message.success(t('common.copied')),
   )
 }
 
@@ -197,9 +198,13 @@ function rowActions(_integ: any) {
 function handleAction(key: string, integ: any) {
   if (key === 'edit') openEdit(integ)
   else if (key === 'delete') {
-    if (window.confirm(t('common.confirmDeleteMsg') || 'Confirm delete?')) {
-      deleteInteg(integ.id)
-    }
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: t('common.confirmDeleteMsg'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => deleteInteg(integ.id),
+    })
   }
 }
 

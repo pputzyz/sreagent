@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
@@ -24,7 +26,28 @@ func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Log
 	return &DataSourceService{repo: repo, logger: logger}
 }
 
+// validateEndpoint checks that the endpoint URL does not point to a private/loopback IP (SSRF protection).
+func validateEndpoint(endpoint string) error {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return err
+	}
+	host := u.Hostname()
+	ip := net.ParseIP(host)
+	if ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsPrivate()) {
+		return fmt.Errorf("endpoint must not point to private/loopback IP")
+	}
+	return nil
+}
+
 func (s *DataSourceService) Create(ctx context.Context, ds *model.DataSource) error {
+	// Validate endpoint against SSRF
+	if ds.Endpoint != "" {
+		if err := validateEndpoint(ds.Endpoint); err != nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam, err.Error())
+		}
+	}
+
 	// Check if name already exists
 	existing, err := s.repo.GetByName(ctx, ds.Name)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -59,6 +82,13 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 	existing, err := s.repo.GetByID(ctx, ds.ID)
 	if err != nil {
 		return apperr.ErrDSNotFound
+	}
+
+	// Validate endpoint against SSRF
+	if ds.Endpoint != "" {
+		if err := validateEndpoint(ds.Endpoint); err != nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam, err.Error())
+		}
 	}
 
 	// Update fields

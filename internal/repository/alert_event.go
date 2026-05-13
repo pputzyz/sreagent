@@ -52,7 +52,7 @@ func (r *AlertEventRepository) GetByID(ctx context.Context, id uint) (*model.Ale
 func (r *AlertEventRepository) GetByFingerprint(ctx context.Context, fingerprint string) (*model.AlertEvent, error) {
 	var event model.AlertEvent
 	err := r.db.WithContext(ctx).
-		Where("fingerprint = ? AND status != ?", fingerprint, model.EventStatusClosed).
+		Where("fingerprint = ? AND status != ? AND deleted_at IS NULL", fingerprint, model.EventStatusClosed).
 		First(&event).Error
 	if err != nil {
 		return nil, err

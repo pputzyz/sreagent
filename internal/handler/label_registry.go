@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -49,7 +50,7 @@ func (h *LabelRegistryHandler) GetKeys(c *gin.Context) {
 // Sync triggers an immediate sync (admin only).
 // POST /label-registry/sync
 func (h *LabelRegistryHandler) Sync(c *gin.Context) {
-	go h.svc.SyncAll(c.Request.Context())
+	go h.svc.SyncAll(context.Background())
 	Success(c, gin.H{"message": "sync triggered"})
 }
 

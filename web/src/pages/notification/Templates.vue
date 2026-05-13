@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, shallowRef, reactive, computed, onMounted } from 'vue'
-import { useMessage, NIcon, NButton, NDropdown } from 'naive-ui'
+import { useMessage, useDialog, NIcon, NButton, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { messageTemplateApi } from '@/api'
 import type { MessageTemplate } from '@/types'
@@ -11,6 +11,7 @@ import {
 import EmptyState from '@/components/common/EmptyState.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -192,7 +193,13 @@ function handleAction(key: string, row: MessageTemplate) {
   if (key === 'edit') openEdit(row)
   else if (key === 'preview') handlePreview(row)
   else if (key === 'delete') {
-    if (window.confirm(t('template.deleteConfirm') || 'Delete?')) handleDelete(row.id)
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: t('template.deleteConfirm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => handleDelete(row.id),
+    })
   }
 }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import {
   AddOutline,
@@ -15,6 +15,7 @@ import KVEditor from '@/components/common/KVEditor.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -277,7 +278,13 @@ function onMenuSelect(key: string, row: AlertChannel) {
   if (key === 'test') handleTest(row.id)
   else if (key === 'edit') openEdit(row)
   else if (key === 'delete') {
-    if (window.confirm(t('alertChannel.deleteConfirm'))) handleDelete(row.id)
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: t('alertChannel.deleteConfirm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => handleDelete(row.id),
+    })
   }
 }
 

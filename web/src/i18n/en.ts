@@ -179,8 +179,8 @@ export default {
     ssoLogin: 'Sign in with SSO',
     ssoLoginSuccess: 'SSO login successful',
     brand: {
-      control: 'NEXUS',
-      tagline: 'All-in-one DevOps platform.',
+      control: 'SREAGENT',
+      tagline: 'All-in-one DevOps solution platform · Embodied Agent.',
       feature1: 'Full incident lifecycle management',
       feature2: 'Smart noise reduction — filter noise, focus on what matters',
       feature3: 'AI-powered post-mortem and rapid root-cause analysis',
@@ -244,6 +244,7 @@ export default {
     avgMttr: 'Avg MTTR',
     topNoisyRules: 'Top Noisy Rules',
     active: 'Active',
+    lastSync: 'Last sync',
   },
   datasource: {
     title: 'Data Sources',
@@ -422,6 +423,7 @@ export default {
     teamStats: 'By Team',
     incidentTrend: 'Incident Trend',
     days: 'days',
+    public: 'Public',
   },
   alert: {
     rules: 'Alert Rules',
@@ -704,6 +706,7 @@ export default {
     avatarTooLarge: 'Image too large (max 200KB)',
     avatarInvalidType: 'Only PNG / JPG / SVG / WEBP allowed',
     clearAvatar: 'Clear avatar',
+    selectAvatar: 'Select avatar',
   },
   notification: {
     channelsTitle: 'Notification Channels',
@@ -1060,6 +1063,8 @@ export default {
     pageSubtitle: 'Manage rotations and escalation policies',
     scheduleLabel: 'Schedule',
     empty: 'No schedule data',
+    loadParticipantsError: 'Unable to load participants',
+    loadParticipantsErrorHint: 'An error occurred while loading participants list',
   },
   settings: {
     title: 'Settings',
@@ -1267,7 +1272,7 @@ export default {
     oidcProviderSection: 'Provider',
     oidcProviderDesc: 'Issuer discovery URL and OAuth2 client credentials registered with the IdP.',
     oidcClaimMapping: 'Claim Mapping',
-    oidcClaimMappingDesc: 'Map ID-token claims to user fields and translate provider roles into Nexus roles.',
+    oidcClaimMappingDesc: 'Map ID-token claims to user fields and translate provider roles into SREAgent roles.',
     oidcUsernameClaim: 'Username Claim',
     oidcUsernameClaimPlaceholder: 'preferred_username',
     oidcEmailClaim: 'Email Claim',
@@ -1900,6 +1905,20 @@ export default {
     globalViewerDesc: 'Read-only access to all resources, suitable for audit and monitoring',
     permManageUsers: 'Manage Users',
     permManageTeams: 'Manage Teams',
+    permManageRoles: 'Manage Roles',
+    permSystemConfig: 'System Config',
+    permManageRules: 'Manage Rules',
+    permManageSchedules: 'Manage Schedules',
+    permManageChannels: 'Manage Channels',
+    permAcknowledgeAlerts: 'Acknowledge Alerts',
+    permCreateResources: 'Create Resources',
+    permEditOwn: 'Edit Own Resources',
+    permViewAssigned: 'View Assigned Resources',
+    permViewAll: 'View All Resources',
+    permReadOnly: 'Read Only',
+    permNoConfig: 'No Config Access',
+    roleCount: '{n} roles',
+    permissionCount: '{n} permissions',
   },
 
   // ===== Accessibility =====

@@ -106,8 +106,8 @@ watch([() => form.value.username, () => form.value.password], () => {
         <!-- Brand header inside card -->
         <div class="card-brand">
           <div class="brand-logo-row">
-            <img src="/logo.svg" alt="Nexus" class="brand-logo" />
-            <span class="brand-name">Nexus</span>
+            <img src="/logo.svg" alt="SREAgent" class="brand-logo" />
+            <span class="brand-name">SREAgent</span>
           </div>
           <p class="brand-tagline">{{ t('auth.brand.tagline') }}</p>
         </div>

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -120,7 +119,6 @@ func (s *AlertChannelService) TestChannel(ctx context.Context, id uint) error {
 		zap.Time("tested_at", time.Now()),
 	)
 
-	_ = fmt.Sprintf("channel %s -> media %s", ch.Name, media.Name)
 	return nil
 }
 func (s *AlertChannelService) FindMatchingChannels(ctx context.Context, event *model.AlertEvent) ([]model.AlertChannel, error) {

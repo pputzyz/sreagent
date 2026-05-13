@@ -141,7 +141,7 @@ function handleLogout() {
               />
             </div>
             <div class="avatar-presets">
-              <div class="avatar-presets-label">{{ t('profile.selectAvatar') || '选择头像' }}</div>
+              <div class="avatar-presets-label">{{ t('profile.selectAvatar') }}</div>
               <div class="avatar-presets-grid">
                 <button
                   v-for="preset in presetAvatars"

@@ -72,6 +72,14 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	r.Use(middleware.CORS())
 	r.Use(middleware.RequestLogger(logger))
 
+	// Limit request body size to 10MB
+	r.Use(func(c *gin.Context) {
+		if c.Request.Body != nil {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 10<<20)
+		}
+		c.Next()
+	})
+
 	// Health check (no auth)
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

@@ -117,7 +117,11 @@ func (s *IntegrationService) Create(ctx context.Context, integ *model.Integratio
 		s.logger.Error("failed to create integration", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
-	s.logger.Info("integration created", zap.Uint("id", integ.ID), zap.String("token", token))
+	maskedToken := token
+	if len(token) > 8 {
+		maskedToken = token[:8] + "..."
+	}
+	s.logger.Info("integration created", zap.Uint("id", integ.ID), zap.String("token", maskedToken))
 	return nil
 }
 

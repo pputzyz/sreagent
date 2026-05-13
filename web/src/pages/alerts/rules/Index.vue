@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, ref, shallowRef, computed, onMounted } from 'vue'
-import { useMessage, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { alertRuleApi, datasourceApi } from '@/api'
@@ -24,6 +24,7 @@ import {
 } from '@vicons/ionicons5'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 const router = useRouter()
 
@@ -272,7 +273,13 @@ function onRowAction(key: string, rule: AlertRule) {
     duplicateFrom.value = rule
     showFormModal.value = true
   } else if (key === 'delete') {
-    if (window.confirm(t('alert.deleteRuleConfirm'))) handleDelete(rule.id)
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: t('alert.deleteRuleConfirm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => handleDelete(rule.id),
+    })
   }
 }
 

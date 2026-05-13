@@ -4,6 +4,33 @@
 
 ---
 
+## [v4.9.5] — 2026-05-13
+
+### Security — 安全加固 + 代码审查 + 品牌重命名
+
+**安全修复：**
+- 修复 JWT ParseTokenIgnoreExpiry 未验证签名算法（CRITICAL）
+- 修复 OIDC CallbackJSON state 验证可选导致 CSRF 绕过（HIGH）
+- 新增全局请求体大小限制 10MB（HIGH）
+- 新增 Datasource Endpoint SSRF 防护（MEDIUM）
+- 移除 Webhook Secret URL 查询参数支持（MEDIUM）
+- 修复 Integration Token 日志泄露（MEDIUM）
+- 修复 Lark Bot Config Secret 部分泄露（MEDIUM）
+
+**代码质量：**
+- 修复 GetByFingerprint 缺少软删除过滤
+- 修复 Goroutine 使用 request context 导致后台任务中断
+- 删除死代码：itoa() 包装函数、废弃 fmt.Sprintf
+- JWT 签名方法验证添加 fmt 导入
+
+**UI/前端：**
+- 品牌重命名：Nexus → SREAgent（7 处）
+- 更新 tagline：一站式 DevOps 解决方案平台 · 具身 Agent
+- 补齐 en.ts rolesModule 缺失翻译键（14 个）
+- 补齐 dashboard.lastSync、profile.selectAvatar 等缺失翻译
+- 4 处 window.confirm 替换为 Naive UI useDialog
+- AppShell 添加 768px 响应式断点（移动端隐藏侧边栏）
+
 ## [v4.9.2] — 2026-05-13
 
 ### Fixed — 代码审查修复 + 公开状态页端点

@@ -74,17 +74,13 @@ func (s *LarkBotService) GetConfig(ctx context.Context) (LarkConfig, error) {
 	}
 	// Mask secrets for display
 	if cfg.AppSecret != "" {
-		if len(cfg.AppSecret) > 8 {
-			cfg.AppSecret = cfg.AppSecret[:4] + "****" + cfg.AppSecret[len(cfg.AppSecret)-4:]
-		} else {
-			cfg.AppSecret = "****"
-		}
+		cfg.AppSecret = "********"
 	}
 	if cfg.EncryptKey != "" {
-		cfg.EncryptKey = "****"
+		cfg.EncryptKey = "********"
 	}
 	if cfg.VerificationToken != "" {
-		cfg.VerificationToken = "****"
+		cfg.VerificationToken = "********"
 	}
 	return cfg, nil
 }

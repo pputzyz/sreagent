@@ -179,8 +179,8 @@ export default {
     ssoLogin: '使用 SSO 单点登录',
     ssoLoginSuccess: 'SSO 登录成功',
     brand: {
-      control: 'NEXUS',
-      tagline: '一站式 DevOps 平台。',
+      control: 'SREAGENT',
+      tagline: '一站式 DevOps 解决方案平台 · 具身 Agent。',
       feature1: '事件全生命周期管理',
       feature2: '智能降噪 — 过滤噪音，聚焦关键告警',
       feature3: 'AI 驱动的复盘与根因定位',
@@ -244,6 +244,7 @@ export default {
     avgMttr: 'Avg MTTR',
     topNoisyRules: 'Top 告警规则',
     active: '活跃',
+    lastSync: '上次同步',
   },
   datasource: {
     title: '数据源管理',
@@ -422,6 +423,7 @@ export default {
     teamStats: '团队维度分析',
     incidentTrend: '故障趋势',
     days: '天',
+    public: '公开',
   },
   alert: {
     // Rules
@@ -713,6 +715,7 @@ export default {
     avatarTooLarge: '图片过大（最大 200KB）',
     avatarInvalidType: '仅支持 PNG / JPG / SVG / WEBP',
     clearAvatar: '清除头像',
+    selectAvatar: '选择头像',
   },
   notification: {
     channelsTitle: '通知渠道',
@@ -1069,6 +1072,8 @@ export default {
     pageSubtitle: '管理排班轮转和升级策略',
     scheduleLabel: '排班',
     empty: '暂无排班数据',
+    loadParticipantsError: '无法加载参与人',
+    loadParticipantsErrorHint: '加载参与人列表时发生错误',
   },
   settings: {
     title: '系统设置',
@@ -1283,7 +1288,7 @@ export default {
     oidcProviderSection: '提供商',
     oidcProviderDesc: 'Issuer 发现 URL 和在 IdP 注册的 OAuth2 客户端凭据。',
     oidcClaimMapping: '声明映射',
-    oidcClaimMappingDesc: '将 ID Token 声明映射到用户字段，并将提供商角色转换为 Nexus 角色。',
+    oidcClaimMappingDesc: '将 ID Token 声明映射到用户字段，并将提供商角色转换为 SREAgent 角色。',
     oidcUsernameClaim: '用户名声明',
     oidcUsernameClaimPlaceholder: 'preferred_username',
     oidcEmailClaim: '邮箱声明',

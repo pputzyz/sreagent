@@ -95,7 +95,7 @@ func (h *OIDCHandler) Callback(c *gin.Context) {
 
 	// For SPA: redirect to frontend with token as URL fragment (not query param for security)
 	// The frontend will extract the token from the fragment and store it.
-	redirectURL := "/#oidc_token=" + token + "&expires_in=" + itoa(expiresIn)
+	redirectURL := "/#oidc_token=" + token + "&expires_in=" + strconv.Itoa(expiresIn)
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
@@ -113,20 +113,25 @@ func (h *OIDCHandler) CallbackJSON(c *gin.Context) {
 		return
 	}
 
-	// Validate CSRF state if provided (recommended)
-	if req.State != "" {
-		expectedState, err := c.Cookie("oidc_state")
-		if err != nil || expectedState == "" || req.State != expectedState {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    10100,
-				"message": "OIDC state mismatch (possible CSRF)",
-			})
-			return
-		}
-		// Clear the state cookie
-		secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
-		c.SetCookie("oidc_state", "", -1, "/", "", secure, true)
+	// Validate CSRF state (mandatory)
+	if req.State == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    10100,
+			"message": "missing OIDC state parameter (required for CSRF protection)",
+		})
+		return
 	}
+	expectedState, err := c.Cookie("oidc_state")
+	if err != nil || expectedState == "" || req.State != expectedState {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    10100,
+			"message": "OIDC state mismatch (possible CSRF)",
+		})
+		return
+	}
+	// Clear the state cookie
+	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	c.SetCookie("oidc_state", "", -1, "/", "", secure, true)
 
 	token, expiresIn, err := h.svc.ExchangeAndLogin(c.Request.Context(), req.Code)
 	if err != nil {
@@ -157,8 +162,4 @@ func (h *OIDCHandler) OIDCConfig(c *gin.Context) {
 		"enabled":   true,
 		"login_url": "/api/v1/auth/oidc/login",
 	})
-}
-
-func itoa(i int) string {
-	return strconv.Itoa(i)
 }
