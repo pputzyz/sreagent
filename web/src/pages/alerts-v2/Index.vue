@@ -91,7 +91,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
       :subtitle="t('alertV2.subtitle')"
     >
       <template #actions>
-        <n-button circle quaternary @click="loadAlerts" aria-label="Refresh">
+        <n-button circle quaternary @click="loadAlerts" :aria-label="t('common.refresh')">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
       </template>

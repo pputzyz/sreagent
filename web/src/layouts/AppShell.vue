@@ -187,14 +187,14 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         </n-popover>
 
         <!-- ⌘K -->
-        <button v-ripple class="topbar-btn topbar-kbd" @click="openPalette" title="⌘K" aria-label="Search">
+        <button v-ripple class="topbar-btn topbar-kbd" @click="openPalette" title="⌘K" :aria-label="t('common.search')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <kbd>⌘K</kbd>
         </button>
 
         <!-- Lang -->
         <n-popselect :value="locale" :options="langOptions" trigger="click" :render-label="(o: any) => o.label" @update:value="handleLangChange">
-          <button v-ripple class="topbar-btn" aria-label="Change language">
+          <button v-ripple class="topbar-btn" :aria-label="t('language.switch')">
             <n-icon :component="EarthOutline" :size="15" />
             <span>{{ locale === 'zh-CN' ? '中' : 'EN' }}</span>
           </button>

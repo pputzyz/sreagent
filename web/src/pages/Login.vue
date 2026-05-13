@@ -39,7 +39,7 @@ function handleLangChange(val: string) {
 async function handleLogin() {
   loginError.value = ''
   if (!form.value.username || !form.value.password) {
-    loginError.value = t('auth.pleaseEnter') || 'Please enter username and password'
+    loginError.value = t('auth.pleaseEnter')
     return
   }
   loading.value = true
@@ -123,7 +123,7 @@ watch([() => form.value.username, () => form.value.password], () => {
             <span class="field-label">{{ t('auth.username') }}</span>
             <n-input
               v-model:value="form.username"
-              :placeholder="t('auth.enterUsername') || 'Enter username'"
+              :placeholder="t('auth.enterUsername')"
               size="large"
               :autofocus="true"
             />
@@ -134,7 +134,7 @@ watch([() => form.value.username, () => form.value.password], () => {
             <n-input
               v-model:value="form.password"
               type="password"
-              :placeholder="t('auth.enterPassword') || 'Enter password'"
+              :placeholder="t('auth.enterPassword')"
               size="large"
               show-password-on="click"
               @keyup.enter="handleLogin"
@@ -158,7 +158,7 @@ watch([() => form.value.username, () => form.value.password], () => {
           </div>
 
           <template v-if="oidcEnabled">
-            <div class="form-divider">{{ t('auth.orContinueWith') || 'or' }}</div>
+            <div class="form-divider">{{ t('auth.orContinueWith') }}</div>
             <n-button
               block
               size="large"

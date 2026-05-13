@@ -4,6 +4,25 @@
 
 ---
 
+## [v4.9.6] — 2026-05-13
+
+### Fixed — 状态页面 + AI 聊天面板 + 国际化清理
+
+**StatusPage：**
+- 移除"即将上线"预览文案，改为展示真实服务状态
+- 移除 feature cards 营销内容
+- 改为"订阅通知"文案
+
+**AIChatPanel：**
+- 重构布局：chat-body flex column 结构，消息区自动撑满
+- 输入框区域固定在底部，带 border-top 分隔
+- textarea autosize 调整为 minRows:2 / maxRows:6
+
+**国际化：**
+- 清理 10+ 处不必要的 `|| 'fallback'` 模式
+- 修复 2 处硬编码 aria-label（Search / Change language）
+- 补齐 statusPageModule 新键（currentStatus / subscribe / noServicesHint）
+
 ## [v4.9.5] — 2026-05-13
 
 ### Security — 安全加固 + 代码审查 + 品牌重命名

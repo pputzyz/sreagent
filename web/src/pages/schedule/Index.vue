@@ -306,7 +306,7 @@ onMounted(() => {
     <!-- Page Header -->
     <header class="schedule-header">
       <div class="schedule-header-text">
-        <h1 class="schedule-title">{{ t('schedule.pageTitle') || 'On-Call Schedule' }}</h1>
+        <h1 class="schedule-title">{{ t('schedule.pageTitle') }}</h1>
         <p class="schedule-subtitle">{{ t('schedule.pageSubtitle') || 'Define rotations and escalation policies' }}</p>
       </div>
       <div class="schedule-header-actions">

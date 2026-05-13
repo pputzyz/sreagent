@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, NButton, NInput, NGrid, NGi, NCard, NSpin } from 'naive-ui'
+import { useMessage, NButton, NInput, NSpin } from 'naive-ui'
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server } from 'lucide-vue-next'
 import { statusServiceApi, type StatusServiceItem } from '@/api'
 
@@ -14,13 +14,6 @@ const services = ref<StatusServiceItem[]>([])
 const loading = ref(true)
 
 const iconMap: Record<string, any> = { Server, Globe, Layers, Activity, Zap, Shield, AlertCircle, Clock }
-
-const features = [
-  { title: 'statusPageModule.feature1Title', desc: 'statusPageModule.feature1Desc', icon: Activity },
-  { title: 'statusPageModule.feature2Title', desc: 'statusPageModule.feature2Desc', icon: Globe },
-  { title: 'statusPageModule.feature3Title', desc: 'statusPageModule.feature3Desc', icon: Bell },
-  { title: 'statusPageModule.feature4Title', desc: 'statusPageModule.feature4Desc', icon: Shield },
-]
 
 onMounted(async () => {
   try {
@@ -79,23 +72,22 @@ function statusLabel(status: string) {
     <!-- Hero Section -->
     <div class="status-hero">
       <h1 class="page-title" style="margin-bottom: 8px;">{{ t('statusPageModule.title') }}</h1>
-      <p class="page-subtitle" style="max-width: 560px; margin: 0 auto 24px;">
+      <p class="page-subtitle" style="max-width: 560px; margin: 0 auto;">
         {{ t('statusPageModule.subtitle') }}
       </p>
-      <p class="status-hero-desc">{{ t('statusPageModule.heroDesc') }}</p>
     </div>
 
-    <!-- Preview: Service Status Cards -->
-    <div class="status-preview-section">
+    <!-- Service Status Cards -->
+    <div class="status-section">
       <NSpin :show="loading">
-        <div class="status-preview-header">
-          <div class="status-preview-title-row">
-            <span class="eyebrow">{{ t('statusPageModule.previewTitle') }}</span>
+        <div class="status-header">
+          <div class="status-header-row">
+            <span class="eyebrow">{{ t('statusPageModule.currentStatus') }}</span>
             <div v-if="allOperational" class="status-all-ok">
               <CheckCircle :size="14" style="color: var(--sre-success);" />
               <span>{{ t('statusPageModule.allSystemsOperational') }}</span>
             </div>
-            <div v-else class="status-all-ok" style="color: var(--sre-warning);">
+            <div v-else-if="services.length > 0" class="status-all-ok" style="color: var(--sre-warning);">
               <AlertCircle :size="14" />
               <span>{{ t('statusPageModule.partialOutage') }}</span>
             </div>
@@ -125,18 +117,19 @@ function statusLabel(status: string) {
         <div v-else-if="!loading" class="status-empty">
           <Server :size="32" style="color: var(--sre-text-tertiary); margin-bottom: 8px;" />
           <span style="color: var(--sre-text-tertiary); font-size: 13px;">{{ t('statusPageModule.noServices') }}</span>
+          <span style="color: var(--sre-text-tertiary); font-size: 12px; margin-top: 4px;">{{ t('statusPageModule.noServicesHint') }}</span>
         </div>
       </NSpin>
     </div>
 
-    <!-- Notify CTA -->
+    <!-- Subscribe CTA -->
     <div class="status-cta-card content-card" style="text-align: center;">
       <div class="cta-icon-wrap">
         <Bell :size="28" />
       </div>
-      <h3 class="section-title" style="margin-bottom: 8px;">{{ t('statusPageModule.notifyMe') }}</h3>
+      <h3 class="section-title" style="margin-bottom: 8px;">{{ t('statusPageModule.subscribe') }}</h3>
       <p class="text-caption text-secondary" style="margin-bottom: 20px; max-width: 380px; margin-left: auto; margin-right: auto;">
-        {{ t('statusPageModule.notifyHint') }}
+        {{ t('statusPageModule.subscribeHint') }}
       </p>
       <div class="cta-input-row">
         <NInput
@@ -152,24 +145,9 @@ function statusLabel(status: string) {
           :loading="submitting"
           @click="handleNotify"
         >
-          {{ t('statusPageModule.notifyMe') }}
+          {{ t('statusPageModule.subscribe') }}
         </NButton>
       </div>
-    </div>
-
-    <!-- Feature Cards -->
-    <div class="status-features">
-      <NGrid :x-gap="16" :y-gap="16" :cols="4" responsive="screen" :item-responsive="true">
-        <NGi v-for="feat in features" :key="feat.title" span="4 m:2 l:1">
-          <div class="feature-card surface-card">
-            <div class="feature-icon">
-              <component :is="feat.icon" :size="20" />
-            </div>
-            <span class="feature-title">{{ t(feat.title) }}</span>
-            <span class="feature-desc">{{ t(feat.desc) }}</span>
-          </div>
-        </NGi>
-      </NGrid>
     </div>
   </div>
 </template>
@@ -177,20 +155,12 @@ function statusLabel(status: string) {
 <style scoped>
 .status-hero {
   text-align: center;
-  padding: 48px 0 40px;
+  padding: 48px 0 32px;
   animation: sre-fade-in 400ms var(--sre-ease-out) both;
 }
 
-.status-hero-desc {
-  font-size: var(--sre-text-body-size);
-  color: var(--sre-text-secondary);
-  line-height: var(--sre-lh-normal);
-  max-width: 520px;
-  margin: 0 auto;
-}
-
-/* --- Preview Section --- */
-.status-preview-section {
+/* --- Status Section --- */
+.status-section {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
   border-radius: var(--sre-radius-xl);
@@ -200,11 +170,11 @@ function statusLabel(status: string) {
   animation: sre-fade-in 400ms var(--sre-ease-out) 80ms both;
 }
 
-.status-preview-header {
+.status-header {
   margin-bottom: 16px;
 }
 
-.status-preview-title-row {
+.status-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -298,11 +268,6 @@ function statusLabel(status: string) {
   padding: 48px 24px;
 }
 
-.status-meta-row {
-  margin-top: 12px;
-  text-align: right;
-}
-
 /* --- CTA Section --- */
 .status-cta-card {
   margin-bottom: 24px;
@@ -329,54 +294,6 @@ function statusLabel(status: string) {
   justify-content: center;
   max-width: 440px;
   margin: 0 auto;
-}
-
-/* --- Feature Cards --- */
-.status-features {
-  animation: sre-fade-in 400ms var(--sre-ease-out) 240ms both;
-}
-
-.feature-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 20px;
-  border-radius: var(--sre-radius-lg);
-  border: 1px solid var(--sre-border);
-  background: var(--sre-bg-card);
-  height: 100%;
-  transition: border-color var(--sre-duration-fast) var(--sre-ease-out),
-              box-shadow var(--sre-duration-fast) var(--sre-ease-out),
-              transform var(--sre-duration-fast) var(--sre-ease-out);
-}
-
-.feature-card:hover {
-  border-color: var(--sre-border-strong);
-  box-shadow: var(--sre-shadow-lift);
-  transform: translateY(-2px);
-}
-
-.feature-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--sre-primary-soft);
-  color: var(--sre-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.feature-title {
-  font-size: var(--sre-fs-base);
-  font-weight: var(--sre-fw-semibold);
-  color: var(--sre-text-primary);
-}
-
-.feature-desc {
-  font-size: var(--sre-fs-sm);
-  color: var(--sre-text-secondary);
-  line-height: var(--sre-lh-normal);
 }
 
 /* Responsive */

@@ -188,7 +188,7 @@ onMounted(loadIncidents)
   <div class="incidents-page">
     <PageHeader :title="t('incident.title')" :subtitle="t('incident.subtitle')">
       <template #actions>
-        <n-button circle quaternary @click="loadIncidents" aria-label="Refresh">
+        <n-button circle quaternary @click="loadIncidents" :aria-label="t('common.refresh')">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
         <n-button type="primary" @click="showCreateModal = true">

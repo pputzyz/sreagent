@@ -115,9 +115,9 @@ defineExpose({ fetchParticipants })
   <div v-if="fetchError && !loading" class="participant-error">
     <EmptyState
       :icon="AlertCircleOutline"
-      :title="t('schedule.loadParticipantsError') || 'Unable to load participants'"
-      :description="t('schedule.loadParticipantsErrorHint') || 'An error occurred while fetching participant data.'"
-      :primary-text="t('common.retry') || 'Retry'"
+      :title="t('schedule.loadParticipantsError')"
+      :description="t('schedule.loadParticipantsErrorHint')"
+      :primary-text="t('common.retry')"
       @primary="fetchParticipants"
       size="sm"
       variant="warning"
@@ -157,7 +157,7 @@ defineExpose({ fetchParticipants })
 
         <EmptyState
           v-if="!loading && participants.length === 0"
-          :title="t('schedule.noParticipants') || 'No participants'"
+          :title="t('schedule.noParticipants')"
           size="sm"
         />
       </div>

@@ -377,7 +377,7 @@ onMounted(refresh)
 
     <!-- Last sync -->
     <div class="dash-footer">
-      <span class="text-muted">{{ t('dashboard.lastSync') || 'Last sync' }} · {{ lastSyncText }}</span>
+      <span class="text-muted">{{ t('dashboard.lastSync') }} · {{ lastSyncText }}</span>
     </div>
   </div>
 </template>

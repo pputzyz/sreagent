@@ -86,7 +86,7 @@ onMounted(() => {
     resizable
     @update:show="handleClose"
   >
-    <n-drawer-content :title="t('ai.chatTitle')" closable>
+    <n-drawer-content :native-scrollbar="false">
       <template #header>
         <div class="chat-header">
           <span class="chat-title">{{ t('ai.chatTitle') }}</span>
@@ -110,64 +110,64 @@ onMounted(() => {
         </div>
       </template>
 
-      <div ref="messageListRef" class="chat-messages">
-        <AIChatMessage
-          v-for="(msg, idx) in messages"
-          :key="msg.id || idx"
-          :message="msg"
-        />
+      <div class="chat-body">
+        <div ref="messageListRef" class="chat-messages">
+          <AIChatMessage
+            v-for="(msg, idx) in messages"
+            :key="msg.id || idx"
+            :message="msg"
+          />
 
-        <div v-if="loading" class="chat-loading">
-          <div class="chat-loading-dots">
-            <span /><span /><span />
+          <div v-if="loading" class="chat-loading">
+            <div class="chat-loading-dots">
+              <span /><span /><span />
+            </div>
+            <span class="chat-loading-label">{{ t('ai.thinking') }}</span>
           </div>
-          <span class="chat-loading-label">{{ t('ai.thinking') }}</span>
+
+          <div v-if="error" class="chat-error">
+            <span>{{ error }}</span>
+            <n-button size="tiny" quaternary @click="handleRetry">
+              <template #icon>
+                <n-icon :component="RefreshCw" />
+              </template>
+              {{ t('ai.retry') }}
+            </n-button>
+          </div>
+
+          <div v-if="messages.length === 0 && !loading" class="chat-empty">
+            <div class="chat-empty-icon">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="40" height="40" rx="12" fill="var(--sre-primary-soft)" stroke="var(--sre-primary)" stroke-width="1.5"/>
+                <path d="M24 14l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="var(--sre-primary)" opacity="0.8"/>
+                <circle cx="16" cy="16" r="2" fill="var(--sre-primary)" opacity="0.4"/>
+                <circle cx="32" cy="14" r="1.5" fill="var(--sre-primary)" opacity="0.3"/>
+                <circle cx="34" cy="32" r="1.5" fill="var(--sre-primary)" opacity="0.3"/>
+              </svg>
+            </div>
+            <div class="chat-empty-title">{{ t('ai.emptyTitle') }}</div>
+            <div class="chat-empty-text">{{ t('ai.emptyHint') }}</div>
+            <div class="chat-suggestions">
+              <button
+                v-for="(prompt, i) in suggestedPrompts"
+                :key="i"
+                class="chat-suggestion"
+                @click="handleSuggestion(prompt)"
+              >
+                <span class="chat-suggestion-icon">💡</span>
+                {{ prompt }}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div v-if="error" class="chat-error">
-          <span>{{ error }}</span>
-          <n-button size="tiny" quaternary @click="handleRetry">
-            <template #icon>
-              <n-icon :component="RefreshCw" />
-            </template>
-            {{ t('ai.retry') }}
-          </n-button>
-        </div>
-
-        <div v-if="messages.length === 0 && !loading" class="chat-empty">
-          <div class="chat-empty-icon">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="4" width="40" height="40" rx="12" fill="var(--sre-primary-soft)" stroke="var(--sre-primary)" stroke-width="1.5"/>
-              <path d="M24 14l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="var(--sre-primary)" opacity="0.8"/>
-              <circle cx="16" cy="16" r="2" fill="var(--sre-primary)" opacity="0.4"/>
-              <circle cx="32" cy="14" r="1.5" fill="var(--sre-primary)" opacity="0.3"/>
-              <circle cx="34" cy="32" r="1.5" fill="var(--sre-primary)" opacity="0.3"/>
-            </svg>
-          </div>
-          <div class="chat-empty-title">{{ t('ai.emptyTitle') }}</div>
-          <div class="chat-empty-text">{{ t('ai.emptyHint') }}</div>
-          <div class="chat-suggestions">
-            <button
-              v-for="(prompt, i) in suggestedPrompts"
-              :key="i"
-              class="chat-suggestion"
-              @click="handleSuggestion(prompt)"
-            >
-              <span class="chat-suggestion-icon">💡</span>
-              {{ prompt }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
         <div class="chat-footer">
           <div class="chat-input-wrap">
             <n-input
               v-model:value="inputText"
               type="textarea"
               :placeholder="t('ai.inputPlaceholder')"
-              :autosize="{ minRows: 3, maxRows: 5 }"
+              :autosize="{ minRows: 2, maxRows: 6 }"
               @keydown="handleKeydown"
               class="chat-input"
             />
@@ -184,7 +184,7 @@ onMounted(() => {
             </template>
           </n-button>
         </div>
-      </template>
+      </div>
     </n-drawer-content>
   </n-drawer>
 </template>
@@ -211,11 +211,20 @@ onMounted(() => {
   gap: 8px;
 }
 
+.chat-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 .chat-messages {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  overflow-y: auto;
   padding: 4px 0;
+  min-height: 0;
 }
 
 .chat-loading {
@@ -361,7 +370,10 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   align-items: flex-end;
-  padding: 8px 0;
+  padding: 12px 0 4px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--sre-border);
+  background: var(--sre-bg-card);
 }
 
 .chat-input-wrap {
