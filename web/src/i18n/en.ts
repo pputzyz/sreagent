@@ -245,6 +245,7 @@ export default {
     topNoisyRules: 'Top Noisy Rules',
     active: 'Active',
     lastSync: 'Last sync',
+    quickActions: 'Quick Actions',
   },
   datasource: {
     title: 'Data Sources',

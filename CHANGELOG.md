@@ -4,6 +4,43 @@
 
 ---
 
+## [v4.10.0] — 2026-05-14
+
+### Changed — 全平台 UI 视觉重构：暖橙主题 + Bento 布局 + 春季动画
+
+**配色系统重构：**
+- 全局主色从 teal `#0d9488` 迁移至暖橙 `#F97316`
+- App.vue Naive UI 主题覆盖全部使用暖橙色系
+- 新增伴侣色 CSS 变量：`--sre-rose-light`、`--sre-emerald-light`、`--sre-violet-light`、`--sre-mint`
+- 侧边栏 accent-soft RGBA 值对齐新品牌色（oncall `#F43F5E`、alert `#3B82F6`、platform `#8B5CF6`）
+- mascot-fox.svg 内耳颜色从 `#0d9488` 更新为 `#F97316`
+- UserAvatar.vue 调色板更新为新品牌色
+
+**布局重构：**
+- Index.vue 和 IncidentDashboard.vue 改为 12 列 CSS Grid bento 布局
+- 卡片移除装饰性渐变 `::before` 线条
+- 响应式断点：1200px（8+4）、768px（单列）
+
+**动画系统：**
+- 新增 `--sre-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1)` 弹簧缓动
+- AppRail 图标 hover 弹跳放大 + active 缩放
+- AppSidebar 指示器 scaleY 入场动画 + `transform-origin: top`
+- AppShell 页面过渡改为 opacity + transform
+
+**可访问性：**
+- Index.vue action-btn/rule-item 添加 `role="button"` + `aria-label`
+- tooltip 从硬编码 `#1C1917` 改为 CSS 变量，适配深色模式
+- `.sev-seg` transition 从 `flex` 改为 `flex-grow` 避免布局抖动
+
+**其他：**
+- AppShell topbar 添加暖色阴影
+- AppShell/AppSidebar 使用 display font
+- Login.vue mesh blob 更新为暖橙色调
+- i18n 补齐 `dashboard.quickActions` 中英文 key
+- App.vue border-radius 添加 CSS 变量关联注释
+
+---
+
 ## [v4.9.7] — 2026-05-13
 
 ### Fixed — 协作空间国际化 + 状态页面 CRUD

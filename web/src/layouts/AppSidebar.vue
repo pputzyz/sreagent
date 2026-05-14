@@ -114,9 +114,9 @@ function handleMenuUpdate(key: string) {
   overflow: hidden;
 }
 
-.app-sidebar[data-app="oncall"]   { --sidebar-accent: var(--sre-brand-oncall); --sidebar-accent-soft: rgba(255, 107, 107, 0.08); }
-.app-sidebar[data-app="alert"]    { --sidebar-accent: var(--sre-brand-alert); --sidebar-accent-soft: rgba(79, 172, 254, 0.08); }
-.app-sidebar[data-app="platform"] { --sidebar-accent: var(--sre-brand-platform); --sidebar-accent-soft: rgba(168, 85, 247, 0.08); }
+.app-sidebar[data-app="oncall"]   { --sidebar-accent: var(--sre-brand-oncall); --sidebar-accent-soft: rgba(244, 63, 94, 0.08); }
+.app-sidebar[data-app="alert"]    { --sidebar-accent: var(--sre-brand-alert); --sidebar-accent-soft: rgba(59, 130, 246, 0.08); }
+.app-sidebar[data-app="platform"] { --sidebar-accent: var(--sre-brand-platform); --sidebar-accent-soft: rgba(139, 92, 246, 0.08); }
 
 .app-sidebar.collapsed {
   width: 64px;
@@ -154,7 +154,11 @@ function handleMenuUpdate(key: string) {
 }
 
 .sidebar-nav :deep(.n-menu-item:hover) {
-  background: var(--sidebar-accent-soft, rgba(255, 107, 107, 0.06));
+  background: var(--sidebar-accent-soft, rgba(249, 115, 22, 0.06));
+}
+
+.sidebar-nav :deep(.n-menu-item .n-menu-item-content__label) {
+  transition: transform 200ms var(--sre-ease-out), color 200ms var(--sre-ease-out);
 }
 
 .sidebar-nav :deep(.n-menu-item:hover .n-menu-item-content__label) {
@@ -163,7 +167,7 @@ function handleMenuUpdate(key: string) {
 }
 
 .sidebar-nav :deep(.n-menu-item--selected) {
-  background: var(--sidebar-accent-soft, rgba(255, 107, 107, 0.08)) !important;
+  background: var(--sidebar-accent-soft, rgba(249, 115, 22, 0.08)) !important;
 }
 
 .sidebar-nav :deep(.n-menu-item-content--selected .n-menu-item-content__icon) {
@@ -186,10 +190,12 @@ function handleMenuUpdate(key: string) {
   border-radius: 3px;
   background: var(--sidebar-accent);
   box-shadow: 0 0 6px color-mix(in srgb, var(--sidebar-accent) 30%, transparent);
+  animation: sidebar-indicator-enter 300ms var(--sre-ease-spring);
 }
 
 /* Group label */
 .sidebar-nav :deep(.n-menu-group-label) {
+  font-family: var(--sre-font-display);
   font-size: 11px;
   font-weight: 600;
   color: var(--sre-text-tertiary);
@@ -209,6 +215,7 @@ function handleMenuUpdate(key: string) {
 }
 
 .sidebar-app-name {
+  font-family: var(--sre-font-display);
   font-size: 13px;
   font-weight: 700;
   color: var(--sidebar-accent);
@@ -232,19 +239,19 @@ function handleMenuUpdate(key: string) {
   cursor: pointer;
   flex-shrink: 0;
   transition:
-    transform 200ms var(--sre-ease-out),
+    transform 200ms var(--sre-ease-spring),
     background var(--sre-duration-fast) var(--sre-ease-out),
     color var(--sre-duration-fast) var(--sre-ease-out);
 }
 
 .sidebar-pin-btn:hover {
-  transform: scale(1.05);
+  transform: scale(1.08);
   background: var(--sre-bg-hover);
   color: var(--sidebar-accent);
 }
 
 .sidebar-pin-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
 }
 
 /* Fade transition */
@@ -256,5 +263,16 @@ function handleMenuUpdate(key: string) {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Indicator enter animation */
+@keyframes sidebar-indicator-enter {
+  0% { transform: scaleY(0); opacity: 0; }
+  100% { transform: scaleY(1); opacity: 1; }
+}
+
+/* Ensure indicator scales from top */
+.sidebar-nav :deep(.n-menu-item--selected::before) {
+  transform-origin: top;
 }
 </style>

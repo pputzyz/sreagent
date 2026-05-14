@@ -245,6 +245,7 @@ export default {
     topNoisyRules: 'Top 告警规则',
     active: '活跃',
     lastSync: '上次同步',
+    quickActions: '快捷操作',
   },
   datasource: {
     title: '数据源管理',

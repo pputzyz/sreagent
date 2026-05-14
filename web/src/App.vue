@@ -13,12 +13,12 @@ const savedTheme = localStorage.getItem('sre-theme')
 const isDark = ref(savedTheme ? savedTheme === 'dark' : false)
 const theme = computed(() => isDark.value ? darkTheme : null)
 
-// --- v3.1 "Soft Warm SaaS" brand tokens (teal/amber) ---
+// --- v6.0 "Warm Orange" brand tokens ---
 const common = {
-  primaryColor:        '#0d9488',
-  primaryColorHover:   '#14b8a6',
-  primaryColorPressed: '#0f766e',
-  primaryColorSuppl:   '#14b8a6',
+  primaryColor:        '#F97316',
+  primaryColorHover:   '#FB923C',
+  primaryColorPressed: '#EA580C',
+  primaryColorSuppl:   '#FB923C',
   errorColor:          '#ef4444',
   errorColorHover:     '#f87171',
   errorColorPressed:   '#dc2626',
@@ -28,13 +28,13 @@ const common = {
   infoColor:           '#3b82f6',
   infoColorHover:      '#60a5fa',
   infoColorPressed:    '#2563eb',
-  successColor:        '#0d9488',
-  successColorHover:   '#14b8a6',
-  successColorPressed: '#0f766e',
-  borderRadius:        '8px',
-  borderRadiusSmall:   '6px',
+  successColor:        '#10B981',
+  successColorHover:   '#34D399',
+  successColorPressed: '#059669',
+  borderRadius:        '10px',   // matches --sre-radius-md in global.css
+  borderRadiusSmall:   '8px',    // matches --sre-radius-sm in global.css
   fontFamily:
-    '"Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    '"Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   fontFamilyMono:
     '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Menlo", ui-monospace, monospace',
 }
@@ -90,13 +90,13 @@ const darkOverrides: GlobalThemeOverrides = {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(148,163,184,0.06)',
-    itemColorActive:        'rgba(13,148,136,0.12)',
-    itemColorActiveHover:   'rgba(13,148,136,0.16)',
+    itemColorActive:        'rgba(249,115,22,0.12)',
+    itemColorActiveHover:   'rgba(249,115,22,0.16)',
     itemTextColor:          '#cbd5e1',
     itemTextColorHover:     '#f1f5f9',
-    itemTextColorActive:    '#14b8a6',
-    itemIconColorActive:    '#14b8a6',
-    itemIconColorActiveHover:'#14b8a6',
+    itemTextColorActive:    '#F97316',
+    itemIconColorActive:    '#F97316',
+    itemIconColorActiveHover:'#F97316',
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -106,13 +106,13 @@ const darkOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#0d9488',
+    railColorActive: '#F97316',
   },
   Slider: {
-    fillColor: '#0d9488',
+    fillColor: '#F97316',
   },
   Progress: {
-    fillColor: '#0d9488',
+    fillColor: '#F97316',
   },
   Popover: {
     color: '#0f172a',
@@ -173,13 +173,13 @@ const lightOverrides: GlobalThemeOverrides = {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(0,0,0,0.03)',
-    itemColorActive:        'rgba(13,148,136,0.10)',
-    itemColorActiveHover:   'rgba(13,148,136,0.14)',
+    itemColorActive:        'rgba(249,115,22,0.10)',
+    itemColorActiveHover:   'rgba(249,115,22,0.14)',
     itemTextColor:          '#6b7280',
     itemTextColorHover:     '#111827',
-    itemTextColorActive:    '#0f766e',
-    itemIconColorActive:    '#0f766e',
-    itemIconColorActiveHover:'#0f766e',
+    itemTextColorActive:    '#F97316',
+    itemIconColorActive:    '#F97316',
+    itemIconColorActiveHover:'#F97316',
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -189,13 +189,13 @@ const lightOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#0d9488',
+    railColorActive: '#F97316',
   },
   Slider: {
-    fillColor: '#0d9488',
+    fillColor: '#F97316',
   },
   Progress: {
-    fillColor: '#0d9488',
+    fillColor: '#F97316',
   },
   Select: {
     peers: {

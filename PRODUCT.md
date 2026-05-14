@@ -16,23 +16,26 @@ Success: SRE teams trust it to wake them up reliably, reduce alert noise, and sp
 
 ## Brand Personality
 
-**Clean, warm, trustworthy.**
+**Clean, warm, vibrant.**
 
-Three words: precise, approachable, dependable.
+Three words: precise, approachable, lively.
 
-The interface should feel like a well-maintained control room: organized, calm, nothing wasted. Not clinical or cold (that's corporate SaaS), not playful or cute (that's consumer app). Warm in the way a trusted colleague is warm: competent, clear, doesn't waste your time.
+The interface should feel like a well-maintained control room with personality: organized, warm, nothing wasted. Not clinical or cold (that's corporate SaaS), not overly cute (that's consumer app). Warm in the way a trusted colleague is warm: competent, clear, but with enough visual vibrancy to make 8-hour shifts pleasant.
 
 Emotional goals:
 - Confidence: "I trust this system to surface what matters"
 - Calm: "I can think clearly even during an incident"
-- Efficiency: "I can do what I need in 2 clicks, not 8"
+- Delight: "The interface feels alive, not dead"
 
 ## Anti-references
 
-- **AI-generated aesthetics**: Rainbow gradients, glassmorphism, claymorphism, bouncy spring animations, aurora backgrounds, gradient text. These telegraph "template" not "tool".
+- **AI-generated aesthetics**: Glassmorphism, claymorphism, aurora backgrounds, gradient text, rainbow gradients. These telegraph "template" not "tool".
 - **Dark OLED monotone**: All-black themes with single accent color. Looks dead, not professional.
-- **Corporate SaaS template**: Big hero metrics, identical card grids, modal-for-everything, generic "dashboard" look.
+- **Corporate SaaS template**: Identical card grids, modal-for-everything, generic "dashboard" look. (Hero-metric cards are acceptable when they serve the data.)
 - **Data-dense terminal**: Pure function over form. Works for CLI tools, not for a platform people stare at 8+ hours.
+- **Decorative overload**: Gradient accent lines on every card, animation for animation's sake. Color should serve data, not decoration.
+
+Motion: Subtle spring easing on interactive elements (hover, active) is acceptable and adds personality. Page transitions should use smooth ease-out. Avoid excessive bounce on static elements.
 
 Specific product anti-references:
 - Grafana's default theme (too dark, too dense, no warmth)

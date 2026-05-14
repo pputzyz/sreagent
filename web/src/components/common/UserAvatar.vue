@@ -13,13 +13,13 @@ const props = withDefaults(defineProps<{
 })
 
 const colorPalettes = [
-  { bg: '#FF6B6B', fg: '#FFF' },
-  { bg: '#4FACFE', fg: '#FFF' },
-  { bg: '#A855F7', fg: '#FFF' },
+  { bg: '#F43F5E', fg: '#FFF' },
+  { bg: '#3B82F6', fg: '#FFF' },
+  { bg: '#8B5CF6', fg: '#FFF' },
   { bg: '#F59E0B', fg: '#FFF' },
   { bg: '#10B981', fg: '#FFF' },
   { bg: '#EC4899', fg: '#FFF' },
-  { bg: '#8B5CF6', fg: '#FFF' },
+  { bg: '#F97316', fg: '#FFF' },
   { bg: '#06B6D4', fg: '#FFF' },
 ]
 

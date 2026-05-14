@@ -220,17 +220,23 @@ function handleLogout() {
   transition:
     background var(--sre-duration-fast) var(--sre-ease-out),
     color var(--sre-duration-fast) var(--sre-ease-out),
-    transform var(--sre-duration-fast) var(--sre-ease-out);
+    transform 200ms var(--sre-ease-spring);
 }
 
 .rail-icon-btn:hover {
   background: color-mix(in srgb, var(--sre-bg-hover) 100%, transparent);
   color: var(--sre-text-secondary);
+  transform: translateY(-1px);
 }
 
 .rail-icon-btn.active {
   background: var(--sre-bg-active);
   color: var(--sre-text-primary);
+}
+
+.rail-icon-btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 80ms;
 }
 
 /* Colored icon circles */
@@ -241,19 +247,35 @@ function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: box-shadow 200ms var(--sre-ease-out);
+  transition:
+    transform 300ms var(--sre-ease-spring),
+    box-shadow 300ms var(--sre-ease-out);
 }
 
 .rail-icon-btn:hover .rail-icon-circle {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .rail-icon-btn:active .rail-icon-circle {
-  transform: scale(0.96);
+  transform: scale(0.92);
 }
 
 .rail-icon-btn.active .rail-icon-circle {
   box-shadow: 0 0 0 2px var(--sre-primary-ring);
+}
+
+/* Per-app active glow rings */
+.rail-icon-btn[data-app="oncall"].active .rail-icon-circle {
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.25);
+}
+
+.rail-icon-btn[data-app="alert"].active .rail-icon-circle {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.rail-icon-btn[data-app="platform"].active .rail-icon-circle {
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
 }
 
 .nav-icon-oncall { background: var(--sre-brand-oncall); }

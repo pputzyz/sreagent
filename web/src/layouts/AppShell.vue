@@ -280,7 +280,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 <style scoped>
 /* ============================================================
-   App Shell — v5.0 Clean Neutral
+   App Shell — v6.0 Warm Vibrant
    ============================================================ */
 .app-shell { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
@@ -290,6 +290,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   height:var(--sre-topbar-h); padding:0 16px; flex-shrink:0;
   background:var(--sre-bg-card);
   border-bottom:1px solid var(--sre-border);
+  box-shadow: 0 1px 0 0 rgba(249, 115, 22, 0.06);
   z-index:var(--sre-z-sticky);
 }
 
@@ -303,7 +304,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 }
 .topbar-logo:hover { opacity:0.8; }
 .logo-img { width:24px; height:24px; border-radius:var(--sre-radius-sm); }
-.logo-label { font-size:15px; font-weight:600; color:var(--sre-text-primary); letter-spacing:-0.01em; white-space:nowrap; }
+.logo-label { font-size:15px; font-weight:600; font-family:var(--sre-font-display); color:var(--sre-text-primary); letter-spacing:-0.01em; white-space:nowrap; }
 
 .topbar-sep {
   width:1px; height:20px; background:var(--sre-border); margin:0 12px; opacity:0.6;
@@ -358,7 +359,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   background:var(--sre-bg-card);
 }
 .main-title {
-  font-size:18px; font-weight:600; color:var(--sre-text-primary);
+  font-size:18px; font-weight:600; font-family:var(--sre-font-display); color:var(--sre-text-primary);
   letter-spacing:-0.01em; margin:0; line-height:1.2;
 }
 .main-actions { display:flex; align-items:center; gap:8px; }
@@ -383,12 +384,20 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   top: 0;
 }
 
-/* Page transition animation */
+/* Page transition animation — smoother opacity+transform */
 .page-enter-active {
-  animation: sre-page-enter 300ms var(--sre-ease-out) both;
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 .page-leave-active {
-  animation: sre-page-enter 200ms var(--sre-ease-out) reverse both;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 /* ===== Floating Buttons ===== */
@@ -403,17 +412,17 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   padding: 12px 20px;
   border-radius: 28px;
   border: none;
-  background: linear-gradient(135deg, #FF6B6B, #FF8E8E);
+  background: linear-gradient(135deg, #F97316, #FB923C);
   color: white;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
   transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
   font-size: 14px;
   font-weight: 600;
 }
 .float-ai-btn:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 24px rgba(255, 107, 107, 0.4);
+  box-shadow: 0 6px 24px rgba(249, 115, 22, 0.4);
 }
 .float-ai-btn:active {
   transform: scale(0.97);

@@ -1,22 +1,17 @@
 <script setup lang="ts">
-import { shallowRef, computed, onMounted, onUnmounted, type Component } from 'vue'
-import { useMessage, NIcon } from 'naive-ui'
+import { shallowRef, computed, onMounted, onUnmounted } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart, LineChart } from 'echarts/charts'
-import { TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
-import VChart from 'vue-echarts'
+import { useRouter } from 'vue-router'
 import { dashboardApi } from '@/api'
 import type { DashboardStats, MTTRStats, AlertTrendPoint, TopRuleItem } from '@/types'
 import {
-  RefreshOutline, PulseOutline, TimerOutline, CheckmarkCircleOutline, TrendingUpOutline,
+  RefreshOutline, PulseOutline, TimerOutline, CheckmarkCircleOutline,
 } from '@vicons/ionicons5'
-
-use([CanvasRenderer, PieChart, LineChart, TooltipComponent, LegendComponent, GridComponent])
 
 const message = useMessage()
 const { t } = useI18n()
+const router = useRouter()
 
 const range = shallowRef<1 | 7 | 30>(7)
 const refreshing = shallowRef(false)
@@ -69,190 +64,65 @@ let syncInterval: ReturnType<typeof setInterval>
 onMounted(() => { syncInterval = setInterval(() => { lastSyncText.value = formatRelative(lastSyncAt.value) }, 30_000) })
 onUnmounted(() => clearInterval(syncInterval))
 
-const apiHours = computed(() => range.value === 1 ? 24 : range.value === 7 ? 168 : 720)
-const apiDays = computed(() => range.value === 1 ? 1 : range.value)
-
-type KpiDef = { label: string; value: string; tone: 'critical' | 'warning' | 'success' | 'info'; icon: Component; sub?: string }
-const kpis = computed<KpiDef[]>(() => [
-  {
-    label: t('dashboard.activeAlerts'),
-    value: refreshing.value ? '—' : formatNumber(stats.value.active_alerts),
-    tone: stats.value.active_alerts > 0 ? 'critical' : 'success',
-    icon: PulseOutline,
-  },
-  {
-    label: 'MTTA',
-    value: formatMMSS(mttrStats.value.mtta?.p50 ?? -1),
-    tone: 'info',
-    icon: TimerOutline,
-    sub: `avg ${formatMMSS(mttrStats.value.mtta?.mean ?? -1)}`,
-  },
-  {
-    label: 'MTTR',
-    value: formatMMSS(mttrStats.value.mttr?.p50 ?? -1),
-    tone: 'success',
-    icon: CheckmarkCircleOutline,
-    sub: `avg ${formatMMSS(mttrStats.value.mttr?.mean ?? -1)}`,
-  },
-  {
-    label: t('dashboard.resolvedToday'),
-    value: formatNumber(stats.value.resolved_today),
-    tone: 'success',
-    icon: TrendingUpOutline,
-  },
-])
-
-// Theme-aware chart palette
-const isLightTheme = shallowRef<boolean>(typeof document !== 'undefined' && document.body.classList.contains('light-theme'))
-let themeObserver: MutationObserver | null = null
-onMounted(() => {
-  if (typeof document === 'undefined') return
-  themeObserver = new MutationObserver(() => {
-    isLightTheme.value = document.body.classList.contains('light-theme')
-  })
-  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+// Severity summary
+const sevTotal = computed(() => {
+  const s = stats.value.severity_breakdown
+  return (s?.critical ?? 0) + (s?.warning ?? 0) + (s?.info ?? 0)
 })
-onUnmounted(() => { themeObserver?.disconnect() })
-
-function chartToken(name: string): string {
-  if (typeof document === 'undefined') return '#000'
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+const sevPct = (key: 'critical' | 'warning' | 'info') => {
+  if (sevTotal.value === 0) return 0
+  return Math.round(((stats.value.severity_breakdown?.[key] ?? 0) / sevTotal.value) * 100)
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  hex = hex.replace('#', '')
-  const r = parseInt(hex.substring(0, 2), 16)
-  const g = parseInt(hex.substring(2, 4), 16)
-  const b = parseInt(hex.substring(4, 6), 16)
-  return `rgba(${r},${g},${b},${alpha})`
+// Trend chart helpers
+const trendMax = computed(() => Math.max(...trendData.value.map(d => Math.max(d.fired_count, d.resolved_count)), 1))
+
+function trendAreaPath(data: number[], max: number, w: number, h: number): string {
+  if (data.length < 2) return ''
+  const pts = data.map((v, i) => [(i / (data.length - 1)) * w, h - (v / max) * h * 0.85 - h * 0.05])
+  let d = `M${pts[0][0]},${pts[0][1]}`
+  for (let i = 0; i < pts.length - 1; i++) {
+    const cx = (pts[i][0] + pts[i + 1][0]) / 2
+    d += ` C${cx},${pts[i][1]} ${cx},${pts[i + 1][1]} ${pts[i + 1][0]},${pts[i + 1][1]}`
+  }
+  return d
 }
 
-const cp = computed(() => {
-  const light = isLightTheme.value
-  return {
-    tooltipBg: light ? 'rgba(17,24,39,0.92)' : 'rgba(15,23,42,0.92)',
-    tooltipText: '#f1f5f9',
-    legend: light ? 'rgba(17,24,39,0.65)' : 'rgba(203,213,225,0.65)',
-    axisLabel: light ? 'rgba(17,24,39,0.50)' : 'rgba(203,213,225,0.45)',
-    axisLine: light ? 'rgba(17,24,39,0.10)' : 'rgba(203,213,225,0.07)',
-    splitLine: light ? 'rgba(17,24,39,0.05)' : 'rgba(203,213,225,0.04)',
-    pieCenter: light ? 'rgba(17,24,39,0.92)' : 'rgba(203,213,225,0.90)',
-    pieMuted: light ? 'rgba(17,24,39,0.45)' : 'rgba(203,213,225,0.40)',
-    critical: chartToken('--sre-critical'),
-    warning: chartToken('--sre-warning'),
-    info: chartToken('--sre-info'),
-    success: chartToken('--sre-success'),
-  }
+function trendFillPath(data: number[], max: number, w: number, h: number): string {
+  const line = trendAreaPath(data, max, w, h)
+  if (!line) return ''
+  const lastX = ((data.length - 1) / (data.length - 1)) * w
+  return `${line} L${lastX},${h} L0,${h} Z`
+}
+
+// Hover state for trend chart
+const hoverIdx = shallowRef(-1)
+const chartW = 600
+const chartH = 170
+
+function onChartMove(e: MouseEvent) {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  const x = e.clientX - rect.left
+  hoverIdx.value = Math.round((x / rect.width) * (trendData.value.length - 1))
+}
+
+function onChartLeave() { hoverIdx.value = -1 }
+
+const hoveredPoint = computed(() => {
+  const i = hoverIdx.value
+  if (i < 0 || i >= trendData.value.length) return null
+  return trendData.value[i]
 })
 
-const chartFont = { fontFamily: 'var(--sre-font-sans)' }
-
-const trendChartOption = computed(() => ({
-  backgroundColor: 'transparent',
-  tooltip: {
-    trigger: 'axis' as const,
-    backgroundColor: cp.value.tooltipBg,
-    borderColor: 'transparent',
-    textStyle: { color: cp.value.tooltipText, fontSize: 12, ...chartFont },
-  },
-  legend: {
-    data: [t('dashboard.fired'), t('dashboard.resolved')],
-    bottom: 0,
-    textStyle: { color: cp.value.legend, fontSize: 11, ...chartFont },
-    itemWidth: 14, itemHeight: 2, icon: 'rect' as const,
-  },
-  grid: { left: 4, right: 8, bottom: 36, top: 8, containLabel: true },
-  xAxis: {
-    type: 'category' as const,
-    data: trendData.value.map(d => d.date),
-    boundaryGap: false,
-    axisLabel: { color: cp.value.axisLabel, fontSize: 10, ...chartFont },
-    axisLine: { lineStyle: { color: cp.value.axisLine } },
-    axisTick: { show: false },
-  },
-  yAxis: {
-    type: 'value' as const,
-    axisLabel: { color: cp.value.axisLabel, fontSize: 10, ...chartFont },
-    axisLine: { show: false },
-    axisTick: { show: false },
-    splitLine: { lineStyle: { color: cp.value.splitLine, type: 'dashed' as const } },
-  },
-  series: [
-    {
-      name: t('dashboard.fired'),
-      type: 'line' as const,
-      smooth: false, showSymbol: false,
-      data: trendData.value.map(d => d.fired_count),
-      lineStyle: { color: cp.value.critical, width: 1.5 },
-      itemStyle: { color: cp.value.critical },
-    },
-    {
-      name: t('dashboard.resolved'),
-      type: 'line' as const,
-      smooth: false, showSymbol: false,
-      data: trendData.value.map(d => d.resolved_count),
-      lineStyle: { color: cp.value.success, width: 1.5 },
-      itemStyle: { color: cp.value.success },
-      areaStyle: {
-        color: {
-          type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [
-            { offset: 0, color: hexToRgba(cp.value.success, 0.20) },
-            { offset: 1, color: 'transparent' },
-          ],
-        },
-      },
-    },
-  ],
-}))
-
-const severityChartOption = computed(() => {
-  const sev = stats.value.severity_breakdown || { critical: 0, warning: 0, info: 0 }
-  const total = (sev.critical ?? 0) + (sev.warning ?? 0) + (sev.info ?? 0)
-  return {
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'item' as const,
-      backgroundColor: cp.value.tooltipBg,
-      borderColor: 'transparent',
-      textStyle: { color: cp.value.tooltipText, fontSize: 12, ...chartFont },
-      formatter: '{b}: {c} ({d}%)' as const,
-    },
-    series: [{
-      type: 'pie' as const,
-      radius: ['55%', '80%'],
-      center: ['50%', '50%'],
-      avoidLabelOverlap: false,
-      itemStyle: { borderColor: 'transparent', borderWidth: 3 },
-      label: {
-        show: true, position: 'center' as const,
-        formatter: () => `{n|${total}}\n{l|${t('dashboard.active')}}`,
-        rich: {
-          n: { fontSize: 24, fontWeight: 600, color: cp.value.pieCenter, ...chartFont },
-          l: { fontSize: 10, color: cp.value.pieMuted, letterSpacing: 1, padding: [4, 0, 0, 0] },
-        },
-      },
-      emphasis: { label: { show: true }, scaleSize: 6 },
-      labelLine: { show: false },
-      data: [
-        { value: sev.critical ?? 0, name: t('alert.critical'), itemStyle: { color: cp.value.critical } },
-        { value: sev.warning ?? 0, name: t('alert.warning'), itemStyle: { color: cp.value.warning } },
-        { value: sev.info ?? 0, name: t('alert.info'), itemStyle: { color: cp.value.info } },
-      ],
-    }],
-  }
-})
-
-const topRulesMax = computed(() => topRules.value.reduce((m, r) => Math.max(m, r.count), 0) || 1)
-
+// Refresh
 async function refresh() {
   refreshing.value = true; errorMsg.value = ''
   try {
     const [sr, mr, tr, top] = await Promise.allSettled([
       dashboardApi.getStats(),
-      dashboardApi.getMTTRStats(apiHours.value),
-      dashboardApi.getAlertTrend(apiDays.value),
-      dashboardApi.getTopRules(apiDays.value, 8),
+      dashboardApi.getMTTRStats(range.value === 1 ? 24 : range.value === 7 ? 168 : 720),
+      dashboardApi.getAlertTrend(range.value === 1 ? 1 : range.value),
+      dashboardApi.getTopRules(range.value === 1 ? 1 : range.value, 5),
     ])
     if (sr.status === 'fulfilled') stats.value = sr.value.data.data
     if (mr.status === 'fulfilled') mttrStats.value = mr.value.data.data
@@ -261,7 +131,6 @@ async function refresh() {
     const failed = [sr, mr, tr, top].filter(r => r.status === 'rejected')
     if (failed.length === 4) errorMsg.value = t('dashboard.loadFailed')
     lastSyncAt.value = Date.now()
-    lastSyncText.value = formatRelative(Date.now())
   } catch (err: any) {
     errorMsg.value = err?.message || t('dashboard.loadFailed')
     message.error(errorMsg.value)
@@ -271,113 +140,203 @@ async function refresh() {
 }
 
 function onRangeChange(v: 1 | 7 | 30) { range.value = v; refresh() }
+function cycleRange() { range.value = range.value === 1 ? 7 : range.value === 7 ? 30 : 1; refresh() }
 
 onMounted(refresh)
 </script>
 
 <template>
   <div class="dashboard">
-    <!-- Alert Banner -->
+    <!-- Error banner -->
     <n-alert v-if="errorMsg" type="error" :show-icon="true" closable class="dash-error" @close="errorMsg = ''">
       {{ errorMsg }}
     </n-alert>
 
-    <!-- KPI Row -->
-    <section class="kpi-grid sre-stagger">
-      <div
-        v-for="k in kpis"
-        :key="k.label"
-        class="kpi-card sre-lift"
-        :data-tone="k.tone"
-      >
-        <div class="kpi-icon-wrap">
-          <n-icon :component="k.icon" :size="20" />
+    <div class="bento">
+      <!-- ===== TREND CHART ===== -->
+      <div class="card card-trend">
+        <div class="card-head">
+          <div class="card-title">
+            <span class="card-icon" style="background: linear-gradient(135deg, var(--sre-primary), var(--sre-coral))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </span>
+            {{ t('dashboard.alertTrend') }}
+          </div>
+          <div class="card-actions">
+            <span class="card-tag" @click="cycleRange">{{ range === 1 ? '24h' : range === 7 ? '7d' : '30d' }}</span>
+            <n-button quaternary circle size="tiny" :loading="refreshing" @click="refresh">
+              <template #icon><n-icon :component="RefreshOutline" :size="12" /></template>
+            </n-button>
+          </div>
         </div>
-        <div class="kpi-body">
-          <div class="kpi-value number-display">{{ k.value }}</div>
-          <div class="kpi-label">{{ k.label }}</div>
-          <div v-if="k.sub" class="kpi-sub text-muted">{{ k.sub }}</div>
+        <div class="trend-chart" @mousemove="onChartMove" @mouseleave="onChartLeave">
+          <svg v-if="trendData.length" :viewBox="`0 0 ${chartW} ${chartH}`" preserveAspectRatio="none" class="trend-svg">
+            <defs>
+              <linearGradient id="gFired" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--sre-primary)" stop-opacity="0.25" />
+                <stop offset="100%" stop-color="var(--sre-primary)" stop-opacity="0.02" />
+              </linearGradient>
+              <linearGradient id="gResolved" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--sre-success)" stop-opacity="0.18" />
+                <stop offset="100%" stop-color="var(--sre-success)" stop-opacity="0.02" />
+              </linearGradient>
+            </defs>
+            <!-- grid lines -->
+            <line v-for="i in 4" :key="i" :x1="0" :y1="(chartH / 4) * i" :x2="chartW" :y2="(chartH / 4) * i" stroke="var(--sre-border)" stroke-width="0.5" />
+            <!-- resolved area + line -->
+            <path :d="trendFillPath(trendData.map(d => d.resolved_count), trendMax, chartW, chartH)" fill="url(#gResolved)" />
+            <path :d="trendAreaPath(trendData.map(d => d.resolved_count), trendMax, chartW, chartH)" fill="none" stroke="var(--sre-success)" stroke-width="2" stroke-linecap="round" />
+            <!-- fired area + line -->
+            <path :d="trendFillPath(trendData.map(d => d.fired_count), trendMax, chartW, chartH)" fill="url(#gFired)" />
+            <path :d="trendAreaPath(trendData.map(d => d.fired_count), trendMax, chartW, chartH)" fill="none" stroke="var(--sre-primary)" stroke-width="2.5" stroke-linecap="round" />
+            <!-- hover line -->
+            <line v-if="hoverIdx >= 0 && hoverIdx < trendData.length"
+              :x1="(hoverIdx / (trendData.length - 1)) * chartW" :y1="0"
+              :x2="(hoverIdx / (trendData.length - 1)) * chartW" :y2="chartH"
+              stroke="var(--sre-primary)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5" />
+          </svg>
+          <div v-else class="chart-empty">{{ t('dashboard.noData') }}</div>
+          <!-- tooltip -->
+          <div v-if="hoveredPoint" class="trend-tooltip" :style="{ left: `${Math.min((hoverIdx / Math.max(trendData.length - 1, 1)) * 100, 85)}%` }">
+            <div class="tt-time">{{ hoveredPoint.date }}</div>
+            <div class="tt-row"><span class="tt-dot" style="background: var(--sre-primary)"></span>{{ t('dashboard.fired') }} <span class="tt-val">{{ hoveredPoint.fired_count }}</span></div>
+            <div class="tt-row"><span class="tt-dot" style="background: var(--sre-success)"></span>{{ t('dashboard.resolved') }} <span class="tt-val">{{ hoveredPoint.resolved_count }}</span></div>
+          </div>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-line" style="background: var(--sre-primary)"></span>{{ t('dashboard.fired') }}</span>
+          <span class="legend-item"><span class="legend-line" style="background: var(--sre-success)"></span>{{ t('dashboard.resolved') }}</span>
         </div>
       </div>
-    </section>
 
-    <!-- Alert Trend -->
-    <section class="chart-card surface-clay">
-      <div class="chart-card__header">
-        <span class="chart-card__title">{{ t('dashboard.alertTrend') }}</span>
-        <div class="chart-card__actions">
-          <n-radio-group :value="range" size="small" @update:value="onRangeChange">
-            <n-radio-button :value="1">{{ t('dashboard.window24h') }}</n-radio-button>
-            <n-radio-button :value="7">{{ t('dashboard.last7d') }}</n-radio-button>
-            <n-radio-button :value="30">{{ t('dashboard.last30d') }}</n-radio-button>
-          </n-radio-group>
-          <n-button quaternary circle size="tiny" :loading="refreshing" @click="refresh">
-            <template #icon><n-icon :component="RefreshOutline" :size="14" /></template>
-          </n-button>
+      <!-- ===== SEVERITY SUMMARY ===== -->
+      <div class="card card-severity">
+        <div class="card-head">
+          <div class="card-title">
+            <span class="card-icon" style="background: linear-gradient(135deg, var(--sre-critical), var(--sre-coral))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+            </span>
+            {{ t('dashboard.severityDistribution') }}
+          </div>
+          <span class="card-tag" @click="cycleRange">{{ range === 1 ? '24h' : range === 7 ? '7d' : '30d' }}</span>
+        </div>
+        <!-- stacked bar -->
+        <div class="sev-bar">
+          <div class="sev-seg" :style="{ flex: sevPct('critical') }" :title="`P0: ${stats.severity_breakdown?.critical ?? 0}`"></div>
+          <div class="sev-seg sev-seg--w" :style="{ flex: sevPct('warning') }" :title="`P1: ${stats.severity_breakdown?.warning ?? 0}`"></div>
+          <div class="sev-seg sev-seg--i" :style="{ flex: sevPct('info') }" :title="`P2: ${stats.severity_breakdown?.info ?? 0}`"></div>
+        </div>
+        <div class="sev-grid">
+          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-critical)"></span><span class="sev-label">P0</span><span class="sev-count" style="color: var(--sre-critical)">{{ stats.severity_breakdown?.critical ?? 0 }}</span></div>
+          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-warning)"></span><span class="sev-label">P1</span><span class="sev-count" style="color: var(--sre-warning)">{{ stats.severity_breakdown?.warning ?? 0 }}</span></div>
+          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-info)"></span><span class="sev-label">P2</span><span class="sev-count" style="color: var(--sre-info)">{{ stats.severity_breakdown?.info ?? 0 }}</span></div>
         </div>
       </div>
-      <div class="chart-card__body">
-        <v-chart v-if="trendData.length" :option="trendChartOption" autoresize style="height: 280px" />
-        <div v-else class="chart-empty text-muted">{{ t('dashboard.noData') }}</div>
-      </div>
-    </section>
 
-    <!-- Two-up: Top rules + Severity -->
-    <section class="two-up">
-      <!-- Top Noisy Rules -->
-      <div class="chart-card surface-clay">
-        <div class="chart-card__header">
-          <span class="chart-card__title">{{ t('dashboard.topNoisyRules') }}</span>
+      <!-- ===== ACTIVE ALERTS (KPI) ===== -->
+      <div class="card card-kpi">
+        <div class="card-head">
+          <div class="card-title">
+            <span class="card-icon" style="background: linear-gradient(135deg, var(--sre-primary), var(--sre-coral))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+            </span>
+            {{ t('dashboard.activeAlerts') }}
+          </div>
         </div>
-        <div class="chart-card__body">
-          <div v-if="!topRules.length" class="chart-empty text-muted">{{ t('dashboard.noData') }}</div>
-          <div v-else class="rules-list">
-            <div v-for="(r, i) in topRules" :key="r.alert_name" class="rule-row">
-              <span class="rule-rank">{{ i + 1 }}</span>
-              <span class="rule-name" :title="r.alert_name">{{ r.alert_name }}</span>
-              <div class="rule-bar-track">
-                <div
-                  class="rule-bar-fill"
-                  :style="{ width: Math.max(((r.count / topRulesMax) * 100), 2) + '%' }"
-                />
-              </div>
-              <span class="rule-count number-display">{{ r.count }}</span>
-            </div>
+        <div class="kpi-stack">
+          <div class="kpi-row">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-critical), var(--sre-rose-light))"><n-icon :component="PulseOutline" :size="16" color="#fff" /></div>
+            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-critical)">{{ formatNumber(stats.active_alerts) }}</div><div class="kpi-label">{{ t('dashboard.activeAlerts') }}</div></div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-success), var(--sre-emerald-light))"><n-icon :component="TimerOutline" :size="16" color="#fff" /></div>
+            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-success)">{{ formatMMSS(mttrStats.mtta?.p50 ?? -1) }}</div><div class="kpi-label">MTTA</div></div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-info), var(--sre-sky))"><n-icon :component="CheckmarkCircleOutline" :size="16" color="#fff" /></div>
+            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-info)">{{ formatMMSS(mttrStats.mttr?.p50 ?? -1) }}</div><div class="kpi-label">MTTR</div></div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-lavender), var(--sre-violet-light))"><n-icon :component="CheckmarkCircleOutline" :size="16" color="#fff" /></div>
+            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-lavender)">{{ formatNumber(stats.resolved_today) }}</div><div class="kpi-label">{{ t('dashboard.resolvedToday') }}</div></div>
           </div>
         </div>
       </div>
 
-      <!-- Severity Distribution -->
-      <div class="chart-card surface-clay">
-        <div class="chart-card__header">
-          <span class="chart-card__title">{{ t('dashboard.severityDistribution') }}</span>
+      <!-- ===== TOP RULES ===== -->
+      <div class="card card-rules">
+        <div class="card-head">
+          <div class="card-title">
+            <span class="card-icon" style="background: linear-gradient(135deg, var(--sre-lavender), var(--sre-violet-light))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            {{ t('dashboard.topNoisyRules') }}
+          </div>
         </div>
-        <div class="chart-card__body severity-body">
-          <v-chart :option="severityChartOption" autoresize style="height: 220px; flex: 1; min-width: 0" />
-          <div class="sev-legend">
-            <div class="sev-item">
-              <span class="sev-swatch sev-swatch--critical" />
-              <span class="sev-name">{{ t('alert.critical') }}</span>
-              <span class="sev-num number-display">{{ stats.severity_breakdown?.critical ?? 0 }}</span>
+        <div v-if="topRules.length" class="rules-list">
+          <div v-for="r in topRules" :key="r.alert_name" class="rule-item" role="button" :aria-label="`${r.alert_name}: ${r.count}`" @click="router.push('/alert/rules')">
+            <span class="rule-status active"></span>
+            <div class="rule-info"><div class="rule-name">{{ r.alert_name }}</div></div>
+            <span class="rule-fire">{{ r.count }}</span>
+          </div>
+        </div>
+        <div v-else class="chart-empty">{{ t('dashboard.noData') }}</div>
+      </div>
+
+      <!-- ===== QUICK ACTIONS ===== -->
+      <div class="card card-quick">
+        <div class="card-head">
+          <div class="card-title">
+            <span class="card-icon" style="background: linear-gradient(135deg, var(--sre-primary), var(--sre-critical))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </span>
+            {{ t('dashboard.quickActions') }}
+          </div>
+        </div>
+        <div class="actions-grid">
+          <div class="action-btn" role="button" :aria-label="t('menu.rules')" @click="router.push('/alert/rules')">
+            <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-critical), var(--sre-rose-light))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
             </div>
-            <div class="sev-item">
-              <span class="sev-swatch sev-swatch--warning" />
-              <span class="sev-name">{{ t('alert.warning') }}</span>
-              <span class="sev-num number-display">{{ stats.severity_breakdown?.warning ?? 0 }}</span>
+            <span class="action-label">{{ t('menu.rules') }}</span>
+          </div>
+          <div class="action-btn" role="button" :aria-label="t('menu.schedule')" @click="router.push('/oncall/schedule')">
+            <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-info), var(--sre-sky))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
-            <div class="sev-item">
-              <span class="sev-swatch sev-swatch--info" />
-              <span class="sev-name">{{ t('alert.info') }}</span>
-              <span class="sev-num number-display">{{ stats.severity_breakdown?.info ?? 0 }}</span>
+            <span class="action-label">{{ t('menu.schedule') }}</span>
+          </div>
+          <div class="action-btn" role="button" :aria-label="t('menu.explore')" @click="router.push('/alert/explore')">
+            <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-success), var(--sre-emerald-light))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             </div>
+            <span class="action-label">{{ t('menu.explore') }}</span>
+          </div>
+          <div class="action-btn" role="button" :aria-label="t('menu.dashboards')" @click="router.push('/alert/dashboards')">
+            <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-lavender), var(--sre-violet-light))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            </div>
+            <span class="action-label">{{ t('menu.dashboards') }}</span>
+          </div>
+          <div class="action-btn" role="button" :aria-label="t('menu.notifyRules')" @click="router.push('/oncall/config/notify-rules')">
+            <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-amber), var(--sre-coral))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+            </div>
+            <span class="action-label">{{ t('menu.notifyRules') }}</span>
+          </div>
+          <div class="action-btn" role="button" :aria-label="t('menu.suppression')" @click="router.push('/alert/suppression')">
+            <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-mint), var(--sre-success))">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <span class="action-label">{{ t('menu.suppression') }}</span>
           </div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- Last sync -->
+    <!-- Footer -->
     <div class="dash-footer">
-      <span class="text-muted">{{ t('dashboard.lastSync') }} · {{ lastSyncText }}</span>
+      <span class="text-muted" style="font-size: 11px">{{ t('dashboard.lastSync') }} · {{ lastSyncText }}</span>
     </div>
   </div>
 </template>
@@ -393,261 +352,422 @@ onMounted(refresh)
 
 .dash-error { margin-bottom: -8px; }
 
-/* ===== KPI Row ===== */
-.kpi-grid {
+/* ===== BENTO GRID ===== */
+.bento {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(12, 1fr);
   gap: 16px;
 }
 
-.kpi-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: var(--sre-card-pad-compact) 18px;
+.card { grid-column: span 12; }
+
+/* Card sizes */
+.card-trend    { grid-column: span 8; }
+.card-severity { grid-column: span 4; }
+.card-kpi      { grid-column: span 4; }
+.card-rules    { grid-column: span 4; }
+.card-quick    { grid-column: span 4; }
+
+/* ===== CARD BASE ===== */
+.card {
   background: var(--sre-bg-card);
-  border: var(--sre-hairline);
-  border-radius: var(--sre-radius-lg);
-  transition: border-color var(--sre-duration-base) var(--sre-ease-out),
-              box-shadow var(--sre-duration-base) var(--sre-ease-out),
-              transform var(--sre-duration-base) var(--sre-ease-out);
+  border-radius: var(--sre-radius-xl);
+  border: 1px solid var(--sre-border);
+  padding: 20px;
   position: relative;
   overflow: hidden;
+  transition: transform 250ms var(--sre-ease-out), box-shadow 250ms var(--sre-ease-out), border-color 250ms var(--sre-ease-out);
 }
 
-/* Colored top line per tone */
-.kpi-card::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 12px; right: 12px;
-  height: 3px;
-  border-radius: 0 0 3px 3px;
-  background: var(--sre-text-tertiary);
-  transition: background var(--sre-duration-fast) var(--sre-ease-out);
-}
-.kpi-card[data-tone="critical"]::after { background: var(--sre-critical); }
-.kpi-card[data-tone="warning"]::after  { background: var(--sre-warning); }
-.kpi-card[data-tone="success"]::after  { background: var(--sre-success); }
-.kpi-card[data-tone="info"]::after     { background: var(--sre-info); }
-
-.kpi-card:hover {
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sre-shadow-lg);
   border-color: var(--sre-border-strong);
-  box-shadow: var(--sre-shadow-md);
-  transform: translateY(-1px);
 }
 
-.kpi-icon-wrap {
-  width: 42px; height: 42px;
-  border-radius: var(--sre-radius-md);
-  background: var(--sre-bg-elevated);
-  border: 1px solid var(--sre-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--sre-text-secondary);
-  transition: color var(--sre-duration-fast) var(--sre-ease-out),
-              border-color var(--sre-duration-fast) var(--sre-ease-out),
-              background var(--sre-duration-fast) var(--sre-ease-out);
-}
-.kpi-card[data-tone="critical"] .kpi-icon-wrap { color: var(--sre-critical); background: var(--sre-critical-soft); border-color: transparent; }
-.kpi-card[data-tone="warning"]  .kpi-icon-wrap { color: var(--sre-warning); background: var(--sre-warning-soft); border-color: transparent; }
-.kpi-card[data-tone="success"]  .kpi-icon-wrap { color: var(--sre-primary); background: var(--sre-primary-soft); border-color: transparent; }
-.kpi-card[data-tone="info"]     .kpi-icon-wrap { color: var(--sre-info); background: var(--sre-info-soft); border-color: transparent; }
-
-.kpi-body { flex: 1; min-width: 0; }
-
-.kpi-value {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.1;
-  color: var(--sre-text-primary);
-  letter-spacing: -0.02em;
-}
-
-.kpi-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--sre-text-secondary);
-  margin-top: 2px;
-}
-
-.kpi-sub {
-  font-size: 11px;
-  margin-top: 1px;
-}
-
-/* ===== Chart Card ===== */
-.chart-card {
-  padding: 0;
-  overflow: hidden;
-}
-
-.chart-card__header {
+/* ===== CARD HEADER ===== */
+.card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--sre-card-pad-relaxed) var(--sre-card-pad-relaxed) 0;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 2;
 }
 
-.chart-card__title {
+.card-title {
+  font-family: var(--sre-font-display);
   font-size: 13px;
   font-weight: 600;
   color: var(--sre-text-primary);
-  letter-spacing: -0.005em;
-}
-
-.chart-card__actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.chart-card__body {
-  padding: 14px var(--sre-card-pad-relaxed) var(--sre-card-pad-relaxed);
+.card-icon {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-icon svg {
+  width: 12px; height: 12px;
+  color: #fff;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-tag {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--sre-bg-sunken);
+  color: var(--sre-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.card-tag:hover {
+  background: var(--sre-primary-soft);
+  color: var(--sre-primary);
+}
+
+/* ===== TREND CHART ===== */
+.trend-chart {
+  position: relative;
+  height: 170px;
+  cursor: crosshair;
+}
+
+.trend-svg {
+  width: 100%;
+  height: 100%;
 }
 
 .chart-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 200px;
+  height: 170px;
   font-size: 13px;
-}
-
-/* ===== Two-up ===== */
-.two-up {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sre-card-pad-relaxed);
-}
-
-/* ===== Top Noisy Rules ===== */
-.rules-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.rule-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 8px;
-  border-radius: var(--sre-radius-sm);
-  transition: background-color var(--sre-duration-fast) var(--sre-ease-out);
-}
-.rule-row:hover { background: var(--sre-bg-hover); }
-
-.rule-rank {
-  width: 22px; height: 22px;
-  border-radius: 6px;
-  background: var(--sre-bg-elevated);
-  font-size: 11px;
-  font-weight: 600;
   color: var(--sre-text-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.rule-row:nth-child(1) .rule-rank { background: var(--sre-primary-soft); color: var(--sre-primary); }
-.rule-row:nth-child(2) .rule-rank { background: var(--sre-accent-soft); color: var(--sre-accent); }
-.rule-row:nth-child(3) .rule-rank { background: var(--sre-info-soft); color: var(--sre-info); }
-
-.rule-name {
-  flex: 1;
-  font-size: 13px;
-  color: var(--sre-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
 }
 
-.rule-bar-track {
-  width: 100px;
-  height: 5px;
-  border-radius: 3px;
+.trend-tooltip {
+  position: absolute;
+  top: 16px;
+  transform: translateX(12px);
   background: var(--sre-bg-elevated);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.rule-bar-fill {
-  height: 100%;
-  background: var(--sre-primary);
-  border-radius: 3px;
-  transition: width 500ms var(--sre-ease-out);
-}
-
-.rule-count {
-  font-size: 13px;
-  font-weight: 600;
   color: var(--sre-text-primary);
-  min-width: 32px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-/* ===== Severity ===== */
-.severity-body {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sev-legend {
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--sre-border);
+  box-shadow: var(--sre-shadow-md);
+  pointer-events: none;
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  flex-shrink: 0;
-  min-width: 110px;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.tt-time {
+  color: var(--sre-text-tertiary);
+  font-size: 10px;
+}
+
+.tt-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tt-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.tt-val {
+  font-family: var(--sre-font-mono);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--sre-text-secondary);
+}
+
+.legend-line {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* ===== SEVERITY ===== */
+.sev-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.sev-seg {
+  background: var(--sre-critical);
+  min-width: 2px;
+  transition: flex-grow 0.5s var(--sre-ease-out);
+  cursor: pointer;
+}
+
+.sev-seg:hover { opacity: 0.8; }
+
+.sev-seg--w { background: var(--sre-warning); }
+.sev-seg--i { background: var(--sre-info); }
+
+.sev-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
 }
 
 .sev-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--sre-radius-sm);
+  transition: background 0.2s;
+  cursor: default;
 }
 
-.sev-swatch {
-  width: 10px; height: 10px;
+.sev-item:hover {
+  background: var(--sre-bg-sunken);
+}
+
+.sev-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 3px;
   flex-shrink: 0;
 }
-.sev-swatch--critical { background: var(--sre-critical); }
-.sev-swatch--warning  { background: var(--sre-warning); }
-.sev-swatch--info     { background: var(--sre-info); }
 
-.sev-name {
-  flex: 1;
+.sev-label {
+  font-size: 12px;
   color: var(--sre-text-secondary);
+  flex: 1;
 }
 
-.sev-num {
-  font-weight: 600;
+.sev-count {
+  font-family: var(--sre-font-display);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ===== KPI STACK ===== */
+.kpi-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpi-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--sre-bg-sunken);
+  border-radius: var(--sre-radius-sm);
+  transition: all 0.2s;
+  cursor: default;
+}
+
+.kpi-row:hover {
+  background: var(--sre-primary-soft);
+  transform: translateX(2px);
+}
+
+.kpi-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-info { flex: 1; }
+
+.kpi-value {
+  font-family: var(--sre-font-display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.kpi-label {
+  font-size: 11px;
+  color: var(--sre-text-secondary);
+  margin-top: 2px;
+}
+
+/* ===== RULES ===== */
+.rules-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rule-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--sre-border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rule-item:last-child { border-bottom: none; }
+
+.rule-item:hover {
+  background: var(--sre-bg-hover);
+  margin: 0 -12px;
+  padding: 9px 12px;
+  border-radius: var(--sre-radius-sm);
+}
+
+.rule-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rule-status.active {
+  background: var(--sre-success);
+  box-shadow: 0 0 4px var(--sre-success);
+}
+
+.rule-info { flex: 1; min-width: 0; }
+
+.rule-name {
+  font-size: 12px;
   color: var(--sre-text-primary);
-  min-width: 24px;
-  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ===== Footer ===== */
+.rule-fire {
+  font-size: 11px;
+  font-family: var(--sre-font-mono);
+  color: var(--sre-text-tertiary);
+  flex-shrink: 0;
+}
+
+/* ===== QUICK ACTIONS ===== */
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px;
+  border-radius: var(--sre-radius-sm);
+  border: 1px solid var(--sre-border);
+  background: var(--sre-bg-card);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.action-btn:hover {
+  border-color: var(--sre-primary);
+  background: var(--sre-primary-soft);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.12);
+}
+
+.action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s;
+}
+
+.action-btn:hover .action-icon {
+  transform: scale(1.12) rotate(-3deg);
+}
+
+.action-icon svg {
+  width: 18px;
+  height: 18px;
+  color: #fff;
+}
+
+.action-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sre-text-secondary);
+  text-align: center;
+}
+
+.action-btn:hover .action-label {
+  color: var(--sre-primary);
+}
+
+/* ===== FOOTER ===== */
 .dash-footer {
   text-align: right;
   font-size: 11px;
 }
 
-/* ===== Responsive ===== */
-@media (max-width: 1100px) {
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1200px) {
+  .card-trend    { grid-column: span 12; }
+  .card-severity { grid-column: span 6; }
+  .card-kpi      { grid-column: span 6; }
+  .card-rules    { grid-column: span 6; }
+  .card-quick    { grid-column: span 6; }
 }
 
 @media (max-width: 768px) {
-  .kpi-grid { grid-template-columns: 1fr; }
-  .two-up { grid-template-columns: 1fr; }
-  .rule-bar-track { width: 60px; }
-  .severity-body { flex-direction: column; }
-  .sev-legend { flex-direction: row; flex-wrap: wrap; gap: 12px 20px; min-width: unset; }
+  .bento {
+    grid-template-columns: 1fr;
+  }
+  .card { grid-column: span 1 !important; }
+  .actions-grid { grid-template-columns: repeat(2, 1fr); }
+  .sev-grid { grid-template-columns: 1fr 1fr 1fr; }
 }
 </style>

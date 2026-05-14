@@ -75,8 +75,8 @@ onUnmounted(() => {
       <g class="mascot-ear">
         <polygon points="6,4 12,14 0,14" fill="#f59e0b"/>
         <polygon points="26,4 32,14 20,14" fill="#f59e0b"/>
-        <polygon points="7,6 11,13 3,13" fill="#0d9488" opacity="0.6"/>
-        <polygon points="25,6 29,13 21,13" fill="#0d9488" opacity="0.6"/>
+        <polygon points="7,6 11,13 3,13" fill="#F97316" opacity="0.6"/>
+        <polygon points="25,6 29,13 21,13" fill="#F97316" opacity="0.6"/>
       </g>
       <!-- Face -->
       <g class="mascot-body">
@@ -103,9 +103,9 @@ onUnmounted(() => {
       </g>
       <!-- Zzz (only in sleep state) -->
       <g v-if="state === 'sleep'" class="mascot-zzz-group">
-        <text class="mascot-zzz" x="24" y="8" font-size="6" fill="#0d9488" opacity="0">z</text>
-        <text class="mascot-zzz" x="27" y="5" font-size="5" fill="#0d9488" opacity="0">z</text>
-        <text class="mascot-zzz" x="29" y="2" font-size="4" fill="#0d9488" opacity="0">z</text>
+        <text class="mascot-zzz" x="24" y="8" font-size="6" fill="#F97316" opacity="0">z</text>
+        <text class="mascot-zzz" x="27" y="5" font-size="5" fill="#F97316" opacity="0">z</text>
+        <text class="mascot-zzz" x="29" y="2" font-size="4" fill="#F97316" opacity="0">z</text>
       </g>
     </svg>
   </div>
