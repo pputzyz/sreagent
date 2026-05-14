@@ -356,7 +356,7 @@ onMounted(async () => {
           </n-tab-pane>
 
           <!-- Overview -->
-          <n-tab-pane name="overview" :tab="t('common.overview') || 'Overview'">
+          <n-tab-pane name="overview" :tab="t('common.overview')">
             <n-descriptions :columns="2" label-placement="left" bordered size="small">
               <n-descriptions-item :label="t('channel.status')">
                 <n-tag :type="channel.status === 'active' ? 'success' : 'warning'" size="small" round>
@@ -367,7 +367,7 @@ onMounted(async () => {
                 {{ channel.access_level === 'public' ? t('channel.accessPublic') : t('channel.accessPrivate') }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('channel.autoClose')">
-                {{ channel.auto_close_enabled ? `${channel.auto_close_minutes} min` : t('common.off') }}
+                {{ channel.auto_close_enabled ? t('channel.autoCloseMinutesUnit', { n: channel.auto_close_minutes }) : t('common.off') }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('channel.followAlertClose')">
                 {{ channel.follow_alert_close ? t('common.yes') : t('common.no') }}
@@ -398,7 +398,7 @@ onMounted(async () => {
           </n-tab-pane>
 
           <!-- Settings -->
-          <n-tab-pane name="settings" :tab="t('common.settings') || 'Settings'">
+          <n-tab-pane name="settings" :tab="t('common.settings')">
             <div class="settings-grid">
               <n-form label-placement="top" size="small" class="settings-form">
                 <n-form-item :label="t('channel.name')">
@@ -442,7 +442,7 @@ onMounted(async () => {
                 <div class="danger-body">
                   <div class="danger-text">
                     <div class="danger-title">{{ t('common.delete') }} {{ channel.name }}</div>
-                    <div class="danger-desc">{{ t('channel.deleteDesc') || t('common.confirmDelete') }}</div>
+                    <div class="danger-desc">{{ t('channel.deleteDesc') }}</div>
                   </div>
                   <n-button type="error" ghost size="small" @click="confirmDelete">
                     <template #icon><n-icon :component="TrashOutline" /></template>

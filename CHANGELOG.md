@@ -4,6 +4,23 @@
 
 ---
 
+## [v4.9.7] — 2026-05-13
+
+### Fixed — 协作空间国际化 + 状态页面 CRUD
+
+**协作空间 (Channels) 国际化：**
+- 移除 Detail.vue 中 `|| 'Overview'` / `|| 'Settings'` 硬编码回退
+- 修复 `auto_close_minutes` 后硬编码 "min"，改为 i18n `autoCloseMinutesUnit`
+- 补齐 `channel.deleteDesc` 中英文 key
+
+**状态页面 (StatusPage) CRUD 管理：**
+- 新增"管理服务"入口，支持直接在状态页面增删改查服务
+- 管理模态框：服务列表 + 编辑/删除操作
+- 创建/编辑表单：名称、状态、描述、图标、链接、排序
+- 空状态直接提供"添加服务"按钮
+- statusOptions 改为 i18n computed
+- 新增 13 个 statusPageModule 中英文 key
+
 ## [v4.9.6] — 2026-05-13
 
 ### Fixed — 状态页面 + AI 聊天面板 + 国际化清理

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, NButton, NInput, NSpin } from 'naive-ui'
-import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server } from 'lucide-vue-next'
+import { useMessage, NButton, NInput, NSpin, NModal, NForm, NFormItem, NSelect, NInputNumber, NPopconfirm } from 'naive-ui'
+import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server, Settings, Plus, Pencil, Trash2 } from 'lucide-vue-next'
 import { statusServiceApi, type StatusServiceItem } from '@/api'
 
 const { t } = useI18n()
@@ -13,14 +13,47 @@ const submitting = ref(false)
 const services = ref<StatusServiceItem[]>([])
 const loading = ref(true)
 
+// --- Management modal ---
+const showManage = ref(false)
+const showForm = ref(false)
+const editingId = ref<number | null>(null)
+const saving = ref(false)
+
+const form = reactive({
+  name: '',
+  status: 'operational' as string,
+  description: '',
+  url: '',
+  icon: 'Server',
+  sort_order: 0,
+})
+
 const iconMap: Record<string, any> = { Server, Globe, Layers, Activity, Zap, Shield, AlertCircle, Clock }
 
-onMounted(async () => {
+const iconOptions = ['Server', 'Globe', 'Layers', 'Activity', 'Zap', 'Shield', 'AlertCircle', 'Clock'].map(name => ({
+  label: name,
+  value: name,
+}))
+
+const statusOptions = computed(() => [
+  { label: t('statusPageModule.serviceOperational'), value: 'operational' },
+  { label: t('statusPageModule.serviceDegraded'), value: 'degraded' },
+  { label: t('statusPageModule.serviceOutage'), value: 'outage' },
+  { label: t('statusPageModule.serviceMaintenance'), value: 'maintenance' },
+])
+
+async function loadServices() {
   try {
     const res = await statusServiceApi.list()
     services.value = res.data.data || []
   } catch {
     // fallback to empty
+  }
+}
+
+onMounted(async () => {
+  try {
+    await loadServices()
   } finally {
     loading.value = false
   }
@@ -65,6 +98,74 @@ function statusLabel(status: string) {
   if (status === 'maintenance') return t('statusPageModule.serviceMaintenance')
   return t('statusPageModule.serviceOutage')
 }
+
+// --- CRUD handlers ---
+function openManage() {
+  showManage.value = true
+}
+
+function openCreate() {
+  editingId.value = null
+  form.name = ''
+  form.status = 'operational'
+  form.description = ''
+  form.url = ''
+  form.icon = 'Server'
+  form.sort_order = 0
+  showForm.value = true
+}
+
+function openEdit(svc: StatusServiceItem) {
+  editingId.value = svc.id
+  form.name = svc.name
+  form.status = svc.status
+  form.description = svc.description || ''
+  form.url = svc.url || ''
+  form.icon = svc.icon || 'Server'
+  form.sort_order = svc.sort_order || 0
+  showForm.value = true
+}
+
+async function handleSave() {
+  if (!form.name.trim()) {
+    message.warning(t('statusPageModule.serviceName') + ' ' + t('common.required'))
+    return
+  }
+  saving.value = true
+  try {
+    const payload = {
+      name: form.name.trim(),
+      status: form.status,
+      description: form.description.trim() || undefined,
+      url: form.url.trim() || undefined,
+      icon: form.icon,
+      sort_order: form.sort_order,
+    }
+    if (editingId.value) {
+      await statusServiceApi.update(editingId.value, payload)
+      message.success(t('common.updateSuccess'))
+    } else {
+      await statusServiceApi.create(payload)
+      message.success(t('common.createSuccess'))
+    }
+    showForm.value = false
+    await loadServices()
+  } catch {
+    message.error(t('common.saveFailed'))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function handleDelete(id: number) {
+  try {
+    await statusServiceApi.delete(id)
+    message.success(t('common.deleteSuccess'))
+    await loadServices()
+  } catch {
+    message.error(t('common.deleteFailed'))
+  }
+}
 </script>
 
 <template>
@@ -83,13 +184,19 @@ function statusLabel(status: string) {
         <div class="status-header">
           <div class="status-header-row">
             <span class="eyebrow">{{ t('statusPageModule.currentStatus') }}</span>
-            <div v-if="allOperational" class="status-all-ok">
-              <CheckCircle :size="14" style="color: var(--sre-success);" />
-              <span>{{ t('statusPageModule.allSystemsOperational') }}</span>
-            </div>
-            <div v-else-if="services.length > 0" class="status-all-ok" style="color: var(--sre-warning);">
-              <AlertCircle :size="14" />
-              <span>{{ t('statusPageModule.partialOutage') }}</span>
+            <div class="status-header-actions">
+              <div v-if="allOperational" class="status-all-ok">
+                <CheckCircle :size="14" style="color: var(--sre-success);" />
+                <span>{{ t('statusPageModule.allSystemsOperational') }}</span>
+              </div>
+              <div v-else-if="services.length > 0" class="status-all-ok" style="color: var(--sre-warning);">
+                <AlertCircle :size="14" />
+                <span>{{ t('statusPageModule.partialOutage') }}</span>
+              </div>
+              <NButton size="small" quaternary @click="openManage">
+                <template #icon><Settings :size="14" /></template>
+                {{ t('statusPageModule.manageServices') }}
+              </NButton>
             </div>
           </div>
         </div>
@@ -117,7 +224,10 @@ function statusLabel(status: string) {
         <div v-else-if="!loading" class="status-empty">
           <Server :size="32" style="color: var(--sre-text-tertiary); margin-bottom: 8px;" />
           <span style="color: var(--sre-text-tertiary); font-size: 13px;">{{ t('statusPageModule.noServices') }}</span>
-          <span style="color: var(--sre-text-tertiary); font-size: 12px; margin-top: 4px;">{{ t('statusPageModule.noServicesHint') }}</span>
+          <NButton size="small" type="primary" style="margin-top: 12px;" @click="openCreate">
+            <template #icon><Plus :size="14" /></template>
+            {{ t('statusPageModule.addService') }}
+          </NButton>
         </div>
       </NSpin>
     </div>
@@ -149,6 +259,78 @@ function statusLabel(status: string) {
         </NButton>
       </div>
     </div>
+
+    <!-- Manage Services Modal -->
+    <NModal v-model:show="showManage" preset="card" :title="t('statusPageModule.manageServices')" style="width: 640px; max-width: 90vw;" :bordered="false">
+      <template #header-extra>
+        <NButton type="primary" size="small" @click="openCreate">
+          <template #icon><Plus :size="14" /></template>
+          {{ t('statusPageModule.addService') }}
+        </NButton>
+      </template>
+      <div v-if="services.length === 0" class="manage-empty">
+        <Server :size="28" style="color: var(--sre-text-tertiary); margin-bottom: 6px;" />
+        <span style="color: var(--sre-text-tertiary); font-size: 13px;">{{ t('statusPageModule.noServices') }}</span>
+      </div>
+      <div v-else class="manage-list">
+        <div v-for="svc in services" :key="svc.id" class="manage-row">
+          <div class="manage-row-icon" :style="{ background: statusBg(svc.status), color: statusColor(svc.status) }">
+            <component :is="getIcon(svc.icon)" :size="16" />
+          </div>
+          <div class="manage-row-info">
+            <span class="manage-row-name">{{ svc.name }}</span>
+            <span v-if="svc.description" class="manage-row-desc">{{ svc.description }}</span>
+          </div>
+          <span class="manage-row-status" :style="{ color: statusColor(svc.status) }">
+            <span class="svc-dot" :style="{ background: statusColor(svc.status) }" />
+            {{ statusLabel(svc.status) }}
+          </span>
+          <div class="manage-row-actions">
+            <NButton size="tiny" quaternary @click="openEdit(svc)">
+              <template #icon><Pencil :size="13" /></template>
+            </NButton>
+            <NPopconfirm @positive-click="handleDelete(svc.id)">
+              <template #trigger>
+                <NButton size="tiny" quaternary type="error">
+                  <template #icon><Trash2 :size="13" /></template>
+                </NButton>
+              </template>
+              {{ t('statusPageModule.deleteServiceConfirm') }}
+            </NPopconfirm>
+          </div>
+        </div>
+      </div>
+    </NModal>
+
+    <!-- Create / Edit Form Modal -->
+    <NModal v-model:show="showForm" preset="card" :title="editingId ? t('statusPageModule.editService') : t('statusPageModule.addService')" style="width: 480px; max-width: 90vw;" :bordered="false">
+      <NForm label-placement="left" label-width="80" :model="form">
+        <NFormItem :label="t('statusPageModule.serviceName')" required>
+          <NInput v-model:value="form.name" :placeholder="t('statusPageModule.serviceNamePlaceholder')" />
+        </NFormItem>
+        <NFormItem :label="t('statusPageModule.serviceStatus')">
+          <NSelect v-model:value="form.status" :options="statusOptions" />
+        </NFormItem>
+        <NFormItem :label="t('common.description')">
+          <NInput v-model:value="form.description" type="textarea" :rows="2" :placeholder="t('statusPageModule.serviceDescPlaceholder')" />
+        </NFormItem>
+        <NFormItem :label="t('statusPageModule.serviceIcon')">
+          <NSelect v-model:value="form.icon" :options="iconOptions" />
+        </NFormItem>
+        <NFormItem :label="t('statusPageModule.serviceUrl')">
+          <NInput v-model:value="form.url" :placeholder="t('statusPageModule.serviceUrlPlaceholder')" />
+        </NFormItem>
+        <NFormItem :label="t('statusPageModule.sortOrder')">
+          <NInputNumber v-model:value="form.sort_order" :min="0" style="width: 120px;" />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <NButton @click="showForm = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -296,6 +478,89 @@ function statusLabel(status: string) {
   margin: 0 auto;
 }
 
+/* --- Manage Modal --- */
+.manage-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px;
+}
+
+.manage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.manage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--sre-radius-lg);
+  border: 1px solid var(--sre-border);
+  background: var(--sre-bg-card);
+  transition: border-color var(--sre-duration-fast) var(--sre-ease-out);
+}
+
+.manage-row:hover {
+  border-color: var(--sre-border-strong);
+}
+
+.manage-row-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.manage-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.manage-row-name {
+  font-size: var(--sre-fs-sm);
+  font-weight: var(--sre-fw-medium);
+  color: var(--sre-text-primary);
+}
+
+.manage-row-desc {
+  font-size: var(--sre-fs-xs);
+  color: var(--sre-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manage-row-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--sre-fs-xs);
+  font-weight: var(--sre-fw-medium);
+  flex-shrink: 0;
+}
+
+.manage-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.status-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .status-hero {
@@ -309,6 +574,13 @@ function statusLabel(status: string) {
   }
   .cta-input-row .n-input {
     max-width: 100% !important;
+  }
+  .manage-row {
+    flex-wrap: wrap;
+  }
+  .manage-row-info {
+    flex-basis: 100%;
+    order: -1;
   }
 }
 </style>
