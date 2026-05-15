@@ -228,10 +228,18 @@ onMounted(() => {
   gap: 8px;
 }
 
+/* Force drawer content body to fill height */
+:n-deep(.n-drawer-content-body) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-body {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
