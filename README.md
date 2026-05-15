@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go)](https://golang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat-square&logo=vue.js)](https://vuejs.org/)
-[![Release](https://img.shields.io/badge/Release-v2.0.2-18a058?style=flat-square)](https://github.com/tim12580/sreagent/releases)
+[![Release](https://img.shields.io/badge/Release-v2.0.2-18a058?style=flat-square)](https://github.com/pputzyz/sreagent/releases)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-amd64-2496ED?style=flat-square&logo=docker)](https://hub.docker.com/)
 
@@ -176,7 +176,7 @@ v2.0 参照 FlashCat/Flashduty 的产品设计完成了一次架构级重构，�
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/tim12580/sreagent sreagent
+git clone https://github.com/pputzyz/sreagent sreagent
 cd sreagent
 
 # 2. 准备配置
@@ -227,7 +227,7 @@ docker rm -f sreagent          # 停止并删除容器
 **1. 克隆仓库**
 
 ```bash
-git clone https://github.com/tim12580/sreagent sreagent
+git clone https://github.com/pputzyz/sreagent sreagent
 cd sreagent
 ```
 
