@@ -14,6 +14,8 @@ import type { Incident, AlertGroupItem } from '@/types'
 import {
   PulseOutline, BugOutline, RocketOutline, SparklesOutline,
   ChevronForwardOutline, TimeOutline,
+  DocumentTextOutline, CalendarOutline, SearchOutline,
+  StatsChartOutline, NotificationsOutline, ShieldCheckmarkOutline,
 } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -34,7 +36,7 @@ const userName = computed(() => authStore.user?.username || authStore.user?.emai
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
-  const prefix = hour < 12 ? '上午好' : hour < 18 ? '下午好' : '晚上好'
+  const prefix = hour < 12 ? t('homepage.greetingMorning') : hour < 18 ? t('homepage.greetingAfternoon') : t('homepage.greetingEvening')
   return `${prefix}，${userName.value}`
 })
 
@@ -45,9 +47,8 @@ const modules = computed(() => [
     label: t('homepage.monitor'),
     desc: t('homepage.monitorDesc', { rules: totalRules.value }),
     icon: PulseOutline,
-    color: 'var(--sre-info)',
     status: engineOk.value ? 'ok' : 'down',
-    statusText: engineOk.value ? activeAlerts.value + ' 活跃' : t('homepage.engineDown'),
+    statusText: engineOk.value ? t('homepage.nActive', { count: activeAlerts.value }) : t('homepage.engineDown'),
     route: '/alert/overview',
   },
   {
@@ -55,9 +56,8 @@ const modules = computed(() => [
     label: t('homepage.oncall'),
     desc: t('homepage.oncallDesc', { active: activeIncidents.value.length }),
     icon: BugOutline,
-    color: 'var(--sre-brand-oncall)',
     status: activeIncidents.value.length === 0 ? 'ok' : activeIncidents.value.some(i => i.severity === 'critical') ? 'critical' : 'warning',
-    statusText: activeIncidents.value.length === 0 ? t('homepage.allHealthy') : activeIncidents.value.length + ' 活跃',
+    statusText: activeIncidents.value.length === 0 ? t('homepage.allHealthy') : t('homepage.nActive', { count: activeIncidents.value.length }),
     route: '/oncall/overview',
   },
   {
@@ -65,7 +65,6 @@ const modules = computed(() => [
     label: t('homepage.deployAgent'),
     desc: t('homepage.deployDesc'),
     icon: RocketOutline,
-    color: 'var(--sre-success)',
     status: 'coming',
     statusText: t('homepage.comingSoon'),
     route: null,
@@ -75,7 +74,6 @@ const modules = computed(() => [
     label: t('homepage.aiAgent'),
     desc: t('homepage.aiDesc'),
     icon: SparklesOutline,
-    color: 'var(--sre-lavender)',
     status: 'coming',
     statusText: t('homepage.comingSoon'),
     route: null,
@@ -98,7 +96,7 @@ const activity = computed<ActivityItem[]>(() => {
     items.push({
       time: inc.triggered_at || inc.created_at,
       type: 'incident',
-      text: t('homepage.incidentCreated', { id: inc.id }) + (inc.title ? ` — ${inc.title}` : ''),
+      text: t('homepage.incidentCreated', { id: inc.id }) + (inc.title ? `: ${inc.title}` : ''),
       severity: inc.severity,
       route: `/oncall/incidents/${inc.id}`,
     })
@@ -171,7 +169,7 @@ async function load() {
       firingAlerts.value = alertRes.value.data.data || []
     }
   } catch (e: any) {
-    message.error(e?.message || 'Load failed')
+    message.error(e?.message || t('homepage.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -214,14 +212,13 @@ onMounted(load)
             v-for="mod in modules"
             :key="mod.key"
             class="module-card"
-            :class="{ clickable: !!mod.route }"
+            :class="{ clickable: !!mod.route, 'module-card-primary': mod.key === 'monitor' }"
             @click="mod.route && router.push(mod.route)"
           >
-            <div class="mod-stripe" :style="{ background: mod.color }"></div>
             <div class="mod-body">
               <div class="mod-header">
-                <div class="mod-icon" :style="{ background: mod.color }">
-                  <n-icon :component="mod.icon" :size="16" color="#fff" />
+                <div class="mod-icon">
+                  <n-icon :component="mod.icon" :size="18" />
                 </div>
                 <div class="mod-info">
                   <div class="mod-label">{{ mod.label }}</div>
@@ -286,21 +283,27 @@ onMounted(load)
         <h2 class="hp-section-title">{{ t('homepage.quickAccess') }}</h2>
         <div class="access-grid">
           <div class="access-btn" @click="router.push('/alert/rules')">
+            <n-icon :component="DocumentTextOutline" :size="16" class="access-icon" />
             <span class="access-label">{{ t('menu.alertRules') }}</span>
           </div>
           <div class="access-btn" @click="router.push('/oncall/schedule')">
+            <n-icon :component="CalendarOutline" :size="16" class="access-icon" />
             <span class="access-label">{{ t('menu.schedule') }}</span>
           </div>
           <div class="access-btn" @click="router.push('/alert/explore')">
+            <n-icon :component="SearchOutline" :size="16" class="access-icon" />
             <span class="access-label">{{ t('menu.explore') }}</span>
           </div>
           <div class="access-btn" @click="router.push('/alert/dashboards')">
+            <n-icon :component="StatsChartOutline" :size="16" class="access-icon" />
             <span class="access-label">{{ t('menu.dashboards') }}</span>
           </div>
           <div class="access-btn" @click="router.push('/alert/notify/policies')">
+            <n-icon :component="NotificationsOutline" :size="16" class="access-icon" />
             <span class="access-label">{{ t('menu.notifyPolicies') }}</span>
           </div>
           <div class="access-btn" @click="router.push('/alert/suppression')">
+            <n-icon :component="ShieldCheckmarkOutline" :size="16" class="access-icon" />
             <span class="access-label">{{ t('menu.suppression') }}</span>
           </div>
         </div>
@@ -380,8 +383,11 @@ onMounted(load)
   border-radius: var(--sre-radius-lg);
   border: 1px solid var(--sre-border);
   overflow: hidden;
-  display: flex;
   transition: border-color 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
+}
+
+.module-card-primary {
+  grid-column: span 2;
 }
 
 .module-card.clickable {
@@ -393,13 +399,7 @@ onMounted(load)
   box-shadow: var(--sre-shadow-sm);
 }
 
-.mod-stripe {
-  width: 3px;
-  flex-shrink: 0;
-}
-
 .mod-body {
-  flex: 1;
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -416,6 +416,8 @@ onMounted(load)
   width: 32px;
   height: 32px;
   border-radius: 8px;
+  background: var(--sre-primary-soft);
+  color: var(--sre-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -442,7 +444,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--sre-fs-xs);
+  font-size: var(--sre-fs-2xs);
   color: var(--sre-text-secondary);
 }
 
@@ -523,7 +525,7 @@ onMounted(load)
 }
 
 .task-title {
-  font-size: var(--sre-fs-sm);
+  font-size: var(--sre-fs-md);
   font-weight: var(--sre-fw-medium);
   color: var(--sre-text-primary);
   white-space: nowrap;
@@ -597,6 +599,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 14px 10px;
   background: var(--sre-bg-card);
   border-radius: var(--sre-radius-md);
@@ -610,6 +613,11 @@ onMounted(load)
   background: var(--sre-bg-hover);
 }
 
+.access-icon {
+  color: var(--sre-text-muted);
+  flex-shrink: 0;
+}
+
 .access-label {
   font-size: var(--sre-fs-sm);
   font-weight: var(--sre-fw-medium);
@@ -619,11 +627,13 @@ onMounted(load)
 /* ===== Responsive ===== */
 @media (max-width: 1200px) {
   .module-grid { grid-template-columns: repeat(2, 1fr); }
+  .module-card-primary { grid-column: span 2; }
   .access-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 768px) {
   .module-grid { grid-template-columns: 1fr; }
+  .module-card-primary { grid-column: span 1; }
   .access-grid { grid-template-columns: repeat(2, 1fr); }
 }
 

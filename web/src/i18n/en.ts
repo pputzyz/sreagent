@@ -2025,5 +2025,10 @@ export default {
     incidentClosed: 'Incident #{id} closed',
     allHealthy: 'All healthy',
     viewAll: 'View all',
+    greetingMorning: 'Good morning',
+    greetingAfternoon: 'Good afternoon',
+    greetingEvening: 'Good evening',
+    nActive: '{count} active',
+    loadFailed: 'Load failed',
   },
 }

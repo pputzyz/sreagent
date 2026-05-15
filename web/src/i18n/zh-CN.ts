@@ -2046,5 +2046,10 @@ export default {
     incidentClosed: '故障 #{id} 已关闭',
     allHealthy: '全部正常',
     viewAll: '查看全部',
+    greetingMorning: '上午好',
+    greetingAfternoon: '下午好',
+    greetingEvening: '晚上好',
+    nActive: '{count} 活跃',
+    loadFailed: '加载失败',
   },
 }

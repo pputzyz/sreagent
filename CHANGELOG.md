@@ -4,6 +4,26 @@
 
 ---
 
+## [v4.10.9] — 2026-05-15
+
+### Fixed — 首页设计合规 + i18n 完善
+
+**impeccable 设计审查修复（5 项违规）：**
+- 移除模块卡片左侧 3px 彩色竖条（违反"禁止侧边彩条"规则）
+- Monitor 卡片改为跨 2 列的主卡片布局（打破重复网格）
+- 模块图标统一使用品牌橙色 `--sre-primary-soft`（消除 4 色竞争）
+- 字体层级比例修正：`.mod-status` 和 `.task-meta` 降至 `--sre-fs-2xs`，`.task-title` 升至 `--sre-fs-md`（比例 ≥ 1.30）
+- 活动文本破折号（—）改为冒号（:）
+
+**快捷入口优化：**
+- 6 个导航按钮各添加对应图标（DocumentText、Calendar、Search、StatsChart、Notifications、Shield）
+
+**i18n 修复：**
+- 问候语从硬编码中文改为 i18n 键（`greetingMorning` / `greetingAfternoon` / `greetingEvening`）
+- 模块状态文字从硬编码 `"活跃"` 改为 `t('homepage.nActive', { count })`
+- 错误提示从硬编码 `"Load failed"` 改为 `t('homepage.loadFailed')`
+- 新增 5 个 i18n 键到 zh-CN.ts 和 en.ts
+
 ## [v4.10.8] — 2026-05-15
 
 ### Changed — 平台首页完全重写
