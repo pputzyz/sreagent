@@ -182,12 +182,12 @@ onMounted(load)
                   <div
                     class="trend-bar trend-bar--triggered"
                     :style="{ height: `${Math.max((point.triggered / trendMax) * 80, 2)}px` }"
-                    :title="`${point.date}: ${point.triggered} triggered`"
+                    :title="`${point.date}: ${point.triggered} ${t('tooltip.triggered')}`"
                   />
                   <div
                     class="trend-bar trend-bar--closed"
                     :style="{ height: `${Math.max((point.closed / trendMax) * 80, 2)}px` }"
-                    :title="`${point.date}: ${point.closed} closed`"
+                    :title="`${point.date}: ${point.closed} ${t('tooltip.closed')}`"
                   />
                 </div>
                 <div class="trend-label">{{ point.date.substring(5) }}</div>
@@ -222,12 +222,12 @@ onMounted(load)
                 <div
                   class="sev-seg sev-seg--crit"
                   :style="{ flex: sevRatio.critical }"
-                  :title="`Critical: ${sevRatio.critical}`"
+                  :title="`${t('tooltip.criticalLabel')}: ${sevRatio.critical}`"
                 ></div>
                 <div
                   class="sev-seg sev-seg--normal"
                   :style="{ flex: sevRatio.normal }"
-                  :title="`Normal: ${sevRatio.normal}`"
+                  :title="`${t('tooltip.normalLabel')}: ${sevRatio.normal}`"
                 ></div>
               </div>
               <div class="active-meta">

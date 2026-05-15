@@ -412,7 +412,7 @@ onMounted(fetchRules)
 
     <!-- Preview Drawer -->
     <NDrawer v-model:show="showPreview" :width="480" placement="right">
-      <NDrawerContent :title="`Will be muted — ${previewRuleName}`" closable>
+      <NDrawerContent :title="`${t('tooltip.willBeMuted')} — ${previewRuleName}`" closable>
         <NSpin :show="previewLoading">
           <div v-if="!previewLoading && previewItems.length === 0" class="mute-preview-empty">
             <EmptyState

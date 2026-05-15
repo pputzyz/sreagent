@@ -176,7 +176,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
                 <span>{{ alert.channel.name }}</span>
               </template>
               <span class="sre-meta-divider"></span>
-              <span>{{ relTime(alert.last_fired_at) }}</span>
+              <span>{{ relTime(alert.last_fired_at, t) }}</span>
               <template v-if="alert.incident_id">
                 <span class="sre-meta-divider"></span>
                 <span>{{ t('alertV2.linkedIncident') }} #{{ alert.incident_id }}</span>

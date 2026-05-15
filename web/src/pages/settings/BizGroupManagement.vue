@@ -114,10 +114,10 @@ const selectedParent = computed(() => {
 function relTime(iso?: string): string {
   if (!iso) return '—'
   const d = Date.now() - new Date(iso).getTime()
-  if (d < 60_000) return 'just now'
-  if (d < 3600_000) return `${Math.floor(d / 60_000)}m ago`
-  if (d < 86_400_000) return `${Math.floor(d / 3600_000)}h ago`
-  if (d < 30 * 86_400_000) return `${Math.floor(d / 86_400_000)}d ago`
+  if (d < 60_000) return t('common.justNow')
+  if (d < 3600_000) return t('common.minsAgo', { n: Math.floor(d / 60_000) })
+  if (d < 86_400_000) return t('common.hoursAgo', { n: Math.floor(d / 3600_000) })
+  if (d < 30 * 86_400_000) return t('common.daysAgo', { n: Math.floor(d / 86_400_000) })
   return new Date(iso).toLocaleDateString()
 }
 

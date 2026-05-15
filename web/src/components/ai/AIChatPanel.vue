@@ -228,11 +228,31 @@ onMounted(() => {
   gap: 8px;
 }
 
-/* Force drawer content body to fill height */
-:n-deep(.n-drawer-content-body) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+/* Force drawer internals to fill height so footer stays at bottom */
+/* Target three levels of Naive UI's NScrollbar DOM */
+:deep(.n-drawer-body) {
+  flex: 1 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+:deep(.n-drawer-body .n-scrollbar-container) {
+  flex: 1 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+:deep(.n-drawer-body .n-scrollbar-content) {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+:deep(.n-drawer-body .n-scrollbar-rail) {
+  z-index: 10;
 }
 
 .chat-body {
@@ -241,6 +261,7 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  height: 100%;
 }
 
 .chat-messages {

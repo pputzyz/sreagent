@@ -355,7 +355,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
                   v-for="(value, key) in event.labels"
                   :key="key"
                   class="evt-chip"
-                  @click="copyText(`${key}=${value}`, `${key} copied`)"
+                  @click="copyText(`${key}=${value}`, t('tooltip.copiedKey', { key: `${key}` }))"
                   :title="`${key}=${value}`"
                 >
                   <span class="evt-chip-key">{{ key }}</span>
@@ -574,8 +574,8 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
             <li
               v-for="(value, key) in event.labels"
               :key="key"
-              @click="copyText(`${key}=${value}`, `${key} copied`)"
-              :title="`Click to copy ${key}=${value}`"
+              @click="copyText(`${key}=${value}`, t('tooltip.copiedKey', { key: `${key}` }))"
+              :title="t('tooltip.clickToCopy', { key: `${key}=${value}` })"
             >
               <span class="evt-aside-k">{{ key }}</span>
               <span class="evt-aside-v">{{ value }}</span>
@@ -593,7 +593,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
             </li>
             <li v-if="event.generator_url">
               <span>{{ t('alert.source') }}</span>
-              <a class="evt-link" :href="event.generator_url" target="_blank" rel="noopener">↗ View</a>
+              <a class="evt-link" :href="event.generator_url" target="_blank" rel="noopener">↗ {{ t('tooltip.view') }}</a>
             </li>
             <li>
               <span>{{ t('alert.fingerprint') }}</span>

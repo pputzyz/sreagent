@@ -209,10 +209,10 @@ const statusLabelMap: Record<string, string> = {
 function relTime(ts?: string): string {
   if (!ts) return '—'
   const diff = (Date.now() - new Date(ts).getTime()) / 1000
-  if (diff < 60) return `${Math.floor(diff)}s`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  return `${Math.floor(diff / 86400)}d`
+  if (diff < 60) return t('common.secsAgo', { n: Math.floor(diff) })
+  if (diff < 3600) return t('common.minsAgo', { n: Math.floor(diff / 60) })
+  if (diff < 86400) return t('common.hoursAgo', { n: Math.floor(diff / 3600) })
+  return t('common.daysAgo', { n: Math.floor(diff / 86400) })
 }
 
 const moreOptions = computed(() => [
@@ -289,12 +289,12 @@ onMounted(async () => {
         </div>
         <div class="kpi-card sre-lift">
           <div class="kpi-value tnum">{{ kpi.mtta }}</div>
-          <div class="sre-label-eyebrow">MTTA</div>
+          <div class="sre-label-eyebrow">{{ t('dashboard.mtta') }}</div>
           <div class="kpi-stripe" data-tone="success"></div>
         </div>
         <div class="kpi-card sre-lift">
           <div class="kpi-value tnum">{{ kpi.mttr }}</div>
-          <div class="sre-label-eyebrow">MTTR</div>
+          <div class="sre-label-eyebrow">{{ t('dashboard.mttr') }}</div>
           <div class="kpi-stripe" data-tone="success"></div>
         </div>
       </section>

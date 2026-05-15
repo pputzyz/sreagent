@@ -1841,6 +1841,29 @@ export default {
     typePenguin: 'Penguin',
     sleeping: '{name} is sleeping…',
     hiFrom: 'Hi from {name}!',
+    levelPrefix: 'Lv.',
+  },
+
+  // ===== Command Palette =====
+  commandPalette: {
+    oncallOverview: 'On-Call Overview',
+    oncallSchedule: 'On-Call Schedule',
+    spaces: 'Spaces',
+    incidents: 'Incidents',
+    integrations: 'Integrations',
+    dataSources: 'Data Sources',
+    dataQuery: 'Data Query',
+    dashboards: 'Dashboards',
+    alertRules: 'Alert Rules',
+    activeAlerts: 'Active Alerts',
+    alertHistory: 'Alert History',
+    muteRules: 'Mute Rules',
+    inhibitionRules: 'Inhibition Rules',
+    notificationPolicies: 'Notification Policies',
+    profile: 'Profile',
+    hintOncall: 'On-Call',
+    hintAlert: 'Alert',
+    hintPlatform: 'Platform',
   },
 
   // ===== Command Palette Actions =====
@@ -1852,6 +1875,36 @@ export default {
     action: 'Action',
     switchToChinese: '切换到中文',
     switchToEnglish: 'Switch to English',
+  },
+
+  // ===== Time Range =====
+  timeRangeOptions: {
+    last5m: 'Last 5 minutes',
+    last15m: 'Last 15 minutes',
+    last30m: 'Last 30 minutes',
+    last1h: 'Last 1 hour',
+    last3h: 'Last 3 hours',
+    last6h: 'Last 6 hours',
+    last12h: 'Last 12 hours',
+    last24h: 'Last 24 hours',
+    last7d: 'Last 7 days',
+    last30d: 'Last 30 days',
+    off: 'Off',
+  },
+
+  // ===== Tooltip / Misc =====
+  tooltip: {
+    view: 'View',
+    clickToCopy: 'Click to copy {key}',
+    copiedKey: '{key} copied',
+    willBeMuted: 'Will be muted',
+    triggered: 'triggered',
+    closed: 'closed',
+    criticalLabel: 'Critical',
+    normalLabel: 'Normal',
+    queryFailed: 'Query failed',
+    panelPrefix: 'Panel',
+    untitled: 'Untitled',
   },
 
   // ===== Route titles (used in router meta.title) =====

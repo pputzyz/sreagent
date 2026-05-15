@@ -171,7 +171,7 @@ function addPanelFromQuery(type: PanelConfig['type'] = 'timeseries') {
   }
   const panel: PanelConfig = {
     id: `panel-${Date.now()}`,
-    title: `Panel ${config.value.panels.length + 1}`,
+    title: `${t('tooltip.panelPrefix')} ${config.value.panels.length + 1}`,
     type,
     gridPos: { x: 0, y: config.value.panels.length * 6, w: 24, h: 6 },
     targets: activeTargets.map(t => ({
@@ -230,7 +230,7 @@ async function handleSave() {
   try {
     const cfg = { ...config.value, variables: variableConfig.value }
     const data = {
-      name: dashboard.value?.name || 'Untitled',
+      name: dashboard.value?.name || t('tooltip.untitled'),
       description: dashboard.value?.description || '',
       tags: dashboard.value?.tags || {},
       config: JSON.stringify(cfg),

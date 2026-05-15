@@ -78,7 +78,7 @@ function selectPetType(type: PetType) {
         <PetAvatar :type="petStore.petType" :size="48" />
         <div>
           <div class="pet-panel-name">{{ petStore.pet.name }}</div>
-          <div class="pet-panel-level">Lv.{{ petStore.pet.level }}</div>
+          <div class="pet-panel-level">{{ t('pet.levelPrefix') }}{{ petStore.pet.level }}</div>
         </div>
       </div>
 

@@ -264,7 +264,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </button>
       <div v-if="petStore.pet" class="float-pet-summary">
         <span class="float-pet-name">{{ petStore.pet.name }}</span>
-        <span class="float-pet-level">Lv.{{ petStore.pet.level }}</span>
+        <span class="float-pet-level">{{ t('pet.levelPrefix') }}{{ petStore.pet.level }}</span>
         <div class="float-pet-bars">
           <div class="float-pet-bar" :title="`${t('pet.hunger')}: ${petStore.hungerPercent}%`">
             <div class="float-pet-bar-fill hunger" :style="{ width: `${petStore.hungerPercent}%` }" />

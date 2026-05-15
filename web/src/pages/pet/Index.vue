@@ -114,7 +114,7 @@ async function handlePlay() {
           <div v-if="petStore.pet" class="pet-main-info">
             <div class="pet-name-display">{{ petStore.pet.name }}</div>
             <div class="pet-level-display" :class="{ 'pet-level--celebrate': celebrating }">
-              Lv.{{ petStore.pet.level }}
+              {{ t('pet.levelPrefix') }}{{ petStore.pet.level }}
               <span v-if="celebrating" class="pet-celebrate-stars">✨</span>
             </div>
           </div>

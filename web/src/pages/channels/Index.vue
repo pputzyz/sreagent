@@ -299,11 +299,11 @@ onMounted(loadChannels)
             </div>
             <div class="metric">
               <div class="metric-value">{{ fmtMetric((ch as any).mtta_label) }}</div>
-              <div class="metric-label">MTTA</div>
+              <div class="metric-label">{{ t('dashboard.mtta') }}</div>
             </div>
             <div class="metric">
               <div class="metric-value">{{ fmtMetric((ch as any).mttr_label) }}</div>
-              <div class="metric-label">MTTR</div>
+              <div class="metric-label">{{ t('dashboard.mttr') }}</div>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { ref, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import type { TimeRange, QueryTarget, QuerySeriesItem } from '@/types/query'
 
@@ -38,6 +39,7 @@ export function createDefaultTarget(): QueryTarget {
 }
 
 export function useQueryEngine(timeRange: Ref<TimeRange>) {
+  const { t } = useI18n()
   const targets = ref<QueryTarget[]>([createDefaultTarget()])
   const globalLoading = ref(false)
 
@@ -101,7 +103,7 @@ export function useQueryEngine(timeRange: Ref<TimeRange>) {
       target.state = 'idle'
     } catch (err: any) {
       target.state = 'error'
-      target.error = err?.response?.data?.message || err?.message || 'Query failed'
+      target.error = err?.response?.data?.message || err?.message || t('tooltip.queryFailed')
     }
   }
 

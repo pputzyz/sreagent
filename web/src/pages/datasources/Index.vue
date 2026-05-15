@@ -240,13 +240,13 @@ function relTime(iso?: string) {
   const ms = Date.now() - new Date(iso).getTime()
   if (ms < 0 || isNaN(ms)) return '—'
   const s = Math.floor(ms / 1000)
-  if (s < 60) return `${s}s ago`
+  if (s < 60) return t('common.secsAgo', { n: s })
   const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
+  if (m < 60) return t('common.minsAgo', { n: m })
   const hr = Math.floor(m / 60)
-  if (hr < 24) return `${hr}h ago`
+  if (hr < 24) return t('common.hoursAgo', { n: hr })
   const d = Math.floor(hr / 24)
-  return `${d}d ago`
+  return t('common.daysAgo', { n: d })
 }
 
 onMounted(fetchList)

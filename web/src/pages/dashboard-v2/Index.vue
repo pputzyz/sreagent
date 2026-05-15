@@ -115,7 +115,7 @@ onMounted(fetchList)
             </div>
             <div v-if="dash.description" class="dash-desc">{{ dash.description }}</div>
             <div class="dash-meta">
-              <span class="tnum">{{ relTime(dash.created_at) }}</span>
+              <span class="tnum">{{ relTime(dash.created_at, t) }}</span>
               <template v-if="dash.is_public">
                 <span class="sre-meta-divider" />
                 <span>{{ t('dashboardV2.public') || 'Public' }}</span>

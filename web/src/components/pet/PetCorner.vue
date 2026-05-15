@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { NPopover } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { usePetStore } from '@/stores/pet'
 import PetPanel from './PetPanel.vue'
 import PetAvatar from '@/components/common/PetAvatar.vue'
@@ -9,6 +10,7 @@ const emit = defineEmits<{
   chat: []
 }>()
 
+const { t } = useI18n()
 const petStore = usePetStore()
 const showPanel = ref(false)
 const bouncing = ref(false)
@@ -61,7 +63,7 @@ function handleChat() {
         </div>
         <span v-if="petStore.pet" class="pet-info">
           <span class="pet-name">{{ petStore.pet.name }}</span>
-          <span class="pet-level">Lv.{{ petStore.pet.level }}</span>
+          <span class="pet-level">{{ t('pet.levelPrefix') }}{{ petStore.pet.level }}</span>
         </span>
       </button>
     </template>

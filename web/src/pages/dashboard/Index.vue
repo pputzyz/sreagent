@@ -52,11 +52,11 @@ function formatMMSS(seconds: number): string {
 function formatRelative(ts: number): string {
   const diff = Math.max(0, Date.now() - ts)
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return `${sec}s ago`
+  if (sec < 60) return t('common.secsAgo', { n: sec })
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m ago`
+  if (min < 60) return t('common.minsAgo', { n: min })
   const h = Math.floor(min / 60)
-  return `${h}h ago`
+  return t('common.hoursAgo', { n: h })
 }
 
 const lastSyncText = shallowRef(formatRelative(Date.now()))
@@ -250,11 +250,11 @@ onMounted(refresh)
           </div>
           <div class="kpi-row">
             <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-success), var(--sre-emerald-light))"><n-icon :component="TimerOutline" :size="16" color="#fff" /></div>
-            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-success)">{{ formatMMSS(mttrStats.mtta?.p50 ?? -1) }}</div><div class="kpi-label">MTTA</div></div>
+            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-success)">{{ formatMMSS(mttrStats.mtta?.p50 ?? -1) }}</div><div class="kpi-label">{{ t('dashboard.mtta') }}</div></div>
           </div>
           <div class="kpi-row">
             <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-info), var(--sre-sky))"><n-icon :component="CheckmarkCircleOutline" :size="16" color="#fff" /></div>
-            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-info)">{{ formatMMSS(mttrStats.mttr?.p50 ?? -1) }}</div><div class="kpi-label">MTTR</div></div>
+            <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-info)">{{ formatMMSS(mttrStats.mttr?.p50 ?? -1) }}</div><div class="kpi-label">{{ t('dashboard.mttr') }}</div></div>
           </div>
           <div class="kpi-row">
             <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-lavender), var(--sre-violet-light))"><n-icon :component="CheckmarkCircleOutline" :size="16" color="#fff" /></div>

@@ -1914,6 +1914,7 @@ export default {
     retry: '重试',
     emptyState: '还没有宠物，快去领养一只吧',
     level: '等级',
+    levelPrefix: 'Lv.',
     exp: '经验',
     loadFailed: '加载宠物信息失败',
     loadInteractionsFailed: '加载互动记录失败',
@@ -1931,6 +1932,28 @@ export default {
     hiFrom: '嗨，我是 {name}！',
   },
 
+  // ===== Command Palette =====
+  commandPalette: {
+    oncallOverview: '值班概览',
+    oncallSchedule: '值班排班',
+    spaces: '协作空间',
+    incidents: '故障管理',
+    integrations: '集成管理',
+    dataSources: '数据源',
+    dataQuery: '数据查询',
+    dashboards: '仪表盘',
+    alertRules: '告警规则',
+    activeAlerts: '活跃告警',
+    alertHistory: '告警历史',
+    muteRules: '屏蔽规则',
+    inhibitionRules: '抑制规则',
+    notificationPolicies: '通知策略',
+    profile: '个人资料',
+    hintOncall: '值班',
+    hintAlert: '告警',
+    hintPlatform: '平台',
+  },
+
   // ===== Command Palette Actions =====
   command: {
     toggleDarkMode: '切换深色模式',
@@ -1940,6 +1963,36 @@ export default {
     action: '操作',
     switchToChinese: '切换到中文',
     switchToEnglish: 'Switch to English',
+  },
+
+  // ===== Time Range =====
+  timeRangeOptions: {
+    last5m: '最近 5 分钟',
+    last15m: '最近 15 分钟',
+    last30m: '最近 30 分钟',
+    last1h: '最近 1 小时',
+    last3h: '最近 3 小时',
+    last6h: '最近 6 小时',
+    last12h: '最近 12 小时',
+    last24h: '最近 24 小时',
+    last7d: '最近 7 天',
+    last30d: '最近 30 天',
+    off: '关闭',
+  },
+
+  // ===== Tooltip / Misc =====
+  tooltip: {
+    view: '查看',
+    clickToCopy: '点击复制 {key}',
+    copiedKey: '{key} 已复制',
+    willBeMuted: '将被静默',
+    triggered: '已触发',
+    closed: '已关闭',
+    criticalLabel: '严重',
+    normalLabel: '正常',
+    queryFailed: '查询失败',
+    panelPrefix: '面板',
+    untitled: '未命名',
   },
 
   // ===== Route titles (used in router meta.title) =====

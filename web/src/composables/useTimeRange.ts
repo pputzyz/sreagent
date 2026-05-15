@@ -1,6 +1,24 @@
 import { ref, watch, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TimeRange, RelativeTimeOption, AutoRefreshOption } from '@/types/query'
 
+export function useRelativeTimeOptions(): RelativeTimeOption[] {
+  const { t } = useI18n()
+  return [
+    { label: t('timeRangeOptions.last5m'), value: '5m', ms: 5 * 60 * 1000 },
+    { label: t('timeRangeOptions.last15m'), value: '15m', ms: 15 * 60 * 1000 },
+    { label: t('timeRangeOptions.last30m'), value: '30m', ms: 30 * 60 * 1000 },
+    { label: t('timeRangeOptions.last1h'), value: '1h', ms: 60 * 60 * 1000 },
+    { label: t('timeRangeOptions.last3h'), value: '3h', ms: 3 * 60 * 60 * 1000 },
+    { label: t('timeRangeOptions.last6h'), value: '6h', ms: 6 * 60 * 60 * 1000 },
+    { label: t('timeRangeOptions.last12h'), value: '12h', ms: 12 * 60 * 60 * 1000 },
+    { label: t('timeRangeOptions.last24h'), value: '24h', ms: 24 * 60 * 60 * 1000 },
+    { label: t('timeRangeOptions.last7d'), value: '7d', ms: 7 * 24 * 60 * 60 * 1000 },
+    { label: t('timeRangeOptions.last30d'), value: '30d', ms: 30 * 24 * 60 * 60 * 1000 },
+  ]
+}
+
+// Keep static export for backward compatibility (non-reactive contexts)
 export const relativeTimeOptions: RelativeTimeOption[] = [
   { label: 'Last 5 minutes', value: '5m', ms: 5 * 60 * 1000 },
   { label: 'Last 15 minutes', value: '15m', ms: 15 * 60 * 1000 },
