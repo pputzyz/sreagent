@@ -366,7 +366,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 .main-content {
   flex:1; overflow-y:auto; padding:20px;
-  background: var(--sre-bg-page);
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(249, 115, 22, 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(139, 92, 246, 0.02) 0%, transparent 60%),
+    var(--sre-bg-page);
 }
 
 /* Skip-to-content link */
@@ -384,20 +387,20 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   top: 0;
 }
 
-/* Page transition animation — smoother opacity+transform */
+/* Page transition animation — smooth fade + scale */
 .page-enter-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition: opacity 280ms var(--sre-ease-out), transform 280ms var(--sre-ease-out);
 }
 .page-leave-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition: opacity 180ms var(--sre-ease-out), transform 180ms var(--sre-ease-out);
 }
 .page-enter-from {
   opacity: 0;
-  transform: translateY(6px);
+  transform: scale(0.985) translateY(4px);
 }
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: scale(0.99) translateY(-2px);
 }
 
 /* ===== Floating Buttons ===== */

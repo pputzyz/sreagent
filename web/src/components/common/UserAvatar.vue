@@ -79,6 +79,12 @@ const presetAvatars: Record<string, string> = {
       xmlns="http://www.w3.org/2000/svg"
       class="user-avatar-svg"
     >
+      <defs>
+        <radialGradient id="avatar-shine" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
       <!-- Engineer -->
       <template v-if="presetId === 'engineer'">
         <circle cx="32" cy="32" r="30" fill="#3B82F6"/>
@@ -280,6 +286,12 @@ const presetAvatars: Record<string, string> = {
 .user-avatar-svg {
   width: 100%;
   height: 100%;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.user-avatar-svg circle:first-of-type {
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 1;
 }
 
 .user-avatar-initial {

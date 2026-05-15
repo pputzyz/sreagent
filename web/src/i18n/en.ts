@@ -1802,6 +1802,8 @@ export default {
     suggestPet2: 'Tell me an interesting story',
     suggestPet3: 'What is your favorite food?',
     sendFailed: 'Failed to send',
+    fullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit fullscreen',
   },
 
   // ===== Pet System =====

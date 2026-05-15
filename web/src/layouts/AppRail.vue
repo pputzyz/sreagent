@@ -267,15 +267,23 @@ function handleLogout() {
 
 /* Per-app active glow rings */
 .rail-icon-btn[data-app="oncall"].active .rail-icon-circle {
-  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.25);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.25), 0 4px 16px rgba(244, 63, 94, 0.15);
+  animation: rail-float 3s ease-in-out infinite;
 }
 
 .rail-icon-btn[data-app="alert"].active .rail-icon-circle {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), 0 4px 16px rgba(59, 130, 246, 0.15);
+  animation: rail-float 3s ease-in-out infinite;
 }
 
 .rail-icon-btn[data-app="platform"].active .rail-icon-circle {
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25), 0 4px 16px rgba(139, 92, 246, 0.15);
+  animation: rail-float 3s ease-in-out infinite;
+}
+
+@keyframes rail-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }
 
 .nav-icon-oncall { background: var(--sre-brand-oncall); }

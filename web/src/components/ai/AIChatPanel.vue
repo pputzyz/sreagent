@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import { NDrawer, NDrawerContent, NButton, NIcon, NInput, NPopconfirm } from 'naive-ui'
-import { Trash2, Send, RefreshCw, Sparkles } from 'lucide-vue-next'
+import { Trash2, Send, RefreshCw, Maximize2, Minimize2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAIChat } from '@/composables/useAIChat'
 import AIChatMessage from './AIChatMessage.vue'
@@ -20,6 +20,11 @@ const { messages, loading, error, lastFailedInput, sendMessage, retryLast, loadH
 
 const inputText = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+}
 
 const suggestedPrompts = computed(() => [
   t('ai.suggestGeneral1'),
@@ -79,11 +84,12 @@ onMounted(() => {
 <template>
   <n-drawer
     :show="show"
-    :width="420"
-    :min-width="320"
-    :max-width="800"
+    :width="isFullscreen ? '100vw' : 420"
+    :min-width="isFullscreen ? undefined : 320"
+    :max-width="isFullscreen ? undefined : 800"
     placement="right"
-    resizable
+    :resizable="!isFullscreen"
+    :class="{ 'chat-drawer-fullscreen': isFullscreen }"
     @update:show="handleClose"
   >
     <n-drawer-content :native-scrollbar="false">
@@ -91,6 +97,17 @@ onMounted(() => {
         <div class="chat-header">
           <span class="chat-title">{{ t('ai.chatTitle') }}</span>
           <div class="chat-header-actions">
+            <n-button
+              quaternary
+              size="small"
+              circle
+              :title="isFullscreen ? t('ai.exitFullscreen') : t('ai.fullscreen')"
+              @click="toggleFullscreen"
+            >
+              <template #icon>
+                <n-icon :component="isFullscreen ? Minimize2 : Maximize2" />
+              </template>
+            </n-button>
             <n-popconfirm @positive-click="clearHistory">
               <template #trigger>
                 <n-button
@@ -414,6 +431,11 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+}
+
+.chat-drawer-fullscreen :deep(.n-drawer-content) {
+  width: 100vw !important;
+  max-width: 100vw !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -32,7 +32,12 @@ const viewBox = '0 0 64 64'
           <stop offset="0%" stop-color="#FEF3C7"/>
           <stop offset="100%" stop-color="#FDE68A"/>
         </radialGradient>
+        <radialGradient id="fox-bg" cx="50%" cy="40%" r="55%">
+          <stop offset="0%" stop-color="#FEF3C7"/>
+          <stop offset="100%" stop-color="#FDE68A"/>
+        </radialGradient>
       </defs>
+      <circle cx="32" cy="32" r="30" fill="url(#fox-bg)" opacity="0.4"/>
       <!-- Ears -->
       <polygon points="14,8 22,22 6,22" fill="#D97706"/>
       <polygon points="50,8 58,22 42,22" fill="#D97706"/>
@@ -76,6 +81,7 @@ const viewBox = '0 0 64 64'
           <stop offset="100%" stop-color="#64748B"/>
         </radialGradient>
       </defs>
+      <circle cx="32" cy="32" r="30" fill="#E2E8F0" opacity="0.35"/>
       <!-- Ears -->
       <polygon points="14,6 22,20 6,18" fill="#64748B"/>
       <polygon points="50,6 58,18 42,20" fill="#64748B"/>
@@ -117,6 +123,7 @@ const viewBox = '0 0 64 64'
           <stop offset="100%" stop-color="#78350F"/>
         </radialGradient>
       </defs>
+      <circle cx="32" cy="32" r="30" fill="#FEF3C7" opacity="0.35"/>
       <!-- Ear tufts -->
       <polygon points="16,8 22,18 10,16" fill="#78350F"/>
       <polygon points="48,8 54,16 42,18" fill="#78350F"/>
@@ -150,6 +157,7 @@ const viewBox = '0 0 64 64'
 
     <!-- Panda -->
     <svg v-else-if="type === 'panda'" :viewBox="viewBox" xmlns="http://www.w3.org/2000/svg" class="pet-svg">
+      <circle cx="32" cy="32" r="30" fill="#F3F4F6" opacity="0.4"/>
       <!-- Ears -->
       <circle cx="16" cy="14" r="7" fill="#1F2937"/>
       <circle cx="48" cy="14" r="7" fill="#1F2937"/>
@@ -192,6 +200,7 @@ const viewBox = '0 0 64 64'
           <stop offset="100%" stop-color="#D97706"/>
         </radialGradient>
       </defs>
+      <circle cx="32" cy="32" r="30" fill="#FEF3C7" opacity="0.35"/>
       <!-- Ears -->
       <polygon points="14,6 22,18 6,16" fill="#D97706"/>
       <polygon points="50,6 58,16 42,18" fill="#D97706"/>
@@ -240,6 +249,7 @@ const viewBox = '0 0 64 64'
           <stop offset="100%" stop-color="#E5E7EB"/>
         </radialGradient>
       </defs>
+      <circle cx="32" cy="32" r="30" fill="#FCE7F3" opacity="0.3"/>
       <!-- Ears -->
       <ellipse cx="22" cy="12" rx="5" ry="14" fill="#F9FAFB" transform="rotate(-8 22 12)"/>
       <ellipse cx="42" cy="12" rx="5" ry="14" fill="#F9FAFB" transform="rotate(8 42 12)"/>
@@ -282,6 +292,7 @@ const viewBox = '0 0 64 64'
           <stop offset="100%" stop-color="#DDD6FE"/>
         </radialGradient>
       </defs>
+      <circle cx="32" cy="32" r="30" fill="#EDE9FE" opacity="0.35"/>
       <!-- Horns -->
       <polygon points="18,10 22,20 14,18" fill="#F59E0B"/>
       <polygon points="46,10 50,18 42,20" fill="#F59E0B"/>
@@ -317,6 +328,7 @@ const viewBox = '0 0 64 64'
 
     <!-- Penguin -->
     <svg v-else-if="type === 'penguin'" :viewBox="viewBox" xmlns="http://www.w3.org/2000/svg" class="pet-svg">
+      <circle cx="32" cy="32" r="30" fill="#DBEAFE" opacity="0.3"/>
       <!-- Body -->
       <ellipse cx="32" cy="38" rx="18" ry="22" fill="#1F2937"/>
       <!-- Belly -->
@@ -366,7 +378,7 @@ const viewBox = '0 0 64 64'
 .pet-svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.06));
 }
 
 .pet-avatar--animated .pet-eyes {

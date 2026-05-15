@@ -4,6 +4,32 @@
 
 ---
 
+## [v4.10.4] — 2026-05-15
+
+### Changed — UI 视觉提升 + AI 聊天框全屏
+
+**AI 聊天框：**
+- 新增全屏切换按钮（右上角最大化/最小化图标）
+- 全屏模式下 drawer 占满整个视口宽度
+- i18n 新增 `fullscreen` / `exitFullscreen` 键
+
+**Logo 重新设计：**
+- 背景从绿色渐变改为暖橙色系（`#FB923C` → `#F97316` → `#EA580C`）
+- 添加 SVG glow 滤镜增强 "S" 字母质感
+- 告警圆点改为金黄色 `#FBBF24` + 脉冲光环
+
+**头像库美化：**
+- PetAvatar 所有 8 种宠物添加柔和渐变背景圆
+- 改进阴影效果：双层 drop-shadow 增强立体感
+- UserAvatar SVG 添加 radialGradient 高光 + 增强阴影
+
+**动画与过渡：**
+- Dashboard bento 卡片添加交错入场动画（400ms，60ms 间隔）
+- 卡片 hover 增加暖橙渐变光泽覆盖层
+- 页面过渡改为 scale + opacity 组合（280ms spring easing）
+- 主内容区添加微妙暖色径向渐变背景
+- 侧边栏活跃图标增加浮动动画（3s 周期）
+
 ## [v4.10.3] — 2026-05-15
 
 ### Fixed — 字体离线化

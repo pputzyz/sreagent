@@ -1890,6 +1890,8 @@ export default {
     suggestPet2: '给我讲个有趣的故事吧',
     suggestPet3: '你最喜欢什么食物？',
     sendFailed: '发送失败',
+    fullscreen: '全屏',
+    exitFullscreen: '退出全屏',
   },
 
   // ===== Pet System =====
