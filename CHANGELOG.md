@@ -4,6 +4,30 @@
 
 ---
 
+## [v4.10.6] — 2026-05-15
+
+### Added — 统一主页仪表盘 + i18n 完善
+
+**统一主页（UnifiedDashboard）：**
+- 新增 `/` 入口主页，替代原 `/oncall/overview` 重定向
+- 6 个 KPI 卡片：活跃故障、活跃告警、今日关闭、严重活跃、MTTA P50、MTTR P50
+- 告警趋势 SVG 面积图 + 严重等级分布堆叠条
+- 故障趋势 CSS 柱状图 + Top 噪音规则列表
+- 快捷操作网格：6 个导航卡片直达各模块
+- 6 个并行 API 调用（Promise.allSettled），响应式 bento grid 布局
+- 入场交错动画，支持 1200px / 768px 断点
+
+**i18n 国际化修复：**
+- 修复 23 个文件中的硬编码英文字符串，新增 40+ i18n 键
+- commandPalette（18 键）、timeRangeOptions（11 键）、tooltip（11 键）
+- 统一 `relTime()` 函数支持 vue-i18n `t()` 参数
+- MTTA/MTTR 标签、Pet 等级前缀、查询错误提示等全部 i18n 化
+
+**路由变更：**
+- 根路径 `/` 现在渲染 UnifiedDashboard.vue（原为重定向到 /oncall/overview）
+- 登录后跳转、OIDC 回调均指向 `/`
+- `/oncall/overview` 和 `/alert/overview` 仍保留为各模块详细仪表盘
+
 ## [v4.10.5] — 2026-05-15
 
 ### Fixed — 配色系统重构 + 回退过度装饰

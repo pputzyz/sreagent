@@ -14,8 +14,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/AppShell.vue'),
     meta: { requiresAuth: true },
     children: [
-      // Root redirect
-      { path: '', redirect: '/oncall/overview' },
+      // Root — Unified Overview
+      { path: '', component: () => import('@/pages/dashboard/UnifiedDashboard.vue'), meta: { title: 'menu.overview' } },
 
       // ===== On-Call =====
       { path: 'oncall', redirect: '/oncall/overview' },
@@ -111,7 +111,7 @@ router.beforeEach((to, _from, next) => {
       localStorage.setItem('token', oidcToken)
       // Clear the hash fragment
       window.history.replaceState(null, '', '/')
-      next({ path: '/oncall/overview', replace: true })
+      next({ path: '/', replace: true })
       return
     }
   }
@@ -120,7 +120,7 @@ router.beforeEach((to, _from, next) => {
   const oidcTokenQuery = to.query.oidc_token as string | undefined
   if (oidcTokenQuery) {
     localStorage.setItem('token', oidcTokenQuery)
-    next({ path: '/oncall/overview', replace: true })
+    next({ path: '/', replace: true })
     return
   }
 
@@ -129,14 +129,14 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth !== false && !token) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
   } else if (to.name === 'Login' && token) {
-    next({ path: '/oncall/overview' })
+    next({ path: '/' })
   } else if (to.meta.requiresRole) {
     // Route-level role guard: prefer store, fall back to localStorage (pre-hydration)
     const authStore = useAuthStore()
     const role = authStore.user?.role || localStorage.getItem('user_role')
     const allowedRoles = to.meta.requiresRole as string[]
     if (role && !allowedRoles.includes(role)) {
-      next({ path: '/oncall/overview' })
+      next({ path: '/' })
     } else {
       next()
     }

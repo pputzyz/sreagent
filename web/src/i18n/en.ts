@@ -246,6 +246,11 @@ export default {
     active: 'Active',
     lastSync: 'Last sync',
     quickActions: 'Quick Actions',
+    unifiedTitle: 'Overview',
+    unifiedSubtitle: 'Global ops health at a glance',
+    incidentOverview: 'Incident Overview',
+    alertOverview: 'Alert Overview',
+    viewDetails: 'View Details',
   },
   datasource: {
     title: 'Data Sources',

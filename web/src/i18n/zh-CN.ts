@@ -246,6 +246,11 @@ export default {
     active: '活跃',
     lastSync: '上次同步',
     quickActions: '快捷操作',
+    unifiedTitle: '总览',
+    unifiedSubtitle: '全局运维态势一目了然',
+    incidentOverview: '故障概览',
+    alertOverview: '告警概览',
+    viewDetails: '查看详情',
   },
   datasource: {
     title: '数据源管理',
