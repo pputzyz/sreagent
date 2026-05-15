@@ -56,6 +56,7 @@ export default {
     apply: '应用',
     copy: '复制',
     copied: '已复制',
+    copyFailed: '复制失败',
     justNow: '刚刚',
     overview: '概览',
     settings: '设置',
@@ -85,6 +86,7 @@ export default {
   },
   menu: {
     dashboard: '仪表盘',
+    dashboards: '仪表盘',
     datasources: '数据源',
     datasourceList: '数据源列表',
     datasourceQuery: '数据查询',

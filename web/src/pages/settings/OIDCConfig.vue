@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { NButton, NIcon, NSwitch, NSelect, NInput, NFormItem, NSpin, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
@@ -28,12 +28,12 @@ const form = reactive({
   email_claim: 'email',
 })
 
-const defaultRoleOptions = [
-  { label: 'admin', value: 'admin' },
-  { label: 'team_lead', value: 'team_lead' },
-  { label: 'member', value: 'member' },
-  { label: 'viewer', value: 'viewer' },
-]
+const defaultRoleOptions = computed(() => [
+  { label: t('settings.admin'), value: 'admin' },
+  { label: t('settings.teamLead'), value: 'team_lead' },
+  { label: t('settings.member'), value: 'member' },
+  { label: t('settings.viewerName'), value: 'viewer' },
+])
 
 async function fetchConfig() {
   loading.value = true
@@ -115,7 +115,7 @@ onMounted(fetchConfig)
     <div class="sre-config-page">
       <header class="sre-config-header">
         <div>
-          <h2 class="sre-config-header-title">SSO / OIDC</h2>
+          <h2 class="sre-config-header-title">{{ t('settings.oidcConfig') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.oidcSubtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">

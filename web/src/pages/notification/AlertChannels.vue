@@ -131,7 +131,7 @@ async function copyText(text: string) {
     await navigator.clipboard.writeText(text)
     message.success(t('common.copied') || 'Copied')
   } catch {
-    message.error('Copy failed')
+    message.error(t('common.copyFailed'))
   }
 }
 

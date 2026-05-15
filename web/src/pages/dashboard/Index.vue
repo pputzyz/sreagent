@@ -294,11 +294,11 @@ onMounted(refresh)
           </div>
         </div>
         <div class="actions-grid">
-          <div class="action-btn" role="button" :aria-label="t('menu.rules')" @click="router.push('/alert/rules')">
+          <div class="action-btn" role="button" :aria-label="t('menu.alertRules')" @click="router.push('/alert/rules')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-critical), var(--sre-rose-light))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
             </div>
-            <span class="action-label">{{ t('menu.rules') }}</span>
+            <span class="action-label">{{ t('menu.alertRules') }}</span>
           </div>
           <div class="action-btn" role="button" :aria-label="t('menu.schedule')" @click="router.push('/oncall/schedule')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-info), var(--sre-sky))">

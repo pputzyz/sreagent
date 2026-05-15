@@ -4,6 +4,24 @@
 
 ---
 
+## [v4.10.7] — 2026-05-15
+
+### Fixed — 橙色疲劳修复 + i18n 硬编码清理 + 主页路由修正
+
+**颜色系统修复：**
+- `--sre-bg-hover` / `--sre-bg-active` / `--sre-bg-subtle` 从橙色调改为中性暖灰
+- 修复前：`rgba(249, 115, 22, 0.04/0.07/0.02)` 全局橙色 hover 反馈导致视觉疲劳
+- 修复后：`rgba(28, 25, 23, 0.04/0.07/0.02)` 中性暖灰，橙色仅保留在主按钮和导航激活态
+
+**i18n 修复：**
+- OIDCConfig.vue: 页面标题 `SSO / OIDC` → `t('settings.oidcConfig')`
+- OIDCConfig.vue: 角色选项 admin/team_lead/member/viewer 使用 `t()` 翻译
+- AlertChannels.vue: `message.error('Copy failed')` → `t('common.copyFailed')`
+- 新增 `common.copyFailed` 中英文键
+- UnifiedDashboard.vue: `t('menu.rules')` → `t('menu.alertRules')`（修复缺失键）
+- Index.vue (alert dashboard): 同步修复 `menu.rules` → `menu.alertRules`
+- 新增 `menu.dashboards` 中英文键
+
 ## [v4.10.6] — 2026-05-15
 
 ### Added — 统一主页仪表盘 + i18n 完善

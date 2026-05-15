@@ -56,6 +56,7 @@ export default {
     apply: 'Apply',
     copy: 'Copy',
     copied: 'Copied',
+    copyFailed: 'Copy failed',
     justNow: 'Just now',
     overview: 'Overview',
     settings: 'Settings',
@@ -85,6 +86,7 @@ export default {
   },
   menu: {
     dashboard: 'Dashboard',
+    dashboards: 'Dashboards',
     datasources: 'Data Sources',
     datasourceList: 'Data Source List',
     datasourceQuery: 'Query',
