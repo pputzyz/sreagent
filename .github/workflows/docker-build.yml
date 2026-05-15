@@ -1,18 +1,10 @@
 name: Build & Push Docker Image
 
-# 触发条件：
-#   1. push 到 main 分支 → 只跑 test + typecheck，不构建镜像
-#   2. 推送 v* 格式的 tag  → 构建镜像并推送 :vX.Y.Z + :latest
-#   3. PR 到 main         → 只跑 test + typecheck，不构建镜像
+# 仅在推送 v* tag 时触发：test + typecheck + 构建镜像
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 env:
