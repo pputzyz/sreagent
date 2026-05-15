@@ -1,7 +1,7 @@
 /* ============================================================
    SREAgent Design System — v6.0
    Warm · Vibrant · Bento Grid · DevOps Platform
-   Font: Plus Jakarta Sans (display) + Inter (body)
+   Font: Inter (local @fontsource) + system fallbacks
    ============================================================ */
 
 :root {
@@ -112,9 +112,9 @@
   --sre-radius-2xl:  20px;
   --sre-radius-pill: 9999px;
 
-  /* --- Typography (Plus Jakarta Sans display, Inter body) --- */
-  --sre-font-display: "Plus Jakarta Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --sre-font-sans:    "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI",
+  /* --- Typography (Inter via @fontsource, bundled locally) --- */
+  --sre-font-display: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --sre-font-sans:    "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                       Roboto, "Helvetica Neue", Arial, sans-serif;
   --sre-font-mono:    "JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Menlo", ui-monospace, monospace;
 

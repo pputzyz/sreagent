@@ -4,6 +4,15 @@
 
 ---
 
+## [v4.10.3] — 2026-05-15
+
+### Fixed — 字体离线化
+
+- 移除 Google Fonts 外部依赖（Plus Jakarta Sans），改用本地 `@fontsource/inter`
+- `index.html` 删除 `fonts.googleapis.com` 和 `fonts.gstatic.com` preconnect/link 标签
+- `global.css` 字体栈更新：Inter（本地）+ Segoe UI + 系统字体回退
+- `App.vue` Naive UI 主题 fontFamily 同步更新
+
 ## [v4.10.0] — 2026-05-14
 
 ### Changed — 全平台 UI 视觉重构：暖橙主题 + Bento 布局 + 春季动画

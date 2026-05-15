@@ -34,7 +34,7 @@ const common = {
   borderRadius:        '10px',   // matches --sre-radius-md in global.css
   borderRadiusSmall:   '8px',    // matches --sre-radius-sm in global.css
   fontFamily:
-    '"Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    '"Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif',
   fontFamilyMono:
     '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Menlo", ui-monospace, monospace',
 }
