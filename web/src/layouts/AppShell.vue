@@ -366,10 +366,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 .main-content {
   flex:1; overflow-y:auto; padding:20px;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(249, 115, 22, 0.03) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(139, 92, 246, 0.02) 0%, transparent 60%),
-    var(--sre-bg-page);
+  background: var(--sre-bg-page);
 }
 
 /* Skip-to-content link */

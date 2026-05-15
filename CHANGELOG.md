@@ -4,6 +4,24 @@
 
 ---
 
+## [v4.10.5] — 2026-05-15
+
+### Fixed — 配色系统重构 + 回退过度装饰
+
+**配色重构（遵循 PRODUCT.md "Warm neutrality" 原则）：**
+- 背景从 `#FFFBF7`（暖奶油色）改为 `#FAFAF9`（中性暖灰，stone-50）
+- 主文本从 `#111827` 改为 `#1C1917`（stone-900，更深沉）
+- 次要文本从 `#6b7280` 改为 `#57534E`（stone-600，对比度提升）
+- 三级文本从 `#9ca3af` 改为 `#78716C`（stone-500，WCAG AA 达标）
+- 静音文本从 `#d1d5db` 改为 `#A8A29E`（stone-400）
+- Naive UI 主题覆盖同步更新
+
+**回退违反 PRODUCT.md 的装饰性改动：**
+- 移除 main-content 暖色径向渐变背景（anti-reference: decorative overload）
+- 移除 dashboard 卡片 ::before 渐变覆盖层（anti-reference: gradient accent lines）
+- 移除侧边栏图标浮动动画（anti-reference: animation for animation's sake）
+- 保留：卡片 hover 浮起、交错入场动画、页面过渡（符合 "subtle spring easing"）
+
 ## [v4.10.4] — 2026-05-15
 
 ### Changed — UI 视觉提升 + AI 聊天框全屏

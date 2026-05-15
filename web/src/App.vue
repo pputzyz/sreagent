@@ -127,7 +127,7 @@ const darkOverrides: GlobalThemeOverrides = {
 const lightOverrides: GlobalThemeOverrides = {
   common: {
     ...common,
-    bodyColor:     '#f8fafc',
+    bodyColor:     '#FAFAF9',
     cardColor:     '#ffffff',
     modalColor:    '#ffffff',
     popoverColor:  '#ffffff',
@@ -136,10 +136,10 @@ const lightOverrides: GlobalThemeOverrides = {
     borderColor:   'rgba(0,0,0,0.06)',
     dividerColor:  'rgba(0,0,0,0.06)',
     hoverColor:    'rgba(0,0,0,0.03)',
-    textColorBase: '#111827',
-    textColor1:    '#111827',
-    textColor2:    '#6b7280',
-    textColor3:    '#9ca3af',
+    textColorBase: '#1C1917',
+    textColor1:    '#1C1917',
+    textColor2:    '#57534E',
+    textColor3:    '#78716C',
   },
   Card: {
     color:         '#ffffff',

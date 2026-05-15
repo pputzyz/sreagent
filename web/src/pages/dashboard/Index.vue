@@ -390,28 +390,13 @@ onMounted(refresh)
   padding: 20px;
   position: relative;
   overflow: hidden;
-  transition: transform 300ms var(--sre-ease-out), box-shadow 300ms var(--sre-ease-out), border-color 300ms var(--sre-ease-out);
-}
-
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.02) 0%, transparent 50%);
-  opacity: 0;
-  transition: opacity 300ms var(--sre-ease-out);
-  pointer-events: none;
-  z-index: 0;
+  transition: transform 250ms var(--sre-ease-out), box-shadow 250ms var(--sre-ease-out), border-color 250ms var(--sre-ease-out);
 }
 
 .card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--sre-shadow-lg);
+  transform: translateY(-2px);
+  box-shadow: var(--sre-shadow-lift);
   border-color: var(--sre-border-strong);
-}
-
-.card:hover::before {
-  opacity: 1;
 }
 
 /* ===== CARD HEADER ===== */
