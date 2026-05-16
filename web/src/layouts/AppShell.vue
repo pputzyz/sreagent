@@ -152,7 +152,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <header class="topbar">
       <div class="topbar-start">
         <!-- Logo -->
-        <router-link to="/dashboard" class="topbar-logo">
+        <router-link to="/" class="topbar-logo">
           <img src="/logo.svg" alt="SREAgent" class="logo-img" />
           <span class="logo-label">SREAgent</span>
         </router-link>
