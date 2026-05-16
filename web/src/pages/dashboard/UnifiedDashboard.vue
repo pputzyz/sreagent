@@ -352,25 +352,16 @@ onMounted(load)
 
             <!-- ═══ Greeting ═══ -->
             <div v-if="widget.type === 'greeting'" class="bento-item bento-full">
-              <div class="greeting-card">
-                <div class="gc-content">
-                  <h1 class="gc-hello">{{ greeting }}</h1>
-                  <p class="gc-context">
-                    <span v-if="engineOk" class="gc-engine gc-engine--ok">
-                      <span class="dot dot-ok"></span>
-                      {{ t('homepage.engineRunning', { days: uptimeDays() }) }}
-                    </span>
-                    <span v-else class="gc-engine gc-engine--down">
-                      <span class="dot dot-critical"></span>
-                      {{ t('homepage.engineDown') }}
-                    </span>
-                  </p>
-                </div>
-                <div class="gc-deco">
-                  <div class="gc-orb gc-orb--1"></div>
-                  <div class="gc-orb gc-orb--2"></div>
-                  <div class="gc-orb gc-orb--3"></div>
-                </div>
+              <div class="greeting-bar">
+                <h1 class="gc-hello">{{ greeting }}</h1>
+                <span v-if="engineOk" class="gc-badge gc-badge--ok">
+                  <span class="dot dot-ok"></span>
+                  {{ t('homepage.engineRunning', { days: uptimeDays() }) }}
+                </span>
+                <span v-else class="gc-badge gc-badge--down">
+                  <span class="dot dot-critical"></span>
+                  {{ t('homepage.engineDown') }}
+                </span>
               </div>
             </div>
 
@@ -577,46 +568,42 @@ onMounted(load)
 .bento-full { grid-column: 1 / -1; }
 .bento-lg { grid-column: span 1; }
 
-/* ===== Greeting Card ===== */
-.greeting-card {
-  position: relative;
-  overflow: hidden;
-  padding: 36px 40px;
-  border-radius: var(--sre-radius-xl, 16px);
-  background: linear-gradient(135deg, var(--sre-primary) 0%, #FB923C 60%, #F59E0B 100%);
-  color: white;
-}
-.gc-content { position: relative; z-index: 1; }
-.gc-hello {
-  font-family: var(--sre-font-display);
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-}
-.gc-context {
-  margin: 8px 0 0;
-  font-size: 14px;
-  opacity: 0.9;
+/* ===== Greeting Bar ===== */
+.greeting-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+  padding: 4px 0;
 }
-.gc-engine { display: inline-flex; align-items: center; gap: 6px; }
-.gc-engine--ok .dot { background: #4ADE80; box-shadow: 0 0 0 3px rgba(74,222,128,0.3); }
-.gc-engine--down .dot { background: #FCA5A5; box-shadow: 0 0 0 3px rgba(252,165,165,0.3); }
-
-/* Decorative orbs */
-.gc-deco { position: absolute; inset: 0; pointer-events: none; }
-.gc-orb {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.12);
+.gc-hello {
+  font-family: var(--sre-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
-.gc-orb--1 { width: 200px; height: 200px; top: -60px; right: -40px; }
-.gc-orb--2 { width: 120px; height: 120px; bottom: -30px; right: 140px; }
-.gc-orb--3 { width: 80px; height: 80px; top: 20px; right: 200px; background: rgba(255,255,255,0.06); }
+.gc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: var(--sre-radius-pill);
+  white-space: nowrap;
+}
+.gc-badge--ok {
+  color: #16A34A;
+  background: rgba(34,197,94,0.08);
+}
+.gc-badge--ok .dot { background: #22C55E; box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
+.gc-badge--down {
+  color: #DC2626;
+  background: rgba(239,68,68,0.08);
+}
+.gc-badge--down .dot { background: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
 
 /* ===== Module Strip ===== */
 .module-strip {
@@ -788,8 +775,8 @@ onMounted(load)
   .bento-lg { grid-column: span 1; }
   .module-strip { grid-template-columns: 1fr; }
   .quick-grid { grid-template-columns: repeat(2, 1fr); }
-  .greeting-card { padding: 24px; }
-  .gc-hello { font-size: 22px; }
+  .greeting-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .gc-hello { font-size: 18px; }
 }
 
 /* ===== Reduced Motion ===== */
