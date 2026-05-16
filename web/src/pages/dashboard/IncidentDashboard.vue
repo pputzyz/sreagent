@@ -93,7 +93,7 @@ const kpis = computed(() => {
   const s = incidentStats.value
   if (!s) return []
   return [
-    { label: t('dashboardV2.activeIncidents'), value: s.active_incidents ?? 0, tone: 'critical' as const, icon: BugOutline, route: '/incidents?status=triggered' },
+    { label: t('dashboardV2.activeIncidents'), value: s.active_incidents ?? 0, tone: 'critical' as const, icon: BugOutline, route: '/oncall/incidents?status=triggered' },
     { label: t('dashboardV2.closedToday'), value: s.closed_today ?? 0, tone: 'success' as const, icon: CheckmarkCircleOutline },
     { label: t('dashboardV2.criticalActive'), value: s.critical_active ?? 0, tone: 'critical' as const, icon: AlertCircleOutline },
     { label: t('dashboardV2.avgMTTR'), value: formatSeconds(s.avg_mttr_seconds), tone: 'info' as const, icon: TimerOutline },
@@ -276,7 +276,7 @@ onMounted(load)
                   v-for="row in topChannels"
                   :key="row.channel_id"
                   class="stats-row"
-                  @click="row.channel_id && router.push(`/channels/${row.channel_id}`)"
+                  @click="row.channel_id && router.push(`/oncall/spaces/${row.channel_id}`)"
                 >
                   <td class="stats-name">{{ row.channel_name || '—' }}</td>
                   <td class="num-col"><strong>{{ row.total }}</strong></td>

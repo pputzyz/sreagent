@@ -259,7 +259,7 @@ async function generateSOP() {
 
 // ── Related rule ──
 function gotoRule() {
-  if (event.value?.rule_id) router.push(`/alerts/rules/${event.value.rule_id}`)
+  if (event.value?.rule_id) router.push(`/alert/rules/${event.value.rule_id}`)
 }
 
 onMounted(() => { fetchEvent(); fetchTimeline() })

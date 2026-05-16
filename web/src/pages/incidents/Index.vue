@@ -129,7 +129,7 @@ async function createIncident() {
     const res = await incidentApi.create(createForm.value)
     message.success(t('common.createSuccess'))
     showCreateModal.value = false
-    router.push(`/incidents/${res.data.data?.id}`)
+    router.push(`/oncall/incidents/${res.data.data?.id}`)
   } catch (e: any) {
     message.error(e?.message ?? t('common.failed'))
   } finally {
@@ -154,7 +154,7 @@ function handleAction(key: string, row: Incident) {
 }
 
 function gotoDetail(id: number) {
-  router.push(`/incidents/${id}`)
+  router.push(`/oncall/incidents/${id}`)
 }
 
 function durationText(triggeredAt: string | undefined, closedAt?: string | null): string {

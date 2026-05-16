@@ -51,7 +51,7 @@ const showMerge = ref(false)
 const showReassign = ref(false)
 
 function onSnoozeDone() { load() }
-function onMergeDone(targetId: number) { router.push(`/incidents/${targetId}`) }
+function onMergeDone(targetId: number) { router.push(`/oncall/incidents/${targetId}`) }
 function onReassignDone() { load() }
 
 const statusLabel: Record<string, string> = {
@@ -357,7 +357,7 @@ onMounted(async () => {
                   v-for="a in relatedAlerts" :key="a.id"
                   class="sre-row-card alert-row"
                   :data-severity="a.severity"
-                  @click="router.push(`/alerts/${a.id}`)"
+                  @click="router.push(`/alert/events/${a.id}`)"
                 >
                   <span class="sre-dot" :data-severity="a.severity" />
                   <span class="alert-title">{{ a.title }}</span>
@@ -485,7 +485,7 @@ onMounted(async () => {
               <div class="kv-row">
                 <dt>{{ t('incident.channel') }}</dt>
                 <dd>
-                  <a v-if="incident.channel" class="kv-link" @click="router.push(`/channels/${incident.channel_id}`)">
+                  <a v-if="incident.channel" class="kv-link" @click="router.push(`/oncall/spaces/${incident.channel_id}`)">
                     {{ incident.channel.name }}
                   </a>
                   <span v-else>—</span>

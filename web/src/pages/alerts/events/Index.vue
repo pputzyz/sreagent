@@ -268,7 +268,7 @@ function rowActions(ev: AlertEvent) {
   return opts
 }
 function handleAction(key: string, ev: AlertEvent) {
-  if (key === 'detail') router.push(`/alerts/events/${ev.id}`)
+  if (key === 'detail') router.push(`/alert/events/${ev.id}`)
   else if (key === 'silence') onSilence(ev)
   else if (key === 'resolve') onResolve(ev)
 }
@@ -286,7 +286,7 @@ function clearSelection() {
 
 // ===== Navigation =====
 function goDetail(ev: AlertEvent) {
-  router.push(`/alerts/events/${ev.id}`)
+  router.push(`/alert/events/${ev.id}`)
 }
 
 // ===== Helpers =====

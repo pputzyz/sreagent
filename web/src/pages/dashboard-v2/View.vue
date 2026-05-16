@@ -239,7 +239,7 @@ async function handleSave() {
     if (isNew.value) {
       const res = await dashboardV2Api.create(data)
       message.success(t('dashboardV2.created'))
-      router.replace({ name: 'DashboardV2View', params: { id: res.data.data.id } })
+      router.replace('/alert/dashboards/' + res.data.data.id)
     } else if (dashboard.value) {
       await dashboardV2Api.update(dashboard.value.id, data)
       message.success(t('dashboardV2.saved'))
@@ -271,7 +271,7 @@ onMounted(() => {
     <!-- Header -->
     <div class="dashboard-header">
       <div class="header-left">
-        <NButton quaternary size="small" @click="router.push({ name: 'DashboardV2List' })">
+        <NButton quaternary size="small" @click="router.push('/alert/dashboards')">
           <template #icon><ArrowBackOutline /></template>
           {{ t('dashboardV2.back') }}
         </NButton>

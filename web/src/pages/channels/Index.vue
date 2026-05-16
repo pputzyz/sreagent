@@ -138,7 +138,7 @@ async function createChannel() {
 }
 
 function openChannel(id: number) {
-  router.push(`/channels/${id}`)
+  router.push(`/oncall/spaces/${id}`)
 }
 
 const statusOptions = computed(() => [
@@ -174,7 +174,7 @@ function buildMenuOptions(ch: Channel) {
 
 function handleMenuSelect(key: string, ch: Channel) {
   if (key === 'edit') {
-    router.push(`/channels/${ch.id}?tab=settings`)
+    router.push(`/oncall/spaces/${ch.id}?tab=settings`)
   } else if (key === 'delete') {
     pendingDeleteId.value = ch.id
     showDeleteConfirm.value = true

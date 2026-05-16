@@ -70,7 +70,7 @@ const currentComponent = shallowRef(COMPONENTS[active.value])
 function go(key: NavKey) {
   if (active.value === key) return
   active.value = key
-  router.replace({ path: '/notification', hash: '#' + key })
+  router.replace({ path: '/alert/notify/policies', hash: '#' + key })
 }
 
 watch(active, (k) => {

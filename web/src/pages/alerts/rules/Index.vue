@@ -284,7 +284,7 @@ function onRowAction(key: string, rule: AlertRule) {
 }
 
 function goDetail(rule: AlertRule) {
-  router.push(`/alerts/rules/${rule.id}`).catch(() => { /* no-op */ })
+  router.push(`/alert/rules/${rule.id}`).catch(() => { /* no-op */ })
 }
 
 onMounted(() => {

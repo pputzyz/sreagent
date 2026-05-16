@@ -61,7 +61,7 @@ async function handleDelete(id: number) {
 }
 
 function handleEdit(id: number) {
-  router.push({ name: 'DashboardV2View', params: { id } })
+  router.push('/alert/dashboards/' + id)
 }
 
 onMounted(fetchList)
@@ -78,7 +78,7 @@ onMounted(fetchList)
           class="search-input"
           @update:value="onSearch"
         />
-        <NButton type="primary" @click="router.push({ name: 'DashboardV2View', params: { id: 'new' } })">
+        <NButton type="primary" @click="router.push('/alert/dashboards/new')">
           <template #icon>
             <AddOutline />
           </template>
@@ -97,7 +97,7 @@ onMounted(fetchList)
       :title="t('dashboardV2.emptyHint') || 'No dashboards yet'"
       :description="t('dashboardV2.subtitle')"
       :primary-text="t('dashboardV2.newDashboard')"
-      @primary="router.push({ name: 'DashboardV2View', params: { id: 'new' } })"
+      @primary="router.push('/alert/dashboards/new')"
     />
 
     <!-- List -->

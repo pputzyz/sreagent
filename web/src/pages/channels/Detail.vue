@@ -145,7 +145,7 @@ function confirmDelete() {
       try {
         await channelV2Api.delete(channelId.value)
         message.success(t('common.deletedSuccess'))
-        router.replace('/channels')
+        router.replace('/oncall/spaces')
       } catch (e: any) {
         message.error(e?.message ?? t('common.deleteFailed'))
       }
@@ -328,7 +328,7 @@ onMounted(async () => {
                 v-for="row in incidents"
                 :key="row.id"
                 class="sre-row-card incident-row"
-                @click="router.push(`/incidents/${row.id}`)"
+                @click="router.push(`/oncall/incidents/${row.id}`)"
               >
                 <span class="sre-dot" :data-tone="severityToneMap[row.severity] ?? 'default'"></span>
                 <span class="i-id tnum">#{{ row.id }}</span>

@@ -48,7 +48,7 @@ async function loadPostMortems() {
 }
 
 function gotoIncident(incidentId: number) {
-  router.push(`/incidents/${incidentId}`)
+  router.push(`/oncall/incidents/${incidentId}`)
 }
 
 function authorName(pm: any): string {

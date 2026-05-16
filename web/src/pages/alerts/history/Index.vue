@@ -121,7 +121,7 @@ function statusLabel(s: string) {
 }
 
 function goDetail(ev: AlertEvent) {
-  router.push(`/alerts/events/${ev.id}`)
+  router.push(`/alert/events/${ev.id}`)
 }
 
 function duration(start?: string, end?: string): string {
