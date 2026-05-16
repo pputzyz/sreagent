@@ -4,6 +4,23 @@
 
 ---
 
+## [v4.10.15] — 2026-05-16
+
+### Changed — 首页 widget 自定义增强 + 3 个新组件
+
+**新增 widget：**
+- 值班人员（oncallSchedule）：显示各排班当前值班人，调用 `scheduleApi.getCurrentOnCall`
+- 置顶便签（pinnedItems）：用户自建书签，支持添加/编辑/删除/选色，存 `sre-home-pinned`
+- 快捷入口升级为可自选：10 个内置入口，用户可逐个开关，存 `sre-home-quick-links`
+
+**设置面板升级：**
+- 3 个标签页：组件排序、快捷入口选择、置顶便签管理
+- 便签支持内联编辑（名称 + URL + 颜色选择器）
+- 每个标签页独立重置按钮
+
+**i18n：**
+- 新增 15 个键：`homepage.tabWidgets/tabQuickLinks/tabPinned/oncallSchedule/onDuty/noOnCall/pinnedItems/noPinned/addViaSettings/pinTitle/pinUrl/addPin/resetLinks/resetPinned`
+
 ## [v4.10.13] — 2026-05-16
 
 ### Changed — 首页全面重构：插件化 widget 系统 + 全宽 bento 布局

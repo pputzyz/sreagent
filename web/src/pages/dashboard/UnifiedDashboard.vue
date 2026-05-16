@@ -1,23 +1,24 @@
 <script setup lang="ts">
 /**
  * UnifiedDashboard.vue — Platform homepage with plugin-based widget system.
- * Users can add/remove/reorder widgets via settings panel.
+ * Users can add/remove/reorder widgets and customize content via settings panel.
  * Configuration persisted in localStorage.
  */
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NIcon, NSpin, NPopover, NButton } from 'naive-ui'
+import { useMessage, NIcon, NSpin, NPopover, NButton, NInput } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { engineApi, incidentApi, dashboardApi, alertGroupsApi } from '@/api'
-import type { Incident, AlertGroupItem } from '@/types'
+import { engineApi, incidentApi, dashboardApi, alertGroupsApi, scheduleApi } from '@/api'
+import type { Incident, AlertGroupItem, Schedule } from '@/types'
 import {
   PulseOutline, BugOutline, RocketOutline, SparklesOutline,
   ChevronForwardOutline, TimeOutline,
   DocumentTextOutline, CalendarOutline, SearchOutline,
   StatsChartOutline, NotificationsOutline, ShieldCheckmarkOutline,
-  OptionsOutline, AddOutline, CloseOutline,
-  ReorderThreeOutline, EyeOutline, EyeOffOutline,
+  OptionsOutline, AddOutline, CloseOutline, CreateOutline,
+  PeopleOutline, LinkOutline, BookmarkOutline,
+  EyeOutline, EyeOffOutline,
 } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -40,16 +41,20 @@ interface WidgetDef {
 }
 
 const STORAGE_KEY = 'sre-home-widgets'
+const QUICK_KEY = 'sre-home-quick-links'
+const PINNED_KEY = 'sre-home-pinned'
 
 const WIDGET_REGISTRY: Record<string, Omit<WidgetDef, 'enabled' | 'order'>> = {
-  greeting:       { id: 'greeting',       type: 'greeting',       label: '', icon: null,            size: 'full' },
-  moduleStatus:   { id: 'moduleStatus',   type: 'moduleStatus',   label: '', icon: PulseOutline,    size: 'full' },
-  myTasks:        { id: 'myTasks',        type: 'myTasks',        label: '', icon: BugOutline,      size: 'lg' },
-  recentActivity: { id: 'recentActivity', type: 'recentActivity', label: '', icon: TimeOutline,     size: 'lg' },
-  quickAccess:    { id: 'quickAccess',    type: 'quickAccess',    label: '', icon: SearchOutline,   size: 'full' },
+  greeting:       { id: 'greeting',       type: 'greeting',       label: '', icon: null,                 size: 'full' },
+  moduleStatus:   { id: 'moduleStatus',   type: 'moduleStatus',   label: '', icon: PulseOutline,         size: 'full' },
+  myTasks:        { id: 'myTasks',        type: 'myTasks',        label: '', icon: BugOutline,           size: 'lg' },
+  oncallSchedule: { id: 'oncallSchedule', type: 'oncallSchedule', label: '', icon: PeopleOutline,        size: 'lg' },
+  recentActivity: { id: 'recentActivity', type: 'recentActivity', label: '', icon: TimeOutline,          size: 'lg' },
+  pinnedItems:    { id: 'pinnedItems',    type: 'pinnedItems',    label: '', icon: BookmarkOutline,       size: 'lg' },
+  quickAccess:    { id: 'quickAccess',    type: 'quickAccess',    label: '', icon: SearchOutline,         size: 'full' },
 }
 
-const DEFAULT_ORDER = ['greeting', 'moduleStatus', 'myTasks', 'recentActivity', 'quickAccess']
+const DEFAULT_ORDER = ['greeting', 'moduleStatus', 'myTasks', 'oncallSchedule', 'recentActivity', 'pinnedItems', 'quickAccess']
 
 function loadWidgets(): WidgetDef[] {
   try {
@@ -61,7 +66,6 @@ function loadWidgets(): WidgetDef[] {
         const reg = WIDGET_REGISTRY[s.id]
         if (reg) result.push({ ...reg, enabled: s.enabled, order: s.order })
       }
-      // Add any new widgets not in saved config
       for (const id of DEFAULT_ORDER) {
         if (!result.find(w => w.id === id)) {
           const reg = WIDGET_REGISTRY[id]
@@ -82,16 +86,16 @@ function saveWidgets() {
 
 const widgets = ref<WidgetDef[]>(loadWidgets())
 
-// Label mapping (must be computed for i18n reactivity)
 const widgetLabels = computed(() => ({
   greeting: t('homepage.widgetGreeting'),
   moduleStatus: t('homepage.moduleStatus'),
   myTasks: t('homepage.myTasks'),
+  oncallSchedule: t('homepage.oncallSchedule'),
   recentActivity: t('homepage.recentActivity'),
+  pinnedItems: t('homepage.pinnedItems'),
   quickAccess: t('homepage.quickAccess'),
 }))
 
-// Apply labels
 watch(widgetLabels, (labels) => {
   for (const w of widgets.value) {
     w.label = labels[w.type as keyof typeof labels] || w.type
@@ -99,6 +103,8 @@ watch(widgetLabels, (labels) => {
 }, { immediate: true })
 
 const showSettings = ref(false)
+const settingsTab = ref<'widgets' | 'quicklinks' | 'pinned'>('widgets')
+
 const enabledWidgets = computed(() =>
   widgets.value.filter(w => w.enabled).sort((a, b) => a.order - b.order)
 )
@@ -126,6 +132,159 @@ function resetWidgets() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Quick Access — user-customizable links
+// ═══════════════════════════════════════════════════════════
+
+interface QuickLink {
+  id: string
+  label: string
+  route: string
+  icon: any
+  color: string
+  bg: string
+  enabled: boolean
+}
+
+const ALL_QUICK_LINKS: Omit<QuickLink, 'enabled'>[] = [
+  { id: 'rules',      label: '', route: '/alert/rules',           icon: DocumentTextOutline,    color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  { id: 'schedule',   label: '', route: '/oncall/schedule',       icon: CalendarOutline,        color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
+  { id: 'explore',    label: '', route: '/alert/explore',         icon: SearchOutline,          color: '#06B6D4', bg: 'rgba(6,182,212,0.08)' },
+  { id: 'dashboards', label: '', route: '/alert/dashboards',      icon: StatsChartOutline,      color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
+  { id: 'notify',     label: '', route: '/alert/notify/policies', icon: NotificationsOutline,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
+  { id: 'suppression',label: '', route: '/alert/suppression',     icon: ShieldCheckmarkOutline, color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
+  { id: 'datasources',label: '', route: '/alert/datasources',     icon: PulseOutline,           color: '#F97316', bg: 'rgba(249,115,22,0.08)' },
+  { id: 'incidents',  label: '', route: '/oncall/incidents',      icon: BugOutline,             color: '#EC4899', bg: 'rgba(236,72,153,0.08)' },
+  { id: 'spaces',     label: '', route: '/oncall/spaces',         icon: RocketOutline,          color: '#14B8A6', bg: 'rgba(20,184,166,0.08)' },
+  { id: 'members',    label: '', route: '/platform/org/members',  icon: PeopleOutline,          color: '#6366F1', bg: 'rgba(99,102,241,0.08)' },
+]
+
+function loadQuickLinks(): QuickLink[] {
+  try {
+    const raw = localStorage.getItem(QUICK_KEY)
+    if (raw) {
+      const saved = JSON.parse(raw) as { id: string; enabled: boolean }[]
+      return ALL_QUICK_LINKS.map(link => {
+        const s = saved.find(s => s.id === link.id)
+        return { ...link, enabled: s ? s.enabled : true }
+      })
+    }
+  } catch { /* ignore */ }
+  return ALL_QUICK_LINKS.map(link => ({ ...link, enabled: true }))
+}
+
+function saveQuickLinks() {
+  localStorage.setItem(QUICK_KEY, JSON.stringify(
+    quickLinks.value.map(l => ({ id: l.id, enabled: l.enabled }))
+  ))
+}
+
+const quickLinks = ref<QuickLink[]>(loadQuickLinks())
+
+// Apply i18n labels
+const quickLinkLabels = computed(() => ({
+  rules: t('menu.alertRules'),
+  schedule: t('menu.schedule'),
+  explore: t('menu.explore'),
+  dashboards: t('menu.dashboards'),
+  notify: t('menu.notifyPolicies'),
+  suppression: t('menu.suppression'),
+  datasources: t('menu.datasources'),
+  incidents: t('menu.incidents'),
+  spaces: t('menu.channels'),
+  members: t('menu.members'),
+}))
+
+watch(quickLinkLabels, (labels) => {
+  for (const l of quickLinks.value) {
+    l.label = labels[l.id as keyof typeof labels] || l.id
+  }
+}, { immediate: true })
+
+const enabledQuickLinks = computed(() => quickLinks.value.filter(l => l.enabled))
+
+function toggleQuickLink(id: string) {
+  const l = quickLinks.value.find(l => l.id === id)
+  if (l) { l.enabled = !l.enabled; saveQuickLinks() }
+}
+
+function resetQuickLinks() {
+  quickLinks.value = ALL_QUICK_LINKS.map(link => ({ ...link, enabled: true }))
+  saveQuickLinks()
+}
+
+// ═══════════════════════════════════════════════════════════
+// Pinned Items — user-created bookmarks
+// ═══════════════════════════════════════════════════════════
+
+interface PinnedItem {
+  id: string
+  title: string
+  url: string
+  color: string
+}
+
+const PIN_COLORS = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6', '#EC4899', '#F97316', '#06B6D4']
+
+function loadPinned(): PinnedItem[] {
+  try {
+    const raw = localStorage.getItem(PINNED_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch { /* ignore */ }
+  return [
+    { id: 'p1', title: 'Prometheus', url: '/alert/explore', color: '#3B82F6' },
+    { id: 'p2', title: 'Grafana', url: '/alert/dashboards', color: '#F59E0B' },
+  ]
+}
+
+function savePinned() {
+  localStorage.setItem(PINNED_KEY, JSON.stringify(pinnedItems.value))
+}
+
+const pinnedItems = ref<PinnedItem[]>(loadPinned())
+const editingPin = ref<string | null>(null)
+const pinForm = reactive({ title: '', url: '', color: PIN_COLORS[0] })
+
+function addPin() {
+  const id = 'p' + Date.now()
+  pinnedItems.value.push({ id, title: pinForm.title, url: pinForm.url, color: pinForm.color })
+  savePinned()
+  pinForm.title = ''
+  pinForm.url = ''
+  pinForm.color = PIN_COLORS[0]
+}
+
+function removePin(id: string) {
+  pinnedItems.value = pinnedItems.value.filter(p => p.id !== id)
+  savePinned()
+}
+
+function startEditPin(pin: PinnedItem) {
+  editingPin.value = pin.id
+  pinForm.title = pin.title
+  pinForm.url = pin.url
+  pinForm.color = pin.color
+}
+
+function saveEditPin() {
+  const pin = pinnedItems.value.find(p => p.id === editingPin.value)
+  if (pin) {
+    pin.title = pinForm.title
+    pin.url = pinForm.url
+    pin.color = pinForm.color
+    savePinned()
+  }
+  editingPin.value = null
+}
+
+function resetPinned() {
+  pinnedItems.value = [
+    { id: 'p1', title: 'Prometheus', url: '/alert/explore', color: '#3B82F6' },
+    { id: 'p2', title: 'Grafana', url: '/alert/dashboards', color: '#F59E0B' },
+  ]
+  savePinned()
+}
+
+// ═══════════════════════════════════════════════════════════
 // Data Loading
 // ═══════════════════════════════════════════════════════════
 
@@ -137,6 +296,7 @@ const recentIncidents = ref<Incident[]>([])
 const firingAlerts = ref<AlertGroupItem[]>([])
 const totalRules = ref(0)
 const activeAlerts = ref(0)
+const oncallUsers = ref<{ scheduleName: string; userName: string }[]>([])
 
 const userName = computed(() => authStore.user?.username || authStore.user?.email || 'SRE')
 
@@ -146,7 +306,6 @@ const greeting = computed(() => {
   return t(key, { name: userName.value })
 })
 
-// Module health cards
 const modules = computed(() => [
   {
     key: 'monitor',
@@ -194,7 +353,6 @@ const modules = computed(() => [
   },
 ])
 
-// Activity feed
 interface ActivityItem {
   time: string
   type: 'incident' | 'alert'
@@ -227,17 +385,6 @@ const activity = computed<ActivityItem[]>(() => {
   return items.slice(0, 10)
 })
 
-// Quick access items with colors
-const quickLinks = computed(() => [
-  { label: t('menu.alertRules'),     icon: DocumentTextOutline,        route: '/alert/rules',            color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  { label: t('menu.schedule'),       icon: CalendarOutline,            route: '/oncall/schedule',        color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
-  { label: t('menu.explore'),        icon: SearchOutline,              route: '/alert/explore',          color: '#06B6D4', bg: 'rgba(6,182,212,0.08)' },
-  { label: t('menu.dashboards'),     icon: StatsChartOutline,          route: '/alert/dashboards',       color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
-  { label: t('menu.notifyPolicies'), icon: NotificationsOutline,       route: '/alert/notify/policies',  color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
-  { label: t('menu.suppression'),    icon: ShieldCheckmarkOutline,     route: '/alert/suppression',      color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
-])
-
-// Helpers
 function relTime(ts: string): string {
   if (!ts) return ''
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
@@ -266,15 +413,15 @@ function uptimeDays(): number {
   return match ? parseInt(match[1]) : 0
 }
 
-// Data loading
 async function load() {
   loading.value = true
   try {
-    const [engineRes, statsRes, incRes, alertRes] = await Promise.allSettled([
+    const [engineRes, statsRes, incRes, alertRes, schedRes] = await Promise.allSettled([
       engineApi.getStatus(),
       dashboardApi.getStats(),
       incidentApi.list({ status: 'active', page_size: 5 }),
       alertGroupsApi.list({ status: 'firing' }),
+      scheduleApi.list({ page: 1, page_size: 20 }),
     ])
     if (engineRes.status === 'fulfilled') {
       const d = engineRes.value.data.data
@@ -293,6 +440,21 @@ async function load() {
     }
     if (alertRes.status === 'fulfilled') {
       firingAlerts.value = alertRes.value.data.data || []
+    }
+    // Load on-call users for each schedule
+    if (schedRes.status === 'fulfilled') {
+      const schedules: Schedule[] = schedRes.value.data.data?.list || schedRes.value.data.data || []
+      const results: { scheduleName: string; userName: string }[] = []
+      for (const s of schedules.slice(0, 5)) {
+        try {
+          const res = await scheduleApi.getCurrentOnCall(s.id)
+          const user = res.data.data
+          if (user) {
+            results.push({ scheduleName: s.name, userName: user.username || user.email || `User #${user.id}` })
+          }
+        } catch { /* no current on-call for this schedule */ }
+      }
+      oncallUsers.value = results
     }
   } catch (e: any) {
     message.error(e?.message || t('homepage.loadFailed'))
@@ -318,26 +480,89 @@ onMounted(load)
               </button>
             </template>
             <div class="settings-panel">
-              <div class="sp-header">
-                <span class="sp-title">{{ t('homepage.widgetSettings') }}</span>
-                <button class="sp-reset" @click="resetWidgets">{{ t('homepage.resetLayout') }}</button>
+              <!-- Tabs -->
+              <div class="sp-tabs">
+                <button class="sp-tab" :class="{ active: settingsTab === 'widgets' }" @click="settingsTab = 'widgets'">{{ t('homepage.tabWidgets') }}</button>
+                <button class="sp-tab" :class="{ active: settingsTab === 'quicklinks' }" @click="settingsTab = 'quicklinks'">{{ t('homepage.tabQuickLinks') }}</button>
+                <button class="sp-tab" :class="{ active: settingsTab === 'pinned' }" @click="settingsTab = 'pinned'">{{ t('homepage.tabPinned') }}</button>
               </div>
-              <div class="sp-list">
-                <div
-                  v-for="w in widgets"
-                  :key="w.id"
-                  class="sp-item"
-                  :class="{ 'sp-item--off': !w.enabled }"
-                >
-                  <div class="sp-item-left">
-                    <n-icon v-if="w.icon" :component="w.icon" :size="14" class="sp-item-icon" />
-                    <span class="sp-item-label">{{ w.label }}</span>
+
+              <!-- Widgets tab -->
+              <div v-if="settingsTab === 'widgets'">
+                <div class="sp-subheader">
+                  <button class="sp-reset" @click="resetWidgets">{{ t('homepage.resetLayout') }}</button>
+                </div>
+                <div class="sp-list">
+                  <div v-for="w in widgets" :key="w.id" class="sp-item" :class="{ 'sp-item--off': !w.enabled }">
+                    <div class="sp-item-left">
+                      <n-icon v-if="w.icon" :component="w.icon" :size="14" class="sp-item-icon" />
+                      <span class="sp-item-label">{{ w.label }}</span>
+                    </div>
+                    <div class="sp-item-actions">
+                      <button v-if="w.enabled" class="sp-arrow" @click="moveWidget(w.id, -1)" :disabled="w.order === 0">↑</button>
+                      <button v-if="w.enabled" class="sp-arrow" @click="moveWidget(w.id, 1)">↓</button>
+                      <button class="sp-toggle" @click="toggleWidget(w.id)">
+                        <n-icon :component="w.enabled ? EyeOutline : EyeOffOutline" :size="14" />
+                      </button>
+                    </div>
                   </div>
-                  <div class="sp-item-actions">
-                    <button v-if="w.enabled" class="sp-arrow" @click="moveWidget(w.id, -1)" :disabled="w.order === 0">↑</button>
-                    <button v-if="w.enabled" class="sp-arrow" @click="moveWidget(w.id, 1)">↓</button>
-                    <button class="sp-toggle" @click="toggleWidget(w.id)">
-                      <n-icon :component="w.enabled ? EyeOutline : EyeOffOutline" :size="14" />
+                </div>
+              </div>
+
+              <!-- Quick links tab -->
+              <div v-if="settingsTab === 'quicklinks'">
+                <div class="sp-subheader">
+                  <button class="sp-reset" @click="resetQuickLinks">{{ t('homepage.resetLinks') }}</button>
+                </div>
+                <div class="sp-list">
+                  <div v-for="l in quickLinks" :key="l.id" class="sp-item" :class="{ 'sp-item--off': !l.enabled }">
+                    <div class="sp-item-left">
+                      <div class="sp-link-dot" :style="{ background: l.color }"></div>
+                      <span class="sp-item-label">{{ l.label }}</span>
+                    </div>
+                    <button class="sp-toggle" @click="toggleQuickLink(l.id)">
+                      <n-icon :component="l.enabled ? EyeOutline : EyeOffOutline" :size="14" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pinned items tab -->
+              <div v-if="settingsTab === 'pinned'">
+                <div class="sp-subheader">
+                  <button class="sp-reset" @click="resetPinned">{{ t('homepage.resetPinned') }}</button>
+                </div>
+                <div class="sp-list">
+                  <div v-for="pin in pinnedItems" :key="pin.id" class="sp-item">
+                    <div class="sp-item-left">
+                      <div class="sp-link-dot" :style="{ background: pin.color }"></div>
+                      <span v-if="editingPin !== pin.id" class="sp-item-label">{{ pin.title }}</span>
+                      <template v-else>
+                        <input v-model="pinForm.title" class="sp-inline-input" :placeholder="t('homepage.pinTitle')" />
+                        <input v-model="pinForm.url" class="sp-inline-input sp-inline-input--url" :placeholder="t('homepage.pinUrl')" />
+                      </template>
+                    </div>
+                    <div class="sp-item-actions">
+                      <template v-if="editingPin === pin.id">
+                        <button class="sp-save" @click="saveEditPin">{{ t('common.save') }}</button>
+                        <button class="sp-cancel" @click="editingPin = null">{{ t('common.cancel') }}</button>
+                      </template>
+                      <template v-else>
+                        <button class="sp-toggle" @click="startEditPin(pin)"><n-icon :component="CreateOutline" :size="13" /></button>
+                        <button class="sp-toggle sp-toggle--danger" @click="removePin(pin.id)"><n-icon :component="CloseOutline" :size="13" /></button>
+                      </template>
+                    </div>
+                  </div>
+                  <!-- Add new pin -->
+                  <div class="sp-add-row">
+                    <input v-model="pinForm.title" class="sp-inline-input" :placeholder="t('homepage.pinTitle')" />
+                    <input v-model="pinForm.url" class="sp-inline-input sp-inline-input--url" :placeholder="t('homepage.pinUrl')" />
+                    <div class="sp-color-pick">
+                      <button v-for="c in PIN_COLORS" :key="c" class="sp-color-dot" :class="{ active: pinForm.color === c }" :style="{ background: c }" @click="pinForm.color = c"></button>
+                    </div>
+                    <button class="sp-add-btn" @click="addPin" :disabled="!pinForm.title">
+                      <n-icon :component="AddOutline" :size="14" />
+                      {{ t('homepage.addPin') }}
                     </button>
                   </div>
                 </div>
@@ -400,15 +625,8 @@ onMounted(load)
                 </div>
                 <div class="wc-body">
                   <div v-if="activeIncidents.length" class="tasks-list">
-                    <div
-                      v-for="inc in activeIncidents"
-                      :key="inc.id"
-                      class="task-row"
-                      @click="router.push(`/oncall/incidents/${inc.id}`)"
-                    >
-                      <span class="task-sev" :style="{ background: sevColor(inc.severity) }">
-                        {{ inc.severity?.toUpperCase() }}
-                      </span>
+                    <div v-for="inc in activeIncidents" :key="inc.id" class="task-row" @click="router.push(`/oncall/incidents/${inc.id}`)">
+                      <span class="task-sev" :style="{ background: sevColor(inc.severity) }">{{ inc.severity?.toUpperCase() }}</span>
                       <div class="task-body">
                         <span class="task-title">{{ inc.title || `#${inc.id}` }}</span>
                         <span class="task-meta">
@@ -420,10 +638,30 @@ onMounted(load)
                       <n-icon :component="ChevronForwardOutline" :size="14" class="task-arrow" />
                     </div>
                   </div>
-                  <div v-else class="wc-empty">
-                    <span class="wc-empty-icon">✓</span>
-                    <span>{{ t('homepage.noTasks') }}</span>
+                  <div v-else class="wc-empty"><span class="wc-empty-icon">✓</span><span>{{ t('homepage.noTasks') }}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ On-Call Schedule ═══ -->
+            <div v-else-if="widget.type === 'oncallSchedule'" class="bento-item bento-lg">
+              <div class="widget-card">
+                <div class="wc-header">
+                  <n-icon :component="PeopleOutline" :size="16" class="wc-icon" />
+                  <span class="wc-title">{{ t('homepage.oncallSchedule') }}</span>
+                </div>
+                <div class="wc-body">
+                  <div v-if="oncallUsers.length" class="oncall-list">
+                    <div v-for="item in oncallUsers" :key="item.scheduleName" class="oncall-row" @click="router.push('/oncall/schedule')">
+                      <div class="oncall-avatar">{{ item.userName.charAt(0).toUpperCase() }}</div>
+                      <div class="oncall-info">
+                        <span class="oncall-name">{{ item.userName }}</span>
+                        <span class="oncall-sched">{{ item.scheduleName }}</span>
+                      </div>
+                      <span class="oncall-badge">{{ t('homepage.onDuty') }}</span>
+                    </div>
                   </div>
+                  <div v-else class="wc-empty"><span class="wc-empty-icon">—</span><span>{{ t('homepage.noOnCall') }}</span></div>
                 </div>
               </div>
             </div>
@@ -437,22 +675,41 @@ onMounted(load)
                 </div>
                 <div class="wc-body">
                   <div v-if="activity.length" class="activity-list">
-                    <div
-                      v-for="(item, idx) in activity"
-                      :key="idx"
-                      class="act-row"
-                      @click="router.push(item.route)"
-                    >
-                      <div class="act-time">
-                        <span class="act-dot" :style="{ background: sevColor(item.severity) }"></span>
-                        {{ relTime(item.time) }}
-                      </div>
+                    <div v-for="(item, idx) in activity" :key="idx" class="act-row" @click="router.push(item.route)">
+                      <div class="act-time"><span class="act-dot" :style="{ background: sevColor(item.severity) }"></span>{{ relTime(item.time) }}</div>
                       <span class="act-text">{{ item.text }}</span>
                     </div>
                   </div>
+                  <div v-else class="wc-empty"><span class="wc-empty-icon">✓</span><span>{{ t('homepage.noActivity') }}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ Pinned Items ═══ -->
+            <div v-else-if="widget.type === 'pinnedItems'" class="bento-item bento-lg">
+              <div class="widget-card">
+                <div class="wc-header">
+                  <n-icon :component="BookmarkOutline" :size="16" class="wc-icon" />
+                  <span class="wc-title">{{ t('homepage.pinnedItems') }}</span>
+                </div>
+                <div class="wc-body">
+                  <div v-if="pinnedItems.length" class="pinned-grid">
+                    <div
+                      v-for="pin in pinnedItems"
+                      :key="pin.id"
+                      class="pinned-card"
+                      @click="pin.url && router.push(pin.url)"
+                    >
+                      <div class="pinned-icon" :style="{ background: pin.color + '18', color: pin.color }">
+                        {{ pin.title.charAt(0).toUpperCase() }}
+                      </div>
+                      <span class="pinned-title">{{ pin.title }}</span>
+                    </div>
+                  </div>
                   <div v-else class="wc-empty">
-                    <span class="wc-empty-icon">✓</span>
-                    <span>{{ t('homepage.noActivity') }}</span>
+                    <span class="wc-empty-icon">+</span>
+                    <span>{{ t('homepage.noPinned') }}</span>
+                    <span class="wc-empty-hint">{{ t('homepage.addViaSettings') }}</span>
                   </div>
                 </div>
               </div>
@@ -461,12 +718,7 @@ onMounted(load)
             <!-- ═══ Quick Access ═══ -->
             <div v-else-if="widget.type === 'quickAccess'" class="bento-item bento-full">
               <div class="quick-grid">
-                <div
-                  v-for="link in quickLinks"
-                  :key="link.route"
-                  class="quick-btn"
-                  @click="router.push(link.route)"
-                >
+                <div v-for="link in enabledQuickLinks" :key="link.id" class="quick-btn" @click="router.push(link.route)">
                   <div class="quick-icon" :style="{ background: link.bg, color: link.color }">
                     <n-icon :component="link.icon" :size="18" />
                   </div>
@@ -483,53 +735,32 @@ onMounted(load)
 </template>
 
 <style scoped>
-.homepage {
-  min-height: 100vh;
-  font-family: var(--sre-font-sans);
-}
-
-.hp-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px 32px 48px;
-  position: relative;
-}
+.homepage { min-height: 100vh; font-family: var(--sre-font-sans); }
+.hp-container { max-width: 1400px; margin: 0 auto; padding: 24px 32px 48px; position: relative; }
 
 /* ===== Settings Bar ===== */
-.hp-settings-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
+.hp-settings-bar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 .hp-settings-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid var(--sre-border);
-  border-radius: var(--sre-radius-pill);
-  background: var(--sre-bg-card);
-  color: var(--sre-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 150ms var(--sre-ease-out);
-  font-family: var(--sre-font-sans);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border: 1px solid var(--sre-border); border-radius: var(--sre-radius-pill);
+  background: var(--sre-bg-card); color: var(--sre-text-secondary);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: all 150ms var(--sre-ease-out); font-family: var(--sre-font-sans);
 }
-.hp-settings-btn:hover, .hp-settings-btn.active {
-  background: var(--sre-primary-soft);
-  border-color: var(--sre-primary-ring);
-  color: var(--sre-primary);
-}
+.hp-settings-btn:hover, .hp-settings-btn.active { background: var(--sre-primary-soft); border-color: var(--sre-primary-ring); color: var(--sre-primary); }
 
 /* ===== Settings Panel ===== */
-.settings-panel { min-width: 280px; padding: 0; }
-.sp-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; border-bottom: 1px solid var(--sre-border);
+.settings-panel { min-width: 320px; max-width: 400px; padding: 0; }
+.sp-tabs { display: flex; border-bottom: 1px solid var(--sre-border); }
+.sp-tab {
+  flex: 1; padding: 10px 8px; border: none; background: none;
+  font-size: 12px; font-weight: 500; color: var(--sre-text-muted); cursor: pointer;
+  font-family: var(--sre-font-sans); transition: color 120ms, border-color 120ms;
+  border-bottom: 2px solid transparent;
 }
-.sp-title { font-size: 13px; font-weight: 600; color: var(--sre-text-primary); }
+.sp-tab:hover { color: var(--sre-text-primary); }
+.sp-tab.active { color: var(--sre-primary); border-bottom-color: var(--sre-primary); }
+.sp-subheader { display: flex; justify-content: flex-end; padding: 8px 16px 0; }
 .sp-reset {
   font-size: 11px; color: var(--sre-primary); background: none; border: none;
   cursor: pointer; font-family: var(--sre-font-sans); font-weight: 500;
@@ -537,14 +768,14 @@ onMounted(load)
 .sp-list { padding: 8px 0; }
 .sp-item {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 16px; transition: background 100ms;
+  padding: 8px 16px; transition: background 100ms; gap: 8px;
 }
 .sp-item:hover { background: var(--sre-bg-hover); }
 .sp-item--off { opacity: 0.5; }
-.sp-item-left { display: flex; align-items: center; gap: 8px; }
+.sp-item-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .sp-item-icon { color: var(--sre-text-muted); }
-.sp-item-label { font-size: 13px; color: var(--sre-text-primary); }
-.sp-item-actions { display: flex; align-items: center; gap: 4px; }
+.sp-item-label { font-size: 13px; color: var(--sre-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-item-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .sp-arrow {
   width: 24px; height: 24px; border: none; background: none;
   color: var(--sre-text-muted); cursor: pointer; font-size: 14px;
@@ -558,169 +789,165 @@ onMounted(load)
   display: flex; align-items: center; justify-content: center;
 }
 .sp-toggle:hover { background: var(--sre-bg-hover); color: var(--sre-primary); }
+.sp-toggle--danger:hover { color: var(--sre-critical); }
+.sp-link-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sp-save {
+  font-size: 11px; font-weight: 600; color: var(--sre-primary); background: var(--sre-primary-soft);
+  border: none; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-family: var(--sre-font-sans);
+}
+.sp-cancel {
+  font-size: 11px; color: var(--sre-text-muted); background: none;
+  border: none; cursor: pointer; font-family: var(--sre-font-sans);
+}
+.sp-inline-input {
+  font-size: 12px; padding: 3px 8px; border: 1px solid var(--sre-border); border-radius: 4px;
+  background: var(--sre-bg-page); color: var(--sre-text-primary); font-family: var(--sre-font-sans);
+  width: 100px;
+}
+.sp-inline-input--url { width: 140px; }
+.sp-add-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid var(--sre-border);
+}
+.sp-color-pick { display: flex; gap: 4px; }
+.sp-color-dot {
+  width: 16px; height: 16px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; transition: border-color 100ms;
+}
+.sp-color-dot.active { border-color: var(--sre-text-primary); }
+.sp-add-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--sre-primary);
+  background: var(--sre-primary-soft); border: none; border-radius: 4px;
+  padding: 5px 12px; cursor: pointer; font-family: var(--sre-font-sans);
+}
+.sp-add-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ===== Bento Grid ===== */
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
+.bento-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .bento-full { grid-column: 1 / -1; }
 .bento-lg { grid-column: span 1; }
 
 /* ===== Greeting Bar ===== */
-.greeting-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 4px 0;
-}
+.greeting-bar { display: flex; align-items: center; gap: 16px; padding: 4px 0; }
 .gc-hello {
-  font-family: var(--sre-font-display);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--sre-text-primary);
-  margin: 0;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
+  font-family: var(--sre-font-display); font-size: 20px; font-weight: 600;
+  color: var(--sre-text-primary); margin: 0; line-height: 1.3; letter-spacing: -0.01em;
 }
 .gc-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 12px;
-  border-radius: var(--sre-radius-pill);
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; padding: 4px 12px;
+  border-radius: var(--sre-radius-pill); white-space: nowrap;
 }
-.gc-badge--ok {
-  color: #16A34A;
-  background: rgba(34,197,94,0.08);
-}
+.gc-badge--ok { color: #16A34A; background: rgba(34,197,94,0.08); }
 .gc-badge--ok .dot { background: #22C55E; box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
-.gc-badge--down {
-  color: #DC2626;
-  background: rgba(239,68,68,0.08);
-}
+.gc-badge--down { color: #DC2626; background: rgba(239,68,68,0.08); }
 .gc-badge--down .dot { background: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
 
 /* ===== Module Strip ===== */
-.module-strip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
+.module-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .mod-card {
-  background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: var(--sre-radius-lg, 12px);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  background: var(--sre-bg-card); border: 1px solid var(--sre-border);
+  border-radius: var(--sre-radius-lg, 12px); padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
   transition: border-color 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
 }
 .mod-card--clickable { cursor: pointer; }
-.mod-card--clickable:hover {
-  border-color: var(--sre-border-strong);
-  box-shadow: var(--sre-shadow-sm);
-}
+.mod-card--clickable:hover { border-color: var(--sre-border-strong); box-shadow: var(--sre-shadow-sm); }
 .mod-icon {
   width: 36px; height: 36px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .mod-info { min-width: 0; }
-.mod-label {
-  font-size: 14px; font-weight: 600; color: var(--sre-text-primary);
-  font-family: var(--sre-font-display);
-}
-.mod-desc {
-  font-size: 12px; color: var(--sre-text-tertiary); margin-top: 2px;
-}
-.mod-status {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--sre-text-secondary); margin-top: auto;
-}
+.mod-label { font-size: 14px; font-weight: 600; color: var(--sre-text-primary); font-family: var(--sre-font-display); }
+.mod-desc { font-size: 12px; color: var(--sre-text-tertiary); margin-top: 2px; }
+.mod-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sre-text-secondary); margin-top: auto; }
 .mod-status-text { font-weight: 500; }
 
 /* ===== Dots ===== */
-.dot {
-  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block;
-}
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
 .dot-ok { background: var(--sre-success); box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
 .dot-warning { background: var(--sre-warning); box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
 .dot-critical { background: var(--sre-critical); box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
 .dot-coming { background: var(--sre-text-muted); }
 
-/* ===== Widget Cards (Tasks & Activity) ===== */
+/* ===== Widget Cards ===== */
 .widget-card {
-  background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: var(--sre-radius-lg, 12px);
-  overflow: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  background: var(--sre-bg-card); border: 1px solid var(--sre-border);
+  border-radius: var(--sre-radius-lg, 12px); overflow: hidden;
+  height: 100%; display: flex; flex-direction: column;
 }
 .wc-header {
   display: flex; align-items: center; gap: 8px;
   padding: 14px 18px; border-bottom: 1px solid var(--sre-border);
 }
 .wc-icon { color: var(--sre-primary); }
-.wc-title {
-  font-size: 14px; font-weight: 600; color: var(--sre-text-primary);
-  font-family: var(--sre-font-display);
-}
-.wc-badge {
-  font-size: 11px; font-weight: 700; color: white;
-  background: var(--sre-critical); padding: 1px 7px; border-radius: 10px;
-  margin-left: auto;
-}
+.wc-title { font-size: 14px; font-weight: 600; color: var(--sre-text-primary); font-family: var(--sre-font-display); }
+.wc-badge { font-size: 11px; font-weight: 700; color: white; background: var(--sre-critical); padding: 1px 7px; border-radius: 10px; margin-left: auto; }
 .wc-body { flex: 1; overflow-y: auto; }
 
-/* ===== Tasks List ===== */
+/* ===== Tasks ===== */
 .tasks-list { display: flex; flex-direction: column; }
 .task-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 18px; cursor: pointer;
-  transition: background 120ms var(--sre-ease-out);
-  border-bottom: 1px solid var(--sre-border);
+  display: flex; align-items: center; gap: 12px; padding: 12px 18px; cursor: pointer;
+  transition: background 120ms var(--sre-ease-out); border-bottom: 1px solid var(--sre-border);
 }
 .task-row:last-child { border-bottom: none; }
 .task-row:hover { background: var(--sre-bg-hover); }
-.task-sev {
-  font-size: 9px; font-weight: 700; color: #fff;
-  padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em; flex-shrink: 0;
-}
+.task-sev { font-size: 9px; font-weight: 700; color: #fff; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em; flex-shrink: 0; }
 .task-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.task-title {
-  font-size: 13px; font-weight: 500; color: var(--sre-text-primary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.task-title { font-size: 13px; font-weight: 500; color: var(--sre-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .task-meta { font-size: 11px; color: var(--sre-text-tertiary); }
 .task-arrow { color: var(--sre-text-muted); flex-shrink: 0; }
 
-/* ===== Activity List ===== */
+/* ===== On-Call Schedule ===== */
+.oncall-list { display: flex; flex-direction: column; }
+.oncall-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 18px; cursor: pointer;
+  transition: background 120ms var(--sre-ease-out); border-bottom: 1px solid var(--sre-border);
+}
+.oncall-row:last-child { border-bottom: none; }
+.oncall-row:hover { background: var(--sre-bg-hover); }
+.oncall-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--sre-primary-soft); color: var(--sre-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.oncall-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.oncall-name { font-size: 13px; font-weight: 500; color: var(--sre-text-primary); }
+.oncall-sched { font-size: 11px; color: var(--sre-text-tertiary); }
+.oncall-badge {
+  font-size: 10px; font-weight: 600; color: var(--sre-success); background: rgba(34,197,94,0.08);
+  padding: 2px 8px; border-radius: 4px; flex-shrink: 0;
+}
+
+/* ===== Activity ===== */
 .activity-list { display: flex; flex-direction: column; }
 .act-row {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 10px 18px; cursor: pointer;
-  transition: background 120ms var(--sre-ease-out);
-  border-bottom: 1px solid var(--sre-border);
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 18px; cursor: pointer;
+  transition: background 120ms var(--sre-ease-out); border-bottom: 1px solid var(--sre-border);
 }
 .act-row:last-child { border-bottom: none; }
 .act-row:hover { background: var(--sre-bg-hover); }
-.act-time {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--sre-text-muted); white-space: nowrap;
-}
+.act-time { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--sre-text-muted); white-space: nowrap; }
 .act-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.act-text {
-  font-size: 13px; color: var(--sre-text-secondary);
-  line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.act-text { font-size: 13px; color: var(--sre-text-secondary); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== Pinned Items ===== */
+.pinned-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; padding: 14px 18px; }
+.pinned-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 14px 8px; border-radius: 10px; cursor: pointer;
+  transition: background 120ms var(--sre-ease-out);
 }
+.pinned-card:hover { background: var(--sre-bg-hover); }
+.pinned-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+}
+.pinned-title { font-size: 12px; font-weight: 500; color: var(--sre-text-secondary); text-align: center; }
 
 /* ===== Empty State ===== */
 .wc-empty {
@@ -733,42 +960,29 @@ onMounted(load)
   display: flex; align-items: center; justify-content: center;
   font-size: 16px; font-weight: 700;
 }
+.wc-empty-hint { font-size: 11px; color: var(--sre-text-muted); }
 
 /* ===== Quick Access ===== */
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-}
+.quick-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
 .quick-btn {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 20px 12px;
-  background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: var(--sre-radius-lg, 12px);
+  padding: 20px 12px; background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border); border-radius: var(--sre-radius-lg, 12px);
   cursor: pointer;
   transition: border-color 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out), transform 150ms var(--sre-ease-out);
 }
-.quick-btn:hover {
-  border-color: var(--sre-border-strong);
-  box-shadow: var(--sre-shadow-sm);
-  transform: translateY(-2px);
-}
+.quick-btn:hover { border-color: var(--sre-border-strong); box-shadow: var(--sre-shadow-sm); transform: translateY(-2px); }
 .quick-icon {
   width: 40px; height: 40px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
 }
-.quick-label {
-  font-size: 13px; font-weight: 500; color: var(--sre-text-secondary);
-  text-align: center;
-}
+.quick-label { font-size: 13px; font-weight: 500; color: var(--sre-text-secondary); text-align: center; }
 
 /* ===== Responsive ===== */
 @media (max-width: 1200px) {
   .module-strip { grid-template-columns: repeat(2, 1fr); }
   .quick-grid { grid-template-columns: repeat(3, 1fr); }
 }
-
 @media (max-width: 768px) {
   .hp-container { padding: 16px; }
   .bento-grid { grid-template-columns: 1fr; }
@@ -777,12 +991,9 @@ onMounted(load)
   .quick-grid { grid-template-columns: repeat(2, 1fr); }
   .greeting-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
   .gc-hello { font-size: 18px; }
+  .pinned-grid { grid-template-columns: repeat(3, 1fr); }
 }
-
-/* ===== Reduced Motion ===== */
 @media (prefers-reduced-motion: reduce) {
-  .mod-card, .quick-btn, .task-row, .act-row {
-    transition: none;
-  }
+  .mod-card, .quick-btn, .task-row, .act-row, .oncall-row, .pinned-card { transition: none; }
 }
 </style>
