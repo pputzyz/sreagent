@@ -47,7 +47,7 @@ async function handleLogin() {
     await authStore.login(form.value.username, form.value.password)
     message.success(t('auth.loginSuccess'))
     const raw = (route.query.redirect as string) || ''
-    const safeRedirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/oncall/overview'
+    const safeRedirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
     router.push(safeRedirect)
   } catch (err: any) {
     loginError.value = err.message || t('auth.loginFailed')

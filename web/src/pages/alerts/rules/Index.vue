@@ -443,7 +443,7 @@ onMounted(() => {
                 </template>
                 <template v-if="rule.for_duration">
                   <span class="sre-meta-divider"></span>
-                  <span class="rc-meta-item tnum">for {{ rule.for_duration }}</span>
+                  <span class="rc-meta-item tnum">{{ t('alert.forPrefix') }} {{ rule.for_duration }}</span>
                 </template>
               </div>
             </div>

@@ -15,7 +15,7 @@ import { useAuthStore } from '@/stores/auth'
 
 // ===== Public Types =====
 
-export type AppKey = 'oncall' | 'alert' | 'platform'
+export type AppKey = 'home' | 'oncall' | 'alert' | 'platform'
 
 export interface MenuItem {
   label: string
@@ -37,6 +37,9 @@ const activeApp: Ref<AppKey> = ref('oncall')
 // ===== Route → App mapping =====
 
 function resolveAppFromPath(path: string): AppKey {
+  // Homepage — platform root
+  if (path === '/') return 'home'
+
   // New 3-app prefixed routes
   if (path.startsWith('/oncall'))   return 'oncall'
   if (path.startsWith('/alert'))    return 'alert'
@@ -71,6 +74,7 @@ function resolveAppFromPath(path: string): AppKey {
 // ===== Default route per app =====
 
 const appDefaultRoute: Record<AppKey, string> = {
+  home:     '/',
   oncall:   '/oncall/overview',
   alert:    '/alert/overview',
   platform: '/platform/profile',
@@ -98,6 +102,8 @@ export function useAppNav() {
 
   const menuSections = computed<MenuSection[]>(() => {
     switch (activeApp.value) {
+      case 'home':
+        return [{ items: [{ label: t('menu.overview'), key: '/' }] }]
       // ──────────────── ONCALL ────────────────
       case 'oncall':
         return [

@@ -380,8 +380,8 @@ onMounted(fetchRules)
             </div>
             <div class="mute-schedule">
               <span class="sre-label-eyebrow">{{ t('mute.schedule') }}</span>
-              <span v-if="ruleType(rule) === 'once'">Once {{ formatTime(rule.start_time) }} → {{ formatTime(rule.end_time) }}</span>
-              <span v-else-if="ruleType(rule) === 'periodic'">Periodic {{ describePeriodic(rule) }}</span>
+              <span v-if="ruleType(rule) === 'once'">{{ t('mute.oneTime') }} {{ formatTime(rule.start_time) }} → {{ formatTime(rule.end_time) }}</span>
+              <span v-else-if="ruleType(rule) === 'periodic'">{{ t('mute.periodic') }} {{ describePeriodic(rule) }}</span>
               <span v-else class="muted">{{ t('mute.noSchedule') }}</span>
             </div>
             <div class="mute-footer tnum">

@@ -410,14 +410,14 @@ function downloadCsv(rows: string[][], filename: string) {
 function exportCsv() {
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
   if (isLogs.value && logEntries.value.length) {
-    const rows = [['timestamp', 'message', 'labels']]
+    const rows = [[t('query.csvTimestamp'), t('query.csvMessage'), t('query.csvLabels')]]
     for (const e of logEntries.value) {
       rows.push([fmtTs(e.timestamp), e.message || '', formatLabelsStr(e.labels)])
     }
     downloadCsv(rows, `query-result-${ts}.csv`)
     message.success(t('query.csvExported'))
   } else if (metricTableData.value.length) {
-    const rows = [['name', 'value', 'labels']]
+    const rows = [[t('query.csvName'), t('query.csvValue'), t('query.csvLabels')]]
     for (const r of metricTableData.value) rows.push([r.name, r.value, r.labels])
     downloadCsv(rows, `query-result-${ts}.csv`)
     message.success(t('query.csvExported'))

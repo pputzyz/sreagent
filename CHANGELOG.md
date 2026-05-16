@@ -4,6 +4,21 @@
 
 ---
 
+## [v4.10.10] — 2026-05-15
+
+### Fixed — 首页不可达 + i18n 硬编码清理
+
+**首页不可达修复：**
+- Login.vue：登录后默认跳转从 `/oncall/overview` 改为 `/`（用户之前根本到不了首页）
+- useAppNav.ts：新增 `'home'` 应用状态，`/` 路径不再默认为 oncall
+- 问候语 i18n：逗号从硬编码中文改为 i18n 参数 `{name}`，英文 locale 下使用英文逗号
+
+**i18n 硬编码修复：**
+- mute/Index.vue："Once" → `t('mute.oneTime')`，"Periodic" → `t('mute.periodic')`
+- rules/Index.vue："for" → `t('alert.forPrefix')`
+- explore/Index.vue：CSV 导出表头改为 `t()` 调用
+- 新增 `alert.forPrefix`、`query.csvTimestamp/csvMessage/csvLabels/csvName/csvValue` 键
+
 ## [v4.10.9] — 2026-05-15
 
 ### Fixed — 首页设计合规 + i18n 完善

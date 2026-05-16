@@ -36,8 +36,8 @@ const userName = computed(() => authStore.user?.username || authStore.user?.emai
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
-  const prefix = hour < 12 ? t('homepage.greetingMorning') : hour < 18 ? t('homepage.greetingAfternoon') : t('homepage.greetingEvening')
-  return `${prefix}，${userName.value}`
+  const key = hour < 12 ? 'homepage.greetingMorning' : hour < 18 ? 'homepage.greetingAfternoon' : 'homepage.greetingEvening'
+  return t(key, { name: userName.value })
 })
 
 // Module health cards
