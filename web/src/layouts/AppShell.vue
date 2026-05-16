@@ -208,10 +208,11 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     </header>
 
     <!-- ===== Body ===== -->
-    <div class="app-body">
-      <div class="nav-zone" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
+    <div class="app-body" :class="{ 'is-home': activeApp === 'home' }">
+      <div class="nav-zone" :class="{ 'nav-zone--home': activeApp === 'home' }" @mouseenter="handleNavEnter" @mouseleave="handleNavLeave">
         <AppRail :active-app="activeApp" @switch="switchApp" @change-password="showPasswordModal = true" />
         <AppSidebar
+          v-if="activeApp !== 'home'"
           :sections="menuSections"
           :active-key="activeMenuKey"
           :collapsed="collapsed"
@@ -224,7 +225,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
       <!-- Main -->
       <main id="main-content" class="main">
-        <div class="main-header">
+        <div v-if="activeApp !== 'home'" class="main-header">
           <h1 class="main-title">{{ pageTitle }}</h1>
           <div class="main-actions">
             <slot name="actions" />
@@ -347,7 +348,9 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 /* ===== App Body ===== */
 .app-body { display:flex; flex:1; min-height:0; }
+.app-body.is-home .main-content { padding:0; background:var(--sre-bg-page); }
 .nav-zone { display:flex; height:100%; flex-shrink:0; }
+.nav-zone--home { width:auto; }
 
 /* ===== Main Content ===== */
 .main { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; }

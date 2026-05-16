@@ -2036,5 +2036,9 @@ export default {
     greetingEvening: 'Good evening, {name}',
     nActive: '{count} active',
     loadFailed: 'Load failed',
+    customize: 'Customize',
+    widgetSettings: 'Widget Settings',
+    resetLayout: 'Reset Layout',
+    widgetGreeting: 'Greeting',
   },
 }

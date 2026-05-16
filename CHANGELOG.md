@@ -4,6 +4,47 @@
 
 ---
 
+## [v4.10.13] — 2026-05-16
+
+### Changed — 首页全面重构：插件化 widget 系统 + 全宽 bento 布局
+
+**首页架构重构：**
+- 首页不再显示侧边栏菜单（`useAppNav` 返回空菜单），保留左侧 Rail 用于 App 切换
+- `AppShell.vue`：首页隐藏侧边栏和页面标题栏，内容区全宽铺满
+- 移除 `max-width: 1100px` 限制，改为 `max-width: 1400px` 自适应容器
+
+**插件化 Widget 系统：**
+- 用户可通过右上角「自定义」按钮管理首页小组件
+- 支持添加/删除/排序 widget，配置持久化到 `localStorage`（key: `sre-home-widgets`）
+- 5 个内置 widget：问候语、模块状态、我的待办、最近活动、快捷入口
+- 设置面板：显示/隐藏切换、上下排序、重置为默认布局
+
+**Bento 网格布局：**
+- 2 列自适应网格，问候语和快捷入口跨满全宽
+- 我的待办 + 最近活动并排显示（各占 1 列）
+- 模块状态 4 卡片等宽排列
+
+**视觉升级：**
+- 问候卡片：橙色渐变背景 + 装饰性半透明圆形
+- 模块图标：每个模块独立配色（Monitor 蓝、Oncall 粉、Deploy 绿、AI 紫）
+- 快捷入口：彩色图标 + 悬停上浮动画
+- 状态指示点：绿/琥珀/红三色 + 光晕效果
+
+**i18n：**
+- 新增 4 个键：`homepage.customize`、`homepage.widgetSettings`、`homepage.resetLayout`、`homepage.widgetGreeting`
+
+## [v4.10.12] — 2026-05-16
+
+### Fixed — 遗留路由清理（13 文件 23 处路径修复）
+
+所有内部 `router.push` / `router-link` 目标从遗留路径迁移到规范路径：
+- `/incidents/` → `/oncall/incidents/`
+- `/channels/` → `/oncall/spaces/`
+- `/alerts/rules/` → `/alert/rules/`
+- `/alerts/events/` → `/alert/events/`
+- `/notification` → `/alert/notify/policies`
+- 命名路由改为路径字符串（dashboard-v2）
+
 ## [v4.10.10] — 2026-05-15
 
 ### Fixed — 首页不可达 + i18n 硬编码清理

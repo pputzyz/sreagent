@@ -2057,5 +2057,9 @@ export default {
     greetingEvening: '晚上好，{name}',
     nActive: '{count} 活跃',
     loadFailed: '加载失败',
+    customize: '自定义',
+    widgetSettings: '小组件设置',
+    resetLayout: '重置布局',
+    widgetGreeting: '问候语',
   },
 }

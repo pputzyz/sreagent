@@ -103,7 +103,7 @@ export function useAppNav() {
   const menuSections = computed<MenuSection[]>(() => {
     switch (activeApp.value) {
       case 'home':
-        return [{ items: [{ label: t('menu.overview'), key: '/' }] }]
+        return []
       // ──────────────── ONCALL ────────────────
       case 'oncall':
         return [
