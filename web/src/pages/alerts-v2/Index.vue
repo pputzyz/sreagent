@@ -63,7 +63,7 @@ async function loadChannels() {
 }
 
 const channelOptions = computed(() => [
-  { label: t('common.all'), value: null as number | null },
+  { label: t('common.all'), value: undefined as number | undefined },
   ...channels.value.map(c => ({ label: c.name, value: c.id })),
 ])
 

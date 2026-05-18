@@ -436,10 +436,10 @@ onMounted(fetchRules)
                 <div class="mute-preview-head">
                   <span class="sre-dot" :data-severity="severityOf(ev)"></span>
                   <span class="mute-preview-sev">{{ severityOf(ev).toUpperCase() }}</span>
-                  <span class="mute-preview-name">{{ ev.alert_name || ev.name || `#${ev.id}` }}</span>
+                  <span class="mute-preview-name">{{ ev.alert_name || ev.rule?.name || `#${ev.id}` }}</span>
                 </div>
-                <div v-if="ev.summary || ev.description" class="mute-preview-desc">
-                  {{ ev.summary || ev.description }}
+                <div v-if="ev.annotations?.summary || ev.annotations?.description" class="mute-preview-desc">
+                  {{ ev.annotations?.summary || ev.annotations?.description }}
                 </div>
                 <div class="mute-preview-meta tnum">
                   <span>#{{ ev.id }}</span>

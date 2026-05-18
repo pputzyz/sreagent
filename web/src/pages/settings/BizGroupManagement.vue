@@ -284,7 +284,7 @@ async function handleRemoveMember(userId: number) {
 }
 
 /** Recursive tree-node renderer. Defined inline to keep this a single SFC. */
-const TreeNodeRow = defineComponent({
+const TreeNodeRow: ReturnType<typeof defineComponent> = defineComponent({
   name: 'TreeNodeRow',
   props: {
     node: { type: Object as () => TreeNode, required: true },

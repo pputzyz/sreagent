@@ -66,7 +66,7 @@ async function load() {
       dashboardV2StatsApi.teamStats(days.value),
       dashboardV2StatsApi.incidentTrend(days.value),
     ])
-    incidentStats.value = isRes.data.data
+    incidentStats.value = isRes.data.data as IncidentStats | null
     channelStats.value = csRes.data.data ?? []
     teamStats.value = tsRes.data.data ?? []
     incidentTrend.value = itRes.data.data ?? []

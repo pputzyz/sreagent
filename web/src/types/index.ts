@@ -669,6 +669,7 @@ export interface AlertRuleTemplate {
   name: string
   description: string
   category: string
+  group_name: string
   severity: AlertSeverity
   rule_type: AlertRuleType
   expression: string
@@ -785,11 +786,13 @@ export interface IncidentTrendPoint {
 export * from './preset-rule'
 
 // ===== Naive UI Dropdown Option =====
+import type { VNodeChild } from 'vue'
+
 export interface DropdownOption {
   type?: 'default' | 'divider'
   label: string
   key: string
-  icon?: () => unknown
+  icon?: () => VNodeChild
   props?: Record<string, unknown>
   disabled?: boolean
 }

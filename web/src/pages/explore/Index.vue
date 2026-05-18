@@ -387,7 +387,7 @@ function formatLegend(lbs: Record<string, string>): string {
   }
   return parts.length ? parts.join(', ') : (lbs.__name__ || 'value')
 }
-function formatLabelsStr(lbs: Record<string, string> | undefined): string {
+function formatLabelsStr(lbs: Record<string, unknown> | undefined): string {
   if (!lbs) return '-'
   const parts: string[] = []
   for (const k of Object.keys(lbs)) {

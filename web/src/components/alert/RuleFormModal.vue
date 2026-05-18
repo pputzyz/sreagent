@@ -198,7 +198,7 @@ async function saveAsTemplate() {
   const payload = {
     name: form.name,
     description: form.description,
-    datasource_type: form.datasource_type,
+    datasource_type: form.datasource_type || undefined,
     expression: form.expression,
     for_duration: form.for_duration,
     severity: form.severity,

@@ -94,14 +94,14 @@ const statValue = computed(() => {
   return null
 })
 
-const statColor = computed(() => {
+const statColor = computed((): string => {
   const val = statValue.value
-  const thresholds: { value: number; color: string }[] | undefined = props.panel.options?.thresholds
+  const thresholds = props.panel.options?.thresholds as { value: number; color: string }[] | undefined
   if (val == null || !thresholds?.length) {
-    return props.panel.options?.color || 'var(--sre-text-primary)'
+    return (props.panel.options?.color as string) || 'var(--sre-text-primary)'
   }
   const sorted = [...thresholds].sort((a, b) => a.value - b.value)
-  let color = props.panel.options?.color || sorted[0]?.color || 'var(--sre-text-primary)'
+  let color: string = (props.panel.options?.color as string) || sorted[0]?.color || 'var(--sre-text-primary)'
   for (const t of sorted) {
     if (val >= t.value) color = t.color
   }
@@ -175,8 +175,8 @@ const barOption = computed(() => {
 const gaugeOption = computed(() => {
   const val = statValue.value
   if (val == null) return null
-  const max = props.panel.options?.max ?? 100
-  const thresholds: { value: number; color: string }[] = props.panel.options?.thresholds ?? []
+  const max = (props.panel.options?.max as number) ?? 100
+  const thresholds = (props.panel.options?.thresholds as { value: number; color: string }[] | undefined) ?? []
   const detailFormatter = props.panel.options?.unit ? `{value} ${props.panel.options.unit}` : '{value}'
   return {
     tooltip: { formatter: `{b}: {c}${props.panel.options?.unit ? ' ' + props.panel.options.unit : ''}` },
@@ -192,7 +192,7 @@ const gaugeOption = computed(() => {
         lineStyle: {
           width: 20,
           color: thresholds.length
-            ? thresholds.map(t => [t.value / max, t.color])
+            ? thresholds.map(t => [(t.value as number) / max, t.color])
             : [[0.6, 'var(--sre-success)'], [0.8, 'var(--sre-warning)'], [1, 'var(--sre-danger)']],
         },
       },

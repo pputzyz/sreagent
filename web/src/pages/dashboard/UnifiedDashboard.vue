@@ -46,7 +46,7 @@ const QUICK_KEY = 'sre-home-quick-links'
 const PINNED_KEY = 'sre-home-pinned'
 
 const WIDGET_REGISTRY: Record<string, Omit<WidgetDef, 'enabled' | 'order'>> = {
-  greeting:       { id: 'greeting',       type: 'greeting',       label: '', icon: null,                 size: 'full' },
+  greeting:       { id: 'greeting',       type: 'greeting',       label: '', icon: undefined,            size: 'full' },
   moduleStatus:   { id: 'moduleStatus',   type: 'moduleStatus',   label: '', icon: PulseOutline,         size: 'full' },
   myTasks:        { id: 'myTasks',        type: 'myTasks',        label: '', icon: BugOutline,           size: 'lg' },
   oncallSchedule: { id: 'oncallSchedule', type: 'oncallSchedule', label: '', icon: PeopleOutline,        size: 'lg' },

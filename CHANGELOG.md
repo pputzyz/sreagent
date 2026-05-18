@@ -4,6 +4,28 @@
 
 ---
 
+## [v4.10.20] — 2026-05-18
+
+### Fixed — TypeScript 类型错误修复（22 处）
+
+vue-tsc --noEmit 全量类型检查修复，涉及 13 个文件：
+
+- `types/index.ts` — AlertRuleTemplate 新增 group_name 字段；DropdownOption.icon 返回类型修正为 VNodeChild
+- `RuleFormModal.vue` — datasource_type 空字符串转 undefined 兼容
+- `PanelCard.vue` — statColor 返回类型、thresholds 类型断言、数值运算类型
+- `alerts-v2/Index.vue` — SelectMixedOption null→undefined
+- `mute/Index.vue` — AlertEvent 属性访问修正（rule?.name / annotations?.summary）
+- `DispatchConfig.vue` — 升级策略选项 null→undefined
+- `IncidentDashboard.vue` — IncidentStats 类型断言
+- `UnifiedDashboard.vue` — icon: null→undefined
+- `explore/Index.vue` — formatLabelsStr 参数类型 Record<string, unknown>
+- `incidents/Detail.vue` — DropdownMixedOption 类型兼容
+- `AlertChannels.vue` — 模板选项 null→undefined
+- `Templates.vue` — h() 返回类型修正
+- `BizGroupManagement.vue` — TreeNodeRow 递归类型打破循环引用
+
+---
+
 ## [v4.10.19] — 2026-05-18
 
 ### Added — AI 智能规则引擎（Phase A-D）

@@ -185,7 +185,7 @@ function rowActions(row: MessageTemplate) {
       key: 'delete',
       label: t('common.delete'),
       icon: () => h(NIcon, { component: TrashOutline }),
-    } as { key: string; label: string; icon: () => unknown })
+    })
   }
   return actions
 }

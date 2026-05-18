@@ -67,7 +67,7 @@ const dayOptions = computed(() => [
 ])
 
 const escalationOptions = computed(() => [
-  { label: t('channel.dispatchEscalationHint'), value: null },
+  { label: t('channel.dispatchEscalationHint'), value: undefined },
   ...escalationPolicies.value.map(p => ({ label: p.name, value: p.id })),
 ])
 

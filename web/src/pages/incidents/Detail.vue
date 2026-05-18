@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi, alertV2Api } from '@/api'
-import type { Incident, IncidentTimeline, AlertV2, PostMortem, DropdownOption } from '@/types'
+import type { Incident, IncidentTimeline, AlertV2, PostMortem } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import SnoozeModal from '@/components/incident/SnoozeModal.vue'
 import MergeModal from '@/components/incident/MergeModal.vue'
@@ -165,7 +165,7 @@ async function aiGeneratePostMortem() {
 }
 
 const moreActionOptions = computed(() => {
-  const opts: DropdownOption[] = [
+  const opts = [
     { label: t('incident.escalate'), key: 'escalate', icon: () => h(NIcon, { component: ArrowUpCircleOutline }) },
     { label: t('incident.reassign'), key: 'reassign', icon: () => h(NIcon, { component: PersonOutline }) },
     { label: t('incident.mergeIncident'), key: 'merge', icon: () => h(NIcon, { component: GitMergeOutline }) },
@@ -174,7 +174,7 @@ const moreActionOptions = computed(() => {
   if (incident.value && incident.value.status !== 'closed') {
     opts.splice(1, 0, { label: t('incident.snooze'), key: 'snooze', icon: () => h(NIcon, { component: TimeOutline }) })
   }
-  return opts
+  return opts as any[]
 })
 
 function handleMoreAction(key: string) {

@@ -75,7 +75,7 @@ const mediaOptions = computed(() =>
   mediaList.value.map((m) => ({ label: m.name, value: m.id })),
 )
 const templateOptions = computed(() => [
-  { label: t('alertChannel.defaultTemplate'), value: null as number | null },
+  { label: t('alertChannel.defaultTemplate'), value: undefined as number | undefined },
   ...templateList.value.map((tp) => ({ label: tp.name, value: tp.id })),
 ])
 
