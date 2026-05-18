@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 )
 
 // Run is the main loop for a single rule evaluator.
@@ -58,6 +60,7 @@ func (re *RuleEvaluator) evaluate() {
 		re.logger.Warn("query execution failed, will retry next cycle",
 			zap.Error(err),
 		)
+		metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "error")
 		// On error, we skip nodata detection to avoid false positives
 		return
 	}
@@ -118,6 +121,7 @@ func (re *RuleEvaluator) evaluate() {
 						re.suppressor.UpdateSeverity(re.rule.ID, fp, severity)
 					}
 					re.createAlertEvent(state, model.EventStatusFiring)
+					metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "firing")
 					re.persistState(fp, state)
 				}
 			} else {
@@ -222,6 +226,7 @@ func (re *RuleEvaluator) evaluate() {
 					re.suppressor.RemoveSeverity(re.rule.ID, fp, string(re.rule.Severity))
 				}
 				re.resolveAlertEvent(state)
+				metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "resolved")
 				re.deletePersistedState(fp)
 			}
 		}
@@ -256,6 +261,7 @@ func (re *RuleEvaluator) evaluate() {
 			noDataState.Status = "firing"
 			noDataState.FiredAt = now
 			re.createAlertEvent(noDataState, model.EventStatusFiring)
+			metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "nodata")
 			re.persistState(noDataFP, noDataState)
 		}
 	} else {

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { reactive, ref, shallowRef, computed, onMounted, h } from 'vue'
+import { reactive, ref, shallowRef, computed, onMounted, h, type Component } from 'vue'
 import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyMediaApi } from '@/api'
 import type { NotifyMedia } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import {
   AddOutline,
   SearchOutline,
@@ -82,7 +83,7 @@ function getTypeLabel(type: string) {
 }
 
 function getTypeIcon(type: string) {
-  const map: Record<string, any> = {
+  const map: Record<string, Component> = {
     lark_webhook: ChatbubblesOutline,
     email: MailOutline,
     http: GlobeOutline,
@@ -129,14 +130,14 @@ async function fetchData() {
   try {
     const { data } = await notifyMediaApi.list({ page: 1, page_size: 100 })
     mediaList.value = data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
 }
 
-function parseConfig(configStr: string): Record<string, any> {
+function parseConfig(configStr: string): Record<string, unknown> {
   try { return JSON.parse(configStr || '{}') } catch { return {} }
 }
 
@@ -211,7 +212,7 @@ async function handleSave() {
     }
     showModal.value = false
     fetchData()
-  } catch (err: any) { message.error(err.message) } finally { saving.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { saving.value = false }
 }
 
 async function handleDelete(id: number) {
@@ -219,7 +220,7 @@ async function handleDelete(id: number) {
     await notifyMediaApi.delete(id)
     message.success(t('media.deleted'))
     fetchData()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 async function handleTest(id: number) {
@@ -228,7 +229,7 @@ async function handleTest(id: number) {
     const { data } = await notifyMediaApi.test(id)
     if (data.data.success) message.success(t('media.testSuccess'))
     else message.warning(`${t('media.testFailed')}: ${data.data.message}`)
-  } catch (err: any) { message.error(err.message) } finally { testingId.value = null }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { testingId.value = null }
 }
 
 function rowMenuOptions(row: NotifyMedia) {

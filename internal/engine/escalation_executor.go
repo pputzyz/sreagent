@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -39,23 +41,6 @@ type EscalationExecutor struct {
 	once     sync.Once
 }
 
-// SetLarkService injects a LarkService so the executor can deliver `lark_personal`
-// escalation notifications as direct messages via the Lark Bot API.
-func (e *EscalationExecutor) SetLarkService(svc *service.LarkService) {
-	e.larkSvc = svc
-}
-
-// SetSettingService injects the system setting service so the executor can
-// read global SMTP config for personal email escalation.
-func (e *EscalationExecutor) SetSettingService(svc *service.SystemSettingService) {
-	e.settingSvc = svc
-}
-
-// SetAlertRuleRepository injects the rule repository for SLA breach detection.
-func (e *EscalationExecutor) SetAlertRuleRepository(repo *repository.AlertRuleRepository) {
-	e.ruleRepo = repo
-}
-
 // NewEscalationExecutor creates a new EscalationExecutor.
 func NewEscalationExecutor(
 	policyRepo *repository.EscalationPolicyRepository,
@@ -68,12 +53,16 @@ func NewEscalationExecutor(
 	userNotifyConfigRepo *repository.UserNotifyConfigRepository,
 	teamRepo service.TeamRepository,
 	onCallShiftRepo *repository.OnCallShiftRepository,
+	larkSvc *service.LarkService,
+	settingSvc *service.SystemSettingService,
+	ruleRepo *repository.AlertRuleRepository,
 	logger *zap.Logger,
 ) *EscalationExecutor {
 	return &EscalationExecutor{
 		policyRepo:           policyRepo,
 		stepRepo:             stepRepo,
 		eventRepo:            eventRepo,
+		ruleRepo:             ruleRepo,
 		timelineRepo:         timelineRepo,
 		channelRepo:          channelRepo,
 		userRepo:             userRepo,
@@ -81,6 +70,8 @@ func NewEscalationExecutor(
 		userNotifyConfigRepo: userNotifyConfigRepo,
 		teamRepo:             teamRepo,
 		onCallShiftRepo:      onCallShiftRepo,
+		larkSvc:              larkSvc,
+		settingSvc:           settingSvc,
 		logger:               logger,
 		interval:             60 * time.Second,
 		stopCh:               make(chan struct{}),
@@ -125,38 +116,64 @@ func (e *EscalationExecutor) Stop() {
 
 // runOnce performs a single escalation check pass.
 func (e *EscalationExecutor) runOnce(ctx context.Context) {
-	// Fetch all currently active (firing or acknowledged) events — use a large page.
-	events, _, err := e.eventRepo.List(ctx, "", "", 1, 10000)
+	// Fetch only firing events — avoids full-table scan of resolved/acknowledged/closed events.
+	events, err := e.eventRepo.ListFiringForEscalation(ctx, 10000)
 	if err != nil {
 		e.logger.Error("escalation: failed to list events", zap.Error(err))
 		return
 	}
 
+	// Batch-load rules for SLA checks — avoids N+1 queries per event.
+	ruleMap := e.batchLoadRules(ctx, events)
+
 	now := time.Now()
 	for i := range events {
 		ev := &events[i]
-		// Only escalate firing events that haven't been resolved/closed/silenced.
-		switch ev.Status {
-		case model.EventStatusFiring:
-			// OK — escalate
-		default:
-			continue
-		}
-
 		e.escalateEvent(ctx, ev, now)
-		e.checkSLABreach(ctx, ev, now)
+		e.checkSLABreach(ctx, ev, ruleMap, now)
 	}
+}
+
+// batchLoadRules collects unique rule IDs from events and loads them in a single query.
+// Returns nil if ruleRepo is not configured or on error.
+func (e *EscalationExecutor) batchLoadRules(ctx context.Context, events []model.AlertEvent) map[uint]*model.AlertRule {
+	if e.ruleRepo == nil {
+		return nil
+	}
+	seen := make(map[uint]struct{})
+	ruleIDs := make([]uint, 0, len(events))
+	for i := range events {
+		if events[i].RuleID != nil {
+			if _, dup := seen[*events[i].RuleID]; !dup {
+				seen[*events[i].RuleID] = struct{}{}
+				ruleIDs = append(ruleIDs, *events[i].RuleID)
+			}
+		}
+	}
+	if len(ruleIDs) == 0 {
+		return nil
+	}
+	rules, err := e.ruleRepo.GetByIDs(ctx, ruleIDs)
+	if err != nil {
+		e.logger.Error("escalation: failed to batch-load rules", zap.Error(err))
+		return nil
+	}
+	m := make(map[uint]*model.AlertRule, len(rules))
+	for i := range rules {
+		m[rules[i].ID] = &rules[i]
+	}
+	return m
 }
 
 // checkSLABreach fires an SLA escalation when an unacknowledged firing alert
 // exceeds the rule's AckSlaMinutes threshold. Only fires once per event.
-func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.AlertEvent, now time.Time) {
-	// SLA check requires a rule repository and a rule with AckSlaMinutes > 0.
-	if e.ruleRepo == nil || event.RuleID == nil {
+// ruleMap is the pre-loaded map from batchLoadRules; may be nil.
+func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.AlertEvent, ruleMap map[uint]*model.AlertRule, now time.Time) {
+	if ruleMap == nil || event.RuleID == nil {
 		return
 	}
-	rule, err := e.ruleRepo.GetByID(ctx, *event.RuleID)
-	if err != nil || rule.AckSlaMinutes <= 0 {
+	rule, ok := ruleMap[*event.RuleID]
+	if !ok || rule.AckSlaMinutes <= 0 {
 		return
 	}
 
@@ -181,7 +198,7 @@ func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.Al
 
 	note := fmt.Sprintf("SLA breach: event not acknowledged within %d minutes (rule: %s)",
 		rule.AckSlaMinutes, rule.Name)
-	e.recordTimeline(ctx, event.ID, note)
+	e.recordTimeline(ctx, event.ID, note, nil) // nil stepID — SLA breach is not an escalation step
 
 	e.logger.Warn("SLA breach detected",
 		zap.Uint("event_id", event.ID),
@@ -218,8 +235,8 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 		})
 
 		for _, step := range steps {
-			stepKey := fmt.Sprintf("escalation policy '%s' step %d triggered (delay: %dm)",
-				policy.Name, step.StepOrder, step.DelayMinutes)
+			// Use the stable step ID for dedup — note text may change across versions.
+			stepKey := fmt.Sprintf("step:%d", step.ID)
 			if executedSteps[stepKey] {
 				// Already executed this step for this event.
 				continue
@@ -233,6 +250,7 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 			}
 
 			// Execute this step.
+			policyIDStr := strconv.FormatUint(uint64(policy.ID), 10)
 			if err := e.executeStep(ctx, event, &policy, &step); err != nil {
 				e.logger.Error("escalation: failed to execute step",
 					zap.Uint("event_id", event.ID),
@@ -243,7 +261,10 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 				// Record failure in timeline so we don't retry endlessly this cycle.
 				e.recordTimeline(ctx, event.ID, fmt.Sprintf(
 					"escalation step %d (policy %s) failed: %v", step.StepOrder, policy.Name, err,
-				))
+				), &step.ID)
+				metrics.IncEscalationSteps(policyIDStr, "failure")
+			} else {
+				metrics.IncEscalationSteps(policyIDStr, "success")
 			}
 		}
 	}
@@ -273,7 +294,7 @@ func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.Alert
 	}
 
 	// Record the escalation in the timeline so we don't repeat this step.
-	e.recordTimeline(ctx, event.ID, note)
+	e.recordTimeline(ctx, event.ID, note, &step.ID)
 
 	e.logger.Info("escalation step executed",
 		zap.Uint("event_id", event.ID),
@@ -283,8 +304,10 @@ func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.Alert
 	return nil
 }
 
-// executedStepOrders returns a set of "policyID:stepOrder" keys already recorded in the
+// executedStepOrders returns a set of step keys already recorded in the
 // event's timeline with action=escalated.
+// Primary dedup: EscalationStepID → "step:<id>" (stable across note format changes).
+// Fallback: Note text (for records created before migration 000037).
 func (e *EscalationExecutor) executedStepOrders(ctx context.Context, eventID uint) map[string]bool {
 	timelines, err := e.timelineRepo.ListByEventID(ctx, eventID)
 	if err != nil {
@@ -293,20 +316,26 @@ func (e *EscalationExecutor) executedStepOrders(ctx context.Context, eventID uin
 	result := make(map[string]bool)
 	for _, t := range timelines {
 		if t.Action == model.TimelineActionEscalated {
-			// The note encodes the step identity — extract the key from the note prefix.
-			// We use the note text as the de-dup key directly.
-			result[t.Note] = true
+			if t.EscalationStepID != nil {
+				// Primary: stable step ID dedup.
+				result[fmt.Sprintf("step:%d", *t.EscalationStepID)] = true
+			} else {
+				// Fallback: legacy records without EscalationStepID — use note text.
+				result[t.Note] = true
+			}
 		}
 	}
 	return result
 }
 
 // recordTimeline appends an escalation action to the event timeline.
-func (e *EscalationExecutor) recordTimeline(ctx context.Context, eventID uint, note string) {
+// stepID links the record to a specific EscalationStep for reliable dedup; may be nil for non-step events.
+func (e *EscalationExecutor) recordTimeline(ctx context.Context, eventID uint, note string, stepID *uint) {
 	t := &model.AlertTimeline{
-		EventID: eventID,
-		Action:  model.TimelineActionEscalated,
-		Note:    note,
+		EventID:          eventID,
+		Action:           model.TimelineActionEscalated,
+		Note:             note,
+		EscalationStepID: stepID,
 	}
 	if err := e.timelineRepo.Create(ctx, t); err != nil {
 		e.logger.Error("escalation: failed to record timeline",

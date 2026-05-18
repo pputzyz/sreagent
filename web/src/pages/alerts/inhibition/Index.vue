@@ -110,6 +110,14 @@ const defaultForm = (): InhibitionForm => ({
 })
 const formData = ref<InhibitionForm>(defaultForm())
 
+function getHitCount(rule: InhibitionRule): number {
+  return (rule as InhibitionRule & { hit_count?: number }).hit_count || 0
+}
+
+function getLastHitAt(rule: InhibitionRule): string | undefined {
+  return (rule as InhibitionRule & { last_hit_at?: string }).last_hit_at
+}
+
 function openCreate() {
   editingId.value = null
   formData.value = defaultForm()
@@ -247,10 +255,10 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
               <span class="mono-chip">{{ equalArr(rule.equal_labels).join(', ') }}</span>
             </div>
             <div class="inhib-footer tnum">
-              <span>{{ t('inhibition.hits', { n: ((rule as any).hit_count) || 0 }) }}</span>
-              <template v-if="(rule as any).last_hit_at">
+              <span>{{ t('inhibition.hits', { n: getHitCount(rule) }) }}</span>
+              <template v-if="getLastHitAt(rule)">
                 <span class="sre-meta-divider"></span>
-                <span>{{ t('inhibition.lastHit') }}{{ relTime((rule as any).last_hit_at) }}</span>
+                <span>{{ t('inhibition.lastHit') }}{{ relTime(getLastHitAt(rule)!) }}</span>
               </template>
               <template v-else-if="rule.updated_at">
                 <span class="sre-meta-divider"></span>

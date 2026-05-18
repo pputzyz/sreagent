@@ -25,6 +25,10 @@ const message = useMessage()
 const { t } = useI18n()
 
 const importFile = ref<File | null>(null)
+
+function onUploadChange(payload: { file: { file: File | null } }) {
+  importFile.value = payload.file?.file || null
+}
 const importDatasourceId = ref<number | null>(null)
 const importing = ref(false)
 const exportFormat = ref('yaml')
@@ -51,7 +55,7 @@ async function handleImport() {
     }
     importFile.value = null
     emit('imported')
-  } catch (err: any) { message.error(err.message) } finally { importing.value = false }
+  } catch (err: unknown) { message.error((err as Error).message) } finally { importing.value = false }
 }
 
 async function handleExport() {
@@ -59,14 +63,14 @@ async function handleExport() {
     const params: Record<string, string> = { format: exportFormat.value }
     if (exportCategory.value) params.category = exportCategory.value
     const response = await alertRuleApi.exportRules(params)
-    const blob = new Blob([response.data as any])
+    const blob = new Blob([response.data as BlobPart])
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `alert-rules.${exportFormat.value}`
     a.click()
     URL.revokeObjectURL(url)
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error((err as Error).message) }
 }
 </script>
 
@@ -80,7 +84,7 @@ async function handleExport() {
               :max="1"
               accept=".yaml,.yml,.json"
               :default-upload="false"
-              @change="({ file }: any) => { importFile = file?.file || null }"
+              @change="onUploadChange"
             >
               <n-upload-dragger>
                 <div class="im-upload-drop">

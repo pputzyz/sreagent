@@ -5,7 +5,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertV2Api } from '@/api'
 import type { AlertV2, AlertEventV2 } from '@/types'
-import { formatTime } from '@/utils/format'
+import { formatTime, getErrorMessage } from '@/utils/format'
 import {
   ArrowBackOutline,
   RefreshOutline,
@@ -45,8 +45,8 @@ async function loadAlert() {
   try {
     const res = await alertV2Api.get(alertId.value)
     alert.value = res.data.data ?? null
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -64,8 +64,8 @@ async function loadEvents() {
     events.value = [...list].sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     eventsTotal.value = res.data.data?.total ?? 0
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     eventsLoading.value = false
   }

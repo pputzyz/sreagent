@@ -11,6 +11,8 @@ import {
 } from '@vicons/ionicons5'
 import { alertChannelApi, notifyMediaApi, messageTemplateApi } from '@/api'
 import type { AlertChannel, NotifyMedia, MessageTemplate } from '@/types'
+import { getErrorMessage } from '@/utils/format'
+import { usePaginatedList } from '@/composables'
 import KVEditor from '@/components/common/KVEditor.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 
@@ -18,11 +20,21 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
 
-const loading = ref(false)
-const channels = shallowRef<AlertChannel[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(50)
+const {
+  loading,
+  items: channels,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<AlertChannel>({
+  apiFn: alertChannelApi.list,
+  pageSize: 50,
+  onError: (err: unknown) => {
+    message.error((err as Error)?.message)
+  },
+})
 
 const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
@@ -63,7 +75,7 @@ const mediaOptions = computed(() =>
   mediaList.value.map((m) => ({ label: m.name, value: m.id })),
 )
 const templateOptions = computed(() => [
-  { label: t('alertChannel.defaultTemplate'), value: null as any },
+  { label: t('alertChannel.defaultTemplate'), value: null as number | null },
   ...templateList.value.map((tp) => ({ label: tp.name, value: tp.id })),
 ])
 
@@ -105,18 +117,13 @@ function mediaName(id: number) {
 function mediaWebhookHint(id: number) {
   const media = mediaList.value.find((m) => m.id === id)
   if (!media) return ''
-  const cfg = (media as any).config
-  if (typeof cfg === 'string') {
-    try {
-      const parsed = JSON.parse(cfg)
-      return parsed.webhook || parsed.url || ''
-    } catch {
-      return cfg
-    }
-  } else if (cfg && typeof cfg === 'object') {
-    return cfg.webhook || cfg.url || ''
+  const cfg = media.config
+  try {
+    const parsed = JSON.parse(cfg) as Record<string, unknown>
+    return String(parsed.webhook || parsed.url || '')
+  } catch {
+    return cfg
   }
-  return ''
 }
 
 function shortUrl(url: string) {
@@ -132,19 +139,6 @@ async function copyText(text: string) {
     message.success(t('common.copied') || 'Copied')
   } catch {
     message.error(t('common.copyFailed'))
-  }
-}
-
-async function fetchChannels() {
-  loading.value = true
-  try {
-    const { data } = await alertChannelApi.list({ page: page.value, page_size: pageSize.value })
-    channels.value = data.data.list || []
-    total.value = data.data.total
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -235,9 +229,9 @@ async function handleSave() {
       message.success(t('alertChannel.created'))
     }
     showModal.value = false
-    fetchChannels()
-  } catch (err: any) {
-    message.error(err.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -247,9 +241,9 @@ async function handleDelete(id: number) {
   try {
     await alertChannelApi.delete(id)
     message.success(t('alertChannel.deleted'))
-    fetchChannels()
-  } catch (err: any) {
-    message.error(err.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 
@@ -258,8 +252,8 @@ async function handleTest(id: number) {
   try {
     await alertChannelApi.test(id)
     message.success(t('alertChannel.testSuccess'))
-  } catch (err: any) {
-    message.error(err.message || t('alertChannel.testFailed'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('alertChannel.testFailed'))
   } finally {
     testingId.value = null
   }
@@ -289,7 +283,7 @@ function onMenuSelect(key: string, row: AlertChannel) {
 }
 
 onMounted(() => {
-  fetchChannels()
+  fetchList()
   fetchMedia()
   fetchTemplates()
 })

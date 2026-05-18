@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { aiChatApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { ChatMessage } from '@/types'
 
 export type ChatMode = 'alert' | 'general' | 'pet'
@@ -35,8 +36,8 @@ export function useAIChat() {
         content: resp.data.data.reply,
         created_at: new Date().toISOString(),
       })
-    } catch (e: any) {
-      error.value = e?.message || t('ai.sendFailed')
+    } catch (e: unknown) {
+      error.value = getErrorMessage(e) || t('ai.sendFailed')
       lastFailedInput.value = text
       const lastMsg = messages.value[messages.value.length - 1]
       if (lastMsg && lastMsg.role === 'user') {

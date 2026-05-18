@@ -4,6 +4,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { scheduleApi } from '@/api'
 import type { OnCallShift, User } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 
 const props = defineProps<{
   scheduleId: number | null
@@ -106,8 +107,8 @@ async function handleSave() {
     }
     show.value = false
     emit('saved')
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -120,8 +121,8 @@ async function handleDelete() {
     message.success(t('schedule.shiftDeleted'))
     show.value = false
     emit('saved')
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 

@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/pkg/types"
@@ -39,6 +42,19 @@ func Error(c *gin.Context, err error) {
 		c.JSON(appErr.HTTPStatus(), types.Response{
 			Code:    appErr.Code,
 			Message: appErr.Message,
+		})
+		return
+	}
+	// Log unexpected errors for debugging — previously silently swallowed.
+	if l, exists := c.Get("logger"); exists {
+		if zapLogger, ok := l.(*zap.Logger); ok {
+			zapLogger.Error("unhandled error in handler", zap.Error(err))
+		}
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, types.Response{
+			Code:    10002,
+			Message: "resource not found",
 		})
 		return
 	}

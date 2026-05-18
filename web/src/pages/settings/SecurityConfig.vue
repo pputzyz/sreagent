@@ -4,6 +4,7 @@ import { NButton, NSpin, NForm, NFormItem, NSelect, NText } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { securitySettingsApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -25,8 +26,8 @@ async function fetchConfig() {
   try {
     const { data } = await securitySettingsApi.getConfig()
     jwtExpireSeconds.value = data.data.jwt_expire_seconds
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -37,8 +38,8 @@ async function handleSave() {
   try {
     await securitySettingsApi.updateConfig({ jwt_expire_seconds: jwtExpireSeconds.value })
     message.success(t('common.savedSuccess'))
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }

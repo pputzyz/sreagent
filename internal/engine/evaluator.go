@@ -339,6 +339,42 @@ func (e *Evaluator) stopRuleEvaluator(ruleID uint) {
 	}
 }
 
+// GetFiringEvents returns a snapshot of all currently firing alert states
+// across all active rule evaluators. This is a cheap in-memory operation
+// that replaces the costly DB scan of eventSvc.List("firing").
+func (e *Evaluator) GetFiringEvents() []*AlertState {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	var result []*AlertState
+	for _, re := range e.evaluators {
+		re.mu.Lock()
+		for _, state := range re.states {
+			if state.Status == "firing" {
+				result = append(result, state)
+			}
+		}
+		re.mu.Unlock()
+	}
+	return result
+}
+
+// GetFiringAlertEvents returns firing alerts as []model.AlertEvent,
+// a lightweight adapter for callers that need model.AlertEvent
+// (e.g. inhibition rule matching). Only ID, Status, and Labels are populated.
+func (e *Evaluator) GetFiringAlertEvents() []model.AlertEvent {
+	states := e.GetFiringEvents()
+	events := make([]model.AlertEvent, 0, len(states))
+	for _, s := range states {
+		events = append(events, model.AlertEvent{
+			BaseModel: model.BaseModel{ID: s.EventID},
+			Status:    model.AlertEventStatus(s.Status),
+			Labels:    model.JSONLabels(s.Labels),
+		})
+	}
+	return events
+}
+
 // GetStatus returns status of the evaluation engine.
 func (e *Evaluator) GetStatus() EngineStatus {
 	e.mu.RLock()

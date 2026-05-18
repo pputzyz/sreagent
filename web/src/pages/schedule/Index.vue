@@ -4,6 +4,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { scheduleApi, teamApi, userApi, scheduleICalApi } from '@/api'
 import type { Schedule, Team, User, OnCallShift } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 
 import ScheduleSidebar from './ScheduleSidebar.vue'
 import ScheduleModal from './ScheduleModal.vue'
@@ -194,8 +195,8 @@ async function handleGenerateShifts() {
     message.success(t('schedule.shiftsGenerated'))
     showGenerateModal.value = false
     fetchShifts()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     generating.value = false
   }
@@ -216,8 +217,8 @@ async function fetchSchedules() {
     for (const s of schedules.value) {
       fetchOnCall(s.id)
     }
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -261,8 +262,8 @@ async function handleDeleteSchedule(id: number) {
       selectedSchedule.value = null
     }
     fetchSchedules()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 

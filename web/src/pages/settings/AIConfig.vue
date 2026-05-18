@@ -4,6 +4,7 @@ import { NButton, NIcon, NSwitch, NSelect, NInput, NInputNumber, NFormItem, NSpi
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { aiApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -42,12 +43,12 @@ async function fetchConfig() {
       form.api_key = d.api_key || ''
       form.base_url = d.base_url || ''
       form.model = d.model || ''
-      form.temperature = (d as any).temperature ?? 0.3
-      form.max_tokens = (d as any).max_tokens ?? 1024
-      form.system_prompt = (d as any).system_prompt || ''
+      form.temperature = (d as Record<string, unknown>).temperature as number ?? 0.3
+      form.max_tokens = (d as Record<string, unknown>).max_tokens as number ?? 1024
+      form.system_prompt = ((d as Record<string, unknown>).system_prompt as string) || ''
     }
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -58,8 +59,8 @@ async function save() {
   try {
     await aiApi.updateConfig({ ...form })
     message.success(t('common.savedSuccess'))
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -76,9 +77,9 @@ async function testConnection() {
       time: new Date().toLocaleTimeString(),
     }
     ok ? message.success(t('settings.aiTestSuccess')) : message.error(lastTestResult.value.message)
-  } catch (err: any) {
-    lastTestResult.value = { success: false, message: err.message, time: new Date().toLocaleTimeString() }
-    message.error(err.message)
+  } catch (err: unknown) {
+    lastTestResult.value = { success: false, message: getErrorMessage(err), time: new Date().toLocaleTimeString() }
+    message.error(getErrorMessage(err))
   } finally {
     testing.value = false
   }

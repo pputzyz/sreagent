@@ -13,7 +13,7 @@ import { channelV2Api, incidentApi } from '@/api'
 import NoiseConfig from './NoiseConfig.vue'
 import DispatchConfig from './DispatchConfig.vue'
 import type { Channel, Incident, ChannelStatus, ChannelAccessLevel } from '@/types'
-import { formatTime } from '@/utils/format'
+import { formatTime, getErrorMessage } from '@/utils/format'
 import {
   ArrowBackOutline, StarOutline, Star, EllipsisHorizontal,
   RefreshOutline, TrashOutline, CreateOutline,
@@ -78,8 +78,8 @@ async function loadChannel() {
         follow_alert_close: channel.value.follow_alert_close,
       }
     }
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     channelLoading.value = false
   }
@@ -96,8 +96,8 @@ async function loadIncidents() {
     })
     incidents.value = res.data.data?.list ?? []
     incidentTotal.value = res.data.data?.total ?? 0
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     incidentLoading.value = false
   }
@@ -110,8 +110,8 @@ async function saveChannel() {
     message.success(t('common.savedSuccess'))
     showEditModal.value = false
     await loadChannel()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -127,8 +127,8 @@ async function toggleStar() {
       await channelV2Api.star(channelId.value)
     }
     await loadChannel()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.saveFailed'))
   } finally {
     starring.value = false
   }
@@ -146,8 +146,8 @@ function confirmDelete() {
         await channelV2Api.delete(channelId.value)
         message.success(t('common.deletedSuccess'))
         router.replace('/oncall/spaces')
-      } catch (e: any) {
-        message.error(e?.message ?? t('common.deleteFailed'))
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e) || t('common.deleteFailed'))
       }
     },
   })

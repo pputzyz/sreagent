@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NInput, NSpace, NPopconfirm, NPagination } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2Api } from '@/api'
 import type { DashboardV2 } from '@/types/dashboard'
+import { usePaginatedList } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -15,39 +16,37 @@ import { relTime } from '@/utils/format'
 const router = useRouter()
 const message = useMessage()
 const { t } = useI18n()
-const loading = ref(false)
 const firstLoaded = ref(false)
 const search = ref('')
-const list = ref<DashboardV2[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
+
+const {
+  loading,
+  items: list,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<DashboardV2>({
+  apiFn: dashboardV2Api.list,
+  extraParams: () => {
+    const params: Record<string, unknown> = {}
+    if (search.value) params.search = search.value
+    return params
+  },
+  onError: (err: unknown) => {
+    message.error((err as Error)?.message || t('common.loadFailed'))
+  },
+})
 
 const isEmpty = computed(() => firstLoaded.value && !loading.value && list.value.length === 0)
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-async function fetchList() {
-  loading.value = true
-  try {
-    const res = await dashboardV2Api.list({ page: page.value, page_size: pageSize.value, search: search.value || undefined })
-    list.value = res.data.data.list || []
-    total.value = res.data.data.total || 0
-    firstLoaded.value = true
-  } catch (err: any) {
-    message.error(err.message || t('common.loadFailed'))
-  } finally {
-    loading.value = false
-  }
-}
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoaded.value = true
+})
 
 function onSearch() {
-  page.value = 1
-  fetchList()
-}
-
-function onPageChange(p: number) {
-  page.value = p
-  fetchList()
+  refresh()
 }
 
 async function handleDelete(id: number) {
@@ -55,8 +54,8 @@ async function handleDelete(id: number) {
     await dashboardV2Api.delete(id)
     message.success(t('dashboardV2.deleted'))
     fetchList()
-  } catch (err: any) {
-    message.error(err.message || t('common.deleteFailed'))
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.deleteFailed'))
   }
 }
 
@@ -147,8 +146,10 @@ onMounted(fetchList)
       <div v-if="total > pageSize" class="pagination-row">
         <NPagination
           v-model:page="page"
-          :page-count="totalPages"
-          @update:page="onPageChange"
+          :page-size="pageSize"
+          :item-count="total"
+          :page-slot="7"
+          @update:page="fetchList"
         />
       </div>
     </n-spin>

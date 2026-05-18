@@ -73,6 +73,6 @@ func CleanupDB(t *testing.T, db *gorm.DB) {
 		"label_registry", "audit_logs", "system_settings",
 	}
 	for _, table := range tables {
-		db.Exec("DELETE FROM " + table)
+		db.Exec("DELETE FROM `" + table + "`")
 	}
 }

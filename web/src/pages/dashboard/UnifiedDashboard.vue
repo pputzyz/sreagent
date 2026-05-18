@@ -4,12 +4,13 @@
  * Users can add/remove/reorder widgets and customize content via settings panel.
  * Configuration persisted in localStorage.
  */
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NIcon, NSpin, NPopover, NButton, NInput } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { engineApi, incidentApi, dashboardApi, alertGroupsApi, scheduleApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { Incident, AlertGroupItem, Schedule } from '@/types'
 import {
   PulseOutline, BugOutline, RocketOutline, SparklesOutline,
@@ -34,7 +35,7 @@ interface WidgetDef {
   id: string
   type: string
   label: string
-  icon: any
+  icon: Component | undefined
   size: 'sm' | 'md' | 'lg' | 'full'
   enabled: boolean
   order: number
@@ -139,7 +140,7 @@ interface QuickLink {
   id: string
   label: string
   route: string
-  icon: any
+  icon: Component | undefined
   color: string
   bg: string
   enabled: boolean
@@ -456,8 +457,8 @@ async function load() {
       }
       oncallUsers.value = results
     }
-  } catch (e: any) {
-    message.error(e?.message || t('homepage.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('homepage.loadFailed'))
   } finally {
     loading.value = false
   }

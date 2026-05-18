@@ -10,6 +10,8 @@ import { ref, onMounted, reactive } from 'vue'
 import { useMessage, NButton, NSpace, NSwitch, NInputNumber, NSelect, NTag, NPopconfirm } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { channelV2Api } from '@/api'
+import type { ExclusionRule } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { AddOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 
@@ -44,7 +46,7 @@ const dimensionInput = ref('')
 const stormThresholdInput = ref<number | null>(null)
 
 // ---- Exclusion rules ----
-const exclusionRules = ref<any[]>([])
+const exclusionRules = ref<ExclusionRule[]>([])
 const showAddExclusionModal = ref(false)
 const addingExclusion = ref(false)
 const newExclusionForm = ref({
@@ -102,8 +104,8 @@ async function load() {
         })
       } catch {}
     }
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   }
 
   await loadExclusionRules()
@@ -129,8 +131,8 @@ async function saveNoise() {
       flapping_config: JSON.stringify(flapConfig),
     })
     message.success(t('common.savedSuccess'))
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -176,8 +178,8 @@ async function addExclusionRule() {
     showAddExclusionModal.value = false
     newExclusionForm.value = { name: '', description: '', conditions: '[]', is_enabled: true, priority: 0 }
     await loadExclusionRules()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   } finally {
     addingExclusion.value = false
   }
@@ -188,17 +190,17 @@ async function deleteExclusionRule(ruleId: number) {
     await channelV2Api.deleteExclusionRule(ruleId)
     message.success(t('common.deleteSuccess'))
     await loadExclusionRules()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.deleteFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.deleteFailed'))
   }
 }
 
-async function toggleExclusionRule(rule: any) {
+async function toggleExclusionRule(rule: ExclusionRule) {
   try {
     await channelV2Api.updateExclusionRule(rule.id, { is_enabled: !rule.is_enabled })
     rule.is_enabled = !rule.is_enabled
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
 

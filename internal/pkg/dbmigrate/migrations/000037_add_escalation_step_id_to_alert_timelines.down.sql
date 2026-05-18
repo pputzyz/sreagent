@@ -1,0 +1,1 @@
+ALTER TABLE alert_timelines DROP INDEX idx_alert_timelines_escalation_step_id, DROP COLUMN escalation_step_id;

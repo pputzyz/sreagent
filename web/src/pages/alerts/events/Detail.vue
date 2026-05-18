@@ -5,6 +5,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertEventApi, userApi, aiApi } from '@/api'
 import type { AlertEvent, AlertTimeline, User } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { formatTime, formatDuration } from '@/utils/format'
 import { getStatusLabelKey } from '@/utils/alert'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -127,7 +128,7 @@ async function fetchEvent() {
   try {
     const { data } = await alertEventApi.get(eventId)
     event.value = data.data
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
   finally { loading.value = false }
 }
 
@@ -135,7 +136,7 @@ async function fetchTimeline() {
   try {
     const { data } = await alertEventApi.getTimeline(eventId)
     timeline.value = data.data || []
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 async function fetchUsers() {
@@ -154,7 +155,7 @@ async function handleAck() {
     await alertEventApi.acknowledge(eventId)
     message.success(t('alert.alertAcknowledged'))
     refreshAll()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 async function handleResolve() {
@@ -162,7 +163,7 @@ async function handleResolve() {
     await alertEventApi.resolve(eventId, { resolution: t('alert.manuallyResolved') })
     message.success(t('alert.alertResolved'))
     refreshAll()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 async function handleClose() {
@@ -170,7 +171,7 @@ async function handleClose() {
     await alertEventApi.close(eventId)
     message.success(t('alert.alertClosed'))
     refreshAll()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 function openSilenceModal() {
@@ -184,7 +185,7 @@ async function handleSilence() {
     await alertEventApi.silence(eventId, { duration_minutes: silenceDuration.value, reason: silenceReason.value })
     message.success(t('alert.silenceSuccess'))
     showSilenceModal.value = false; refreshAll()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
   finally { silenceSaving.value = false }
 }
 
@@ -200,7 +201,7 @@ async function handleAssign() {
     await alertEventApi.assign(eventId, { assign_to: assignUserId.value, note: assignNote.value || undefined })
     message.success(t('alert.assignSuccess'))
     showAssignModal.value = false; refreshAll()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
   finally { assignSaving.value = false }
 }
 
@@ -211,7 +212,7 @@ async function handleComment() {
     commentText.value = ''
     message.success(t('alert.commentAdded'))
     fetchTimeline()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 // ── Dropdown overflow actions ──
@@ -240,7 +241,7 @@ async function generateAIReport() {
   try {
     const res = await aiApi.generateReport(eventId)
     aiReport.value = res.data.data ?? null
-  } catch (err: any) { aiReportError.value = err.message || t('alert.aiReportError') }
+  } catch (err: unknown) { aiReportError.value = getErrorMessage(err) || t('alert.aiReportError') }
   finally { aiReportLoading.value = false }
 }
 
@@ -253,7 +254,7 @@ async function generateSOP() {
   try {
     const res = await aiApi.suggestSOP(eventId)
     sopReport.value = res.data.data ?? null
-  } catch (err: any) { sopError.value = err.message || t('alert.aiReportError') }
+  } catch (err: unknown) { sopError.value = getErrorMessage(err) || t('alert.aiReportError') }
   finally { sopLoading.value = false }
 }
 

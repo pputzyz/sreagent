@@ -86,6 +86,10 @@ function toggleCollapse() {
   collapsed.value = !collapsed.value
 }
 
+function renderLangLabel(option: { label?: string }): string {
+  return option.label ?? ''
+}
+
 // Hover expand: when collapsed, hovering the nav zone temporarily expands it
 let hoverTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -193,7 +197,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         </button>
 
         <!-- Lang -->
-        <n-popselect :value="locale" :options="langOptions" trigger="click" :render-label="(o: any) => o.label" @update:value="handleLangChange">
+        <n-popselect :value="locale" :options="langOptions" trigger="click" :render-label="renderLangLabel" @update:value="handleLangChange">
           <button v-ripple class="topbar-btn" :aria-label="t('language.switch')">
             <n-icon :component="EarthOutline" :size="15" />
             <span>{{ locale === 'zh-CN' ? '中' : 'EN' }}</span>

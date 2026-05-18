@@ -59,6 +59,19 @@ func (r *AlertRuleRepository) List(ctx context.Context, severity, status, groupN
 	return list, total, nil
 }
 
+// GetByIDs returns all rules whose ID is in the given slice.
+// Returns an empty slice (not an error) when ids is empty.
+func (r *AlertRuleRepository) GetByIDs(ctx context.Context, ids []uint) ([]model.AlertRule, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var rules []model.AlertRule
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&rules).Error
+	return rules, err
+}
+
 // ListHeartbeat returns all heartbeat-type alert rules (regardless of pagination).
 func (r *AlertRuleRepository) ListHeartbeat(ctx context.Context) ([]model.AlertRule, int64, error) {
 	var list []model.AlertRule

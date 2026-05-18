@@ -3,8 +3,9 @@ package datasource
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
+
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 // HealthResult carries the outcome of a detailed health probe.
@@ -26,10 +27,8 @@ type HealthChecker interface {
 	CheckHealth(ctx context.Context, endpoint, authType, authConfig string) HealthResult
 }
 
-// httpClient is a shared HTTP client with reasonable timeouts.
-var httpClient = &http.Client{
-	Timeout: 10 * time.Second,
-}
+// httpClient is a shared HTTP client with SSRF protection and reasonable timeouts.
+var httpClient = safehttp.NewSafeClient(10 * time.Second)
 
 // NewChecker creates the appropriate health checker for a datasource type.
 func NewChecker(dsType string) (HealthChecker, error) {

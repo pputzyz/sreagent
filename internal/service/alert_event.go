@@ -14,9 +14,7 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
-// dispatchSem bounds the number of concurrent goroutines spawned for
-// notification dispatch when no worker pool is configured.
-var dispatchSem = make(chan struct{}, 100)
+const defaultDispatchConcurrency = 100
 
 // OnCallResolver is used by AlertEventService to find the current on-call person.
 type OnCallResolver interface {
@@ -35,28 +33,10 @@ type AlertEventService struct {
 	onCallSvc    OnCallResolver
 	larkSvc      *LarkService
 	workerPool   AlertWorkerPool
+	dispatchSem  chan struct{} // bounds goroutines when no worker pool is configured
 	logger       *zap.Logger
 }
 
-// SetWorkerPool wires the bounded worker pool for notification dispatch.
-func (s *AlertEventService) SetWorkerPool(p AlertWorkerPool) {
-	s.workerPool = p
-}
-
-// SetNotificationService wires the notification service for alert routing.
-func (s *AlertEventService) SetNotificationService(svc *NotificationService) {
-	s.notifySvc = svc
-}
-
-// SetOnCallResolver wires the on-call resolver for dispatch.
-func (s *AlertEventService) SetOnCallResolver(r OnCallResolver) {
-	s.onCallSvc = r
-}
-
-// SetLarkService wires the Lark service for in-place card updates via Bot API.
-func (s *AlertEventService) SetLarkService(svc *LarkService) {
-	s.larkSvc = svc
-}
 
 // DB returns the underlying database handle for advanced handler-level queries.
 func (s *AlertEventService) DB() *gorm.DB { return s.repo.DB() }
@@ -64,9 +44,22 @@ func (s *AlertEventService) DB() *gorm.DB { return s.repo.DB() }
 func NewAlertEventService(
 	repo *repository.AlertEventRepository,
 	timelineRepo *repository.AlertTimelineRepository,
+	notifySvc *NotificationService,
+	onCallSvc OnCallResolver,
+	larkSvc *LarkService,
+	workerPool AlertWorkerPool,
 	logger *zap.Logger,
 ) *AlertEventService {
-	return &AlertEventService{repo: repo, timelineRepo: timelineRepo, logger: logger}
+	return &AlertEventService{
+		repo:         repo,
+		timelineRepo: timelineRepo,
+		notifySvc:    notifySvc,
+		onCallSvc:    onCallSvc,
+		larkSvc:      larkSvc,
+		workerPool:   workerPool,
+		dispatchSem:  make(chan struct{}, defaultDispatchConcurrency),
+		logger:       logger,
+	}
 }
 
 func (s *AlertEventService) List(ctx context.Context, status, severity string, page, pageSize int) ([]model.AlertEvent, int64, error) {
@@ -406,9 +399,9 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 			}
 		} else {
 			select {
-			case dispatchSem <- struct{}{}:
+			case s.dispatchSem <- struct{}{}:
 				go func() {
-					defer func() { <-dispatchSem }()
+					defer func() { <-s.dispatchSem }()
 					dispatch(context.Background())
 				}()
 			default:
@@ -449,9 +442,9 @@ func (s *AlertEventService) triggerLarkCardUpdate(event *model.AlertEvent) {
 		s.workerPool.Submit(context.Background(), fn) // best-effort; don't block caller
 	} else {
 		select {
-		case dispatchSem <- struct{}{}:
+		case s.dispatchSem <- struct{}{}:
 			go func() {
-				defer func() { <-dispatchSem }()
+				defer func() { <-s.dispatchSem }()
 				fn(context.Background())
 			}()
 		default:

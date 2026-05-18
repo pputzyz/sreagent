@@ -1,20 +1,16 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, watch } from 'vue'
 import { NRadioGroup, NRadioButton, NSelect, NDatePicker, NInput, NPagination, NSpin, NIcon } from 'naive-ui'
 import { ListOutline, SearchOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { auditLogApi } from '@/api'
 import type { AuditLog } from '@/types'
 import { formatTime } from '@/utils/format'
+import { usePaginatedList } from '@/composables'
 import EmptyState from '@/components/common/EmptyState.vue'
 
 const { t } = useI18n()
 
-const loading = ref(false)
-const logs = shallowRef<AuditLog[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
 const firstLoad = ref(true)
 
 type RangePreset = 'today' | '7d' | '30d' | 'custom'
@@ -25,6 +21,61 @@ const filterAction = ref<string | null>(null)
 const filterResourceType = ref<string | null>(null)
 const filterUser = ref<string | null>(null)
 const search = ref('')
+
+function computeRange(): [Date, Date] | null {
+  const now = new Date()
+  if (rangePreset.value === 'today') {
+    const start = new Date(now)
+    start.setHours(0, 0, 0, 0)
+    return [start, now]
+  }
+  if (rangePreset.value === '7d') {
+    return [new Date(now.getTime() - 7 * 86400_000), now]
+  }
+  if (rangePreset.value === '30d') {
+    return [new Date(now.getTime() - 30 * 86400_000), now]
+  }
+  if (rangePreset.value === 'custom' && customRange.value) {
+    return [new Date(customRange.value[0]), new Date(customRange.value[1])]
+  }
+  return null
+}
+
+const {
+  loading,
+  items: logs,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<AuditLog>({
+  apiFn: auditLogApi.list,
+  extraParams: () => {
+    const params: Record<string, unknown> = {}
+    if (filterAction.value) params.action = filterAction.value
+    if (filterResourceType.value) params.resource_type = filterResourceType.value
+    if (filterUser.value) params.username = filterUser.value
+    if (search.value.trim()) params.q = search.value.trim()
+    const range = computeRange()
+    if (range) {
+      params.start_time = range[0].toISOString()
+      params.end_time = range[1].toISOString()
+    }
+    return params
+  },
+  onError: () => {
+    // silently handled — logs defaults to empty
+  },
+})
+
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoad.value = false
+})
+
+watch(pageSize, () => {
+  refresh()
+})
 
 const actionOptions = computed(() => [
   { label: t('settings.actionCreate'), value: 'create' },
@@ -64,56 +115,8 @@ const userOptions = computed(() => {
   return out
 })
 
-function computeRange(): [Date, Date] | null {
-  const now = new Date()
-  if (rangePreset.value === 'today') {
-    const start = new Date(now)
-    start.setHours(0, 0, 0, 0)
-    return [start, now]
-  }
-  if (rangePreset.value === '7d') {
-    return [new Date(now.getTime() - 7 * 86400_000), now]
-  }
-  if (rangePreset.value === '30d') {
-    return [new Date(now.getTime() - 30 * 86400_000), now]
-  }
-  if (rangePreset.value === 'custom' && customRange.value) {
-    return [new Date(customRange.value[0]), new Date(customRange.value[1])]
-  }
-  return null
-}
-
-async function fetchLogs() {
-  loading.value = true
-  try {
-    const params: Record<string, any> = {
-      page: page.value,
-      page_size: pageSize.value,
-    }
-    if (filterAction.value) params.action = filterAction.value
-    if (filterResourceType.value) params.resource_type = filterResourceType.value
-    if (filterUser.value) params.username = filterUser.value
-    if (search.value.trim()) params.q = search.value.trim()
-    const range = computeRange()
-    if (range) {
-      params.start_time = range[0].toISOString()
-      params.end_time = range[1].toISOString()
-    }
-    const { data } = await auditLogApi.list(params)
-    logs.value = data.data.list || []
-    total.value = data.data.total || 0
-  } catch {
-    logs.value = []
-    total.value = 0
-  } finally {
-    loading.value = false
-    firstLoad.value = false
-  }
-}
-
 function reset() {
-  page.value = 1
-  fetchLogs()
+  refresh()
 }
 
 function actionTone(action: string): 'success' | 'warning' | 'critical' | 'info' {
@@ -130,7 +133,7 @@ function truncateUA(ua: string): string {
   return ua.slice(0, 60) + '…'
 }
 
-onMounted(fetchLogs)
+onMounted(fetchList)
 </script>
 
 <template>
@@ -260,8 +263,7 @@ onMounted(fetchLogs)
         :page-sizes="[20, 50, 100]"
         size="small"
         show-size-picker
-        @update:page="fetchLogs"
-        @update:page-size="() => { page = 1; fetchLogs() }"
+        @update:page="fetchList"
       />
     </div>
   </div>

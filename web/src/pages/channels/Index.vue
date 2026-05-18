@@ -5,6 +5,8 @@ import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { channelV2Api } from '@/api'
 import type { Channel, ChannelStatus, ChannelAccessLevel } from '@/types'
+import { getErrorMessage } from '@/utils/format'
+import { usePaginatedList } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -19,15 +21,31 @@ const { t } = useI18n()
 const message = useMessage()
 const router = useRouter()
 
-const loading = ref(false)
-const channels = ref<Channel[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
 const searchQuery = ref('')
 const statusFilter = ref<'' | 'active' | 'disabled'>('')
 const sortBy = ref<'recent' | 'created' | 'name' | 'incidents'>('recent')
 const viewMode = ref<'card' | 'list'>('card')
+
+const {
+  loading,
+  items: channels,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<Channel>({
+  apiFn: channelV2Api.list,
+  extraParams: () => {
+    const params: Record<string, unknown> = {}
+    if (searchQuery.value) params.query = searchQuery.value
+    if (statusFilter.value) params.status = statusFilter.value
+    return params
+  },
+  onError: (err: unknown) => {
+    message.error((err as Error)?.message ?? t('common.loadFailed'))
+  },
+})
 
 // Create modal
 const showCreateModal = ref(false)
@@ -50,24 +68,6 @@ const form = ref<{
   auto_close_minutes: 60,
   follow_alert_close: true,
 })
-
-async function loadChannels() {
-  loading.value = true
-  try {
-    const res = await channelV2Api.list({
-      query: searchQuery.value,
-      status: statusFilter.value,
-      page: page.value,
-      page_size: pageSize.value,
-    })
-    channels.value = res.data.data?.list ?? []
-    total.value = res.data.data?.total ?? 0
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
-  } finally {
-    loading.value = false
-  }
-}
 
 const sortedChannels = computed(() => {
   const list = [...channels.value]
@@ -95,8 +95,8 @@ async function toggleStar(ch: Channel) {
       await channelV2Api.star(ch.id)
     }
     ch.is_starred = !ch.is_starred
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
 
@@ -104,9 +104,9 @@ async function deleteChannel(id: number) {
   try {
     await channelV2Api.delete(id)
     message.success(t('common.deleteSuccess'))
-    await loadChannels()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.deleteFailed'))
+    await fetchList()
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.deleteFailed'))
   }
 }
 
@@ -129,9 +129,9 @@ async function createChannel() {
       auto_close_minutes: 60,
       follow_alert_close: true,
     }
-    await loadChannels()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+    await fetchList()
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   } finally {
     saving.value = false
   }
@@ -194,14 +194,14 @@ function fmtMetric(val: number | string | undefined | null): string {
   return String(val)
 }
 
-onMounted(loadChannels)
+onMounted(fetchList)
 </script>
 
 <template>
   <div class="channels-page">
     <PageHeader :title="t('channel.title')" :subtitle="t('channel.subtitle')">
       <template #actions>
-        <n-button quaternary circle @click="loadChannels" :loading="loading">
+        <n-button quaternary circle @click="fetchList" :loading="loading">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
         <n-button type="primary" @click="showCreateModal = true">
@@ -218,12 +218,12 @@ onMounted(loadChannels)
         :placeholder="t('common.search')"
         clearable
         class="filter-search"
-        @update:value="loadChannels"
+        @update:value="fetchList"
       >
         <template #prefix><n-icon :component="SearchOutline" /></template>
       </n-input>
 
-      <n-radio-group v-model:value="statusFilter" size="medium" @update:value="loadChannels">
+      <n-radio-group v-model:value="statusFilter" size="medium" @update:value="fetchList">
         <n-radio-button v-for="opt in statusOptions" :key="String(opt.value)" :value="opt.value">
           {{ opt.label }}
         </n-radio-button>
@@ -298,11 +298,11 @@ onMounted(loadChannels)
               <div class="metric-label">{{ t('channel.activeIncidents') }}</div>
             </div>
             <div class="metric">
-              <div class="metric-value">{{ fmtMetric((ch as any).mtta_label) }}</div>
+              <div class="metric-value">{{ fmtMetric((ch as unknown as Record<string, unknown>).mtta_label as string | undefined) }}</div>
               <div class="metric-label">{{ t('dashboard.mtta') }}</div>
             </div>
             <div class="metric">
-              <div class="metric-value">{{ fmtMetric((ch as any).mttr_label) }}</div>
+              <div class="metric-value">{{ fmtMetric((ch as unknown as Record<string, unknown>).mttr_label as string | undefined) }}</div>
               <div class="metric-label">{{ t('dashboard.mttr') }}</div>
             </div>
           </div>
@@ -341,8 +341,10 @@ onMounted(loadChannels)
     <div v-if="total > pageSize" class="pagination-wrap">
       <n-pagination
         v-model:page="page"
-        :page-count="Math.ceil(total / pageSize)"
-        @update:page="loadChannels"
+        :page-size="pageSize"
+        :item-count="total"
+        :page-slot="7"
+        @update:page="fetchList"
       />
     </div>
 

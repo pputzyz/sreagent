@@ -17,6 +17,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api'
 import type { User } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import {
   AddOutline,
   EllipsisHorizontal,
@@ -61,8 +62,8 @@ async function fetchList() {
     list.value = (data.data.list || []).filter(
       u => u.user_type === 'bot' || u.user_type === 'channel'
     )
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -93,8 +94,8 @@ async function handleSave() {
     message.success(t('settings.virtualUserCreated'))
     showModal.value = false
     fetchList()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -105,8 +106,8 @@ async function handleDelete(id: number) {
     await userApi.delete(id)
     message.success(t('settings.userDeleted'))
     fetchList()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 

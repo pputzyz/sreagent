@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, onUnmounted, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   useMessage,
@@ -26,7 +26,9 @@ import {
 } from '@vicons/ionicons5'
 import { alertEventApi, alertRuleApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
+import { usePaginatedList } from '@/composables'
 import { useAuthStore } from '@/stores/auth'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
@@ -36,12 +38,7 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 
 // ===== State =====
-const events = shallowRef<AlertEvent[]>([])
-const total = ref(0)
-const loading = ref(false)
 const firstLoad = ref(true)
-const page = ref(1)
-const pageSize = ref(20)
 const selected = ref<Set<number>>(new Set())
 
 // ===== Filters =====
@@ -58,6 +55,56 @@ const viewMode = ref<AlertViewMode>('mine')
 const canViewAll = computed(
   () => authStore.user?.role === 'admin' || authStore.user?.role === 'global_viewer',
 )
+
+// ===== Paginated list =====
+const {
+  loading,
+  items: events,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<AlertEvent>({
+  apiFn: alertEventApi.list,
+  pageSize: 20,
+  extraParams: () => {
+    const tr = getTimeRange()
+    return {
+      status: statusFilterArray(),
+      severity: severityFilter.value ? [severityFilter.value] : undefined,
+      alert_name: search.value || undefined,
+      view_mode: viewMode.value,
+      ...tr,
+    }
+  },
+  onError: (err: unknown) => {
+    const e = err as { message?: string }
+    message.error(e?.message || t('common.loadFailed'))
+  },
+})
+
+// Client-side filters applied on top of server results
+const filteredEvents = computed(() => {
+  let list = events.value
+  if (ruleFilter.value != null) {
+    list = list.filter((e) => e.rule_id === ruleFilter.value)
+  }
+  if (tagFilter.value.trim()) {
+    const [k, v] = tagFilter.value.split('=').map((s) => s.trim())
+    if (k) {
+      list = list.filter((e) => {
+        const lv = e.labels?.[k]
+        return v ? lv === v : lv != null
+      })
+    }
+  }
+  return list
+})
+
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoad.value = false
+})
 
 const severityOptions = [
   { label: () => t('alert.p0'), value: 'p0' },
@@ -136,47 +183,9 @@ function statusFilterArray(): string[] | undefined {
   }
 }
 
-// ===== Fetch =====
-async function fetchEvents() {
-  loading.value = true
-  try {
-    const tr = getTimeRange()
-    const { data } = await alertEventApi.list({
-      page: page.value,
-      page_size: pageSize.value,
-      status: statusFilterArray(),
-      severity: severityFilter.value ? [severityFilter.value] : undefined,
-      alert_name: search.value || undefined,
-      view_mode: viewMode.value,
-      ...tr,
-    })
-    let list = data.data.list || []
-    // Client-side filter for rule + tag (server may not support both; safe extra)
-    if (ruleFilter.value != null) {
-      list = list.filter((e) => e.rule_id === ruleFilter.value)
-    }
-    if (tagFilter.value.trim()) {
-      const [k, v] = tagFilter.value.split('=').map((s) => s.trim())
-      if (k) {
-        list = list.filter((e) => {
-          const lv = e.labels?.[k]
-          return v ? lv === v : lv != null
-        })
-      }
-    }
-    events.value = list
-    total.value = data.data.total
-  } catch (err: any) {
-    message.error(err?.message || t('common.loadFailed'))
-  } finally {
-    loading.value = false
-    firstLoad.value = false
-  }
-}
-
+// ===== Refilter =====
 function refilter() {
-  page.value = 1
-  fetchEvents()
+  refresh()
 }
 
 // ===== Actions =====
@@ -184,36 +193,36 @@ async function onAck(ev: AlertEvent) {
   try {
     await alertEventApi.acknowledge(ev.id)
     message.success(t('alert.alertAcknowledged'))
-    fetchEvents()
-  } catch (err: any) {
-    message.error(err?.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message)
   }
 }
 async function onResolve(ev: AlertEvent) {
   try {
     await alertEventApi.resolve(ev.id, { resolution: t('alert.manuallyResolved') })
     message.success(t('alert.alertResolved'))
-    fetchEvents()
-  } catch (err: any) {
-    message.error(err?.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message)
   }
 }
 async function onClose(ev: AlertEvent) {
   try {
     await alertEventApi.close(ev.id)
     message.success(t('alert.alertClosed'))
-    fetchEvents()
-  } catch (err: any) {
-    message.error(err?.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message)
   }
 }
 async function onSilence(ev: AlertEvent) {
   try {
     await alertEventApi.silence(ev.id, { duration_minutes: 60, reason: 'manual' })
     message.success(t('alert.silenced'))
-    fetchEvents()
-  } catch (err: any) {
-    message.error(err?.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message)
   }
 }
 async function batchAck() {
@@ -223,9 +232,9 @@ async function batchAck() {
     await alertEventApi.batchAcknowledge(ids)
     message.success(t('alert.batchAckSuccess'))
     selected.value = new Set()
-    fetchEvents()
-  } catch (err: any) {
-    message.error(err?.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message)
   }
 }
 async function batchCloseAction() {
@@ -235,9 +244,9 @@ async function batchCloseAction() {
     await alertEventApi.batchClose(ids)
     message.success(t('alert.batchCloseSuccess'))
     selected.value = new Set()
-    fetchEvents()
-  } catch (err: any) {
-    message.error(err?.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message)
   }
 }
 async function batchSilence() {
@@ -251,9 +260,9 @@ async function batchSilence() {
     )
     message.success(t('alert.silenced'))
     selected.value = new Set()
-    fetchEvents()
-  } catch (err: any) {
-    message.error(err?.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message)
   }
 }
 
@@ -342,18 +351,18 @@ function isDim(ev: AlertEvent): boolean {
 
 const allOnPageSelected = computed(
   () =>
-    events.value.length > 0 &&
-    events.value.every((e) => selected.value.has(e.id)),
+    filteredEvents.value.length > 0 &&
+    filteredEvents.value.every((e) => selected.value.has(e.id)),
 )
 
 function toggleSelectAll() {
   if (allOnPageSelected.value) {
     const next = new Set(selected.value)
-    events.value.forEach((e) => next.delete(e.id))
+    filteredEvents.value.forEach((e) => next.delete(e.id))
     selected.value = next
   } else {
     const next = new Set(selected.value)
-    events.value.forEach((e) => next.add(e.id))
+    filteredEvents.value.forEach((e) => next.add(e.id))
     selected.value = next
   }
 }
@@ -386,14 +395,14 @@ function applyAutoRefresh() {
     timer = null
   }
   if (refreshInterval.value > 0) {
-    timer = setInterval(fetchEvents, refreshInterval.value * 1000)
+    timer = setInterval(fetchList, refreshInterval.value * 1000)
   }
   localStorage.setItem(REFRESH_KEY, String(refreshInterval.value))
 }
 
 onMounted(() => {
   loadRules()
-  fetchEvents()
+  fetchList()
   applyAutoRefresh()
 })
 onUnmounted(() => {
@@ -420,7 +429,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           class="ae-filter-sm"
           @update:value="(v: number) => { refreshInterval = v; applyAutoRefresh() }"
         />
-        <NButton circle quaternary size="small" :loading="loading" @click="fetchEvents">
+        <NButton circle quaternary size="small" :loading="loading" @click="fetchList">
           <template #icon><NIcon :component="RefreshOutline" /></template>
         </NButton>
         <NButton size="small" @click="handleExportCSV">
@@ -532,7 +541,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     </transition>
 
     <!-- Select-all hairline -->
-    <div v-if="events.length > 0" class="ae-selectall">
+    <div v-if="filteredEvents.length > 0" class="ae-selectall">
       <input
         type="checkbox"
         class="ec-check"
@@ -545,21 +554,28 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     </div>
 
     <!-- Event list -->
-    <LoadingSkeleton v-if="loading && firstLoad && events.length === 0" :rows="6" variant="row" />
+    <LoadingSkeleton v-if="loading && firstLoad && filteredEvents.length === 0" :rows="6" variant="row" />
     <NSpin v-else :show="loading && !firstLoad">
-      <div
-        v-if="events.length > 0"
+      <DynamicScroller
+        v-if="filteredEvents.length > 0"
         class="event-list"
         :class="{ 'sre-stagger': firstLoad }"
+        :items="filteredEvents"
+        key-field="id"
+        :min-item-size="80"
       >
-        <div
-          v-for="ev in events"
-          :key="ev.id"
-          class="sre-row-card event-row"
-          :data-severity="severityDotKey(ev.severity)"
-          :data-dim="isDim(ev) || undefined"
-          @click="goDetail(ev)"
-        >
+        <template #default="{ item: ev }">
+          <DynamicScrollerItem
+            :item="ev"
+            :active="true"
+            :size-dependencies="[ev.labels, ev.acked_by_user, ev.oncall_user]"
+          >
+            <div
+              class="sre-row-card event-row"
+              :data-severity="severityDotKey(ev.severity)"
+              :data-dim="isDim(ev) || undefined"
+              @click="goDetail(ev)"
+            >
           <input
             type="checkbox"
             class="ec-check"
@@ -636,8 +652,10 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
               </NButton>
             </NDropdown>
           </div>
-        </div>
-      </div>
+            </div>
+          </DynamicScrollerItem>
+        </template>
+      </DynamicScroller>
 
       <!-- Empty state -->
       <EmptyState
@@ -656,8 +674,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         :item-count="total"
         :page-sizes="[20, 50, 100]"
         show-size-picker
-        @update:page="(p: number) => { page = p; fetchEvents() }"
-        @update:page-size="(s: number) => { pageSize = s; page = 1; fetchEvents() }"
+        @update:page="(p: number) => { page = p; fetchList() }"
+        @update:page-size="(s: number) => { pageSize = s; page = 1; fetchList() }"
       />
     </div>
   </div>
@@ -770,6 +788,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
 }
 .event-row {
   display: flex;

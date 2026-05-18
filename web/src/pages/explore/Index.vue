@@ -10,7 +10,7 @@
  *
  * All heavy deps (ECharts) lazy-loaded with fallback.
  */
-import { ref, onMounted, onUnmounted, computed, watch, shallowRef } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, shallowRef, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NSelect, NButton, NSpace, NTag, NAlert, NSpin,
@@ -22,14 +22,14 @@ import {
   AlertCircleOutline,
 } from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
-import type { DataSource, DataSourceType } from '@/types'
+import type { DataSource, DataSourceType, QueryResponse, LogEntry } from '@/types'
 
 const { t } = useI18n()
 const message = useMessage()
 
 // --- Lazy ECharts ---
 const ChartReady = ref(false)
-const VChart = shallowRef<any>(null)
+const VChart = shallowRef<Component | null>(null)
 
 async function loadECharts() {
   try {
@@ -61,8 +61,8 @@ const selectedDsId = ref<number | null>(null)
 const expression = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
-const logEntries = ref<any[]>([])
-const metricData = ref<any>(null)
+const logEntries = ref<LogEntry[]>([])
+const metricData = ref<QueryResponse | null>(null)
 const logTotal = ref(0)
 const logTruncated = ref(false)
 const resultMode = ref<ResultMode>('chart')
@@ -160,7 +160,7 @@ const autoRefreshOptions = computed(() => [
 ])
 const autoRefreshSec = ref<number>(0)
 const autoCountdown = ref<number>(0)
-let autoTimer: any = null
+let autoTimer: ReturnType<typeof setInterval> | null = null
 
 function startAutoTimer() {
   stopAutoTimer()
@@ -228,6 +228,10 @@ const logDatasources = computed(() =>
   datasources.value.filter(d => d.type === 'victorialogs')
 )
 const isLogs = computed(() => activeTab.value === 'logs')
+const isMetricLimited = computed(() => {
+  if (!metricData.value?.series) return false
+  return metricData.value.series.length >= metricLimit.value
+})
 
 function dsLabel(ds: DataSource): string {
   return `${ds.name} (${typeBadge(ds.type)})`
@@ -261,7 +265,7 @@ async function loadDs() {
   try {
     const res = await datasourceApi.list({ page: 1, page_size: 100 })
     const list = res.data?.data?.list
-    datasources.value = (Array.isArray(list) ? list : []).filter((d: any) => d.is_enabled)
+    datasources.value = (Array.isArray(list) ? list : []).filter((d: DataSource) => d.is_enabled)
   } catch { /* ignore */ }
 }
 
@@ -282,7 +286,7 @@ async function run() {
       })
       const data = res.data?.data
       if (data) {
-        logEntries.value = (data.entries || []).map((e: any, i: number) => ({ ...e, _key: i }))
+        logEntries.value = (data.entries || []).map((e: LogEntry, i: number) => ({ ...e, _key: i }))
         logTotal.value = data.total || 0
         logTruncated.value = data.truncated || false
       }
@@ -296,13 +300,14 @@ async function run() {
       const data = res.data?.data
       if (data?.series && data.series.length > metricLimit.value) {
         data.series = data.series.slice(0, metricLimit.value)
-        ;(data as any)._limited = true
+        Object.defineProperty(data, '_limited', { value: true, enumerable: false })
       }
       metricData.value = data
     }
     pushHistory(activeTab.value, expression.value)
-  } catch (e: any) {
-    errorMsg.value = e?.response?.data?.error || e?.response?.data?.message || e?.message || t('query.queryFailed')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string; message?: string } }; message?: string }
+    errorMsg.value = err?.response?.data?.error || err?.response?.data?.message || err?.message || t('query.queryFailed')
   } finally {
     loading.value = false
   }
@@ -311,7 +316,15 @@ async function run() {
 // --- chart option ---
 const chartOption = computed(() => {
   if (!metricData.value?.series?.length) return null
-  const seriesList: any[] = []
+  interface EChartsSeries {
+    name: string
+    type: string
+    data: [number, number][]
+    smooth: boolean
+    showSymbol: boolean
+    connectNulls: boolean
+  }
+  const seriesList: EChartsSeries[] = []
   for (const s of metricData.value.series) {
     const name = formatLegend(s.labels)
     const data: [number, number][] = []
@@ -343,7 +356,8 @@ const metricColumns = computed(() => [
 
 const metricTableData = computed(() => {
   if (!metricData.value?.series) return []
-  const rows: any[] = []
+  interface MetricTableRow { _key: number; name: string; value: string; labels: string }
+  const rows: MetricTableRow[] = []
   let idx = 0
   for (const s of metricData.value.series) {
     for (const v of (s.values || [])) {
@@ -359,9 +373,9 @@ const metricTableData = computed(() => {
 })
 
 const logColumns = computed(() => [
-  { title: t('query.logTime'), key: 'timestamp', width: 200, render: (r: any) => fmtTs(r.timestamp) },
+  { title: t('query.logTime'), key: 'timestamp', width: 200, render: (r: LogEntry) => fmtTs(r.timestamp) },
   { title: t('query.logMessage'), key: 'message', ellipsis: { tooltip: true } },
-  { title: t('query.logLabels'), key: '_labels', width: 300, ellipsis: { tooltip: true }, render: (r: any) => formatLabelsStr(r.labels) },
+  { title: t('query.logLabels'), key: '_labels', width: 300, ellipsis: { tooltip: true }, render: (r: LogEntry) => formatLabelsStr(r.labels) },
 ])
 
 // --- helpers ---
@@ -373,7 +387,7 @@ function formatLegend(lbs: Record<string, string>): string {
   }
   return parts.length ? parts.join(', ') : (lbs.__name__ || 'value')
 }
-function formatLabelsStr(lbs: any): string {
+function formatLabelsStr(lbs: Record<string, string> | undefined): string {
   if (!lbs) return '-'
   const parts: string[] = []
   for (const k of Object.keys(lbs)) {
@@ -381,13 +395,13 @@ function formatLabelsStr(lbs: any): string {
   }
   return parts.length ? parts.join(', ') : '-'
 }
-function fmtTs(ts: any): string {
+function fmtTs(ts: string | number | undefined): string {
   if (!ts) return '-'
   try { return new Date(ts).toLocaleString() } catch { return String(ts) }
 }
 
 // --- CSV export ---
-function csvEscape(v: any): string {
+function csvEscape(v: unknown): string {
   if (v == null) return ''
   const s = String(v)
   if (s.includes(',') || s.includes('"') || s.includes('\n')) {
@@ -656,8 +670,8 @@ onUnmounted(() => {
       <div class="results-header">
         <span class="results-count">
           {{ metricData.series.length }} {{ t('query.seriesCount') }}
-          <template v-if="metricData.resultType"> · {{ metricData.resultType }}</template>
-          <NTag v-if="metricData._limited" type="warning" size="small" :bordered="false" class="tag-ml">
+          <template v-if="metricData.result_type"> · {{ metricData.result_type }}</template>
+          <NTag v-if="isMetricLimited" type="warning" size="small" :bordered="false" class="tag-ml">
             {{ t('query.limitedTo', { n: metricLimit }) }}
           </NTag>
         </span>
@@ -689,7 +703,7 @@ onUnmounted(() => {
         v-if="resultMode === 'table'"
         :columns="metricColumns"
         :data="metricTableData"
-        :row-key="(r: any) => r._key"
+        :row-key="(r: Record<string, unknown>) => String(r._key)"
         size="small"
         :single-line="false"
         striped
@@ -717,7 +731,7 @@ onUnmounted(() => {
       <NDataTable
         :columns="logColumns"
         :data="logEntries"
-        :row-key="(r: any) => r._key"
+        :row-key="(r: Record<string, unknown>) => String(r._key)"
         size="small"
         max-height="600"
         virtual-scroll

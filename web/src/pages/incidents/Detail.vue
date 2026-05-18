@@ -5,7 +5,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi, alertV2Api } from '@/api'
-import type { Incident, IncidentTimeline, AlertV2 } from '@/types'
+import type { Incident, IncidentTimeline, AlertV2, PostMortem, DropdownOption } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import SnoozeModal from '@/components/incident/SnoozeModal.vue'
 import MergeModal from '@/components/incident/MergeModal.vue'
 import ReassignModal from '@/components/incident/ReassignModal.vue'
@@ -40,7 +41,7 @@ const submittingComment = ref(false)
 const showQuickSilence = ref(false)
 
 // Post-mortem
-const postMortem = ref<any | null>(null)
+const postMortem = ref<PostMortem | null>(null)
 const pmLoading = ref(false)
 const pmSaving = ref(false)
 const pmAiLoading = ref(false)
@@ -100,8 +101,8 @@ async function load() {
     incident.value = incRes.data.data ?? null
     timeline.value = tlRes.data.data ?? []
     relatedAlerts.value = alertRes.data.data?.list ?? []
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally { loading.value = false }
 }
 
@@ -110,7 +111,7 @@ async function doAction(action: 'acknowledge' | 'close' | 'reopen' | 'escalate')
     await incidentApi[action](incidentId.value)
     message.success(t('common.success'))
     await load()
-  } catch (e: any) { message.error(e?.message ?? t('common.failed')) }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('common.failed')) }
 }
 
 async function submitComment() {
@@ -121,7 +122,7 @@ async function submitComment() {
     commentText.value = ''
     const tlRes = await incidentApi.getTimeline(incidentId.value)
     timeline.value = tlRes.data.data ?? []
-  } catch (e: any) { message.error(e?.message ?? t('common.failed')) } finally { submittingComment.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('common.failed')) } finally { submittingComment.value = false }
 }
 
 async function loadPostMortem() {
@@ -142,7 +143,7 @@ async function savePostMortem() {
     })
     postMortem.value = res.data.data
     message.success(t('common.savedSuccess'))
-  } catch (e: any) { message.error(e?.message ?? t('common.saveFailed')) } finally { pmSaving.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('common.saveFailed')) } finally { pmSaving.value = false }
 }
 
 async function publishPostMortem() {
@@ -151,7 +152,7 @@ async function publishPostMortem() {
     const res = await incidentApi.publishPostMortem(incidentId.value)
     postMortem.value = res.data.data
     message.success(t('postMortem.published'))
-  } catch (e: any) { message.error(e?.message ?? t('common.failed')) } finally { pmSaving.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('common.failed')) } finally { pmSaving.value = false }
 }
 
 async function aiGeneratePostMortem() {
@@ -160,11 +161,11 @@ async function aiGeneratePostMortem() {
     const res = await incidentApi.aiGeneratePostMortem(incidentId.value)
     postMortem.value = res.data.data
     message.success(t('incident.aiDraftGenerated'))
-  } catch (e: any) { message.error(e?.message ?? t('incident.aiGenerateFailed')) } finally { pmAiLoading.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('incident.aiGenerateFailed')) } finally { pmAiLoading.value = false }
 }
 
 const moreActionOptions = computed(() => {
-  const opts: any[] = [
+  const opts: DropdownOption[] = [
     { label: t('incident.escalate'), key: 'escalate', icon: () => h(NIcon, { component: ArrowUpCircleOutline }) },
     { label: t('incident.reassign'), key: 'reassign', icon: () => h(NIcon, { component: PersonOutline }) },
     { label: t('incident.mergeIncident'), key: 'merge', icon: () => h(NIcon, { component: GitMergeOutline }) },

@@ -4,6 +4,163 @@
 
 ---
 
+## [v4.10.18] — 2026-05-18
+
+### Improved — 前端架构全面升级
+
+**P1-2: usePaginatedList composable 全量迁移（12 页）**
+- 剩余 7 个列表页迁移到 `usePaginatedList`：incidents/Index、incidents/PostMortems、channels/Index、dashboard-v2/Index、notification/AlertChannels、alerts-v2/Index、settings/AuditLog
+- 统一分页模式：`extraParams` 回调 + `fetchList`/`refresh` + `:item-count`/`:page-size` 绑定
+
+**P1-8: TypeScript any 全面清零（209 处 → 0）**
+- 54 个前端文件中的所有 `any` 类型替换为具体类型定义
+- `api/index.ts`（26 处）、alerts/events/Detail.vue（10 处）等重灾区全部修复
+- 新增 `types/` 目录下的类型定义文件
+
+**P1-10: vue-virtual-scroller 真实虚拟滚动**
+- `env.d.ts` — 新增 `vue-virtual-scroller` TypeScript 声明
+- `main.ts` — 引入 `vue-virtual-scroller/dist/vue-virtual-scroller.css`
+- alerts/events/Index、alerts/rules/Index、alerts/history/Index — 使用 `DynamicScroller` + `DynamicScrollerItem` 替代 CSS containment hack
+- 支持动态高度（`size-dependencies`），自动回收离屏 DOM 节点
+
+### Refactored — 后端架构优化
+
+**P2-2: setter 注入全部转为构造函数参数（12 处/6 文件）**
+- `service/lark.go` — `NewLarkService` 新增 `settingSvc` 参数
+- `service/notification.go` — `NewNotificationService` 新增 `eventRepo`/`subscribeSvc`/`notifyRuleSvc` 参数
+- `service/larkbot.go` — `NewLarkBotService` 新增 `userRepo` 参数
+- `service/alert_event.go` — `NewAlertEventService` 新增 `notifySvc`/`onCallSvc`/`larkSvc`/`workerPool` 参数
+- `engine/escalation_executor.go` — `NewEscalationExecutor` 新增 `larkSvc`/`settingSvc`/`ruleRepo` 参数
+- `cmd/server/wire.go` — 重排初始化顺序，消除所有 Set* 调用
+
+**P2-8: MODULES.md 同步校验脚本**
+- `scripts/check-modules.go` — 基于 Go AST 的精确计数校验
+- `scripts/check-modules.sh` — CI 环境的轻量版
+- `Makefile` — 新增 `check-modules` target
+- MODULES.md 头部计数修正：46 model / 41 handler / 37 service / 42 repository
+
+---
+
+## [v4.10.17] — 2026-05-18
+
+### Added — SSRF 防护 + 业务指标 + goroutine 背压
+
+**P1-4: SSRF 防护**
+- `pkg/safehttp/client.go` — `SafeTransport` 阻止 loopback/link-local/RFC1918/ULA/metadata 等内网地址外连
+- 9 个文件 11 处 `http.Client` 替换为 `safehttp.NewSafeClient()`（datasource/lark/notification/ai 等）
+- `pkg/safehttp/client_test.go` — 19 个测试覆盖所有阻断场景
+
+**P1-7: /metrics 鉴权 + Prometheus 业务指标**
+- `handler/metrics.go` — 新增 `METRICS_TOKEN` 环境变量鉴权，未设置时保持向后兼容
+- `pkg/metrics/metrics.go` — 3 个 Prometheus 计数器：`sreagent_alerts_evaluated_total`、`sreagent_notifications_sent_total`、`sreagent_escalation_steps_total`
+- `engine/rule_eval.go` — 规则评估结果写入指标
+- `service/notification.go` — 通知成功/失败写入指标
+- `engine/escalation_executor.go` — 升级步骤执行写入指标
+
+**P1-5: goroutine 背压**
+- `service/audit_log.go` — `dispatchSem` (cap 50)，异步审计日志写入有界
+- `service/integration.go` — `dispatchSem` (cap 100)，集成回调有界
+- `service/alert_v2_pipeline.go` — `dispatchSem` (cap 100)，v2 pipeline 异步处理有界
+
+**P1-6: 批量 GetByIDs 接口**
+- `repository/alert_event.go`、`channel.go`、`user.go`、`schedule.go` — 新增 `GetByIDs(ctx, ids)` 方法，`WHERE id IN ?`
+
+**P1-2: usePaginatedList composable 迁移**
+- `composables/usePaginatedList.ts` — 新建通用分页 composable（loading/items/total/page/fetchList/refresh）
+- 5 个列表页迁移到 composable：alerts/events、alerts/rules、alerts/history、settings/UserManagement、settings/TeamManagement
+
+**P1-8: TypeScript any 清理**
+- explore/Index.vue、PanelCard.vue 等重灾区文件类型化
+- 新增 `types/query.ts` 类型定义
+
+**P1-10: 虚拟滚动**
+- explore/Index.vue — `n-data-table` 启用 `virtual-scroll`
+
+### Fixed — 分层修复 + 安全加固
+
+**P2-1: TeamRepository 分层修正**
+- 删除 `service/team.go` 中的重复 repository 实现（84 行）
+- `repository/team.go` 补齐 `GetByName`、`GetMember`、`Preload("Members")` 等方法
+- `cmd/server/main.go` 改用 `repository.NewTeamRepository(db)`
+
+**P2-3: dispatchSem 全局变量改为实例级**
+- `service/alert_event.go` — `var dispatchSem` 移除，改为 `AlertEventService.dispatchSem` 实例字段
+
+**P2-4: testutil SQL 注入修复**
+- `testutil/testutil.go` — `DELETE FROM` 表名改用反引号包裹
+
+**P2-6: alert_rule_template 限制 pageSize**
+- `handler/alert_rule_template.go` — `pageSize` 上限 100
+
+### Refactored — DI 拆分 + OIDC 热重载 + 路由拆分
+
+**P1-1: DI wiring 从 main.go 拆分到 wire.go**
+- `cmd/server/wire.go` — 新增 `Dependencies` 结构体 + `initDependencies()` 函数，承载所有 repo/service/handler/engine 初始化
+- `cmd/server/wire.go` — 新增 `Shutdown()` 方法，按正确顺序停止所有后台组件
+- `cmd/server/main.go` — 从 778 行精简至 275 行，仅保留 config/logger/DB/migration/graceful shutdown
+
+**P1-9: OIDC 热重载**
+- `handler/oidc.go` — `OIDCHandler` 新增 `SetService()` 方法，支持运行时替换 OIDC 服务
+- `handler/oidc_settings.go` — 新增 `Reload` 端点 + `SetReloadFn` 回调注入
+- `cmd/server/wire.go` — `Dependencies.ReloadOIDC()` 从 DB 重新读取 OIDC 配置并重建服务
+- `router/router.go` — 新增 `POST /api/v1/settings/oidc/reload`（admin only）
+
+**P2-5: router.go 拆分为按模块文件**
+- `router/auth_routes.go` — 用户 profile + OIDC 设置路由
+- `router/alert_routes.go` — AlertRule + AlertEvent + AlertV2 + Heartbeat 路由
+- `router/notify_routes.go` — 通知规则/媒体/模板/订阅/通道/策略路由
+- `router/schedule_routes.go` — 值班排班 + 升级策略路由
+- `router/admin_routes.go` — 数据源/用户/团队/静默/抑制/分组/审计/设置/Dashboard/AI 等管理路由
+- `router/router.go` — 从 673 行精简至 193 行，仅保留 middleware/health/public routes/registrar 调用
+
+---
+
+## [v4.10.16] — 2026-05-18
+
+### Fixed — 安全修复 + 性能优化 + 测试补全
+
+**P0-1: JWT 算法混淆攻击防护**
+- `middleware/auth.go` — `ParseToken` 的 keyFunc 新增 HMAC 签名方法校验，拒绝 non-HMAC 算法（如 `none`、RSA），与 `ParseTokenIgnoreExpiry` 行为一致
+
+**P0-2: 告警链路内存视图替代 DB 全表扫描**
+- `engine/evaluator.go` — 新增 `GetFiringEvents()` 和 `GetFiringAlertEvents()` 方法，从内存 states map 获取 firing 告警
+- `cmd/server/main.go` — `onAlertFn` 中 evaluator 可用时走内存路径，避免每次告警扫描 2000 行 DB
+
+**P0-5: handler.Error 吞错增加日志**
+- `handler/handler.go` — 未知错误现在通过 request-scoped zap logger 记录，不再静默返回 500
+- `handler/handler.go` — `gorm.ErrRecordNotFound` 特判为 404 而非 500
+- `middleware/logger.go` — RequestLogger 将 zap logger 注入 gin context 供 handler 使用
+
+**P1-3: CORS release 模式安全加固**
+- `middleware/cors.go` — release 模式下若未设置 `CORS_ALLOWED_ORIGINS`，不再默认放行 localhost，返回空 origins 列表
+
+**P2-7: release 模式 admin 密码强制**
+- `cmd/server/main.go` — `GIN_MODE=release` 时若未设置 `SREAGENT_ADMIN_PASSWORD`，直接 Fatal 退出而非使用默认密码
+
+**P2-9: gin.Recovery 接入 zap**
+- `router/router.go` — 替换 `gin.Recovery()` 为自定义 recovery middleware，panic 信息写入 zap 而非 stderr
+
+**P0-6: 首批关键单元测试（37 个用例，5 个测试文件）**
+- `middleware/auth_test.go` — JWT 解析、过期、密钥错误、算法校验（4 个测试）
+- `handler/handler_test.go` — Error 响应码、AppError、RecordNotFound（3 个测试）
+- `service/encryption_test.go` — AES-256-GCM 加解密 roundtrip、随机 nonce、向后兼容（5 个测试）
+- `service/inhibition_rule_test.go` — 抑制规则匹配、源/目标标签、EqualLabels 约束（5 个测试）
+- `engine/rule_eval_test.go` — 指纹生成、状态机转换 pending→firing→resolved、duration 解析（8 个测试）
+
+### Fixed — 升级执行器性能优化 + 去重机制加固
+
+**P0-3: 修复全表扫描 + N+1 查询**
+- `escalation_executor.go` — `runOnce` 改用 `ListFiringForEscalation` 只查 firing 事件，不再全表扫描 10000 条
+- `escalation_executor.go` — 新增 `batchLoadRules` 方法，SLA 检查从逐条 `GetByID` 改为单次 `GetByIDs` 批量查询
+- `repository/alert_event.go` — 新增 `ListFiringForEscalation(ctx, limit)` 方法，`WHERE status='firing' ORDER BY fired_at ASC LIMIT ?`
+- `repository/alert_rule.go` — 新增 `GetByIDs(ctx, ids)` 方法，`WHERE id IN ?`
+
+**P0-4: 升级去重从 Note 字符串改为 EscalationStepID**
+- `model/alert_event.go` — AlertTimeline 新增 `EscalationStepID *uint` 字段（indexed）
+- `escalation_executor.go` — `executedStepOrders` 主键改为 `step:<id>` 格式，Note 文本仅作旧数据兜底
+- `escalation_executor.go` — `recordTimeline` 新增 stepID 参数，执行步骤时写入 EscalationStepID
+- 迁移: 000037_add_escalation_step_id_to_alert_timelines
+
 ## [v4.10.15] — 2026-05-16
 
 ### Changed — 首页 widget 自定义增强 + 3 个新组件

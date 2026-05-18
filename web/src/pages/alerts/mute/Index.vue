@@ -12,7 +12,8 @@ import {
   CreateOutline, TrashOutline, SearchOutline,
 } from '@vicons/ionicons5'
 import { muteRuleApi } from '@/api'
-import type { MuteRule } from '@/types'
+import type { MuteRule, AlertEvent } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { formatTime } from '@/utils/format'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
@@ -94,6 +95,10 @@ function statusText(r: MuteRule): string {
   return t('mute.statusIdle')
 }
 
+function getHitCount(r: MuteRule): number {
+  return (r as MuteRule & { hit_count?: number }).hit_count || 0
+}
+
 function remainingMin(r: MuteRule): number {
   const e = toMs(r.end_time)
   if (!e) return 0
@@ -144,8 +149,8 @@ async function fetchRules() {
   try {
     const { data } = await muteRuleApi.list({ page: 1, page_size: 200 })
     rules.value = data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -156,8 +161,8 @@ async function toggle(rule: MuteRule) {
     await muteRuleApi.update(rule.id, { is_enabled: !rule.is_enabled })
     message.success(rule.is_enabled ? t('mute.disabledSuccess') : t('mute.enabledSuccess'))
     fetchRules()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 
@@ -166,8 +171,8 @@ async function handleDelete(id: number) {
     await muteRuleApi.delete(id)
     message.success(t('mute.deleted'))
     fetchRules()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 
@@ -189,7 +194,7 @@ function handleAction(key: string, rule: MuteRule) {
 const showPreview = ref(false)
 const previewLoading = ref(false)
 const previewRuleName = ref('')
-const previewItems = ref<any[]>([])
+const previewItems = ref<AlertEvent[]>([])
 
 async function previewHits(rule: MuteRule) {
   previewRuleName.value = rule.name
@@ -197,11 +202,11 @@ async function previewHits(rule: MuteRule) {
   previewLoading.value = true
   try {
     const { data } = await muteRuleApi.preview()
-    const all = (data.data || []) as Array<{ rule_id: number; rule_name: string; matched_alerts: any[] }>
+    const all = (data.data || []) as Array<{ rule_id: number; rule_name: string; matched_alerts: AlertEvent[] }>
     const target = all.find(x => x.rule_id === rule.id)
     previewItems.value = target?.matched_alerts || []
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     previewLoading.value = false
   }
@@ -306,15 +311,15 @@ async function handleSave() {
     }
     showModal.value = false
     fetchRules()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
 }
 
-function severityOf(ev: any): string {
-  return (ev.severity || ev.level || 'info').toLowerCase()
+function severityOf(ev: AlertEvent): string {
+  return (ev.severity || 'info').toLowerCase()
 }
 
 onMounted(fetchRules)
@@ -385,7 +390,7 @@ onMounted(fetchRules)
               <span v-else class="muted">{{ t('mute.noSchedule') }}</span>
             </div>
             <div class="mute-footer tnum">
-              <span>{{ t('mute.hits', { n: ((rule as any).hit_count) || 0 }) }}</span>
+              <span>{{ t('mute.hits', { n: getHitCount(rule) }) }}</span>
               <span class="sre-meta-divider"></span>
               <span v-if="!rule.is_enabled">{{ t('common.disabled') }}</span>
               <span v-else-if="isActiveNow(rule)">{{ t('mute.statusActive') }} · {{ t('mute.remaining', { n: remainingMin(rule) }) }}</span>

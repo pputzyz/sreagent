@@ -17,6 +17,7 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 			requestID = uuid.New().String()
 		}
 		c.Set("request_id", requestID)
+		c.Set("logger", logger.With(zap.String("request_id", requestID)))
 		c.Header("X-Request-ID", requestID)
 
 		start := time.Now()

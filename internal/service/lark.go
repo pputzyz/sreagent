@@ -23,18 +23,14 @@ type LarkService struct {
 }
 
 // NewLarkService creates a new LarkService.
-func NewLarkService(logger *zap.Logger, platformBaseURL, jwtSecret string) *LarkService {
+func NewLarkService(logger *zap.Logger, platformBaseURL, jwtSecret string, settingSvc *SystemSettingService) *LarkService {
 	return &LarkService{
 		client:          lark.NewClient(logger),
 		logger:          logger,
 		platformBaseURL: platformBaseURL,
 		jwtSecret:       jwtSecret,
+		settingSvc:      settingSvc,
 	}
-}
-
-// SetSystemSettingService injects the settings service for Bot API credential lookup.
-func (s *LarkService) SetSystemSettingService(svc *SystemSettingService) {
-	s.settingSvc = svc
 }
 
 // SendAlertNotification prepares and sends an alert notification via Lark webhook.

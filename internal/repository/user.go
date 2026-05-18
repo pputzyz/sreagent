@@ -29,6 +29,19 @@ func (r *UserRepository) GetByID(ctx context.Context, id uint) (*model.User, err
 	return &user, nil
 }
 
+// GetByIDs returns all users whose ID is in the given slice.
+// Returns nil (not an error) when ids is empty.
+func (r *UserRepository) GetByIDs(ctx context.Context, ids []uint) ([]model.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var users []model.User
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&users).Error
+	return users, err
+}
+
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { NButton, NSpace, NInput, NSelect, useMessage, NModal, NPopconfirm, NSpin } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2Api, datasourceApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { DashboardV2, DashboardConfig, PanelConfig, VariableConfig } from '@/types/dashboard'
 import type { DataSource } from '@/types'
 import { useTimeRange } from '@/composables/useTimeRange'
@@ -198,7 +199,7 @@ function updatePanelTitle(id: string, title: string) {
 async function fetchDatasources() {
   try {
     const res = await datasourceApi.list({ page: 1, page_size: 100 })
-    datasources.value = (res.data.data.list || []).filter((ds: any) => ds.is_enabled)
+    datasources.value = (res.data.data.list || []).filter((ds: DataSource) => ds.is_enabled)
   } catch { /* ignore */ }
 }
 
@@ -217,8 +218,8 @@ async function fetchDashboard() {
         variableConfig.value = config.value.variables || []
       } catch { /* ignore */ }
     }
-  } catch (err: any) {
-    message.error(err.message || t('common.loadFailed'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.loadFailed'))
     router.back()
   } finally {
     loading.value = false
@@ -244,8 +245,8 @@ async function handleSave() {
       await dashboardV2Api.update(dashboard.value.id, data)
       message.success(t('dashboardV2.saved'))
     }
-  } catch (err: any) {
-    message.error(err.message || t('common.saveFailed'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -281,7 +282,7 @@ onMounted(() => {
           :placeholder="t('dashboardV2.name')"
           size="small"
           class="dash-name-input"
-          @update:value="(v: string) => { if (dashboard) dashboard.name = v; else dashboard = { name: v } as any }"
+          @update:value="(v: string) => { if (dashboard) dashboard.name = v; else dashboard = { name: v } as DashboardV2 }"
         />
       </div>
       <div class="header-right">

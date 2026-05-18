@@ -43,9 +43,19 @@ import type {
   Channel,
   ChannelForm,
   Incident,
+  IncidentTimeline,
   AlertV2,
   AlertEventV2,
   RoutingRule,
+  AlertRuleTemplate,
+  ExclusionRule,
+  Integration,
+  DispatchPolicy,
+  PostMortem,
+  IncidentStats,
+  ChannelStatItem,
+  TeamStatItem,
+  IncidentTrendPoint,
 } from '@/types'
 
 // ===== Auth API =====
@@ -720,16 +730,16 @@ export const dashboardV2Api = {
 // --- Alert Rule Templates ---
 export const templateApi = {
   list: (params?: { page?: number; page_size?: number; category?: string; search?: string }) =>
-    request.get<ApiResponse<PageData<any>>>('/alert-rule-templates', { params }),
+    request.get<ApiResponse<PageData<AlertRuleTemplate>>>('/alert-rule-templates', { params }),
 
   get: (id: number) =>
-    request.get<ApiResponse<any>>(`/alert-rule-templates/${id}`),
+    request.get<ApiResponse<AlertRuleTemplate>>(`/alert-rule-templates/${id}`),
 
-  create: (data: any) =>
-    request.post<ApiResponse<any>>('/alert-rule-templates', data),
+  create: (data: Partial<AlertRuleTemplate>) =>
+    request.post<ApiResponse<AlertRuleTemplate>>('/alert-rule-templates', data),
 
-  update: (id: number, data: any) =>
-    request.put<ApiResponse<any>>(`/alert-rule-templates/${id}`, data),
+  update: (id: number, data: Partial<AlertRuleTemplate>) =>
+    request.put<ApiResponse<AlertRuleTemplate>>(`/alert-rule-templates/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/alert-rule-templates/${id}`),
@@ -737,8 +747,8 @@ export const templateApi = {
   listCategories: () =>
     request.get<ApiResponse<string[]>>('/alert-rule-templates/categories'),
 
-  apply: (id: number, overrides: any) =>
-    request.post<ApiResponse<any>>(`/alert-rule-templates/${id}/apply`, overrides),
+  apply: (id: number, overrides: Partial<AlertRule>) =>
+    request.post<ApiResponse<AlertRuleTemplate>>(`/alert-rule-templates/${id}/apply`, overrides),
 }
 
 // ===== v2: Collaboration Channels API =====
@@ -772,13 +782,13 @@ export const channelV2Api = {
     request.put<ApiResponse<Channel>>(`/channels/${id}`, data),
 
   listExclusionRules: (channelId: number) =>
-    request.get<ApiResponse<any[]>>(`/channels/${channelId}/exclusion-rules`),
+    request.get<ApiResponse<ExclusionRule[]>>(`/channels/${channelId}/exclusion-rules`),
 
   createExclusionRule: (channelId: number, data: { name: string; conditions: string; is_enabled: boolean; priority?: number; description?: string }) =>
-    request.post<ApiResponse<any>>(`/channels/${channelId}/exclusion-rules`, data),
+    request.post<ApiResponse<ExclusionRule>>(`/channels/${channelId}/exclusion-rules`, data),
 
   updateExclusionRule: (ruleId: number, data: { name?: string; conditions?: string; is_enabled?: boolean; priority?: number }) =>
-    request.put<ApiResponse<any>>(`/exclusion-rules/${ruleId}`, data),
+    request.put<ApiResponse<ExclusionRule>>(`/exclusion-rules/${ruleId}`, data),
 
   deleteExclusionRule: (ruleId: number) =>
     request.delete<ApiResponse<null>>(`/exclusion-rules/${ruleId}`),
@@ -787,10 +797,10 @@ export const channelV2Api = {
 // ===== v2: Integrations API =====
 export const integrationV2Api = {
   list: (params?: { channel_id?: number; page?: number; page_size?: number }) =>
-    request.get<ApiResponse<PageData<any>>>('/integrations', { params }),
+    request.get<ApiResponse<PageData<Integration>>>('/integrations', { params }),
 
   get: (id: number) =>
-    request.get<ApiResponse<any>>(`/integrations/${id}`),
+    request.get<ApiResponse<Integration>>(`/integrations/${id}`),
 
   create: (data: {
     name: string
@@ -801,10 +811,10 @@ export const integrationV2Api = {
     pipeline_config?: string
     label_enhancement_config?: string
     is_enabled?: boolean
-  }) => request.post<ApiResponse<any>>('/integrations', data),
+  }) => request.post<ApiResponse<Integration>>('/integrations', data),
 
-  update: (id: number, data: any) =>
-    request.put<ApiResponse<any>>(`/integrations/${id}`, data),
+  update: (id: number, data: Partial<Integration>) =>
+    request.put<ApiResponse<Integration>>(`/integrations/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/integrations/${id}`),
@@ -813,10 +823,10 @@ export const integrationV2Api = {
 // ===== v2: Dispatch Policies API =====
 export const dispatchApi = {
   list: (channelId: number) =>
-    request.get<ApiResponse<any[]>>(`/channels/${channelId}/dispatch-policies`),
+    request.get<ApiResponse<DispatchPolicy[]>>(`/channels/${channelId}/dispatch-policies`),
 
   get: (id: number) =>
-    request.get<ApiResponse<any>>(`/dispatch-policies/${id}`),
+    request.get<ApiResponse<DispatchPolicy>>(`/dispatch-policies/${id}`),
 
   create: (channelId: number, data: {
     name: string
@@ -832,10 +842,10 @@ export const dispatchApi = {
     notify_mode?: string
     unified_media_id?: number
     label_enhancement_rules?: string
-  }) => request.post<ApiResponse<any>>(`/channels/${channelId}/dispatch-policies`, data),
+  }) => request.post<ApiResponse<DispatchPolicy>>(`/channels/${channelId}/dispatch-policies`, data),
 
-  update: (id: number, data: any) =>
-    request.put<ApiResponse<any>>(`/dispatch-policies/${id}`, data),
+  update: (id: number, data: Partial<DispatchPolicy>) =>
+    request.put<ApiResponse<DispatchPolicy>>(`/dispatch-policies/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/dispatch-policies/${id}`),
@@ -884,44 +894,44 @@ export const incidentApi = {
     request.post<ApiResponse<null>>(`/incidents/${id}/comment`, { content }),
 
   getTimeline: (id: number) =>
-    request.get<ApiResponse<any[]>>(`/incidents/${id}/timeline`),
+    request.get<ApiResponse<IncidentTimeline[]>>(`/incidents/${id}/timeline`),
 
   // Post-mortem (复盘)
   getPostMortem: (incidentId: number) =>
-    request.get<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem`),
+    request.get<ApiResponse<PostMortem>>(`/incidents/${incidentId}/post-mortem`),
 
   updatePostMortem: (incidentId: number, data: { title?: string; content?: string; status?: string }) =>
-    request.put<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem`, data),
+    request.put<ApiResponse<PostMortem>>(`/incidents/${incidentId}/post-mortem`, data),
 
   publishPostMortem: (incidentId: number) =>
-    request.post<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem/publish`),
+    request.post<ApiResponse<PostMortem>>(`/incidents/${incidentId}/post-mortem/publish`),
 
   aiGeneratePostMortem: (incidentId: number) =>
-    request.post<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem/ai-generate`),
+    request.post<ApiResponse<PostMortem>>(`/incidents/${incidentId}/post-mortem/ai-generate`),
 
   aiSummaryPostMortem: (incidentId: number) =>
-    request.post<ApiResponse<any>>(`/incidents/${incidentId}/post-mortem/ai-summary`),
+    request.post<ApiResponse<PostMortem>>(`/incidents/${incidentId}/post-mortem/ai-summary`),
 }
 
 // ===== Post-Mortem List API =====
 export const postMortemApi = {
   list: (params?: { channel_id?: number; status?: string; page?: number; page_size?: number }) =>
-    request.get<ApiResponse<PageData<any>>>('/post-mortems', { params }),
+    request.get<ApiResponse<PageData<PostMortem>>>('/post-mortems', { params }),
 }
 
 // ===== v2 Dashboard Stats API =====
 export const dashboardV2StatsApi = {
   incidentStats: () =>
-    request.get<ApiResponse<any>>('/dashboard/incident-stats'),
+    request.get<ApiResponse<IncidentStats>>('/dashboard/incident-stats'),
 
   channelStats: (days = 30) =>
-    request.get<ApiResponse<any[]>>('/dashboard/channel-stats', { params: { days } }),
+    request.get<ApiResponse<ChannelStatItem[]>>('/dashboard/channel-stats', { params: { days } }),
 
   teamStats: (days = 30) =>
-    request.get<ApiResponse<any[]>>('/dashboard/team-stats', { params: { days } }),
+    request.get<ApiResponse<TeamStatItem[]>>('/dashboard/team-stats', { params: { days } }),
 
   incidentTrend: (days = 30) =>
-    request.get<ApiResponse<any[]>>('/dashboard/incident-trend', { params: { days } }),
+    request.get<ApiResponse<IncidentTrendPoint[]>>('/dashboard/incident-trend', { params: { days } }),
 }
 
 // ===== v2: Routing Rules API =====

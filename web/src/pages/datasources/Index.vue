@@ -3,7 +3,7 @@ import { reactive, shallowRef, ref, computed, onMounted } from 'vue'
 import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
-import type { DataSource, DataSourceType } from '@/types'
+import type { DataSource, DataSourceType, DataSourceStatus } from '@/types'
 import { kvArrayToRecord } from '@/utils/format'
 import {
   AddOutline,
@@ -86,8 +86,8 @@ async function fetchList() {
   try {
     const { data } = await datasourceApi.list({ page: 1, page_size: 100 })
     datasources.value = (data.data.list || []) as DSCard[]
-  } catch (err: any) {
-    message.error(err?.message || t('common.loadFailed'))
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -160,8 +160,8 @@ async function handleSave() {
     }
     showModal.value = false
     fetchList()
-  } catch (err: any) {
-    message.error(err?.message || t('common.loadFailed'))
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.loadFailed'))
   } finally {
     saving.value = false
   }
@@ -172,8 +172,8 @@ async function handleDelete(id: number) {
     await datasourceApi.delete(id)
     message.success(t('datasource.deleted'))
     fetchList()
-  } catch (err: any) {
-    message.error(err?.message || t('common.loadFailed'))
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.loadFailed'))
   }
 }
 
@@ -185,15 +185,15 @@ async function testHealth(ds: DSCard) {
     const r = data.data
     ds._latencyMs = r.latency_ms >= 0 ? r.latency_ms : undefined
     ds._lastCheckAt = new Date().toISOString()
-    ds.status = r.status as any
+    ds.status = r.status as DataSourceStatus
     if (r.version) ds.version = r.version
     if (r.status === 'healthy') {
       message.success(`${ds.name} · ${r.latency_ms}ms${r.version ? ' · ' + r.version : ''}`, { duration: 3500 })
     } else {
       message.error(`${ds.name} · ${r.message}`, { duration: 5000 })
     }
-  } catch (err: any) {
-    message.error(err?.message || t('common.loadFailed'))
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.loadFailed'))
   } finally {
     ds._testing = false
     datasources.value = [...datasources.value]
@@ -287,7 +287,7 @@ onMounted(fetchList)
           v-for="(ds, idx) in filteredList"
           :key="ds.id"
           class="ds-card sre-lift"
-          :style="{ '--sre-stagger-i': idx } as any"
+          :style="{ '--sre-stagger-i': idx } as Record<string, string | number>"
           @click="openEdit(ds)"
         >
           <div class="ds-stripe" :data-type="ds.type"></div>

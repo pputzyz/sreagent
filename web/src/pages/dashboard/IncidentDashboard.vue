@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2StatsApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   BugOutline, CheckmarkCircleOutline, AlertCircleOutline, TimerOutline,
@@ -70,8 +71,8 @@ async function load() {
     teamStats.value = tsRes.data.data ?? []
     incidentTrend.value = itRes.data.data ?? []
     firstLoaded.value = true
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     loading.value = false
   }

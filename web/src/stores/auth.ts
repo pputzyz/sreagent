@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -36,9 +37,10 @@ export const useAuthStore = defineStore('auth', () => {
       if (data.data?.role) {
         localStorage.setItem('user_role', data.data.role)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Only logout on 401 (invalid/expired token), not on network/5xx errors
-      if (err?.response?.status === 401 || err?.message?.includes('401')) {
+      const msg = getErrorMessage(err)
+      if (msg.includes('401')) {
         logout()
       }
       // For network errors, keep the session — the user may reconnect

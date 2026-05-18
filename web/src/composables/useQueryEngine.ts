@@ -1,6 +1,7 @@
 import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { TimeRange, QueryTarget, QuerySeriesItem } from '@/types/query'
 
 function autoStep(timeRange: TimeRange): string {
@@ -101,9 +102,9 @@ export function useQueryEngine(timeRange: Ref<TimeRange>) {
       }
 
       target.state = 'idle'
-    } catch (err: any) {
+    } catch (err: unknown) {
       target.state = 'error'
-      target.error = err?.response?.data?.message || err?.message || t('tooltip.queryFailed')
+      target.error = getErrorMessage(err) || t('tooltip.queryFailed')
     }
   }
 

@@ -16,6 +16,8 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -37,36 +39,24 @@ func NewNotificationService(
 	channelRepo *repository.NotifyChannelRepository,
 	policyRepo *repository.NotifyPolicyRepository,
 	recordRepo *repository.NotifyRecordRepository,
+	eventRepo *repository.AlertEventRepository,
 	larkSvc *LarkService,
 	pipeline *AlertPipeline,
+	subscribeSvc *SubscribeRuleService,
+	notifyRuleSvc *NotifyRuleService,
 	logger *zap.Logger,
 ) *NotificationService {
 	return &NotificationService{
-		channelRepo: channelRepo,
-		policyRepo:  policyRepo,
-		recordRepo:  recordRepo,
-		larkSvc:     larkSvc,
-		pipeline:    pipeline,
-		logger:      logger,
+		channelRepo:   channelRepo,
+		policyRepo:    policyRepo,
+		recordRepo:    recordRepo,
+		eventRepo:     eventRepo,
+		larkSvc:       larkSvc,
+		pipeline:      pipeline,
+		subscribeSvc:  subscribeSvc,
+		notifyRuleSvc: notifyRuleSvc,
+		logger:        logger,
 	}
-}
-
-// SetSubscribeRuleService sets the subscribe rule service for v2 notification pipeline.
-// This uses setter injection to avoid circular dependency issues.
-func (s *NotificationService) SetSubscribeRuleService(svc *SubscribeRuleService) {
-	s.subscribeSvc = svc
-}
-
-// SetNotifyRuleService sets the notify rule service for v2 notification pipeline.
-// This uses setter injection to avoid circular dependency issues.
-func (s *NotificationService) SetNotifyRuleService(svc *NotifyRuleService) {
-	s.notifyRuleSvc = svc
-}
-
-// SetAlertEventRepository injects the event repo so the notification service can
-// persist lark_message_id after a successful Bot API send.
-func (s *NotificationService) SetAlertEventRepository(repo *repository.AlertEventRepository) {
-	s.eventRepo = repo
 }
 
 // RouteAlert is the main routing function. It finds matching policies by alert
@@ -192,20 +182,25 @@ func (s *NotificationService) processSubscriptions(ctx context.Context, event *m
 
 // SendNotification sends a notification to a specific channel based on its type.
 func (s *NotificationService) SendNotification(ctx context.Context, event *model.AlertEvent, channel *model.NotifyChannel, policy *model.NotifyPolicy, analysis *AlertAnalysis) error {
+	var err error
+	channelType := string(channel.Type)
+
 	switch channel.Type {
 	case model.ChannelTypeLarkWebhook, model.ChannelTypeLarkBot:
 		var larkCfg struct {
 			WebhookURL string `json:"webhook_url"`
 			ChatID     string `json:"chat_id"`
 		}
-		if err := json.Unmarshal([]byte(channel.Config), &larkCfg); err != nil {
-			return fmt.Errorf("invalid channel config: %w", err)
+		if err = json.Unmarshal([]byte(channel.Config), &larkCfg); err != nil {
+			err = fmt.Errorf("invalid channel config: %w", err)
+			break
 		}
 		if larkCfg.ChatID != "" {
 			// Bot API path: returns message_id which enables in-place card updates
-			msgID, err := s.larkSvc.SendEnrichedAlertNotificationViaBot(ctx, event, analysis, larkCfg.ChatID)
-			if err != nil {
-				return err
+			msgID, botErr := s.larkSvc.SendEnrichedAlertNotificationViaBot(ctx, event, analysis, larkCfg.ChatID)
+			if botErr != nil {
+				err = botErr
+				break
 			}
 			if msgID != "" && event.LarkMessageID == "" {
 				event.LarkMessageID = msgID
@@ -218,27 +213,36 @@ func (s *NotificationService) SendNotification(ctx context.Context, event *model
 					}
 				}
 			}
-			return nil
+			break
 		}
 		if larkCfg.WebhookURL == "" {
-			return fmt.Errorf("lark channel config must specify webhook_url or chat_id")
+			err = fmt.Errorf("lark channel config must specify webhook_url or chat_id")
+			break
 		}
 		// Incoming Webhook path (no message_id, cards cannot be updated later)
-		return s.larkSvc.SendEnrichedAlertNotification(ctx, event, analysis, larkCfg.WebhookURL)
+		err = s.larkSvc.SendEnrichedAlertNotification(ctx, event, analysis, larkCfg.WebhookURL)
 
 	case model.ChannelTypeEmail:
-		return s.sendEmailNotification(ctx, event, channel, analysis)
+		err = s.sendEmailNotification(ctx, event, channel, analysis)
 
 	case model.ChannelTypeCustom:
-		return s.sendWebhookNotification(ctx, event, channel, analysis)
+		err = s.sendWebhookNotification(ctx, event, channel, analysis)
 
 	default:
 		s.logger.Warn("unsupported channel type",
 			zap.String("type", string(channel.Type)),
 			zap.Uint("channel_id", channel.ID),
 		)
-		return fmt.Errorf("unsupported channel type: %s", channel.Type)
+		err = fmt.Errorf("unsupported channel type: %s", channel.Type)
 	}
+
+	// Record business metrics
+	if err != nil {
+		metrics.IncNotificationsSent(channelType, "failure")
+	} else {
+		metrics.IncNotificationsSent(channelType, "success")
+	}
+	return err
 }
 
 // isThrottled checks if a notification should be throttled based on the policy's throttle settings.
@@ -698,7 +702,7 @@ func (s *NotificationService) sendWebhookNotification(_ context.Context, event *
 		return fmt.Errorf("failed to marshal webhook payload: %w", err)
 	}
 
-	httpCli := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	httpCli := safehttp.NewSafeClient(time.Duration(timeoutSec) * time.Second)
 	req, err := http.NewRequest(cfg.Method, cfg.URL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("failed to create webhook request: %w", err)
@@ -749,7 +753,7 @@ func (s *NotificationService) testWebhookChannel(_ context.Context, channel *mod
 		return fmt.Errorf("marshal test payload: %w", err)
 	}
 
-	httpCli := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	httpCli := safehttp.NewSafeClient(time.Duration(timeoutSec) * time.Second)
 	req, err := http.NewRequest(cfg.Method, cfg.URL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return apperr.WithMessage(apperr.ErrBadRequest, "failed to create request: "+err.Error())

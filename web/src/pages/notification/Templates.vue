@@ -4,6 +4,7 @@ import { useMessage, useDialog, NIcon, NButton, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { messageTemplateApi } from '@/api'
 import type { MessageTemplate } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import {
   AddOutline, SearchOutline, EllipsisHorizontalOutline,
   CreateOutline, EyeOutline, TrashOutline, DocumentTextOutline,
@@ -77,8 +78,8 @@ async function fetchData() {
   try {
     const { data } = await messageTemplateApi.list({ page: 1, page_size: 100 })
     templates.value = data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -127,8 +128,8 @@ async function handleSave() {
     }
     showModal.value = false
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -139,8 +140,8 @@ async function handleDelete(id: number) {
     await messageTemplateApi.delete(id)
     message.success(t('template.deleted'))
     fetchData()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 
@@ -151,9 +152,9 @@ async function handlePreview(row: MessageTemplate) {
   try {
     const { data } = await messageTemplateApi.preview({ content: row.content, type: row.type })
     previewResult.value = data.data.rendered
-  } catch (err: any) {
+  } catch (err: unknown) {
     previewResult.value = ''
-    message.error(t('template.previewFailed') + ': ' + err.message)
+    message.error(t('template.previewFailed') + ': ' + getErrorMessage(err))
   } finally {
     previewLoading.value = false
   }
@@ -166,9 +167,9 @@ async function handlePreviewFromForm() {
   try {
     const { data } = await messageTemplateApi.preview({ content: form.content, type: form.type })
     previewResult.value = data.data.rendered
-  } catch (err: any) {
+  } catch (err: unknown) {
     previewResult.value = ''
-    message.error(t('template.previewFailed') + ': ' + err.message)
+    message.error(t('template.previewFailed') + ': ' + getErrorMessage(err))
   } finally {
     previewLoading.value = false
   }
@@ -184,7 +185,7 @@ function rowActions(row: MessageTemplate) {
       key: 'delete',
       label: t('common.delete'),
       icon: () => h(NIcon, { component: TrashOutline }),
-    } as any)
+    } as { key: string; label: string; icon: () => unknown })
   }
   return actions
 }

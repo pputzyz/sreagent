@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NSpace, NTag, NPopconfirm, NSwitch } from 'naive-ui'
 import { channelV2Api, routingRuleApi } from '@/api'
 import type { RoutingRule, Channel } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { AddOutline, TrashOutline, CreateOutline, ArrowUpOutline, ArrowDownOutline, GitNetworkOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 
@@ -43,8 +44,8 @@ async function load() {
     ])
     rules.value = (rRes.data.data ?? []).sort((a: RoutingRule, b: RoutingRule) => a.priority - b.priority)
     channels.value = cRes.data.data?.list ?? []
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -92,8 +93,8 @@ async function save() {
     message.success(t('common.savedSuccess'))
     showModal.value = false
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -104,8 +105,8 @@ async function deleteRule(id: number) {
     await routingRuleApi.delete(id)
     message.success(t('common.deleteSuccess'))
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.deleteFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.deleteFailed'))
   }
 }
 
@@ -113,8 +114,8 @@ async function toggleEnabled(rule: RoutingRule) {
   try {
     await routingRuleApi.update(rule.id, { is_enabled: !rule.is_enabled })
     rule.is_enabled = !rule.is_enabled
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
 
@@ -134,7 +135,7 @@ async function movePriority(index: number, direction: 'up' | 'down') {
       routingRuleApi.update(a.id, { priority: a.priority }),
       routingRuleApi.update(b.id, { priority: b.priority }),
     ])
-  } catch (e: any) {
+  } catch (e: unknown) {
     message.error(t('routingRule.adjustPriorityFailed'))
     await load()
   }

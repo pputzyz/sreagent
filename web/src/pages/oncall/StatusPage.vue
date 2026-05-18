@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NSpin, NModal, NForm, NFormItem, NSelect, NInputNumber, NPopconfirm } from 'naive-ui'
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server, Settings, Plus, Pencil, Trash2 } from 'lucide-vue-next'
@@ -28,7 +28,7 @@ const form = reactive({
   sort_order: 0,
 })
 
-const iconMap: Record<string, any> = { Server, Globe, Layers, Activity, Zap, Shield, AlertCircle, Clock }
+const iconMap: Record<string, Component> = { Server, Globe, Layers, Activity, Zap, Shield, AlertCircle, Clock }
 
 const iconOptions = ['Server', 'Globe', 'Layers', 'Activity', 'Zap', 'Shield', 'AlertCircle', 'Clock'].map(name => ({
   label: name,

@@ -8,6 +8,7 @@ import { ref, computed, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { muteRuleApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const props = defineProps<{
   show: boolean
@@ -99,8 +100,8 @@ async function create() {
     message.success(t('channel.silenceCreated', { n: effectiveMinutes.value }))
     emit('update:show', false)
     emit('created')
-  } catch (e: any) {
-    message.error(e?.message ?? t('channel.silenceCreateFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('channel.silenceCreateFailed'))
   } finally {
     saving.value = false
   }

@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -23,15 +21,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/sreagent/sreagent/internal/config"
-	"github.com/sreagent/sreagent/internal/engine"
-	"github.com/sreagent/sreagent/internal/handler"
 	"github.com/sreagent/sreagent/internal/model"
-	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/pkg/dbmigrate"
-	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/router"
-	"github.com/sreagent/sreagent/internal/service"
 )
 
 func main() {
@@ -61,10 +53,6 @@ func main() {
 	}
 
 	// Run database migrations (golang-migrate, version-tracked).
-	// golang-migrate's MySQL driver executes the entire .sql file in a single
-	// db.ExecContext call, so the connection must have multiStatements=true.
-	// We open a dedicated connection for this purpose and close it immediately
-	// after migrations complete; the main app connection (db) is unaffected.
 	migrateDB, err := sql.Open("mysql", cfg.Database.MigrateDSN())
 	if err != nil {
 		zapLogger.Fatal("failed to open migration db connection", zap.Error(err))
@@ -83,440 +71,17 @@ func main() {
 	// Seed default admin user
 	seedAdminUser(db, zapLogger)
 
-	// Initialize repositories
-	dsRepo := repository.NewDataSourceRepository(db)
-	ruleRepo := repository.NewAlertRuleRepository(db)
-	eventRepo := repository.NewAlertEventRepository(db)
-	timelineRepo := repository.NewAlertTimelineRepository(db)
-	userRepo := repository.NewUserRepository(db)
-	channelRepo := repository.NewNotifyChannelRepository(db)
-	policyRepo := repository.NewNotifyPolicyRepository(db)
-	recordRepo := repository.NewNotifyRecordRepository(db)
-	scheduleRepo := repository.NewScheduleRepository(db)
-	participantRepo := repository.NewScheduleParticipantRepository(db)
-	overrideRepo := repository.NewScheduleOverrideRepository(db)
-	onCallShiftRepo := repository.NewOnCallShiftRepository(db)
-	escalationPolicyRepo := repository.NewEscalationPolicyRepository(db)
-	escalationStepRepo := repository.NewEscalationStepRepository(db)
-	teamRepo := service.NewTeamRepository(db)
-	muteRuleRepo := repository.NewMuteRuleRepository(db)
-	inhibitionRuleRepo := repository.NewInhibitionRuleRepository(db)
-	alertRuleHistoryRepo := repository.NewAlertRuleHistoryRepository(db)
-
-	// Phase 2 repositories
-	notifyRuleRepo := repository.NewNotifyRuleRepository(db)
-	notifyMediaRepo := repository.NewNotifyMediaRepository(db)
-	messageTemplateRepo := repository.NewMessageTemplateRepository(db)
-	subscribeRuleRepo := repository.NewSubscribeRuleRepository(db)
-	bizGroupRepo := repository.NewBizGroupRepository(db)
-
-	// Label registry repository
-	labelRegistryRepo := repository.NewLabelRegistryRepository(db)
-
-	// Audit log repository
-	auditLogRepo := repository.NewAuditLogRepository(db)
-
-	// Dashboard v2 repository
-	dashboardV2Repo := repository.NewDashboardRepository(db)
-	templateRepo := repository.NewAlertRuleTemplateRepository(db)
-
-	// v2 collaboration channel, incident, alert, noise-reduction, dispatch, integration & postmortem repositories
-	channelV2Repo := repository.NewChannelV2Repository(db)
-	incidentRepo := repository.NewIncidentRepository(db)
-	alertV2Repo := repository.NewAlertRepository(db)
-	exclusionRuleRepo := repository.NewExclusionRuleRepository(db)
-	dispatchPolicyRepo := repository.NewDispatchPolicyRepository(db)
-	dispatchLogRepo := repository.NewDispatchLogRepository(db)
-	integrationRepo := repository.NewIntegrationRepository(db)
-	routingRuleRepo := repository.NewRoutingRuleRepository(db)
-	postMortemRepo := repository.NewPostMortemRepository(db)
-
-	// Dispatch repositories
-	alertChannelRepo := repository.NewAlertChannelRepository(db)
-	userNotifyConfigRepo := repository.NewUserNotifyConfigRepository(db)
-	systemSettingRepo := repository.NewSystemSettingRepository(db)
-
-	// Pet repository
-	petRepo := repository.NewPetRepository(db)
-
-	// Status service repository
-	statusServiceRepo := repository.NewStatusServiceRepository(db)
-
-	// Chat history repository
-	chatHistoryRepo := repository.NewChatHistoryRepository(db)
-
-	// Initialize services
-	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
-	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
-	ruleSvc := service.NewAlertRuleService(ruleRepo, alertRuleHistoryRepo, dsRepo, zapLogger)
-	eventSvc := service.NewAlertEventService(eventRepo, timelineRepo, zapLogger)
-	authSvc := service.NewAuthService(userRepo, &cfg.JWT, settingSvc, zapLogger)
-	larkSvc := service.NewLarkService(zapLogger, cfg.Server.ExternalURL(), cfg.JWT.Secret)
-	larkSvc.SetSystemSettingService(settingSvc)
-	aiSvc := service.NewAIService(settingSvc, zapLogger)
-	queryClient := datasource.NewQueryClient()
-	contextBuilder := service.NewAlertContextBuilder(ruleRepo, dsRepo, queryClient, zapLogger)
-	alertPipeline := service.NewAlertPipeline(contextBuilder, aiSvc, zapLogger)
-	notifySvc := service.NewNotificationService(channelRepo, policyRepo, recordRepo, larkSvc, alertPipeline, zapLogger)
-	userSvc := service.NewUserService(userRepo, zapLogger)
-	teamSvc := service.NewTeamService(teamRepo, zapLogger)
-	scheduleSvc := service.NewScheduleService(scheduleRepo, participantRepo, overrideRepo, onCallShiftRepo, escalationPolicyRepo, escalationStepRepo, zapLogger)
-	muteRuleSvc := service.NewMuteRuleService(muteRuleRepo, zapLogger)
-	inhibitionRuleSvc := service.NewInhibitionRuleService(inhibitionRuleRepo, zapLogger)
-
-	// Phase 2 services
-	notifyMediaSvc := service.NewNotifyMediaService(notifyMediaRepo, zapLogger)
-	messageTemplateSvc := service.NewMessageTemplateService(messageTemplateRepo, zapLogger)
-	notifyRuleSvc := service.NewNotifyRuleService(
-		notifyRuleRepo, notifyMediaRepo, messageTemplateRepo, recordRepo,
-		notifyMediaSvc, messageTemplateSvc, alertPipeline, zapLogger,
-	)
-	subscribeRuleSvc := service.NewSubscribeRuleService(subscribeRuleRepo, zapLogger)
-	bizGroupSvc := service.NewBizGroupService(bizGroupRepo, zapLogger)
-
-	// Label registry service
-	labelRegistrySvc := service.NewLabelRegistryService(labelRegistryRepo, dsRepo, zapLogger)
-
-	// Audit log service
-	auditLogSvc := service.NewAuditLogService(auditLogRepo, zapLogger)
-
-	// Dashboard v2 service
-	dashboardV2Svc := service.NewDashboardService(dashboardV2Repo, zapLogger)
-
-	// Alert rule template service
-	templateSvc := service.NewAlertRuleTemplateService(templateRepo, zapLogger)
-
-	// v2 collaboration channel, incident, alert, noise-reduction & dispatch services
-	channelV2Svc := service.NewChannelService(channelV2Repo, zapLogger)
-	incidentSvc := service.NewIncidentService(incidentRepo, channelV2Svc, zapLogger)
-	alertV2Svc := service.NewAlertV2Service(alertV2Repo, zapLogger)
-	exclusionRuleSvc := service.NewExclusionRuleService(exclusionRuleRepo, zapLogger)
-	noiseReducer := service.NewNoiseReducer(channelV2Repo, exclusionRuleRepo, zapLogger)
-	dispatchSvc := service.NewDispatchService(dispatchPolicyRepo, dispatchLogRepo, zapLogger)
-	postMortemSvc := service.NewPostMortemService(postMortemRepo, incidentRepo, zapLogger)
-	// integrationSvc is created after alertV2Pipeline is initialized (needs pipeline ref)
-	_ = routingRuleRepo // used below after pipeline init
-
-	// Dispatch services
-	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, zapLogger)
-	userNotifyConfigSvc := service.NewUserNotifyConfigService(userNotifyConfigRepo, zapLogger)
-
-	// Pet service
-	petSvc := service.NewPetService(petRepo, zapLogger)
-
-	// Status service
-	statusServiceSvc := service.NewStatusServiceService(statusServiceRepo, zapLogger)
-
-	// Chat history service
-	chatHistorySvc := service.NewChatHistoryService(chatHistoryRepo)
-
-	// Seed default notification media and templates
-	seedSvc := service.NewSeedService(notifyMediaRepo, messageTemplateRepo, zapLogger)
-	if err := seedSvc.SeedDefaults(context.Background()); err != nil {
-		zapLogger.Error("failed to seed default notification data", zap.Error(err))
+	// Initialize all dependencies (repos, services, handlers, engine)
+	deps, err := initDependencies(cfg, db, zapLogger)
+	if err != nil {
+		zapLogger.Fatal("failed to initialize dependencies", zap.Error(err))
 	}
 
-	larkBotSvc := service.NewLarkBotService(settingSvc, eventSvc, scheduleSvc, zapLogger)
-	larkBotSvc.SetUserRepository(userRepo)
-
-	// Initialize OIDC service (optional).
-	// Priority: DB settings (set via UI) override configmap/env values.
-	// This allows admins to reconfigure OIDC without redeploying.
-	// NOTE: changes to DB settings require a pod restart to take effect
-	// (the OIDC provider client is initialized once at startup).
-	var oidcSvc *service.OIDCService
-	{
-		oidcCfg := &cfg.OIDC // start with configmap/env values as baseline
-
-		// Attempt to load from DB; merge if DB has a record.
-		dbOIDC, err := settingSvc.GetOIDCConfig(context.Background())
-		if err != nil {
-			zapLogger.Warn("could not load OIDC config from DB, using configmap values", zap.Error(err))
-		} else if dbOIDC.IssuerURL != "" || dbOIDC.Enabled {
-			// DB has been configured — use DB values, falling back to configmap for any empty field.
-			merged := config.OIDCConfig{
-				Enabled:       dbOIDC.Enabled,
-				IssuerURL:     firstNonEmpty(dbOIDC.IssuerURL, cfg.OIDC.IssuerURL),
-				ClientID:      firstNonEmpty(dbOIDC.ClientID, cfg.OIDC.ClientID),
-				ClientSecret:  firstNonEmpty(dbOIDC.ClientSecret, cfg.OIDC.ClientSecret),
-				RedirectURL:   firstNonEmpty(dbOIDC.RedirectURL, cfg.OIDC.RedirectURL),
-				RoleClaim:     firstNonEmpty(dbOIDC.RoleClaim, cfg.OIDC.RoleClaim),
-				DefaultRole:   firstNonEmpty(dbOIDC.DefaultRole, cfg.OIDC.DefaultRole),
-				AutoProvision: dbOIDC.AutoProvision,
-			}
-			// Parse scopes from DB (comma-separated string).
-			if dbOIDC.Scopes != "" {
-				merged.Scopes = splitScopes(dbOIDC.Scopes)
-			} else {
-				merged.Scopes = cfg.OIDC.Scopes
-			}
-			// Parse role_mapping from DB (JSON string → map).
-			if dbOIDC.RoleMapping != "" {
-				if rm, parseErr := parseRoleMapping(dbOIDC.RoleMapping); parseErr != nil {
-					zapLogger.Warn("invalid OIDC role_mapping in DB, ignoring", zap.Error(parseErr))
-					merged.RoleMapping = cfg.OIDC.RoleMapping
-				} else {
-					merged.RoleMapping = rm
-				}
-			} else {
-				merged.RoleMapping = cfg.OIDC.RoleMapping
-			}
-			oidcCfg = &merged
-			zapLogger.Info("OIDC config loaded from DB (DB values take precedence over configmap)")
-		}
-
-		if oidcCfg.Enabled {
-			svc, err := service.NewOIDCService(context.Background(), oidcCfg, &cfg.JWT, userRepo, zapLogger)
-			if err != nil {
-				zapLogger.Error("failed to initialize OIDC service, SSO login will be unavailable", zap.Error(err))
-			} else {
-				oidcSvc = svc
-				zapLogger.Info("OIDC service initialized",
-					zap.String("issuer", oidcCfg.IssuerURL),
-					zap.String("client_id", oidcCfg.ClientID),
-				)
-			}
-		}
-	}
-
-	// Wire notification routing into alert event processing
-	eventSvc.SetNotificationService(notifySvc)
-
-	// Wire v2 subscription pipeline into notification service
-	notifySvc.SetSubscribeRuleService(subscribeRuleSvc)
-	notifySvc.SetNotifyRuleService(notifyRuleSvc)
-
-	// Enable Bot API message_id persistence in the notification service
-	notifySvc.SetAlertEventRepository(eventRepo)
-
-	// Wire on-call resolver into alert event processing
-	eventSvc.SetOnCallResolver(scheduleSvc)
-
-	// Wire lark service for in-place card updates on status change
-	eventSvc.SetLarkService(larkSvc)
-
-	// Initialize bounded worker pool for onAlert callbacks.
-	// Prevents goroutine exhaustion during alert storms (e.g. 500+ firing at once).
-	alertWorkerPool := engine.NewAlertWorkerPool(64)
-	eventSvc.SetWorkerPool(alertWorkerPool)
-
-	// Initialize Redis client (optional — graceful degradation if unavailable)
-	var redisClient *sredis.Client
-	var stateStore engine.StateStore
-	if cfg.Redis.Host != "" {
-		rc, err := sredis.New(&cfg.Redis)
-		if err != nil {
-			zapLogger.Warn("redis unavailable, engine will use in-memory state only",
-				zap.String("addr", cfg.Redis.Addr()),
-				zap.Error(err),
-			)
-		} else {
-			redisClient = rc
-			stateStore = sredis.NewRedisStateStore(rc, zapLogger)
-			zapLogger.Info("redis connected, engine state persistence enabled",
-				zap.String("addr", cfg.Redis.Addr()),
-			)
-		}
-	} else {
-		zapLogger.Info("redis not configured, engine will use in-memory state only")
-	}
-
-	// Initialize and start the escalation executor
-	escalationExecutor := engine.NewEscalationExecutor(
-		escalationPolicyRepo,
-		escalationStepRepo,
-		eventRepo,
-		timelineRepo,
-		channelRepo,
-		userRepo,
-		notifySvc,
-		userNotifyConfigRepo,
-		teamRepo,
-		onCallShiftRepo,
-		zapLogger,
-	)
-	escalationExecutor.SetLarkService(larkSvc)
-	escalationExecutor.SetSettingService(settingSvc)
-	escalationExecutor.SetAlertRuleRepository(ruleRepo)
-	escalationExecutor.Start()
-
-	// Initialize and start the heartbeat checker
-	heartbeatChecker := engine.NewHeartbeatChecker(ruleRepo, eventRepo, timelineRepo, zapLogger)
-
-	// Initialize alert group manager (group_wait / group_interval)
-	alertGroupMgr := service.NewAlertGroupManager(
-		func(ctx context.Context, event *model.AlertEvent) error {
-			return notifySvc.RouteAlert(ctx, event)
-		},
-		ruleRepo,
-		zapLogger,
-	)
-
-	// Shared onAlert callback used by both the evaluator and heartbeat checker.
-	// Pipeline: inhibition → mute → bizgroup → group → notify.
-	onAlertFn := func(ctx context.Context, event *model.AlertEvent) {
-		// 1. Check inhibition rules (suppress target alerts when source is firing).
-		firingEvents, _, _ := eventSvc.List(ctx, "firing", "", 1, 2000)
-		if inhibitionRuleSvc.IsInhibited(ctx, event, firingEvents) {
-			zapLogger.Info("alert inhibited by inhibition rule, skipping notification",
-				zap.Uint("event_id", event.ID),
-				zap.String("alert_name", event.AlertName),
-			)
-			return
-		}
-
-		// 2. Check mute rules.
-		if muteRuleSvc.IsAlertMuted(ctx, event) {
-			zapLogger.Info("alert muted, skipping notification",
-				zap.Uint("event_id", event.ID),
-				zap.String("alert_name", event.AlertName),
-			)
-			return
-		}
-
-		// 3. Annotate event with matching BizGroup scope.
-		if groups, err := bizGroupSvc.FindMatchingGroups(ctx, map[string]string(event.Labels)); err == nil && len(groups) > 0 {
-			g := groups[0] // most specific match
-			if event.Labels == nil {
-				event.Labels = make(model.JSONLabels)
-			}
-			event.Labels["biz_group"] = g.Name
-			if g.ID != 0 {
-				event.Labels["biz_group_id"] = fmt.Sprintf("%d", g.ID)
-			}
-			// Merge group's own Labels into event (lower priority than existing)
-			for k, v := range g.Labels {
-				if _, exists := event.Labels[k]; !exists {
-					event.Labels[k] = v
-				}
-			}
-			// Persist the updated labels back to DB
-			_ = eventRepo.UpdateLabels(ctx, event.ID, event.Labels)
-		}
-
-		// 4. Route notification (through group manager for group_wait/group_interval).
-		if err := alertGroupMgr.ProcessEvent(ctx, event); err != nil {
-			zapLogger.Error("failed to route alert notification",
-				zap.Uint("event_id", event.ID),
-				zap.Error(err),
-			)
-		}
-	}
-
-	// App-level context for long-running background workers (cancelled on shutdown).
-	appCtx, appCancel := context.WithCancel(context.Background())
-	defer appCancel()
-
-	// Initialize v2 alert pipeline (Alert → Incident lifecycle).
-	// Wraps the existing onAlertFn so the v2 path runs alongside the legacy path.
-	alertV2Pipeline := service.NewAlertV2Pipeline(alertV2Repo, incidentRepo, channelV2Repo, zapLogger)
-	alertV2Pipeline.InitDefaultChannel(context.Background())
-	alertV2Pipeline.SetNoiseReducer(noiseReducer)   // attach noise reduction
-	alertV2Pipeline.SetDispatchService(dispatchSvc) // attach label enhancement
-	onAlertFn = alertV2Pipeline.WrapOnAlert(onAlertFn)
-
-	// Integration service needs the pipeline (must be after pipeline setup)
-	integrationSvc := service.NewIntegrationService(integrationRepo, routingRuleRepo, alertV2Pipeline, zapLogger)
-
-	// Start the incident auto-close background worker.
-	incidentSvc.StartAutoCloseWorker(appCtx)
-
-	// Wire the heartbeat checker into the notification pipeline.
-	heartbeatChecker.SetOnAlert(onAlertFn)
-	heartbeatChecker.Start()
-
-	// Initialize alert evaluator
-	var evaluator *engine.Evaluator
-	var engineHandler *handler.EngineHandler
-
-	if cfg.Engine.Enabled {
-		evaluator = engine.NewEvaluator(
-			db, dsRepo, ruleRepo, eventRepo, timelineRepo, queryClient, zapLogger,
-		)
-
-		// Attach optional Redis state persistence
-		if stateStore != nil {
-			evaluator.SetStateStore(stateStore)
-		}
-
-		// Wire bounded worker pool for onAlert callbacks
-		evaluator.SetWorkerPool(alertWorkerPool)
-
-		// Configure sync interval
-		if cfg.Engine.SyncInterval > 0 {
-			evaluator.SetSyncInterval(time.Duration(cfg.Engine.SyncInterval) * time.Second)
-		}
-
-		evaluator.SetOnAlert(onAlertFn)
-
-		// Start the evaluator
-		evaluator.Start()
-
-		engineHandler = handler.NewEngineHandler(evaluator)
-	}
-
-	// Initialize alert action handler (no-auth, token-based)
-	alertActionHandler := handler.NewAlertActionHandler(eventSvc, userRepo, cfg.JWT.Secret, zapLogger)
-
-	// Initialize handlers
-	var oidcHandler *handler.OIDCHandler
-	if oidcSvc != nil {
-		oidcHandler = handler.NewOIDCHandler(oidcSvc)
-	}
-
-	handlers := &router.Handlers{
-		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(authSvc); h.SetUserService(userSvc); return h }(),
-		OIDC:             oidcHandler,
-		OIDCSettings:     handler.NewOIDCSettingsHandler(settingSvc),
-		DataSource:       handler.NewDataSourceHandler(dsSvc),
-		AlertRule:        handler.NewAlertRuleHandler(ruleSvc),
-		AlertEvent:       handler.NewAlertEventHandler(eventSvc),
-		Notification:     handler.NewNotificationHandler(notifySvc),
-		User:             handler.NewUserHandler(userSvc),
-		Team:             handler.NewTeamHandler(teamSvc),
-		Schedule:         handler.NewScheduleHandler(scheduleSvc),
-		Dashboard:        handler.NewDashboardHandler(db, zapLogger),
-		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc, petSvc),
-		LarkBot:          handler.NewLarkBotHandler(larkBotSvc),
-		Engine:           engineHandler,
-		AlertAction:      alertActionHandler,
-		MuteRule:         handler.NewMuteRuleHandler(muteRuleSvc),
-		NotifyRule:       handler.NewNotifyRuleHandler(notifyRuleSvc),
-		NotifyMedia:      handler.NewNotifyMediaHandler(notifyMediaSvc),
-		MessageTemplate:  handler.NewMessageTemplateHandler(messageTemplateSvc),
-		SubscribeRule:    handler.NewSubscribeRuleHandler(subscribeRuleSvc),
-		BizGroup:         handler.NewBizGroupHandler(bizGroupSvc),
-		AlertChannel:     handler.NewAlertChannelHandler(alertChannelSvc),
-		UserNotifyConfig: handler.NewUserNotifyConfigHandler(userNotifyConfigSvc),
-		AuditLog:         handler.NewAuditLogHandler(auditLogSvc),
-		SMTPSettings:     handler.NewSMTPSettingsHandler(settingSvc),
-		SecuritySettings: handler.NewSecuritySettingsHandler(settingSvc, &cfg.JWT),
-		InhibitionRule:   handler.NewInhibitionRuleHandler(inhibitionRuleSvc),
-		Heartbeat:        handler.NewHeartbeatHandler(ruleSvc),
-		LabelRegistry:    handler.NewLabelRegistryHandler(labelRegistrySvc),
-		DashboardV2:      handler.NewDashboardV2Handler(dashboardV2Svc),
-		AlertRuleTemplate:   handler.NewAlertRuleTemplateHandler(templateSvc),
-		ChannelV2:           handler.NewChannelHandler(channelV2Svc),
-		IncidentV2:          handler.NewIncidentHandler(incidentSvc),
-		AlertV2:             handler.NewAlertV2Handler(alertV2Svc),
-		ExclusionRule:       handler.NewExclusionRuleHandler(exclusionRuleSvc),
-		DispatchPolicy:      handler.NewDispatchHandler(dispatchSvc),
-		Integration:         handler.NewIntegrationHandler(integrationSvc),
-		RoutingRule:         handler.NewRoutingRuleHandler(routingRuleRepo),
-		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
-		Pet:                 handler.NewPetHandler(petSvc),
-		StatusService:       handler.NewStatusServiceHandler(statusServiceSvc),
-	}
-
-	// Inject audit service into handlers that support it
-	handlers.AlertRule.SetAuditService(auditLogSvc)
-	handlers.AlertEvent.SetAuditService(auditLogSvc)
-	handlers.User.SetAuditService(auditLogSvc)
-	// Inject event service into mute rule handler for preview endpoint
-	handlers.MuteRule.SetAlertEventService(eventSvc)
+	// Start label registry sync worker (cancels on shutdown via deps.appCtx)
+	go deps.LabelRegistrySvc.StartSyncWorker(context.Background(), 10*time.Minute)
 
 	// Setup router
-	r := router.Setup(cfg, handlers, zapLogger)
+	r := router.Setup(cfg, deps.Handlers, zapLogger)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -526,9 +91,6 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-
-	// Start label registry sync worker (cancels on shutdown via appCtx)
-	go labelRegistrySvc.StartSyncWorker(appCtx, 10*time.Minute)
 
 	// Graceful shutdown
 	go func() {
@@ -546,37 +108,15 @@ func main() {
 
 	zapLogger.Info("shutting down server...")
 
-	// 1. Stop evaluator FIRST — no more onAlert callbacks will fire
-	if evaluator != nil {
-		zapLogger.Info("stopping alert evaluator...")
-		evaluator.Stop()
-	}
+	// Stop all background workers in the correct order
+	deps.Shutdown()
 
-	// 2. Stop heartbeat checker — no more heartbeat-based onAlert
-	heartbeatChecker.Stop()
-
-	// 3. Stop alert group manager (flush remaining buffered alerts)
-	alertGroupMgr.Stop()
-
-	// 4. Stop escalation executor
-	escalationExecutor.Stop()
-
-	// 5. Wait for in-flight worker pool tasks to complete
-	alertWorkerPool.Wait()
-
-	// 6. Shutdown HTTP server (drain in-flight requests)
+	// Shutdown HTTP server (drain in-flight requests)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		zapLogger.Error("server forced to shutdown", zap.Error(err))
-	}
-
-	// 7. Close Redis connection after HTTP server has drained
-	if redisClient != nil {
-		if err := redisClient.Close(); err != nil {
-			zapLogger.Warn("failed to close redis connection", zap.Error(err))
-		}
 	}
 
 	zapLogger.Info("server exited")
@@ -682,7 +222,6 @@ func autoMigrate(db *gorm.DB) error {
 	models = append(models, &model.Dashboard{})
 
 	// V2 feature models (alerts, channels, incidents, integrations, dispatch, templates)
-	// Primarily managed by SQL migrations, but included here as a safety net.
 	models = append(models, model.V2Models()...)
 
 	// Virtual pet system
@@ -706,6 +245,9 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 
 	defaultPwd := os.Getenv("SREAGENT_ADMIN_PASSWORD")
 	if defaultPwd == "" {
+		if os.Getenv("GIN_MODE") == "release" {
+			logger.Fatal("SREAGENT_ADMIN_PASSWORD must be set in release mode")
+		}
 		defaultPwd = "admin123"
 		logger.Warn("SREAGENT_ADMIN_PASSWORD not set, using default password — change it immediately after first login")
 	}
@@ -730,36 +272,4 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 	}
 
 	logger.Info("seeded default admin user — change password immediately after first login")
-}
-
-// firstNonEmpty returns the first non-empty string from the arguments.
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-// splitScopes splits a comma-separated scopes string into a slice, trimming spaces.
-func splitScopes(s string) []string {
-	parts := strings.Split(s, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if t := strings.TrimSpace(p); t != "" {
-			out = append(out, t)
-		}
-	}
-	return out
-}
-
-// parseRoleMapping parses a JSON object string into a map[string]string.
-// e.g. `{"sre-admin":"admin","sre-member":"member"}` → map
-func parseRoleMapping(s string) (map[string]string, error) {
-	var m map[string]string
-	if err := json.Unmarshal([]byte(s), &m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }

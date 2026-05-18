@@ -7,6 +7,7 @@ import { ref, computed } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const props = defineProps<{
   show: boolean
@@ -54,7 +55,7 @@ async function doSnooze() {
     duration.value = null
     customUntil.value = ''
     emit('done')
-  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { loading.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('incident.opFailed')) } finally { loading.value = false }
 }
 </script>
 

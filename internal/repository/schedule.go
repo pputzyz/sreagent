@@ -177,6 +177,19 @@ func (r *EscalationPolicyRepository) GetByID(ctx context.Context, id uint) (*mod
 	return &policy, nil
 }
 
+// GetByIDs returns all escalation policies whose ID is in the given slice.
+// Returns nil (not an error) when ids is empty.
+func (r *EscalationPolicyRepository) GetByIDs(ctx context.Context, ids []uint) ([]model.EscalationPolicy, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var policies []model.EscalationPolicy
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&policies).Error
+	return policies, err
+}
+
 func (r *EscalationPolicyRepository) ListByTeamID(ctx context.Context, teamID uint) ([]model.EscalationPolicy, error) {
 	var list []model.EscalationPolicy
 	query := r.db.WithContext(ctx).Model(&model.EscalationPolicy{})

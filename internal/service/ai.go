@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 // AlertAnalysis represents the structured output of an LLM alert analysis.
@@ -38,10 +39,8 @@ type AIService struct {
 func NewAIService(settingSvc *SystemSettingService, logger *zap.Logger) *AIService {
 	return &AIService{
 		settingSvc: settingSvc,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		logger: logger,
+		client:     safehttp.NewSafeClient(30 * time.Second),
+		logger:     logger,
 	}
 }
 

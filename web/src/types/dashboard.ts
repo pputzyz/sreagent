@@ -23,7 +23,7 @@ export interface PanelConfig {
   type: 'timeseries' | 'stat' | 'gauge' | 'table' | 'pie' | 'bar'
   gridPos: { x: number; y: number; w: number; h: number }
   targets: PanelTarget[]
-  options: Record<string, any>
+  options: Record<string, unknown>
 }
 
 export interface PanelTarget {

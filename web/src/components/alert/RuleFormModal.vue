@@ -115,15 +115,29 @@ async function handleTestExpression() {
   try {
     const { data } = await datasourceApi.query(form.datasource_id, { expression: form.expression })
     queryResult.value = data.data
-  } catch (err: any) {
-    message.error(err.message || t('common.failed'))
+  } catch (err: unknown) {
+    message.error((err as Error).message || t('common.failed'))
   } finally { queryTesting.value = false }
 }
 
 // Templates
+interface RuleTemplate {
+  id: number
+  name: string
+  description: string
+  datasource_type: string
+  expression: string
+  for_duration: string
+  severity: string
+  labels: Record<string, string>
+  annotations: Record<string, string>
+  group_name: string
+  category: string
+}
+
 const showTemplatePicker = ref(false)
 const templateLoading = ref(false)
-const templates = ref<any[]>([])
+const templates = ref<RuleTemplate[]>([])
 const templateCategories = ref<string[]>([])
 const templateSearch = ref('')
 const templateCategory = ref('')
@@ -161,7 +175,7 @@ async function fetchTemplates() {
   finally { templateLoading.value = false }
 }
 
-async function loadTemplate(tpl: any) {
+async function loadTemplate(tpl: RuleTemplate) {
   appliedTemplateId.value = tpl.id
   Object.assign(form, {
     name: tpl.name || '',
@@ -171,8 +185,8 @@ async function loadTemplate(tpl: any) {
     expression: tpl.expression || '',
     for_duration: tpl.for_duration || '5m',
     severity: tpl.severity || 'warning',
-    labels: tpl.labels ? Object.entries(tpl.labels).map(([k, v]: any) => ({ key: k, value: v })) : [],
-    annotations: tpl.annotations ? Object.entries(tpl.annotations).map(([k, v]: any) => ({ key: k, value: v })) : [],
+    labels: tpl.labels ? Object.entries(tpl.labels).map(([k, v]) => ({ key: k, value: v })) : [],
+    annotations: tpl.annotations ? Object.entries(tpl.annotations).map(([k, v]) => ({ key: k, value: v })) : [],
     group_name: tpl.group_name || '',
     category: tpl.category || '',
   })
@@ -196,8 +210,8 @@ async function saveAsTemplate() {
   try {
     await templateApi.create(payload)
     message.success(t('alert.templateSaved'))
-  } catch (err: any) {
-    message.error(err.message || t('common.saveFailed'))
+  } catch (err: unknown) {
+    message.error((err as Error).message || t('common.saveFailed'))
   }
 }
 
@@ -286,8 +300,8 @@ async function handleSave() {
       message.success(t('alert.ruleCreated'))
     }
     emit('saved')
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error((err as Error).message)
   } finally {
     saving.value = false
   }

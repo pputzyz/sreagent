@@ -70,11 +70,21 @@ async function fetchData() {
     }
     resultType.value = type
     series.value = allSeries
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || err?.message || t('query.queryFailed')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    error.value = e?.response?.data?.message || e?.message || t('query.queryFailed')
   } finally {
     loading.value = false
   }
+}
+
+interface ChartSeriesItem {
+  name: string
+  type: string
+  smooth?: boolean
+  symbol?: string
+  barMaxWidth?: number
+  data: [string, number][]
 }
 
 const statValue = computed(() => {
@@ -107,7 +117,7 @@ const chartOption = computed(() => {
   if (!series.value.length) return null
 
   const xData: string[] = []
-  const seriesList: any[] = []
+  const seriesList: ChartSeriesItem[] = []
   const seen = new Map<string, boolean>()
 
   for (const s of series.value) {
@@ -133,7 +143,7 @@ const chartOption = computed(() => {
     const sorted = Array.from(allTimes).sort()
     for (const sl of seriesList) {
       const timeMap = new Map(sl.data.map((d: [string, number]) => [d[0], d[1]]))
-      sl.data = sorted.map(t => timeMap.get(t) ?? null)
+      sl.data = sorted.map(t => [t, timeMap.get(t) ?? 0] as [string, number])
     }
     return {
       tooltip: { trigger: 'axis' as const },
@@ -158,7 +168,7 @@ const chartOption = computed(() => {
 const barOption = computed(() => {
   const base = chartOption.value
   if (!base?.series) return null
-  const seriesList = base.series.map((s: any) => ({ ...s, type: 'bar', smooth: undefined, barMaxWidth: 40 }))
+  const seriesList = base.series.map((s: ChartSeriesItem) => ({ ...s, type: 'bar', smooth: undefined, barMaxWidth: 40 }))
   return { ...base, series: seriesList, tooltip: { trigger: 'axis' as const } }
 })
 
@@ -231,13 +241,20 @@ const tableColumns = computed(() => {
   for (const s of series.value) {
     Object.keys(s.labels || {}).forEach(k => { if (k !== '__panel_name') keys.add(k) })
   }
-  const cols: any[] = Array.from(keys).map(k => ({
+  interface TableColumn {
+    title: string
+    key: string
+    width?: number
+    ellipsis?: { tooltip: boolean }
+    render: (row: { labels: Record<string, string>; value: number }) => string
+  }
+  const cols: TableColumn[] = Array.from(keys).map(k => ({
     title: k,
     key: k,
     ellipsis: { tooltip: true },
-    render(row: any) { return row.labels?.[k] || '-' },
+    render(row) { return row.labels?.[k] || '-' },
   }))
-  cols.push({ title: t('query.value'), key: 'value', width: 120, render(row: any) { return row.value?.toFixed(4) || '-' } })
+  cols.push({ title: t('query.value'), key: 'value', width: 120, render(row) { return row.value?.toFixed(4) || '-' } })
   return cols
 })
 
@@ -302,7 +319,7 @@ onMounted(fetchData)
           :columns="tableColumns"
           :data="tableData"
           :max-height="280"
-          :row-key="(row: any) => row._key"
+          :row-key="(row: Record<string, unknown>) => String(row._key)"
           size="small"
           striped
         />

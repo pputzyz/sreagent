@@ -13,6 +13,7 @@ import i18n from './i18n'
 import router from './router'
 import { vRipple } from '@/directives/ripple'
 import './styles/global.css'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 const app = createApp(App)
 

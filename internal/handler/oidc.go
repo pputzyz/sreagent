@@ -19,6 +19,11 @@ func NewOIDCHandler(svc *service.OIDCService) *OIDCHandler {
 	return &OIDCHandler{svc: svc}
 }
 
+// SetService swaps the underlying OIDC service (used by hot-reload).
+func (h *OIDCHandler) SetService(svc *service.OIDCService) {
+	h.svc = svc
+}
+
 // LoginRedirect initiates the OIDC authorization code flow.
 // GET /api/v1/auth/oidc/login
 // Redirects the browser to the IdP's authorization endpoint.

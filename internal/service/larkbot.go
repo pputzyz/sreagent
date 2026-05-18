@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/pkg/lark"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -30,21 +31,15 @@ type LarkBotService struct {
 }
 
 // NewLarkBotService creates a new LarkBotService backed by DB-stored configuration.
-func NewLarkBotService(settingSvc *SystemSettingService, eventSvc *AlertEventService, scheduleSvc *ScheduleService, logger *zap.Logger) *LarkBotService {
+func NewLarkBotService(settingSvc *SystemSettingService, eventSvc *AlertEventService, scheduleSvc *ScheduleService, userRepo *repository.UserRepository, logger *zap.Logger) *LarkBotService {
 	return &LarkBotService{
 		settingSvc:  settingSvc,
 		eventSvc:    eventSvc,
 		scheduleSvc: scheduleSvc,
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-		logger: logger,
+		userRepo:    userRepo,
+		client:      safehttp.NewSafeClient(10 * time.Second),
+		logger:      logger,
 	}
-}
-
-// SetUserRepository injects the user repository to enable Lark OpenID → DB user lookup.
-func (s *LarkBotService) SetUserRepository(repo *repository.UserRepository) {
-	s.userRepo = repo
 }
 
 // resolveUserID maps a Lark open_id to a DB user ID.

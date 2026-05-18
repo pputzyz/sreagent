@@ -8,6 +8,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi, userApi } from '@/api'
 import type { User } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 
 const props = defineProps<{
   show: boolean
@@ -36,7 +37,7 @@ async function fetchUsers() {
     const res = await userApi.list({ page: 1, page_size: 50 })
     allUsers.value = res.data.data?.list ?? []
     filterUsers()
-  } catch (e: any) { message.error(e?.message ?? t('incident.searchFailed')) } finally { searchLoading.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('incident.searchFailed')) } finally { searchLoading.value = false }
 }
 
 function filterUsers() {
@@ -65,7 +66,7 @@ async function doReassign() {
     emit('update:show', false)
     userId.value = null
     emit('done')
-  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { loading.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('incident.opFailed')) } finally { loading.value = false }
 }
 </script>
 

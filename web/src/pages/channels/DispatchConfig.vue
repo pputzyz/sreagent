@@ -14,6 +14,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useMessage, NButton, NSpace, NSwitch, NInputNumber, NSelect, NTag, NPopconfirm } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dispatchApi, escalationApi } from '@/api'
+import type { DispatchPolicy, EscalationPolicy } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { AddOutline, ArrowUpOutline, ArrowDownOutline } from '@vicons/ionicons5'
 
 const props = defineProps<{ channelId: number }>()
@@ -21,8 +23,8 @@ const { t } = useI18n()
 const message = useMessage()
 
 const loading = ref(false)
-const policies = ref<any[]>([])
-const escalationPolicies = ref<any[]>([])
+const policies = ref<DispatchPolicy[]>([])
+const escalationPolicies = ref<EscalationPolicy[]>([])
 const showModal = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
@@ -78,9 +80,9 @@ async function load() {
     ])
     policies.value = polRes.data.data ?? []
     const escData = escRes.data.data
-    escalationPolicies.value = Array.isArray(escData) ? escData : (escData as any)?.list ?? []
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+    escalationPolicies.value = Array.isArray(escData) ? escData : (escData as { list?: EscalationPolicy[] })?.list ?? []
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -92,7 +94,7 @@ function openCreate() {
   showModal.value = true
 }
 
-function openEdit(policy: any) {
+function openEdit(policy: DispatchPolicy) {
   editingId.value = policy.id
   const atc = policy.active_time_config ? JSON.parse(policy.active_time_config) : null
   Object.assign(form.value, {
@@ -155,19 +157,19 @@ async function save() {
     message.success(t('common.savedSuccess'))
     showModal.value = false
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.saveFailed'))
   } finally {
     saving.value = false
   }
 }
 
-async function toggleEnabled(policy: any) {
+async function toggleEnabled(policy: DispatchPolicy) {
   try {
     await dispatchApi.update(policy.id, { ...policy, is_enabled: !policy.is_enabled })
     policy.is_enabled = !policy.is_enabled
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
 
@@ -176,8 +178,8 @@ async function deletePolicy(id: number) {
     await dispatchApi.delete(id)
     message.success(t('common.deleteSuccess'))
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.deleteFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.deleteFailed'))
   }
 }
 
@@ -192,8 +194,8 @@ async function movePriority(idx: number, dir: -1 | 1) {
       dispatchApi.update(b.id, { ...b, priority: a.priority }),
     ])
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
 

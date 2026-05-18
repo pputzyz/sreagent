@@ -4,6 +4,7 @@ import { NButton, NIcon, NSwitch, NInput, NInputNumber, NFormItem, NSpin, useMes
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { smtpSettingsApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -38,10 +39,10 @@ async function fetchConfig() {
       form.username = d.username || ''
       form.password = d.password || ''
       form.from = d.from || ''
-      form.from_name = (d as any).from_name || ''
+      form.from_name = (d as Record<string, unknown>).from_name as string || ''
     }
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -52,8 +53,8 @@ async function save() {
   try {
     await smtpSettingsApi.updateConfig({ ...form })
     message.success(t('common.success'))
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -70,9 +71,10 @@ async function testConnection() {
     const msg = res.data.data?.message || t('common.success')
     lastTestResult.value = { success: true, message: msg, time: new Date().toLocaleTimeString() }
     message.success(msg)
-  } catch (err: any) {
-    lastTestResult.value = { success: false, message: err.message, time: new Date().toLocaleTimeString() }
-    message.error(err.message)
+  } catch (err: unknown) {
+    const errMsg = getErrorMessage(err)
+    lastTestResult.value = { success: false, message: errMsg, time: new Date().toLocaleTimeString() }
+    message.error(errMsg)
   } finally {
     testing.value = false
   }

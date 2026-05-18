@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/service"
@@ -8,15 +10,21 @@ import (
 
 // OIDCSettingsHandler manages OIDC configuration stored in the DB.
 // This is separate from OIDCHandler, which handles the actual SSO auth flow.
-// Changes here require a pod restart to take effect (OIDC provider is initialized
-// at startup); the UI warns the admin about this.
+// Supports hot-reload: after saving config, admins can call POST /settings/oidc/reload
+// to apply changes without restarting the pod.
 type OIDCSettingsHandler struct {
 	settingSvc *service.SystemSettingService
+	reloadFn   func(ctx context.Context) error // set via SetReloadFn
 }
 
 // NewOIDCSettingsHandler creates a new OIDCSettingsHandler.
 func NewOIDCSettingsHandler(settingSvc *service.SystemSettingService) *OIDCSettingsHandler {
 	return &OIDCSettingsHandler{settingSvc: settingSvc}
+}
+
+// SetReloadFn sets the function called by the Reload endpoint (P1-9 hot-reload).
+func (h *OIDCSettingsHandler) SetReloadFn(fn func(ctx context.Context) error) {
+	h.reloadFn = fn
 }
 
 // GetConfig returns the current OIDC configuration.
@@ -50,5 +58,19 @@ func (h *OIDCSettingsHandler) UpdateConfig(c *gin.Context) {
 		ErrorWithMessage(c, 50003, "failed to save OIDC config: "+err.Error())
 		return
 	}
-	Success(c, gin.H{"message": "OIDC configuration updated. Restart the pod to apply changes."})
+	Success(c, gin.H{"message": "OIDC configuration updated. Call POST /settings/oidc/reload to apply without restart."})
+}
+
+// Reload reinitializes the OIDC service from the current DB config.
+// POST /api/v1/settings/oidc/reload (admin only)
+func (h *OIDCSettingsHandler) Reload(c *gin.Context) {
+	if h.reloadFn == nil {
+		ErrorWithMessage(c, 50003, "OIDC reload not available")
+		return
+	}
+	if err := h.reloadFn(c.Request.Context()); err != nil {
+		ErrorWithMessage(c, 50003, "failed to reload OIDC: "+err.Error())
+		return
+	}
+	Success(c, gin.H{"message": "OIDC service reloaded successfully"})
 }

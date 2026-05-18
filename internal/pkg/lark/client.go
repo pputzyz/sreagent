@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 // Client is a Lark/Feishu webhook client.
@@ -19,13 +21,11 @@ type Client struct {
 	logger     *zap.Logger
 }
 
-// NewClient creates a new Lark webhook client.
+// NewClient creates a new Lark webhook client with SSRF protection.
 func NewClient(logger *zap.Logger) *Client {
 	return &Client{
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-		logger: logger,
+		httpClient: safehttp.NewSafeClient(10 * time.Second),
+		logger:     logger,
 	}
 }
 

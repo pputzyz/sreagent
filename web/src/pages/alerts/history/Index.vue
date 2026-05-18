@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NRadioGroup, NRadioButton, NSelect, NInput, NDatePicker, NButton, NPagination, NSpin } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertEventApi, alertRuleApi, alertExportApi } from '@/api'
-import type { AlertEvent, AlertRule } from '@/types'
+import type { AlertEvent, AlertRule, AlertEventFilter } from '@/types'
+import { usePaginatedList } from '@/composables'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import { ArchiveOutline, DownloadOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -13,13 +15,37 @@ const router = useRouter()
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const events = shallowRef<AlertEvent[]>([])
 const rules = shallowRef<AlertRule[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
 const firstLoad = ref(true)
+
+const {
+  loading,
+  items: events,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<AlertEvent>({
+  apiFn: (params) => alertEventApi.list({ ...params, status: ['resolved', 'closed'] } as AlertEventFilter),
+  pageSize: 20,
+  extraParams: () => {
+    const tr = getTimeRange()
+    return {
+      severity: severityFilter.value ? [severityFilter.value] : undefined,
+      alert_name: search.value || undefined,
+      rule_id: ruleFilter.value || undefined,
+      ...tr,
+    }
+  },
+  onError: (err: unknown) => {
+    message.error((err as Error).message)
+  },
+})
+
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoad.value = false
+})
 
 const range = ref<'7d' | '30d' | '90d' | 'custom'>('30d')
 const customRange = ref<[number, number] | null>(null)
@@ -52,29 +78,6 @@ function getTimeRange(): { start_time?: string; end_time?: string } {
   return {}
 }
 
-async function fetchEvents() {
-  loading.value = true
-  try {
-    const tr = getTimeRange()
-    const { data } = await alertEventApi.list({
-      page: page.value,
-      page_size: pageSize.value,
-      status: ['resolved', 'closed'],
-      severity: severityFilter.value ? [severityFilter.value] : undefined,
-      alert_name: search.value || undefined,
-      rule_id: ruleFilter.value || undefined,
-      ...tr,
-    } as any)
-    events.value = data.data.list || []
-    total.value = data.data.total
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    loading.value = false
-    firstLoad.value = false
-  }
-}
-
 async function fetchRules() {
   try {
     const { data } = await alertRuleApi.list({ page: 1, page_size: 200 })
@@ -83,12 +86,11 @@ async function fetchRules() {
 }
 
 function onFilterChange() {
-  page.value = 1
-  fetchEvents()
+  refresh()
 }
 
 function onRangeChange(v: string) {
-  range.value = v as any
+  range.value = v as '7d' | '30d' | '90d' | 'custom'
   if (v !== 'custom') customRange.value = null
   onFilterChange()
 }
@@ -147,7 +149,7 @@ function relTime(iso?: string): string {
 
 onMounted(() => {
   fetchRules()
-  fetchEvents()
+  fetchList()
 })
 </script>
 
@@ -220,25 +222,36 @@ onMounted(() => {
     <!-- List -->
     <LoadingSkeleton v-if="loading && firstLoad && events.length === 0" :rows="6" variant="row" />
     <NSpin v-else :show="loading && !firstLoad">
-      <div v-if="events.length" class="hist-list" :class="{ 'sre-stagger': firstLoad }">
-        <div
-          v-for="ev in events"
-          :key="ev.id"
-          class="sre-row-card sre-lift hist-row"
-          :data-severity="ev.severity"
-          data-dim="true"
-          @click="goDetail(ev)"
-        >
+      <DynamicScroller
+        v-if="events.length"
+        class="hist-list"
+        :class="{ 'sre-stagger': firstLoad }"
+        :items="events"
+        key-field="id"
+        :min-item-size="72"
+      >
+        <template #default="{ item: ev }">
+          <DynamicScrollerItem
+            :item="ev"
+            :active="true"
+            :size-dependencies="[ev.rule, ev.source, ev.fire_count]"
+          >
+            <div
+              class="sre-row-card sre-lift hist-row"
+              :data-severity="ev.severity"
+              data-dim="true"
+              @click="goDetail(ev)"
+            >
           <div class="hist-main">
             <div class="hist-headline">
               <span class="sre-dot" :data-severity="ev.severity"></span>
               <span class="hist-sev-label">{{ severityLabel(ev.severity) }}</span>
-              <span class="hist-title">{{ (ev as any).title || ev.alert_name }}</span>
+              <span class="hist-title">{{ ev.alert_name }}</span>
             </div>
             <div class="hist-context">
-              <span>{{ t('alert.ruleLabel') }} {{ (ev as any).rule?.name || '—' }}</span>
+              <span>{{ t('alert.ruleLabel') }} {{ ev.rule?.name || '—' }}</span>
               <span class="sre-meta-divider"></span>
-              <span>{{ t('alert.datasourceLabel') }} {{ (ev as any).datasource?.name || ev.source || '—' }}</span>
+              <span>{{ t('alert.datasourceLabel') }} {{ ev.source || '—' }}</span>
             </div>
             <div class="hist-footer">
               <span class="tnum">{{ t('alert.firedCount', { n: ev.fire_count || 0 }) }}</span>
@@ -252,8 +265,10 @@ onMounted(() => {
             <span class="sre-dot" :data-severity="ev.status === 'resolved' ? 'success' : null"></span>
             <span class="hist-status-text">{{ statusLabel(ev.status) }}</span>
           </div>
-        </div>
-      </div>
+            </div>
+          </DynamicScrollerItem>
+        </template>
+      </DynamicScroller>
 
       <EmptyState
         v-else-if="!loading"
@@ -272,8 +287,8 @@ onMounted(() => {
         :page-sizes="[20, 50, 100]"
         size="small"
         show-size-picker
-        @update:page="fetchEvents"
-        @update:page-size="() => { page = 1; fetchEvents() }"
+        @update:page="fetchList"
+        @update:page-size="() => { page = 1; fetchList() }"
       />
     </div>
   </div>
@@ -324,6 +339,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
 }
 
 .hist-row {

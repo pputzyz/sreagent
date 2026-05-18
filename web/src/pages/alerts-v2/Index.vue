@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, computed, shallowRef, ref } from 'vue'
+import { onMounted, computed, shallowRef, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertV2Api, channelV2Api } from '@/api'
 import type { AlertV2, Channel } from '@/types'
+import { usePaginatedList } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -14,54 +15,55 @@ import {
   ChevronForwardOutline,
   ShieldCheckmarkOutline,
 } from '@vicons/ionicons5'
-import { relTime } from '@/utils/format'
+import { relTime, getErrorMessage } from '@/utils/format'
 
 const { t } = useI18n()
 const message = useMessage()
 const router = useRouter()
 
-const loading = ref(false)
-const alerts = shallowRef<AlertV2[]>([])
 const channels = shallowRef<Channel[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
 const statusFilter = ref<string>('')
 const severityFilter = ref<string>('')
 const channelFilter = ref<number | null>(null)
 const searchQuery = ref('')
 const firstLoaded = ref(false)
 
-async function loadAlerts() {
-  loading.value = true
-  try {
-    const res = await alertV2Api.list({
-      status: statusFilter.value,
-      severity: severityFilter.value,
-      channel_id: channelFilter.value ?? undefined,
-      query: searchQuery.value,
-      page: page.value,
-      page_size: pageSize.value,
-    } as any)
-    alerts.value = res.data.data?.list ?? []
-    total.value = res.data.data?.total ?? 0
-    firstLoaded.value = true
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
-  } finally {
-    loading.value = false
-  }
-}
+const {
+  loading,
+  items: alerts,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<AlertV2>({
+  apiFn: alertV2Api.list,
+  extraParams: () => {
+    const params: Record<string, unknown> = {}
+    if (statusFilter.value) params.status = statusFilter.value
+    if (severityFilter.value) params.severity = severityFilter.value
+    if (channelFilter.value != null) params.channel_id = channelFilter.value
+    if (searchQuery.value) params.query = searchQuery.value
+    return params
+  },
+  onError: (err: unknown) => {
+    message.error((err as Error)?.message ?? t('common.loadFailed'))
+  },
+})
+
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoaded.value = true
+})
 
 async function loadChannels() {
   try {
-    const res = await channelV2Api.list({ status: 'active', page: 1, page_size: 100 } as any)
+    const res = await channelV2Api.list({ status: 'active', page: 1, page_size: 100 })
     channels.value = res.data.data?.list ?? []
   } catch { /* silent */ }
 }
 
 const channelOptions = computed(() => [
-  { label: t('common.all'), value: null as any },
+  { label: t('common.all'), value: null as number | null },
   ...channels.value.map(c => ({ label: c.name, value: c.id })),
 ])
 
@@ -79,9 +81,8 @@ const isEmpty = computed(() => firstLoaded.value && !loading.value && alerts.val
 const hasFilters = computed(() =>
   statusFilter.value !== '' || severityFilter.value !== '' || channelFilter.value !== null || searchQuery.value.trim() !== ''
 )
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-onMounted(() => { loadAlerts(); loadChannels() })
+onMounted(() => { fetchList(); loadChannels() })
 </script>
 
 <template>
@@ -91,7 +92,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
       :subtitle="t('alertV2.subtitle')"
     >
       <template #actions>
-        <n-button circle quaternary @click="loadAlerts" :aria-label="t('common.refresh')">
+        <n-button circle quaternary @click="fetchList" :aria-label="t('common.refresh')">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
       </template>
@@ -103,7 +104,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
       <n-radio-group
         v-model:value="statusFilter"
         size="medium"
-        @update:value="loadAlerts"
+        @update:value="fetchList"
       >
         <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
         <n-radio-button value="firing">{{ t('alertV2.firing') }}</n-radio-button>
@@ -119,7 +120,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
         clearable
         size="small"
         class="search-box"
-        @update:value="loadAlerts"
+        @update:value="fetchList"
       >
         <template #prefix><n-icon :component="SearchOutline" /></template>
       </n-input>
@@ -130,7 +131,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
         clearable
         size="small"
         style="width: 140px"
-        @update:value="loadAlerts"
+        @update:value="fetchList"
       />
       <n-select
         v-model:value="channelFilter"
@@ -139,7 +140,7 @@ onMounted(() => { loadAlerts(); loadChannels() })
         clearable
         size="small"
         style="width: 200px"
-        @update:value="loadAlerts"
+        @update:value="fetchList"
       />
     </div>
 
@@ -192,8 +193,10 @@ onMounted(() => { loadAlerts(); loadChannels() })
       <div v-if="total > pageSize" class="pagination">
         <n-pagination
           v-model:page="page"
-          :page-count="totalPages"
-          @update:page="loadAlerts"
+          :page-size="pageSize"
+          :item-count="total"
+          :page-slot="7"
+          @update:page="fetchList"
         />
       </div>
     </n-spin>

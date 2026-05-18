@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import type { RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw, RouteLocation } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
@@ -68,18 +68,18 @@ const routes: RouteRecordRaw[] = [
       // ===== Legacy Redirects =====
       { path: 'dashboard', redirect: '/oncall/overview' },
       { path: 'channels', redirect: '/oncall/spaces' },
-      { path: 'channels/:id', redirect: (to: any) => `/oncall/spaces/${to.params.id}` },
+      { path: 'channels/:id', redirect: (to: RouteLocation) => `/oncall/spaces/${to.params.id}` },
       { path: 'incidents', redirect: '/oncall/incidents' },
-      { path: 'incidents/:id', redirect: (to: any) => `/oncall/incidents/${to.params.id}` },
+      { path: 'incidents/:id', redirect: (to: RouteLocation) => `/oncall/incidents/${to.params.id}` },
       { path: 'alerts-v2', redirect: '/oncall/incidents' },
-      { path: 'alerts-v2/:id', redirect: (to: any) => `/oncall/incidents/${to.params.id}` },
+      { path: 'alerts-v2/:id', redirect: (to: RouteLocation) => `/oncall/incidents/${to.params.id}` },
       { path: 'incident-dashboard', redirect: '/oncall/overview' },
       { path: 'integrations', redirect: '/oncall/integrations' },
       { path: 'schedule', redirect: '/oncall/schedule' },
       { path: 'alerts', redirect: '/alert/rules' },
       { path: 'alerts/rules', redirect: '/alert/rules' },
       { path: 'alerts/events', redirect: '/alert/events' },
-      { path: 'alerts/events/:id', redirect: (to: any) => `/alert/events/${to.params.id}` },
+      { path: 'alerts/events/:id', redirect: (to: RouteLocation) => `/alert/events/${to.params.id}` },
       { path: 'alerts/history', redirect: '/alert/history' },
       { path: 'alerts/mute-rules', redirect: '/alert/suppression' },
       { path: 'alerts/inhibition-rules', redirect: '/alert/suppression/inhibition' },
@@ -87,7 +87,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'query', redirect: '/alert/explore' },
       { path: 'explore', redirect: '/alert/explore' },
       { path: 'dashboards-v2', redirect: '/alert/dashboards' },
-      { path: 'dashboards-v2/:id', redirect: (to: any) => `/alert/dashboards/${to.params.id}` },
+      { path: 'dashboards-v2/:id', redirect: (to: RouteLocation) => `/alert/dashboards/${to.params.id}` },
       { path: 'notification', redirect: '/alert/notify/policies' },
       { path: 'settings', redirect: '/platform/profile' },
     ],

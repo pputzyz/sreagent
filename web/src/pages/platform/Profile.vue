@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 
 const message = useMessage()
@@ -84,8 +85,8 @@ async function handleSave() {
     })
     await authStore.fetchProfile()
     message.success(t('profile.saved'))
-  } catch (err: any) {
-    message.error(err.message || t('common.saveFailed'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -110,8 +111,8 @@ async function handleChangePassword() {
     passwordForm.old_password = ''
     passwordForm.new_password = ''
     passwordForm.confirm_password = ''
-  } catch (err: any) {
-    message.error(err.message || t('common.failed'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.failed'))
   } finally {
     changingPassword.value = false
   }

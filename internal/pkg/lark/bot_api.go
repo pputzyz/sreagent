@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 const (
@@ -50,10 +52,10 @@ type BotClient struct {
 	tokenCache tokenCache
 }
 
-// NewBotClient creates a new BotClient.
+// NewBotClient creates a new BotClient with SSRF protection.
 func NewBotClient(appID, appSecret string) *BotClient {
 	return &BotClient{
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: safehttp.NewSafeClient(10 * time.Second),
 		appID:      appID,
 		appSecret:  appSecret,
 	}

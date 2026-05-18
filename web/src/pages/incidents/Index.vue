@@ -5,8 +5,9 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
 import type { Incident } from '@/types'
+import { usePaginatedList } from '@/composables'
 import { useAuthStore } from '@/stores/auth'
-import { formatTime } from '@/utils/format'
+import { formatTime, getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -27,15 +28,33 @@ const message = useMessage()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const loading = ref(false)
-const incidents = ref<Incident[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
 const viewMode = ref<'all' | 'mine'>('all')
 const statusFilter = ref<string>('')
 const severityFilter = ref<string>('')
 const searchQuery = ref('')
+
+const {
+  loading,
+  items: incidents,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<Incident>({
+  apiFn: incidentApi.list,
+  extraParams: () => {
+    const params: Record<string, unknown> = {}
+    if (statusFilter.value) params.status = statusFilter.value
+    if (severityFilter.value) params.severity = severityFilter.value
+    if (searchQuery.value) params.query = searchQuery.value
+    if (viewMode.value === 'mine' && authStore.user?.id) params.assigned_to = authStore.user.id
+    return params
+  },
+  onError: (err: unknown) => {
+    message.error((err as Error)?.message ?? t('common.loadFailed'))
+  },
+})
 
 // Create modal
 const showCreateModal = ref(false)
@@ -77,37 +96,14 @@ const statusLabel: Record<string, string> = {
   closed: 'incident.statusClosed',
 }
 
-async function loadIncidents() {
-  loading.value = true
-  try {
-    const params: any = {
-      page: page.value,
-      page_size: pageSize.value,
-      status: statusFilter.value,
-      severity: severityFilter.value,
-      query: searchQuery.value,
-    }
-    if (viewMode.value === 'mine' && authStore.user?.id) {
-      params.assigned_to = authStore.user.id
-    }
-    const res = await incidentApi.list(params)
-    incidents.value = res.data.data?.list ?? []
-    total.value = res.data.data?.total ?? 0
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
-  } finally {
-    loading.value = false
-  }
-}
-
 async function acknowledgeIncident(id: number, e?: Event) {
   e?.stopPropagation()
   try {
     await incidentApi.acknowledge(id)
     message.success(t('common.success'))
-    await loadIncidents()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+    await fetchList()
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
 
@@ -116,9 +112,9 @@ async function closeIncident(id: number, e?: Event) {
   try {
     await incidentApi.close(id)
     message.success(t('common.success'))
-    await loadIncidents()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+    await fetchList()
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
 
@@ -130,8 +126,8 @@ async function createIncident() {
     message.success(t('common.createSuccess'))
     showCreateModal.value = false
     router.push(`/oncall/incidents/${res.data.data?.id}`)
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.failed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
   } finally {
     saving.value = false
   }
@@ -179,16 +175,15 @@ const isEmpty = computed(() => !loading.value && incidents.value.length === 0)
 const hasFilters = computed(() =>
   statusFilter.value !== '' || severityFilter.value !== '' || searchQuery.value.trim() !== '' || viewMode.value === 'mine'
 )
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-onMounted(loadIncidents)
+onMounted(fetchList)
 </script>
 
 <template>
   <div class="incidents-page">
     <PageHeader :title="t('incident.title')" :subtitle="t('incident.subtitle')">
       <template #actions>
-        <n-button circle quaternary @click="loadIncidents" :aria-label="t('common.refresh')">
+        <n-button circle quaternary @click="fetchList" :aria-label="t('common.refresh')">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
         <n-button type="primary" @click="showCreateModal = true">
@@ -200,7 +195,7 @@ onMounted(loadIncidents)
 
     <!-- Primary tabs: All / Mine -->
     <div class="primary-tabs">
-      <n-radio-group v-model:value="viewMode" size="medium" @update:value="loadIncidents">
+      <n-radio-group v-model:value="viewMode" size="medium" @update:value="fetchList">
         <n-radio-button value="all">{{ t('incident.allIncidents') }}</n-radio-button>
         <n-radio-button value="mine">{{ t('incident.myIncidents') }}</n-radio-button>
       </n-radio-group>
@@ -210,7 +205,7 @@ onMounted(loadIncidents)
     <div class="filter-bar">
       <div class="filter-group">
         <span class="filter-label">{{ t('common.status') }}</span>
-        <n-radio-group v-model:value="statusFilter" size="small" @update:value="loadIncidents">
+        <n-radio-group v-model:value="statusFilter" size="small" @update:value="fetchList">
           <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
           <n-radio-button value="triggered">{{ t('incident.statusTriggered') }}</n-radio-button>
           <n-radio-button value="processing">{{ t('incident.statusProcessing') }}</n-radio-button>
@@ -220,7 +215,7 @@ onMounted(loadIncidents)
 
       <div class="filter-group">
         <span class="filter-label">{{ t('incident.severity') }}</span>
-        <n-radio-group v-model:value="severityFilter" size="small" @update:value="loadIncidents">
+        <n-radio-group v-model:value="severityFilter" size="small" @update:value="fetchList">
           <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
           <n-radio-button value="critical">
             <span class="dot" data-severity="critical" />
@@ -245,7 +240,7 @@ onMounted(loadIncidents)
         clearable
         size="small"
         class="search-box"
-        @update:value="loadIncidents"
+        @update:value="fetchList"
       >
         <template #prefix><n-icon :component="SearchOutline" /></template>
       </n-input>
@@ -324,8 +319,10 @@ onMounted(loadIncidents)
       <div v-if="total > pageSize" class="pagination">
         <n-pagination
           v-model:page="page"
-          :page-count="totalPages"
-          @update:page="loadIncidents"
+          :page-size="pageSize"
+          :item-count="total"
+          :page-slot="7"
+          @update:page="fetchList"
         />
       </div>
     </n-spin>

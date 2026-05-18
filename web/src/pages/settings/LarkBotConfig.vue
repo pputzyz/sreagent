@@ -4,6 +4,7 @@ import { NButton, NIcon, NSwitch, NInput, NFormItem, NSpin, useMessage } from 'n
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { larkBotApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -35,8 +36,8 @@ async function fetchConfig() {
       form.verification_token = d.verification_token || ''
       form.encrypt_key = d.encrypt_key || ''
     }
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -47,8 +48,8 @@ async function save() {
   try {
     await larkBotApi.updateConfig({ ...form })
     message.success(t('common.savedSuccess'))
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -62,9 +63,9 @@ async function testConnection() {
   testing.value = true
   try {
     // Best-effort test: many backends accept arbitrary webhook ping. Fallback message.
-    const fn = (larkBotApi as any).testConnection || (larkBotApi as any).test
+    const fn = (larkBotApi as Record<string, unknown>).testConnection as (() => Promise<unknown>) || (larkBotApi as Record<string, unknown>).test as (() => Promise<unknown>)
     if (typeof fn === 'function') {
-      const res = await fn.call(larkBotApi)
+      const res = await fn.call(larkBotApi) as { data?: { data?: { success?: boolean; message?: string } } }
       const ok = !!res?.data?.data?.success
       lastTestResult.value = {
         success: ok,
@@ -75,9 +76,10 @@ async function testConnection() {
       lastTestResult.value = { success: true, message: t('settings.larkConfigValid'), time: new Date().toLocaleTimeString() }
     }
     lastTestResult.value!.success ? message.success(lastTestResult.value!.message) : message.error(lastTestResult.value!.message)
-  } catch (err: any) {
-    lastTestResult.value = { success: false, message: err.message, time: new Date().toLocaleTimeString() }
-    message.error(err.message)
+  } catch (err: unknown) {
+    const errMsg = getErrorMessage(err)
+    lastTestResult.value = { success: false, message: errMsg, time: new Date().toLocaleTimeString() }
+    message.error(errMsg)
   } finally {
     testing.value = false
   }

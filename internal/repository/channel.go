@@ -30,6 +30,19 @@ func (r *ChannelRepository) GetByID(ctx context.Context, id uint) (*model.Channe
 	return &ch, nil
 }
 
+// GetByIDs returns all channels whose ID is in the given slice.
+// Returns nil (not an error) when ids is empty.
+func (r *ChannelRepository) GetByIDs(ctx context.Context, ids []uint) ([]model.Channel, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var channels []model.Channel
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&channels).Error
+	return channels, err
+}
+
 func (r *ChannelRepository) GetByName(ctx context.Context, name string) (*model.Channel, error) {
 	var ch model.Channel
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&ch).Error

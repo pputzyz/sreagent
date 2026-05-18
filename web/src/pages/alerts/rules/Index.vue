@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { h, ref, shallowRef, computed, onMounted } from 'vue'
+import { h, ref, computed, onMounted, watch } from 'vue'
 import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { alertRuleApi, datasourceApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
+import { usePaginatedList } from '@/composables'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -29,13 +31,29 @@ const { t } = useI18n()
 const router = useRouter()
 
 // ─── List state ───
-const loading = ref(false)
-const rules = shallowRef<AlertRule[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = 50
 const datasources = ref<DataSource[]>([])
 const isFirstLoad = ref(true)
+
+const {
+  loading,
+  items: rules,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<AlertRule>({
+  apiFn: alertRuleApi.list,
+  pageSize: 50,
+  extraParams: () => {
+    const params: Record<string, unknown> = {}
+    if (activeCategory.value) params.category = activeCategory.value
+    return params
+  },
+  onError: (err: unknown) => {
+    message.error((err as Error).message)
+  },
+})
 
 // ─── Filters ───
 const searchKeyword = ref('')
@@ -117,23 +135,13 @@ function severitySlot(sev: string): 'critical' | 'warning' | 'info' | 'success' 
 }
 
 // ─── Data fetching ───
-async function fetchRules() {
-  loading.value = true
-  try {
-    const params: Record<string, any> = { page: page.value, page_size: pageSize }
-    if (activeCategory.value) params.category = activeCategory.value
-    const { data } = await alertRuleApi.list(params)
-    rules.value = data.data.list || []
-    total.value = data.data.total
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    loading.value = false
-    if (isFirstLoad.value) {
-      setTimeout(() => { isFirstLoad.value = false }, 800)
-    }
+// fetchRules is now handled by usePaginatedList.fetchList
+// isFirstLoad tracking
+watch(loading, (isLoading) => {
+  if (!isLoading && isFirstLoad.value) {
+    setTimeout(() => { isFirstLoad.value = false }, 800)
   }
-}
+})
 
 async function fetchCategories() {
   try {
@@ -144,8 +152,7 @@ async function fetchCategories() {
 
 function handleCategoryChange(cat: string) {
   activeCategory.value = cat
-  page.value = 1
-  fetchRules()
+  refresh()
 }
 
 async function fetchDatasources() {
@@ -163,8 +170,8 @@ async function handleBatchEnable() {
     await alertRuleApi.batchEnable(selectedKeys.value)
     message.success(t('alert.batchEnabled', { count: selectedKeys.value.length }))
     selectedKeys.value = []
-    fetchRules()
-  } catch (err: any) { message.error(err.message) } finally { batchLoading.value = false }
+    fetchList()
+  } catch (err: unknown) { message.error((err as Error).message) } finally { batchLoading.value = false }
 }
 
 async function handleBatchDisable() {
@@ -174,8 +181,8 @@ async function handleBatchDisable() {
     await alertRuleApi.batchDisable(selectedKeys.value)
     message.success(t('alert.batchDisabled', { count: selectedKeys.value.length }))
     selectedKeys.value = []
-    fetchRules()
-  } catch (err: any) { message.error(err.message) } finally { batchLoading.value = false }
+    fetchList()
+  } catch (err: unknown) { message.error((err as Error).message) } finally { batchLoading.value = false }
 }
 
 async function handleBatchDelete() {
@@ -185,8 +192,8 @@ async function handleBatchDelete() {
     await alertRuleApi.batchDelete(selectedKeys.value)
     message.success(t('alert.batchDeleted', { count: selectedKeys.value.length }))
     selectedKeys.value = []
-    fetchRules()
-  } catch (err: any) { message.error(err.message) } finally { batchLoading.value = false }
+    fetchList()
+  } catch (err: unknown) { message.error((err as Error).message) } finally { batchLoading.value = false }
 }
 
 function toggleSelect(id: number, checked: boolean) {
@@ -228,12 +235,12 @@ function openEdit(rule: AlertRule) {
 
 function onFormSaved() {
   showFormModal.value = false
-  fetchRules()
+  fetchList()
 }
 
 function onImportDone() {
   showImportModal.value = false
-  fetchRules()
+  fetchList()
   fetchCategories()
 }
 
@@ -243,16 +250,16 @@ async function toggleEnabled(rule: AlertRule) {
   try {
     await alertRuleApi.toggleStatus(rule.id, newStatus)
     message.success(newStatus === 'enabled' ? t('alert.ruleEnabled') : t('alert.ruleDisabled'))
-    fetchRules()
-  } catch (err: any) { message.error(err.message) }
+    fetchList()
+  } catch (err: unknown) { message.error((err as Error).message) }
 }
 
 async function handleDelete(id: number) {
   try {
     await alertRuleApi.delete(id)
     message.success(t('alert.ruleDeleted'))
-    fetchRules()
-  } catch (err: any) { message.error(err.message) }
+    fetchList()
+  } catch (err: unknown) { message.error((err as Error).message) }
 }
 
 function rowActions(rule: AlertRule) {
@@ -288,7 +295,7 @@ function goDetail(rule: AlertRule) {
 }
 
 onMounted(() => {
-  fetchRules()
+  fetchList()
   fetchDatasources()
   fetchCategories()
 })
@@ -408,15 +415,26 @@ onMounted(() => {
         />
 
         <!-- Rule list -->
-        <div v-else class="rule-list" :class="{ 'sre-stagger': isFirstLoad }">
-          <div
-            v-for="rule in filteredRules"
-            :key="rule.id"
-            class="sre-row-card rule-row"
-            :data-severity="severitySlot(rule.severity)"
-            :data-dim="rule.status !== 'enabled' || undefined"
-            @click="goDetail(rule)"
-          >
+        <DynamicScroller
+          v-else
+          class="rule-list"
+          :class="{ 'sre-stagger': isFirstLoad }"
+          :items="filteredRules"
+          key-field="id"
+          :min-item-size="72"
+        >
+          <template #default="{ item: rule }">
+            <DynamicScrollerItem
+              :item="rule"
+              :active="true"
+              :size-dependencies="[rule.expression, rule.category, rule.for_duration]"
+            >
+              <div
+                class="sre-row-card rule-row"
+                :data-severity="severitySlot(rule.severity)"
+                :data-dim="rule.status !== 'enabled' || undefined"
+                @click="goDetail(rule)"
+              >
             <input
               type="checkbox"
               class="rc-check"
@@ -457,8 +475,10 @@ onMounted(() => {
                 </n-button>
               </n-dropdown>
             </div>
-          </div>
-        </div>
+              </div>
+            </DynamicScrollerItem>
+          </template>
+        </DynamicScroller>
 
         <!-- Pagination -->
         <div v-if="filteredRules.length > 0" class="pagination-wrap">
@@ -467,7 +487,7 @@ onMounted(() => {
             :page-size="pageSize"
             :item-count="total"
             :page-slot="7"
-            @update:page="fetchRules"
+            @update:page="fetchList"
           />
         </div>
       </section>
@@ -591,6 +611,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
 }
 
 .rule-row {

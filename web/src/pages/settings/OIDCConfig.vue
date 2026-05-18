@@ -4,6 +4,7 @@ import { NButton, NIcon, NSwitch, NSelect, NInput, NFormItem, NSpin, useMessage 
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { oidcSettingsApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -51,11 +52,11 @@ async function fetchConfig() {
       form.role_mapping = d.role_mapping || ''
       form.default_role = d.default_role || 'viewer'
       form.auto_provision = d.auto_provision
-      form.username_claim = (d as any).username_claim || 'preferred_username'
-      form.email_claim = (d as any).email_claim || 'email'
+      form.username_claim = (d as Record<string, unknown>).username_claim as string || 'preferred_username'
+      form.email_claim = (d as Record<string, unknown>).email_claim as string || 'email'
     }
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -66,8 +67,8 @@ async function save() {
   try {
     await oidcSettingsApi.updateConfig({ ...form })
     message.success(t('common.savedSuccess'))
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -80,9 +81,9 @@ async function testConnection() {
   }
   testing.value = true
   try {
-    const fn = (oidcSettingsApi as any).testConnection || (oidcSettingsApi as any).discover
+    const fn = (oidcSettingsApi as Record<string, unknown>).testConnection as ((url: string) => Promise<unknown>) || (oidcSettingsApi as Record<string, unknown>).discover as ((url: string) => Promise<unknown>)
     if (typeof fn === 'function') {
-      const res = await fn.call(oidcSettingsApi, form.issuer_url)
+      const res = await fn.call(oidcSettingsApi, form.issuer_url) as { data?: { data?: { success?: boolean; message?: string } } }
       const ok = !!res?.data?.data?.success
       lastTestResult.value = {
         success: ok,
@@ -99,9 +100,9 @@ async function testConnection() {
       }
     }
     lastTestResult.value!.success ? message.success(lastTestResult.value!.message) : message.error(lastTestResult.value!.message)
-  } catch (err: any) {
-    lastTestResult.value = { success: false, message: err.message, time: new Date().toLocaleTimeString() }
-    message.error(err.message)
+  } catch (err: unknown) {
+    lastTestResult.value = { success: false, message: getErrorMessage(err), time: new Date().toLocaleTimeString() }
+    message.error(getErrorMessage(err))
   } finally {
     testing.value = false
   }

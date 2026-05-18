@@ -4,6 +4,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { dashboardApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { DashboardStats, MTTRStats, AlertTrendPoint, TopRuleItem } from '@/types'
 import {
   RefreshOutline, PulseOutline, TimerOutline, CheckmarkCircleOutline,
@@ -131,8 +132,8 @@ async function refresh() {
     const failed = [sr, mr, tr, top].filter(r => r.status === 'rejected')
     if (failed.length === 4) errorMsg.value = t('dashboard.loadFailed')
     lastSyncAt.value = Date.now()
-  } catch (err: any) {
-    errorMsg.value = err?.message || t('dashboard.loadFailed')
+  } catch (err: unknown) {
+    errorMsg.value = getErrorMessage(err) || t('dashboard.loadFailed')
     message.error(errorMsg.value)
   } finally {
     refreshing.value = false

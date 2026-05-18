@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, shallowRef, onMounted, h } from 'vue'
+import { computed, reactive, ref, onMounted, h } from 'vue'
 import {
   useMessage,
   NButton,
@@ -20,22 +20,38 @@ import {
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api'
 import type { User } from '@/types'
+import { usePaginatedList, useCrudModal } from '@/composables'
 import { AddOutline, EllipsisHorizontal, SearchOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const usersList = shallowRef<User[]>([])
+const {
+  loading,
+  items: usersList,
+  fetchList,
+} = usePaginatedList<User>({
+  apiFn: userApi.list,
+  pageSize: 200,
+  onError: (err: unknown) => {
+    message.error((err as Error).message)
+  },
+})
+
+const {
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  openCreate: baseOpenCreate,
+  openEdit: baseOpenEdit,
+  closeModal,
+  withSaving,
+} = useCrudModal(fetchList)
 
 const filterRole = ref<'all' | 'admin' | 'team_lead' | 'member' | 'viewer'>('all')
 const filterStatus = ref<'all' | 'active' | 'inactive'>('all')
 const search = ref('')
-
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
 
 const form = reactive({
   username: '',
@@ -84,21 +100,7 @@ const filtered = computed(() => {
   })
 })
 
-async function fetchUsers() {
-  loading.value = true
-  try {
-    const { data } = await userApi.list({ page: 1, page_size: 200 })
-    usersList.value = data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    loading.value = false
-  }
-}
-
 function openCreate() {
-  editingId.value = null
-  modalTitle.value = t('settings.createUser')
   Object.assign(form, {
     username: '',
     display_name: '',
@@ -108,12 +110,10 @@ function openCreate() {
     password: '',
     is_active: true,
   })
-  showModal.value = true
+  baseOpenCreate(t('settings.createUser'))
 }
 
 function openEdit(u: User) {
-  editingId.value = u.id
-  modalTitle.value = t('settings.editUser')
   Object.assign(form, {
     username: u.username,
     display_name: u.display_name,
@@ -123,7 +123,7 @@ function openEdit(u: User) {
     password: '',
     is_active: u.is_active,
   })
-  showModal.value = true
+  baseOpenEdit(u.id, t('settings.editUser'))
 }
 
 async function handleSave() {
@@ -131,8 +131,11 @@ async function handleSave() {
     message.warning(t('settings.usernameRequired'))
     return
   }
-  saving.value = true
-  try {
+  if (!editingId.value && !form.password.trim()) {
+    message.warning(t('settings.passwordRequired'))
+    return
+  }
+  await withSaving(async () => {
     if (editingId.value) {
       await userApi.update(editingId.value, {
         username: form.username,
@@ -146,11 +149,6 @@ async function handleSave() {
       }
       message.success(t('settings.userUpdated'))
     } else {
-      if (!form.password.trim()) {
-        message.warning(t('settings.passwordRequired'))
-        saving.value = false
-        return
-      }
       await userApi.create({
         username: form.username,
         display_name: form.display_name,
@@ -162,22 +160,16 @@ async function handleSave() {
       })
       message.success(t('settings.userCreated'))
     }
-    showModal.value = false
-    fetchUsers()
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    saving.value = false
-  }
+  })
 }
 
 async function toggleActive(u: User) {
   try {
     await userApi.toggleActive(u.id, !u.is_active)
     message.success(u.is_active ? t('settings.userDeactivated') : t('settings.userActivated'))
-    fetchUsers()
-  } catch (err: any) {
-    message.error(err.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error).message)
   }
 }
 
@@ -195,9 +187,9 @@ function handleMenu(key: string, u: User) {
   else if (key === 'toggle') toggleActive(u)
 }
 
-defineExpose({ usersList, fetchUsers })
+defineExpose({ usersList, fetchUsers: fetchList })
 
-onMounted(fetchUsers)
+onMounted(fetchList)
 
 const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
 </script>
@@ -378,6 +370,9 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
   display: flex; align-items: center; gap: 12px;
   padding: 12px 14px;
   transition: all var(--sre-duration-fast) var(--sre-ease-out);
+  /* Virtual scrolling: skip rendering off-screen rows */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
 }
 .user-row[data-dim] { opacity: 0.55; }
 

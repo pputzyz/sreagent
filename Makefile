@@ -1,4 +1,4 @@
-.PHONY: help build run dev test clean docker-up docker-down lint fmt web-install web-dev web-build
+.PHONY: help build run dev test clean docker-up docker-down lint fmt web-install web-dev web-build check-modules
 
 # Variables
 APP_NAME := sreagent
@@ -33,6 +33,9 @@ fmt: ## Format Go code
 
 tidy: ## Tidy Go modules
 	$(GO) mod tidy
+
+check-modules: ## Verify MODULES.md counts match actual codebase
+	$(GO) run scripts/check-modules.go
 
 # ====== Frontend ======
 

@@ -82,12 +82,13 @@ const (
 // AlertTimeline records the lifecycle events of an alert.
 type AlertTimeline struct {
 	BaseModel
-	EventID    uint                `json:"event_id" gorm:"index;not null"`
-	Action     AlertTimelineAction `json:"action" gorm:"size:32;not null"`
-	OperatorID *uint               `json:"operator_id" gorm:"index"`
-	Operator   *User               `json:"operator,omitempty" gorm:"foreignKey:OperatorID"`
-	Note       string              `json:"note" gorm:"type:text"`
-	Extra      string              `json:"extra" gorm:"type:json"` // additional context as JSON
+	EventID          uint                `json:"event_id" gorm:"index;not null"`
+	Action           AlertTimelineAction `json:"action" gorm:"size:32;not null"`
+	OperatorID       *uint               `json:"operator_id" gorm:"index"`
+	Operator         *User               `json:"operator,omitempty" gorm:"foreignKey:OperatorID"`
+	Note             string              `json:"note" gorm:"type:text"`
+	Extra            string              `json:"extra" gorm:"type:json"`                          // additional context as JSON
+	EscalationStepID *uint               `json:"escalation_step_id,omitempty" gorm:"index"`       // links to escalation_steps.id for dedup
 }
 
 func (AlertTimeline) TableName() string {

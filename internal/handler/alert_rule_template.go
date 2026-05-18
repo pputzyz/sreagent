@@ -21,6 +21,9 @@ func NewAlertRuleTemplateHandler(svc *service.AlertRuleTemplateService) *AlertRu
 func (h *AlertRuleTemplateHandler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if pageSize > 100 {
+		pageSize = 100
+	}
 	category := c.Query("category")
 	search := c.Query("search")
 

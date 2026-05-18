@@ -24,11 +24,15 @@ import (
 //
 //	wrapped := pipeline.WrapOnAlert(existingOnAlert)
 //	evaluator.SetOnAlert(wrapped)
+// maxAsyncPipelineTasks caps concurrent async v2 pipeline goroutines.
+const maxAsyncPipelineTasks = 100
+
 type AlertV2Pipeline struct {
 	alertRepo    *repository.AlertRepository
 	incidentRepo *repository.IncidentRepository
 	channelRepo  *repository.ChannelRepository
 	logger       *zap.Logger
+	dispatchSem  chan struct{}
 
 	// defaultChannelID is the ID of the "default" collaboration channel.
 	// All engine-fired alerts go here unless a specific channel is configured.
@@ -54,6 +58,7 @@ func NewAlertV2Pipeline(
 		incidentRepo: incidentRepo,
 		channelRepo:  channelRepo,
 		logger:       logger,
+		dispatchSem:  make(chan struct{}, maxAsyncPipelineTasks),
 	}
 }
 
@@ -102,16 +107,22 @@ func (p *AlertV2Pipeline) WrapOnAlert(
 		}
 
 		// 2. Drive v2 pipeline asynchronously — never block the original path
-		go func() {
-			pipeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			if err := p.process(pipeCtx, event); err != nil {
-				p.logger.Error("alert_v2_pipeline: processing failed",
-					zap.Uint("event_id", event.ID),
-					zap.Error(err),
-				)
-			}
-		}()
+		select {
+		case p.dispatchSem <- struct{}{}:
+			go func() {
+				defer func() { <-p.dispatchSem }()
+				pipeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				if err := p.process(pipeCtx, event); err != nil {
+					p.logger.Error("alert_v2_pipeline: processing failed",
+						zap.Uint("event_id", event.ID),
+						zap.Error(err),
+					)
+				}
+			}()
+		default:
+			p.logger.Warn("dropping async v2 pipeline task, too many in flight")
+		}
 	}
 }
 

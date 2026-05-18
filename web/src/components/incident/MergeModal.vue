@@ -8,6 +8,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
 import type { Incident } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 
 const props = defineProps<{
   show: boolean
@@ -34,7 +35,7 @@ async function searchIncidents() {
   try {
     const res = await incidentApi.list({ query: search.value, page: 1, page_size: 10 })
     results.value = (res.data.data?.list ?? []).filter((i: Incident) => i.id !== props.incidentId)
-  } catch (e: any) { message.error(e?.message ?? t('incident.searchFailed')) } finally { searchLoading.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('incident.searchFailed')) } finally { searchLoading.value = false }
 }
 
 async function doMerge() {
@@ -45,7 +46,7 @@ async function doMerge() {
     message.success(t('incident.mergeSuccess'))
     emit('update:show', false)
     emit('done', targetId.value)
-  } catch (e: any) { message.error(e?.message ?? t('incident.opFailed')) } finally { loading.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('incident.opFailed')) } finally { loading.value = false }
 }
 </script>
 

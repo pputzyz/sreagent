@@ -77,11 +77,15 @@ func (rl *rateLimiter) Allow() bool {
 
 // ---- IntegrationService ----
 
+// maxAsyncIntegrationTasks caps concurrent async goroutines in the integration service.
+const maxAsyncIntegrationTasks = 100
+
 type IntegrationService struct {
 	repo        *repository.IntegrationRepository
 	routingRepo *repository.RoutingRuleRepository
 	pipeline    *AlertV2Pipeline
 	logger      *zap.Logger
+	dispatchSem chan struct{}
 
 	// Per-integration rate limiters
 	limitersMu sync.RWMutex
@@ -99,6 +103,7 @@ func NewIntegrationService(
 		routingRepo: routingRepo,
 		pipeline:    pipeline,
 		logger:      logger,
+		dispatchSem: make(chan struct{}, maxAsyncIntegrationTasks),
 		limiters:    make(map[uint]*rateLimiter),
 	}
 }
@@ -240,9 +245,15 @@ func (s *IntegrationService) ReceiveAlerts(ctx context.Context, token string, ra
 	}
 
 	// Increment counter (fire-and-forget)
-	go func() {
-		_ = s.repo.IncrTotalAlerts(context.Background(), integ.ID)
-	}()
+	select {
+	case s.dispatchSem <- struct{}{}:
+		go func() {
+			defer func() { <-s.dispatchSem }()
+			_ = s.repo.IncrTotalAlerts(context.Background(), integ.ID)
+		}()
+	default:
+		s.logger.Warn("dropping async integration counter increment, too many in flight")
+	}
 
 	return nil
 }
@@ -291,17 +302,23 @@ func (s *IntegrationService) injectAndRoute(ctx context.Context, integ *model.In
 		FiredAt:      alert.StartsAt,
 	}
 
-	go func() {
-		pCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if err := s.pipeline.process(pCtx, syntheticEvent); err != nil {
-			s.logger.Error("integration: v2 pipeline failed",
-				zap.Uint("integration_id", integ.ID),
-				zap.String("alert", alert.Title),
-				zap.Error(err),
-			)
-		}
-	}()
+	select {
+	case s.dispatchSem <- struct{}{}:
+		go func() {
+			defer func() { <-s.dispatchSem }()
+			pCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := s.pipeline.process(pCtx, syntheticEvent); err != nil {
+				s.logger.Error("integration: v2 pipeline failed",
+					zap.Uint("integration_id", integ.ID),
+					zap.String("alert", alert.Title),
+					zap.Error(err),
+				)
+			}
+		}()
+	default:
+		s.logger.Warn("dropping async integration pipeline task, too many in flight")
+	}
 }
 
 // --- Normalisation ---

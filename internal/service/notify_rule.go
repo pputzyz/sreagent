@@ -12,6 +12,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -365,7 +366,7 @@ func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := safehttp.NewSafeClient(10 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		s.logger.Error("callback request failed",

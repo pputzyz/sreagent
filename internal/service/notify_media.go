@@ -19,6 +19,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -247,7 +248,7 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := safehttp.NewSafeClient(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("http request failed: %w", err)
@@ -416,7 +417,7 @@ func (s *NotifyMediaService) executeScript(ctx context.Context, media *model.Not
 	return nil
 }
 
-// doHTTPPost is a helper to send an HTTP POST request.
+// doHTTPPost is a helper to send an HTTP POST request with SSRF protection.
 func (s *NotifyMediaService) doHTTPPost(ctx context.Context, url, contentType string, body []byte) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
@@ -424,7 +425,7 @@ func (s *NotifyMediaService) doHTTPPost(ctx context.Context, url, contentType st
 	}
 	req.Header.Set("Content-Type", contentType)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := safehttp.NewSafeClient(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("http post failed: %w", err)

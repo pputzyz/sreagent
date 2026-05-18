@@ -24,11 +24,17 @@ func CORS() gin.HandlerFunc {
 		}
 	}
 	if len(allowedOrigins) == 0 {
-		allowedOrigins = []string{
-			"http://localhost:5173",
-			"http://localhost:8080",
-			"http://127.0.0.1:5173",
-			"http://127.0.0.1:8080",
+		if gin.Mode() == gin.ReleaseMode {
+			// In release mode, CORS_ALLOWED_ORIGINS must be explicitly set.
+			// Defaulting to localhost with AllowCredentials is a security risk.
+			allowedOrigins = []string{}
+		} else {
+			allowedOrigins = []string{
+				"http://localhost:5173",
+				"http://localhost:8080",
+				"http://127.0.0.1:5173",
+				"http://127.0.0.1:8080",
+			}
 		}
 	}
 

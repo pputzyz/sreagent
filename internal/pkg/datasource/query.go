@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 // DataPoint represents a single timestamped metric value.
@@ -30,12 +32,10 @@ type QueryClient struct {
 	httpClient *http.Client
 }
 
-// NewQueryClient creates a new QueryClient with sensible defaults.
+// NewQueryClient creates a new QueryClient with SSRF protection and sensible defaults.
 func NewQueryClient() *QueryClient {
 	return &QueryClient{
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient: safehttp.NewSafeClient(30 * time.Second),
 	}
 }
 

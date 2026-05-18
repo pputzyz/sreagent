@@ -4,6 +4,7 @@ import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { scheduleApi } from '@/api'
 import type { ScheduleParticipant, User } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { AlertCircleOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 
@@ -65,8 +66,8 @@ async function addParticipant() {
     message.success(t('schedule.participantAdded'))
     selectedUserId.value = null
     await fetchParticipants()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -82,8 +83,8 @@ async function removeParticipant(userId: number) {
     await scheduleApi.setParticipants(props.scheduleId, updatedList)
     message.success(t('schedule.participantRemoved'))
     await fetchParticipants()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -100,8 +101,8 @@ async function moveParticipant(index: number, direction: 'up' | 'down') {
   try {
     await scheduleApi.setParticipants(props.scheduleId, updatedList)
     await fetchParticipants()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }

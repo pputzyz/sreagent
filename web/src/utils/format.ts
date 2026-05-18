@@ -82,3 +82,15 @@ export function recordToKVArray(record: Record<string, string> | null | undefine
   if (!record) return []
   return Object.entries(record).map(([key, value]) => ({ key, value }))
 }
+
+/**
+ * Safely extract an error message from an unknown thrown value.
+ * Works with Error instances, Axios errors, and plain objects with a `message` property.
+ */
+export function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'object' && e !== null && 'message' in e) {
+    return String((e as { message: unknown }).message)
+  }
+  return String(e)
+}

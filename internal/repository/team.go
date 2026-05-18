@@ -23,11 +23,33 @@ func (r *TeamRepository) Create(ctx context.Context, team *model.Team) error {
 
 func (r *TeamRepository) GetByID(ctx context.Context, id uint) (*model.Team, error) {
 	var team model.Team
-	err := r.db.WithContext(ctx).First(&team, id).Error
+	err := r.db.WithContext(ctx).Preload("Members").First(&team, id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &team, nil
+}
+
+// GetByName finds a team by name.
+func (r *TeamRepository) GetByName(ctx context.Context, name string) (*model.Team, error) {
+	var team model.Team
+	err := r.db.WithContext(ctx).Where("name = ?", name).First(&team).Error
+	if err != nil {
+		return nil, err
+	}
+	return &team, nil
+}
+
+// GetMember returns a specific team member.
+func (r *TeamRepository) GetMember(ctx context.Context, teamID, userID uint) (*model.TeamMember, error) {
+	var member model.TeamMember
+	err := r.db.WithContext(ctx).
+		Where("team_id = ? AND user_id = ?", teamID, userID).
+		First(&member).Error
+	if err != nil {
+		return nil, err
+	}
+	return &member, nil
 }
 
 func (r *TeamRepository) List(ctx context.Context, page, pageSize int) ([]model.Team, int64, error) {
@@ -63,19 +85,9 @@ func (r *TeamRepository) Delete(ctx context.Context, id uint) error {
 	})
 }
 
-// AddMember adds a user to a team with the specified role.
-func (r *TeamRepository) AddMember(ctx context.Context, teamID, userID uint, role string) error {
-	member := &model.TeamMember{
-		TeamID: teamID,
-		UserID: userID,
-		Role:   role,
-	}
-	// Use FirstOrCreate to avoid duplicate key errors, then update role if needed
-	result := r.db.WithContext(ctx).
-		Where("team_id = ? AND user_id = ?", teamID, userID).
-		Assign(model.TeamMember{Role: role}).
-		FirstOrCreate(member)
-	return result.Error
+// AddMember adds a user to a team.
+func (r *TeamRepository) AddMember(ctx context.Context, member *model.TeamMember) error {
+	return r.db.WithContext(ctx).Create(member).Error
 }
 
 // RemoveMember removes a user from a team.

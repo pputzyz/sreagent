@@ -1,5 +1,5 @@
 // ===== API Response Types =====
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   code: number
   message: string
   data: T
@@ -661,4 +661,132 @@ export interface RoutingRule {
   is_enabled: boolean
   created_at: string
   updated_at: string
+}
+
+// ===== Alert Rule Template =====
+export interface AlertRuleTemplate {
+  id: number
+  name: string
+  description: string
+  category: string
+  severity: AlertSeverity
+  rule_type: AlertRuleType
+  expression: string
+  for_duration: string
+  labels: Record<string, string>
+  annotations: Record<string, string>
+  datasource_type: DataSourceType
+  is_builtin: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ===== Exclusion Rule =====
+export interface ExclusionRule {
+  id: number
+  channel_id: number
+  name: string
+  description: string
+  conditions: string
+  priority: number
+  is_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ===== Integration =====
+export interface Integration {
+  id: number
+  name: string
+  description: string
+  type: string
+  mode: string
+  channel_id: number | null
+  channel?: Channel
+  webhook_token: string
+  pipeline_config: string
+  label_enhancement_config: string
+  is_enabled: boolean
+  total_alerts: number
+  created_at: string
+  updated_at: string
+}
+
+// ===== Dispatch Policy =====
+export interface DispatchPolicy {
+  id: number
+  channel_id: number
+  name: string
+  description: string
+  is_enabled: boolean
+  priority: number
+  match_conditions: string
+  active_time_config: string
+  delay_seconds: number
+  escalation_policy_id: number | null
+  repeat_interval_seconds: number
+  max_repeats: number
+  notify_mode: string
+  unified_media_id: number | null
+  label_enhancement_rules: string
+  created_at: string
+  updated_at: string
+}
+
+// ===== Post-Mortem =====
+export interface PostMortem {
+  id: number
+  incident_id: number
+  incident?: Incident
+  title: string
+  content: string
+  status: 'draft' | 'published'
+  author?: User
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ===== Dashboard V2 Stats =====
+export interface IncidentStats {
+  total: number
+  triggered: number
+  processing: number
+  closed: number
+  mtta_seconds: number
+  mttr_seconds: number
+}
+
+export interface ChannelStatItem {
+  channel_id: number
+  channel_name: string
+  total: number
+  triggered: number
+  critical: number
+  closed: number
+}
+
+export interface TeamStatItem {
+  team_id: number
+  team_name: string
+  total: number
+  critical: number
+  closed: number
+  avg_mttr_seconds?: number
+}
+
+export interface IncidentTrendPoint {
+  date: string
+  triggered: number
+  closed: number
+}
+
+// ===== Naive UI Dropdown Option =====
+export interface DropdownOption {
+  type?: 'default' | 'divider'
+  label: string
+  key: string
+  icon?: () => unknown
+  props?: Record<string, unknown>
+  disabled?: boolean
 }

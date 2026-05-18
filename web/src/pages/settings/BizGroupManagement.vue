@@ -4,6 +4,7 @@ import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { bizGroupApi } from '@/api'
 import type { User, BizGroup } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { kvArrayToRecord } from '@/utils/format'
 import {
   AddOutline,
@@ -35,7 +36,7 @@ const { t } = useI18n()
 const loading = ref(false)
 const list = shallowRef<BizGroup[]>([])
 const selected = ref<BizGroup | null>(null)
-const members = ref<any[]>([])
+const members = ref<User[]>([])
 const membersLoading = ref(false)
 const expanded = ref<Set<string | number>>(new Set())
 
@@ -131,8 +132,8 @@ async function fetchList() {
       tree.value.forEach(n => next.add(n.fullPath))
       expanded.value = next
     }
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
@@ -163,8 +164,8 @@ async function fetchMembers(groupId: number) {
   try {
     const { data } = await bizGroupApi.listMembers(groupId)
     members.value = data.data || []
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
     members.value = []
   } finally {
     membersLoading.value = false
@@ -230,8 +231,8 @@ async function handleSave() {
     }
     showModal.value = false
     await fetchList()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }
@@ -245,8 +246,8 @@ async function handleDelete() {
     selected.value = null
     members.value = []
     await fetchList()
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 
@@ -266,8 +267,8 @@ async function handleAddMember() {
     message.success(t('settings.memberAdded'))
     showAddMemberModal.value = false
     fetchMembers(selected.value.id)
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 
@@ -277,19 +278,19 @@ async function handleRemoveMember(userId: number) {
     await bizGroupApi.removeMember(selected.value.id, userId)
     message.success(t('settings.memberRemoved'))
     fetchMembers(selected.value.id)
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
   }
 }
 
 /** Recursive tree-node renderer. Defined inline to keep this a single SFC. */
-const TreeNodeRow: any = defineComponent({
+const TreeNodeRow = defineComponent({
   name: 'TreeNodeRow',
   props: {
     node: { type: Object as () => TreeNode, required: true },
     depth: { type: Number, required: true },
     expandedSet: { type: Object as () => Set<string | number>, required: true },
-    selectedId: { type: [Number, String, null] as any, default: null },
+    selectedId: { type: [Number, String] as unknown as () => number | string | null, default: null },
     onPick: { type: Function, required: true },
     onToggleNode: { type: Function, required: true },
   },

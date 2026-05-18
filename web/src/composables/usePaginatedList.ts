@@ -1,14 +1,14 @@
 import { ref, type Ref } from 'vue'
 
-interface PaginatedListOptions<T, P = Record<string, any>> {
+interface PaginatedListOptions<T, P = Record<string, unknown>> {
   /** API call function: receives merged params, returns { data: { data: { list, total } } } */
   apiFn: (params: P & { page: number; page_size: number }) => Promise<{ data: { data: { list: T[]; total: number } } }>
   /** Items per page (default 20) */
   pageSize?: number
   /** Additional params to merge into every request (reactive getter) */
-  extraParams?: () => Record<string, any>
+  extraParams?: () => Record<string, unknown>
   /** Error handler (defaults to console.error) */
-  onError?: (err: any) => void
+  onError?: (err: unknown) => void
 }
 
 interface PaginatedListReturn<T> {
@@ -26,8 +26,8 @@ interface PaginatedListReturn<T> {
  * Composable for paginated list data fetching.
  * Manages loading, items, total, page state and provides fetch/refresh methods.
  */
-export function usePaginatedList<T, P = Record<string, any>>(
-  options: PaginatedListOptions<T, P>
+export function usePaginatedList<T, P = Record<string, unknown>>(
+  options: PaginatedListOptions<T, P>,
 ): PaginatedListReturn<T> {
   const loading = ref(false)
   const items = ref<T[]>([]) as Ref<T[]>
@@ -47,7 +47,7 @@ export function usePaginatedList<T, P = Record<string, any>>(
       const { data } = await options.apiFn(params)
       items.value = data.data.list || []
       total.value = data.data.total
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (options.onError) {
         options.onError(err)
       } else {

@@ -4,6 +4,7 @@ import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { subscribeRuleApi, notifyRuleApi, userApi, teamApi } from '@/api'
 import type { SubscribeRule, NotifyRule, User, Team } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { AddOutline, SearchOutline, NotificationsOutline } from '@vicons/ionicons5'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
@@ -81,7 +82,7 @@ async function fetchData() {
   try {
     const { data } = await subscribeRuleApi.list({ page: 1, page_size: 100 })
     subscriptions.value = data.data.list || []
-  } catch (err: any) { message.error(err.message) } finally { loading.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { loading.value = false }
 }
 
 async function fetchRefData() {
@@ -94,7 +95,7 @@ async function fetchRefData() {
     notifyRules.value = rulesRes.data.data.list || []
     users.value = usersRes.data.data.list || []
     teams.value = teamsRes.data.data.list || []
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 function resetForm() {
@@ -160,7 +161,7 @@ async function handleSave() {
     }
     showModal.value = false
     fetchData()
-  } catch (err: any) { message.error(err.message) } finally { saving.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { saving.value = false }
 }
 
 async function handleDelete(id: number) {
@@ -168,14 +169,14 @@ async function handleDelete(id: number) {
     await subscribeRuleApi.delete(id)
     message.success(t('subscribe.deleted'))
     fetchData()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 async function toggleEnabled(row: SubscribeRule, val: boolean) {
   try {
     await subscribeRuleApi.update(row.id, { ...row, is_enabled: val })
     subscriptions.value = subscriptions.value.map(r => r.id === row.id ? { ...r, is_enabled: val } : r)
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 function rowMenu(row: SubscribeRule) {

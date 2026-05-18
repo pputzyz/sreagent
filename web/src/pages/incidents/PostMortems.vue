@@ -4,7 +4,9 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { postMortemApi } from '@/api'
-import { formatTime } from '@/utils/format'
+import type { PostMortem } from '@/types'
+import { usePaginatedList } from '@/composables'
+import { formatTime, getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -20,53 +22,47 @@ const { t } = useI18n()
 const message = useMessage()
 const router = useRouter()
 
-const loading = ref(false)
-const postMortems = ref<any[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
 const statusFilter = ref('')
 
-async function loadPostMortems() {
-  loading.value = true
-  try {
-    const params: any = {
-      page: page.value,
-      page_size: pageSize.value,
-    }
-    if (statusFilter.value) {
-      params.status = statusFilter.value
-    }
-    const res = await postMortemApi.list(params)
-    postMortems.value = res.data.data?.list ?? []
-    total.value = res.data.data?.total ?? 0
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
-  } finally {
-    loading.value = false
-  }
-}
+const {
+  loading,
+  items: postMortems,
+  total,
+  page,
+  pageSize,
+  fetchList,
+  refresh,
+} = usePaginatedList<PostMortem>({
+  apiFn: postMortemApi.list,
+  extraParams: () => {
+    const params: Record<string, unknown> = {}
+    if (statusFilter.value) params.status = statusFilter.value
+    return params
+  },
+  onError: (err: unknown) => {
+    message.error((err as Error)?.message ?? t('common.loadFailed'))
+  },
+})
 
 function gotoIncident(incidentId: number) {
   router.push(`/oncall/incidents/${incidentId}`)
 }
 
-function authorName(pm: any): string {
+function authorName(pm: PostMortem): string {
   return pm.author?.display_name || pm.author?.username || '—'
 }
 
 const isEmpty = computed(() => !loading.value && postMortems.value.length === 0)
 const hasFilters = computed(() => statusFilter.value !== '')
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-onMounted(loadPostMortems)
+onMounted(fetchList)
 </script>
 
 <template>
   <div class="postmortems-page">
     <PageHeader :title="t('postMortem.title')">
       <template #actions>
-        <n-button circle quaternary @click="loadPostMortems" :aria-label="t('common.refresh')">
+        <n-button circle quaternary @click="fetchList" :aria-label="t('common.refresh')">
           <template #icon><RefreshCw :size="18" /></template>
         </n-button>
       </template>
@@ -76,7 +72,7 @@ onMounted(loadPostMortems)
     <div class="filter-bar">
       <div class="filter-group">
         <span class="filter-label">{{ t('common.status') }}</span>
-        <n-radio-group v-model:value="statusFilter" size="small" @update:value="page = 1; loadPostMortems()">
+        <n-radio-group v-model:value="statusFilter" size="small" @update:value="refresh()">
           <n-radio-button value="">{{ t('common.all') }}</n-radio-button>
           <n-radio-button value="draft">{{ t('postMortem.draft') }}</n-radio-button>
           <n-radio-button value="published">{{ t('postMortem.published') }}</n-radio-button>
@@ -96,7 +92,7 @@ onMounted(loadPostMortems)
         :title="t('postMortem.noPostMortem')"
         :description="hasFilters ? t('common.noData') : t('postMortem.noPostMortem')"
         :primary-text="hasFilters ? t('common.all') : undefined"
-        @primary="statusFilter = ''; loadPostMortems()"
+        @primary="statusFilter = ''; refresh()"
       />
 
       <div v-else class="pm-list">
@@ -146,8 +142,10 @@ onMounted(loadPostMortems)
       <div v-if="total > pageSize" class="pagination">
         <n-pagination
           v-model:page="page"
-          :page-count="totalPages"
-          @update:page="loadPostMortems"
+          :page-size="pageSize"
+          :item-count="total"
+          :page-slot="7"
+          @update:page="fetchList"
         />
       </div>
     </n-spin>

@@ -49,6 +49,19 @@ func (r *AlertEventRepository) GetByID(ctx context.Context, id uint) (*model.Ale
 	return &event, nil
 }
 
+// GetByIDs returns all alert events whose ID is in the given slice.
+// Returns nil (not an error) when ids is empty.
+func (r *AlertEventRepository) GetByIDs(ctx context.Context, ids []uint) ([]model.AlertEvent, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var events []model.AlertEvent
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&events).Error
+	return events, err
+}
+
 func (r *AlertEventRepository) GetByFingerprint(ctx context.Context, fingerprint string) (*model.AlertEvent, error) {
 	var event model.AlertEvent
 	err := r.db.WithContext(ctx).
@@ -87,6 +100,19 @@ func (r *AlertEventRepository) List(ctx context.Context, status, severity string
 	}
 
 	return list, total, nil
+}
+
+// ListFiringForEscalation returns only firing events (no preloads) ordered by
+// fired_at ASC, capped at `limit`.  This replaces the full-table scan that the
+// escalation executor used to perform via List("", "", 1, 10000).
+func (r *AlertEventRepository) ListFiringForEscalation(ctx context.Context, limit int) ([]model.AlertEvent, error) {
+	var list []model.AlertEvent
+	err := r.db.WithContext(ctx).
+		Where("status = ?", model.EventStatusFiring).
+		Order("fired_at ASC").
+		Limit(limit).
+		Find(&list).Error
+	return list, err
 }
 
 // ListWithFilter returns alert events filtered by the given AlertEventFilter.

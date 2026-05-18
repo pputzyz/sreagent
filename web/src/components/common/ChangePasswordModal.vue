@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { NModal, NForm, NFormItem, NInput, NButton, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ 'update:show': [value: boolean] }>()
@@ -37,8 +38,8 @@ async function handleSubmit() {
     form.old_password = ''
     form.new_password = ''
     form.confirm_password = ''
-  } catch (err: any) {
-    message.error(err.message || t('common.failed'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.failed'))
   } finally {
     loading.value = false
   }

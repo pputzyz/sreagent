@@ -3,6 +3,8 @@ import { ref, shallowRef, onMounted, computed, h } from 'vue'
 import { useMessage, useDialog, NButton, NIcon, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { integrationV2Api, channelV2Api } from '@/api'
+import type { Integration, Channel } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import RoutingRules from './RoutingRules.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -21,8 +23,8 @@ const message = useMessage()
 const dialog = useDialog()
 
 const loading = ref(false)
-const integrations = shallowRef<any[]>([])
-const channels = shallowRef<any[]>([])
+const integrations = shallowRef<Integration[]>([])
+const channels = shallowRef<Channel[]>([])
 
 // Filters
 const filterType = ref<'all' | 'standard' | 'alertmanager' | 'grafana'>('all')
@@ -85,8 +87,8 @@ async function load() {
     ])
     integrations.value = intRes.data.data?.list ?? []
     channels.value = chRes.data.data?.list ?? []
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.loadFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -103,7 +105,7 @@ function webhookShort(token: string) {
   return prefix + tail + '/alerts'
 }
 
-function copyWebhook(integ: any) {
+function copyWebhook(integ: Integration) {
   if (!integ.webhook_token) return
   navigator.clipboard.writeText(webhookUrl(integ.webhook_token)).then(() =>
     message.success(t('common.copied')),
@@ -128,7 +130,7 @@ function openCreate() {
   showModal.value = true
 }
 
-function openEdit(integ: any) {
+function openEdit(integ: Integration) {
   editingId.value = integ.id
   Object.assign(form.value, {
     name: integ.name,
@@ -162,8 +164,8 @@ async function save() {
     message.success(t('common.savedSuccess'))
     showModal.value = false
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -174,12 +176,12 @@ async function deleteInteg(id: number) {
     await integrationV2Api.delete(id)
     message.success(t('common.deleteSuccess'))
     await load()
-  } catch (e: any) {
-    message.error(e?.message ?? t('common.deleteFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.deleteFailed'))
   }
 }
 
-function rowActions(_integ: any) {
+function rowActions(_integ: Integration) {
   return [
     {
       key: 'edit',
@@ -195,7 +197,7 @@ function rowActions(_integ: any) {
   ]
 }
 
-function handleAction(key: string, integ: any) {
+function handleAction(key: string, integ: Integration) {
   if (key === 'edit') openEdit(integ)
   else if (key === 'delete') {
     dialog.warning({
@@ -213,7 +215,7 @@ const showRoutingDrawer = ref(false)
 const routingIntegId = ref<number>(0)
 const routingIntegName = ref('')
 
-function openRoutingRules(integ: any) {
+function openRoutingRules(integ: Integration) {
   routingIntegId.value = integ.id
   routingIntegName.value = integ.name
   showRoutingDrawer.value = true

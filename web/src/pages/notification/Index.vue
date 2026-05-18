@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NIcon } from 'naive-ui'
@@ -23,7 +23,7 @@ const router = useRouter()
 type NavKey = 'channels' | 'media' | 'rules' | 'subscribe' | 'templates'
 const VALID: NavKey[] = ['channels', 'media', 'rules', 'subscribe', 'templates']
 
-const COMPONENTS: Record<NavKey, any> = {
+const COMPONENTS: Record<NavKey, Component> = {
   channels: AlertChannels,
   media: Media,
   rules: Rules,
@@ -33,7 +33,7 @@ const COMPONENTS: Record<NavKey, any> = {
 
 interface NavItem {
   key: NavKey
-  icon: any
+  icon: Component
   label: string
   desc: string
 }

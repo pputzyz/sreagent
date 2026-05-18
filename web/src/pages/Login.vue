@@ -4,6 +4,7 @@ import type { Ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
+import { getErrorMessage } from '@/utils/format'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api'
 import { SunnyOutline, MoonOutline } from '@vicons/ionicons5'
@@ -49,8 +50,8 @@ async function handleLogin() {
     const raw = (route.query.redirect as string) || ''
     const safeRedirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
     router.push(safeRedirect)
-  } catch (err: any) {
-    loginError.value = err.message || t('auth.loginFailed')
+  } catch (err: unknown) {
+    loginError.value = getErrorMessage(err) || t('auth.loginFailed')
   } finally {
     loading.value = false
   }

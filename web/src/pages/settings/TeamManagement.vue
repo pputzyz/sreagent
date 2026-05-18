@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, shallowRef, onMounted, h } from 'vue'
+import { computed, reactive, ref, shallowRef, onMounted, h, watch } from 'vue'
 import {
   useMessage,
   NButton,
@@ -19,6 +19,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import { teamApi } from '@/api'
 import type { User, Team } from '@/types'
+import { usePaginatedList, useCrudModal } from '@/composables'
 import { kvArrayToRecord } from '@/utils/format'
 import { AddOutline, EllipsisHorizontal, SearchOutline } from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
@@ -28,14 +29,30 @@ const props = defineProps<{ allUsers: User[] }>()
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const teamsList = shallowRef<Team[]>([])
-const search = ref('')
+const {
+  loading,
+  items: teamsList,
+  fetchList,
+} = usePaginatedList<Team>({
+  apiFn: teamApi.list,
+  pageSize: 100,
+  onError: (err: unknown) => {
+    message.error((err as Error).message)
+  },
+})
 
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
+const {
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  openCreate: baseOpenCreate,
+  openEdit: baseOpenEdit,
+  closeModal,
+  withSaving,
+} = useCrudModal(fetchList)
+
+const search = ref('')
 
 const showMembersModal = ref(false)
 const membersTeamId = ref<number | null>(null)
@@ -67,34 +84,18 @@ function initials(u: User): string {
   return s.charAt(0).toUpperCase()
 }
 
-async function fetchTeams() {
-  loading.value = true
-  try {
-    const { data } = await teamApi.list({ page: 1, page_size: 100 })
-    teamsList.value = data.data.list || []
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    loading.value = false
-  }
-}
-
 function openCreate() {
-  editingId.value = null
-  modalTitle.value = t('settings.createTeam')
   Object.assign(form, { name: '', description: '', labels: [] })
-  showModal.value = true
+  baseOpenCreate(t('settings.createTeam'))
 }
 
 function openEdit(tm: Team) {
-  editingId.value = tm.id
-  modalTitle.value = t('settings.editTeam')
   Object.assign(form, {
     name: tm.name,
     description: tm.description,
     labels: Object.entries(tm.labels || {}).map(([key, value]) => ({ key, value })),
   })
-  showModal.value = true
+  baseOpenEdit(tm.id, t('settings.editTeam'))
 }
 
 async function handleSave() {
@@ -102,8 +103,7 @@ async function handleSave() {
     message.warning(t('settings.nameRequired'))
     return
   }
-  saving.value = true
-  try {
+  await withSaving(async () => {
     const payload = {
       name: form.name,
       description: form.description,
@@ -116,22 +116,16 @@ async function handleSave() {
       await teamApi.create(payload)
       message.success(t('settings.teamCreated'))
     }
-    showModal.value = false
-    fetchTeams()
-  } catch (err: any) {
-    message.error(err.message)
-  } finally {
-    saving.value = false
-  }
+  })
 }
 
 async function handleDelete(id: number) {
   try {
     await teamApi.delete(id)
     message.success(t('settings.teamDeleted'))
-    fetchTeams()
-  } catch (err: any) {
-    message.error(err.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error).message)
   }
 }
 
@@ -148,8 +142,8 @@ async function fetchTeamMembers(teamId: number) {
   try {
     const { data } = await teamApi.listMembers(teamId)
     teamMembers.value = data.data || []
-  } catch (err: any) {
-    message.error(err.message)
+  } catch (err: unknown) {
+    message.error((err as Error).message)
     teamMembers.value = []
   } finally {
     membersLoading.value = false
@@ -167,9 +161,9 @@ async function handleAddMember() {
     message.success(t('settings.memberAdded'))
     selectedMemberUserId.value = null
     await fetchTeamMembers(membersTeamId.value)
-    fetchTeams()
-  } catch (err: any) {
-    message.error(err.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error).message)
   }
 }
 
@@ -179,9 +173,9 @@ async function handleRemoveMember(userId: number) {
     await teamApi.removeMember(membersTeamId.value, userId)
     message.success(t('settings.memberRemoved'))
     await fetchTeamMembers(membersTeamId.value)
-    fetchTeams()
-  } catch (err: any) {
-    message.error(err.message)
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error).message)
   }
 }
 
@@ -205,7 +199,7 @@ function handleCardMenu(key: string, tm: Team, evt?: MouseEvent) {
 
 const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
 
-onMounted(fetchTeams)
+onMounted(fetchList)
 </script>
 
 <template>
@@ -400,6 +394,9 @@ onMounted(fetchTeams)
   display: flex; flex-direction: column; gap: 10px;
   transition: all var(--sre-duration-fast) var(--sre-ease-out);
   min-height: 168px;
+  /* Virtual scrolling: skip rendering off-screen cards */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 168px;
 }
 .team-card:hover {
   border-color: var(--sre-primary);

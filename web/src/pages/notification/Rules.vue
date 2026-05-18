@@ -4,6 +4,7 @@ import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyRuleApi } from '@/api'
 import type { NotifyRule } from '@/types'
+import { getErrorMessage } from '@/utils/format'
 import { AddOutline, SearchOutline, FilterOutline } from '@vicons/ionicons5'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
@@ -54,7 +55,7 @@ function summarizeMedia(r: NotifyRule): string[] {
   try {
     const arr = JSON.parse(r.notify_configs || '[]')
     if (!Array.isArray(arr)) return []
-    return arr.map((c: any) => c.media_name || c.name || c.type || 'media').slice(0, 4)
+    return arr.map((c: Record<string, unknown>) => (c.media_name || c.name || c.type || 'media') as string).slice(0, 4)
   } catch { return [] }
 }
 
@@ -63,7 +64,7 @@ async function fetchData() {
   try {
     const { data } = await notifyRuleApi.list({ page: 1, page_size: 100 })
     rules.value = data.data.list || []
-  } catch (err: any) { message.error(err.message) } finally { loading.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { loading.value = false }
 }
 
 function resetForm() {
@@ -133,7 +134,7 @@ async function handleSave() {
     }
     showModal.value = false
     fetchData()
-  } catch (err: any) { message.error(err.message) } finally { saving.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { saving.value = false }
 }
 
 async function handleDelete(id: number) {
@@ -141,14 +142,14 @@ async function handleDelete(id: number) {
     await notifyRuleApi.delete(id)
     message.success(t('notifyRule.deleted'))
     fetchData()
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 async function toggleEnabled(row: NotifyRule, val: boolean) {
   try {
     await notifyRuleApi.update(row.id, { ...row, is_enabled: val })
     rules.value = rules.value.map(r => r.id === row.id ? { ...r, is_enabled: val } : r)
-  } catch (err: any) { message.error(err.message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 function rowMenu(row: NotifyRule) {
