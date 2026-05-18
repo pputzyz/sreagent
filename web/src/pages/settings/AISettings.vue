@@ -4,15 +4,12 @@ import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
   NSpace, NTag, useMessage,
 } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline, SparklesOutline } from '@vicons/ionicons5'
-import { aiApi } from '@/api'
-import { aiModuleApi } from '@/api/preset-rules'
-import type { AIModuleConfig } from '@/types/preset-rule'
+import { aiApi, aiModuleApi } from '@/api'
+import type { AIModuleConfig } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
 
 const message = useMessage()
-const { t } = useI18n()
 
 // ─── AI Config (read-only display) ───
 const configLoading = ref(false)

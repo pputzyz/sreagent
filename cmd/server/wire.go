@@ -218,7 +218,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
 
 	// Alertmanager config import service
-	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, presetRuleSvc, zapLogger)
+	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, zapLogger)
 
 	// Seed default notification media and templates
 	seedSvc := service.NewSeedService(notifyMediaRepo, messageTemplateRepo, zapLogger)

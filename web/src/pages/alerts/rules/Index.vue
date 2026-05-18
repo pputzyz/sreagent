@@ -5,9 +5,9 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { alertRuleApi, datasourceApi, aiRuleApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
-import type { RuleGenerateResult } from '@/types/preset-rule'
+import type { RuleGenerateResult } from '@/types/ai-module'
 import { usePaginatedList, useAIModule } from '@/composables'
-import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
+import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -53,7 +53,7 @@ const {
     return params
   },
   onError: (err: unknown) => {
-    message.error((err as Error).message)
+    message.error(getErrorMessage(err))
   },
 })
 
@@ -108,7 +108,7 @@ async function handleAIGenerate() {
     })
     aiResult.value = data.data
   } catch (err: unknown) {
-    aiError.value = (err as Error).message || 'AI 生成失败'
+    aiError.value = getErrorMessage(err) || 'AI 生成失败'
   } finally {
     aiGenerating.value = false
   }
@@ -124,13 +124,13 @@ async function handleAIConfirmCreate() {
       severity: (aiResult.value.severity as AlertRule['severity']) || 'warning',
       labels: aiResult.value.labels || {},
       annotations: aiResult.value.annotations || {},
-      datasource_id: aiDatasourceId.value,
+      datasource_id: aiDatasourceId.value ?? undefined,
     })
     message.success(t('common.createSuccess'))
     showAIModal.value = false
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error).message)
+    message.error(getErrorMessage(err))
   }
 }
 
@@ -229,7 +229,7 @@ async function handleBatchEnable() {
     message.success(t('alert.batchEnabled', { count: selectedKeys.value.length }))
     selectedKeys.value = []
     fetchList()
-  } catch (err: unknown) { message.error((err as Error).message) } finally { batchLoading.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { batchLoading.value = false }
 }
 
 async function handleBatchDisable() {
@@ -240,7 +240,7 @@ async function handleBatchDisable() {
     message.success(t('alert.batchDisabled', { count: selectedKeys.value.length }))
     selectedKeys.value = []
     fetchList()
-  } catch (err: unknown) { message.error((err as Error).message) } finally { batchLoading.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { batchLoading.value = false }
 }
 
 async function handleBatchDelete() {
@@ -251,7 +251,7 @@ async function handleBatchDelete() {
     message.success(t('alert.batchDeleted', { count: selectedKeys.value.length }))
     selectedKeys.value = []
     fetchList()
-  } catch (err: unknown) { message.error((err as Error).message) } finally { batchLoading.value = false }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { batchLoading.value = false }
 }
 
 function toggleSelect(id: number, checked: boolean) {
@@ -309,7 +309,7 @@ async function toggleEnabled(rule: AlertRule) {
     await alertRuleApi.toggleStatus(rule.id, newStatus)
     message.success(newStatus === 'enabled' ? t('alert.ruleEnabled') : t('alert.ruleDisabled'))
     fetchList()
-  } catch (err: unknown) { message.error((err as Error).message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 async function handleDelete(id: number) {
@@ -317,7 +317,7 @@ async function handleDelete(id: number) {
     await alertRuleApi.delete(id)
     message.success(t('alert.ruleDeleted'))
     fetchList()
-  } catch (err: unknown) { message.error((err as Error).message) }
+  } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 function rowActions(rule: AlertRule) {
@@ -383,24 +383,26 @@ onMounted(() => {
       <!-- Sidebar: categories -->
       <aside class="cat-aside">
         <div class="sre-label-eyebrow cat-eyebrow">{{ t('alert.category') }}</div>
-        <a
+        <button
+          type="button"
           class="cat-item"
           :class="{ active: activeCategory === '' }"
           @click="handleCategoryChange('')"
         >
           <span class="cat-name">{{ t('alert.allCategories') }}</span>
           <span class="cat-count tnum">{{ allCount }}</span>
-        </a>
-        <a
+        </button>
+        <button
           v-for="cat in categories"
           :key="cat"
+          type="button"
           class="cat-item"
           :class="{ active: activeCategory === cat }"
           @click="handleCategoryChange(cat)"
         >
           <span class="cat-name">{{ cat }}</span>
           <span class="cat-count tnum">{{ categoryCounts[cat] ?? '' }}</span>
-        </a>
+        </button>
       </aside>
 
       <!-- Main column -->
@@ -478,26 +480,19 @@ onMounted(() => {
         />
 
         <!-- Rule list -->
-        <DynamicScroller
+        <div
           v-else
           class="rule-list"
           :class="{ 'sre-stagger': isFirstLoad }"
-          :items="filteredRules"
-          key-field="id"
-          :min-item-size="72"
         >
-          <template #default="{ item: rule }">
-            <DynamicScrollerItem
-              :item="rule"
-              :active="true"
-              :size-dependencies="[rule.expression, rule.category, rule.for_duration]"
-            >
-              <div
-                class="sre-row-card rule-row"
-                :data-severity="severitySlot(rule.severity)"
-                :data-dim="rule.status !== 'enabled' || undefined"
-                @click="goDetail(rule)"
-              >
+          <div
+            v-for="rule in filteredRules"
+            :key="rule.id"
+            class="sre-row-card rule-row"
+            :data-severity="severitySlot(rule.severity)"
+            :data-dim="rule.status !== 'enabled' || undefined"
+            @click="goDetail(rule)"
+          >
             <input
               type="checkbox"
               class="rc-check"
@@ -538,10 +533,8 @@ onMounted(() => {
                 </n-button>
               </n-dropdown>
             </div>
-              </div>
-            </DynamicScrollerItem>
-          </template>
-        </DynamicScroller>
+          </div>
+        </div>
 
         <!-- Pagination -->
         <div v-if="filteredRules.length > 0" class="pagination-wrap">
@@ -622,7 +615,13 @@ onMounted(() => {
           <NTag v-if="aiResult.severity" :type="aiResult.severity === 'critical' ? 'error' : aiResult.severity === 'warning' ? 'warning' : 'info'" size="small">
             {{ aiResult.severity }}
           </NTag>
-          <span class="ai-gen-confidence">{{ Math.round(aiResult.confidence * 100) }}%</span>
+          <NTag
+            size="small"
+            :bordered="false"
+            :type="aiResult.confidence >= 0.8 ? 'success' : aiResult.confidence >= 0.5 ? 'warning' : 'error'"
+          >
+            {{ Math.round(aiResult.confidence * 100) }}%
+          </NTag>
         </div>
         <div v-if="aiResult.expression" class="ai-gen-expr">{{ aiResult.expression }}</div>
         <div v-if="aiResult.description" class="ai-gen-desc">{{ aiResult.description }}</div>
@@ -679,13 +678,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 8px 16px;
   font-size: 13px;
   color: var(--sre-text-secondary);
   cursor: pointer;
   position: relative;
   transition: background 120ms ease, color 120ms ease;
+  border: none;
   border-left: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
 }
 .cat-item:hover {
   color: var(--sre-text-primary);

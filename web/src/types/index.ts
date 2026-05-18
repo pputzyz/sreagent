@@ -784,6 +784,7 @@ export interface IncidentTrendPoint {
 
 // ===== Preset Rules & AI Modules =====
 export * from './preset-rule'
+export * from './ai-module'
 
 // ===== Naive UI Dropdown Option =====
 import type { VNodeChild } from 'vue'

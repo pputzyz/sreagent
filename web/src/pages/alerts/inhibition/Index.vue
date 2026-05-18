@@ -11,8 +11,9 @@ import {
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { inhibitionRuleApi, aiRuleApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { InhibitionRule } from '@/types'
-import type { RuleGenerateResult } from '@/types/preset-rule'
+import type { RuleGenerateResult } from '@/types/ai-module'
 import { useAIModule } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -57,7 +58,7 @@ async function handleAIGenerate() {
     })
     aiResult.value = data.data
   } catch (err: unknown) {
-    aiError.value = (err as Error).message || 'AI generation failed'
+    aiError.value = getErrorMessage(err) || 'AI 生成失败'
   } finally {
     aiGenerating.value = false
   }
@@ -69,13 +70,13 @@ async function handleAIConfirmCreate() {
     const sourceMatch: Record<string, string> = {}
     if (aiResult.value.source_labels) {
       for (const label of aiResult.value.source_labels) {
-        sourceMatch[label] = label === 'alertname' ? (aiResult.value.source_value || '') : ''
+        sourceMatch[label] = label === 'alertname' ? (aiResult.value.source_value || '') : '=~.*'
       }
     }
     const targetMatch: Record<string, string> = {}
     if (aiResult.value.target_labels) {
       for (const label of aiResult.value.target_labels) {
-        targetMatch[label] = ''
+        targetMatch[label] = '=~.*'
       }
     }
     await inhibitionRuleApi.create({
@@ -90,7 +91,7 @@ async function handleAIConfirmCreate() {
     showAIModal.value = false
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error).message)
+    message.error(getErrorMessage(err))
   }
 }
 

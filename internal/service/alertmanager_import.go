@@ -19,7 +19,6 @@ import (
 type AlertmanagerImportService struct {
 	channelSvc   *ChannelService
 	inhibRuleSvc *InhibitionRuleService
-	presetRuleSvc *PresetRuleService
 	logger       *zap.Logger
 }
 
@@ -27,14 +26,12 @@ type AlertmanagerImportService struct {
 func NewAlertmanagerImportService(
 	channelSvc *ChannelService,
 	inhibRuleSvc *InhibitionRuleService,
-	presetRuleSvc *PresetRuleService,
 	logger *zap.Logger,
 ) *AlertmanagerImportService {
 	return &AlertmanagerImportService{
-		channelSvc:    channelSvc,
-		inhibRuleSvc:  inhibRuleSvc,
-		presetRuleSvc: presetRuleSvc,
-		logger:        logger,
+		channelSvc:   channelSvc,
+		inhibRuleSvc: inhibRuleSvc,
+		logger:       logger,
 	}
 }
 
@@ -118,10 +115,15 @@ func (s *AlertmanagerImportService) ImportConfig(ctx context.Context, yamlConten
 		}
 
 		// Store webhook URLs in aggregation_config JSON for reference
-		webhookData, _ := json.Marshal(map[string]interface{}{
+		webhookData, err := json.Marshal(map[string]interface{}{
 			"webhook_urls": webhookURLs,
 			"source":       "alertmanager_import",
 		})
+		if err != nil {
+			s.logger.Error("failed to marshal webhook data", zap.String("receiver", recv.Name), zap.Error(err))
+			result.Errors = append(result.Errors, fmt.Sprintf("failed to marshal webhook data for %q: %v", recv.Name, err))
+			continue
+		}
 
 		ch := &model.Channel{
 			Name:             recv.Name,
@@ -133,7 +135,7 @@ func (s *AlertmanagerImportService) ImportConfig(ctx context.Context, yamlConten
 
 		if err := s.channelSvc.Create(ctx, ch); err != nil {
 			// Treat duplicate name as a warning, not a hard error
-			if appErr, ok := err.(*apperr.AppError); ok && appErr.Code == 10401 {
+			if appErr, ok := err.(*apperr.AppError); ok && appErr.Code == apperr.ErrDuplicateName.Code {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("channel %q already exists, skipped", recv.Name))
 				continue
 			}
@@ -241,81 +243,3 @@ func parseAlertmanagerMatchers(matchers []string) (model.JSONLabels, error) {
 	return labels, nil
 }
 
-// ImportPresetInhibitionsFromConfig creates PresetRule templates from an Alertmanager config's
-// inhibit_rules. These are stored with category "inhibition" and the label structure
-// encodes the inhibition rule.
-func (s *AlertmanagerImportService) ImportPresetInhibitionsFromConfig(ctx context.Context, yamlContent []byte) (int, error) {
-	var cfg alertmanagerConfig
-	if err := yaml.Unmarshal(yamlContent, &cfg); err != nil {
-		return 0, apperr.WithMessage(apperr.ErrInvalidParam, "invalid Alertmanager YAML: "+err.Error())
-	}
-
-	if len(cfg.InhibitRules) == 0 {
-		return 0, apperr.WithMessage(apperr.ErrInvalidParam, "no inhibit_rules found in Alertmanager config")
-	}
-
-	var presets []model.PresetRule
-	for i, rule := range cfg.InhibitRules {
-		sourceMatch, err := parseAlertmanagerMatchers(rule.SourceMatchers)
-		if err != nil {
-			s.logger.Warn("skipping inhibit_rule for preset, source_matchers parse error",
-				zap.Int("index", i), zap.Error(err))
-			continue
-		}
-		targetMatch, err := parseAlertmanagerMatchers(rule.TargetMatchers)
-		if err != nil {
-			s.logger.Warn("skipping inhibit_rule for preset, target_matchers parse error",
-				zap.Int("index", i), zap.Error(err))
-			continue
-		}
-
-		// Build expression as JSON for the inhibition rule structure
-		exprData, _ := json.Marshal(map[string]interface{}{
-			"source_match": sourceMatch,
-			"target_match": targetMatch,
-			"equal_labels": rule.Equal,
-		})
-
-		name := fmt.Sprintf("imported-inhibit-%d", i+1)
-		displayName := name
-		if len(rule.SourceMatchers) > 0 {
-			displayName = fmt.Sprintf("Inhibition: %s", rule.SourceMatchers[0])
-		}
-
-		// Build labels encoding the source/target match for the preset
-		labels := model.JSONLabels{
-			"source_matchers": strings.Join(rule.SourceMatchers, ","),
-			"target_matchers": strings.Join(rule.TargetMatchers, ","),
-			"equal_labels":    strings.Join(rule.Equal, ","),
-		}
-
-		// Build annotations with the structured expression
-		annotations := model.JSONLabels{
-			"expression": string(exprData),
-		}
-
-		preset := model.PresetRule{
-			Name:        name,
-			DisplayName: displayName,
-			Category:    "inhibition",
-			Expression:  string(exprData),
-			Severity:    "info",
-			Labels:      labels,
-			Annotations: annotations,
-			Source:      "alertmanager_import",
-			IsBuiltin:   false,
-			Description: fmt.Sprintf("Imported from Alertmanager inhibit_rule[%d]", i),
-		}
-		presets = append(presets, preset)
-	}
-
-	if len(presets) == 0 {
-		return 0, apperr.WithMessage(apperr.ErrInvalidParam, "no valid inhibit_rules could be parsed")
-	}
-
-	if err := s.presetRuleSvc.BatchCreate(ctx, presets); err != nil {
-		return 0, apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	return len(presets), nil
-}

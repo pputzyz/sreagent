@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +20,12 @@ func NewPresetRuleHandler(svc *service.PresetRuleService) *PresetRuleHandler {
 func (h *PresetRuleHandler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
 	if pageSize > 100 {
 		pageSize = 100
 	}
@@ -78,26 +83,13 @@ func (h *PresetRuleHandler) Apply(c *gin.Context) {
 }
 
 func (h *PresetRuleHandler) Import(c *gin.Context) {
-	var req struct {
-		YAML string `json:"yaml" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		// Try multipart form fallback
-		file, _, fErr := c.Request.FormFile("file")
-		if fErr != nil {
-			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "yaml content is required"))
-			return
-		}
-		defer file.Close()
-		data, readErr := io.ReadAll(file)
-		if readErr != nil {
-			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read file"))
-			return
-		}
-		req.YAML = string(data)
+	yamlContent, err := readYAMLInput(c)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
 	}
 
-	count, err := h.svc.ImportFromYAML(c.Request.Context(), []byte(req.YAML))
+	count, err := h.svc.ImportFromYAML(c.Request.Context(), yamlContent)
 	if err != nil {
 		Error(c, err)
 		return

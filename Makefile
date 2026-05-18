@@ -1,4 +1,4 @@
-.PHONY: help build run dev test clean docker-up docker-down lint fmt web-install web-dev web-build check-modules import-presets import-presets-dry
+.PHONY: help build run dev test clean docker-up docker-down lint fmt web-install web-dev web-build check-modules
 
 # Variables
 APP_NAME := sreagent
@@ -37,11 +37,6 @@ tidy: ## Tidy Go modules
 check-modules: ## Verify MODULES.md counts match actual codebase
 	$(GO) run scripts/check-modules.go
 
-import-presets: ## Import preset rules from monitoring-trading YAML files
-	$(GO) run scripts/import-preset-rules.go
-
-import-presets-dry: ## Preview preset rules import (dry-run)
-	$(GO) run scripts/import-preset-rules.go --dry-run
 
 # ====== Frontend ======
 

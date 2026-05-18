@@ -1,6 +1,6 @@
 import { ref } from 'vue'
-import { aiModuleApi } from '@/api/preset-rules'
-import type { AIModuleConfig } from '@/types/preset-rule'
+import { aiModuleApi } from '@/api'
+import type { AIModuleConfig } from '@/types/ai-module'
 
 const modules = ref<AIModuleConfig | null>(null)
 const globalEnabled = ref(false)
@@ -21,9 +21,5 @@ export function useAIModule() {
     return modules.value[module]?.enabled ?? false
   }
 
-  function isAIAvailable(): boolean {
-    return globalEnabled.value
-  }
-
-  return { modules, globalEnabled, loadModules, isEnabled, isAIAvailable }
+  return { modules, globalEnabled, loadModules, isEnabled }
 }

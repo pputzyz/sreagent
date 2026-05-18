@@ -42,7 +42,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/history', component: () => import('@/pages/alerts/history/Index.vue'), meta: { title: 'menu.alertHistory' } },
       { path: 'alert/suppression', component: () => import('@/pages/alerts/mute/Index.vue'), meta: { title: 'menu.muteRules' } },
       { path: 'alert/suppression/inhibition', component: () => import('@/pages/alerts/inhibition/Index.vue'), meta: { title: 'menu.inhibitionRules' } },
-      { path: 'alert/presets', component: () => import('@/pages/alerts/Presets.vue'), meta: { title: '预置规则库' } },
+      { path: 'alert/presets', component: () => import('@/pages/alerts/Presets.vue'), meta: { title: 'menu.presetRules' } },
       { path: 'alert/datasources', component: () => import('@/pages/datasources/Index.vue'), meta: { title: 'menu.datasources' } },
       { path: 'alert/explore', component: () => import('@/pages/explore/Index.vue'), meta: { title: 'menu.dataQuery' } },
       { path: 'alert/dashboards', component: () => import('@/pages/dashboard-v2/Index.vue'), meta: { title: 'menu.dashboard' } },
@@ -64,7 +64,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/settings/smtp', component: () => import('@/pages/settings/SMTP.vue'), meta: { title: 'menu.smtp', requiresRole: ['admin'] } },
       { path: 'platform/settings/lark', component: () => import('@/pages/settings/LarkBot.vue'), meta: { title: 'menu.larkBot', requiresRole: ['admin'] } },
       { path: 'platform/settings/ai', component: () => import('@/pages/settings/AI.vue'), meta: { title: 'menu.aiConfig', requiresRole: ['admin'] } },
-      { path: 'platform/settings/ai-settings', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'AI 配置', requiresRole: ['admin'] } },
+      { path: 'platform/settings/ai-settings', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiModuleConfig', requiresRole: ['admin'] } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
 
       // ===== Legacy Redirects =====

@@ -142,6 +142,8 @@ export default {
     smtp: 'Email Service',
     larkBot: 'Lark Bot',
     aiConfig: 'AI Config',
+    aiModuleConfig: 'AI Module Config',
+    presetRules: 'Preset Rules',
     security: 'Security',
     systemSettings: 'System Settings',
   },

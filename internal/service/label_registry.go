@@ -134,10 +134,10 @@ func (s *LabelRegistryService) GetKeys(datasourceIDs []uint) ([]string, error) {
 
 // GetKeysByDatasource returns label keys for a specific datasource.
 func (s *LabelRegistryService) GetKeysByDatasource(ctx context.Context, datasourceID uint) ([]string, error) {
-	return s.repo.GetKeysByDatasource(datasourceID)
+	return s.repo.GetKeysByDatasource(ctx, datasourceID)
 }
 
 // GetValuesByDatasource returns label values for a specific key in a specific datasource.
 func (s *LabelRegistryService) GetValuesByDatasource(ctx context.Context, datasourceID uint, key string) ([]string, error) {
-	return s.repo.GetValuesByDatasource(datasourceID, key)
+	return s.repo.GetValuesByDatasource(ctx, datasourceID, key)
 }

@@ -1,9 +1,9 @@
 import request from './request'
 import type { ApiResponse, PageData } from '@/types'
+import type { PresetRule, PresetRuleOverride } from '@/types/preset-rule'
 import type {
-  PresetRule, PresetRuleOverride, AIModuleConfig,
-  RuleGenerateRequest, RuleGenerateResult, ValidationResult,
-} from '@/types/preset-rule'
+  AIModuleConfig, RuleGenerateRequest, RuleGenerateResult, ValidationResult,
+} from '@/types/ai-module'
 
 // ===== Preset Rule API =====
 export const presetRuleApi = {

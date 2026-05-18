@@ -528,44 +528,45 @@ func extractMetricNames(expr string) []string {
 	return result
 }
 
+// stopWords is a set of common Chinese and English stop words used by extractKeywords
+// to filter out noise from natural language descriptions.
+var stopWords = map[string]bool{
+	"的": true, "了": true, "在": true, "是": true, "我": true,
+	"有": true, "和": true, "就": true, "不": true, "人": true,
+	"都": true, "一": true, "一个": true, "上": true, "也": true,
+	"很": true, "到": true, "说": true, "要": true, "去": true,
+	"你": true, "会": true, "着": true, "没有": true, "看": true,
+	"好": true, "自己": true, "这": true, "他": true, "她": true,
+	"它": true, "们": true, "那": true, "什么": true,
+	"怎么": true, "如何": true, "请": true, "帮": true, "生成": true,
+	"创建": true, "添加": true, "规则": true, "告警": true,
+	"when": true, "the": true, "a": true, "an": true, "is": true,
+	"are": true, "was": true, "were": true, "be": true, "been": true,
+	"being": true, "have": true, "has": true, "had": true, "do": true,
+	"does": true, "did": true, "will": true, "would": true, "could": true,
+	"should": true, "may": true, "might": true, "shall": true, "can": true,
+	"need": true, "must": true, "it": true, "its": true, "this": true,
+	"that": true, "these": true, "those": true, "i": true, "me": true,
+	"my": true, "we": true, "our": true, "you": true, "your": true,
+	"he": true, "him": true, "his": true, "she": true, "her": true,
+	"they": true, "them": true, "their": true, "what": true, "which": true,
+	"who": true, "whom": true, "where": true, "why": true,
+	"how": true, "all": true, "each": true, "every": true, "both": true,
+	"few": true, "more": true, "most": true, "other": true, "some": true,
+	"such": true, "no": true, "nor": true, "not": true, "only": true,
+	"own": true, "same": true, "so": true, "than": true, "too": true,
+	"very": true, "just": true, "because": true, "as": true, "until": true,
+	"while": true, "of": true, "at": true, "by": true, "for": true,
+	"with": true, "about": true, "against": true, "between": true,
+	"through": true, "during": true, "before": true, "after": true,
+	"above": true, "below": true, "to": true, "from": true, "up": true,
+	"down": true, "in": true, "out": true, "on": true, "off": true,
+	"over": true, "under": true, "again": true, "further": true,
+	"then": true, "once": true, "here": true, "there": true,
+}
+
 // extractKeywords extracts search keywords from a natural language description.
 func extractKeywords(desc string) []string {
-	// Remove common stop words and extract meaningful keywords
-	stopWords := map[string]bool{
-		"的": true, "了": true, "在": true, "是": true, "我": true,
-		"有": true, "和": true, "就": true, "不": true, "人": true,
-		"都": true, "一": true, "一个": true, "上": true, "也": true,
-		"很": true, "到": true, "说": true, "要": true, "去": true,
-		"你": true, "会": true, "着": true, "没有": true, "看": true,
-		"好": true, "自己": true, "这": true, "他": true, "她": true,
-		"它": true, "们": true, "那": true, "什么": true,
-		"怎么": true, "如何": true, "请": true, "帮": true, "生成": true,
-		"创建": true, "添加": true, "规则": true, "告警": true,
-		"when": true, "the": true, "a": true, "an": true, "is": true,
-		"are": true, "was": true, "were": true, "be": true, "been": true,
-		"being": true, "have": true, "has": true, "had": true, "do": true,
-		"does": true, "did": true, "will": true, "would": true, "could": true,
-		"should": true, "may": true, "might": true, "shall": true, "can": true,
-		"need": true, "must": true, "it": true, "its": true, "this": true,
-		"that": true, "these": true, "those": true, "i": true, "me": true,
-		"my": true, "we": true, "our": true, "you": true, "your": true,
-		"he": true, "him": true, "his": true, "she": true, "her": true,
-		"they": true, "them": true, "their": true, "what": true, "which": true,
-		"who": true, "whom": true, "where": true, "why": true,
-		"how": true, "all": true, "each": true, "every": true, "both": true,
-		"few": true, "more": true, "most": true, "other": true, "some": true,
-		"such": true, "no": true, "nor": true, "not": true, "only": true,
-		"own": true, "same": true, "so": true, "than": true, "too": true,
-		"very": true, "just": true, "because": true, "as": true, "until": true,
-		"while": true, "of": true, "at": true, "by": true, "for": true,
-		"with": true, "about": true, "against": true, "between": true,
-		"through": true, "during": true, "before": true, "after": true,
-		"above": true, "below": true, "to": true, "from": true, "up": true,
-		"down": true, "in": true, "out": true, "on": true, "off": true,
-		"over": true, "under": true, "again": true, "further": true,
-		"then": true, "once": true, "here": true, "there": true,
-	}
-
 	words := strings.Fields(desc)
 	var keywords []string
 	seen := make(map[string]bool)

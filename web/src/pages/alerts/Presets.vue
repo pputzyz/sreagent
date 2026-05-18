@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   useMessage, useDialog,
   NButton, NIcon, NInput, NTag, NModal, NForm, NFormItem,
@@ -13,10 +13,11 @@ import { usePaginatedList } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
-  AddOutline, SearchOutline, RefreshOutline, CloudUploadOutline,
-  LibraryOutline, DocumentTextOutline, RocketOutline,
+  SearchOutline, RefreshOutline, CloudUploadOutline,
+  RocketOutline,
 } from '@vicons/ionicons5'
 import { getErrorMessage } from '@/utils/format'
+import { severityLabel, severityType } from '@/utils/severity'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -25,10 +26,6 @@ const { t } = useI18n()
 // ─── Category tabs ───
 const activeCategory = ref('')
 const categories = ref<string[]>([])
-const categoryTabs = computed(() => [
-  { label: '全部', value: '' },
-  ...categories.value.map(c => ({ label: c, value: c })),
-])
 
 // ─── Search ───
 const searchKeyword = ref('')
@@ -134,22 +131,6 @@ function confirmDelete(preset: PresetRule) {
   })
 }
 
-// ─── Severity helpers ───
-function severityLabel(sev: string) {
-  const map: Record<string, string> = {
-    critical: '严重', warning: '警告', info: '提示',
-    p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3', p4: 'P4',
-  }
-  return map[sev] || sev
-}
-
-function severityType(sev: string): 'error' | 'warning' | 'info' | 'success' {
-  if (sev === 'critical' || sev === 'p0' || sev === 'p1') return 'error'
-  if (sev === 'warning' || sev === 'p2') return 'warning'
-  if (sev === 'info' || sev === 'p4') return 'info'
-  return 'info'
-}
-
 // ─── Category fetch ───
 async function fetchCategories() {
   try {
@@ -179,6 +160,10 @@ watch(searchKeyword, () => {
   searchTimer = setTimeout(() => refresh(), 300)
 })
 
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
+
 onMounted(() => {
   fetchList()
   fetchCategories()
@@ -205,23 +190,25 @@ onMounted(() => {
       <!-- Sidebar: categories -->
       <aside class="cat-aside">
         <div class="sre-label-eyebrow cat-eyebrow">分类</div>
-        <a
+        <button
+          type="button"
           class="cat-item"
           :class="{ active: activeCategory === '' }"
           @click="handleCategoryChange('')"
         >
           <span class="cat-name">全部</span>
           <span class="cat-count tnum">{{ total }}</span>
-        </a>
-        <a
+        </button>
+        <button
           v-for="cat in categories"
           :key="cat"
+          type="button"
           class="cat-item"
           :class="{ active: activeCategory === cat }"
           @click="handleCategoryChange(cat)"
         >
           <span class="cat-name">{{ cat }}</span>
-        </a>
+        </button>
       </aside>
 
       <!-- Main column -->
@@ -437,13 +424,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 8px 16px;
   font-size: 13px;
   color: var(--sre-text-secondary);
   cursor: pointer;
   position: relative;
   transition: background 120ms ease, color 120ms ease;
+  border: none;
   border-left: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
 }
 .cat-item:hover {
   color: var(--sre-text-primary);

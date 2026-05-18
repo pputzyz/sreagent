@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/gorm"
@@ -107,13 +108,13 @@ func (r *LabelRegistryRepository) DeleteByDatasource(datasourceID uint) error {
 
 // GetKeysByDatasource returns distinct label keys for a specific datasource.
 // Ordered by total hit_count desc, limited to 100.
-func (r *LabelRegistryRepository) GetKeysByDatasource(datasourceID uint) ([]string, error) {
+func (r *LabelRegistryRepository) GetKeysByDatasource(ctx context.Context, datasourceID uint) ([]string, error) {
 	type row struct {
 		LabelKey string
 		Total    int64
 	}
 	var rows []row
-	if err := r.db.Model(&model.LabelRegistry{}).
+	if err := r.db.WithContext(ctx).Model(&model.LabelRegistry{}).
 		Select("label_key, SUM(hit_count) AS total").
 		Where("datasource_id = ?", datasourceID).
 		Group("label_key").
@@ -131,9 +132,9 @@ func (r *LabelRegistryRepository) GetKeysByDatasource(datasourceID uint) ([]stri
 
 // GetValuesByDatasource returns label values for a given key in a specific datasource.
 // Results are ordered by hit_count descending, limited to 100.
-func (r *LabelRegistryRepository) GetValuesByDatasource(datasourceID uint, key string) ([]string, error) {
+func (r *LabelRegistryRepository) GetValuesByDatasource(ctx context.Context, datasourceID uint, key string) ([]string, error) {
 	var entries []model.LabelRegistry
-	if err := r.db.Model(&model.LabelRegistry{}).
+	if err := r.db.WithContext(ctx).Model(&model.LabelRegistry{}).
 		Where("datasource_id = ? AND label_key = ?", datasourceID, key).
 		Order("hit_count DESC").
 		Limit(100).

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +9,23 @@ import (
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
+
+// readYAMLInput extracts YAML content from a request.
+// It tries a JSON body with a "yaml" field first, then falls back to a multipart file upload.
+func readYAMLInput(c *gin.Context) ([]byte, error) {
+	var body struct {
+		YAML string `json:"yaml"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.YAML != "" {
+		return []byte(body.YAML), nil
+	}
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		return nil, fmt.Errorf("provide JSON body with 'yaml' field or upload a file")
+	}
+	defer file.Close()
+	return io.ReadAll(file)
+}
 
 // AlertmanagerImportHandler handles Alertmanager config import requests.
 type AlertmanagerImportHandler struct {
@@ -26,28 +44,10 @@ func NewAlertmanagerImportHandler(svc *service.AlertmanagerImportService) *Alert
 //   - JSON body: {"yaml": "..."}
 //   - Multipart form: file field named "file"
 func (h *AlertmanagerImportHandler) Import(c *gin.Context) {
-	var yamlContent []byte
-
-	// Try JSON body first
-	var jsonReq struct {
-		YAML string `json:"yaml"`
-	}
-	if err := c.ShouldBindJSON(&jsonReq); err == nil && jsonReq.YAML != "" {
-		yamlContent = []byte(jsonReq.YAML)
-	} else {
-		// Fall back to multipart file upload
-		file, _, fErr := c.Request.FormFile("file")
-		if fErr != nil {
-			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "yaml content or file is required"))
-			return
-		}
-		defer file.Close()
-		data, readErr := io.ReadAll(file)
-		if readErr != nil {
-			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read uploaded file"))
-			return
-		}
-		yamlContent = data
+	yamlContent, err := readYAMLInput(c)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
 	}
 
 	userID := GetCurrentUserID(c)
@@ -59,38 +59,4 @@ func (h *AlertmanagerImportHandler) Import(c *gin.Context) {
 	}
 
 	Success(c, result)
-}
-
-// ImportPresets imports Alertmanager inhibit_rules as PresetRule templates
-// with category "inhibition".
-func (h *AlertmanagerImportHandler) ImportPresets(c *gin.Context) {
-	var yamlContent []byte
-
-	var jsonReq struct {
-		YAML string `json:"yaml"`
-	}
-	if err := c.ShouldBindJSON(&jsonReq); err == nil && jsonReq.YAML != "" {
-		yamlContent = []byte(jsonReq.YAML)
-	} else {
-		file, _, fErr := c.Request.FormFile("file")
-		if fErr != nil {
-			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "yaml content or file is required"))
-			return
-		}
-		defer file.Close()
-		data, readErr := io.ReadAll(file)
-		if readErr != nil {
-			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read uploaded file"))
-			return
-		}
-		yamlContent = data
-	}
-
-	count, err := h.svc.ImportPresetInhibitionsFromConfig(c.Request.Context(), yamlContent)
-	if err != nil {
-		Error(c, err)
-		return
-	}
-
-	Success(c, gin.H{"imported": count})
 }

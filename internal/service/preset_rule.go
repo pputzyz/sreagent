@@ -263,11 +263,15 @@ func (s *PresetRuleService) ImportPresetInhibitions(ctx context.Context) error {
 	var presetRules []model.PresetRule
 	for _, p := range presets {
 		// Build expression JSON encoding the inhibition rule structure
-		exprData, _ := json.Marshal(map[string]interface{}{
+		exprData, err := json.Marshal(map[string]interface{}{
 			"source_match": p.SourceLabels,
 			"target_match": p.TargetLabels,
 			"equal_labels": p.EqualLabels,
 		})
+		if err != nil {
+			s.logger.Error("failed to marshal inhibition preset expression", zap.String("name", p.Name), zap.Error(err))
+			return fmt.Errorf("marshal preset %q: %w", p.Name, err)
+		}
 
 		// Labels encode the raw matcher info for display
 		labels := model.JSONLabels{

@@ -142,6 +142,8 @@ export default {
     smtp: '邮件服务',
     larkBot: '飞书机器人',
     aiConfig: 'AI 配置',
+    aiModuleConfig: 'AI 模块配置',
+    presetRules: '预置规则库',
     security: '安全设置',
     systemSettings: '系统设置',
   },

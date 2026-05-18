@@ -169,7 +169,7 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 
 	// AI Rule Generation
 	if h.AIRule != nil {
-		aiRules := auth.Group("/ai/rules")
+		aiRules := auth.Group("/ai/rules", operate)
 		{
 			aiRules.POST("/generate", h.AIRule.Generate)
 			aiRules.POST("/validate", h.AIRule.Validate)
@@ -243,7 +243,6 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 	// Alertmanager config import (import receivers as channels + inhibit_rules)
 	if h.AlertmanagerImport != nil {
 		auth.POST("/integrations/import-alertmanager", manage, h.AlertmanagerImport.Import)
-		auth.POST("/integrations/import-alertmanager-presets", manage, h.AlertmanagerImport.ImportPresets)
 	}
 
 	// Routing rules
