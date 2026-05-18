@@ -781,6 +781,9 @@ export interface IncidentTrendPoint {
   closed: number
 }
 
+// ===== Preset Rules & AI Modules =====
+export * from './preset-rule'
+
 // ===== Naive UI Dropdown Option =====
 export interface DropdownOption {
   type?: 'default' | 'divider'

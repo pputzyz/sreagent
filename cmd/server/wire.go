@@ -146,6 +146,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Chat history repository
 	chatHistoryRepo := repository.NewChatHistoryRepository(db)
 
+	// Preset rule repository
+	presetRuleRepo := repository.NewPresetRuleRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -207,6 +210,15 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Chat history service
 	chatHistorySvc := service.NewChatHistoryService(chatHistoryRepo)
+
+	// Preset rule service
+	presetRuleSvc := service.NewPresetRuleService(presetRuleRepo, ruleRepo, dsRepo, zapLogger)
+
+	// AI rule generation service
+	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
+
+	// Alertmanager config import service
+	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, presetRuleSvc, zapLogger)
 
 	// Seed default notification media and templates
 	seedSvc := service.NewSeedService(notifyMediaRepo, messageTemplateRepo, zapLogger)
@@ -430,6 +442,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
 		Pet:                 handler.NewPetHandler(petSvc),
 		StatusService:       handler.NewStatusServiceHandler(statusServiceSvc),
+		PresetRule:          handler.NewPresetRuleHandler(presetRuleSvc),
+		AIRule:              handler.NewAIRuleHandler(ruleGenSvc),
+		AlertmanagerImport:  handler.NewAlertmanagerImportHandler(alertmanagerImportSvc),
 	}
 
 	// Inject audit service into handlers that support it

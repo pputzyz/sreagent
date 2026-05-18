@@ -104,3 +104,49 @@ func (r *LabelRegistryRepository) GetKeys(datasourceIDs []uint) ([]string, error
 func (r *LabelRegistryRepository) DeleteByDatasource(datasourceID uint) error {
 	return r.db.Where("datasource_id = ?", datasourceID).Delete(&model.LabelRegistry{}).Error
 }
+
+// GetKeysByDatasource returns distinct label keys for a specific datasource.
+// Ordered by total hit_count desc, limited to 100.
+func (r *LabelRegistryRepository) GetKeysByDatasource(datasourceID uint) ([]string, error) {
+	type row struct {
+		LabelKey string
+		Total    int64
+	}
+	var rows []row
+	if err := r.db.Model(&model.LabelRegistry{}).
+		Select("label_key, SUM(hit_count) AS total").
+		Where("datasource_id = ?", datasourceID).
+		Group("label_key").
+		Order("total DESC").
+		Limit(100).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	keys := make([]string, len(rows))
+	for i, r := range rows {
+		keys[i] = r.LabelKey
+	}
+	return keys, nil
+}
+
+// GetValuesByDatasource returns label values for a given key in a specific datasource.
+// Results are ordered by hit_count descending, limited to 100.
+func (r *LabelRegistryRepository) GetValuesByDatasource(datasourceID uint, key string) ([]string, error) {
+	var entries []model.LabelRegistry
+	if err := r.db.Model(&model.LabelRegistry{}).
+		Where("datasource_id = ? AND label_key = ?", datasourceID, key).
+		Order("hit_count DESC").
+		Limit(100).
+		Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	vals := make([]string, 0, len(entries))
+	seen := make(map[string]bool)
+	for _, e := range entries {
+		if !seen[e.LabelValue] {
+			seen[e.LabelValue] = true
+			vals = append(vals, e.LabelValue)
+		}
+	}
+	return vals, nil
+}

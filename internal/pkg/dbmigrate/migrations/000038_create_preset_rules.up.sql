@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS preset_rules (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    display_name VARCHAR(200) DEFAULT '',
+    category VARCHAR(50) DEFAULT '',
+    sub_category VARCHAR(50) DEFAULT '',
+    component VARCHAR(50) DEFAULT '',
+    expression TEXT NOT NULL,
+    for_duration VARCHAR(32) DEFAULT '',
+    severity VARCHAR(20) DEFAULT '',
+    alert_type VARCHAR(50) DEFAULT '',
+    labels JSON DEFAULT NULL,
+    annotations JSON DEFAULT NULL,
+    source VARCHAR(100) DEFAULT '',
+    is_builtin TINYINT(1) DEFAULT 1,
+    usage_count INT DEFAULT 0,
+    description TEXT,
+    created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    INDEX idx_category (category),
+    INDEX idx_severity (severity),
+    INDEX idx_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -95,6 +95,8 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			labelReg.GET("/keys", h.LabelRegistry.GetKeys)
 			labelReg.GET("/values", h.LabelRegistry.GetValues)
+			labelReg.GET("/datasource-keys", h.LabelRegistry.GetKeysByDatasource)
+			labelReg.GET("/datasource-values", h.LabelRegistry.GetValuesByDatasource)
 			labelReg.POST("/sync", adminOnly, h.LabelRegistry.Sync)
 		}
 	}
@@ -156,11 +158,24 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		ai.POST("/chat", h.AI.Chat)
 		ai.GET("/history", h.AI.GetHistory)
 		ai.DELETE("/history", h.AI.ClearHistory)
+		ai.GET("/modules", adminOnly, h.AI.GetModules)
+		ai.PUT("/modules", adminOnly, h.AI.UpdateModules)
 	}
 
 	// Engine status (simple, no process management)
 	if h.Engine != nil {
 		auth.GET("/engine/status", h.Engine.GetStatus)
+	}
+
+	// AI Rule Generation
+	if h.AIRule != nil {
+		aiRules := auth.Group("/ai/rules")
+		{
+			aiRules.POST("/generate", h.AIRule.Generate)
+			aiRules.POST("/validate", h.AIRule.Validate)
+			aiRules.POST("/suggest-labels", h.AIRule.SuggestLabels)
+			aiRules.POST("/generate-inhibition", h.AIRule.GenerateInhibition)
+		}
 	}
 
 	// Lark Bot config — admin only
@@ -223,6 +238,12 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			integrations.PUT("/:id", manage, h.Integration.Update)
 			integrations.DELETE("/:id", manage, h.Integration.Delete)
 		}
+	}
+
+	// Alertmanager config import (import receivers as channels + inhibit_rules)
+	if h.AlertmanagerImport != nil {
+		auth.POST("/integrations/import-alertmanager", manage, h.AlertmanagerImport.Import)
+		auth.POST("/integrations/import-alertmanager-presets", manage, h.AlertmanagerImport.ImportPresets)
 	}
 
 	// Routing rules

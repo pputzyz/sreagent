@@ -39,6 +39,19 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 		}
 	}
 
+	// Preset Rules
+	if h.PresetRule != nil {
+		presets := auth.Group("/preset-rules")
+		{
+			presets.GET("", h.PresetRule.List)
+			presets.GET("/categories", h.PresetRule.Categories)
+			presets.GET("/:id", h.PresetRule.Get)
+			presets.POST("/:id/apply", manage, h.PresetRule.Apply)
+			presets.POST("/import", manage, h.PresetRule.Import)
+			presets.DELETE("/:id", manage, h.PresetRule.Delete)
+		}
+	}
+
 	// Alert Events
 	events := auth.Group("/alert-events")
 	{

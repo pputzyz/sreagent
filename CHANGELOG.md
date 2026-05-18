@@ -4,6 +4,44 @@
 
 ---
 
+## [v4.10.19] — 2026-05-18
+
+### Added — AI 智能规则引擎（Phase A-D）
+
+**Phase A: 预置规则库 + AI 模块配置**
+- `model/preset_rule.go` — PresetRule 模型（迁移 000038）
+- `repository/preset_rule.go` + `service/preset_rule.go` + `handler/preset_rule.go` — CRUD + YAML 导入 + 一键应用
+- `scripts/import-preset-rules.go` — 从 monitoring-trading 导入 299 条预置规则（6 类：infrastructure/kubernetes/middleware/database/probe/windows）
+- `service/system_setting.go` — AIModuleConfig 5 模块独立开关（platform/chat/rule_gen/analysis/agent）
+- `handler/ai.go` — GET/PUT /ai/modules 端点
+- 前端 `/alert/presets` — 预置规则库页面（分类筛选 + 搜索 + 一键应用 + YAML 导入）
+- 前端 `/platform/ai-settings` — AI 模块配置页面（总开关 + 5 模块开关 + 连接测试）
+- `composables/useAIModule.ts` — AI 模块状态 composable（控制 UI 工况）
+
+**Phase B: AI 规则生成引擎**
+- `service/rule_generator.go` — RuleGeneratorService（Context Builder + LLM prompt + label_registry 上下文 + 预置规则参考）
+- `handler/ai_rule.go` — 4 个端点：
+  - `POST /ai/rules/generate` — 口述生成告警规则
+  - `POST /ai/rules/validate` — PromQL 实时验证（dry-run 查询数据源）
+  - `POST /ai/rules/suggest-labels` — AI 标签推荐
+  - `POST /ai/rules/generate-inhibition` — 口述生成抑制规则
+- 前端 alerts/rules/Index.vue — AI 生成按钮 + 对话式创建模态框 + 结果预览
+- 前端 alerts/inhibition/Index.vue — 抑制规则 AI 生成入口
+
+**Phase C: 传统平台兼容**
+- `service/alertmanager_import.go` — Alertmanager YAML 解析 + Channel/InhibitionRule 创建
+- `handler/alertmanager_import.go` — POST /integrations/import-alertmanager + import-alertmanager-presets
+- `service/preset_rule.go` — ImportPresetInhibitions：13 条内置抑制规则预置模板
+- `router/admin_routes.go` — 新增 /integrations 路由组
+
+**Phase D: 多数据源标签增强**
+- `model/label_registry.go` — 新增 Source 字段（sync/event/manual）
+- 迁移 000039 — ALTER TABLE label_registry ADD COLUMN source
+- `handler/label_registry.go` — 新增 /label-registry/datasource-keys + datasource-values 端点
+- 支持按数据源查询标签，为 AI 规则生成提供精准上下文
+
+---
+
 ## [v4.10.18] — 2026-05-18
 
 ### Improved — 前端架构全面升级

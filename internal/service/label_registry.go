@@ -46,6 +46,7 @@ func (s *LabelRegistryService) SyncDatasource(ctx context.Context, ds *model.Dat
 				DatasourceID: ds.ID,
 				LabelKey:     key,
 				LabelValue:   val,
+				Source:       "sync",
 				LastSeenAt:   now,
 				HitCount:     1,
 			})
@@ -72,6 +73,7 @@ func (s *LabelRegistryService) RecordFromLabels(datasourceID uint, labels map[st
 			DatasourceID: datasourceID,
 			LabelKey:     k,
 			LabelValue:   v,
+			Source:       "event",
 			LastSeenAt:   now,
 			HitCount:     1,
 		})
@@ -128,4 +130,14 @@ func (s *LabelRegistryService) GetValues(key string, datasourceIDs []uint) ([]st
 // GetKeys returns known label keys (for key autocomplete).
 func (s *LabelRegistryService) GetKeys(datasourceIDs []uint) ([]string, error) {
 	return s.repo.GetKeys(datasourceIDs)
+}
+
+// GetKeysByDatasource returns label keys for a specific datasource.
+func (s *LabelRegistryService) GetKeysByDatasource(ctx context.Context, datasourceID uint) ([]string, error) {
+	return s.repo.GetKeysByDatasource(datasourceID)
+}
+
+// GetValuesByDatasource returns label values for a specific key in a specific datasource.
+func (s *LabelRegistryService) GetValuesByDatasource(ctx context.Context, datasourceID uint, key string) ([]string, error) {
+	return s.repo.GetValuesByDatasource(datasourceID, key)
 }

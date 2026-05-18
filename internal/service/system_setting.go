@@ -531,6 +531,86 @@ func (s *SystemSettingService) SaveSMTPConfig(ctx context.Context, cfg SMTPConfi
 	return nil
 }
 
+// ---- AI Module config --------------------------------------------------------
+
+// AIModule describes a single AI capability module.
+type AIModule struct {
+	Enabled bool   `json:"enabled"`
+	Desc    string `json:"description"`
+}
+
+// AIModuleConfig holds the on/off state for each AI capability.
+type AIModuleConfig struct {
+	Platform AIModule `json:"platform"`
+	Chat     AIModule `json:"chat"`
+	RuleGen  AIModule `json:"rule_gen"`
+	Analysis AIModule `json:"analysis"`
+	Agent    AIModule `json:"agent"`
+}
+
+// defaultAIModuleConfig returns a config with all modules disabled.
+func defaultAIModuleConfig() AIModuleConfig {
+	return AIModuleConfig{
+		Platform: AIModule{Desc: "AI platform foundation"},
+		Chat:     AIModule{Desc: "AI chat assistant"},
+		RuleGen:  AIModule{Desc: "AI-powered rule generation"},
+		Analysis: AIModule{Desc: "AI alert analysis & root cause"},
+		Agent:    AIModule{Desc: "Autonomous AI agent"},
+	}
+}
+
+// GetAIModules loads the AI module configuration from DB.
+// Returns defaults (all disabled) if no settings have been saved yet.
+func (s *SystemSettingService) GetAIModules(ctx context.Context) (*AIModuleConfig, error) {
+	kv, err := s.repo.ListByGroup(ctx, "ai_modules")
+	if err != nil {
+		return nil, err
+	}
+	if len(kv) == 0 {
+		cfg := defaultAIModuleConfig()
+		return &cfg, nil
+	}
+	cfg := defaultAIModuleConfig()
+	cfg.Platform.Enabled = parseBool(kv["platform_enabled"])
+	cfg.Chat.Enabled = parseBool(kv["chat_enabled"])
+	cfg.RuleGen.Enabled = parseBool(kv["rule_gen_enabled"])
+	cfg.Analysis.Enabled = parseBool(kv["analysis_enabled"])
+	cfg.Agent.Enabled = parseBool(kv["agent_enabled"])
+	if v, ok := kv["platform_desc"]; ok && v != "" {
+		cfg.Platform.Desc = v
+	}
+	if v, ok := kv["chat_desc"]; ok && v != "" {
+		cfg.Chat.Desc = v
+	}
+	if v, ok := kv["rule_gen_desc"]; ok && v != "" {
+		cfg.RuleGen.Desc = v
+	}
+	if v, ok := kv["analysis_desc"]; ok && v != "" {
+		cfg.Analysis.Desc = v
+	}
+	if v, ok := kv["agent_desc"]; ok && v != "" {
+		cfg.Agent.Desc = v
+	}
+	return &cfg, nil
+}
+
+// UpdateAIModules persists the AI module configuration to DB.
+func (s *SystemSettingService) UpdateAIModules(ctx context.Context, cfg *AIModuleConfig) error {
+	kv := map[string]string{
+		"platform_enabled": strconv.FormatBool(cfg.Platform.Enabled),
+		"platform_desc":    cfg.Platform.Desc,
+		"chat_enabled":     strconv.FormatBool(cfg.Chat.Enabled),
+		"chat_desc":        cfg.Chat.Desc,
+		"rule_gen_enabled": strconv.FormatBool(cfg.RuleGen.Enabled),
+		"rule_gen_desc":    cfg.RuleGen.Desc,
+		"analysis_enabled": strconv.FormatBool(cfg.Analysis.Enabled),
+		"analysis_desc":    cfg.Analysis.Desc,
+		"agent_enabled":    strconv.FormatBool(cfg.Agent.Enabled),
+		"agent_desc":       cfg.Agent.Desc,
+	}
+	return s.repo.SetGroup(ctx, "ai_modules", kv)
+}
+
 // ---- Security config ----------------------------------------------------------
 
 // GetSecurityConfig loads security settings from cache or DB.

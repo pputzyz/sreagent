@@ -49,6 +49,16 @@ func (s *AIService) loadConfig(ctx context.Context) (AIConfig, error) {
 	return s.settingSvc.GetAIConfig(ctx)
 }
 
+// GetAIModules returns the AI module configuration.
+func (s *AIService) GetAIModules(ctx context.Context) (*AIModuleConfig, error) {
+	return s.settingSvc.GetAIModules(ctx)
+}
+
+// UpdateAIModules persists the AI module configuration.
+func (s *AIService) UpdateAIModules(ctx context.Context, cfg *AIModuleConfig) error {
+	return s.settingSvc.UpdateAIModules(ctx, cfg)
+}
+
 // GetConfig returns the current AI configuration with the API key masked.
 func (s *AIService) GetConfig(ctx context.Context) (AIConfig, error) {
 	cfg, err := s.loadConfig(ctx)

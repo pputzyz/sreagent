@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { h, ref, computed, onMounted, watch } from 'vue'
-import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch, NModal, NForm, NFormItem, NSpace, NSpin, NAlert, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { alertRuleApi, datasourceApi } from '@/api'
+import { alertRuleApi, datasourceApi, aiRuleApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
-import { usePaginatedList } from '@/composables'
+import type { RuleGenerateResult } from '@/types/preset-rule'
+import { usePaginatedList, useAIModule } from '@/composables'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -23,6 +24,7 @@ import {
   TrashOutline,
   PowerOutline,
   DocumentTextOutline,
+  SparklesOutline,
 } from '@vicons/ionicons5'
 
 const message = useMessage()
@@ -75,6 +77,62 @@ const showFormModal = ref(false)
 const currentRule = ref<AlertRule | null>(null)
 const duplicateFrom = ref<AlertRule | null>(null)
 const showImportModal = ref(false)
+
+// ─── AI Rule Generation ───
+const { isEnabled: isAIModuleEnabled, loadModules } = useAIModule()
+const showAIModal = ref(false)
+const aiDescription = ref('')
+const aiDatasourceId = ref<number | null>(null)
+const aiGenerating = ref(false)
+const aiResult = ref<RuleGenerateResult | null>(null)
+const aiError = ref('')
+
+function openAIGenerate() {
+  aiDescription.value = ''
+  aiDatasourceId.value = null
+  aiResult.value = null
+  aiError.value = ''
+  showAIModal.value = true
+}
+
+async function handleAIGenerate() {
+  if (!aiDescription.value.trim()) return
+  aiGenerating.value = true
+  aiResult.value = null
+  aiError.value = ''
+  try {
+    const { data } = await aiRuleApi.generate({
+      description: aiDescription.value,
+      datasource_id: aiDatasourceId.value ?? undefined,
+      rule_type: 'alert',
+    })
+    aiResult.value = data.data
+  } catch (err: unknown) {
+    aiError.value = (err as Error).message || 'AI 生成失败'
+  } finally {
+    aiGenerating.value = false
+  }
+}
+
+async function handleAIConfirmCreate() {
+  if (!aiResult.value) return
+  try {
+    await alertRuleApi.create({
+      name: aiResult.value.name,
+      expression: aiResult.value.expression || '',
+      for_duration: aiResult.value.for_duration || '0s',
+      severity: (aiResult.value.severity as AlertRule['severity']) || 'warning',
+      labels: aiResult.value.labels || {},
+      annotations: aiResult.value.annotations || {},
+      datasource_id: aiDatasourceId.value,
+    })
+    message.success(t('common.createSuccess'))
+    showAIModal.value = false
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error).message)
+  }
+}
 
 // ─── Computed ───
 const severityFilterOptions = computed(() => [
@@ -298,6 +356,7 @@ onMounted(() => {
   fetchList()
   fetchDatasources()
   fetchCategories()
+  loadModules()
 })
 </script>
 
@@ -305,6 +364,10 @@ onMounted(() => {
   <div class="rules-page">
     <PageHeader :title="t('alert.rules')" :subtitle="t('alert.rulesSubtitle')">
       <template #actions>
+        <n-button v-if="isAIModuleEnabled('rule_gen')" size="small" secondary @click="openAIGenerate">
+          <template #icon><n-icon :component="SparklesOutline" /></template>
+          {{ t('alert.aiGenerate') || 'AI Generate' }}
+        </n-button>
         <n-button size="small" secondary @click="showImportModal = true">
           <template #icon><n-icon :component="CloudUploadOutline" /></template>
           {{ t('alert.importExport') }}
@@ -511,6 +574,77 @@ onMounted(() => {
       @close="showImportModal = false"
       @imported="onImportDone"
     />
+
+    <!-- AI Generate Modal -->
+    <NModal
+      v-model:show="showAIModal"
+      :title="t('alert.aiGenerate') || 'AI Generate Rule'"
+      preset="card"
+      class="ai-gen-modal"
+      :mask-closable="false"
+      :bordered="false"
+      style="max-width: 680px"
+    >
+      <div class="ai-gen-form">
+        <div class="ai-gen-field">
+          <label class="ai-gen-label">{{ t('alert.aiDescription') || 'Describe the rule you want' }}</label>
+          <NInput
+            v-model:value="aiDescription"
+            type="textarea"
+            :rows="3"
+            :placeholder="t('alert.aiDescriptionPlaceholder') || 'e.g. Alert when CPU usage exceeds 90% for 5 minutes on production servers'"
+          />
+        </div>
+        <div class="ai-gen-field">
+          <label class="ai-gen-label">{{ t('alert.dataSource') }} ({{ t('common.optional') || 'Optional' }})</label>
+          <NSelect
+            v-model:value="aiDatasourceId"
+            :options="datasourceOptions"
+            :placeholder="t('alert.selectDatasource') || 'Select datasource'"
+            clearable
+          />
+        </div>
+        <NButton type="primary" :loading="aiGenerating" :disabled="!aiDescription.trim()" @click="handleAIGenerate">
+          <template #icon><NIcon :component="SparklesOutline" /></template>
+          {{ t('alert.aiGenerateBtn') || 'Generate' }}
+        </NButton>
+      </div>
+
+      <!-- AI Error -->
+      <NAlert v-if="aiError" type="error" style="margin-top: 16px">
+        {{ aiError }}
+      </NAlert>
+
+      <!-- AI Result Preview -->
+      <div v-if="aiResult" class="ai-gen-preview">
+        <div class="ai-gen-preview-header">
+          <span class="ai-gen-preview-title">{{ aiResult.name }}</span>
+          <NTag v-if="aiResult.severity" :type="aiResult.severity === 'critical' ? 'error' : aiResult.severity === 'warning' ? 'warning' : 'info'" size="small">
+            {{ aiResult.severity }}
+          </NTag>
+          <span class="ai-gen-confidence">{{ Math.round(aiResult.confidence * 100) }}%</span>
+        </div>
+        <div v-if="aiResult.expression" class="ai-gen-expr">{{ aiResult.expression }}</div>
+        <div v-if="aiResult.description" class="ai-gen-desc">{{ aiResult.description }}</div>
+        <div v-if="aiResult.for_duration" class="ai-gen-meta">
+          <span class="ai-gen-meta-label">Duration:</span> {{ aiResult.for_duration }}
+        </div>
+        <div v-if="aiResult.labels && Object.keys(aiResult.labels).length > 0" class="ai-gen-meta">
+          <span class="ai-gen-meta-label">Labels:</span>
+          <NTag v-for="(v, k) in aiResult.labels" :key="k" size="small" style="margin-right: 4px">{{ k }}={{ v }}</NTag>
+        </div>
+        <div v-if="aiResult.annotations?.summary" class="ai-gen-meta">
+          <span class="ai-gen-meta-label">Summary:</span> {{ aiResult.annotations.summary }}
+        </div>
+        <NAlert v-if="aiResult.warnings?.length" type="warning" style="margin-top: 12px">
+          <div v-for="w in aiResult.warnings" :key="w">{{ w }}</div>
+        </NAlert>
+        <NSpace justify="end" style="margin-top: 16px">
+          <NButton @click="handleAIGenerate">{{ t('alert.aiRegenerate') || 'Regenerate' }}</NButton>
+          <NButton type="primary" @click="handleAIConfirmCreate">{{ t('alert.aiConfirmCreate') || 'Confirm & Create' }}</NButton>
+        </NSpace>
+      </div>
+    </NModal>
   </div>
 </template>
 
@@ -696,5 +830,74 @@ onMounted(() => {
   margin-top: 24px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* AI Generate Modal */
+.ai-gen-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ai-gen-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-gen-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sre-text-secondary);
+}
+.ai-gen-preview {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--sre-bg-elevated, rgba(255,255,255,0.04));
+  border: var(--sre-hairline);
+  border-radius: 8px;
+}
+.ai-gen-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ai-gen-preview-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+}
+.ai-gen-confidence {
+  font-size: 12px;
+  font-family: var(--sre-font-mono, monospace);
+  color: var(--sre-text-tertiary);
+  margin-left: auto;
+}
+.ai-gen-expr {
+  font-family: var(--sre-font-mono, monospace);
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  background: var(--sre-bg-card, rgba(0,0,0,0.15));
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  word-break: break-all;
+}
+.ai-gen-desc {
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  margin-bottom: 8px;
+}
+.ai-gen-meta {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ai-gen-meta-label {
+  font-weight: 600;
+  color: var(--sre-text-secondary);
 }
 </style>

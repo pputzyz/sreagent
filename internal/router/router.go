@@ -57,6 +57,9 @@ type Handlers struct {
 	PostMortem     *handler.PostMortemHandler     // incident post-mortems (故障复盘)
 	Pet            *handler.PetHandler            // virtual pet system (宠物系统)
 	StatusService  *handler.StatusServiceHandler  // status page services (状态页面)
+	PresetRule          *handler.PresetRuleHandler          // preset rules (预设规则)
+	AIRule              *handler.AIRuleHandler              // AI rule generation (AI 规则生成)
+	AlertmanagerImport  *handler.AlertmanagerImportHandler  // alertmanager config import
 }
 
 // Setup initializes the Gin router with all routes and middleware.

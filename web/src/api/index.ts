@@ -1005,3 +1005,6 @@ export const statusServiceApi = {
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/status-services/${id}`),
 }
+
+// ===== Preset Rules & AI Modules (re-export from dedicated module) =====
+export { presetRuleApi, aiModuleApi, aiRuleApi } from './preset-rules'

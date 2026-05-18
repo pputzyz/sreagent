@@ -12,6 +12,7 @@ import type { Ref, Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { LibraryOutline, SparklesOutline } from '@vicons/ionicons5'
 
 // ===== Public Types =====
 
@@ -156,6 +157,7 @@ export function useAppNav() {
             label: t('menu.alerts'),
             items: [
               { label: t('menu.alertRules'),      key: '/alert/rules' },
+              { label: '预置规则库',               key: '/alert/presets', icon: LibraryOutline },
               { label: t('menu.activeAlerts'),     key: '/alert/events' },
               { label: t('menu.alertHistory'),     key: '/alert/history' },
               { label: t('menu.muteRules'),        key: '/alert/suppression' },
@@ -217,6 +219,7 @@ export function useAppNav() {
                   { label: t('menu.smtp'),      key: '/platform/settings/smtp' },
                   { label: t('menu.larkBot'),    key: '/platform/settings/lark' },
                   { label: t('menu.aiConfig'),   key: '/platform/settings/ai' },
+                  { label: 'AI 模块配置',         key: '/platform/settings/ai-settings', icon: SparklesOutline },
                   { label: t('menu.security'),   key: '/platform/settings/security' },
                 )
               }

@@ -227,3 +227,27 @@ func (h *AIHandler) TestConnection(c *gin.Context) {
 
 	Success(c, gin.H{"message": "AI connection successful"})
 }
+
+// GetModules returns the AI module configuration.
+func (h *AIHandler) GetModules(c *gin.Context) {
+	cfg, err := h.aiSvc.GetAIModules(c.Request.Context())
+	if err != nil {
+		ErrorWithMessage(c, 50003, "failed to load AI modules: "+err.Error())
+		return
+	}
+	Success(c, cfg)
+}
+
+// UpdateModules updates the AI module configuration.
+func (h *AIHandler) UpdateModules(c *gin.Context) {
+	var req service.AIModuleConfig
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.aiSvc.UpdateAIModules(c.Request.Context(), &req); err != nil {
+		ErrorWithMessage(c, 50003, "failed to save AI modules: "+err.Error())
+		return
+	}
+	Success(c, gin.H{"message": "AI modules configuration updated"})
+}
