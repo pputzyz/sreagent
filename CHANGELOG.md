@@ -4,6 +4,42 @@
 
 ---
 
+## [v4.10.21] — 2026-05-18
+
+### Fixed — Code Review 全量修复（27 files, +251 -904）
+
+**P0 安全/正确性：**
+- `/ai/rules` 4 个端点添加 `operate` RBAC 中间件（防止 viewer 无限调用 LLM）
+- 抑制规则 AI 生成改用正则 `=~".*"` 匹配器（原空字符串语义错误）
+- AI 规则创建 `datasource_id: null` 改为 `?? undefined`
+
+**P1 代码质量：**
+- 统一 `getErrorMessage(err)` 替代不安全的 `(err as Error).message`（rules + inhibition，~10 处）
+- `json.Marshal` 错误不再被 `_` 吞掉（preset_rule + alertmanager_import，3 处）
+- `page/pageSize` 添加下界校验（handler/preset_rule）
+- `label_registry` ctx 透传到 repository 层
+- `Presets.vue` searchTimer 添加 `onUnmounted` 清理
+- 删除未使用的导入和计算属性（Presets.vue、AISettings.vue）
+
+**P2 改善：**
+- 提取 `readYAMLInput` helper 消除 3 处 YAML 解析重复
+- `rule_generator` stop-word map 提取为包级变量
+- 魔法数字 `10401` 改为 `apperr.ErrDuplicateName.Code`
+- 提取 `@/utils/severity.ts` 共享 severity 辅助函数
+- `rules/Index.vue` 移除不必要的 `DynamicScroller`（50 条数据用普通 v-for）
+- 拆分 `types/preset-rule.ts` → `preset-rule.ts` + `ai-module.ts`（关注点分离）
+- 路由 meta + 侧边栏硬编码中文改为 i18n key
+- 分类侧边栏 `<a>` 改为 `<button>` 提升可访问性
+- AI 置信度显示添加颜色编码（绿 ≥80% / 黄 ≥50% / 红 <50%）
+- 删除 `useAIModule.ts` 冗余 `isAIAvailable()`，统一用 `globalEnabled`
+- `AISettings.vue` / `api/preset-rules.ts` 统一从 `@/api` 导入
+
+**死代码清理：**
+- 删除 `scripts/import-preset-rules.go`（546 行一次性脚本 + Makefile targets）
+- 删除 `ImportPresets` 死端点（零前端调用）+ 相关 service/router 代码（~80 行）
+
+---
+
 ## [v4.10.20] — 2026-05-18
 
 ### Fixed — TypeScript 类型错误修复（22 处）
