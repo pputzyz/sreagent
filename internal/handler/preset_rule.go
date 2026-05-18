@@ -37,7 +37,7 @@ func (h *PresetRuleHandler) List(c *gin.Context) {
 		Error(c, err)
 		return
 	}
-	Success(c, gin.H{"list": list, "total": total})
+	SuccessPage(c, list, total, page, pageSize)
 }
 
 func (h *PresetRuleHandler) Get(c *gin.Context) {

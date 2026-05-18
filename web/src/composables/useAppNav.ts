@@ -12,7 +12,43 @@ import type { Ref, Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { LibraryOutline, SparklesOutline } from '@vicons/ionicons5'
+import {
+  // ONCALL
+  HomeOutline,
+  ChatbubblesOutline,
+  AlertCircleOutline,
+  GlobeOutline,
+  DocumentTextOutline,
+  LinkOutline,
+  CalendarOutline,
+  NotificationsOutline,
+  GitBranchOutline,
+  FolderOpenOutline,
+  MailOutline,
+  // ALERT
+  StatsChartOutline,
+  ListOutline,
+  LibraryOutline,
+  FlashOutline,
+  TimeOutline,
+  VolumeMuteOutline,
+  ServerOutline,
+  SearchOutline,
+  PieChartOutline,
+  CopyOutline,
+  SendOutline,
+  // PLATFORM
+  PersonOutline,
+  PeopleOutline,
+  PeopleCircleOutline,
+  ShieldCheckmarkOutline,
+  KeyOutline,
+  EyeOutline,
+  ChatbubbleEllipsesOutline,
+  HardwareChipOutline,
+  SparklesOutline,
+  ShieldOutline,
+} from '@vicons/ionicons5'
 
 // ===== Public Types =====
 
@@ -110,16 +146,16 @@ export function useAppNav() {
         return [
           {
             items: [
-              { label: t('menu.overview'), key: '/oncall/overview' },
+              { label: t('menu.overview'), key: '/oncall/overview', icon: HomeOutline },
             ],
           },
           {
             label: t('menu.channels'),
             items: [
-              { label: t('menu.channels'),       key: '/oncall/spaces' },
-              { label: t('menu.incidents'),       key: '/oncall/incidents' },
-              { label: t('menu.statusPage'),      key: '/oncall/status-page' },
-              { label: t('menu.postmortems'),     key: '/oncall/postmortems' },
+              { label: t('menu.channels'),       key: '/oncall/spaces', icon: ChatbubblesOutline },
+              { label: t('menu.incidents'),       key: '/oncall/incidents', icon: AlertCircleOutline },
+              { label: t('menu.statusPage'),      key: '/oncall/status-page', icon: GlobeOutline },
+              { label: t('menu.postmortems'),     key: '/oncall/postmortems', icon: DocumentTextOutline },
             ],
           },
           {
@@ -127,8 +163,8 @@ export function useAppNav() {
               const items: MenuItem[] = []
               if (authStore.canManage) {
                 items.push(
-                  { label: t('menu.integrations'), key: '/oncall/integrations' },
-                  { label: t('menu.schedule'),     key: '/oncall/schedule' },
+                  { label: t('menu.integrations'), key: '/oncall/integrations', icon: LinkOutline },
+                  { label: t('menu.schedule'),     key: '/oncall/schedule', icon: CalendarOutline },
                 )
               }
               return items
@@ -137,10 +173,10 @@ export function useAppNav() {
           {
             label: t('menu.configCenter'),
             items: [
-              { label: t('menu.notifyChannels'),  key: '/oncall/config/notify-rules' },
-              { label: t('menu.routingRules'),     key: '/oncall/config/routing-rules' },
-              { label: t('menu.bizGroups'),        key: '/oncall/config/biz-groups' },
-              { label: t('menu.subscriptions'),    key: '/oncall/config/subscribe-rules' },
+              { label: t('menu.notifyChannels'),  key: '/oncall/config/notify-rules', icon: NotificationsOutline },
+              { label: t('menu.routingRules'),     key: '/oncall/config/routing-rules', icon: GitBranchOutline },
+              { label: t('menu.bizGroups'),        key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
+              { label: t('menu.subscriptions'),    key: '/oncall/config/subscribe-rules', icon: MailOutline },
             ],
           },
         ]
@@ -150,34 +186,34 @@ export function useAppNav() {
         return [
           {
             items: [
-              { label: t('menu.overview'), key: '/alert/overview' },
+              { label: t('menu.overview'), key: '/alert/overview', icon: StatsChartOutline },
             ],
           },
           {
             label: t('menu.alerts'),
             items: [
-              { label: t('menu.alertRules'),      key: '/alert/rules' },
+              { label: t('menu.alertRules'),      key: '/alert/rules', icon: ListOutline },
               { label: t('menu.presetRules'),       key: '/alert/presets', icon: LibraryOutline },
-              { label: t('menu.activeAlerts'),     key: '/alert/events' },
-              { label: t('menu.alertHistory'),     key: '/alert/history' },
-              { label: t('menu.muteRules'),        key: '/alert/suppression' },
+              { label: t('menu.activeAlerts'),     key: '/alert/events', icon: FlashOutline },
+              { label: t('menu.alertHistory'),     key: '/alert/history', icon: TimeOutline },
+              { label: t('menu.muteRules'),        key: '/alert/suppression', icon: VolumeMuteOutline },
             ],
           },
           {
             label: t('menu.data'),
             items: [
-              { label: t('menu.datasources'), key: '/alert/datasources' },
-              { label: t('menu.dataQuery'),   key: '/alert/explore' },
-              { label: t('menu.dashboard'),   key: '/alert/dashboards' },
+              { label: t('menu.datasources'), key: '/alert/datasources', icon: ServerOutline },
+              { label: t('menu.dataQuery'),   key: '/alert/explore', icon: SearchOutline },
+              { label: t('menu.dashboard'),   key: '/alert/dashboards', icon: PieChartOutline },
             ],
           },
           {
             label: t('menu.notification'),
             items: [
-              { label: t('menu.notifyPolicies'),  key: '/alert/notify/policies' },
-              { label: t('menu.templates'),        key: '/alert/notify/templates' },
-              { label: t('menu.notifyChannels'),   key: '/alert/notify/channels' },
-              { label: t('menu.subscriptions'),    key: '/alert/notify/subscriptions' },
+              { label: t('menu.notifyPolicies'),  key: '/alert/notify/policies', icon: NotificationsOutline },
+              { label: t('menu.templates'),        key: '/alert/notify/templates', icon: CopyOutline },
+              { label: t('menu.notifyChannels'),   key: '/alert/notify/channels', icon: SendOutline },
+              { label: t('menu.subscriptions'),    key: '/alert/notify/subscriptions', icon: MailOutline },
             ],
           },
         ]
@@ -187,17 +223,17 @@ export function useAppNav() {
         return [
           {
             items: [
-              { label: t('menu.profile'), key: '/platform/profile' },
+              { label: t('menu.profile'), key: '/platform/profile', icon: PersonOutline },
             ],
           },
           {
             label: t('menu.orgManagement'),
             items: (() => {
               const items: MenuItem[] = []
-              if (authStore.isAdmin)     items.push({ label: t('menu.members'), key: '/platform/org/members' })
-              if (authStore.canManage)   items.push({ label: t('menu.teams'), key: '/platform/org/teams' })
-              items.push({ label: t('menu.roles'), key: '/platform/org/roles' })
-              if (authStore.isAdmin)     items.push({ label: t('menu.sso'), key: '/platform/org/sso' })
+              if (authStore.isAdmin)     items.push({ label: t('menu.members'), key: '/platform/org/members', icon: PeopleOutline })
+              if (authStore.canManage)   items.push({ label: t('menu.teams'), key: '/platform/org/teams', icon: PeopleCircleOutline })
+              items.push({ label: t('menu.roles'), key: '/platform/org/roles', icon: ShieldCheckmarkOutline })
+              if (authStore.isAdmin)     items.push({ label: t('menu.sso'), key: '/platform/org/sso', icon: KeyOutline })
               return items
             })(),
           },
@@ -205,7 +241,7 @@ export function useAppNav() {
             items: (() => {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
-                items.push({ label: t('menu.audit'), key: '/platform/audit' })
+                items.push({ label: t('menu.audit'), key: '/platform/audit', icon: EyeOutline })
               }
               return items
             })(),
@@ -216,11 +252,11 @@ export function useAppNav() {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
                 items.push(
-                  { label: t('menu.smtp'),      key: '/platform/settings/smtp' },
-                  { label: t('menu.larkBot'),    key: '/platform/settings/lark' },
-                  { label: t('menu.aiConfig'),   key: '/platform/settings/ai' },
+                  { label: t('menu.smtp'),      key: '/platform/settings/smtp', icon: MailOutline },
+                  { label: t('menu.larkBot'),    key: '/platform/settings/lark', icon: ChatbubbleEllipsesOutline },
+                  { label: t('menu.aiConfig'),   key: '/platform/settings/ai', icon: HardwareChipOutline },
                   { label: t('menu.aiModuleConfig'), key: '/platform/settings/ai-settings', icon: SparklesOutline },
-                  { label: t('menu.security'),   key: '/platform/settings/security' },
+                  { label: t('menu.security'),   key: '/platform/settings/security', icon: ShieldOutline },
                 )
               }
               return items

@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -22,12 +24,30 @@ import (
 // ---- typed config structs (replaces config.AIConfig / config.LarkConfig) ----
 
 // AIConfig holds AI/LLM integration configuration stored in the DB.
+// Deprecated: Use AIProviderConfig / AIProvidersConfig for multi-provider support.
+// Retained for backward compatibility with existing callers.
 type AIConfig struct {
 	Provider string `json:"provider"` // openai, azure, ollama, custom
 	APIKey   string `json:"api_key"`
 	BaseURL  string `json:"base_url"`
 	Model    string `json:"model"`
 	Enabled  bool   `json:"enabled"`
+}
+
+// AIProviderConfig describes a single named AI provider configuration.
+type AIProviderConfig struct {
+	Key      string `json:"key"`       // unique identifier, e.g. "openai-main"
+	Provider string `json:"provider"`  // openai, azure, ollama, custom
+	APIKey   string `json:"api_key"`
+	BaseURL  string `json:"base_url"`
+	Model    string `json:"model"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// AIProvidersConfig holds the multi-provider AI configuration stored as a single JSON blob.
+type AIProvidersConfig struct {
+	DefaultProvider string             `json:"default_provider"`
+	Providers       []AIProviderConfig `json:"providers"`
 }
 
 // LarkConfig holds Lark/Feishu bot configuration stored in the DB.
@@ -64,6 +84,7 @@ const (
 // Key format: "group.key_name".
 var sensitiveKeys = map[string]bool{
 	"ai.api_key":              true,
+	"ai.providers":            true,
 	"lark.app_secret":         true,
 	"lark.verification_token": true,
 	"lark.encrypt_key":        true,
@@ -122,6 +143,9 @@ type SystemSettingService struct {
 
 	aiMu    sync.RWMutex
 	aiCache cachedConfig[AIConfig]
+
+	providersMu    sync.RWMutex
+	providersCache cachedConfig[AIProvidersConfig]
 
 	larkMu    sync.RWMutex
 	larkCache cachedConfig[LarkConfig]
@@ -243,6 +267,7 @@ func (s *SystemSettingService) getDecrypted(group, key, value string) string {
 
 // GetAIConfig loads the AI configuration from cache or DB.
 // Cache TTL is cacheTTL (30 s); writes invalidate the cache immediately.
+// For multi-provider setups, this returns the default provider's config.
 func (s *SystemSettingService) GetAIConfig(ctx context.Context) (AIConfig, error) {
 	// Fast path: read from cache.
 	s.aiMu.RLock()
@@ -253,7 +278,26 @@ func (s *SystemSettingService) GetAIConfig(ctx context.Context) (AIConfig, error
 	}
 	s.aiMu.RUnlock()
 
-	// Slow path: load from DB and repopulate cache.
+	// Try multi-provider config first.
+	providersCfg, err := s.GetProvidersConfig(ctx)
+	if err == nil && len(providersCfg.Providers) > 0 {
+		provider := s.findProvider(providersCfg, providersCfg.DefaultProvider)
+		if provider != nil {
+			cfg := AIConfig{
+				Provider: provider.Provider,
+				APIKey:   provider.APIKey,
+				BaseURL:  provider.BaseURL,
+				Model:    provider.Model,
+				Enabled:  provider.Enabled,
+			}
+			s.aiMu.Lock()
+			s.aiCache = cachedConfig[AIConfig]{value: cfg, expiresAt: time.Now().Add(cacheTTL)}
+			s.aiMu.Unlock()
+			return cfg, nil
+		}
+	}
+
+	// Fallback: legacy single-provider keys.
 	kv, err := s.repo.ListByGroup(ctx, groupAI)
 	if err != nil {
 		return AIConfig{}, err
@@ -299,6 +343,112 @@ func (s *SystemSettingService) SaveAIConfig(ctx context.Context, cfg AIConfig) e
 	s.aiMu.Lock()
 	s.aiCache = cachedConfig[AIConfig]{}
 	s.aiMu.Unlock()
+	return nil
+}
+
+// ---- AI Providers config (multi-provider) ------------------------------------
+
+// GetProvidersConfig loads the multi-provider AI configuration from cache or DB.
+// API keys within providers are decrypted on load.
+func (s *SystemSettingService) GetProvidersConfig(ctx context.Context) (AIProvidersConfig, error) {
+	// Fast path: read from cache.
+	s.providersMu.RLock()
+	if s.providersCache.valid() {
+		cfg := s.providersCache.value
+		s.providersMu.RUnlock()
+		return cfg, nil
+	}
+	s.providersMu.RUnlock()
+
+	// Slow path: load from DB.
+	kv, err := s.repo.ListByGroup(ctx, groupAI)
+	if err != nil {
+		return AIProvidersConfig{}, err
+	}
+
+	raw, ok := kv["providers"]
+	if !ok || raw == "" {
+		// No providers configured yet — return empty config.
+		return AIProvidersConfig{DefaultProvider: "", Providers: nil}, nil
+	}
+
+	// Decrypt the stored JSON blob.
+	decrypted := s.getDecrypted(groupAI, "providers", raw)
+
+	var cfg AIProvidersConfig
+	if err := json.Unmarshal([]byte(decrypted), &cfg); err != nil {
+		s.logger.Error("failed to parse ai.providers JSON", zap.Error(err))
+		return AIProvidersConfig{}, fmt.Errorf("invalid ai.providers config: %w", err)
+	}
+
+	// Cache the result.
+	s.providersMu.Lock()
+	s.providersCache = cachedConfig[AIProvidersConfig]{value: cfg, expiresAt: time.Now().Add(cacheTTL)}
+	s.providersMu.Unlock()
+
+	return cfg, nil
+}
+
+// SaveProvidersConfig persists the multi-provider AI configuration to DB.
+// API keys within providers are encrypted before storage.
+func (s *SystemSettingService) SaveProvidersConfig(ctx context.Context, cfg AIProvidersConfig) error {
+	// Encrypt the entire JSON blob (which contains api_key fields).
+	jsonBytes, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal providers config: %w", err)
+	}
+
+	enc, err := s.setEncrypted(groupAI, "providers", string(jsonBytes))
+	if err != nil {
+		s.logger.Error("failed to encrypt ai.providers", zap.Error(err))
+		return err
+	}
+
+	kv := map[string]string{
+		"providers": enc,
+	}
+	if err := s.repo.SetGroup(ctx, groupAI, kv); err != nil {
+		return err
+	}
+
+	// Invalidate both caches.
+	s.providersMu.Lock()
+	s.providersCache = cachedConfig[AIProvidersConfig]{}
+	s.providersMu.Unlock()
+
+	s.aiMu.Lock()
+	s.aiCache = cachedConfig[AIConfig]{}
+	s.aiMu.Unlock()
+
+	return nil
+}
+
+// GetProviderConfig loads a specific provider by key, or the default provider if key is empty.
+func (s *SystemSettingService) GetProviderConfig(ctx context.Context, providerKey string) (AIProviderConfig, error) {
+	cfg, err := s.GetProvidersConfig(ctx)
+	if err != nil {
+		return AIProviderConfig{}, err
+	}
+
+	key := providerKey
+	if key == "" {
+		key = cfg.DefaultProvider
+	}
+
+	p := s.findProvider(cfg, key)
+	if p == nil {
+		return AIProviderConfig{}, fmt.Errorf("AI provider %q not found", key)
+	}
+	return *p, nil
+}
+
+// findProvider returns the provider with the given key, or nil if not found.
+func (s *SystemSettingService) findProvider(cfg AIProvidersConfig, key string) *AIProviderConfig {
+	for i := range cfg.Providers {
+		if cfg.Providers[i].Key == key {
+			return &cfg.Providers[i]
+		}
+	}
 	return nil
 }
 
@@ -535,8 +685,9 @@ func (s *SystemSettingService) SaveSMTPConfig(ctx context.Context, cfg SMTPConfi
 
 // AIModule describes a single AI capability module.
 type AIModule struct {
-	Enabled bool   `json:"enabled"`
-	Desc    string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+	Desc        string `json:"description"`
+	ProviderKey string `json:"provider_key,omitempty"` // which provider this module uses (empty = default)
 }
 
 // AIModuleConfig holds the on/off state for each AI capability.
@@ -591,22 +742,32 @@ func (s *SystemSettingService) GetAIModules(ctx context.Context) (*AIModuleConfi
 	if v, ok := kv["agent_desc"]; ok && v != "" {
 		cfg.Agent.Desc = v
 	}
+	cfg.Platform.ProviderKey = kv["platform_provider_key"]
+	cfg.Chat.ProviderKey = kv["chat_provider_key"]
+	cfg.RuleGen.ProviderKey = kv["rule_gen_provider_key"]
+	cfg.Analysis.ProviderKey = kv["analysis_provider_key"]
+	cfg.Agent.ProviderKey = kv["agent_provider_key"]
 	return &cfg, nil
 }
 
 // UpdateAIModules persists the AI module configuration to DB.
 func (s *SystemSettingService) UpdateAIModules(ctx context.Context, cfg *AIModuleConfig) error {
 	kv := map[string]string{
-		"platform_enabled": strconv.FormatBool(cfg.Platform.Enabled),
-		"platform_desc":    cfg.Platform.Desc,
-		"chat_enabled":     strconv.FormatBool(cfg.Chat.Enabled),
-		"chat_desc":        cfg.Chat.Desc,
-		"rule_gen_enabled": strconv.FormatBool(cfg.RuleGen.Enabled),
-		"rule_gen_desc":    cfg.RuleGen.Desc,
-		"analysis_enabled": strconv.FormatBool(cfg.Analysis.Enabled),
-		"analysis_desc":    cfg.Analysis.Desc,
-		"agent_enabled":    strconv.FormatBool(cfg.Agent.Enabled),
-		"agent_desc":       cfg.Agent.Desc,
+		"platform_enabled":        strconv.FormatBool(cfg.Platform.Enabled),
+		"platform_desc":           cfg.Platform.Desc,
+		"platform_provider_key":   cfg.Platform.ProviderKey,
+		"chat_enabled":            strconv.FormatBool(cfg.Chat.Enabled),
+		"chat_desc":               cfg.Chat.Desc,
+		"chat_provider_key":       cfg.Chat.ProviderKey,
+		"rule_gen_enabled":        strconv.FormatBool(cfg.RuleGen.Enabled),
+		"rule_gen_desc":           cfg.RuleGen.Desc,
+		"rule_gen_provider_key":   cfg.RuleGen.ProviderKey,
+		"analysis_enabled":        strconv.FormatBool(cfg.Analysis.Enabled),
+		"analysis_desc":           cfg.Analysis.Desc,
+		"analysis_provider_key":   cfg.Analysis.ProviderKey,
+		"agent_enabled":           strconv.FormatBool(cfg.Agent.Enabled),
+		"agent_desc":              cfg.Agent.Desc,
+		"agent_provider_key":      cfg.Agent.ProviderKey,
 	}
 	return s.repo.SetGroup(ctx, "ai_modules", kv)
 }

@@ -1,6 +1,7 @@
 export interface AIModule {
   enabled: boolean
   description: string
+  provider_key?: string
 }
 
 export interface AIModuleConfig {
@@ -9,6 +10,20 @@ export interface AIModuleConfig {
   rule_gen: AIModule
   analysis: AIModule
   agent: AIModule
+}
+
+export interface AIProvider {
+  key: string
+  provider: string // 'openai' | 'azure' | 'ollama' | 'custom'
+  api_key: string
+  base_url: string
+  model: string
+  enabled: boolean
+}
+
+export interface AIProvidersConfig {
+  default_provider: string
+  providers: AIProvider[]
 }
 
 // ===== AI Rule Generation =====

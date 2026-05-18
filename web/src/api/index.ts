@@ -56,6 +56,7 @@ import type {
   ChannelStatItem,
   TeamStatItem,
   IncidentTrendPoint,
+  AIProvidersConfig,
 } from '@/types'
 
 // ===== Auth API =====
@@ -540,6 +541,15 @@ export const aiApi = {
 
   suggestSOP: (eventId: number) =>
     request.post<ApiResponse<{ title: string; steps: string[]; references: string[] }>>('/ai/suggest-sop', { event_id: eventId }),
+
+  getProviders: () =>
+    request.get<ApiResponse<AIProvidersConfig>>('/ai/providers'),
+
+  saveProviders: (config: AIProvidersConfig) =>
+    request.put<ApiResponse<null>>('/ai/providers', config),
+
+  testProvider: (key: string) =>
+    request.post<ApiResponse<{ message: string }>>('/ai/test-provider', { key }),
 }
 
 // ===== AI Chat API =====

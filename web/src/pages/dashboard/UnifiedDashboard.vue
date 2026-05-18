@@ -19,7 +19,7 @@ import {
   StatsChartOutline, NotificationsOutline, ShieldCheckmarkOutline,
   OptionsOutline, AddOutline, CloseOutline, CreateOutline,
   PeopleOutline, LinkOutline, BookmarkOutline,
-  EyeOutline, EyeOffOutline,
+  EyeOutline, EyeOffOutline, LibraryOutline,
 } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -157,6 +157,8 @@ const ALL_QUICK_LINKS: Omit<QuickLink, 'enabled'>[] = [
   { id: 'incidents',  label: '', route: '/oncall/incidents',      icon: BugOutline,             color: '#EC4899', bg: 'rgba(236,72,153,0.08)' },
   { id: 'spaces',     label: '', route: '/oncall/spaces',         icon: RocketOutline,          color: '#14B8A6', bg: 'rgba(20,184,166,0.08)' },
   { id: 'members',    label: '', route: '/platform/org/members',  icon: PeopleOutline,          color: '#6366F1', bg: 'rgba(99,102,241,0.08)' },
+  { id: 'presets',    label: '', route: '/alert/presets',         icon: LibraryOutline,          color: '#0EA5E9', bg: 'rgba(14,165,233,0.08)' },
+  { id: 'aiSettings', label: '', route: '/platform/settings/ai-settings', icon: SparklesOutline, color: '#D946EF', bg: 'rgba(217,70,239,0.08)' },
 ]
 
 function loadQuickLinks(): QuickLink[] {
@@ -193,6 +195,8 @@ const quickLinkLabels = computed(() => ({
   incidents: t('menu.incidents'),
   spaces: t('menu.channels'),
   members: t('menu.members'),
+  presets: t('menu.presetRules'),
+  aiSettings: t('menu.aiModuleConfig'),
 }))
 
 watch(quickLinkLabels, (labels) => {

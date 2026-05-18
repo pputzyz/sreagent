@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-18 | tag: v4.10.19
-> 共 47 个 model, 42 个 handler, 38 个 service, 43 个 repository, 183+ API 端点
+> 最后更新: 2026-05-18 | tag: v4.10.22
+> 共 47 个 model, 42 个 handler, 38 个 service, 43 个 repository, 190+ API 端点
 
 ---
 
@@ -218,10 +218,11 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 
 ## AI 助手 (ai)
 
-- **功能**: LLM 告警分析报告、SOP 建议、连接测试
-- **后端**: `service/ai.go`, `handler/ai.go`, `service/alert_context.go`, `service/alert_pipeline.go`
-- **API**: `/api/v1/ai/*` (5 endpoints)
-- **状态**: ✅ 完成
+- **功能**: LLM 告警分析报告、SOP 建议、连接测试、多供应商配置、规则生成
+- **后端**: `service/ai.go`, `handler/ai.go`, `service/alert_context.go`, `service/alert_pipeline.go`, `service/rule_generator.go`, `handler/ai_rule.go`
+- **前端**: `web/src/pages/settings/AISettings.vue`, `web/src/composables/useAIModule.ts`
+- **API**: `/api/v1/ai/*` (10 endpoints: config, test, chat, report, sop, modules, providers, test-provider, rules/generate, rules/validate)
+- **状态**: ✅ 完成（含多供应商配置 + 模块级供应商选择）
 
 ## 飞书集成 (lark)
 

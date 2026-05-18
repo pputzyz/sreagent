@@ -102,7 +102,7 @@ func (r *AlertRuleRepository) GetByHeartbeatToken(ctx context.Context, token str
 func (r *AlertRuleRepository) ListCategories(ctx context.Context) ([]string, error) {
 	var categories []string
 	err := r.db.WithContext(ctx).Model(&model.AlertRule{}).
-		Where("category != '' AND deleted_at IS NULL").
+		Where("category != ''").
 		Distinct("category").Pluck("category", &categories).Error
 	return categories, err
 }

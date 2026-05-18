@@ -251,3 +251,43 @@ func (h *AIHandler) UpdateModules(c *gin.Context) {
 	}
 	Success(c, gin.H{"message": "AI modules configuration updated"})
 }
+
+// GetProviders returns the multi-provider AI configuration with masked API keys.
+func (h *AIHandler) GetProviders(c *gin.Context) {
+	cfg, err := h.aiSvc.GetProvidersConfig(c.Request.Context())
+	if err != nil {
+		ErrorWithMessage(c, 50003, "failed to load AI providers: "+err.Error())
+		return
+	}
+	Success(c, cfg)
+}
+
+// SaveProviders updates the multi-provider AI configuration.
+func (h *AIHandler) SaveProviders(c *gin.Context) {
+	var req service.AIProvidersConfig
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.aiSvc.SaveProvidersConfig(c.Request.Context(), req); err != nil {
+		ErrorWithMessage(c, 50003, "failed to save AI providers: "+err.Error())
+		return
+	}
+	Success(c, gin.H{"message": "AI providers configuration updated"})
+}
+
+// TestProvider tests connectivity to a specific provider by key.
+func (h *AIHandler) TestProvider(c *gin.Context) {
+	var req struct {
+		Key string `json:"key" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.aiSvc.TestProviderConnection(c.Request.Context(), req.Key); err != nil {
+		ErrorWithMessage(c, 50003, "AI connection test failed: "+err.Error())
+		return
+	}
+	Success(c, gin.H{"message": "AI connection successful"})
+}

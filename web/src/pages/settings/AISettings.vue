@@ -1,30 +1,46 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
-  NSpace, NTag, useMessage,
+  NSpace, NTag, NSelect, NInput, NModal, NForm, NFormItem,
+  NPopconfirm, useMessage,
 } from 'naive-ui'
-import { PulseOutline, SaveOutline, SparklesOutline } from '@vicons/ionicons5'
+import { PulseOutline, SaveOutline, SparklesOutline, AddOutline, TrashOutline, CreateOutline, StarOutline } from '@vicons/ionicons5'
 import { aiApi, aiModuleApi } from '@/api'
-import type { AIModuleConfig } from '@/types/ai-module'
+import type { AIModuleConfig, AIProvider, AIProvidersConfig } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
 
 const message = useMessage()
 
-// ─── AI Config (read-only display) ───
-const configLoading = ref(false)
-const aiConfig = ref<{
-  provider: string
-  model: string
-  base_url: string
-  enabled: boolean
-} | null>(null)
+// ─── Providers config ───
+const providersLoading = ref(false)
+const providersConfig = ref<AIProvidersConfig | null>(null)
 
 // ─── Module config ───
 const moduleLoading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
+const testingProvider = ref<string | null>(null)
 const modules = ref<AIModuleConfig | null>(null)
+
+// ─── Provider modal ───
+const showModal = ref(false)
+const editingIndex = ref<number>(-1)
+const providerForm = reactive<AIProvider>({
+  key: '',
+  provider: 'openai',
+  api_key: '',
+  base_url: '',
+  model: '',
+  enabled: true,
+})
+
+const providerOptions = [
+  { label: 'OpenAI', value: 'openai' },
+  { label: 'Azure OpenAI', value: 'azure' },
+  { label: 'Ollama (Local)', value: 'ollama' },
+  { label: 'Custom / Compatible', value: 'custom' },
+]
 
 const moduleLabels: Record<keyof AIModuleConfig, { name: string; description: string }> = {
   platform: {
@@ -51,22 +67,29 @@ const moduleLabels: Record<keyof AIModuleConfig, { name: string; description: st
 
 const moduleKeys: (keyof AIModuleConfig)[] = ['platform', 'chat', 'rule_gen', 'analysis', 'agent']
 
-// ─── Fetch AI config ───
-async function fetchAIConfig() {
-  configLoading.value = true
+// ─── Computed ───
+const providerSelectOptions = computed(() => {
+  if (!providersConfig.value?.providers) return []
+  return providersConfig.value.providers.map(p => ({
+    label: `${p.key} (${p.model || p.provider})`,
+    value: p.key,
+  }))
+})
+
+const hasProviders = computed(() => {
+  return (providersConfig.value?.providers?.length ?? 0) > 0
+})
+
+// ─── Fetch providers ───
+async function fetchProviders() {
+  providersLoading.value = true
   try {
-    const res = await aiApi.getConfig()
-    const d = res.data.data
-    aiConfig.value = {
-      provider: d.provider || 'openai',
-      model: d.model || '',
-      base_url: d.base_url || '',
-      enabled: d.enabled,
-    }
+    const res = await aiApi.getProviders()
+    providersConfig.value = res.data.data ?? { default_provider: '', providers: [] }
   } catch {
-    aiConfig.value = null
+    providersConfig.value = { default_provider: '', providers: [] }
   } finally {
-    configLoading.value = false
+    providersLoading.value = false
   }
 }
 
@@ -83,19 +106,117 @@ async function fetchModules() {
   }
 }
 
-// ─── Toggle module ───
+// ─── Provider CRUD ───
+function openAddProvider() {
+  editingIndex.value = -1
+  Object.assign(providerForm, {
+    key: '',
+    provider: 'openai',
+    api_key: '',
+    base_url: '',
+    model: '',
+    enabled: true,
+  })
+  showModal.value = true
+}
+
+function openEditProvider(index: number) {
+  if (!providersConfig.value) return
+  const p = providersConfig.value.providers[index]
+  editingIndex.value = index
+  Object.assign(providerForm, {
+    key: p.key,
+    provider: p.provider,
+    api_key: p.api_key,
+    base_url: p.base_url,
+    model: p.model,
+    enabled: p.enabled,
+  })
+  showModal.value = true
+}
+
+function handleProviderSave() {
+  if (!providersConfig.value) return
+
+  if (!providerForm.key.trim()) {
+    message.error('Provider key is required')
+    return
+  }
+
+  const entry: AIProvider = {
+    key: providerForm.key.trim(),
+    provider: providerForm.provider,
+    api_key: providerForm.api_key,
+    base_url: providerForm.base_url,
+    model: providerForm.model,
+    enabled: providerForm.enabled,
+  }
+
+  if (editingIndex.value >= 0) {
+    // Edit existing
+    providersConfig.value.providers[editingIndex.value] = entry
+  } else {
+    // Check duplicate key
+    if (providersConfig.value.providers.some(p => p.key === entry.key)) {
+      message.error('Provider key already exists')
+      return
+    }
+    providersConfig.value.providers.push(entry)
+    // If first provider, set as default
+    if (providersConfig.value.providers.length === 1) {
+      providersConfig.value.default_provider = entry.key
+    }
+  }
+
+  showModal.value = false
+  saveProvidersConfig()
+}
+
+function deleteProvider(index: number) {
+  if (!providersConfig.value) return
+  const key = providersConfig.value.providers[index].key
+  providersConfig.value.providers.splice(index, 1)
+  // Clear default if deleted
+  if (providersConfig.value.default_provider === key) {
+    providersConfig.value.default_provider = providersConfig.value.providers[0]?.key ?? ''
+  }
+  saveProvidersConfig()
+}
+
+function setDefaultProvider(key: string) {
+  if (!providersConfig.value) return
+  providersConfig.value.default_provider = key
+  saveProvidersConfig()
+}
+
+async function saveProvidersConfig() {
+  if (!providersConfig.value) return
+  try {
+    await aiApi.saveProviders(providersConfig.value)
+    message.success('Provider configuration saved')
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  }
+}
+
+// ─── Module config ───
 function toggleModule(key: keyof AIModuleConfig, val: boolean) {
   if (!modules.value) return
   modules.value[key].enabled = val
 }
 
-// ─── Save ───
+function setModuleProvider(key: keyof AIModuleConfig, providerKey: string) {
+  if (!modules.value) return
+  modules.value[key].provider_key = providerKey
+}
+
+// ─── Save modules ───
 async function handleSave() {
   if (!modules.value) return
   saving.value = true
   try {
     await aiModuleApi.updateModules(modules.value)
-    message.success('AI 模块配置已保存')
+    message.success('AI module configuration saved')
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {
@@ -104,14 +225,14 @@ async function handleSave() {
 }
 
 // ─── Test connection ───
-async function handleTest() {
+async function handleTestDefault() {
   testing.value = true
   try {
     const res = await aiApi.testConnection()
     const ok = !!res.data.data?.success
     ok
-      ? message.success(res.data.data?.message || '连接测试成功')
-      : message.error(res.data.data?.message || '连接测试失败')
+      ? message.success(res.data.data?.message || 'Connection test successful')
+      : message.error(res.data.data?.message || 'Connection test failed')
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {
@@ -119,8 +240,20 @@ async function handleTest() {
   }
 }
 
+async function handleTestProvider(key: string) {
+  testingProvider.value = key
+  try {
+    const res = await aiApi.testProvider(key)
+    message.success(res.data.data?.message || 'Connection test successful')
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    testingProvider.value = null
+  }
+}
+
 // ─── Provider label ───
-function providerLabel(p: string) {
+function providerTypeLabel(p: string) {
   const map: Record<string, string> = {
     openai: 'OpenAI',
     azure: 'Azure OpenAI',
@@ -131,73 +264,113 @@ function providerLabel(p: string) {
 }
 
 onMounted(() => {
-  fetchAIConfig()
+  fetchProviders()
   fetchModules()
 })
 </script>
 
 <template>
-  <NSpin :show="configLoading && moduleLoading">
+  <NSpin :show="providersLoading && moduleLoading">
     <div class="sre-config-page ai-settings-page">
       <header class="sre-config-header">
         <div>
           <h2 class="sre-config-header-title">
             <n-icon :component="SparklesOutline" :size="20" style="margin-right: 8px; vertical-align: -3px;" />
-            AI 配置
+            AI Configuration
           </h2>
-          <p class="sre-config-header-sub">管理 AI 模块开关和连接配置</p>
+          <p class="sre-config-header-sub">Manage AI providers, module assignments, and connections</p>
         </div>
         <div class="sre-config-header-actions">
-          <n-button size="small" :loading="testing" @click="handleTest">
+          <n-button size="small" :loading="testing" @click="handleTestDefault">
             <template #icon><n-icon :component="PulseOutline" /></template>
-            测试连接
+            Test Default
           </n-button>
           <n-button type="primary" size="small" :loading="saving" @click="handleSave">
             <template #icon><n-icon :component="SaveOutline" /></template>
-            保存
+            Save Modules
           </n-button>
         </div>
       </header>
 
-      <!-- Warning: AI not configured -->
+      <!-- Warning: No providers configured -->
       <n-alert
-        v-if="!configLoading && (!aiConfig || !aiConfig.enabled)"
+        v-if="!providersLoading && !hasProviders"
         type="warning"
         :bordered="false"
         style="margin-bottom: 20px"
       >
-        AI 功能尚未配置或已禁用。请先在
-        <router-link to="/platform/settings/ai" class="alert-link">AI 基础配置</router-link>
-        中设置 API Key 和模型信息。
+        No AI providers configured. Add a provider below to enable AI features.
       </n-alert>
 
       <div class="config-sections sre-stagger">
-        <!-- Section 1: AI Provider Info (read-only) -->
+        <!-- Section 1: Providers Manager -->
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">AI 总开关</h3>
-          <p class="sre-config-section-desc">当前 AI 服务连接信息，修改请前往 AI 基础配置页</p>
-          <div class="ai-info-grid" v-if="aiConfig">
-            <div class="ai-info-item">
-              <span class="ai-info-label">状态</span>
-              <n-tag :type="aiConfig.enabled ? 'success' : 'default'" size="small" :bordered="false">
-                {{ aiConfig.enabled ? '已启用' : '已禁用' }}
-              </n-tag>
+          <div class="section-header-row">
+            <div>
+              <h3 class="sre-config-section-title">AI Providers</h3>
+              <p class="sre-config-section-desc">Configure multiple AI providers. Each module can use a different provider.</p>
             </div>
-            <div class="ai-info-item">
-              <span class="ai-info-label">提供商</span>
-              <span class="ai-info-value">{{ providerLabel(aiConfig.provider) }}</span>
-            </div>
-            <div class="ai-info-item">
-              <span class="ai-info-label">模型</span>
-              <span class="ai-info-value mono">{{ aiConfig.model || '未配置' }}</span>
-            </div>
-            <div class="ai-info-item full-row">
-              <span class="ai-info-label">Base URL</span>
-              <span class="ai-info-value mono">{{ aiConfig.base_url || '默认' }}</span>
+            <n-button size="small" @click="openAddProvider">
+              <template #icon><n-icon :component="AddOutline" /></template>
+              Add Provider
+            </n-button>
+          </div>
+
+          <div v-if="hasProviders" class="providers-grid">
+            <div
+              v-for="(provider, idx) in providersConfig!.providers"
+              :key="provider.key"
+              class="provider-card"
+              :class="{ 'is-default': providersConfig!.default_provider === provider.key, disabled: !provider.enabled }"
+            >
+              <div class="provider-card-header">
+                <div class="provider-card-title">
+                  <span class="provider-key">{{ provider.key }}</span>
+                  <n-tag v-if="providersConfig!.default_provider === provider.key" type="warning" size="tiny" :bordered="false">
+                    Default
+                  </n-tag>
+                  <n-tag :type="provider.enabled ? 'success' : 'default'" size="tiny" :bordered="false">
+                    {{ provider.enabled ? 'Enabled' : 'Disabled' }}
+                  </n-tag>
+                </div>
+                <div class="provider-card-actions">
+                  <n-button text size="small" @click="handleTestProvider(provider.key)" :loading="testingProvider === provider.key">
+                    <template #icon><n-icon :component="PulseOutline" /></template>
+                  </n-button>
+                  <n-button text size="small" @click="setDefaultProvider(provider.key)" :disabled="providersConfig!.default_provider === provider.key">
+                    <template #icon><n-icon :component="StarOutline" /></template>
+                  </n-button>
+                  <n-button text size="small" @click="openEditProvider(idx)">
+                    <template #icon><n-icon :component="CreateOutline" /></template>
+                  </n-button>
+                  <n-popconfirm @positive-click="deleteProvider(idx)">
+                    <template #trigger>
+                      <n-button text size="small" type="error">
+                        <template #icon><n-icon :component="TrashOutline" /></template>
+                      </n-button>
+                    </template>
+                    Delete provider "{{ provider.key }}"?
+                  </n-popconfirm>
+                </div>
+              </div>
+              <div class="provider-card-body">
+                <div class="provider-detail">
+                  <span class="provider-detail-label">Type</span>
+                  <span class="provider-detail-value">{{ providerTypeLabel(provider.provider) }}</span>
+                </div>
+                <div class="provider-detail">
+                  <span class="provider-detail-label">Model</span>
+                  <span class="provider-detail-value mono">{{ provider.model || '-' }}</span>
+                </div>
+                <div class="provider-detail full-row">
+                  <span class="provider-detail-label">Base URL</span>
+                  <span class="provider-detail-value mono">{{ provider.base_url || 'Default' }}</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div v-else-if="!configLoading" class="ai-info-empty">
-            无法加载 AI 配置信息
+          <div v-else-if="!providersLoading" class="ai-info-empty">
+            No providers configured yet. Click "Add Provider" to get started.
           </div>
         </section>
 
@@ -205,8 +378,8 @@ onMounted(() => {
 
         <!-- Section 2: Module Toggles -->
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">模块开关</h3>
-          <p class="sre-config-section-desc">独立控制各 AI 功能模块的启用状态</p>
+          <h3 class="sre-config-section-title">Module Configuration</h3>
+          <p class="sre-config-section-desc">Control each AI module and assign a specific provider</p>
 
           <div v-if="modules" class="module-list">
             <div
@@ -218,10 +391,21 @@ onMounted(() => {
               <div class="module-info">
                 <div class="module-name">
                   {{ moduleLabels[key].name }}
-                  <n-tag v-if="modules[key].enabled" type="success" size="tiny" :bordered="false">已启用</n-tag>
-                  <n-tag v-else size="tiny" :bordered="false">已禁用</n-tag>
+                  <n-tag v-if="modules[key].enabled" type="success" size="tiny" :bordered="false">Enabled</n-tag>
+                  <n-tag v-else size="tiny" :bordered="false">Disabled</n-tag>
                 </div>
                 <div class="module-desc">{{ moduleLabels[key].description }}</div>
+                <div class="module-provider-row" v-if="hasProviders">
+                  <span class="module-provider-label">Provider:</span>
+                  <n-select
+                    :value="modules[key].provider_key || ''"
+                    :options="[{ label: 'Default', value: '' }, ...providerSelectOptions]"
+                    size="tiny"
+                    style="width: 240px"
+                    placeholder="Default"
+                    @update:value="(val: string) => setModuleProvider(key, val)"
+                  />
+                </div>
               </div>
               <n-switch
                 :value="modules[key].enabled"
@@ -230,67 +414,154 @@ onMounted(() => {
             </div>
           </div>
           <div v-else-if="!moduleLoading" class="ai-info-empty">
-            无法加载模块配置
+            Failed to load module configuration
           </div>
         </section>
       </div>
+
+      <!-- Provider Add/Edit Modal -->
+      <n-modal
+        v-model:show="showModal"
+        preset="card"
+        :title="editingIndex >= 0 ? 'Edit Provider' : 'Add Provider'"
+        style="max-width: 520px"
+        :bordered="false"
+        :segmented="{ content: true, footer: true }"
+      >
+        <n-form label-placement="left" label-width="100">
+          <n-form-item label="Key" required>
+            <n-input
+              v-model:value="providerForm.key"
+              placeholder="e.g. openai-main"
+              :disabled="editingIndex >= 0"
+            />
+          </n-form-item>
+          <n-form-item label="Provider Type">
+            <n-select v-model:value="providerForm.provider" :options="providerOptions" />
+          </n-form-item>
+          <n-form-item label="API Key">
+            <n-input
+              v-model:value="providerForm.api_key"
+              type="password"
+              show-password-on="click"
+              placeholder="Enter API key"
+            />
+          </n-form-item>
+          <n-form-item label="Base URL">
+            <n-input
+              v-model:value="providerForm.base_url"
+              placeholder="https://api.openai.com/v1"
+            />
+          </n-form-item>
+          <n-form-item label="Model">
+            <n-input
+              v-model:value="providerForm.model"
+              placeholder="e.g. gpt-4o"
+            />
+          </n-form-item>
+          <n-form-item label="Enabled">
+            <n-switch v-model:value="providerForm.enabled" />
+          </n-form-item>
+        </n-form>
+        <template #footer>
+          <n-space justify="end">
+            <n-button @click="showModal = false">Cancel</n-button>
+            <n-button type="primary" @click="handleProviderSave">
+              {{ editingIndex >= 0 ? 'Update' : 'Add' }}
+            </n-button>
+          </n-space>
+        </template>
+      </n-modal>
     </div>
   </NSpin>
 </template>
 
 <style scoped>
 .ai-settings-page {
-  max-width: 800px;
+  max-width: 880px;
 }
 
-.alert-link {
-  color: var(--sre-primary);
-  text-decoration: underline;
-  font-weight: 500;
-}
-.alert-link:hover {
-  opacity: 0.8;
+.section-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-/* AI Info Grid */
-.ai-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 24px;
-  padding: 16px;
-  background: var(--sre-bg-sunken, rgba(0,0,0,0.02));
-  border-radius: 8px;
-  border: 1px solid var(--sre-border);
-}
-.ai-info-item {
+/* Provider Cards */
+.providers-grid {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+.provider-card {
+  border: 1px solid var(--sre-border);
+  border-radius: 8px;
+  background: var(--sre-bg-card);
+  transition: opacity 200ms ease, border-color 200ms ease;
+}
+.provider-card.disabled {
+  opacity: 0.6;
+}
+.provider-card.is-default {
+  border-color: var(--sre-warning, #f0a020);
+}
+.provider-card:hover {
+  border-color: var(--sre-primary-ring, var(--sre-border-strong));
+}
+.provider-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 8px;
+}
+.provider-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.provider-key {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  font-family: var(--sre-font-mono, monospace);
+}
+.provider-card-actions {
+  display: flex;
+  align-items: center;
   gap: 4px;
 }
-.ai-info-item.full-row {
+.provider-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 24px;
+  padding: 4px 16px 12px;
+}
+.provider-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.provider-detail.full-row {
   grid-column: 1 / -1;
 }
-.ai-info-label {
+.provider-detail-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--sre-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.ai-info-value {
-  font-size: 14px;
+.provider-detail-value {
+  font-size: 13px;
   color: var(--sre-text-primary);
   font-weight: 500;
 }
-.ai-info-value.mono {
+.provider-detail-value.mono {
   font-family: var(--sre-font-mono, monospace);
-  font-size: 13px;
-}
-.ai-info-empty {
-  font-size: 13px;
-  color: var(--sre-text-tertiary);
-  padding: 16px;
-  text-align: center;
+  font-size: 12px;
 }
 
 /* Module List */
@@ -333,5 +604,24 @@ onMounted(() => {
   font-size: 12px;
   color: var(--sre-text-tertiary);
   line-height: 1.5;
+}
+.module-provider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.module-provider-label {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ai-info-empty {
+  font-size: 13px;
+  color: var(--sre-text-tertiary);
+  padding: 16px;
+  text-align: center;
 }
 </style>

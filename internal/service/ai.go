@@ -44,9 +44,26 @@ func NewAIService(settingSvc *SystemSettingService, logger *zap.Logger) *AIServi
 	}
 }
 
-// loadConfig fetches the current AI config from the DB.
+// loadConfig fetches the current AI config from the DB (default provider).
 func (s *AIService) loadConfig(ctx context.Context) (AIConfig, error) {
 	return s.settingSvc.GetAIConfig(ctx)
+}
+
+// loadProviderConfig fetches the config for a specific provider by key.
+// If providerKey is empty, the default provider is used.
+func (s *AIService) loadProviderConfig(ctx context.Context, providerKey string) (AIProviderConfig, error) {
+	return s.settingSvc.GetProviderConfig(ctx, providerKey)
+}
+
+// providerToAIConfig converts an AIProviderConfig to the legacy AIConfig struct.
+func providerToAIConfig(p AIProviderConfig) AIConfig {
+	return AIConfig{
+		Provider: p.Provider,
+		APIKey:   p.APIKey,
+		BaseURL:  p.BaseURL,
+		Model:    p.Model,
+		Enabled:  p.Enabled,
+	}
 }
 
 // GetAIModules returns the AI module configuration.
@@ -79,6 +96,36 @@ func (s *AIService) GetConfig(ctx context.Context) (AIConfig, error) {
 // UpdateConfig persists the AI configuration to the DB.
 func (s *AIService) UpdateConfig(ctx context.Context, cfg AIConfig) error {
 	return s.settingSvc.SaveAIConfig(ctx, cfg)
+}
+
+// GetProvidersConfig returns the multi-provider AI configuration with API keys masked.
+func (s *AIService) GetProvidersConfig(ctx context.Context) (AIProvidersConfig, error) {
+	cfg, err := s.settingSvc.GetProvidersConfig(ctx)
+	if err != nil {
+		return AIProvidersConfig{}, err
+	}
+	// Mask API keys for display
+	for i := range cfg.Providers {
+		maskAPIKey(&cfg.Providers[i].APIKey)
+	}
+	return cfg, nil
+}
+
+// SaveProvidersConfig persists the multi-provider AI configuration to DB.
+func (s *AIService) SaveProvidersConfig(ctx context.Context, cfg AIProvidersConfig) error {
+	return s.settingSvc.SaveProvidersConfig(ctx, cfg)
+}
+
+// maskAPIKey masks an API key string in-place for safe display.
+func maskAPIKey(key *string) {
+	if *key == "" {
+		return
+	}
+	if len(*key) > 8 {
+		*key = (*key)[:4] + "****" + (*key)[len(*key)-4:]
+	} else {
+		*key = "****"
+	}
 }
 
 // GenerateAlertReport generates an alert report using the configured LLM.
@@ -157,7 +204,7 @@ func (s *AIService) AnalyzeAlert(ctx context.Context, event *model.AlertEvent) (
 	return s.callLLM(ctx, cfg, prompt)
 }
 
-// TestConnection tests connectivity to the configured AI provider.
+// TestConnection tests connectivity to the configured AI provider (default provider).
 func (s *AIService) TestConnection(ctx context.Context) error {
 	cfg, err := s.loadConfig(ctx)
 	if err != nil {
@@ -174,6 +221,24 @@ func (s *AIService) TestConnection(ctx context.Context) error {
 	}
 
 	// Try a minimal completion request to test connectivity
+	_, err = s.callLLM(ctx, cfg, "Say hello in one word.")
+	return err
+}
+
+// TestProviderConnection tests connectivity to a specific provider by key.
+func (s *AIService) TestProviderConnection(ctx context.Context, providerKey string) error {
+	provider, err := s.loadProviderConfig(ctx, providerKey)
+	if err != nil {
+		return fmt.Errorf("failed to load provider config: %w", err)
+	}
+	if !provider.Enabled {
+		return fmt.Errorf("provider %q is not enabled", providerKey)
+	}
+	if provider.BaseURL == "" {
+		return fmt.Errorf("provider %q base URL is not configured", providerKey)
+	}
+
+	cfg := providerToAIConfig(provider)
 	_, err = s.callLLM(ctx, cfg, "Say hello in one word.")
 	return err
 }

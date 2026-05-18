@@ -160,6 +160,9 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		ai.DELETE("/history", h.AI.ClearHistory)
 		ai.GET("/modules", adminOnly, h.AI.GetModules)
 		ai.PUT("/modules", adminOnly, h.AI.UpdateModules)
+		ai.GET("/providers", adminOnly, h.AI.GetProviders)
+		ai.PUT("/providers", adminOnly, h.AI.SaveProviders)
+		ai.POST("/test-provider", adminOnly, h.AI.TestProvider)
 	}
 
 	// Engine status (simple, no process management)

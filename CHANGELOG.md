@@ -4,6 +4,49 @@
 
 ---
 
+## [v4.10.22] — 2026-05-18
+
+### Fixed — Bug 修复
+
+- `preset_rules` 表缺少 `deleted_at` 列导致所有查询 500 内部错误（迁移: 000040）
+- `preset_rule.go` List 响应缺少 `page`/`page_size` 字段，改用 `SuccessPage`
+- `alert_rule.go` ListCategories 移除冗余 `deleted_at IS NULL`（GORM 自动添加）
+
+### Added — AI 多供应商配置
+
+- 后端: `AIProviderConfig` / `AIProvidersConfig` 结构体，支持多个命名供应商
+- 后端: `GetProvidersConfig` / `SaveProvidersConfig` / `GetProviderConfig` 方法（AES-256-GCM 加密存储）
+- 后端: `AIModule` 新增 `ProviderKey` 字段，每个模块可选择对接的供应商
+- 后端: 3 个新 API 端点: `GET/PUT /ai/providers` + `POST /ai/test-provider`
+- 前端: `AIProvider` / `AIProvidersConfig` 类型定义
+- 前端: AISettings 页面重构 — 供应商管理器（增删改查 + 设默认）+ 模块供应商选择器
+- 前端: `useAIModule` composable 新增 `getProviderForModule` / `isProviderEnabled`
+- 向后兼容: 无供应商配置时回退到传统单供应商模式
+
+### Improved — UI 一致性
+
+- 所有 ~35 个侧边栏菜单项统一添加 `@vicons/ionicons5` 图标
+- 首页快捷入口新增「预置规则库」和「AI 模块配置」
+- 路由 meta + 侧边栏标签改为 i18n key（v4.10.21 遗留）
+
+### Changed — 文件变更（12 files, +811 -155）
+
+- `internal/service/system_setting.go` — 多供应商类型 + 存储逻辑
+- `internal/service/ai.go` — 供应商解析层
+- `internal/handler/ai.go` — 3 个新端点
+- `internal/router/admin_routes.go` — 注册新路由
+- `internal/handler/preset_rule.go` — SuccessPage 修复
+- `internal/repository/alert_rule.go` — 冗余条件移除
+- `web/src/pages/settings/AISettings.vue` — 供应商管理 UI 重构
+- `web/src/composables/useAppNav.ts` — 全量图标
+- `web/src/pages/dashboard/UnifiedDashboard.vue` — 新快捷入口
+- `web/src/composables/useAIModule.ts` — 供应商感知
+- `web/src/types/ai-module.ts` — 新类型
+- `web/src/api/index.ts` — 新 API 调用
+- 迁移: 000040_add_deleted_at_to_preset_rules
+
+---
+
 ## [v4.10.21] — 2026-05-18
 
 ### Fixed — Code Review 全量修复（27 files, +251 -904）
