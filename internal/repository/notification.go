@@ -20,10 +20,6 @@ func NewNotifyChannelRepository(db *gorm.DB) *NotifyChannelRepository {
 	return &NotifyChannelRepository{db: db}
 }
 
-func (r *NotifyChannelRepository) Create(ctx context.Context, channel *model.NotifyChannel) error {
-	return r.db.WithContext(ctx).Create(channel).Error
-}
-
 func (r *NotifyChannelRepository) GetByID(ctx context.Context, id uint) (*model.NotifyChannel, error) {
 	var channel model.NotifyChannel
 	err := r.db.WithContext(ctx).First(&channel, id).Error
@@ -31,32 +27,6 @@ func (r *NotifyChannelRepository) GetByID(ctx context.Context, id uint) (*model.
 		return nil, err
 	}
 	return &channel, nil
-}
-
-func (r *NotifyChannelRepository) List(ctx context.Context, page, pageSize int) ([]model.NotifyChannel, int64, error) {
-	var list []model.NotifyChannel
-	var total int64
-
-	query := r.db.WithContext(ctx).Model(&model.NotifyChannel{})
-
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Order("id DESC").Find(&list).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return list, total, nil
-}
-
-func (r *NotifyChannelRepository) Update(ctx context.Context, channel *model.NotifyChannel) error {
-	return r.db.WithContext(ctx).Save(channel).Error
-}
-
-func (r *NotifyChannelRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&model.NotifyChannel{}, id).Error
 }
 
 // ListByLabels returns all enabled channels whose labels are a subset match
@@ -86,51 +56,6 @@ type NotifyPolicyRepository struct {
 
 func NewNotifyPolicyRepository(db *gorm.DB) *NotifyPolicyRepository {
 	return &NotifyPolicyRepository{db: db}
-}
-
-func (r *NotifyPolicyRepository) Create(ctx context.Context, policy *model.NotifyPolicy) error {
-	return r.db.WithContext(ctx).Create(policy).Error
-}
-
-func (r *NotifyPolicyRepository) GetByID(ctx context.Context, id uint) (*model.NotifyPolicy, error) {
-	var policy model.NotifyPolicy
-	err := r.db.WithContext(ctx).
-		Preload("Channel").
-		First(&policy, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &policy, nil
-}
-
-func (r *NotifyPolicyRepository) List(ctx context.Context, page, pageSize int) ([]model.NotifyPolicy, int64, error) {
-	var list []model.NotifyPolicy
-	var total int64
-
-	query := r.db.WithContext(ctx).Model(&model.NotifyPolicy{})
-
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * pageSize
-	if err := query.
-		Preload("Channel").
-		Offset(offset).Limit(pageSize).
-		Order("priority DESC, id DESC").
-		Find(&list).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return list, total, nil
-}
-
-func (r *NotifyPolicyRepository) Update(ctx context.Context, policy *model.NotifyPolicy) error {
-	return r.db.WithContext(ctx).Save(policy).Error
-}
-
-func (r *NotifyPolicyRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&model.NotifyPolicy{}, id).Error
 }
 
 // FindMatchingPolicies returns all enabled policies where ALL match_labels are

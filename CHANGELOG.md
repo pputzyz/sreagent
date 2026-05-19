@@ -4,6 +4,56 @@
 
 ---
 
+## [v4.10.24] — 2026-05-19
+
+### Removed — 删除 17 个孤立后端端点
+
+清理前端零调用的后端端点，减少死代码和维护负担。
+
+**Group 1 — v1 Notify Channels (6 endpoints):**
+- 删除 `GET/POST /notify-channels`, `GET/PUT/DELETE /notify-channels/:id`, `POST /notify-channels/:id/test`
+- 删除 `handler/notification.go` 整个文件（所有方法均为孤立端点）
+- 删除 `NotificationHandler` struct + `NewNotificationHandler` 构造函数
+- 删除 `service.NotificationService` 的 Channel CRUD 方法: `CreateChannel`, `GetChannel`, `ListChannels`, `UpdateChannel`, `DeleteChannel`, `TestChannel`
+- 删除 `repository.NotifyChannelRepository` 的 CRUD 方法: `Create`, `List`, `Update`, `Delete`（保留 `GetByID` — 被 escalation_executor 和 noise_reducer 使用）
+
+**Group 2 — v1 Notify Policies (5 endpoints):**
+- 删除 `GET/POST /notify-policies`, `GET/PUT/DELETE /notify-policies/:id`
+- 删除 `service.NotificationService` 的 Policy CRUD 方法: `CreatePolicy`, `GetPolicy`, `ListPolicies`, `UpdatePolicy`, `DeletePolicy`
+- 删除 `repository.NotifyPolicyRepository` 的 CRUD 方法: `Create`, `GetByID`, `List`, `Update`, `Delete`（保留 `FindMatchingPolicies` — 被 `RouteAlert` 使用）
+
+**Group 3 — Escalation Steps (3 endpoints):**
+- 删除 `POST /escalation-policies/:id/steps`, `PUT/DELETE /escalation-policies/:id/steps/:stepId`
+- 删除 `handler.ScheduleHandler` 的 `CreateEscalationStep`, `UpdateEscalationStep`, `DeleteEscalationStep` 方法
+- 删除 `handler.CreateEscalationStepRequest`, `handler.UpdateEscalationStepRequest` 请求类型
+- 删除 `service.ScheduleService` 的 `CreateEscalationStep`, `UpdateEscalationStep`, `DeleteEscalationStep` 方法（保留 `ListEscalationSteps` — 被 `GetEscalationPolicy` 使用）
+- 删除 `repository.EscalationStepRepository` 的 `Create`, `Update` 方法（保留 `ListByPolicyID`, `Delete` — 被 engine 和 `DeleteEscalationPolicy` 使用）
+
+**Group 4 — Label Registry Datasource Variants (2 endpoints):**
+- 删除 `GET /label-registry/datasource-keys`, `GET /label-registry/datasource-values`
+- 删除 `handler.LabelRegistryHandler` 的 `GetKeysByDatasource`, `GetValuesByDatasource` 方法
+- 删除 `service.LabelRegistryService` 的 `GetKeysByDatasource`, `GetValuesByDatasource` 方法
+- 删除 `repository.LabelRegistryRepository` 的 `GetKeysByDatasource`, `GetValuesByDatasource` 方法
+
+**Group 5 — OIDC Settings Reload (1 endpoint):**
+- 删除 `POST /settings/oidc/reload`
+- 删除 `handler.OIDCSettingsHandler` 的 `Reload` 方法, `SetReloadFn` 方法, `reloadFn` 字段
+- 删除 `cmd/server/wire.go` 的 `Dependencies.ReloadOIDC` 函数 + `SetReloadFn` 调用
+- 更新 `UpdateConfig` 响应消息（不再提示调用 reload 端点）
+
+**保留的代码（有其他调用者）:**
+- `NotificationService` struct + `RouteAlert`/`SendNotification`/`processSubscriptions` — 被 alert routing pipeline 使用
+- `NotifyChannelRepository.GetByID` — 被 escalation_executor 和 noise_reducer 使用
+- `NotifyChannelRepository.ListByLabels` — 被 noise_reducer 使用
+- `NotifyPolicyRepository.FindMatchingPolicies` — 被 `RouteAlert` 使用
+- `EscalationStepRepository.ListByPolicyID` — 被 engine 和 service 使用
+- `EscalationStepRepository.Delete` — 被 `DeleteEscalationPolicy` 使用
+- `ListEscalationSteps` service method — 被 `GetEscalationPolicy` handler 使用
+- `OIDCSettingsHandler.GetConfig`/`UpdateConfig` — 正常使用中
+- `Handlers.Notification` 字段从 router.go 移除
+
+---
+
 ## [v4.10.23] — 2026-05-18
 
 ### Fixed — 全栈 Review 批量修复（33 issues / 6 batches）

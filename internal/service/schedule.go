@@ -673,24 +673,6 @@ func (s *ScheduleService) DeleteEscalationPolicy(ctx context.Context, id uint) e
 	return nil
 }
 
-// ---------------------------------------------------------------------------
-// Escalation Step CRUD
-// ---------------------------------------------------------------------------
-
-// CreateEscalationStep creates a new step in an escalation policy.
-func (s *ScheduleService) CreateEscalationStep(ctx context.Context, step *model.EscalationStep) error {
-	// Verify the policy exists
-	if _, err := s.policyRepo.GetByID(ctx, step.PolicyID); err != nil {
-		return apperr.WithMessage(apperr.ErrNotFound, "escalation policy not found")
-	}
-
-	if err := s.stepRepo.Create(ctx, step); err != nil {
-		s.logger.Error("failed to create escalation step", zap.Error(err))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	return nil
-}
-
 // ListEscalationSteps returns all steps for a given escalation policy.
 func (s *ScheduleService) ListEscalationSteps(ctx context.Context, policyID uint) ([]model.EscalationStep, error) {
 	steps, err := s.stepRepo.ListByPolicyID(ctx, policyID)
@@ -699,41 +681,4 @@ func (s *ScheduleService) ListEscalationSteps(ctx context.Context, policyID uint
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return steps, nil
-}
-
-// UpdateEscalationStep updates an escalation step.
-func (s *ScheduleService) UpdateEscalationStep(ctx context.Context, step *model.EscalationStep) error {
-	existing, err := s.stepRepo.ListByPolicyID(ctx, step.PolicyID)
-	if err != nil {
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	found := false
-	for _, e := range existing {
-		if e.ID == step.ID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return apperr.WithMessage(apperr.ErrNotFound, "escalation step not found")
-	}
-
-	if err := s.stepRepo.Update(ctx, step); err != nil {
-		s.logger.Error("failed to update escalation step", zap.Error(err), zap.Uint("step_id", step.ID))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	return nil
-}
-
-// DeleteEscalationStep deletes an escalation step.
-func (s *ScheduleService) DeleteEscalationStep(ctx context.Context, id uint) error {
-	if err := s.stepRepo.Delete(ctx, id); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperr.WithMessage(apperr.ErrNotFound, "escalation step not found")
-		}
-		s.logger.Error("failed to delete escalation step", zap.Error(err), zap.Uint("step_id", id))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	return nil
 }

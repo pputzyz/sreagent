@@ -409,7 +409,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		DataSource:       handler.NewDataSourceHandler(dsSvc),
 		AlertRule:        handler.NewAlertRuleHandler(ruleSvc),
 		AlertEvent:       handler.NewAlertEventHandler(eventSvc),
-		Notification:     handler.NewNotificationHandler(notifySvc),
 		User:             handler.NewUserHandler(userSvc),
 		Team:             handler.NewTeamHandler(teamSvc),
 		Schedule:         handler.NewScheduleHandler(scheduleSvc),
@@ -456,8 +455,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Inject event service into mute rule handler for preview endpoint
 	handlers.MuteRule.SetAlertEventService(eventSvc)
 
-	// Wire OIDC hot-reload (P1-9): handler calls d.ReloadOIDC which swaps the service
-	handlers.OIDCSettings.SetReloadFn(d.ReloadOIDC)
 
 	// Store references needed for shutdown and hot reload
 	d.DSRepo = dsRepo
@@ -550,90 +547,6 @@ func (d *Dependencies) initOIDCService(
 		zap.String("client_id", oidcCfg.ClientID),
 	)
 	return svc
-}
-
-// ReloadOIDC re-reads OIDC config from DB and reinitializes the OIDC service.
-// This is the P1-9 hot-reload feature: admins can change OIDC settings via the
-// UI and apply them without restarting the pod.
-func (d *Dependencies) ReloadOIDC(ctx context.Context) error {
-	d.oidcMu.RLock()
-	currentSvc := d.oidcSvc
-	d.oidcMu.RUnlock()
-
-	// Read fresh config from DB
-	dbOIDC, err := d.SettingSvc.GetOIDCConfig(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to read OIDC config from DB: %w", err)
-	}
-
-	// Merge DB config with configmap/env values
-	oidcCfg := config.OIDCConfig{
-		Enabled:       dbOIDC.Enabled,
-		IssuerURL:     firstNonEmpty(dbOIDC.IssuerURL, d.cfg.OIDC.IssuerURL),
-		ClientID:      firstNonEmpty(dbOIDC.ClientID, d.cfg.OIDC.ClientID),
-		ClientSecret:  firstNonEmpty(dbOIDC.ClientSecret, d.cfg.OIDC.ClientSecret),
-		RedirectURL:   firstNonEmpty(dbOIDC.RedirectURL, d.cfg.OIDC.RedirectURL),
-		RoleClaim:     firstNonEmpty(dbOIDC.RoleClaim, d.cfg.OIDC.RoleClaim),
-		DefaultRole:   firstNonEmpty(dbOIDC.DefaultRole, d.cfg.OIDC.DefaultRole),
-		AutoProvision: dbOIDC.AutoProvision,
-	}
-	if dbOIDC.Scopes != "" {
-		oidcCfg.Scopes = splitScopes(dbOIDC.Scopes)
-	} else {
-		oidcCfg.Scopes = d.cfg.OIDC.Scopes
-	}
-	if dbOIDC.RoleMapping != "" {
-		if rm, parseErr := parseRoleMapping(dbOIDC.RoleMapping); parseErr != nil {
-			d.logger.Warn("invalid OIDC role_mapping in DB during reload, using configmap value", zap.Error(parseErr))
-			oidcCfg.RoleMapping = d.cfg.OIDC.RoleMapping
-		} else {
-			oidcCfg.RoleMapping = rm
-		}
-	} else {
-		oidcCfg.RoleMapping = d.cfg.OIDC.RoleMapping
-	}
-
-	// If OIDC was just disabled, clear the service and handler
-	if !oidcCfg.Enabled {
-		d.oidcMu.Lock()
-		d.oidcSvc = nil
-		d.oidcMu.Unlock()
-		if d.Handlers.OIDC != nil {
-			d.Handlers.OIDC.SetService(nil)
-		}
-		d.logger.Info("OIDC disabled via config reload")
-		return nil
-	}
-
-	// Create new OIDC service
-	newSvc, err := service.NewOIDCService(ctx, &oidcCfg, &d.cfg.JWT, d.UserRepo, d.logger)
-	if err != nil {
-		// Keep the old service running if the new one fails
-		if currentSvc != nil {
-			d.logger.Error("failed to reinitialize OIDC service, keeping previous config",
-				zap.Error(err),
-			)
-		}
-		return fmt.Errorf("failed to initialize OIDC service: %w", err)
-	}
-
-	// Swap the service atomically
-	d.oidcMu.Lock()
-	d.oidcSvc = newSvc
-	d.oidcMu.Unlock()
-
-	// Update the handler to use the new service
-	if d.Handlers.OIDC != nil {
-		d.Handlers.OIDC.SetService(newSvc)
-	} else {
-		d.Handlers.OIDC = handler.NewOIDCHandler(newSvc)
-	}
-
-	d.logger.Info("OIDC service reloaded successfully",
-		zap.String("issuer", oidcCfg.IssuerURL),
-		zap.String("client_id", oidcCfg.ClientID),
-	)
-	return nil
 }
 
 // Shutdown stops all background workers and closes connections in the correct

@@ -18,7 +18,6 @@ func (h *Handlers) registerAuthRoutes(auth *gin.RouterGroup, admin gin.HandlerFu
 		{
 			oidcSettings.GET("", admin, h.OIDCSettings.GetConfig)
 			oidcSettings.PUT("", admin, h.OIDCSettings.UpdateConfig)
-			oidcSettings.POST("/reload", admin, h.OIDCSettings.Reload)
 		}
 	}
 }

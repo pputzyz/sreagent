@@ -36,8 +36,5 @@ func (h *Handlers) registerScheduleRoutes(auth *gin.RouterGroup, manage gin.Hand
 		escalation.POST("", manage, h.Schedule.CreateEscalationPolicy)
 		escalation.PUT("/:id", manage, h.Schedule.UpdateEscalationPolicy)
 		escalation.DELETE("/:id", manage, h.Schedule.DeleteEscalationPolicy)
-		escalation.POST("/:id/steps", manage, h.Schedule.CreateEscalationStep)
-		escalation.PUT("/:id/steps/:stepId", manage, h.Schedule.UpdateEscalationStep)
-		escalation.DELETE("/:id/steps/:stepId", manage, h.Schedule.DeleteEscalationStep)
 	}
 }

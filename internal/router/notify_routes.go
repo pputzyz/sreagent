@@ -5,8 +5,7 @@ import (
 )
 
 // registerNotifyRoutes registers all notification-related routes:
-// notify rules, media, templates, subscriptions, alert channels, user notify configs,
-// notify channels, and notify policies.
+// notify rules, media, templates, subscriptions, alert channels, and user notify configs.
 func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate gin.HandlerFunc) {
 	// Notify Rules (v2)
 	notifyRules := auth.Group("/notify-rules")
@@ -70,24 +69,4 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 		auth.DELETE("/me/notify-configs/:mediaType", h.UserNotifyConfig.DeleteByMediaType)
 	}
 
-	// Notify Channels
-	channels := auth.Group("/notify-channels")
-	{
-		channels.GET("", h.Notification.ListChannels)
-		channels.GET("/:id", h.Notification.GetChannel)
-		channels.POST("", manage, h.Notification.CreateChannel)
-		channels.PUT("/:id", manage, h.Notification.UpdateChannel)
-		channels.DELETE("/:id", manage, h.Notification.DeleteChannel)
-		channels.POST("/:id/test", manage, h.Notification.TestChannel)
-	}
-
-	// Notify Policies
-	policies := auth.Group("/notify-policies")
-	{
-		policies.GET("", h.Notification.ListPolicies)
-		policies.GET("/:id", h.Notification.GetPolicy)
-		policies.POST("", manage, h.Notification.CreatePolicy)
-		policies.PUT("/:id", manage, h.Notification.UpdatePolicy)
-		policies.DELETE("/:id", manage, h.Notification.DeletePolicy)
-	}
 }

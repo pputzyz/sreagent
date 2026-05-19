@@ -95,8 +95,6 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			labelReg.GET("/keys", h.LabelRegistry.GetKeys)
 			labelReg.GET("/values", h.LabelRegistry.GetValues)
-			labelReg.GET("/datasource-keys", h.LabelRegistry.GetKeysByDatasource)
-			labelReg.GET("/datasource-values", h.LabelRegistry.GetValuesByDatasource)
 			labelReg.POST("/sync", adminOnly, h.LabelRegistry.Sync)
 		}
 	}

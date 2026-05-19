@@ -22,7 +22,6 @@ type Handlers struct {
 	DataSource       *handler.DataSourceHandler
 	AlertRule        *handler.AlertRuleHandler
 	AlertEvent       *handler.AlertEventHandler
-	Notification     *handler.NotificationHandler
 	User             *handler.UserHandler
 	Team             *handler.TeamHandler
 	Schedule         *handler.ScheduleHandler

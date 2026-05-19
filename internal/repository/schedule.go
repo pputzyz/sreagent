@@ -220,10 +220,6 @@ func NewEscalationStepRepository(db *gorm.DB) *EscalationStepRepository {
 	return &EscalationStepRepository{db: db}
 }
 
-func (r *EscalationStepRepository) Create(ctx context.Context, step *model.EscalationStep) error {
-	return r.db.WithContext(ctx).Create(step).Error
-}
-
 func (r *EscalationStepRepository) ListByPolicyID(ctx context.Context, policyID uint) ([]model.EscalationStep, error) {
 	var list []model.EscalationStep
 	err := r.db.WithContext(ctx).
@@ -231,10 +227,6 @@ func (r *EscalationStepRepository) ListByPolicyID(ctx context.Context, policyID 
 		Order("step_order ASC").
 		Find(&list).Error
 	return list, err
-}
-
-func (r *EscalationStepRepository) Update(ctx context.Context, step *model.EscalationStep) error {
-	return r.db.WithContext(ctx).Save(step).Error
 }
 
 func (r *EscalationStepRepository) Delete(ctx context.Context, id uint) error {

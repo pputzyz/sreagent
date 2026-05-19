@@ -98,24 +98,6 @@ type UpdateEscalationPolicyRequest struct {
 	IsEnabled *bool  `json:"is_enabled"`
 }
 
-// CreateEscalationStepRequest is the request body for creating an escalation step.
-type CreateEscalationStepRequest struct {
-	StepOrder       int    `json:"step_order" binding:"required"`
-	DelayMinutes    int    `json:"delay_minutes" binding:"required"`
-	TargetType      string `json:"target_type" binding:"required"`
-	TargetID        uint   `json:"target_id" binding:"required"`
-	NotifyChannelID *uint  `json:"notify_channel_id"`
-}
-
-// UpdateEscalationStepRequest is the request body for updating an escalation step.
-type UpdateEscalationStepRequest struct {
-	StepOrder       int    `json:"step_order" binding:"required"`
-	DelayMinutes    int    `json:"delay_minutes" binding:"required"`
-	TargetType      string `json:"target_type" binding:"required"`
-	TargetID        uint   `json:"target_id" binding:"required"`
-	NotifyChannelID *uint  `json:"notify_channel_id"`
-}
-
 // ---------------------------------------------------------------------------
 // Schedule CRUD Handlers
 // ---------------------------------------------------------------------------
@@ -506,95 +488,6 @@ func (h *ScheduleHandler) DeleteEscalationPolicy(c *gin.Context) {
 	}
 
 	if err := h.svc.DeleteEscalationPolicy(c.Request.Context(), id); err != nil {
-		Error(c, err)
-		return
-	}
-
-	Success(c, nil)
-}
-
-// ---------------------------------------------------------------------------
-// Escalation Step Handlers
-// ---------------------------------------------------------------------------
-
-// CreateEscalationStep creates a new step in an escalation policy.
-func (h *ScheduleHandler) CreateEscalationStep(c *gin.Context) {
-	policyID, err := GetIDParam(c, "id")
-	if err != nil {
-		Error(c, err)
-		return
-	}
-
-	var req CreateEscalationStepRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
-		return
-	}
-
-	step := &model.EscalationStep{
-		PolicyID:        policyID,
-		StepOrder:       req.StepOrder,
-		DelayMinutes:    req.DelayMinutes,
-		TargetType:      req.TargetType,
-		TargetID:        req.TargetID,
-		NotifyChannelID: req.NotifyChannelID,
-	}
-
-	if err := h.svc.CreateEscalationStep(c.Request.Context(), step); err != nil {
-		Error(c, err)
-		return
-	}
-
-	Success(c, step)
-}
-
-// UpdateEscalationStep updates a step in an escalation policy.
-func (h *ScheduleHandler) UpdateEscalationStep(c *gin.Context) {
-	policyID, err := GetIDParam(c, "id")
-	if err != nil {
-		Error(c, err)
-		return
-	}
-
-	stepID, err := GetIDParam(c, "stepId")
-	if err != nil {
-		Error(c, err)
-		return
-	}
-
-	var req UpdateEscalationStepRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
-		return
-	}
-
-	step := &model.EscalationStep{
-		PolicyID:        policyID,
-		StepOrder:       req.StepOrder,
-		DelayMinutes:    req.DelayMinutes,
-		TargetType:      req.TargetType,
-		TargetID:        req.TargetID,
-		NotifyChannelID: req.NotifyChannelID,
-	}
-	step.ID = stepID
-
-	if err := h.svc.UpdateEscalationStep(c.Request.Context(), step); err != nil {
-		Error(c, err)
-		return
-	}
-
-	Success(c, step)
-}
-
-// DeleteEscalationStep deletes a step from an escalation policy.
-func (h *ScheduleHandler) DeleteEscalationStep(c *gin.Context) {
-	stepID, err := GetIDParam(c, "stepId")
-	if err != nil {
-		Error(c, err)
-		return
-	}
-
-	if err := h.svc.DeleteEscalationStep(c.Request.Context(), stepID); err != nil {
 		Error(c, err)
 		return
 	}

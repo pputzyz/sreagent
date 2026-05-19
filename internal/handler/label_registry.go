@@ -49,53 +49,6 @@ func (h *LabelRegistryHandler) GetKeys(c *gin.Context) {
 	Success(c, keys)
 }
 
-// GetKeysByDatasource godoc
-// GET /label-registry/datasource-keys?datasource_id=1
-func (h *LabelRegistryHandler) GetKeysByDatasource(c *gin.Context) {
-	dsIDStr := c.Query("datasource_id")
-	if dsIDStr == "" {
-		ErrorWithMessage(c, 10001, "datasource_id is required")
-		return
-	}
-	dsID, err := strconv.ParseUint(dsIDStr, 10, 64)
-	if err != nil {
-		ErrorWithMessage(c, 10001, "invalid datasource_id")
-		return
-	}
-	keys, err := h.svc.GetKeysByDatasource(c.Request.Context(), uint(dsID))
-	if err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
-		return
-	}
-	Success(c, keys)
-}
-
-// GetValuesByDatasource godoc
-// GET /label-registry/datasource-values?datasource_id=1&key=service
-func (h *LabelRegistryHandler) GetValuesByDatasource(c *gin.Context) {
-	dsIDStr := c.Query("datasource_id")
-	if dsIDStr == "" {
-		ErrorWithMessage(c, 10001, "datasource_id is required")
-		return
-	}
-	dsID, err := strconv.ParseUint(dsIDStr, 10, 64)
-	if err != nil {
-		ErrorWithMessage(c, 10001, "invalid datasource_id")
-		return
-	}
-	key := c.Query("key")
-	if key == "" {
-		ErrorWithMessage(c, 10001, "key is required")
-		return
-	}
-	values, err := h.svc.GetValuesByDatasource(c.Request.Context(), uint(dsID), key)
-	if err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
-		return
-	}
-	Success(c, values)
-}
-
 // Sync triggers an immediate sync (admin only).
 // POST /label-registry/sync
 func (h *LabelRegistryHandler) Sync(c *gin.Context) {
