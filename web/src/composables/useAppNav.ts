@@ -58,9 +58,49 @@ export interface MenuItem {
   label: string
   key: string
   icon?: Component
+  iconColor?: string
   children?: MenuItem[]
   show?: boolean
 }
+
+// Icon → color mapping for sidebar nav icons
+export const iconColorMap = new Map<Component, string>([
+  // ONCALL
+  [HomeOutline,             '#F59E0B'], // amber — home/warmth
+  [ChatbubblesOutline,      '#14B8A6'], // teal — communication
+  [AlertCircleOutline,      '#F43F5E'], // rose — incident/danger
+  [GlobeOutline,            '#10B981'], // emerald — status/healthy
+  [DocumentTextOutline,     '#64748B'], // slate — documentation
+  [LinkOutline,             '#8B5CF6'], // violet — connections
+  [CalendarOutline,         '#3B82F6'], // blue — time/schedule
+  [NotificationsOutline,    '#F59E0B'], // amber — alert bell
+  [GitBranchOutline,        '#6366F1'], // indigo — logic/routing
+  [FolderOpenOutline,       '#D97706'], // amber-dark — organization
+  [MailOutline,             '#0EA5E9'], // sky — mail/subscribe
+  // ALERT
+  [StatsChartOutline,       '#3B82F6'], // blue — metrics
+  [ListOutline,             '#64748B'], // slate — rules list
+  [LibraryOutline,          '#6366F1'], // indigo — preset library
+  [FlashOutline,            '#EF4444'], // red — active alert
+  [TimeOutline,             '#78716C'], // stone — history/archive
+  [VolumeMuteOutline,       '#A8A29E'], // neutral — muted
+  [ServerOutline,           '#06B6D4'], // cyan — data source
+  [SearchOutline,           '#3B82F6'], // blue — explore/query
+  [PieChartOutline,         '#8B5CF6'], // violet — dashboard/chart
+  [CopyOutline,             '#14B8A6'], // teal — templates
+  [SendOutline,             '#0EA5E9'], // sky — delivery/send
+  // PLATFORM
+  [PersonOutline,           '#3B82F6'], // blue — profile
+  [PeopleOutline,           '#10B981'], // emerald — members
+  [PeopleCircleOutline,     '#3B82F6'], // blue — teams
+  [ShieldCheckmarkOutline,  '#F59E0B'], // amber — roles/permissions
+  [KeyOutline,              '#6366F1'], // indigo — auth/SSO
+  [EyeOutline,              '#64748B'], // slate — audit/monitor
+  [ChatbubbleEllipsesOutline, '#3B82F6'], // blue — lark/chat
+  [HardwareChipOutline,     '#8B5CF6'], // violet — AI/hardware
+  [SparklesOutline,         '#A855F7'], // purple — AI modules/magic
+  [ShieldOutline,           '#EF4444'], // red — security/alert
+])
 
 export interface MenuSection {
   label?: string

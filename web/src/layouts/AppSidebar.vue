@@ -5,6 +5,7 @@ import { NMenu, NIcon } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import { ChevronBackOutline, ChevronForwardOutline } from '@vicons/ionicons5'
 import type { MenuSection, AppKey } from '@/composables/useAppNav'
+import { iconColorMap } from '@/composables/useAppNav'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -36,13 +37,17 @@ const menuOptions = computed<MenuOption[]>(() => {
       .map(item => ({
         label: item.label,
         key: item.key,
-        icon: item.icon ? () => h(NIcon, null, { default: () => h(item.icon!) }) : undefined,
+        icon: item.icon
+          ? () => h(NIcon, { color: item.iconColor || iconColorMap.get(item.icon!) || 'var(--sre-text-tertiary)' }, { default: () => h(item.icon!) })
+          : undefined,
         children: item.children
           ?.filter(child => child.show !== false)
           .map(child => ({
             label: child.label,
             key: child.key,
-            icon: child.icon ? () => h(NIcon, null, { default: () => h(child.icon!) }) : undefined,
+            icon: child.icon
+              ? () => h(NIcon, { color: child.iconColor || iconColorMap.get(child.icon!) || 'var(--sre-text-tertiary)' }, { default: () => h(child.icon!) })
+              : undefined,
           })),
       }))
 
@@ -153,6 +158,10 @@ function handleMenuUpdate(key: string) {
   transition: background var(--sre-duration-fast) var(--sre-ease-out);
 }
 
+.sidebar-nav :deep(.n-menu-item-content__icon) {
+  transition: color 180ms var(--sre-ease-out), transform 180ms var(--sre-ease-out);
+}
+
 .sidebar-nav :deep(.n-menu-item:hover) {
   background: var(--sidebar-accent-soft, rgba(249, 115, 22, 0.06));
 }
@@ -164,6 +173,11 @@ function handleMenuUpdate(key: string) {
 .sidebar-nav :deep(.n-menu-item:hover .n-menu-item-content__label) {
   color: var(--sre-text-primary);
   transform: translateX(2px);
+}
+
+.sidebar-nav :deep(.n-menu-item:hover .n-menu-item-content__icon) {
+  color: var(--sidebar-accent) !important;
+  transform: scale(1.05);
 }
 
 .sidebar-nav :deep(.n-menu-item--selected) {
