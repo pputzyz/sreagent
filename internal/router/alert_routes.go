@@ -15,6 +15,7 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 		rules.GET("/:id", h.AlertRule.Get)
 		rules.GET("/categories", h.AlertRule.ListCategories)
 		rules.GET("/export", h.AlertRule.Export)
+		rules.GET("/label-validation-preview", manage, h.AlertRule.LabelValidationPreview)
 		rules.POST("", manage, h.AlertRule.Create)
 		rules.PUT("/:id", manage, h.AlertRule.Update)
 		rules.DELETE("/:id", manage, h.AlertRule.Delete)

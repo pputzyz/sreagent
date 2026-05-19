@@ -324,6 +324,66 @@ func (s *AlertRuleService) recordHistory(ctx context.Context, rule *model.AlertR
 	}
 }
 
+// LabelValidationResult holds preview results for the dry-run endpoint.
+type LabelValidationResult struct {
+	Total   int                     `json:"total"`
+	Passing int                     `json:"passing"`
+	Failing int                     `json:"failing"`
+	Samples []LabelValidationSample `json:"samples"`
+}
+
+// LabelValidationSample describes a single rule's validation outcome.
+type LabelValidationSample struct {
+	RuleID   uint     `json:"rule_id"`
+	RuleName string   `json:"rule_name"`
+	Pass     bool     `json:"pass"`
+	Issues   []string `json:"issues,omitempty"`
+}
+
+// PreviewLabelValidation checks all alert rules against label validation rules
+// without modifying anything. Returns aggregate counts and up to `limit` failing samples.
+func (s *AlertRuleService) PreviewLabelValidation(ctx context.Context, limit int) (*LabelValidationResult, error) {
+	// If label validation is disabled, return empty result
+	if s.settingSvc != nil {
+		cfg, err := s.settingSvc.GetLabelValidationConfig(ctx)
+		if err == nil && !cfg.Enabled {
+			return &LabelValidationResult{Samples: []LabelValidationSample{}}, nil
+		}
+	}
+
+	// List all alert rules (use large page to get everything)
+	rules, _, err := s.repo.List(ctx, "", "", "", "", 1, 10000)
+	if err != nil {
+		s.logger.Error("failed to list alert rules for label validation preview", zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	result := &LabelValidationResult{
+		Total:   len(rules),
+		Samples: []LabelValidationSample{},
+	}
+
+	for _, rule := range rules {
+		err := s.validateLabels(rule.Labels)
+		if err == nil {
+			result.Passing++
+		} else {
+			result.Failing++
+			if len(result.Samples) < limit {
+				sample := LabelValidationSample{
+					RuleID:   rule.ID,
+					RuleName: rule.Name,
+					Pass:     false,
+					Issues:   []string{err.Error()},
+				}
+				result.Samples = append(result.Samples, sample)
+			}
+		}
+	}
+
+	return result, nil
+}
+
 // ListHistory returns paginated history records for a given rule.
 func (s *AlertRuleService) ListHistory(ctx context.Context, ruleID uint, page, pageSize int) ([]model.AlertRuleHistory, int64, error) {
 	if s.historyRepo == nil {

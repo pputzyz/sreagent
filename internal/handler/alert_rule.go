@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -279,6 +280,24 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 			"errors":  errors,
 		},
 	})
+}
+
+// LabelValidationPreview returns a dry-run preview of label validation across all rules.
+func (h *AlertRuleHandler) LabelValidationPreview(c *gin.Context) {
+	limit := 10
+	if v := c.Query("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+
+	result, err := h.svc.PreviewLabelValidation(c.Request.Context(), limit)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, result)
 }
 
 // ListCategories returns all distinct category values.

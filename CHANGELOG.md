@@ -4,6 +4,40 @@
 
 ---
 
+## [v4.10.27] — 2026-05-19
+
+### Fixed — 三轮审查最终优化（Batch 7-8）
+
+**Batch 7: 一致性清理**
+- `internal/service/inhibition_rule.go` — `Delete` 方法补 `apperr.Wrap` 错误包装（与 Create/Update 一致）
+- 删除 `internal/pkg/errors/codes.go`（9 个 int 常量，与 AppError 系统重复）
+- `internal/handler/handler.go` — 错误码引用迁移到 AppError 系统（`ErrNotFound.Code` / `ErrInternal.Code`）
+- `internal/handler/metrics.go` — `CodeTokenInvalid` → `ErrUnauthorized.Code`
+- `internal/handler/mute_rule.go` — 构造函数改为接收 `eventSvc` 参数，移除 `SetAlertEventService` setter
+- `cmd/server/wire.go` — 更新 MuteRuleHandler 构造调用
+- `internal/handler/handler_test.go` — 断言码 10002 → 10300（匹配 AppError 系统）
+
+**Batch 7: 前端清理（-518 行 0 用户代码）**
+- 删除 `web/src/components/common/CrudListPage.vue`（193 行，0 引用）
+- 删除 `web/src/components/common/ErrorRetry.vue`（71 行，0 引用）
+- 删除 `web/src/utils/formRules.ts`（254 行，0 引用，硬编码英文）
+- 删除 `web/src/pages/settings/AuditLogs.vue`（7 行包装器，合并到 AuditLog.vue）
+- `web/src/router/index.ts` — 修复 AuditLog 导入路径，清理 alerts-v2 遗留 redirect
+- `web/src/composables/useAppNav.ts` — 移除 alerts-v2 legacy route mapping
+- `web/src/composables/useCrudPage.ts` — 新增 `normalizePageData` 适配器支持 `{list,total}` / `{items,count}` 双格式
+- `web/src/composables/useCrudModal.ts` — 标记 `@deprecated`
+
+**Batch 8: 用户侧改进**
+- `internal/service/alert_rule.go` — 新增 `PreviewLabelValidation` 方法（dry-run 标签校验预览）
+- `internal/handler/alert_rule.go` — 新增 `LabelValidationPreview` handler
+- `internal/router/alert_routes.go` — 注册 `GET /alert-rules/label-validation-preview`
+- `internal/service/notification_test.go` — 3 个 DB 集成测试（label matching / severity filter / batch update）
+- `internal/service/schedule_test.go` — 2 个 DB 集成测试（shift CRUD / weekly rotation）
+- `web/src/api/alert.ts` — 新增 `labelValidationPreview` API 方法
+- `web/src/pages/settings/AISettings.vue` — 新增 "Preview Impact" 按钮 + 标签校验结果弹窗
+
+---
+
 ## [v4.10.26] — 2026-05-19
 
 ### Fixed — 二轮审查修复（Batch 7-10）

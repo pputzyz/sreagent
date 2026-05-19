@@ -605,3 +605,155 @@ func Test_NewScheduleService_returns_non_nil(t *testing.T) {
 	svc := NewScheduleService(nil, nil, nil, nil, nil, nil, logger)
 	assert.NotNil(t, svc)
 }
+
+// ---------------------------------------------------------------------------
+// OnCallShift CRUD DB integration tests (require SREAGENT_TEST_DSN)
+// ---------------------------------------------------------------------------
+
+func Test_Schedule_OnCallShift_CRUD_DB(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	logger := testutil.TestLogger()
+	scheduleRepo := repository.NewScheduleRepository(db)
+	participantRepo := repository.NewScheduleParticipantRepository(db)
+	overrideRepo := repository.NewScheduleOverrideRepository(db)
+	shiftRepo := repository.NewOnCallShiftRepository(db)
+	policyRepo := repository.NewEscalationPolicyRepository(db)
+	stepRepo := repository.NewEscalationStepRepository(db)
+
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+
+	// Create a user
+	user := testutil.SeedUser(t, db, "shift-alice", model.RoleMember)
+
+	// Create an enabled schedule
+	schedule := &model.Schedule{
+		Name:         "shift-crud-schedule",
+		RotationType: model.RotationDaily,
+		Timezone:     "UTC",
+		HandoffTime:  "09:00",
+		IsEnabled:    true,
+	}
+	require.NoError(t, svc.CreateSchedule(context.Background(), schedule))
+
+	// Create a shift covering right now
+	now := time.Now()
+	shift := &model.OnCallShift{
+		ScheduleID: schedule.ID,
+		UserID:     user.ID,
+		StartTime:  now.Add(-1 * time.Hour),
+		EndTime:    now.Add(1 * time.Hour),
+		Source:     "manual",
+	}
+	require.NoError(t, svc.CreateShift(context.Background(), shift))
+
+	// Verify GetCurrentOnCall returns the correct user
+	result, err := svc.GetCurrentOnCall(context.Background(), schedule.ID)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.User)
+	assert.Equal(t, user.ID, result.User.ID, "GetCurrentOnCall should return the shift user")
+	assert.False(t, result.IsOverride)
+}
+
+func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	logger := testutil.TestLogger()
+	scheduleRepo := repository.NewScheduleRepository(db)
+	participantRepo := repository.NewScheduleParticipantRepository(db)
+	overrideRepo := repository.NewScheduleOverrideRepository(db)
+	shiftRepo := repository.NewOnCallShiftRepository(db)
+	policyRepo := repository.NewEscalationPolicyRepository(db)
+	stepRepo := repository.NewEscalationStepRepository(db)
+
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+
+	// Create users
+	user1 := testutil.SeedUser(t, db, "weekly-alice", model.RoleMember)
+	user2 := testutil.SeedUser(t, db, "weekly-bob", model.RoleMember)
+
+	// Create a schedule with weekly rotation (Monday handoff)
+	schedule := &model.Schedule{
+		Name:         "weekly-rotation-schedule",
+		RotationType: model.RotationWeekly,
+		Timezone:     "UTC",
+		HandoffTime:  "09:00",
+		HandoffDay:   1, // Monday
+		IsEnabled:    true,
+	}
+	require.NoError(t, svc.CreateSchedule(context.Background(), schedule))
+
+	// Add participants
+	require.NoError(t, db.Create(&model.ScheduleParticipant{
+		ScheduleID: schedule.ID,
+		UserID:     user1.ID,
+		Position:   0,
+	}).Error)
+	require.NoError(t, db.Create(&model.ScheduleParticipant{
+		ScheduleID: schedule.ID,
+		UserID:     user2.ID,
+		Position:   1,
+	}).Error)
+
+	// Create two weekly shifts spanning different weeks
+	now := time.Now()
+	// Current week shift for user1
+	shift1 := &model.OnCallShift{
+		ScheduleID: schedule.ID,
+		UserID:     user1.ID,
+		StartTime:  now.Add(-24 * time.Hour),
+		EndTime:    now.Add(6 * 24 * time.Hour), // covers this week
+		Source:     "rotation",
+	}
+	require.NoError(t, svc.CreateShift(context.Background(), shift1))
+
+	// Next week shift for user2
+	shift2 := &model.OnCallShift{
+		ScheduleID: schedule.ID,
+		UserID:     user2.ID,
+		StartTime:  now.Add(6 * 24 * time.Hour),
+		EndTime:    now.Add(13 * 24 * time.Hour), // covers next week
+		Source:     "rotation",
+	}
+	require.NoError(t, svc.CreateShift(context.Background(), shift2))
+
+	// Verify the current shift is user1
+	result, err := svc.GetCurrentOnCall(context.Background(), schedule.ID)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.User)
+	assert.Equal(t, user1.ID, result.User.ID, "user1 should be on-call for the current week")
+
+	// Verify ListShifts returns both shifts in the expected range
+	shifts, err := svc.ListShifts(context.Background(), schedule.ID,
+		now.Add(-48*time.Hour), now.Add(14*24*time.Hour))
+	require.NoError(t, err)
+	assert.Len(t, shifts, 2, "should have 2 shifts in the 2-week window")
+
+	// Verify shift time ranges are correct
+	var foundUser1, foundUser2 bool
+	for _, s := range shifts {
+		if s.UserID == user1.ID {
+			foundUser1 = true
+			assert.True(t, s.EndTime.After(s.StartTime), "shift1 end should be after start")
+		}
+		if s.UserID == user2.ID {
+			foundUser2 = true
+			assert.True(t, s.EndTime.After(s.StartTime), "shift2 end should be after start")
+			// user2's shift should span 7 days
+			duration := s.EndTime.Sub(s.StartTime)
+			assert.InDelta(t, 7*24, duration.Hours(), 25, "weekly shift should span approximately 7 days")
+		}
+	}
+	assert.True(t, foundUser1, "should find user1 shift")
+	assert.True(t, foundUser2, "should find user2 shift")
+}

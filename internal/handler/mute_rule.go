@@ -16,13 +16,8 @@ type MuteRuleHandler struct {
 }
 
 // NewMuteRuleHandler creates a new MuteRuleHandler.
-func NewMuteRuleHandler(svc *service.MuteRuleService) *MuteRuleHandler {
-	return &MuteRuleHandler{svc: svc}
-}
-
-// SetAlertEventService injects the alert event service for the preview endpoint.
-func (h *MuteRuleHandler) SetAlertEventService(svc *service.AlertEventService) {
-	h.eventSvc = svc
+func NewMuteRuleHandler(svc *service.MuteRuleService, eventSvc *service.AlertEventService) *MuteRuleHandler {
+	return &MuteRuleHandler{svc: svc, eventSvc: eventSvc}
 }
 
 // CreateMuteRuleRequest is the request body for creating a mute rule.

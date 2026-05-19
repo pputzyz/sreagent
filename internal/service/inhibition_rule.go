@@ -68,7 +68,11 @@ func (s *InhibitionRuleService) Delete(ctx context.Context, id uint) error {
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		return apperr.ErrNotFound
 	}
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		s.logger.Error("failed to delete inhibition rule", zap.Error(err), zap.Uint("id", id))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
 }
 
 // IsInhibited returns true if event is suppressed by any enabled inhibition rule,

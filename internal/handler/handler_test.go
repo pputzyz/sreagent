@@ -121,6 +121,6 @@ func Test_Error_record_not_found_returns_404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	resp := parseResponse(t, w)
-	assert.Equal(t, 10002, resp.Code)
+	assert.Equal(t, 10300, resp.Code)
 	assert.Equal(t, "resource not found", resp.Message)
 }

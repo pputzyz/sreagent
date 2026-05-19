@@ -87,7 +87,6 @@ function resolveAppFromPath(path: string): AppKey {
     path.startsWith('/incident-dashboard') ||
     path.startsWith('/channels') ||
     path.startsWith('/incidents') ||
-    path.startsWith('/alerts-v2') ||
     path.startsWith('/schedule') ||
     path.startsWith('/integrations')
   ) return 'oncall'

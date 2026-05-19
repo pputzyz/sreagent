@@ -56,6 +56,9 @@ export const alertRuleApi = {
 
   batchDelete: (ids: number[]) =>
     request.post<ApiResponse<null>>('/alert-rules/batch/delete', { ids }),
+
+  labelValidationPreview: (limit = 10) =>
+    request.get<ApiResponse<{ total: number; passing: number; failing: number; samples: Array<{ rule_id: number; rule_name: string; pass: boolean; issues?: string[] }> }>>('/alert-rules/label-validation-preview', { params: { limit } }),
 }
 
 // ===== Alert Event API =====

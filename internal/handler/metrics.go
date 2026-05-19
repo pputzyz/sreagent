@@ -21,7 +21,7 @@ func NewMetricsHandler(metricsToken string) gin.HandlerFunc {
 			auth := c.GetHeader("Authorization")
 			if !strings.HasPrefix(auth, "Bearer ") || strings.TrimPrefix(auth, "Bearer ") != metricsToken {
 				c.JSON(http.StatusUnauthorized, gin.H{
-					"code":    apperr.CodeTokenInvalid,
+					"code":    apperr.ErrUnauthorized.Code,
 					"message": "unauthorized: invalid or missing metrics token",
 				})
 				return

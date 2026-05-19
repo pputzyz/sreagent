@@ -418,7 +418,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		LarkBot:          handler.NewLarkBotHandler(larkBotSvc),
 		Engine:           engineHandler,
 		AlertAction:      handler.NewAlertActionHandler(eventSvc, userRepo, cfg.JWT.Secret, zapLogger),
-		MuteRule:         handler.NewMuteRuleHandler(muteRuleSvc),
+		MuteRule:         handler.NewMuteRuleHandler(muteRuleSvc, eventSvc),
 		NotifyRule:       handler.NewNotifyRuleHandler(notifyRuleSvc),
 		NotifyMedia:      handler.NewNotifyMediaHandler(notifyMediaSvc),
 		MessageTemplate:  handler.NewMessageTemplateHandler(messageTemplateSvc),
@@ -453,8 +453,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.AlertRule.SetAuditService(auditLogSvc)
 	handlers.AlertEvent.SetAuditService(auditLogSvc)
 	handlers.User.SetAuditService(auditLogSvc)
-	// Inject event service into mute rule handler for preview endpoint
-	handlers.MuteRule.SetAlertEventService(eventSvc)
 
 
 	// Store references needed for shutdown and hot reload

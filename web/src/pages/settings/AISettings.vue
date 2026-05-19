@@ -3,10 +3,10 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
   NSpace, NTag, NSelect, NInput, NModal, NForm, NFormItem,
-  NPopconfirm, useMessage,
+  NPopconfirm, NStatistic, useMessage,
 } from 'naive-ui'
 import { PulseOutline, SaveOutline, SparklesOutline, AddOutline, TrashOutline, CreateOutline, StarOutline } from '@vicons/ionicons5'
-import { aiApi, aiModuleApi } from '@/api'
+import { aiApi, aiModuleApi, alertRuleApi } from '@/api'
 import type { AIModuleConfig, AIProvider, AIProvidersConfig } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
 
@@ -22,6 +22,11 @@ const saving = ref(false)
 const testing = ref(false)
 const testingProvider = ref<string | null>(null)
 const modules = ref<AIModuleConfig | null>(null)
+
+// ─── Label validation preview ───
+const previewLoading = ref(false)
+const showPreviewModal = ref(false)
+const previewResult = ref<{ total: number; passing: number; failing: number; samples: Array<{ rule_id: number; rule_name: string; pass: boolean; issues?: string[] }> } | null>(null)
 
 // ─── Provider modal ───
 const showModal = ref(false)
@@ -224,6 +229,20 @@ async function handleSave() {
   }
 }
 
+// ─── Label validation preview ───
+async function handlePreviewImpact() {
+  previewLoading.value = true
+  try {
+    const res = await alertRuleApi.labelValidationPreview(20)
+    previewResult.value = res.data.data ?? null
+    showPreviewModal.value = true
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    previewLoading.value = false
+  }
+}
+
 // ─── Test connection ───
 async function handleTestDefault() {
   testing.value = true
@@ -281,6 +300,10 @@ onMounted(() => {
           <p class="sre-config-header-sub">Manage AI providers, module assignments, and connections</p>
         </div>
         <div class="sre-config-header-actions">
+          <n-button size="small" :loading="previewLoading" @click="handlePreviewImpact">
+            <template #icon><n-icon :component="PulseOutline" /></template>
+            Preview Impact
+          </n-button>
           <n-button size="small" :loading="testing" @click="handleTestDefault">
             <template #icon><n-icon :component="PulseOutline" /></template>
             Test Default
@@ -472,6 +495,49 @@ onMounted(() => {
           </n-space>
         </template>
       </n-modal>
+
+      <!-- Label Validation Preview Modal -->
+      <n-modal
+        v-model:show="showPreviewModal"
+        preset="card"
+        title="Label Validation Impact"
+        style="max-width: 640px"
+        :bordered="false"
+        :segmented="{ content: true, footer: true }"
+      >
+        <div v-if="previewResult" class="preview-stats">
+          <n-statistic label="Total Rules" :value="previewResult.total" />
+          <n-statistic label="Passing" :value="previewResult.passing">
+            <template #suffix><n-tag type="success" size="tiny" :bordered="false">Pass</n-tag></template>
+          </n-statistic>
+          <n-statistic label="Failing" :value="previewResult.failing">
+            <template #suffix><n-tag type="warning" size="tiny" :bordered="false">Fail</n-tag></template>
+          </n-statistic>
+        </div>
+        <n-divider v-if="previewResult && previewResult.samples.length > 0" />
+        <div v-if="previewResult && previewResult.samples.length > 0" class="preview-samples">
+          <div class="preview-samples-title">Sample Failing Rules</div>
+          <div v-for="sample in previewResult.samples" :key="sample.rule_id" class="preview-sample-item">
+            <div class="preview-sample-name">
+              <n-tag :type="sample.pass ? 'success' : 'warning'" size="tiny" :bordered="false">
+                {{ sample.pass ? 'Pass' : 'Fail' }}
+              </n-tag>
+              {{ sample.rule_name }}
+            </div>
+            <div v-if="sample.issues && sample.issues.length > 0" class="preview-sample-issues">
+              <div v-for="(issue, i) in sample.issues" :key="i" class="preview-sample-issue">{{ issue }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="previewResult && previewResult.failing === 0" class="ai-info-empty">
+          All rules pass label validation.
+        </div>
+        <template #footer>
+          <n-space justify="end">
+            <n-button @click="showPreviewModal = false">Close</n-button>
+          </n-space>
+        </template>
+      </n-modal>
     </div>
   </NSpin>
 </template>
@@ -623,5 +689,41 @@ onMounted(() => {
   color: var(--sre-text-tertiary);
   padding: 16px;
   text-align: center;
+}
+
+/* Preview Impact Modal */
+.preview-stats {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+}
+.preview-samples-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sre-text-secondary);
+  margin-bottom: 8px;
+}
+.preview-sample-item {
+  padding: 8px 12px;
+  border: 1px solid var(--sre-border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.preview-sample-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sre-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.preview-sample-issues {
+  margin-top: 4px;
+  padding-left: 52px;
+}
+.preview-sample-issue {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  line-height: 1.6;
 }
 </style>

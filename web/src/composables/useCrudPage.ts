@@ -8,10 +8,34 @@ import { getErrorMessage } from '@/utils/format'
  * Each method should return a standard axios promise.
  */
 export interface CrudApiModule<T> {
-  list: (params?: Record<string, unknown>) => Promise<{ data: { data: { list: T[]; total: number } } }>
+  list: (params?: Record<string, unknown>) => Promise<{ data: { data: PageData<T> } }>
   create: (data: Partial<T>) => Promise<unknown>
   update: (id: number, data: Partial<T>) => Promise<unknown>
   delete: (id: number) => Promise<unknown>
+}
+
+/**
+ * Flexible page data shape — handles both standard and alternate API responses.
+ * Standard: `{ list: [...], total: N }`
+ * Alternate: `{ items: [...], count: N }`
+ */
+export interface PageData<T> {
+  list?: T[]
+  items?: T[]
+  total?: number
+  count?: number
+  [key: string]: unknown
+}
+
+/**
+ * Normalizes paginated API response data to a consistent `{ list, total }` shape.
+ * Handles both standard (`list`/`total`) and alternate (`items`/`count`) formats.
+ */
+function normalizePageData<T>(data: PageData<T>): { list: T[]; total: number } {
+  return {
+    list: data.list ?? data.items ?? [],
+    total: data.total ?? data.count ?? 0,
+  }
 }
 
 export interface UseCrudPageOptions<T> {
@@ -113,8 +137,9 @@ export function useCrudPage<T extends { id: number }>(
     loading.value = true
     try {
       const { data } = await options.api.list({ page: page.value, page_size: pageSize })
-      items.value = data.data.list || []
-      total.value = data.data.total || 0
+      const pageData = normalizePageData<T>(data.data)
+      items.value = pageData.list
+      total.value = pageData.total
     } catch (err: unknown) {
       message.error(getErrorMessage(err))
     } finally {
