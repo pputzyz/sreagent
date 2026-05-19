@@ -4,6 +4,14 @@
 
 ---
 
+## [v4.10.32] — 2026-05-19
+
+### Fixed — AlertChannels KVEditor 类型修复
+
+- `web/src/pages/notification/AlertChannels.vue` — 修复 TS2322：`form.match_labels`（`Record<string, string>`）通过 computed getter/setter 桥接为 `KVItem[]`，解决 `useCrudPage<T>` 泛型约束与 KVEditor 组件类型不兼容问题
+
+---
+
 ## [v4.10.31] — 2026-05-19
 
 ### Fixed — 偷懒补丁 + 性能优化
