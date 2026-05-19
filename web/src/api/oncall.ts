@@ -107,14 +107,6 @@ export const escalationApi = {
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/escalation-policies/${id}`),
 
-  createStep: (policyId: number, data: Partial<EscalationStep>) =>
-    request.post<ApiResponse<EscalationStep>>(`/escalation-policies/${policyId}/steps`, data),
-
-  updateStep: (policyId: number, stepId: number, data: Partial<EscalationStep>) =>
-    request.put<ApiResponse<EscalationStep>>(`/escalation-policies/${policyId}/steps/${stepId}`, data),
-
-  deleteStep: (policyId: number, stepId: number) =>
-    request.delete<ApiResponse<null>>(`/escalation-policies/${policyId}/steps/${stepId}`),
 }
 
 // ===== iCal Schedule Export =====

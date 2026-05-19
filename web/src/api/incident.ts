@@ -42,10 +42,6 @@ export const channelV2Api = {
   unstar: (id: number) =>
     request.delete<ApiResponse<null>>(`/channels/${id}/star`),
 
-  // Noise reduction
-  getNoiseConfig: (id: number) =>
-    request.get<ApiResponse<{ aggregation_config: string; flapping_config: string }>>(`/channels/${id}/noise-config`),
-
   updateNoiseConfig: (id: number, data: { aggregation_config?: string; flapping_config?: string }) =>
     request.put<ApiResponse<Channel>>(`/channels/${id}`, data),
 

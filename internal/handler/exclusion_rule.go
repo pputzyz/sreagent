@@ -132,58 +132,6 @@ func (h *ExclusionRuleHandler) Delete(c *gin.Context) {
 	Success(c, nil)
 }
 
-// UpdateNoiseCfg updates a channel's aggregation and flapping configs.
-// PUT /api/v1/channels/:id/noise-config
-func UpdateNoiseCfg(channelSvc *service.ChannelService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, err := GetIDParam(c, "id")
-		if err != nil {
-			Error(c, err)
-			return
-		}
-
-		var req struct {
-			AggregationConfig string `json:"aggregation_config"`
-			FlappingConfig    string `json:"flapping_config"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
-			return
-		}
-
-		ch, err := channelSvc.Update(c.Request.Context(), id, &model.Channel{
-			AggregationConfig: req.AggregationConfig,
-			FlappingConfig:    req.FlappingConfig,
-		})
-		if err != nil {
-			Error(c, err)
-			return
-		}
-		Success(c, ch)
-	}
-}
-
-// GetNoiseCfg returns a channel's noise reduction config.
-// GET /api/v1/channels/:id/noise-config
-func GetNoiseCfg(channelSvc *service.ChannelService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, err := GetIDParam(c, "id")
-		if err != nil {
-			Error(c, err)
-			return
-		}
-		ch, err := channelSvc.GetByID(c.Request.Context(), id)
-		if err != nil {
-			Error(c, err)
-			return
-		}
-		Success(c, gin.H{
-			"aggregation_config": ch.AggregationConfig,
-			"flapping_config":    ch.FlappingConfig,
-		})
-	}
-}
-
 // helper: parse string channel id from path (for sub-resource routes)
 func parseChannelID(c *gin.Context) (uint, error) {
 	s := c.Param("channel_id")
