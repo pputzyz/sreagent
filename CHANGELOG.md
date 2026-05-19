@@ -4,6 +4,15 @@
 
 ---
 
+## [v4.10.34] — 2026-05-19
+
+### Added — 侧边栏图标彩色化
+
+- `web/src/composables/useAppNav.ts` — 新增 `iconColorMap`：30 个图标组件 → 语义色映射（amber/rose/emerald/violet/indigo/cyan/sky 等）
+- `web/src/layouts/AppSidebar.vue` — 图标渲染使用 `NIcon` `color` prop 传入语义色；hover 时切换为 app accent 色 + 微缩放；selected 保持 accent 色；新增 `transition: color 180ms + transform 180ms`
+
+---
+
 ## [v4.10.33] — 2026-05-19
 
 ### Fixed — 死代码清理（-402 行）
