@@ -14,7 +14,7 @@ import type { AlertChannel, NotifyMedia, MessageTemplate } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { useCrudPage } from '@/composables/useCrudPage'
 import type { CrudApiModule } from '@/composables/useCrudPage'
-import KVEditor from '@/components/common/KVEditor.vue'
+import KVEditor, { type KVItem } from '@/components/common/KVEditor.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 
@@ -136,6 +136,11 @@ const filteredChannels = computed(() => {
     }
     return true
   })
+})
+
+const matchLabelsKV = computed({
+  get: () => form.value.match_labels as unknown as KVItem[],
+  set: (v: KVItem[]) => { (form.value as any).match_labels = v },
 })
 
 function severityBadges(severitiesStr: string) {
@@ -372,7 +377,7 @@ onMounted(() => {
           <n-input v-model:value="form.description" type="textarea" :rows="2" clearable />
         </n-form-item>
         <n-form-item :label="t('alertChannel.matchLabels')">
-          <KVEditor v-model:modelValue="form.match_labels" :add-label="t('alertChannel.addLabel')" />
+          <KVEditor v-model:modelValue="matchLabelsKV" :add-label="t('alertChannel.addLabel')" />
         </n-form-item>
         <n-form-item :label="t('alertChannel.severities')">
           <n-select
