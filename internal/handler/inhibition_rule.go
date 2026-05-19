@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -31,7 +32,7 @@ type InhibitionRuleRequest struct {
 func (h *InhibitionRuleHandler) Create(c *gin.Context) {
 	var req InhibitionRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	rule := &model.InhibitionRule{
@@ -91,7 +92,7 @@ func (h *InhibitionRuleHandler) Update(c *gin.Context) {
 	}
 	var req InhibitionRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	rule := &model.InhibitionRule{

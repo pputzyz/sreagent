@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -22,7 +23,7 @@ func NewHeartbeatHandler(ruleSvc *service.AlertRuleService) *HeartbeatHandler {
 func (h *HeartbeatHandler) Ping(c *gin.Context) {
 	token := c.Param("token")
 	if token == "" {
-		ErrorWithMessage(c, 10001, "token is required")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "token is required"))
 		return
 	}
 

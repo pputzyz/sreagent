@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -106,7 +107,7 @@ type UpdateEscalationPolicyRequest struct {
 func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 	var req CreateScheduleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -191,7 +192,7 @@ func (h *ScheduleHandler) UpdateSchedule(c *gin.Context) {
 
 	var req UpdateScheduleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -270,7 +271,7 @@ func (h *ScheduleHandler) SetParticipants(c *gin.Context) {
 
 	var req SetParticipantsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -320,7 +321,7 @@ func (h *ScheduleHandler) CreateOverride(c *gin.Context) {
 
 	var req CreateOverrideRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -381,7 +382,7 @@ func (h *ScheduleHandler) DeleteOverride(c *gin.Context) {
 func (h *ScheduleHandler) CreateEscalationPolicy(c *gin.Context) {
 	var req CreateEscalationPolicyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -455,7 +456,7 @@ func (h *ScheduleHandler) UpdateEscalationPolicy(c *gin.Context) {
 
 	var req UpdateEscalationPolicyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -514,7 +515,7 @@ func (h *ScheduleHandler) ListShifts(c *gin.Context) {
 	var start, end time.Time
 	if startStr != "" {
 		if start, err = time.Parse(time.RFC3339, startStr); err != nil {
-			ErrorWithMessage(c, 10001, "invalid start time, use RFC3339 format")
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid start time, use RFC3339 format"))
 			return
 		}
 	} else {
@@ -522,7 +523,7 @@ func (h *ScheduleHandler) ListShifts(c *gin.Context) {
 	}
 	if endStr != "" {
 		if end, err = time.Parse(time.RFC3339, endStr); err != nil {
-			ErrorWithMessage(c, 10001, "invalid end time, use RFC3339 format")
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid end time, use RFC3339 format"))
 			return
 		}
 	} else {
@@ -549,7 +550,7 @@ func (h *ScheduleHandler) CreateShift(c *gin.Context) {
 
 	var req CreateShiftRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -588,7 +589,7 @@ func (h *ScheduleHandler) UpdateShift(c *gin.Context) {
 
 	var req UpdateShiftRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -643,7 +644,7 @@ func (h *ScheduleHandler) GenerateShifts(c *gin.Context) {
 
 	var req GenerateShiftsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -42,7 +43,7 @@ type PreviewMessageTemplateRequest struct {
 func (h *MessageTemplateHandler) Create(c *gin.Context) {
 	var req CreateMessageTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -106,7 +107,7 @@ func (h *MessageTemplateHandler) Update(c *gin.Context) {
 
 	var req UpdateMessageTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -151,7 +152,7 @@ func (h *MessageTemplateHandler) Delete(c *gin.Context) {
 func (h *MessageTemplateHandler) Preview(c *gin.Context) {
 	var req PreviewMessageTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

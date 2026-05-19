@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -38,7 +39,7 @@ func (h *SMTPSettingsHandler) GetConfig(c *gin.Context) {
 func (h *SMTPSettingsHandler) UpdateConfig(c *gin.Context) {
 	var req service.SMTPConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if req.Password == "********" {
@@ -58,7 +59,7 @@ func (h *SMTPSettingsHandler) TestConnection(c *gin.Context) {
 		To string `json:"to" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -68,7 +69,7 @@ func (h *SMTPSettingsHandler) TestConnection(c *gin.Context) {
 		return
 	}
 	if !cfg.Enabled || cfg.SMTPHost == "" {
-		ErrorWithMessage(c, 10002, "SMTP is not configured or disabled")
+		Error(c, apperr.WithMessage(apperr.ErrMissingParam, "SMTP is not configured or disabled"))
 		return
 	}
 	if cfg.SMTPPort == 0 {
@@ -96,7 +97,7 @@ func (h *SMTPSettingsHandler) TestConnection(c *gin.Context) {
 	}
 
 	if err := smtp.SendMail(addr, auth, from, []string{req.To}, []byte(msg)); err != nil {
-		ErrorWithMessage(c, 10002, "SMTP test failed: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrMissingParam, "SMTP test failed: "+err.Error()))
 		return
 	}
 

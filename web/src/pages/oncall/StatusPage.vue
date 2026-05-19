@@ -5,6 +5,7 @@ import { useMessage, NButton, NInput, NSpin, NModal, NForm, NFormItem, NSelect, 
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server, Settings, Plus, Pencil, Trash2 } from 'lucide-vue-next'
 import { statusServiceApi, type StatusServiceItem } from '@/api'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -178,10 +179,7 @@ async function handleDelete(id: number) {
   <div class="page-container">
     <!-- Hero Section -->
     <div class="status-hero">
-      <h1 class="page-title" style="margin-bottom: 8px;">{{ t('statusPageModule.title') }}</h1>
-      <p class="page-subtitle" style="max-width: 560px; margin: 0 auto;">
-        {{ t('statusPageModule.subtitle') }}
-      </p>
+      <PageHeader :title="t('statusPageModule.title')" :subtitle="t('statusPageModule.subtitle')" />
     </div>
 
     <!-- Service Status Cards -->

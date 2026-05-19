@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -36,7 +37,7 @@ func (h *UserNotifyConfigHandler) Upsert(c *gin.Context) {
 		IsEnabled *bool  `json:"is_enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -63,7 +64,7 @@ func (h *UserNotifyConfigHandler) DeleteByMediaType(c *gin.Context) {
 	userID := GetCurrentUserID(c)
 	mediaType := c.Param("mediaType")
 	if mediaType == "" {
-		ErrorWithMessage(c, 10001, "media_type is required")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "media_type is required"))
 		return
 	}
 	if err := h.svc.DeleteByMediaType(c.Request.Context(), userID, mediaType); err != nil {

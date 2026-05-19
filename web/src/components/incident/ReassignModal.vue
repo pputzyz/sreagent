@@ -30,6 +30,11 @@ const users = ref<User[]>([])
 const userId = ref<number | null>(null)
 
 const allUsers = ref<User[]>([])
+const triggerEl = ref<HTMLElement | null>(null)
+
+function handleAfterLeave() {
+  triggerEl.value?.focus()
+}
 
 async function fetchUsers() {
   searchLoading.value = true
@@ -51,6 +56,7 @@ function filterUsers() {
 
 watch(() => props.show, (v) => {
   if (v) {
+    triggerEl.value = document.activeElement as HTMLElement
     search.value = ''
     userId.value = null
     if (!allUsers.value.length) fetchUsers()
@@ -78,6 +84,7 @@ async function doReassign() {
     class="reassign-modal"
     :bordered="false"
     @update:show="emit('update:show', $event)"
+    @after-leave="handleAfterLeave"
   >
     <n-input
       v-model:value="search"

@@ -164,7 +164,7 @@ onMounted(refresh)
             {{ t('dashboard.alertTrend') }}
           </div>
           <div class="card-actions">
-            <span class="card-tag" @click="cycleRange">{{ range === 1 ? '24h' : range === 7 ? '7d' : '30d' }}</span>
+            <span class="card-tag" role="button" tabindex="0" @click="cycleRange" @keydown.enter="cycleRange">{{ range === 1 ? '24h' : range === 7 ? '7d' : '30d' }}</span>
             <n-button quaternary circle size="tiny" :loading="refreshing" @click="refresh">
               <template #icon><n-icon :component="RefreshOutline" :size="12" /></template>
             </n-button>
@@ -219,7 +219,7 @@ onMounted(refresh)
             </span>
             {{ t('dashboard.severityDistribution') }}
           </div>
-          <span class="card-tag" @click="cycleRange">{{ range === 1 ? '24h' : range === 7 ? '7d' : '30d' }}</span>
+          <span class="card-tag" role="button" tabindex="0" @click="cycleRange" @keydown.enter="cycleRange">{{ range === 1 ? '24h' : range === 7 ? '7d' : '30d' }}</span>
         </div>
         <!-- stacked bar -->
         <div class="sev-bar">
@@ -275,7 +275,7 @@ onMounted(refresh)
           </div>
         </div>
         <div v-if="topRules.length" class="rules-list">
-          <div v-for="r in topRules" :key="r.alert_name" class="rule-item" role="button" :aria-label="`${r.alert_name}: ${r.count}`" @click="router.push('/alert/rules')">
+          <div v-for="r in topRules" :key="r.alert_name" class="rule-item" role="button" tabindex="0" :aria-label="`${r.alert_name}: ${r.count}`" @click="router.push('/alert/rules')" @keydown.enter="router.push('/alert/rules')">
             <span class="rule-status active"></span>
             <div class="rule-info"><div class="rule-name">{{ r.alert_name }}</div></div>
             <span class="rule-fire">{{ r.count }}</span>
@@ -295,37 +295,37 @@ onMounted(refresh)
           </div>
         </div>
         <div class="actions-grid">
-          <div class="action-btn" role="button" :aria-label="t('menu.alertRules')" @click="router.push('/alert/rules')">
+          <div class="action-btn" role="button" tabindex="0" :aria-label="t('menu.alertRules')" @click="router.push('/alert/rules')" @keydown.enter="router.push('/alert/rules')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-critical), var(--sre-rose-light))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
             </div>
             <span class="action-label">{{ t('menu.alertRules') }}</span>
           </div>
-          <div class="action-btn" role="button" :aria-label="t('menu.schedule')" @click="router.push('/oncall/schedule')">
+          <div class="action-btn" role="button" tabindex="0" :aria-label="t('menu.schedule')" @click="router.push('/oncall/schedule')" @keydown.enter="router.push('/oncall/schedule')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-info), var(--sre-sky))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
             <span class="action-label">{{ t('menu.schedule') }}</span>
           </div>
-          <div class="action-btn" role="button" :aria-label="t('menu.explore')" @click="router.push('/alert/explore')">
+          <div class="action-btn" role="button" tabindex="0" :aria-label="t('menu.explore')" @click="router.push('/alert/explore')" @keydown.enter="router.push('/alert/explore')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-success), var(--sre-emerald-light))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             </div>
             <span class="action-label">{{ t('menu.explore') }}</span>
           </div>
-          <div class="action-btn" role="button" :aria-label="t('menu.dashboards')" @click="router.push('/alert/dashboards')">
+          <div class="action-btn" role="button" tabindex="0" :aria-label="t('menu.dashboards')" @click="router.push('/alert/dashboards')" @keydown.enter="router.push('/alert/dashboards')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-lavender), var(--sre-violet-light))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
             </div>
             <span class="action-label">{{ t('menu.dashboards') }}</span>
           </div>
-          <div class="action-btn" role="button" :aria-label="t('menu.notifyRules')" @click="router.push('/oncall/config/notify-rules')">
+          <div class="action-btn" role="button" tabindex="0" :aria-label="t('menu.notifyRules')" @click="router.push('/oncall/config/notify-rules')" @keydown.enter="router.push('/oncall/config/notify-rules')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-amber), var(--sre-coral))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
             </div>
             <span class="action-label">{{ t('menu.notifyRules') }}</span>
           </div>
-          <div class="action-btn" role="button" :aria-label="t('menu.suppression')" @click="router.push('/alert/suppression')">
+          <div class="action-btn" role="button" tabindex="0" :aria-label="t('menu.suppression')" @click="router.push('/alert/suppression')" @keydown.enter="router.push('/alert/suppression')">
             <div class="action-icon" style="background: linear-gradient(135deg, var(--sre-mint), var(--sre-success))">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
@@ -432,7 +432,7 @@ onMounted(refresh)
 
 .card-icon svg {
   width: 12px; height: 12px;
-  color: #fff;
+  color: var(--sre-text-inverse);
 }
 
 .card-actions {
@@ -748,7 +748,7 @@ onMounted(refresh)
 .action-icon svg {
   width: 18px;
   height: 18px;
-  color: #fff;
+  color: var(--sre-text-inverse);
 }
 
 .action-label {

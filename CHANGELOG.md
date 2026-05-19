@@ -4,6 +4,34 @@
 
 ---
 
+## [v4.10.29] — 2026-05-19
+
+### Fixed — 自审修复（a11y + 后端一致性 + UI token + i18n）
+
+**后端 — ErrorWithMessage 全量清除**
+- 31 个 handler 文件替换 ~120 处 `ErrorWithMessage(c, CODE, msg)` → `Error(c, apperr.WithMessage(...))`
+- 删除 `handler.go` 中 `ErrorWithMessage` 函数定义（0 调用点残留）
+- 错误码映射：10001→ErrInvalidParam、10002→ErrMissingParam、10100→ErrUnauthorized、50000→ErrInternal、50001→ErrDatabase、50003→ErrExternalAPI
+
+**前端 — a11y**
+- 4 个 Modal 组件补焦点归还（MergeModal、SnoozeModal、ReassignModal、ChangePasswordModal）
+- Dashboard/Index.vue + UnifiedDashboard.vue — 14 个可点击 div 补 `tabindex="0"` + `@keydown.enter` + `role="button"`
+- alerts/events/Index.vue + BatchOperations.vue — 批量操作栏补 `role="toolbar"` + `aria-label`
+- `--sre-text-tertiary` 亮色对比度 2.9:1 → 4.5:1（#5C5650），`--sre-text-muted` 2.3:1 → 3.7:1（#6B6560）
+
+**前端 — CSS token 统一**
+- explore/Index.vue、Login.vue、UnifiedDashboard.vue、dashboard/Index.vue、IncidentDashboard.vue — 10 处硬编码颜色改用 `var(--sre-*)` token
+- BizGroupManagement.vue、TeamManagement.vue、VirtualUsers.vue — modal 加 `max-width: 90vw`
+
+**前端 — UI 一致性**
+- 6 个页面补齐 `<PageHeader>`（StatusPage、Rules、Templates、Media、Subscribe、BizGroupManagement）
+- VirtualUsers.vue + Media.vue 补 loading 指示器
+
+**前端 — i18n**
+- 6 个页面删除 29 处 `|| 'English fallback'` 反模式
+
+---
+
 ## [v4.10.28] — 2026-05-19
 
 ### Fixed — 终审优化（UI 一致性 + 交互增强 + a11y）

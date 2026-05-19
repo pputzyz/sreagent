@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -23,13 +24,13 @@ func NewLarkBotHandler(svc *service.LarkBotService) *LarkBotHandler {
 func (h *LarkBotHandler) EventCallback(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		ErrorWithMessage(c, 10001, "failed to read request body")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read request body"))
 		return
 	}
 
 	result, err := h.svc.HandleEvent(c.Request.Context(), body)
 	if err != nil {
-		ErrorWithMessage(c, 10002, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrMissingParam, err.Error()))
 		return
 	}
 
@@ -41,7 +42,7 @@ func (h *LarkBotHandler) EventCallback(c *gin.Context) {
 func (h *LarkBotHandler) GetConfig(c *gin.Context) {
 	cfg, err := h.svc.GetConfig(c.Request.Context())
 	if err != nil {
-		ErrorWithMessage(c, 50003, "failed to load Lark config: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to load Lark config: "+err.Error()))
 		return
 	}
 	Success(c, cfg)
@@ -51,12 +52,12 @@ func (h *LarkBotHandler) GetConfig(c *gin.Context) {
 func (h *LarkBotHandler) UpdateConfig(c *gin.Context) {
 	var req service.LarkConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
 	if err := h.svc.UpdateConfig(c.Request.Context(), req); err != nil {
-		ErrorWithMessage(c, 50003, "failed to save Lark config: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save Lark config: "+err.Error()))
 		return
 	}
 	Success(c, gin.H{"message": "Lark bot configuration updated"})

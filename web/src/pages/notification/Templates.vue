@@ -10,6 +10,7 @@ import {
   CreateOutline, EyeOutline, TrashOutline, DocumentTextOutline,
 } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -220,16 +221,14 @@ onMounted(fetchData)
 
 <template>
   <div class="tmpl-page">
-    <header class="tmpl-header">
-      <div>
-        <h2 class="tmpl-title">{{ t('template.title') }}</h2>
-        <p class="tmpl-subtitle">{{ t('template.subtitle') }}</p>
-      </div>
-      <n-button type="primary" size="small" @click="openCreate">
-        <template #icon><n-icon :component="AddOutline" /></template>
-        {{ t('template.create') }}
-      </n-button>
-    </header>
+    <PageHeader :title="t('template.title')" :subtitle="t('template.subtitle')">
+      <template #actions>
+        <n-button type="primary" size="small" @click="openCreate">
+          <template #icon><n-icon :component="AddOutline" /></template>
+          {{ t('template.create') }}
+        </n-button>
+      </template>
+    </PageHeader>
 
     <div class="toolbar">
       <n-input

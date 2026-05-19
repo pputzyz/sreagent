@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -33,7 +34,7 @@ type LoginResponse struct {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -62,7 +63,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 // UpdateMe updates the current user's own profile (display_name, email, phone, avatar).
 func (h *AuthHandler) UpdateMe(c *gin.Context) {
 	if h.userSvc == nil {
-		ErrorWithMessage(c, 50000, "user service not available")
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "user service not available"))
 		return
 	}
 	userID := GetCurrentUserID(c)
@@ -74,14 +75,14 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 		Avatar      string `json:"avatar"` // base64 data URL or preset key
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
 	// Validate avatar size: base64 data URLs must not exceed 200 KB.
 	// A 200 KB binary file encodes to ~272,000 base64 characters.
 	if len(req.Avatar) >= 5 && req.Avatar[:5] == "data:" && len(req.Avatar) > 272000 {
-		ErrorWithMessage(c, 10001, "avatar image must not exceed 200 KB")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "avatar image must not exceed 200 KB"))
 		return
 	}
 
@@ -99,7 +100,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		Token string `json:"token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -119,7 +120,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 // PUT /me/lark-bind   body: {"lark_open_id": "ou_xxx"}
 func (h *AuthHandler) BindLark(c *gin.Context) {
 	if h.userSvc == nil {
-		ErrorWithMessage(c, 50000, "user service not available")
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "user service not available"))
 		return
 	}
 	userID := GetCurrentUserID(c)
@@ -128,7 +129,7 @@ func (h *AuthHandler) BindLark(c *gin.Context) {
 		LarkOpenID string `json:"lark_open_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -142,7 +143,7 @@ func (h *AuthHandler) BindLark(c *gin.Context) {
 // ChangeMyPassword changes the current user's own password.
 func (h *AuthHandler) ChangeMyPassword(c *gin.Context) {
 	if h.userSvc == nil {
-		ErrorWithMessage(c, 50000, "user service not available")
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "user service not available"))
 		return
 	}
 	userID := GetCurrentUserID(c)
@@ -152,7 +153,7 @@ func (h *AuthHandler) ChangeMyPassword(c *gin.Context) {
 		NewPassword string `json:"new_password" binding:"required,min=8"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

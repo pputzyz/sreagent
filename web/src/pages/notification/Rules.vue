@@ -7,6 +7,7 @@ import type { NotifyRule } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { AddOutline, SearchOutline, FilterOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
@@ -191,16 +192,14 @@ onMounted(fetchData)
 
 <template>
   <div class="rules-page">
-    <header class="sub-header">
-      <div>
-        <h2 class="sub-title">{{ t('notifyRule.title') }}</h2>
-        <p class="sub-sub">{{ t('notifyRule.subtitle') }}</p>
-      </div>
-      <n-button type="primary" size="small" @click="openCreate">
-        <template #icon><n-icon :component="AddOutline" /></template>
-        {{ t('notifyRule.create') }}
-      </n-button>
-    </header>
+    <PageHeader :title="t('notifyRule.title')" :subtitle="t('notifyRule.subtitle')">
+      <template #actions>
+        <n-button type="primary" size="small" @click="openCreate">
+          <template #icon><n-icon :component="AddOutline" /></template>
+          {{ t('notifyRule.create') }}
+        </n-button>
+      </template>
+    </PageHeader>
 
     <div class="toolbar">
       <n-input v-model:value="search" size="small" :placeholder="t('common.search')" clearable style="width: 240px">

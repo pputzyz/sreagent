@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -30,7 +31,7 @@ func (h *OIDCHandler) SetService(svc *service.OIDCService) {
 func (h *OIDCHandler) LoginRedirect(c *gin.Context) {
 	authURL, state, err := h.svc.GenerateAuthURL()
 	if err != nil {
-		ErrorWithMessage(c, 50000, "failed to generate OIDC auth URL: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "failed to generate OIDC auth URL: "+err.Error()))
 		return
 	}
 
@@ -114,7 +115,7 @@ func (h *OIDCHandler) CallbackJSON(c *gin.Context) {
 		State string `json:"state"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

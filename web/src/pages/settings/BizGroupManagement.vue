@@ -17,6 +17,7 @@ import {
   CreateOutline,
 } from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
@@ -355,20 +356,14 @@ onMounted(fetchList)
 
 <template>
   <div class="bg-page sre-stagger">
-    <header class="page-header">
-      <div>
-        <h2 class="page-title">{{ t('bizGroup.bizGroupsTitle') }}</h2>
-        <p class="page-subtitle">
-          {{ t('bizGroup.bizGroupsSubtitle') }}
-          <span class="sre-meta-divider" />
-          <span class="tnum">{{ totalGroups }}</span> {{ t('bizGroup.groupsCount') }}
-        </p>
-      </div>
-      <NButton type="primary" size="small" @click="openCreate">
-        <template #icon><NIcon :component="AddOutline" /></template>
-        {{ t('bizGroup.newGroup') }}
-      </NButton>
-    </header>
+    <PageHeader :title="t('bizGroup.bizGroupsTitle')" :subtitle="t('bizGroup.bizGroupsSubtitle')">
+      <template #actions>
+        <NButton type="primary" size="small" @click="openCreate">
+          <template #icon><NIcon :component="AddOutline" /></template>
+          {{ t('bizGroup.newGroup') }}
+        </NButton>
+      </template>
+    </PageHeader>
 
     <div class="bg-layout">
       <!-- Tree -->
@@ -510,7 +505,7 @@ onMounted(fetchList)
     </div>
 
     <!-- Create/Edit modal -->
-    <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 520px" :bordered="false">
+    <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 520px; max-width: 90vw" :bordered="false">
       <NForm label-placement="top">
         <NFormItem :label="t('common.name')" required>
           <NInput v-model:value="form.name" :placeholder="t('bizGroup.namePlaceholder')" />

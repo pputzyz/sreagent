@@ -3,7 +3,7 @@
  * SnoozeModal — snooze an incident for a preset or custom duration.
  * Extracted from incident/Detail.vue (FlashCat Phase 6).
  */
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
@@ -21,6 +21,16 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const message = useMessage()
+
+const triggerEl = ref<HTMLElement | null>(null)
+
+watch(() => props.show, (v) => {
+  if (v) triggerEl.value = document.activeElement as HTMLElement
+})
+
+function handleAfterLeave() {
+  triggerEl.value?.focus()
+}
 
 const loading = ref(false)
 const duration = ref<number | null>(null)
@@ -67,6 +77,7 @@ async function doSnooze() {
     class="snooze-modal"
     :bordered="false"
     @update:show="emit('update:show', $event)"
+    @after-leave="handleAfterLeave"
   >
     <div class="snooze-presets">
       <button

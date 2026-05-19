@@ -64,18 +64,6 @@ func Error(c *gin.Context, err error) {
 	})
 }
 
-// ErrorWithMessage returns an error response with a custom message.
-func ErrorWithMessage(c *gin.Context, code int, message string) {
-	status := http.StatusBadRequest
-	if code >= 50000 {
-		status = http.StatusInternalServerError
-	}
-	c.JSON(status, types.Response{
-		Code:    code,
-		Message: message,
-	})
-}
-
 // GetPageQuery extracts pagination parameters from the request.
 func GetPageQuery(c *gin.Context) types.PageQuery {
 	pq := types.DefaultPageQuery()

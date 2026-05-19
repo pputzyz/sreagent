@@ -299,7 +299,7 @@ onMounted(fetchList)
       </div>
     </div>
 
-    <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px" :bordered="false">
+    <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px; max-width: 90vw" :bordered="false">
       <NForm label-placement="top">
         <NFormItem :label="t('common.name')" required>
           <NInput v-model:value="form.name" placeholder="e.g. Platform Engineering" />
@@ -325,7 +325,7 @@ onMounted(fetchList)
       v-model:show="showMembersModal"
       preset="card"
       :title="t('settings.members') + ' — ' + membersTeamName"
-      style="width: 560px"
+      style="width: 560px; max-width: 90vw"
       :bordered="false"
     >
       <NSpin :show="membersLoading">

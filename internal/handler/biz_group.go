@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -43,7 +44,7 @@ type AddBizGroupMemberRequest struct {
 func (h *BizGroupHandler) Create(c *gin.Context) {
 	var req CreateBizGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -113,7 +114,7 @@ func (h *BizGroupHandler) Update(c *gin.Context) {
 
 	var req UpdateBizGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -159,7 +160,7 @@ func (h *BizGroupHandler) AddMember(c *gin.Context) {
 
 	var req AddBizGroupMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

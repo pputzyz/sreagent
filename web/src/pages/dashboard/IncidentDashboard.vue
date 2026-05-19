@@ -407,7 +407,7 @@ onMounted(load)
 
 .card-icon svg {
   width: 12px; height: 12px;
-  color: #fff;
+  color: var(--sre-text-inverse);
 }
 
 .card-actions {

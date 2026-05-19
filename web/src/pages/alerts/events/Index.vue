@@ -422,7 +422,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 <template>
   <div class="ae-page sre-stagger">
     <!-- Header -->
-    <PageHeader :title="t('alert.events') || 'Active Alerts'" :subtitle="t('alert.eventsSubtitle') || 'Live alerts firing across all rules'">
+    <PageHeader :title="t('alert.events')" :subtitle="t('alert.eventsSubtitle')">
       <template #actions>
         <NSelect
           :value="refreshInterval"
@@ -436,7 +436,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         </NButton>
         <NButton size="small" @click="handleExportCSV">
           <template #icon><NIcon :component="DownloadOutline" /></template>
-          {{ t('alert.exportCSV') || 'Export CSV' }}
+          {{ t('alert.exportCSV') }}
         </NButton>
       </template>
     </PageHeader>
@@ -524,7 +524,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 
     <!-- Selection bar -->
     <transition name="ae-fade">
-      <div v-if="selected.size > 0" class="ae-selection-bar">
+      <div v-if="selected.size > 0" class="ae-selection-bar" role="toolbar" :aria-label="t('alert.batchActions') || 'Batch actions'">
         <span class="ae-selection-count tnum">{{ selected.size }} {{ t('alert.selected') }}</span>
         <NButton size="small" type="primary" @click="batchAck">
           {{ t('alert.batchAck') }}

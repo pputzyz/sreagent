@@ -306,7 +306,7 @@ onMounted(() => {
 <template>
   <div class="schedule-page">
     <!-- Page Header -->
-    <PageHeader :title="t('schedule.pageTitle')" :subtitle="t('schedule.pageSubtitle') || 'Define rotations and escalation policies'">
+    <PageHeader :title="t('schedule.pageTitle')" :subtitle="t('schedule.pageSubtitle')">
       <template #actions>
         <n-button size="small" @click="scheduleModalRef?.openCreate()">+ {{ t('schedule.newSchedule') }}</n-button>
         <n-button
@@ -340,7 +340,7 @@ onMounted(() => {
           <div class="detail-topbar">
             <div class="detail-title-row">
               <div class="detail-title-block">
-                <span class="sre-label-eyebrow">{{ t('schedule.scheduleLabel') || 'Schedule' }}</span>
+                <span class="sre-label-eyebrow">{{ t('schedule.scheduleLabel') }}</span>
                 <h2 class="detail-title">
                   {{ selectedSchedule.name }}
                   <span v-if="selectedSchedule.team" class="detail-team">
@@ -352,7 +352,7 @@ onMounted(() => {
 
               <!-- Current on-call badge -->
               <div v-if="currentOnCall" class="oncall-badge">
-                <span class="oncall-eyebrow">{{ t('schedule.currentOnCall') || 'On-call now' }}</span>
+                <span class="oncall-eyebrow">{{ t('schedule.currentOnCall') }}</span>
                 <div class="oncall-info">
                   <span class="sre-dot oncall-dot-current" :style="{ '--dot-color': getUserColor(currentOnCall.id) }"></span>
                   <span class="oncall-name">{{ currentOnCall.display_name || currentOnCall.username }}</span>
@@ -508,7 +508,7 @@ onMounted(() => {
 
         <!-- Empty state -->
         <div v-else class="empty-state">
-          <div class="empty-eyebrow sre-label-eyebrow">{{ t('schedule.empty') || 'No schedule selected' }}</div>
+          <div class="empty-eyebrow sre-label-eyebrow">{{ t('schedule.empty') }}</div>
           <p class="empty-text">{{ t('schedule.selectSchedule') }}</p>
           <n-button type="primary" size="small" @click="scheduleModalRef?.openCreate()">
             + {{ t('schedule.newSchedule') }}

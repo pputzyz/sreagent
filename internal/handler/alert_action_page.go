@@ -11,7 +11,9 @@ import (
 // renderActionPage generates the HTML page for alert actions.
 //
 // preAction: optional query-string hint from the Lark card (e.g. "silence")
-//            so the dropdown is pre-selected.
+//
+//	so the dropdown is pre-selected.
+//
 // preDuration: optional minute hint. 0 means "no hint, let the user pick".
 func renderActionPage(event *model.AlertEvent, token, preAction string, preDuration int) string {
 	// Build labels display

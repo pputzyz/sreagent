@@ -31,20 +31,20 @@ func (h *AlertRuleHandler) SetAuditService(svc *service.AuditLogService) {
 }
 
 type CreateAlertRuleRequest struct {
-	Name                string               `json:"name" binding:"required"`
-	DisplayName         string               `json:"display_name"`
-	Description         string               `json:"description"`
-	DataSourceID        *uint                `json:"datasource_id"`
-	DatasourceType      model.DataSourceType `json:"datasource_type"`
-	Expression          string               `json:"expression" binding:"required"`
-	ForDuration         string               `json:"for_duration"`
-	Severity            model.AlertSeverity  `json:"severity" binding:"required"`
-	Labels              model.JSONLabels     `json:"labels"`
-	Annotations         model.JSONLabels     `json:"annotations"`
-	GroupName           string               `json:"group_name"`
-	Category            string               `json:"category"`
-	GroupWaitSeconds    int                  `json:"group_wait_seconds"`
-	GroupIntervalSeconds int                 `json:"group_interval_seconds"`
+	Name                 string               `json:"name" binding:"required"`
+	DisplayName          string               `json:"display_name"`
+	Description          string               `json:"description"`
+	DataSourceID         *uint                `json:"datasource_id"`
+	DatasourceType       model.DataSourceType `json:"datasource_type"`
+	Expression           string               `json:"expression" binding:"required"`
+	ForDuration          string               `json:"for_duration"`
+	Severity             model.AlertSeverity  `json:"severity" binding:"required"`
+	Labels               model.JSONLabels     `json:"labels"`
+	Annotations          model.JSONLabels     `json:"annotations"`
+	GroupName            string               `json:"group_name"`
+	Category             string               `json:"category"`
+	GroupWaitSeconds     int                  `json:"group_wait_seconds"`
+	GroupIntervalSeconds int                  `json:"group_interval_seconds"`
 }
 
 func (h *AlertRuleHandler) Create(c *gin.Context) {
@@ -55,22 +55,22 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 	}
 
 	rule := &model.AlertRule{
-		Name:                req.Name,
-		DisplayName:         req.DisplayName,
-		Description:         req.Description,
-		DataSourceID:        req.DataSourceID,
-		DatasourceType:      req.DatasourceType,
-		Expression:          req.Expression,
-		ForDuration:         req.ForDuration,
-		Severity:            req.Severity,
-		Labels:              req.Labels,
-		Annotations:         req.Annotations,
-		GroupName:           req.GroupName,
-		Category:            req.Category,
-		GroupWaitSeconds:    req.GroupWaitSeconds,
+		Name:                 req.Name,
+		DisplayName:          req.DisplayName,
+		Description:          req.Description,
+		DataSourceID:         req.DataSourceID,
+		DatasourceType:       req.DatasourceType,
+		Expression:           req.Expression,
+		ForDuration:          req.ForDuration,
+		Severity:             req.Severity,
+		Labels:               req.Labels,
+		Annotations:          req.Annotations,
+		GroupName:            req.GroupName,
+		Category:             req.Category,
+		GroupWaitSeconds:     req.GroupWaitSeconds,
 		GroupIntervalSeconds: req.GroupIntervalSeconds,
-		Status:              model.RuleStatusEnabled,
-		CreatedBy:           GetCurrentUserID(c),
+		Status:               model.RuleStatusEnabled,
+		CreatedBy:            GetCurrentUserID(c),
 	}
 
 	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
@@ -135,21 +135,21 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 	}
 
 	rule := &model.AlertRule{
-		Name:                req.Name,
-		DisplayName:         req.DisplayName,
-		Description:         req.Description,
-		DataSourceID:        req.DataSourceID,
-		DatasourceType:      req.DatasourceType,
-		Expression:          req.Expression,
-		ForDuration:         req.ForDuration,
-		Severity:            req.Severity,
-		Labels:              req.Labels,
-		Annotations:         req.Annotations,
-		GroupName:           req.GroupName,
-		Category:            req.Category,
-		GroupWaitSeconds:    req.GroupWaitSeconds,
+		Name:                 req.Name,
+		DisplayName:          req.DisplayName,
+		Description:          req.Description,
+		DataSourceID:         req.DataSourceID,
+		DatasourceType:       req.DatasourceType,
+		Expression:           req.Expression,
+		ForDuration:          req.ForDuration,
+		Severity:             req.Severity,
+		Labels:               req.Labels,
+		Annotations:          req.Annotations,
+		GroupName:            req.GroupName,
+		Category:             req.Category,
+		GroupWaitSeconds:     req.GroupWaitSeconds,
 		GroupIntervalSeconds: req.GroupIntervalSeconds,
-		UpdatedBy:           GetCurrentUserID(c),
+		UpdatedBy:            GetCurrentUserID(c),
 	}
 	rule.ID = id
 

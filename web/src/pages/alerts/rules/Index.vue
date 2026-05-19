@@ -265,7 +265,7 @@ function handleBatchDelete() {
   if (selectedKeys.value.length === 0) return
   dialog.warning({
     title: t('common.confirmDelete'),
-    content: t('alert.batchDeleteConfirm', { count: selectedKeys.value.length }) || `确定要删除选中的 ${selectedKeys.value.length} 条规则吗？`,
+    content: t('alert.batchDeleteConfirm', { count: selectedKeys.value.length }),
     positiveText: t('common.confirm'),
     negativeText: t('common.cancel'),
     onPositiveClick: () => doBatchDelete(),
@@ -342,7 +342,7 @@ function rowActions(rule: AlertRule) {
   return [
     { label: t('common.edit'), key: 'edit', icon: () => h(NIcon, { component: CreateOutline }) },
     { label: rule.status === 'enabled' ? t('common.disabled') : t('common.enabled'), key: 'toggle', icon: () => h(NIcon, { component: PowerOutline }) },
-    { label: t('common.duplicate') || 'Duplicate', key: 'duplicate', icon: () => h(NIcon, { component: CopyOutline }) },
+    { label: t('common.duplicate'), key: 'duplicate', icon: () => h(NIcon, { component: CopyOutline }) },
     { type: 'divider' as const, key: 'd1' },
     { label: t('common.delete'), key: 'delete', icon: () => h(NIcon, { component: TrashOutline }) },
   ]
@@ -384,7 +384,7 @@ onMounted(() => {
       <template #actions>
         <n-button v-if="isAIModuleEnabled('rule_gen')" size="small" secondary @click="openAIGenerate">
           <template #icon><n-icon :component="SparklesOutline" /></template>
-          {{ t('alert.aiGenerate') || 'AI Generate' }}
+          {{ t('alert.aiGenerate') }}
         </n-button>
         <n-button size="small" secondary @click="showImportModal = true">
           <template #icon><n-icon :component="CloudUploadOutline" /></template>
@@ -467,7 +467,7 @@ onMounted(() => {
               :checked="allSelected"
               @change="toggleSelectAll(($event.target as HTMLInputElement).checked)"
             />
-            <span>{{ t('common.selectAll') || 'Select All' }}</span>
+            <span>{{ t('common.selectAll') }}</span>
           </label>
         </div>
 
@@ -489,8 +489,8 @@ onMounted(() => {
         <EmptyState
           v-else-if="!loading && filteredRules.length === 0"
           :icon="DocumentTextOutline"
-          :title="t('alert.noRules') || 'No alert rules'"
-          :description="t('alert.rulesSubtitle') || 'Create your first rule to start monitoring'"
+          :title="t('alert.noRules')"
+          :description="t('alert.rulesSubtitle')"
           :primary-text="t('alert.createFirstRule')"
           :secondary-text="t('alert.importFile')"
           @primary="openCreate"
@@ -589,7 +589,7 @@ onMounted(() => {
     <!-- AI Generate Modal -->
     <NModal
       v-model:show="showAIModal"
-      :title="t('alert.aiGenerate') || 'AI Generate Rule'"
+      :title="t('alert.aiGenerate')"
       preset="card"
       class="ai-gen-modal"
       :mask-closable="false"
@@ -598,26 +598,26 @@ onMounted(() => {
     >
       <div class="ai-gen-form">
         <div class="ai-gen-field">
-          <label class="ai-gen-label">{{ t('alert.aiDescription') || 'Describe the rule you want' }}</label>
+          <label class="ai-gen-label">{{ t('alert.aiDescription') }}</label>
           <NInput
             v-model:value="aiDescription"
             type="textarea"
             :rows="3"
-            :placeholder="t('alert.aiDescriptionPlaceholder') || 'e.g. Alert when CPU usage exceeds 90% for 5 minutes on production servers'"
+            :placeholder="t('alert.aiDescriptionPlaceholder')"
           />
         </div>
         <div class="ai-gen-field">
-          <label class="ai-gen-label">{{ t('alert.dataSource') }} ({{ t('common.optional') || 'Optional' }})</label>
+          <label class="ai-gen-label">{{ t('alert.dataSource') }} ({{ t('common.optional') }})</label>
           <NSelect
             v-model:value="aiDatasourceId"
             :options="datasourceOptions"
-            :placeholder="t('alert.selectDatasource') || 'Select datasource'"
+            :placeholder="t('alert.selectDatasource')"
             clearable
           />
         </div>
         <NButton type="primary" :loading="aiGenerating" :disabled="!aiDescription.trim()" @click="handleAIGenerate">
           <template #icon><NIcon :component="SparklesOutline" /></template>
-          {{ t('alert.aiGenerateBtn') || 'Generate' }}
+          {{ t('alert.aiGenerateBtn') }}
         </NButton>
       </div>
 
@@ -657,8 +657,8 @@ onMounted(() => {
           <div v-for="w in aiResult.warnings" :key="w">{{ w }}</div>
         </NAlert>
         <NSpace justify="end" style="margin-top: 16px">
-          <NButton @click="handleAIGenerate">{{ t('alert.aiRegenerate') || 'Regenerate' }}</NButton>
-          <NButton type="primary" @click="handleAIConfirmCreate">{{ t('alert.aiConfirmCreate') || 'Confirm & Create' }}</NButton>
+          <NButton @click="handleAIGenerate">{{ t('alert.aiRegenerate') }}</NButton>
+          <NButton type="primary" @click="handleAIConfirmCreate">{{ t('alert.aiConfirmCreate') }}</NButton>
         </NSpace>
       </div>
     </NModal>

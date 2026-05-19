@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/config"
 	"github.com/sreagent/sreagent/internal/service"
@@ -9,7 +10,7 @@ import (
 
 // SecuritySettingsHandler manages security-related platform settings.
 type SecuritySettingsHandler struct {
-	svc   *service.SystemSettingService
+	svc    *service.SystemSettingService
 	jwtCfg *config.JWTConfig
 }
 
@@ -32,11 +33,11 @@ func (h *SecuritySettingsHandler) GetConfig(c *gin.Context) {
 func (h *SecuritySettingsHandler) UpdateConfig(c *gin.Context) {
 	var req service.SecurityConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if req.JWTExpireSeconds < 300 {
-		ErrorWithMessage(c, 10001, "jwt_expire_seconds must be at least 300 (5 minutes)")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "jwt_expire_seconds must be at least 300 (5 minutes)"))
 		return
 	}
 	if err := h.svc.SaveSecurityConfig(c.Request.Context(), req); err != nil {

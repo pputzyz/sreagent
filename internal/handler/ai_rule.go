@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -20,7 +21,7 @@ func NewAIRuleHandler(svc *service.RuleGeneratorService) *AIRuleHandler {
 func (h *AIRuleHandler) Generate(c *gin.Context) {
 	var req service.RuleGenerateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -40,7 +41,7 @@ func (h *AIRuleHandler) Validate(c *gin.Context) {
 		Expression   string `json:"expression" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -60,7 +61,7 @@ func (h *AIRuleHandler) SuggestLabels(c *gin.Context) {
 		Expression   string `json:"expression" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -80,7 +81,7 @@ func (h *AIRuleHandler) GenerateInhibition(c *gin.Context) {
 		DatasourceID *uint  `json:"datasource_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

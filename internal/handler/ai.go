@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -35,13 +36,13 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		Context string `json:"context,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
 	systemPrompt, ok := systemPrompts[req.Mode]
 	if !ok {
-		ErrorWithMessage(c, 10001, "invalid mode: must be alert, general, or pet")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid mode: must be alert, general, or pet"))
 		return
 	}
 
@@ -50,7 +51,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	// Load recent history (20 messages) for context
 	historyMsgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, req.Mode)
 	if err != nil {
-		ErrorWithMessage(c, 50001, "failed to load chat history: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to load chat history: "+err.Error()))
 		return
 	}
 
@@ -69,7 +70,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	// Call LLM
 	reply, err := h.aiSvc.Chat(c.Request.Context(), systemPrompt, history, req.Message)
 	if err != nil {
-		ErrorWithMessage(c, 50003, "AI chat failed: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "AI chat failed: "+err.Error()))
 		return
 	}
 
@@ -82,7 +83,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		Context: req.Context,
 	}
 	if err := h.chatHistorySvc.Save(c.Request.Context(), userMsg); err != nil {
-		ErrorWithMessage(c, 50001, "failed to save user message: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to save user message: "+err.Error()))
 		return
 	}
 
@@ -94,7 +95,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		Content: reply,
 	}
 	if err := h.chatHistorySvc.Save(c.Request.Context(), assistantMsg); err != nil {
-		ErrorWithMessage(c, 50001, "failed to save assistant message: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to save assistant message: "+err.Error()))
 		return
 	}
 
@@ -110,7 +111,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 func (h *AIHandler) GetHistory(c *gin.Context) {
 	mode := c.Query("mode")
 	if mode == "" {
-		ErrorWithMessage(c, 10001, "mode query parameter is required")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "mode query parameter is required"))
 		return
 	}
 
@@ -118,7 +119,7 @@ func (h *AIHandler) GetHistory(c *gin.Context) {
 
 	msgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, mode)
 	if err != nil {
-		ErrorWithMessage(c, 50001, "failed to load chat history: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to load chat history: "+err.Error()))
 		return
 	}
 
@@ -129,14 +130,14 @@ func (h *AIHandler) GetHistory(c *gin.Context) {
 func (h *AIHandler) ClearHistory(c *gin.Context) {
 	mode := c.Query("mode")
 	if mode == "" {
-		ErrorWithMessage(c, 10001, "mode query parameter is required")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "mode query parameter is required"))
 		return
 	}
 
 	userID := GetCurrentUserID(c)
 
 	if err := h.chatHistorySvc.ClearHistory(c.Request.Context(), userID, mode); err != nil {
-		ErrorWithMessage(c, 50001, "failed to clear chat history: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to clear chat history: "+err.Error()))
 		return
 	}
 
@@ -149,7 +150,7 @@ func (h *AIHandler) GenerateReport(c *gin.Context) {
 		EventID uint `json:"event_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -161,7 +162,7 @@ func (h *AIHandler) GenerateReport(c *gin.Context) {
 
 	report, err := h.aiSvc.GenerateAlertReport(c.Request.Context(), event)
 	if err != nil {
-		ErrorWithMessage(c, 50003, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, err.Error()))
 		return
 	}
 
@@ -174,7 +175,7 @@ func (h *AIHandler) SuggestSOP(c *gin.Context) {
 		EventID uint `json:"event_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -186,7 +187,7 @@ func (h *AIHandler) SuggestSOP(c *gin.Context) {
 
 	sop, err := h.aiSvc.SuggestSOP(c.Request.Context(), event)
 	if err != nil {
-		ErrorWithMessage(c, 50003, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, err.Error()))
 		return
 	}
 
@@ -197,7 +198,7 @@ func (h *AIHandler) SuggestSOP(c *gin.Context) {
 func (h *AIHandler) GetConfig(c *gin.Context) {
 	cfg, err := h.aiSvc.GetConfig(c.Request.Context())
 	if err != nil {
-		ErrorWithMessage(c, 50003, "failed to load AI config: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to load AI config: "+err.Error()))
 		return
 	}
 	Success(c, cfg)
@@ -207,12 +208,12 @@ func (h *AIHandler) GetConfig(c *gin.Context) {
 func (h *AIHandler) UpdateConfig(c *gin.Context) {
 	var req service.AIConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
 	if err := h.aiSvc.UpdateConfig(c.Request.Context(), req); err != nil {
-		ErrorWithMessage(c, 50003, "failed to save AI config: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save AI config: "+err.Error()))
 		return
 	}
 	Success(c, gin.H{"message": "AI configuration updated"})
@@ -221,7 +222,7 @@ func (h *AIHandler) UpdateConfig(c *gin.Context) {
 // TestConnection tests connectivity to the configured AI provider.
 func (h *AIHandler) TestConnection(c *gin.Context) {
 	if err := h.aiSvc.TestConnection(c.Request.Context()); err != nil {
-		ErrorWithMessage(c, 50003, "AI connection test failed: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "AI connection test failed: "+err.Error()))
 		return
 	}
 
@@ -232,7 +233,7 @@ func (h *AIHandler) TestConnection(c *gin.Context) {
 func (h *AIHandler) GetModules(c *gin.Context) {
 	cfg, err := h.aiSvc.GetAIModules(c.Request.Context())
 	if err != nil {
-		ErrorWithMessage(c, 50003, "failed to load AI modules: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to load AI modules: "+err.Error()))
 		return
 	}
 	Success(c, cfg)
@@ -242,11 +243,11 @@ func (h *AIHandler) GetModules(c *gin.Context) {
 func (h *AIHandler) UpdateModules(c *gin.Context) {
 	var req service.AIModuleConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.aiSvc.UpdateAIModules(c.Request.Context(), &req); err != nil {
-		ErrorWithMessage(c, 50003, "failed to save AI modules: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save AI modules: "+err.Error()))
 		return
 	}
 	Success(c, gin.H{"message": "AI modules configuration updated"})
@@ -256,7 +257,7 @@ func (h *AIHandler) UpdateModules(c *gin.Context) {
 func (h *AIHandler) GetProviders(c *gin.Context) {
 	cfg, err := h.aiSvc.GetProvidersConfig(c.Request.Context())
 	if err != nil {
-		ErrorWithMessage(c, 50003, "failed to load AI providers: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to load AI providers: "+err.Error()))
 		return
 	}
 	Success(c, cfg)
@@ -266,11 +267,11 @@ func (h *AIHandler) GetProviders(c *gin.Context) {
 func (h *AIHandler) SaveProviders(c *gin.Context) {
 	var req service.AIProvidersConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.aiSvc.SaveProvidersConfig(c.Request.Context(), req); err != nil {
-		ErrorWithMessage(c, 50003, "failed to save AI providers: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save AI providers: "+err.Error()))
 		return
 	}
 	Success(c, gin.H{"message": "AI providers configuration updated"})
@@ -282,11 +283,11 @@ func (h *AIHandler) TestProvider(c *gin.Context) {
 		Key string `json:"key" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.aiSvc.TestProviderConnection(c.Request.Context(), req.Key); err != nil {
-		ErrorWithMessage(c, 50003, "AI connection test failed: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "AI connection test failed: "+err.Error()))
 		return
 	}
 	Success(c, gin.H{"message": "AI connection successful"})

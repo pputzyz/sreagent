@@ -119,7 +119,7 @@ function relTimeFuture(t: string | null): string {
 function describePeriodic(r: MuteRule): string {
   const days = (r.days_of_week || '').split(',').map(x => x.trim()).filter(Boolean)
   const dayMap: Record<string, string> = { '0': t('mute.sunday'), '1': t('mute.monday'), '2': t('mute.tuesday'), '3': t('mute.wednesday'), '4': t('mute.thursday'), '5': t('mute.friday'), '6': t('mute.saturday') }
-  const dayLabel = days.length ? days.map(d => dayMap[d] || d).join('/') : t('mute.daily') || 'Daily'
+  const dayLabel = days.length ? days.map(d => dayMap[d] || d).join('/') : t('mute.daily')
   return `${dayLabel} ${r.periodic_start} - ${r.periodic_end} (${r.timezone || 'UTC'})`
 }
 
@@ -423,7 +423,7 @@ onMounted(fetchRules)
               <div v-if="!previewLoading && previewItems.length === 0" class="mute-preview-empty">
                 <EmptyState
                   :icon="AddOutline"
-                  :title="t('mute.previewNoMatch') || 'No alerts currently match this rule'"
+                  :title="t('mute.previewNoMatch')"
                   size="sm"
                 />
               </div>

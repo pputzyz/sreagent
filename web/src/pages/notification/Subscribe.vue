@@ -7,6 +7,7 @@ import type { SubscribeRule, NotifyRule, User, Team } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { AddOutline, SearchOutline, NotificationsOutline } from '@vicons/ionicons5'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
 const message = useMessage()
@@ -200,16 +201,14 @@ onMounted(() => { fetchData(); fetchRefData() })
 
 <template>
   <div class="sub-page">
-    <header class="sub-header">
-      <div>
-        <h2 class="sub-title">{{ t('subscribe.title') }}</h2>
-        <p class="sub-sub">{{ t('subscribe.subtitle') }}</p>
-      </div>
-      <n-button type="primary" size="small" @click="openCreate">
-        <template #icon><n-icon :component="AddOutline" /></template>
-        {{ t('subscribe.create') }}
-      </n-button>
-    </header>
+    <PageHeader :title="t('subscribe.title')" :subtitle="t('subscribe.subtitle')">
+      <template #actions>
+        <n-button type="primary" size="small" @click="openCreate">
+          <template #icon><n-icon :component="AddOutline" /></template>
+          {{ t('subscribe.create') }}
+        </n-button>
+      </template>
+    </PageHeader>
 
     <div class="toolbar">
       <n-input v-model:value="search" size="small" :placeholder="t('common.search')" clearable style="width: 240px">

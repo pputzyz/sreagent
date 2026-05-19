@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { NModal, NForm, NFormItem, NInput, NButton, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api'
@@ -11,6 +11,15 @@ const emit = defineEmits<{ 'update:show': [value: boolean] }>()
 const { t } = useI18n()
 const message = useMessage()
 const loading = ref(false)
+const triggerEl = ref<HTMLElement | null>(null)
+
+watch(() => props.show, (v) => {
+  if (v) triggerEl.value = document.activeElement as HTMLElement
+})
+
+function handleAfterLeave() {
+  triggerEl.value?.focus()
+}
 
 const form = reactive({
   old_password: '',
@@ -63,6 +72,7 @@ function handleClose() {
     :bordered="false"
     :segmented="{ content: true, footer: true }"
     @mask-click="handleClose"
+    @after-leave="handleAfterLeave"
   >
     <n-form :model="form" label-placement="left" label-width="auto">
       <n-form-item :label="t('profile.oldPassword')">

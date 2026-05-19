@@ -25,12 +25,12 @@ func NewDashboardHandler(db *gorm.DB, logger *zap.Logger) *DashboardHandler {
 
 // DashboardStats represents the aggregated dashboard statistics.
 type DashboardStats struct {
-	TotalDatasources  int64            `json:"total_datasources"`
-	TotalRules        int64            `json:"total_rules"`
-	ActiveAlerts      int64            `json:"active_alerts"`
-	ResolvedToday     int64            `json:"resolved_today"`
-	TotalUsers        int64            `json:"total_users"`
-	TotalTeams        int64            `json:"total_teams"`
+	TotalDatasources int64 `json:"total_datasources"`
+	TotalRules       int64 `json:"total_rules"`
+	ActiveAlerts     int64 `json:"active_alerts"`
+	ResolvedToday    int64 `json:"resolved_today"`
+	TotalUsers       int64 `json:"total_users"`
+	TotalTeams       int64 `json:"total_teams"`
 	// SeverityBreakdown holds the count of active (firing+acked) alerts per severity.
 	SeverityBreakdown map[string]int64 `json:"severity_breakdown"`
 }
@@ -271,8 +271,8 @@ func (h *DashboardHandler) GetMTTRStats(c *gin.Context) {
 // MTTRTrendPoint is one day of MTTA/MTTR means used to render trend lines.
 type MTTRTrendPoint struct {
 	Date          string  `json:"date"`
-	MTTASeconds   float64 `json:"mtta_seconds"`   // -1 if no data that day
-	MTTRSeconds   float64 `json:"mttr_seconds"`   // -1 if no data that day
+	MTTASeconds   float64 `json:"mtta_seconds"` // -1 if no data that day
+	MTTRSeconds   float64 `json:"mttr_seconds"` // -1 if no data that day
 	AckedCount    int64   `json:"acked_count"`
 	ResolvedCount int64   `json:"resolved_count"`
 }
@@ -440,7 +440,7 @@ func (h *DashboardHandler) GetTopRules(c *gin.Context) {
 
 // SeverityHistoryPoint represents per-severity alert counts for a single day.
 type SeverityHistoryPoint struct {
-	Date   string         `json:"date"`
+	Date   string           `json:"date"`
 	Counts map[string]int64 `json:"counts"`
 }
 
@@ -584,7 +584,7 @@ func (h *DashboardHandler) ExportReport(c *gin.Context) {
 	// ── Merge into day-keyed maps ─────────────────────────────────────────
 	type daySummary struct {
 		Critical, Warning, Info, Resolved int64
-		AvgMTTA, AvgMTTR                 float64
+		AvgMTTA, AvgMTTR                  float64
 	}
 	dayMap := map[string]*daySummary{}
 	ensureDay := func(d string) *daySummary {
@@ -734,11 +734,11 @@ func (h *DashboardHandler) TeamStats(c *gin.Context) {
 	since := time.Now().AddDate(0, 0, -days)
 
 	type TeamRow struct {
-		TeamID   uint   `json:"team_id"`
-		TeamName string `json:"team_name"`
-		Total    int64  `json:"total"`
-		Closed   int64  `json:"closed"`
-		Critical int64  `json:"critical"`
+		TeamID   uint    `json:"team_id"`
+		TeamName string  `json:"team_name"`
+		Total    int64   `json:"total"`
+		Closed   int64   `json:"closed"`
+		Critical int64   `json:"critical"`
 		AvgMTTR  float64 `json:"avg_mttr_seconds"`
 	}
 
@@ -825,13 +825,13 @@ func (h *DashboardHandler) IncidentTrend(c *gin.Context) {
 // GET /api/v1/dashboard/incident-stats
 func (h *DashboardHandler) IncidentStats(c *gin.Context) {
 	type Stats struct {
-		TotalIncidents      int64   `json:"total_incidents"`
-		ActiveIncidents     int64   `json:"active_incidents"`
-		ClosedToday         int64   `json:"closed_today"`
-		CriticalActive      int64   `json:"critical_active"`
-		AvgMTTRSeconds      float64 `json:"avg_mttr_seconds"`
-		TotalPostMortems    int64   `json:"total_post_mortems"`
-		PublishedPostMortems int64  `json:"published_post_mortems"`
+		TotalIncidents       int64   `json:"total_incidents"`
+		ActiveIncidents      int64   `json:"active_incidents"`
+		ClosedToday          int64   `json:"closed_today"`
+		CriticalActive       int64   `json:"critical_active"`
+		AvgMTTRSeconds       float64 `json:"avg_mttr_seconds"`
+		TotalPostMortems     int64   `json:"total_post_mortems"`
+		PublishedPostMortems int64   `json:"published_post_mortems"`
 	}
 
 	var stats Stats

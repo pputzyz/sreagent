@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -58,7 +59,7 @@ func (h *IntegrationHandler) List(c *gin.Context) {
 func (h *IntegrationHandler) Create(c *gin.Context) {
 	var req CreateIntegrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -111,7 +112,7 @@ func (h *IntegrationHandler) Update(c *gin.Context) {
 	}
 	var req CreateIntegrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	updates := &model.Integration{
@@ -149,13 +150,13 @@ func (h *IntegrationHandler) Delete(c *gin.Context) {
 func (h *IntegrationHandler) Receive(c *gin.Context) {
 	token := c.Param("token")
 	if token == "" {
-		ErrorWithMessage(c, 10001, "missing integration token")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "missing integration token"))
 		return
 	}
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		ErrorWithMessage(c, 10001, "failed to read request body")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read request body"))
 		return
 	}
 

@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -36,7 +37,7 @@ type CreateDataSourceRequest struct {
 func (h *DataSourceHandler) Create(c *gin.Context) {
 	var req CreateDataSourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -101,7 +102,7 @@ func (h *DataSourceHandler) Update(c *gin.Context) {
 
 	var req CreateDataSourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -175,7 +176,7 @@ func (h *DataSourceHandler) Query(c *gin.Context) {
 		Time       float64 `json:"time"` // unix timestamp in seconds, 0 or omitted = now
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -208,7 +209,7 @@ func (h *DataSourceHandler) RangeQuery(c *gin.Context) {
 		Step       string  `json:"step" binding:"required"`  // e.g. "15s", "1m", "5m"
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -243,7 +244,7 @@ func (h *DataSourceHandler) LabelKeys(c *gin.Context) {
 		Data   []string `json:"data"`
 	}
 	if err := json.Unmarshal(body, &apiResp); err != nil {
-		ErrorWithMessage(c, 50003, "failed to parse label keys response")
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to parse label keys response"))
 		return
 	}
 
@@ -261,7 +262,7 @@ func (h *DataSourceHandler) LabelValues(c *gin.Context) {
 
 	key := c.Query("key")
 	if key == "" {
-		ErrorWithMessage(c, 10001, "key parameter is required")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "key parameter is required"))
 		return
 	}
 
@@ -276,7 +277,7 @@ func (h *DataSourceHandler) LabelValues(c *gin.Context) {
 		Data   []string `json:"data"`
 	}
 	if err := json.Unmarshal(body, &apiResp); err != nil {
-		ErrorWithMessage(c, 50003, "failed to parse label values response")
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to parse label values response"))
 		return
 	}
 
@@ -299,7 +300,7 @@ func (h *DataSourceHandler) LogQuery(c *gin.Context) {
 		Limit      int     `json:"limit"`                    // max entries, default 100
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -349,7 +350,7 @@ func (h *DataSourceHandler) MetricNames(c *gin.Context) {
 		Data   []string `json:"data"`
 	}
 	if err := json.Unmarshal(body, &apiResp); err != nil {
-		ErrorWithMessage(c, 50003, "failed to parse metric names response")
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to parse metric names response"))
 		return
 	}
 

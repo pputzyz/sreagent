@@ -13,6 +13,7 @@ import {
   NFormItem,
   NSpace,
   NRadio,
+  NSpin,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api'
@@ -25,6 +26,7 @@ import {
   ChatbubblesOutline,
   SearchOutline,
 } from '@vicons/ionicons5'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -165,6 +167,8 @@ onMounted(fetchList)
       </NInput>
     </div>
 
+    <LoadingSkeleton v-if="loading && filtered.length === 0" :rows="4" variant="row" />
+    <NSpin v-else :show="loading">
     <div class="vuser-list sre-stagger">
       <div v-for="u in filtered" :key="u.id" class="sre-row-card vuser-row">
         <div class="vuser-icon" :data-type="u.user_type">
@@ -198,8 +202,9 @@ onMounted(fetchList)
         {{ t('settings.noVirtualUsers') }}
       </div>
     </div>
+    </NSpin>
 
-    <NModal v-model:show="showModal" preset="card" :title="t('settings.createVirtual')" style="width: 520px" :bordered="false">
+    <NModal v-model:show="showModal" preset="card" :title="t('settings.createVirtual')" style="width: 520px; max-width: 90vw" :bordered="false">
       <NForm label-placement="top">
         <NFormItem :label="t('settings.displayName')" required>
           <NInput v-model:value="form.display_name" :placeholder="t('settings.displayNamePlaceholder')" />

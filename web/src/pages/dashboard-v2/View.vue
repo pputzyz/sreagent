@@ -167,7 +167,7 @@ const panelToDelete = ref<PanelConfig | null>(null)
 function addPanelFromQuery(type: PanelConfig['type'] = 'timeseries') {
   const activeTargets = targets.value.filter(t => t.enabled && t.datasourceId && t.expression?.trim())
   if (!activeTargets.length) {
-    message.warning(t('dashboardV2.noQueryToAdd') || 'Enter a query first')
+    message.warning(t('dashboardV2.noQueryToAdd'))
     return
   }
   const panel: PanelConfig = {
@@ -183,7 +183,7 @@ function addPanelFromQuery(type: PanelConfig['type'] = 'timeseries') {
     options: {},
   }
   config.value.panels.push(panel)
-  message.success(t('dashboardV2.panelAdded') || 'Panel added')
+  message.success(t('dashboardV2.panelAdded'))
 }
 
 function removePanel(id: string) {
@@ -363,12 +363,12 @@ onMounted(() => {
 
       <!-- Empty state -->
       <div v-if="!hasPanels && !hasResults" class="empty-dashboard">
-        <div class="empty-text">{{ t('dashboardV2.emptyDashboardHint') || 'Add panels from queries below to build your dashboard' }}</div>
+        <div class="empty-text">{{ t('dashboardV2.emptyDashboardHint') }}</div>
       </div>
 
       <!-- Query editor (always visible) -->
       <details class="query-editor-section" :open="!hasPanels">
-        <summary class="query-editor-toggle">{{ t('dashboardV2.queryEditor') || 'Query Editor' }}</summary>
+        <summary class="query-editor-toggle">{{ t('dashboardV2.queryEditor') }}</summary>
         <QueryPanel
           :targets="targets"
           :datasources="datasources"
@@ -384,14 +384,14 @@ onMounted(() => {
         <!-- Query results + add panel buttons -->
         <div v-if="hasResults" class="query-results-section">
           <div class="results-actions">
-            <span class="results-label">{{ t('dashboardV2.addAsPanel') || 'Add as panel:' }}</span>
+            <span class="results-label">{{ t('dashboardV2.addAsPanel') }}</span>
             <NSpace size="small">
-              <NButton size="tiny" secondary @click="addPanelFromQuery('timeseries')">{{ t('dashboardV2.panelTimeseries') || 'Chart' }}</NButton>
-              <NButton size="tiny" secondary @click="addPanelFromQuery('stat')">{{ t('dashboardV2.panelStat') || 'Stat' }}</NButton>
-              <NButton size="tiny" secondary @click="addPanelFromQuery('gauge')">{{ t('dashboardV2.panelGauge') || 'Gauge' }}</NButton>
-              <NButton size="tiny" secondary @click="addPanelFromQuery('bar')">{{ t('dashboardV2.panelBar') || 'Bar' }}</NButton>
-              <NButton size="tiny" secondary @click="addPanelFromQuery('pie')">{{ t('dashboardV2.panelPie') || 'Pie' }}</NButton>
-              <NButton size="tiny" secondary @click="addPanelFromQuery('table')">{{ t('dashboardV2.panelTable') || 'Table' }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('timeseries')">{{ t('dashboardV2.panelTimeseries') }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('stat')">{{ t('dashboardV2.panelStat') }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('gauge')">{{ t('dashboardV2.panelGauge') }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('bar')">{{ t('dashboardV2.panelBar') }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('pie')">{{ t('dashboardV2.panelPie') }}</NButton>
+              <NButton size="tiny" secondary @click="addPanelFromQuery('table')">{{ t('dashboardV2.panelTable') }}</NButton>
             </NSpace>
           </div>
           <QueryResultChart :targets="targets" :time-range="timeRange" :height="300" />

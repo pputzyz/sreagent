@@ -410,14 +410,14 @@ func (h *AlertEventHandler) Export(c *gin.Context) {
 
 // AlertGroupItem represents a set of alerts grouped by alert_name + source.
 type AlertGroupItem struct {
-	AlertName        string           `json:"alert_name"`
-	Source           string           `json:"source"`
-	TotalCount       int64            `json:"total_count"`
+	AlertName         string           `json:"alert_name"`
+	Source            string           `json:"source"`
+	TotalCount        int64            `json:"total_count"`
 	SeverityBreakdown map[string]int64 `json:"severity_breakdown"`
-	StatusBreakdown  map[string]int64 `json:"status_breakdown"`
-	LatestFiredAt    time.Time        `json:"latest_fired_at"`
-	OldestFiredAt    time.Time        `json:"oldest_fired_at"`
-	MaxFireCount     int              `json:"max_fire_count"` // noisiest single event in group
+	StatusBreakdown   map[string]int64 `json:"status_breakdown"`
+	LatestFiredAt     time.Time        `json:"latest_fired_at"`
+	OldestFiredAt     time.Time        `json:"oldest_fired_at"`
+	MaxFireCount      int              `json:"max_fire_count"` // noisiest single event in group
 }
 
 // ListGroups aggregates alert events by alert_name + source so operators can

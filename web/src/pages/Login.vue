@@ -475,7 +475,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #F97316;
+  background: var(--sre-warning, #F97316);
   box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
   animation: status-pulse 2s ease-in-out infinite;
 }

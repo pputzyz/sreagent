@@ -165,9 +165,9 @@ func (h *MuteRuleHandler) Delete(c *gin.Context) {
 
 // MutePreviewItem describes which currently-firing alerts a mute rule would suppress.
 type MutePreviewItem struct {
-	RuleID        uint          `json:"rule_id"`
-	RuleName      string        `json:"rule_name"`
-	MatchedCount  int           `json:"matched_count"`
+	RuleID        uint               `json:"rule_id"`
+	RuleName      string             `json:"rule_name"`
+	MatchedCount  int                `json:"matched_count"`
 	MatchedAlerts []model.AlertEvent `json:"matched_alerts"`
 }
 

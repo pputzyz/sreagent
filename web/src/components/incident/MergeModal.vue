@@ -3,7 +3,7 @@
  * MergeModal — search and merge current incident into another.
  * Extracted from incident/Detail.vue (FlashCat Phase 6).
  */
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
@@ -22,6 +22,16 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const message = useMessage()
+
+const triggerEl = ref<HTMLElement | null>(null)
+
+watch(() => props.show, (v) => {
+  if (v) triggerEl.value = document.activeElement as HTMLElement
+})
+
+function handleAfterLeave() {
+  triggerEl.value?.focus()
+}
 
 const loading = ref(false)
 const search = ref('')
@@ -58,6 +68,7 @@ async function doMerge() {
     class="merge-modal"
     :bordered="false"
     @update:show="emit('update:show', $event)"
+    @after-leave="handleAfterLeave"
   >
     <p class="modal-hint">
       {{ t('incident.mergeDescription') }}

@@ -274,11 +274,11 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
       <template #actions>
         <NButton v-if="canManage && isAIModuleEnabled('rule_gen')" size="small" secondary @click="openAIGenerate">
           <template #icon><NIcon :component="SparklesOutline" /></template>
-          {{ t('alert.aiGenerate') || 'AI Generate' }}
+          {{ t('alert.aiGenerate') }}
         </NButton>
         <NButton v-if="canManage" type="primary" @click="openCreate">
           <template #icon><NIcon :component="AddOutline" /></template>
-          {{ t('inhibition.createRule') || 'New Rule' }}
+          {{ t('inhibition.createRule') }}
         </NButton>
       </template>
     </PageHeader>
@@ -293,9 +293,9 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
     <EmptyState
       v-else-if="!loading && filteredList.length === 0"
       :icon="AddOutline"
-      :title="t('inhibition.noRules') || 'No inhibition rules'"
-      :description="t('inhibition.description') || 'Suppress target alerts when source alert is firing'"
-      :primary-text="t('inhibition.createRule') || 'Create your first rule'"
+      :title="t('inhibition.noRules')"
+      :description="t('inhibition.description')"
+      :primary-text="t('inhibition.createRule')"
       @primary="openCreate"
     />
 
@@ -389,7 +389,7 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
     <!-- AI Generate Inhibition Modal -->
     <NModal
       v-model:show="showAIModal"
-      :title="t('alert.aiGenerate') || 'AI Generate Inhibition Rule'"
+      :title="t('alert.aiGenerate')"
       preset="card"
       :mask-closable="false"
       :bordered="false"
@@ -397,17 +397,17 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
     >
       <div class="ai-gen-form">
         <div class="ai-gen-field">
-          <label class="ai-gen-label">{{ t('alert.aiDescription') || 'Describe the inhibition rule' }}</label>
+          <label class="ai-gen-label">{{ t('alert.aiDescription') }}</label>
           <NInput
             v-model:value="aiDescription"
             type="textarea"
             :rows="3"
-            :placeholder="t('alert.aiInhibitionPlaceholder') || 'e.g. Suppress warning alerts when critical alert of the same service is firing'"
+            :placeholder="t('alert.aiInhibitionPlaceholder')"
           />
         </div>
         <NButton type="primary" :loading="aiGenerating" :disabled="!aiDescription.trim()" @click="handleAIGenerate">
           <template #icon><NIcon :component="SparklesOutline" /></template>
-          {{ t('alert.aiGenerateBtn') || 'Generate' }}
+          {{ t('alert.aiGenerateBtn') }}
         </NButton>
       </div>
 
@@ -436,8 +436,8 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
           <div v-for="w in aiResult.warnings" :key="w">{{ w }}</div>
         </NAlert>
         <NSpace justify="end" style="margin-top: 16px">
-          <NButton @click="handleAIGenerate">{{ t('alert.aiRegenerate') || 'Regenerate' }}</NButton>
-          <NButton type="primary" @click="handleAIConfirmCreate">{{ t('alert.aiConfirmCreate') || 'Confirm & Create' }}</NButton>
+          <NButton @click="handleAIGenerate">{{ t('alert.aiRegenerate') }}</NButton>
+          <NButton type="primary" @click="handleAIConfirmCreate">{{ t('alert.aiConfirmCreate') }}</NButton>
         </NSpace>
       </div>
     </NModal>

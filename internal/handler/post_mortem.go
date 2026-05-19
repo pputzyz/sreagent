@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -50,7 +51,7 @@ func (h *PostMortemHandler) Update(c *gin.Context) {
 		Status  string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -103,7 +104,7 @@ func (h *PostMortemHandler) List(c *gin.Context) {
 // POST /api/v1/incidents/:id/post-mortem/ai-generate
 func (h *PostMortemHandler) AIGenerate(c *gin.Context) {
 	if h.ai == nil {
-		ErrorWithMessage(c, 10002, "AI service not configured")
+		Error(c, apperr.WithMessage(apperr.ErrMissingParam, "AI service not configured"))
 		return
 	}
 
@@ -132,7 +133,7 @@ func (h *PostMortemHandler) AIGenerate(c *gin.Context) {
 
 	analysis, err := h.ai.AnalyzeAlertWithContext(c.Request.Context(), contextText)
 	if err != nil {
-		ErrorWithMessage(c, 50003, "AI generation failed: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "AI generation failed: "+err.Error()))
 		return
 	}
 
@@ -153,7 +154,7 @@ func (h *PostMortemHandler) AIGenerate(c *gin.Context) {
 // POST /api/v1/incidents/:id/post-mortem/ai-summary
 func (h *PostMortemHandler) AISummary(c *gin.Context) {
 	if h.ai == nil {
-		ErrorWithMessage(c, 10002, "AI service not configured")
+		Error(c, apperr.WithMessage(apperr.ErrMissingParam, "AI service not configured"))
 		return
 	}
 
@@ -179,7 +180,7 @@ func (h *PostMortemHandler) AISummary(c *gin.Context) {
 	contextText := "故障标题: " + incidentTitle + "\n故障描述: " + incidentDesc
 	analysis, err := h.ai.AnalyzeAlertWithContext(c.Request.Context(), contextText)
 	if err != nil {
-		ErrorWithMessage(c, 50003, "AI analysis failed: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "AI analysis failed: "+err.Error()))
 		return
 	}
 

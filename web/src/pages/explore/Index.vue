@@ -1049,7 +1049,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  color: #f1f5f9;
+  color: var(--sre-text-inverse);
 }
 .error-body {
   flex: 1;

@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -25,13 +26,13 @@ func NewLabelRegistryHandler(svc *service.LabelRegistryService) *LabelRegistryHa
 func (h *LabelRegistryHandler) GetValues(c *gin.Context) {
 	key := c.Query("key")
 	if key == "" {
-		ErrorWithMessage(c, 10001, "key is required")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "key is required"))
 		return
 	}
 	dsIDs := parseDatasourceIDs(c.Query("datasource_id"))
 	values, err := h.svc.GetValues(key, dsIDs)
 	if err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
 	Success(c, values)
@@ -43,7 +44,7 @@ func (h *LabelRegistryHandler) GetKeys(c *gin.Context) {
 	dsIDs := parseDatasourceIDs(c.Query("datasource_id"))
 	keys, err := h.svc.GetKeys(dsIDs)
 	if err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
 	Success(c, keys)

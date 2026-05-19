@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -55,7 +56,7 @@ type UpdateCollabChannelRequest struct {
 func (h *ChannelHandler) Create(c *gin.Context) {
 	var req CreateCollabChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -155,7 +156,7 @@ func (h *ChannelHandler) Update(c *gin.Context) {
 
 	var req UpdateCollabChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -211,7 +212,7 @@ func (h *ChannelHandler) Star(c *gin.Context) {
 
 	userID := GetCurrentUserID(c)
 	if userID == 0 {
-		ErrorWithMessage(c, 10100, "unauthorized")
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "unauthorized"))
 		return
 	}
 
@@ -234,7 +235,7 @@ func (h *ChannelHandler) Unstar(c *gin.Context) {
 
 	userID := GetCurrentUserID(c)
 	if userID == 0 {
-		ErrorWithMessage(c, 10100, "unauthorized")
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "unauthorized"))
 		return
 	}
 

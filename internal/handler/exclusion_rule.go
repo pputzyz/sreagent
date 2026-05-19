@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -62,7 +63,7 @@ func (h *ExclusionRuleHandler) Create(c *gin.Context) {
 
 	var req CreateExclusionRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -96,7 +97,7 @@ func (h *ExclusionRuleHandler) Update(c *gin.Context) {
 
 	var req UpdateExclusionRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -146,7 +147,7 @@ func UpdateNoiseCfg(channelSvc *service.ChannelService) gin.HandlerFunc {
 			FlappingConfig    string `json:"flapping_config"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			ErrorWithMessage(c, 10001, err.Error())
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 			return
 		}
 

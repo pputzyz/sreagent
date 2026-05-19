@@ -602,8 +602,11 @@ onMounted(load)
                   v-for="mod in modules"
                   :key="mod.key"
                   class="mod-card"
+                  role="button"
+                  tabindex="0"
                   :class="{ 'mod-card--clickable': !!mod.route }"
                   @click="mod.route && router.push(mod.route)"
+                  @keydown.enter="mod.route && router.push(mod.route)"
                 >
                   <div class="mod-icon" :style="{ background: mod.bgColor, color: mod.color }">
                     <n-icon :component="mod.icon" :size="18" />
@@ -630,7 +633,7 @@ onMounted(load)
                 </div>
                 <div class="wc-body">
                   <div v-if="activeIncidents.length" class="tasks-list">
-                    <div v-for="inc in activeIncidents" :key="inc.id" class="task-row" @click="router.push(`/oncall/incidents/${inc.id}`)">
+                    <div v-for="inc in activeIncidents" :key="inc.id" class="task-row" role="button" tabindex="0" @click="router.push(`/oncall/incidents/${inc.id}`)" @keydown.enter="router.push(`/oncall/incidents/${inc.id}`)">
                       <span class="task-sev" :style="{ background: sevColor(inc.severity) }">{{ inc.severity?.toUpperCase() }}</span>
                       <div class="task-body">
                         <span class="task-title">{{ inc.title || `#${inc.id}` }}</span>
@@ -657,7 +660,7 @@ onMounted(load)
                 </div>
                 <div class="wc-body">
                   <div v-if="oncallUsers.length" class="oncall-list">
-                    <div v-for="item in oncallUsers" :key="item.scheduleName" class="oncall-row" @click="router.push('/oncall/schedule')">
+                    <div v-for="item in oncallUsers" :key="item.scheduleName" class="oncall-row" role="button" tabindex="0" @click="router.push('/oncall/schedule')" @keydown.enter="router.push('/oncall/schedule')">
                       <div class="oncall-avatar">{{ item.userName.charAt(0).toUpperCase() }}</div>
                       <div class="oncall-info">
                         <span class="oncall-name">{{ item.userName }}</span>
@@ -680,7 +683,7 @@ onMounted(load)
                 </div>
                 <div class="wc-body">
                   <div v-if="activity.length" class="activity-list">
-                    <div v-for="(item, idx) in activity" :key="idx" class="act-row" @click="router.push(item.route)">
+                    <div v-for="(item, idx) in activity" :key="idx" class="act-row" role="button" tabindex="0" @click="router.push(item.route)" @keydown.enter="router.push(item.route)">
                       <div class="act-time"><span class="act-dot" :style="{ background: sevColor(item.severity) }"></span>{{ relTime(item.time) }}</div>
                       <span class="act-text">{{ item.text }}</span>
                     </div>
@@ -703,7 +706,10 @@ onMounted(load)
                       v-for="pin in pinnedItems"
                       :key="pin.id"
                       class="pinned-card"
+                      role="button"
+                      tabindex="0"
                       @click="pin.url && router.push(pin.url)"
+                      @keydown.enter="pin.url && router.push(pin.url)"
                     >
                       <div class="pinned-icon" :style="{ background: pin.color + '18', color: pin.color }">
                         {{ pin.title.charAt(0).toUpperCase() }}
@@ -723,7 +729,7 @@ onMounted(load)
             <!-- ═══ Quick Access ═══ -->
             <div v-else-if="widget.type === 'quickAccess'" class="bento-item bento-full">
               <div class="quick-grid">
-                <div v-for="link in enabledQuickLinks" :key="link.id" class="quick-btn" @click="router.push(link.route)">
+                <div v-for="link in enabledQuickLinks" :key="link.id" class="quick-btn" role="button" tabindex="0" @click="router.push(link.route)" @keydown.enter="router.push(link.route)">
                   <div class="quick-icon" :style="{ background: link.bg, color: link.color }">
                     <n-icon :component="link.icon" :size="18" />
                   </div>
@@ -844,10 +850,10 @@ onMounted(load)
   font-size: 12px; font-weight: 500; padding: 4px 12px;
   border-radius: var(--sre-radius-pill); white-space: nowrap;
 }
-.gc-badge--ok { color: #16A34A; background: rgba(34,197,94,0.08); }
-.gc-badge--ok .dot { background: #22C55E; box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
-.gc-badge--down { color: #DC2626; background: rgba(239,68,68,0.08); }
-.gc-badge--down .dot { background: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
+.gc-badge--ok { color: var(--sre-success); background: rgba(34,197,94,0.08); }
+.gc-badge--ok .dot { background: var(--sre-success); box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
+.gc-badge--down { color: var(--sre-critical); background: rgba(239,68,68,0.08); }
+.gc-badge--down .dot { background: var(--sre-critical); box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
 
 /* ===== Module Strip ===== */
 .module-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -899,7 +905,7 @@ onMounted(load)
 }
 .task-row:last-child { border-bottom: none; }
 .task-row:hover { background: var(--sre-bg-hover); }
-.task-sev { font-size: 9px; font-weight: 700; color: #fff; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em; flex-shrink: 0; }
+.task-sev { font-size: 9px; font-weight: 700; color: var(--sre-text-inverse); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em; flex-shrink: 0; }
 .task-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-title { font-size: 13px; font-weight: 500; color: var(--sre-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .task-meta { font-size: 11px; color: var(--sre-text-tertiary); }

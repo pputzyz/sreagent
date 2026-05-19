@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -38,12 +39,12 @@ type updateRoutingRuleReq struct {
 func (h *RoutingRuleHandler) ListByIntegration(c *gin.Context) {
 	integID, err := strconv.ParseUint(c.Query("integration_id"), 10, 64)
 	if err != nil || integID == 0 {
-		ErrorWithMessage(c, 10001, "missing or invalid integration_id query param")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "missing or invalid integration_id query param"))
 		return
 	}
 	rules, err := h.repo.ListByIntegration(c.Request.Context(), uint(integID))
 	if err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
 	Success(c, rules)
@@ -54,11 +55,11 @@ func (h *RoutingRuleHandler) ListByIntegration(c *gin.Context) {
 func (h *RoutingRuleHandler) Create(c *gin.Context) {
 	var req createRoutingRuleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if req.IntegrationID == 0 {
-		ErrorWithMessage(c, 10001, "integration_id is required")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "integration_id is required"))
 		return
 	}
 	rule := &model.RoutingRule{
@@ -69,7 +70,7 @@ func (h *RoutingRuleHandler) Create(c *gin.Context) {
 		IsEnabled:       req.IsEnabled,
 	}
 	if err := h.repo.Create(c.Request.Context(), rule); err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
 	Success(c, rule)
@@ -80,17 +81,17 @@ func (h *RoutingRuleHandler) Create(c *gin.Context) {
 func (h *RoutingRuleHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		ErrorWithMessage(c, 10001, "invalid id")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
 	}
 	var req updateRoutingRuleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	rule, err := h.repo.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
 	if req.TargetChannelID != 0 {
@@ -104,7 +105,7 @@ func (h *RoutingRuleHandler) Update(c *gin.Context) {
 		rule.IsEnabled = *req.IsEnabled
 	}
 	if err := h.repo.Update(c.Request.Context(), rule); err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
 	Success(c, rule)
@@ -115,11 +116,11 @@ func (h *RoutingRuleHandler) Update(c *gin.Context) {
 func (h *RoutingRuleHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		ErrorWithMessage(c, 10001, "invalid id")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
 	}
 	if err := h.repo.Delete(c.Request.Context(), uint(id)); err != nil {
-		ErrorWithMessage(c, 50001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
 	Success(c, nil)

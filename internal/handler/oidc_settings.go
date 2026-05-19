@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -22,7 +23,7 @@ func NewOIDCSettingsHandler(settingSvc *service.SystemSettingService) *OIDCSetti
 func (h *OIDCSettingsHandler) GetConfig(c *gin.Context) {
 	cfg, err := h.settingSvc.GetOIDCConfig(c.Request.Context())
 	if err != nil {
-		ErrorWithMessage(c, 50003, "failed to load OIDC config: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to load OIDC config: "+err.Error()))
 		return
 	}
 	// Mask the secret — never send it back to the browser.
@@ -37,7 +38,7 @@ func (h *OIDCSettingsHandler) GetConfig(c *gin.Context) {
 func (h *OIDCSettingsHandler) UpdateConfig(c *gin.Context) {
 	var req service.OIDCConfigDB
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	// Treat the masked placeholder as "don't change the secret".
@@ -45,7 +46,7 @@ func (h *OIDCSettingsHandler) UpdateConfig(c *gin.Context) {
 		req.ClientSecret = ""
 	}
 	if err := h.settingSvc.SaveOIDCConfig(c.Request.Context(), req); err != nil {
-		ErrorWithMessage(c, 50003, "failed to save OIDC config: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save OIDC config: "+err.Error()))
 		return
 	}
 	Success(c, gin.H{"message": "OIDC configuration updated. Restart the server to apply changes."})

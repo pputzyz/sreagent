@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -52,7 +53,7 @@ type CommentRequest struct {
 func (h *IncidentHandler) Create(c *gin.Context) {
 	var req CreateIncidentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -187,13 +188,13 @@ func (h *IncidentHandler) Snooze(c *gin.Context) {
 
 	var req SnoozeIncidentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
 	until, err := time.Parse(time.RFC3339, req.Until)
 	if err != nil {
-		ErrorWithMessage(c, 10001, "invalid time format, must be RFC3339")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid time format, must be RFC3339"))
 		return
 	}
 
@@ -217,7 +218,7 @@ func (h *IncidentHandler) Reassign(c *gin.Context) {
 
 	var req ReassignIncidentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -241,7 +242,7 @@ func (h *IncidentHandler) Merge(c *gin.Context) {
 
 	var req MergeIncidentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -301,7 +302,7 @@ func (h *IncidentHandler) AddComment(c *gin.Context) {
 
 	var req CommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

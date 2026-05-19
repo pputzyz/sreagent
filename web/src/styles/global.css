@@ -86,8 +86,8 @@
   /* --- Text (improved contrast) --- */
   --sre-text-primary:   #1C1917;
   --sre-text-secondary: #57534E;
-  --sre-text-tertiary:  #78716C;
-  --sre-text-muted:     #A8A29E;
+  --sre-text-tertiary:  #5C5650;
+  --sre-text-muted:     #6B6560;
   --sre-text-inverse:   #ffffff;
 
   /* --- Spacing (4px grid) --- */

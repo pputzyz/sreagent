@@ -16,6 +16,8 @@ import {
   FlashOutline,
 } from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -268,16 +270,14 @@ onMounted(fetchData)
 
 <template>
   <div class="media-page">
-    <header class="sub-header">
-      <div>
-        <h2 class="sub-title">{{ t('media.title') }}</h2>
-        <p class="sub-sub">{{ t('media.subtitle') }}</p>
-      </div>
-      <n-button type="primary" size="small" @click="openCreate">
-        <template #icon><n-icon :component="AddOutline" /></template>
-        {{ t('media.create') }}
-      </n-button>
-    </header>
+    <PageHeader :title="t('media.title')" :subtitle="t('media.subtitle')">
+      <template #actions>
+        <n-button type="primary" size="small" @click="openCreate">
+          <template #icon><n-icon :component="AddOutline" /></template>
+          {{ t('media.create') }}
+        </n-button>
+      </template>
+    </PageHeader>
 
     <div class="toolbar">
       <n-input v-model:value="search" size="small" :placeholder="t('common.search')" clearable style="width: 240px">
@@ -287,7 +287,7 @@ onMounted(fetchData)
       <span class="count tnum">{{ filtered.length }} / {{ mediaList.length }}</span>
     </div>
 
-    <div v-if="loading" class="loading">{{ t('common.loading') }}…</div>
+    <LoadingSkeleton v-if="loading && filtered.length === 0" :rows="4" variant="row" />
 
     <div v-else-if="filtered.length === 0" class="empty">
       <n-icon :component="FlashOutline" size="36" />
