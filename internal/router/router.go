@@ -61,6 +61,9 @@ type Handlers struct {
 	AIRule              *handler.AIRuleHandler              // AI rule generation (AI 规则生成)
 	AlertmanagerImport  *handler.AlertmanagerImportHandler  // alertmanager config import
 	UserPreference      *handler.UserPreferenceHandler     // user preferences (用户偏好)
+	UserNotification    *handler.UserNotificationHandler   // notification center (通知中心)
+	TodoItem            *handler.TodoItemHandler           // todo/task center (待办事项)
+	Permissions         *handler.PermissionsHandler        // RBAC permissions (权限查询)
 }
 
 // Setup initializes the Gin router with all routes and middleware.

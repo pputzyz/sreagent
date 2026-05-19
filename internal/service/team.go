@@ -25,6 +25,7 @@ type TeamRepository interface {
 	ListMembers(ctx context.Context, teamID uint) ([]model.TeamMember, error)
 	GetMember(ctx context.Context, teamID, userID uint) (*model.TeamMember, error)
 	UpdateMember(ctx context.Context, member *model.TeamMember) error
+	ListByUser(ctx context.Context, userID uint) ([]model.TeamMember, error)
 }
 
 // TeamService provides team management operations.
@@ -203,4 +204,9 @@ func (s *TeamService) ListMembers(ctx context.Context, teamID uint) ([]model.Tea
 	}
 
 	return members, nil
+}
+
+// ListByUser returns all team memberships for a given user.
+func (s *TeamService) ListByUser(ctx context.Context, userID uint) ([]model.TeamMember, error) {
+	return s.repo.ListByUser(ctx, userID)
 }

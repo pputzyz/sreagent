@@ -26,7 +26,7 @@ import {
 } from '@vicons/ionicons5'
 import { alertEventApi, alertRuleApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
-import { usePaginatedList, useFilterMemory } from '@/composables'
+import { usePaginatedList, useFilterMemory, usePermissions } from '@/composables'
 import { useAuthStore } from '@/stores/auth'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -37,6 +37,7 @@ const router = useRouter()
 const message = useMessage()
 const { t } = useI18n()
 const authStore = useAuthStore()
+const { hasPerm } = usePermissions()
 
 // ===== State =====
 const firstLoad = ref(true)
@@ -631,13 +632,13 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           </div>
           <div class="ec-actions" @click.stop>
             <NButton
-              v-if="ev.status === 'firing'"
+              v-if="ev.status === 'firing' && hasPerm('events.ack')"
               size="tiny"
               type="primary"
               @click="onAck(ev)"
             >{{ t('alert.claim') }}</NButton>
             <NButton
-              v-if="ev.status !== 'closed' && ev.status !== 'resolved'"
+              v-if="ev.status !== 'closed' && ev.status !== 'resolved' && hasPerm('events.manage')"
               size="tiny"
               quaternary
               @click="onClose(ev)"

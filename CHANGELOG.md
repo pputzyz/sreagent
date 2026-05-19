@@ -4,6 +4,68 @@
 
 ---
 
+## [v4.12.1] — 2026-05-19
+
+### Added — RBAC 权限体系 + AI 规则引擎增强 + 前端体验优化
+
+**RBAC 权限体系完善**
+- 新增 `web/src/permissions.ts`：50+ 权限常量（rules.create / events.ack / incidents.manage 等）
+- 新增 `web/src/directives/vCan.ts`：`v-can` 指令，支持单权限和多权限（OR）条件渲染
+- `main.ts` 注册全局 `v-can` 指令
+- 告警规则页：创建/导入/AI 生成按钮接入 `hasPerm` 权限检查
+- 告警事件页：认领/关闭按钮接入 `hasPerm` 权限检查
+
+**AI 规则引擎增强**
+- 新增 `rule_gen_prompts.go`：Few-shot 示例模板（告警/抑制/静默三种规则类型）
+- 新增 `rule_gen_cache.go`：内存 TTL 缓存（10 分钟），避免重复 LLM 调用
+- `RuleGeneratorService.Generate` 集成缓存 + few-shot prompts
+- `RuleGeneratorService.GenerateInhibition` / `GenerateMute` 集成 few-shot prompts
+- 新增 `RuleGeneratorService.ImproveRule`：基于用户反馈优化已有规则
+- 新增 `POST /ai/rules/improve` 端点（`ai_rule.go` handler + `setting_routes.go` 路由）
+- 静默规则页新增"AI 生成屏蔽"按钮，支持自然语言生成静默规则并一键应用
+
+**前端体验优化**
+- 新增 `web/src/stores/preferences.ts`：用户偏好 Pinia store（主题/语言/时区/默认时间范围）
+- 集成 `UserPreferences` API，支持持久化偏好设置
+
+**国际化对齐**
+- `en.ts` 补齐 mute AI 生成相关 key（aiGenerate / aiMatchLabels / aiSeverities / aiTimeMode 等）
+- `zh-CN.ts` + `en.ts` 新增 aiImprove 相关 key（aiImprove / aiImproveTitle / aiImproveDesc / aiImprovePlaceholder / aiImproveFailed）
+
+---
+
+## [v4.12.0] — 2026-05-19
+
+### Added — 通知中心 + 待办事项 + RBAC 权限增强
+
+**通知中心 (Notification Center)**
+- 新增 `user_notifications` 表（迁移: 000045），支持用户级通知推送
+- 后端：`UserNotificationRepository` / `UserNotificationService` / `UserNotificationHandler`
+- API：`GET /notifications`、`GET /notifications/unread-count`、`PATCH /notifications/:id/read`、`POST /notifications/read-all`、`DELETE /notifications/:id`
+- 前端：`/notifications` 页面，支持未读/已读筛选、标记已读、全部已读
+- 顶栏新增通知铃铛图标（`NotificationBell` 组件），30s 轮询未读数
+
+**待办事项 (Todo / Task Center)**
+- 新增 `todo_items` 表（迁移: 000046），支持个人任务管理
+- 后端：`TodoItemRepository` / `TodoItemService` / `TodoItemHandler`
+- API：`GET /todos`、`GET /todos/pending-count`、`POST /todos`、`PUT /todos/:id`、`PATCH /todos/:id/complete`、`DELETE /todos/:id`
+- 前端：`/platform/todos` 页面，侧边栏"待办事项"入口，支持优先级排序、截止时间
+
+**RBAC 权限增强**
+- 新增 `GET /me/permissions` 端点，返回全局角色 + 团队角色 + 权限列表
+- 新增 `PermissionsHandler`，基于角色生成细粒度权限（users.manage / rules.create / events.ack 等）
+- `TeamRepository` / `TeamService` 新增 `ListByUser` 方法
+- 前端新增 `usePermissions` composable，提供 `hasPerm` / `hasAnyPerm` / `isTeamLead` 等方法
+
+**其他**
+- `router.go` Handlers 新增 `UserNotification`、`TodoItem`、`Permissions` 字段
+
+### 迁移文件
+- `000045_create_notifications.up.sql` / `000045_create_notifications.down.sql`
+- `000046_create_todo_items.up.sql` / `000046_create_todo_items.down.sql`
+
+---
+
 ## [v4.11.3] — 2026-05-19
 
 ### Added — monitoring-trading 全量兼容

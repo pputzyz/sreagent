@@ -2,7 +2,7 @@ import request from './request'
 import type { ApiResponse, PageData } from '@/types'
 import type { PresetRule, PresetRuleOverride } from '@/types/preset-rule'
 import type {
-  AIModuleConfig, RuleGenerateRequest, RuleGenerateResult, ValidationResult,
+  AIModuleConfig, RuleGenerateRequest, RuleGenerateResult, MuteRuleGenerateResult, ValidationResult,
 } from '@/types/ai-module'
 
 // ===== Preset Rule API =====
@@ -48,4 +48,7 @@ export const aiRuleApi = {
 
   generateInhibition: (data: { description: string; datasource_id?: number }) =>
     request.post<ApiResponse<RuleGenerateResult>>('/ai/rules/generate-inhibition', data),
+
+  generateMute: (data: { description: string; timezone?: string }) =>
+    request.post<ApiResponse<MuteRuleGenerateResult>>('/ai/rules/generate-mute', data),
 }

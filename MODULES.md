@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-19 | tag: v4.11.0
-> 共 34 个 model, 46 个 handler, 47 个 service, 34 个 repository, 268+ API 端点
+> 最后更新: 2026-05-19 | tag: v4.12.1
+> 共 36 个 model, 49 个 handler, 50 个 service, 37 个 repository, 282+ API 端点
 
 ---
 
@@ -37,6 +37,9 @@ schedule ──→ user (成员)
 auth ──→ user (用户信息)
 ai ──→ alert-engine (读取告警上下文)
 dashboard ──→ alert-event + incident + channel + team (统计数据)
+user-notification ──→ user (按用户推送)
+todo-item ──→ user (个人待办)
+permissions ──→ team (团队角色查询)
 ```
 
 改模块前查上方依赖：改 notification 会影响 alert-engine 和 escalation；改 schedule 会影响 escalation。
@@ -225,10 +228,10 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 
 ## AI 助手 (ai)
 
-- **功能**: LLM 告警分析报告、SOP 建议、连接测试、多供应商配置、规则生成、标签推荐、抑制规则生成
-- **后端**: `service/ai.go`, `handler/ai.go`, `service/alert_context.go`, `service/alert_pipeline.go`, `service/rule_generator.go`, `handler/ai_rule.go`
-- **前端**: `web/src/pages/settings/AISettings.vue`, `web/src/composables/useAIModule.ts`, `web/src/pages/alerts/rules/Index.vue`（AI 生成按钮 + 模态框）
-- **API**: `/api/v1/ai/*` (12 endpoints: config, test, chat, report, sop, modules, providers, test-provider, rules/generate, rules/validate, rules/suggest-labels, rules/generate-inhibition)
+- **功能**: LLM 告警分析报告、SOP 建议、连接测试、多供应商配置、规则生成、标签推荐、抑制规则生成、静默规则生成、规则优化（ImproveRule）、Few-shot 提示模板、生成结果缓存
+- **后端**: `service/ai.go`, `handler/ai.go`, `service/alert_context.go`, `service/alert_pipeline.go`, `service/rule_generator.go`, `service/rule_gen_prompts.go`, `service/rule_gen_cache.go`, `handler/ai_rule.go`
+- **前端**: `web/src/pages/settings/AISettings.vue`, `web/src/composables/useAIModule.ts`, `web/src/pages/alerts/rules/Index.vue`（AI 生成按钮 + 模态框）, `web/src/pages/alerts/mute/Index.vue`（AI 生成屏蔽按钮）
+- **API**: `/api/v1/ai/*` (14 endpoints: config, test, chat, report, sop, modules, providers, test-provider, rules/generate, rules/validate, rules/suggest-labels, rules/generate-inhibition, rules/generate-mute, rules/improve)
 - **状态**: ✅ 完成（含多供应商配置 + 模块级供应商选择 + 规则页 AI 生成入口）
 
 ## 飞书集成 (lark)
@@ -286,6 +289,34 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 - **API**: `/api/v1/preset-rules` (6 endpoints: LIST 列表, GET 详情, GET /categories 分类列表, POST /:id/apply 应用, POST /import YAML 导入, DELETE 删除)
 - **权限**: 列表/详情/分类已认证即可，应用/导入/删除需管理权限
 - **兼容文档**: `docs/monitoring-trading-compat.md`
+- **状态**: ✅ 完成
+
+## 通知中心 (user-notification)
+
+- **功能**: 用户级通知中心，推送系统/告警/事件通知，支持未读/已读状态管理
+- **后端**: `model/user_notification.go`, `handler/user_notification.go`, `service/user_notification.go`, `repository/user_notification.go`
+- **前端**: `web/src/pages/notification/Center.vue`, `web/src/components/common/NotificationBell.vue`
+- **API**: `/api/v1/notifications` (5 endpoints: LIST 列表, GET /unread-count 未读数, PATCH /:id/read 标记已读, POST /read-all 全部已读, DELETE 删除)
+- **迁移**: 000045_create_notifications
+- **状态**: ✅ 完成
+
+## 待办事项 (todo-item)
+
+- **功能**: 个人任务/待办管理，支持优先级、截止时间、状态流转（pending/completed/dismissed）
+- **后端**: `model/todo_item.go`, `handler/todo_item.go`, `service/todo_item.go`, `repository/todo_item.go`
+- **前端**: `web/src/pages/platform/Todos.vue`，侧边栏"待办事项"入口
+- **API**: `/api/v1/todos` (6 endpoints: LIST 列表, GET /pending-count 待办数, POST 创建, PUT /:id 更新, PATCH /:id/complete 完成, DELETE 删除)
+- **迁移**: 000046_create_todo_items
+- **状态**: ✅ 完成
+
+## RBAC 权限查询 (permissions)
+
+- **功能**: 返回当前用户的完整权限列表（全局角色 + 团队角色 + 细粒度权限点）
+- **后端**: `handler/permissions.go`，依赖 `TeamService.ListByUser`
+- **前端**: `web/src/composables/usePermissions.ts`（hasPerm / hasAnyPerm / isTeamLead）, `web/src/permissions.ts`（50+ 权限常量）, `web/src/directives/vCan.ts`（v-can 指令）
+- **API**: `GET /api/v1/me/permissions` (1 endpoint)
+- **权限**: 已认证即可
+- **已接入页面**: 告警规则页（创建/导入/AI 按钮）、告警事件页（认领/关闭按钮）
 - **状态**: ✅ 完成
 
 ## Alertmanager 导入 (alertmanager-import)

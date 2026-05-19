@@ -65,6 +65,8 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 			aiRules.POST("/validate", h.AIRule.Validate)
 			aiRules.POST("/suggest-labels", h.AIRule.SuggestLabels)
 			aiRules.POST("/generate-inhibition", h.AIRule.GenerateInhibition)
+			aiRules.POST("/generate-mute", h.AIRule.GenerateMute)
+			aiRules.POST("/improve", h.AIRule.Improve)
 		}
 	}
 
@@ -85,5 +87,35 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 			statusSvc.PUT("/:id", adminOnly, h.StatusService.Update)
 			statusSvc.DELETE("/:id", adminOnly, h.StatusService.Delete)
 		}
+	}
+
+	// Notification Center (通知中心)
+	if h.UserNotification != nil {
+		notif := auth.Group("/notifications")
+		{
+			notif.GET("", h.UserNotification.List)
+			notif.GET("/unread-count", h.UserNotification.CountUnread)
+			notif.POST("/read-all", h.UserNotification.MarkAllRead)
+			notif.PATCH("/:id/read", h.UserNotification.MarkRead)
+			notif.DELETE("/:id", h.UserNotification.Delete)
+		}
+	}
+
+	// Todo / Task Center (待办事项)
+	if h.TodoItem != nil {
+		todos := auth.Group("/todos")
+		{
+			todos.GET("", h.TodoItem.List)
+			todos.GET("/pending-count", h.TodoItem.CountPending)
+			todos.POST("", h.TodoItem.Create)
+			todos.PUT("/:id", h.TodoItem.Update)
+			todos.PATCH("/:id/complete", h.TodoItem.Complete)
+			todos.DELETE("/:id", h.TodoItem.Delete)
+		}
+	}
+
+	// RBAC Permissions (权限查询)
+	if h.Permissions != nil {
+		auth.GET("/me/permissions", h.Permissions.GetMyPermissions)
 	}
 }

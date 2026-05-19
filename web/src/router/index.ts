@@ -68,6 +68,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/settings/ai-settings', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiModuleConfig', requiresRole: ['admin'] } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
 
+      // ===== Notification Center & Todos =====
+      { path: 'notifications', component: () => import('@/pages/notification/Center.vue'), meta: { title: 'notification.centerTitle' } },
+      { path: 'platform/todos', component: () => import('@/pages/platform/Todos.vue'), meta: { title: 'todo.title' } },
+
       // ===== Legacy Redirects =====
       { path: 'dashboard', redirect: '/oncall/overview' },
       { path: 'channels', redirect: '/oncall/spaces' },

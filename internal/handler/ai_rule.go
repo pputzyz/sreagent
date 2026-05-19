@@ -93,3 +93,40 @@ func (h *AIRuleHandler) GenerateInhibition(c *gin.Context) {
 
 	Success(c, result)
 }
+
+// GenerateMute handles POST /ai/rules/generate-mute — generates a mute rule.
+func (h *AIRuleHandler) GenerateMute(c *gin.Context) {
+	var req struct {
+		Description string `json:"description" binding:"required"`
+		Timezone    string `json:"timezone"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	result, err := h.ruleGenSvc.GenerateMute(c.Request.Context(), req.Description, req.Timezone)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, result)
+}
+
+// Improve handles POST /ai/rules/improve — improves an existing rule based on feedback.
+func (h *AIRuleHandler) Improve(c *gin.Context) {
+	var req service.ImproveRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	result, err := h.ruleGenSvc.ImproveRule(c.Request.Context(), &req)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, result)
+}

@@ -61,6 +61,23 @@ export interface RuleGenerateResult {
   }
 }
 
+export interface MuteRuleGenerateResult {
+  type: string
+  name: string
+  description: string
+  match_labels: Record<string, string>
+  severities: string[]
+  start_time?: string
+  end_time?: string
+  periodic_start?: string
+  periodic_end?: string
+  days_of_week: string[]
+  timezone: string
+  rule_ids?: number[]
+  confidence: number
+  warnings: string[]
+}
+
 export interface ValidationResult {
   valid: boolean
   result_type?: string

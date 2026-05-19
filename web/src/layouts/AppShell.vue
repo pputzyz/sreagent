@@ -10,6 +10,7 @@ import AppRail from '@/layouts/AppRail.vue'
 import AppSidebar from '@/layouts/AppSidebar.vue'
 import CommandPalette from '@/components/common/CommandPalette.vue'
 import ChangePasswordModal from '@/components/common/ChangePasswordModal.vue'
+import NotificationBell from '@/components/common/NotificationBell.vue'
 import AIChatButton from '@/components/ai/AIChatButton.vue'
 import AIChatPanel from '@/components/ai/AIChatPanel.vue'
 import PetCorner from '@/components/pet/PetCorner.vue'
@@ -165,6 +166,9 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </div>
 
       <div class="topbar-end">
+        <!-- Notification Bell -->
+        <NotificationBell />
+
         <!-- Clock -->
         <n-popover v-model:show="showTzPanel" trigger="click" placement="bottom-end" :show-arrow="false" style="padding:0">
           <template #trigger>

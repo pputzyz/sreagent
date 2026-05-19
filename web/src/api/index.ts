@@ -68,3 +68,7 @@ export {
 
 // ===== Preset rules & AI modules =====
 export { presetRuleApi, aiModuleApi, aiRuleApi } from './preset-rules'
+
+// ===== Notification Center, Todos & Permissions =====
+export { notificationCenterApi, todoApi, permissionsApi } from './center'
+export type { UserNotification, TodoItem, CreateTodoRequest, MyPermissions, TeamRole } from './center'

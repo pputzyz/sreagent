@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -21,6 +22,7 @@ type RuleGeneratorService struct {
 	ruleSvc     *AlertRuleService
 	presetRepo  *repository.PresetRuleRepository
 	dsRepo      *repository.DataSourceRepository
+	cache       *RuleGenCache
 	logger      *zap.Logger
 }
 
@@ -41,6 +43,7 @@ func NewRuleGeneratorService(
 		ruleSvc:     ruleSvc,
 		presetRepo:  presetRepo,
 		dsRepo:      dsRepo,
+		cache:       NewRuleGenCache(10 * time.Minute),
 		logger:      logger,
 	}
 }
@@ -122,6 +125,11 @@ type InstanceInfo struct {
 
 // Generate creates a rule from natural language description.
 func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRequest) (*RuleGenerateResult, error) {
+	// 0. Check cache
+	if cached := s.cache.Get(req.Description, req.DatasourceID, req.RuleType); cached != nil {
+		return cached, nil
+	}
+
 	// 1. Check AI is enabled and rule_gen module is enabled
 	if err := s.checkAIEnabled(ctx); err != nil {
 		return nil, err
@@ -146,8 +154,9 @@ func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRe
 		presetMatches = "暂无匹配的预置规则"
 	}
 
-	// 3. Build system prompt
-	systemPrompt := s.buildSystemPrompt(labelContext, existingRules, presetMatches)
+	// 3. Build system prompt with few-shot examples
+	labelKeys, _ := s.labelRegSvc.GetKeys(nil)
+	systemPrompt := s.buildSystemPrompt(labelContext, existingRules, presetMatches) + "\n\n" + fewShotAlertRule(labelKeys)
 
 	// 4. Build user prompt
 	userPrompt := req.Description
@@ -169,6 +178,9 @@ func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRe
 
 	// 6. Post-process and validate
 	s.postProcessResult(&result)
+
+	// 7. Cache result
+	s.cache.Set(req.Description, req.DatasourceID, req.RuleType, &result)
 
 	return &result, nil
 }
@@ -273,7 +285,9 @@ func (s *RuleGeneratorService) GenerateInhibition(ctx context.Context, descripti
 - source_value: 源告警的 alertname 值
 - target_labels: 被抑制告警需要匹配的标签名列表
 - equal_labels: 源和目标告警需要相等的标签名列表（空表示总是抑制）
-- 如果信息不足，在 warnings 中列出需要确认的事项`
+- 如果信息不足，在 warnings 中列出需要确认的事项
+
+` + fewShotInhibition()
 
 	var result RuleGenerateResult
 	if err := s.aiSvc.callLLMJSON(ctx, s.mustLoadConfig(ctx), systemPrompt, description, &result); err != nil {
@@ -281,6 +295,120 @@ func (s *RuleGeneratorService) GenerateInhibition(ctx context.Context, descripti
 	}
 
 	result.Type = "inhibition"
+	s.postProcessResult(&result)
+
+	return &result, nil
+}
+
+// MuteRuleGenerateResult is the AI-generated mute rule.
+type MuteRuleGenerateResult struct {
+	Type          string   `json:"type"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	MatchLabels   map[string]string `json:"match_labels"`
+	Severities    []string `json:"severities"`
+	StartTime     string   `json:"start_time,omitempty"`
+	EndTime       string   `json:"end_time,omitempty"`
+	PeriodicStart string   `json:"periodic_start,omitempty"`
+	PeriodicEnd   string   `json:"periodic_end,omitempty"`
+	DaysOfWeek    []string `json:"days_of_week"`
+	Timezone      string   `json:"timezone"`
+	RuleIDs       []uint   `json:"rule_ids,omitempty"`
+	Confidence    float64  `json:"confidence"`
+	Warnings      []string `json:"warnings"`
+}
+
+// GenerateMute generates a mute rule from natural language.
+func (s *RuleGeneratorService) GenerateMute(ctx context.Context, description string, timezone string) (*MuteRuleGenerateResult, error) {
+	if err := s.checkAIEnabled(ctx); err != nil {
+		return nil, err
+	}
+
+	if timezone == "" {
+		timezone = "Asia/Shanghai"
+	}
+
+	systemPrompt := fmt.Sprintf(`你是 SRE 告警静默规则生成助手。根据用户的自然语言描述，生成标准的静默规则。
+
+输出格式要求（严格 JSON）：
+{
+  "type": "mute",
+  "name": "静默规则名称",
+  "description": "静默规则说明",
+  "match_labels": {"label_key": "label_value"},
+  "severities": ["critical", "warning"],
+  "start_time": "2026-01-01T02:00:00+08:00",
+  "end_time": "2026-01-01T06:00:00+08:00",
+  "periodic_start": "02:00",
+  "periodic_end": "06:00",
+  "days_of_week": ["1","2","3","4","5"],
+  "timezone": "%s",
+  "rule_ids": [],
+  "confidence": 0.9,
+  "warnings": []
+}
+
+重要规则：
+- match_labels: 必须是 key-value 对，用于匹配告警标签。常见标签：service, env, severity, category, biz_project, tenant
+- severities: 要静默的严重等级数组，可选 critical/warning/info，空数组表示全部
+- 一次性静默：填写 start_time + end_time（ISO 8601 格式），periodic_start/end 留空
+- 周期性静默：填写 periodic_start + periodic_end（HH:MM 格式）+ days_of_week（1=周一到7=周日），start_time/end_time 留空
+- days_of_week: 空数组表示每天
+- rule_ids: 如果用户指定了特定规则，填规则 ID 数组；否则留空表示按标签匹配
+- 如果信息不足，在 warnings 中列出需要确认的事项
+- confidence: 0.0-1.0，信息越完整越高
+
+` + fewShotMute() + `
+
+例子：
+用户: "凌晨 2 点到 6 点静默 staging 环境的告警"
+输出: {"type":"mute","name":"staging-凌晨维护静默","description":"staging 环境每日凌晨维护窗口","match_labels":{"env":"staging"},"severities":[],"periodic_start":"02:00","periodic_end":"06:00","days_of_week":[],"timezone":"%s","confidence":0.95,"warnings":[]}`, timezone, timezone)
+
+	var result MuteRuleGenerateResult
+	if err := s.aiSvc.callLLMJSON(ctx, s.mustLoadConfig(ctx), systemPrompt, description, &result); err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, fmt.Sprintf("AI mute rule generation failed: %v", err))
+	}
+
+	result.Type = "mute"
+	if result.Timezone == "" {
+		result.Timezone = timezone
+	}
+
+	return &result, nil
+}
+
+// ImproveRuleRequest is the input for rule improvement.
+type ImproveRuleRequest struct {
+	Rule        RuleGenerateResult `json:"rule" binding:"required"`
+	Feedback    string             `json:"feedback" binding:"required"`
+	DatasourceID *uint             `json:"datasource_id"`
+}
+
+// ImproveRule takes an existing AI-generated rule and user feedback, returns an improved version.
+func (s *RuleGeneratorService) ImproveRule(ctx context.Context, req *ImproveRuleRequest) (*RuleGenerateResult, error) {
+	if err := s.checkAIEnabled(ctx); err != nil {
+		return nil, err
+	}
+
+	ruleJSON, _ := json.Marshal(req.Rule)
+
+	systemPrompt := `你是 SRE 告警规则优化助手。用户会给你一条已有的告警规则和改进反馈，请根据反馈优化规则。
+
+输出格式与输入相同（严格 JSON），保持原有字段不变，只修改反馈中提到的问题。
+- 如果反馈提到表达式问题，修正 expression
+- 如果反馈提到严重等级，调整 severity
+- 如果反馈提到标签，修改 labels
+- 如果反馈提到持续时间，调整 for_duration
+- 在 warnings 中说明做了哪些修改`
+
+	userPrompt := fmt.Sprintf("当前规则:\n%s\n\n改进反馈: %s", string(ruleJSON), req.Feedback)
+
+	var result RuleGenerateResult
+	if err := s.aiSvc.callLLMJSON(ctx, s.mustLoadConfig(ctx), systemPrompt, userPrompt, &result); err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, fmt.Sprintf("AI rule improvement failed: %v", err))
+	}
+
+	result.Type = req.Rule.Type
 	s.postProcessResult(&result)
 
 	return &result, nil

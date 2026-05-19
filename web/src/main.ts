@@ -12,6 +12,7 @@ import App from './App.vue'
 import i18n from './i18n'
 import router from './router'
 import { vRipple } from '@/directives/ripple'
+import { vCan } from '@/directives/vCan'
 import './styles/global.css'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
@@ -22,5 +23,6 @@ app.use(i18n)
 app.use(router)
 
 app.directive('ripple', vRipple)
+app.directive('can', vCan)
 
 app.mount('#app')

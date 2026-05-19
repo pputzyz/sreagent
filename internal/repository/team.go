@@ -127,3 +127,10 @@ func (r *TeamRepository) GetByLabels(ctx context.Context, labels map[string]stri
 	}
 	return matched, nil
 }
+
+// ListByUser returns all team memberships for a given user.
+func (r *TeamRepository) ListByUser(ctx context.Context, userID uint) ([]model.TeamMember, error) {
+	var members []model.TeamMember
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&members).Error
+	return members, err
+}

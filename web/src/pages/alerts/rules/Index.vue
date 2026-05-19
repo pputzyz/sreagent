@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router'
 import { alertRuleApi, datasourceApi, aiRuleApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
 import type { RuleGenerateResult } from '@/types/ai-module'
-import { usePaginatedList, useAIModule, useFilterMemory } from '@/composables'
+import { usePaginatedList, useAIModule, useFilterMemory, usePermissions } from '@/composables'
 import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -31,6 +31,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
 const router = useRouter()
+const { hasPerm } = usePermissions()
 
 // ─── List state ───
 const datasources = ref<DataSource[]>([])
@@ -382,15 +383,15 @@ onMounted(() => {
   <div class="rules-page">
     <PageHeader :title="t('alert.rules')" :subtitle="t('alert.rulesSubtitle')">
       <template #actions>
-        <n-button v-if="isAIModuleEnabled('rule_gen')" size="small" secondary @click="openAIGenerate">
+        <n-button v-if="isAIModuleEnabled('rule_gen') && hasPerm('rules.create')" size="small" secondary @click="openAIGenerate">
           <template #icon><n-icon :component="SparklesOutline" /></template>
           {{ t('alert.aiGenerate') }}
         </n-button>
-        <n-button size="small" secondary @click="showImportModal = true">
+        <n-button v-if="hasPerm('rules.manage')" size="small" secondary @click="showImportModal = true">
           <template #icon><n-icon :component="CloudUploadOutline" /></template>
           {{ t('alert.importExport') }}
         </n-button>
-        <n-button size="small" type="primary" @click="openCreate">
+        <n-button v-if="hasPerm('rules.create')" size="small" type="primary" @click="openCreate">
           <template #icon><n-icon :component="AddOutline" /></template>
           {{ t('alert.createRule') }}
         </n-button>

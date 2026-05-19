@@ -265,6 +265,7 @@ export function useAppNav() {
           {
             items: [
               { label: t('menu.profile'), key: '/platform/profile', icon: PersonOutline },
+              { label: t('todo.title'), key: '/platform/todos', icon: ListOutline },
             ],
           },
           {

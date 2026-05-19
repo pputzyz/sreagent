@@ -153,6 +153,12 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// User preference repository
 	userPreferenceRepo := repository.NewUserPreferenceRepository(db)
 
+	// Notification center repository
+	userNotificationRepo := repository.NewUserNotificationRepository(db)
+
+	// Todo item repository
+	todoItemRepo := repository.NewTodoItemRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -221,6 +227,12 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// User preference service
 	userPreferenceSvc := service.NewUserPreferenceService(userPreferenceRepo, zapLogger)
+
+	// Notification center service
+	userNotificationSvc := service.NewUserNotificationService(userNotificationRepo, zapLogger)
+
+	// Todo item service
+	todoItemSvc := service.NewTodoItemService(todoItemRepo, zapLogger)
 
 	// AI rule generation service
 	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
@@ -463,6 +475,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		AIRule:              handler.NewAIRuleHandler(ruleGenSvc),
 		AlertmanagerImport:  handler.NewAlertmanagerImportHandler(alertmanagerImportSvc),
 		UserPreference:      handler.NewUserPreferenceHandler(userPreferenceSvc),
+		UserNotification:    handler.NewUserNotificationHandler(userNotificationSvc),
+		TodoItem:            handler.NewTodoItemHandler(todoItemSvc),
+		Permissions:         handler.NewPermissionsHandler(teamSvc),
 	}
 
 	// Inject audit service into handlers that support it
