@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -40,7 +41,7 @@ type CreateMuteRuleRequest struct {
 func (h *MuteRuleHandler) Create(c *gin.Context) {
 	var req CreateMuteRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -113,7 +114,7 @@ func (h *MuteRuleHandler) Update(c *gin.Context) {
 
 	var req CreateMuteRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -175,7 +176,7 @@ type MutePreviewItem struct {
 // GET /api/v1/mute-rules/preview
 func (h *MuteRuleHandler) Preview(c *gin.Context) {
 	if h.eventSvc == nil {
-		ErrorWithMessage(c, 50000, "alert event service not available")
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "alert event service not available"))
 		return
 	}
 
@@ -218,6 +219,52 @@ func (h *MuteRuleHandler) Preview(c *gin.Context) {
 	Success(c, result)
 }
 
+// PreviewOne returns the preview for a single mute rule.
+// GET /api/v1/mute-rules/:id/preview
+func (h *MuteRuleHandler) PreviewOne(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	if h.eventSvc == nil {
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "alert event service not available"))
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Fetch the specific mute rule
+	rule, err := h.svc.GetByID(ctx, id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	// Fetch all currently firing alerts (up to 500)
+	firingEvents, _, err := h.eventSvc.List(ctx, "firing", "", 1, 500)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	now := time.Now()
+	item := MutePreviewItem{
+		RuleID:        rule.ID,
+		RuleName:      rule.Name,
+		MatchedAlerts: []model.AlertEvent{},
+	}
+	for _, ev := range firingEvents {
+		if h.svc.MatchesRule(rule, &ev, now) {
+			item.MatchedAlerts = append(item.MatchedAlerts, ev)
+		}
+	}
+	item.MatchedCount = len(item.MatchedAlerts)
+
+	Success(c, item)
+}
+
 // muteBatchIDsReq is the request body for batch operations.
 type muteBatchIDsReq struct {
 	IDs []uint `json:"ids" binding:"required,min=1"`
@@ -227,7 +274,7 @@ type muteBatchIDsReq struct {
 func (h *MuteRuleHandler) BatchEnable(c *gin.Context) {
 	var req muteBatchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchEnable(c.Request.Context(), req.IDs); err != nil {
@@ -241,7 +288,7 @@ func (h *MuteRuleHandler) BatchEnable(c *gin.Context) {
 func (h *MuteRuleHandler) BatchDisable(c *gin.Context) {
 	var req muteBatchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchDisable(c.Request.Context(), req.IDs); err != nil {
@@ -255,7 +302,7 @@ func (h *MuteRuleHandler) BatchDisable(c *gin.Context) {
 func (h *MuteRuleHandler) BatchDelete(c *gin.Context) {
 	var req muteBatchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchDelete(c.Request.Context(), req.IDs); err != nil {

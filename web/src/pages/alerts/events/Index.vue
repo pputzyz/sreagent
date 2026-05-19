@@ -31,6 +31,7 @@ import { useAuthStore } from '@/stores/auth'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -421,12 +422,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 <template>
   <div class="ae-page sre-stagger">
     <!-- Header -->
-    <header class="ae-header">
-      <div>
-        <h1 class="ae-title">{{ t('alert.events') || 'Active Alerts' }}</h1>
-        <p class="ae-subtitle">{{ t('alert.eventsSubtitle') || 'Live alerts firing across all rules' }}</p>
-      </div>
-      <div class="ae-header-actions">
+    <PageHeader :title="t('alert.events') || 'Active Alerts'" :subtitle="t('alert.eventsSubtitle') || 'Live alerts firing across all rules'">
+      <template #actions>
         <NSelect
           :value="refreshInterval"
           :options="refreshOptions"
@@ -441,8 +438,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           <template #icon><NIcon :component="DownloadOutline" /></template>
           {{ t('alert.exportCSV') || 'Export CSV' }}
         </NButton>
-      </div>
-    </header>
+      </template>
+    </PageHeader>
 
     <!-- Status tabs + filters -->
     <section class="ae-filters">

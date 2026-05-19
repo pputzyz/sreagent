@@ -24,6 +24,7 @@ import OIDCConfig from './OIDCConfig.vue'
 import SMTPConfig from './SMTPConfig.vue'
 import AuditLog from './AuditLog.vue'
 import SecurityConfig from './SecurityConfig.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 
@@ -203,10 +204,7 @@ const teamsUsersList = computed(() => userMgmtRef.value?.usersList ?? [])
     </aside>
 
     <section class="settings-content">
-      <header class="content-header">
-        <h1 class="content-title">{{ activeItem.title }}</h1>
-        <p class="content-desc">{{ activeItem.desc }}</p>
-      </header>
+      <PageHeader :title="activeItem.title" :subtitle="activeItem.desc" />
 
       <div :key="transitionKey" class="content-body">
         <UserManagement v-show="activeKey === 'users'" ref="userMgmtRef" />

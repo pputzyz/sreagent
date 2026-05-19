@@ -8,6 +8,7 @@ import type { AuditLog } from '@/types'
 import { formatTime } from '@/utils/format'
 import { usePaginatedList } from '@/composables'
 import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const { t } = useI18n()
 
@@ -211,12 +212,10 @@ onMounted(fetchList)
     </div>
 
     <div class="timeline-wrap">
-      <NSpin :show="loading && !firstLoad">
-        <div v-if="loading && firstLoad" class="state-pad">
-          <NSpin size="medium" />
-        </div>
+      <LoadingSkeleton v-if="loading && firstLoad" :rows="6" variant="row" />
+      <NSpin v-else :show="loading">
         <EmptyState
-          v-else-if="!logs.length"
+          v-if="!logs.length"
           :icon="ListOutline"
           :title="t('settings.auditLog') || 'Audit Log'"
           :description="t('settings.auditNoRecordsInRange')"

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, type Component } from 'vue'
+import { ref, computed, onMounted, reactive, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NSpin, NModal, NForm, NFormItem, NSelect, NInputNumber, NPopconfirm } from 'naive-ui'
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server, Settings, Plus, Pencil, Trash2 } from 'lucide-vue-next'
 import { statusServiceApi, type StatusServiceItem } from '@/api'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -12,6 +13,11 @@ const email = ref('')
 const submitting = ref(false)
 const services = ref<StatusServiceItem[]>([])
 const loading = ref(true)
+const firstLoad = ref(true)
+
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoad.value = false
+})
 
 // --- Management modal ---
 const showManage = ref(false)
@@ -180,7 +186,8 @@ async function handleDelete(id: number) {
 
     <!-- Service Status Cards -->
     <div class="status-section">
-      <NSpin :show="loading">
+      <LoadingSkeleton v-if="firstLoad && loading" :rows="4" variant="card-grid" />
+      <NSpin v-else :show="loading">
         <div class="status-header">
           <div class="status-header-row">
             <span class="eyebrow">{{ t('statusPageModule.currentStatus') }}</span>

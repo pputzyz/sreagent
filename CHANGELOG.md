@@ -4,6 +4,29 @@
 
 ---
 
+## [v4.10.28] — 2026-05-19
+
+### Fixed — 终审优化（UI 一致性 + 交互增强 + a11y）
+
+**后端**
+- `internal/handler/alert_event.go` — 替换 8 处 `ErrorWithMessage(c, 10001, ...)` → `Error(c, apperr.WithMessage(...))`
+- `internal/handler/alert_rule.go` — 替换 13 处
+- `internal/handler/mute_rule.go` — 替换 5 处 + 新增 `PreviewOne` 单规则预览端点
+- `internal/handler/notify_rule.go` — 替换 5 处
+- `internal/router/admin_routes.go` — 注册 `GET /mute-rules/:id/preview`
+
+**前端 — UI 一致性**
+- 6 个页面补齐 `<PageHeader>`（events、history、integrations、notification/Index、schedule、settings/Index）
+- `web/src/pages/notification/AlertChannels.vue` — 补 `<PageHeader>`
+- `web/src/styles/global.css` — 补 `prefers-reduced-motion` 兜底（ripple、page-transition、hover 动效全部关闭）
+
+**前端 — 交互增强**
+- `web/src/api/notify.ts` — 新增 `previewOne(id)` 单规则预览 API
+- `web/src/pages/alerts/mute/Index.vue` — 改用 `previewOne` 直接调用，不再拉全量筛选
+- 5 个高频页面加 `<LoadingSkeleton>`（AuditLog、TeamManagement、UserManagement、StatusPage、incidents）
+
+---
+
 ## [v4.10.27] — 2026-05-19
 
 ### Fixed — 三轮审查最终优化（Batch 7-8）

@@ -10,6 +10,7 @@ import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import { ArchiveOutline, DownloadOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -156,16 +157,14 @@ onMounted(() => {
 <template>
   <div class="hist-page">
     <!-- Header -->
-    <header class="hist-header">
-      <div>
-        <h1 class="hist-title-main">{{ t('alert.history') }}</h1>
-        <p class="hist-subtitle">{{ t('alert.historyDesc') }}</p>
-      </div>
-      <NButton size="small" @click="exportCsv">
-        <template #icon><NIcon :component="DownloadOutline" /></template>
-        {{ t('alert.exportCSV') }}
-      </NButton>
-    </header>
+    <PageHeader :title="t('alert.history')" :subtitle="t('alert.historyDesc')">
+      <template #actions>
+        <NButton size="small" @click="exportCsv">
+          <template #icon><NIcon :component="DownloadOutline" /></template>
+          {{ t('alert.exportCSV') }}
+        </NButton>
+      </template>
+    </PageHeader>
 
     <!-- Time range -->
     <div class="hist-toolbar">

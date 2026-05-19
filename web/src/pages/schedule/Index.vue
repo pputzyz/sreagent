@@ -10,6 +10,7 @@ import ScheduleSidebar from './ScheduleSidebar.vue'
 import ScheduleModal from './ScheduleModal.vue'
 import ShiftModal from './ShiftModal.vue'
 import ParticipantsList from './ParticipantsList.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -305,12 +306,8 @@ onMounted(() => {
 <template>
   <div class="schedule-page">
     <!-- Page Header -->
-    <header class="schedule-header">
-      <div class="schedule-header-text">
-        <h1 class="schedule-title">{{ t('schedule.pageTitle') }}</h1>
-        <p class="schedule-subtitle">{{ t('schedule.pageSubtitle') || 'Define rotations and escalation policies' }}</p>
-      </div>
-      <div class="schedule-header-actions">
+    <PageHeader :title="t('schedule.pageTitle')" :subtitle="t('schedule.pageSubtitle') || 'Define rotations and escalation policies'">
+      <template #actions>
         <n-button size="small" @click="scheduleModalRef?.openCreate()">+ {{ t('schedule.newSchedule') }}</n-button>
         <n-button
           size="small"
@@ -320,8 +317,8 @@ onMounted(() => {
         >
           + {{ t('schedule.newShift') }}
         </n-button>
-      </div>
-    </header>
+      </template>
+    </PageHeader>
 
     <div class="schedule-layout">
       <!-- Left Sidebar -->

@@ -14,6 +14,7 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		mutes.GET("", h.MuteRule.List)
 		mutes.GET("/preview", h.MuteRule.Preview)
 		mutes.GET("/:id", h.MuteRule.Get)
+		mutes.GET("/:id/preview", operate, h.MuteRule.PreviewOne)
 		mutes.POST("", manage, h.MuteRule.Create)
 		mutes.PUT("/:id", manage, h.MuteRule.Update)
 		mutes.DELETE("/:id", manage, h.MuteRule.Delete)

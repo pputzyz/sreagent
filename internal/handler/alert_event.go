@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -112,7 +113,7 @@ func (h *AlertEventHandler) Assign(c *gin.Context) {
 		Note     string `json:"note"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -144,7 +145,7 @@ func (h *AlertEventHandler) Resolve(c *gin.Context) {
 		Resolution string `json:"resolution"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -176,7 +177,7 @@ func (h *AlertEventHandler) Close(c *gin.Context) {
 		Note string `json:"note"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -208,7 +209,7 @@ func (h *AlertEventHandler) AddComment(c *gin.Context) {
 		Note string `json:"note" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -251,7 +252,7 @@ func (h *AlertEventHandler) Silence(c *gin.Context) {
 		Reason          string `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -277,7 +278,7 @@ func (h *AlertEventHandler) BatchAcknowledge(c *gin.Context) {
 		IDs []uint `json:"ids" binding:"required,min=1"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -304,7 +305,7 @@ func (h *AlertEventHandler) BatchClose(c *gin.Context) {
 		IDs []uint `json:"ids" binding:"required,min=1"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -510,7 +511,7 @@ func splitCSV(s string) []string {
 func (h *AlertEventHandler) WebhookReceive(c *gin.Context) {
 	var payload model.AlertManagerPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

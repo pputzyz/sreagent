@@ -23,6 +23,7 @@ import { usePaginatedList, useCrudModal } from '@/composables'
 import { kvArrayToRecord } from '@/utils/format'
 import { AddOutline, EllipsisHorizontal, SearchOutline } from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const props = defineProps<{ allUsers: User[] }>()
 
@@ -53,6 +54,11 @@ const {
 } = useCrudModal(fetchList)
 
 const search = ref('')
+const firstLoad = ref(true)
+
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoad.value = false
+})
 
 const showMembersModal = ref(false)
 const membersTeamId = ref<number | null>(null)
@@ -227,7 +233,8 @@ onMounted(fetchList)
       </NInput>
     </div>
 
-    <div class="team-grid sre-stagger">
+    <LoadingSkeleton v-if="firstLoad && loading" :rows="6" variant="card-grid" />
+    <div v-else class="team-grid sre-stagger">
       <div
         v-for="tm in filtered"
         :key="tm.id"

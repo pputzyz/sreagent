@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -49,7 +50,7 @@ type CreateAlertRuleRequest struct {
 func (h *AlertRuleHandler) Create(c *gin.Context) {
 	var req CreateAlertRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -129,7 +130,7 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 
 	var req CreateAlertRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -195,7 +196,7 @@ func (h *AlertRuleHandler) Delete(c *gin.Context) {
 func (h *AlertRuleHandler) Import(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		ErrorWithMessage(c, 10001, "file upload required: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "file upload required: "+err.Error()))
 		return
 	}
 	defer file.Close()
@@ -212,7 +213,7 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		ErrorWithMessage(c, 10001, "failed to read file: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read file: "+err.Error()))
 		return
 	}
 
@@ -222,16 +223,16 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 	switch ext {
 	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(data, &ruleFile); err != nil {
-			ErrorWithMessage(c, 10001, "failed to parse YAML: "+err.Error())
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to parse YAML: "+err.Error()))
 			return
 		}
 	case ".json":
 		if err := json.Unmarshal(data, &ruleFile); err != nil {
-			ErrorWithMessage(c, 10001, "failed to parse JSON: "+err.Error())
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to parse JSON: "+err.Error()))
 			return
 		}
 	default:
-		ErrorWithMessage(c, 10001, "unsupported file format: "+ext+". Use .yaml, .yml, or .json")
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "unsupported file format: "+ext+". Use .yaml, .yml, or .json"))
 		return
 	}
 
@@ -352,7 +353,7 @@ func (h *AlertRuleHandler) Export(c *gin.Context) {
 	if format == "json" {
 		data, err := json.Marshal(&ruleFile)
 		if err != nil {
-			ErrorWithMessage(c, 50001, "failed to marshal rules: "+err.Error())
+			Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to marshal rules: "+err.Error()))
 			return
 		}
 		c.Header("Content-Disposition", "attachment; filename=alert_rules.json")
@@ -362,7 +363,7 @@ func (h *AlertRuleHandler) Export(c *gin.Context) {
 
 	data, err := yaml.Marshal(&ruleFile)
 	if err != nil {
-		ErrorWithMessage(c, 50001, "failed to marshal rules: "+err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to marshal rules: "+err.Error()))
 		return
 	}
 
@@ -382,7 +383,7 @@ func (h *AlertRuleHandler) ToggleStatus(c *gin.Context) {
 		Status model.AlertRuleStatus `json:"status" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -411,7 +412,7 @@ type batchIDsReq struct {
 func (h *AlertRuleHandler) BatchEnable(c *gin.Context) {
 	var req batchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchEnable(c.Request.Context(), req.IDs); err != nil {
@@ -433,7 +434,7 @@ func (h *AlertRuleHandler) BatchEnable(c *gin.Context) {
 func (h *AlertRuleHandler) BatchDisable(c *gin.Context) {
 	var req batchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchDisable(c.Request.Context(), req.IDs); err != nil {
@@ -455,7 +456,7 @@ func (h *AlertRuleHandler) BatchDisable(c *gin.Context) {
 func (h *AlertRuleHandler) BatchDelete(c *gin.Context) {
 	var req batchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchDelete(c.Request.Context(), req.IDs); err != nil {

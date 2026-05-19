@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -47,7 +48,7 @@ type UpdateNotifyRuleRequest struct {
 func (h *NotifyRuleHandler) Create(c *gin.Context) {
 	var req CreateNotifyRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -117,7 +118,7 @@ func (h *NotifyRuleHandler) Update(c *gin.Context) {
 
 	var req UpdateNotifyRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
@@ -172,7 +173,7 @@ type notifyBatchIDsReq struct {
 func (h *NotifyRuleHandler) BatchEnable(c *gin.Context) {
 	var req notifyBatchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchEnable(c.Request.Context(), req.IDs); err != nil {
@@ -186,7 +187,7 @@ func (h *NotifyRuleHandler) BatchEnable(c *gin.Context) {
 func (h *NotifyRuleHandler) BatchDisable(c *gin.Context) {
 	var req notifyBatchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchDisable(c.Request.Context(), req.IDs); err != nil {
@@ -200,7 +201,7 @@ func (h *NotifyRuleHandler) BatchDisable(c *gin.Context) {
 func (h *NotifyRuleHandler) BatchDelete(c *gin.Context) {
 	var req notifyBatchIDsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorWithMessage(c, 10001, err.Error())
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 	if err := h.svc.BatchDelete(c.Request.Context(), req.IDs); err != nil {

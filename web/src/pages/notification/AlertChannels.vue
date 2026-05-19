@@ -16,6 +16,7 @@ import { useCrudPage } from '@/composables/useCrudPage'
 import type { CrudApiModule } from '@/composables/useCrudPage'
 import KVEditor from '@/components/common/KVEditor.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -235,6 +236,8 @@ onMounted(() => {
 
 <template>
   <div class="ac-page">
+    <PageHeader :title="t('menu.alertChannels')" :subtitle="t('alertChannel.subtitle')" />
+
     <!-- Toolbar -->
     <div class="ac-toolbar">
       <div class="ac-toolbar-left">

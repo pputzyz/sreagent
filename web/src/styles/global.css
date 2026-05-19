@@ -1290,6 +1290,9 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
   .float-btn:hover,
   .nav-icon-bg:hover,
   .app-sidebar .n-menu-item-content:hover { transform: none !important; }
+  .sre-ripple-wave { display: none; }
+  .sre-page-enter-active,
+  .sre-page-leave-active { transition: none; }
 }
 
 /* === Animation System (v4.8) === */

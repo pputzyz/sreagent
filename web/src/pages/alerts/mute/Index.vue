@@ -12,7 +12,7 @@ import {
   CreateOutline, TrashOutline, SearchOutline,
 } from '@vicons/ionicons5'
 import { muteRuleApi } from '@/api'
-import type { MuteRule, AlertEvent } from '@/types'
+import type { MuteRule } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { formatTime } from '@/utils/format'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
@@ -193,7 +193,8 @@ function handleAction(key: string, rule: MuteRule) {
 // ---------- inline preview ----------
 const expandedRuleId = ref<number | null>(null)
 const previewLoading = ref(false)
-const previewItems = ref<AlertEvent[]>([])
+interface PreviewAlert { alert_name: string; severity: string; labels: Record<string, string>; firing_at: string }
+const previewItems = ref<PreviewAlert[]>([])
 
 function isPreviewOpen(rule: MuteRule): boolean {
   return expandedRuleId.value === rule.id
@@ -208,10 +209,8 @@ async function togglePreview(rule: MuteRule) {
   expandedRuleId.value = rule.id
   previewLoading.value = true
   try {
-    const { data } = await muteRuleApi.preview()
-    const all = (data.data || []) as Array<{ rule_id: number; rule_name: string; matched_alerts: AlertEvent[] }>
-    const target = all.find(x => x.rule_id === rule.id)
-    previewItems.value = target?.matched_alerts || []
+    const { data } = await muteRuleApi.previewOne(rule.id)
+    previewItems.value = data.data?.matched_alerts || []
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {
@@ -325,10 +324,6 @@ async function handleSave() {
   }
 }
 
-function severityOf(ev: AlertEvent): string {
-  return (ev.severity || 'info').toLowerCase()
-}
-
 onMounted(fetchRules)
 </script>
 
@@ -434,23 +429,21 @@ onMounted(fetchRules)
               </div>
               <div v-else class="mute-preview-list">
                 <div
-                  v-for="ev in previewItems" :key="ev.id"
+                  v-for="(ev, idx) in previewItems" :key="idx"
                   class="sre-row-card mute-preview-row"
-                  :data-severity="severityOf(ev)"
+                  :data-severity="(ev.severity || 'info').toLowerCase()"
                 >
                   <div class="mute-preview-main">
                     <div class="mute-preview-head">
-                      <span class="sre-dot" :data-severity="severityOf(ev)"></span>
-                      <span class="mute-preview-sev">{{ severityOf(ev).toUpperCase() }}</span>
-                      <span class="mute-preview-name">{{ ev.alert_name || ev.rule?.name || `#${ev.id}` }}</span>
+                      <span class="sre-dot" :data-severity="(ev.severity || 'info').toLowerCase()"></span>
+                      <span class="mute-preview-sev">{{ (ev.severity || 'info').toUpperCase() }}</span>
+                      <span class="mute-preview-name">{{ ev.alert_name }}</span>
                     </div>
-                    <div v-if="ev.annotations?.summary || ev.annotations?.description" class="mute-preview-desc">
-                      {{ ev.annotations?.summary || ev.annotations?.description }}
+                    <div v-if="ev.labels && Object.keys(ev.labels).length" class="mute-preview-desc">
+                      <span v-for="(v, k) in ev.labels" :key="k" class="mute-chip">{{ k }}={{ v }}</span>
                     </div>
                     <div class="mute-preview-meta tnum">
-                      <span>#{{ ev.id }}</span>
-                      <span v-if="ev.fired_at" class="sre-meta-divider"></span>
-                      <span v-if="ev.fired_at">{{ formatTime(ev.fired_at) }}</span>
+                      <span v-if="ev.firing_at">{{ formatTime(ev.firing_at) }}</span>
                     </div>
                   </div>
                 </div>

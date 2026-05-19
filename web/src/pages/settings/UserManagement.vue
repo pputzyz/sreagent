@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted, h } from 'vue'
+import { computed, reactive, ref, onMounted, watch, h } from 'vue'
 import {
   useMessage,
   NButton,
@@ -22,6 +22,7 @@ import { userApi } from '@/api'
 import type { User } from '@/types'
 import { usePaginatedList, useCrudModal } from '@/composables'
 import { AddOutline, EllipsisHorizontal, SearchOutline } from '@vicons/ionicons5'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -52,6 +53,11 @@ const {
 const filterRole = ref<'all' | 'admin' | 'team_lead' | 'member' | 'viewer'>('all')
 const filterStatus = ref<'all' | 'active' | 'inactive'>('all')
 const search = ref('')
+const firstLoad = ref(true)
+
+watch(loading, (isLoading) => {
+  if (!isLoading) firstLoad.value = false
+})
 
 const form = reactive({
   username: '',
@@ -237,7 +243,8 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
       </NInput>
     </div>
 
-    <div class="user-list sre-stagger">
+    <LoadingSkeleton v-if="firstLoad && loading" :rows="6" variant="row" />
+    <div v-else class="user-list sre-stagger">
       <div
         v-for="u in filtered"
         :key="u.id"

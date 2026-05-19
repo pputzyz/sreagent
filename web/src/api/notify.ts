@@ -111,6 +111,9 @@ export const muteRuleApi = {
       rule_id: number; rule_name: string
       matched_count: number; matched_alerts: AlertEvent[]
     }>>>('/mute-rules/preview'),
+
+  previewOne: (id: number) =>
+    request.get<ApiResponse<{ matched_alerts: Array<{ alert_name: string; severity: string; labels: Record<string, string>; firing_at: string }> }>>(`/mute-rules/${id}/preview`),
 }
 
 // ===== Inhibition Rules API =====

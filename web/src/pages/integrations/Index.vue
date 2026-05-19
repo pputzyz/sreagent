@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/utils/format'
 import RoutingRules from './RoutingRules.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import {
   AddOutline,
   CopyOutline,
@@ -227,12 +228,8 @@ onMounted(load)
 <template>
   <div class="integ-page">
     <!-- Header -->
-    <header class="integ-header">
-      <div class="integ-header-text">
-        <h1 class="integ-title">{{ t('menu.integrations') }}</h1>
-        <p class="integ-subtitle">{{ t('integration.subtitle') }}</p>
-      </div>
-      <div class="integ-header-actions">
+    <PageHeader :title="t('menu.integrations')" :subtitle="t('integration.subtitle')">
+      <template #actions>
         <n-button quaternary circle :loading="loading" @click="load">
           <template #icon><n-icon :component="RefreshOutline" /></template>
         </n-button>
@@ -240,8 +237,8 @@ onMounted(load)
           <template #icon><n-icon :component="AddOutline" /></template>
           {{ t('integration.create') }}
         </n-button>
-      </div>
-    </header>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <section class="integ-filters">

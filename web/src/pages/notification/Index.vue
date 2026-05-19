@@ -15,6 +15,7 @@ import Media from './Media.vue'
 import Rules from './Rules.vue'
 import Subscribe from './Subscribe.vue'
 import Templates from './Templates.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -100,10 +101,7 @@ onUnmounted(() => window.removeEventListener('hashchange', onHash))
 
 <template>
   <div class="notif-shell">
-    <header class="notif-header">
-      <h1 class="notif-title">{{ t('menu.notification') }}</h1>
-      <p class="notif-subtitle">{{ t('notification.subtitle') }}</p>
-    </header>
+    <PageHeader :title="t('menu.notification')" :subtitle="t('notification.subtitle')" />
 
     <div class="notif-body">
       <aside class="notif-aside">
