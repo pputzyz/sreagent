@@ -4,6 +4,44 @@
 
 ---
 
+## [v4.10.37] — 2026-05-19
+
+### Changed — 前端国际化完善
+
+- `web/src/utils/severity.ts` — 严重级别标签改用 `i18n.global.t()` 动态翻译
+- `web/src/api/request.ts` — 错误码消息改用 vue-i18n（去除手动 `[zh, en]` 双语数组）
+- `web/src/pages/alerts/Presets.vue` — 30+ 硬编码中文字符串替换为 `t()` 调用
+- `web/src/pages/settings/AISettings.vue` — 55+ 硬编码字符串替换为 `t()` 调用 + 添加 `useI18n`
+- `web/src/pages/settings/AIConfig.vue` — 供应商选项标签国际化
+- `web/src/pages/alerts/rules/Index.vue` — AI 生成结果标签（Duration/Labels/Summary）国际化
+- `web/src/components/common/UserAvatar.vue` — 头像 alt 文本国际化
+- `web/src/components/common/LabelMatcherEditor.vue` — placeholder 国际化
+- `web/src/pages/settings/UserManagement.vue` — 4 个 placeholder 国际化
+- `web/src/pages/settings/TeamManagement.vue` — placeholder 国际化
+- `web/src/pages/notification/Templates.vue` — placeholder 国际化
+- `web/src/pages/notification/Media.vue` — 8 个 placeholder 国际化
+- `web/src/pages/notification/AlertChannels.vue` — fallback 模式修复
+- `web/src/pages/datasources/Index.vue` — 2 个 placeholder 国际化
+- `web/src/pages/schedule/ScheduleModal.vue` — 3 个 placeholder 国际化
+- `web/src/pages/alerts/mute/Index.vue` — placeholder 国际化
+- `web/src/pages/alerts/inhibition/Index.vue` — placeholder + fallback 国际化
+- `web/src/pages/alerts/events/Index.vue` — fallback 模式修复
+- `web/src/pages/alerts/events/Detail.vue` — fallback 模式修复
+- `web/src/pages/alerts/history/Index.vue` — fallback 模式修复
+- `web/src/components/alert/BatchOperations.vue` — fallback 模式修复
+- `web/src/pages/dashboard-v2/Index.vue` — fallback 模式修复
+- `web/src/i18n/zh-CN.ts` — 新增 `errorCode`、`alert.aiGen*`、`aiSettings.provider*` 等 i18n key
+- `web/src/i18n/en.ts` — 对应英文翻译同步
+- `web/src/components/time/TimeRangePicker.vue` — 改用响应式 `useRelativeTimeOptions()`
+
+## [v4.10.36] — 2026-05-19
+
+### Fixed — OIDC 配置热加载
+
+- `cmd/server/wire.go` — `Dependencies` 新增 `ReloadOIDC()` 方法 + `oidcHdlr` 字段
+- `internal/handler/oidc_settings.go` — `UpdateConfig` 保存后自动调用 `onReload()` 回调热加载 OIDC 配置
+- `web/src/pages/settings/OIDCConfig.vue` — 移除"需要重启 Pod 才能生效"警告提示
+
 ## [v4.10.35] — 2026-05-19
 
 ### Security — P0 生产风险修复（7 项）

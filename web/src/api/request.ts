@@ -1,5 +1,8 @@
 import axios from 'axios'
 import type { ApiResponse } from '@/types'
+import i18n from '@/i18n'
+
+const t = i18n.global.t
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -7,25 +10,20 @@ const request = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Map backend error codes to user-friendly messages
-// Key is the error code, values are [zh, en]
-const errorMessages: Record<number, [string, string]> = {
-  10102: ['用户名或密码错误', 'Invalid username or password'],
-  10101: ['登录已过期，请重新登录', 'Session expired, please log in again'],
-  10100: ['未授权访问', 'Unauthorized'],
-  10200: ['权限不足', 'Insufficient permissions'],
-  10300: ['资源不存在', 'Resource not found'],
-  10400: ['名称已被占用', 'Name already taken'],
-}
-
-function getLocale(): string {
-  try { return localStorage.getItem('locale') || 'zh-CN' } catch { return 'zh-CN' }
+// Map backend error codes to i18n keys
+const errorCodeMap: Record<number, string> = {
+  10102: 'errorCode.invalidCredentials',
+  10101: 'errorCode.sessionExpired',
+  10100: 'errorCode.unauthorized',
+  10200: 'errorCode.insufficientPermissions',
+  10300: 'errorCode.resourceNotFound',
+  10400: 'errorCode.nameTaken',
 }
 
 function localizeError(code: number, fallback: string): string {
-  const msgs = errorMessages[code]
-  if (!msgs) return fallback
-  return getLocale() === 'zh-CN' ? msgs[0] : msgs[1]
+  const key = errorCodeMap[code]
+  if (!key) return fallback
+  return t(key)
 }
 
 // Request interceptor - attach JWT token

@@ -221,7 +221,7 @@ const moreOptions = computed(() => {
   opts.push({ label: t('alert.assign'), key: 'assign', disabled: !canAssign.value })
   opts.push({ label: t('alert.silence'), key: 'silence', disabled: !canSilence.value })
   opts.push({ label: t('alert.generateReport'), key: 'ai' })
-  opts.push({ label: t('alert.aiSuggestSOP') || 'SOP', key: 'sop' })
+  opts.push({ label: t('alert.aiSuggestSOP'), key: 'sop' })
   return opts
 })
 function handleMore(key: string) {

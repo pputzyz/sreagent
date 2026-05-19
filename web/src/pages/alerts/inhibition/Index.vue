@@ -58,7 +58,7 @@ async function handleAIGenerate() {
     })
     aiResult.value = data.data
   } catch (err: unknown) {
-    aiError.value = getErrorMessage(err) || 'AI 生成失败'
+    aiError.value = getErrorMessage(err) || t('inhibitionMgmt.aiGenerateFailed')
   } finally {
     aiGenerating.value = false
   }
@@ -372,7 +372,7 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
           <LabelMatcherEditor v-model:modelValue="formData.target_matchers" :add-label="t('inhibition.addLabel')" />
         </NFormItem>
         <NFormItem :label="t('inhibition.equalLabels')" :feedback="t('inhibition.equalLabelsHint')">
-          <NInput v-model:value="formData.equal_labels" placeholder="alertname,namespace" />
+          <NInput v-model:value="formData.equal_labels" :placeholder="t('inhibitionMgmt.equalLabelsPlaceholder')" />
         </NFormItem>
         <NFormItem :label="t('inhibition.isEnabled')">
           <NSwitch v-model:value="formData.is_enabled" />

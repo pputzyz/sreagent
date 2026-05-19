@@ -1,9 +1,19 @@
+import i18n from '@/i18n'
+
+const t = i18n.global.t
+
 export function severityLabel(sev: string): string {
-  const map: Record<string, string> = {
-    critical: '严重', warning: '警告', info: '提示',
-    p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3', p4: 'P4',
+  const key: Record<string, string> = {
+    critical: 'severity.critical',
+    warning: 'severity.warning',
+    info: 'severity.info',
+    p0: 'severity.p0',
+    p1: 'severity.p1',
+    p2: 'severity.p2',
+    p3: 'severity.p3',
+    p4: 'severity.p4',
   }
-  return map[sev] || sev
+  return key[sev] ? t(key[sev]) : sev
 }
 
 export function severityType(sev: string): 'error' | 'warning' | 'info' | 'success' {

@@ -76,7 +76,7 @@ async function handleApply() {
   applyLoading.value = true
   try {
     await presetRuleApi.apply(applyingPreset.value.id, applyForm.value)
-    message.success('规则应用成功')
+    message.success(t('preset.applySuccess'))
     showApplyModal.value = false
     fetchList()
   } catch (err: unknown) {
@@ -93,14 +93,14 @@ const importLoading = ref(false)
 
 async function handleImportYAML() {
   if (!importYAML.value.trim()) {
-    message.warning('请输入 YAML 内容')
+    message.warning(t('preset.enterYaml'))
     return
   }
   importLoading.value = true
   try {
     const res = await presetRuleApi.importYAML(importYAML.value)
     const result = res.data.data
-    message.success(`导入完成：成功 ${result.imported} 条，跳过 ${result.skipped} 条`)
+    message.success(t('preset.importResult', { imported: result.imported, skipped: result.skipped }))
     showImportModal.value = false
     importYAML.value = ''
     refresh()
@@ -115,14 +115,14 @@ async function handleImportYAML() {
 // ─── Delete ───
 function confirmDelete(preset: PresetRule) {
   dialog.warning({
-    title: '确认删除',
-    content: `确定要删除预置规则「${preset.display_name || preset.name}」吗？`,
-    positiveText: '确认',
-    negativeText: '取消',
+    title: t('preset.confirmDeleteTitle'),
+    content: t('preset.confirmDeleteMsg', { name: preset.display_name || preset.name }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
         await presetRuleApi.delete(preset.id)
-        message.success('删除成功')
+        message.success(t('preset.deleteSuccess'))
         fetchList()
       } catch (err: unknown) {
         message.error(getErrorMessage(err))
@@ -173,15 +173,15 @@ onMounted(() => {
 
 <template>
   <div class="presets-page">
-    <PageHeader title="预置规则库" subtitle="内置和自定义的告警规则模板，一键应用到数据源">
+    <PageHeader :title="t('preset.title')" :subtitle="t('preset.subtitle')">
       <template #actions>
         <n-button size="small" secondary @click="showImportModal = true">
           <template #icon><n-icon :component="CloudUploadOutline" /></template>
-          导入 YAML
+          {{ t('preset.importYaml') }}
         </n-button>
         <n-button size="small" secondary @click="refresh">
           <template #icon><n-icon :component="RefreshOutline" /></template>
-          刷新
+          {{ t('common.refresh') }}
         </n-button>
       </template>
     </PageHeader>
@@ -189,14 +189,14 @@ onMounted(() => {
     <div class="presets-layout">
       <!-- Sidebar: categories -->
       <aside class="cat-aside">
-        <div class="sre-label-eyebrow cat-eyebrow">分类</div>
+        <div class="sre-label-eyebrow cat-eyebrow">{{ t('preset.category') }}</div>
         <button
           type="button"
           class="cat-item"
           :class="{ active: activeCategory === '' }"
           @click="handleCategoryChange('')"
         >
-          <span class="cat-name">全部</span>
+          <span class="cat-name">{{ t('common.all') }}</span>
           <span class="cat-count tnum">{{ total }}</span>
         </button>
         <button
@@ -218,7 +218,7 @@ onMounted(() => {
           <n-input
             v-model:value="searchKeyword"
             size="small"
-            placeholder="搜索规则名称或表达式..."
+            :placeholder="t('preset.searchPlaceholder')"
             clearable
             class="toolbar-search"
           >
@@ -232,12 +232,12 @@ onMounted(() => {
         <!-- Empty -->
         <n-empty
           v-else-if="!loading && presets.length === 0"
-          description="暂无预置规则"
+          :description="t('preset.noData')"
           class="empty-state"
         >
           <template #extra>
             <n-button size="small" type="primary" @click="showImportModal = true">
-              导入 YAML
+              {{ t('preset.importYaml') }}
             </n-button>
           </template>
         </n-empty>
@@ -253,7 +253,7 @@ onMounted(() => {
             <div class="preset-main">
               <div class="preset-title">
                 <span class="preset-name">{{ preset.display_name || preset.name }}</span>
-                <n-tag v-if="preset.is_builtin" size="small" :bordered="false" type="success">内置</n-tag>
+                <n-tag v-if="preset.is_builtin" size="small" :bordered="false" type="success">{{ t('preset.builtin') }}</n-tag>
                 <n-tag v-if="preset.source" size="small" :bordered="false">{{ preset.source }}</n-tag>
               </div>
               <div class="preset-desc" v-if="preset.description">{{ preset.description }}</div>
@@ -265,8 +265,8 @@ onMounted(() => {
                 <span v-if="preset.category" class="preset-meta-item">{{ preset.category }}</span>
                 <span v-if="preset.sub_category" class="preset-meta-item">/ {{ preset.sub_category }}</span>
                 <span v-if="preset.component" class="preset-meta-item">| {{ preset.component }}</span>
-                <span v-if="preset.for_duration" class="preset-meta-item tnum">持续 {{ preset.for_duration }}</span>
-                <span v-if="preset.usage_count > 0" class="preset-meta-item tnum">已应用 {{ preset.usage_count }} 次</span>
+                <span v-if="preset.for_duration" class="preset-meta-item tnum">{{ t('preset.forDuration', { duration: preset.for_duration }) }}</span>
+                <span v-if="preset.usage_count > 0" class="preset-meta-item tnum">{{ t('preset.usageCount', { count: preset.usage_count }) }}</span>
               </div>
             </div>
             <div class="preset-actions">
@@ -274,10 +274,10 @@ onMounted(() => {
                 <template #trigger>
                   <n-button size="small" type="primary" @click="openApplyDialog(preset)">
                     <template #icon><n-icon :component="RocketOutline" /></template>
-                    应用
+                    {{ t('preset.apply') }}
                   </n-button>
                 </template>
-                将此规则应用到数据源，创建告警规则
+                {{ t('preset.applyTooltip') }}
               </n-tooltip>
               <n-button
                 v-if="!preset.is_builtin"
@@ -286,7 +286,7 @@ onMounted(() => {
                 type="error"
                 @click="confirmDelete(preset)"
               >
-                删除
+                {{ t('common.delete') }}
               </n-button>
             </div>
           </div>
@@ -309,16 +309,16 @@ onMounted(() => {
     <n-modal
       v-model:show="showApplyModal"
       preset="card"
-      title="应用预置规则"
+      :title="t('preset.applyModalTitle')"
       style="width: 520px"
       :bordered="false"
       :segmented="{ content: true, footer: true }"
     >
       <n-form v-if="applyingPreset" label-placement="left" label-width="80">
-        <n-form-item label="规则名称">
+        <n-form-item :label="t('preset.ruleName')">
           <span class="form-readonly">{{ applyingPreset.display_name || applyingPreset.name }}</span>
         </n-form-item>
-        <n-form-item label="表达式">
+        <n-form-item :label="t('preset.expression')">
           <n-input
             :value="applyingPreset.expression"
             type="textarea"
@@ -327,36 +327,36 @@ onMounted(() => {
             class="mono-input"
           />
         </n-form-item>
-        <n-form-item label="数据源" required>
+        <n-form-item :label="t('preset.datasource')" required>
           <n-select
             v-model:value="applyForm.datasource_id"
             :options="datasourceOptions"
-            placeholder="选择目标数据源"
+            :placeholder="t('preset.selectDatasource')"
             filterable
           />
         </n-form-item>
-        <n-form-item label="严重等级">
+        <n-form-item :label="t('preset.severity')">
           <n-select
             v-model:value="applyForm.severity"
             :options="[
-              { label: '严重 (Critical)', value: 'critical' },
-              { label: '警告 (Warning)', value: 'warning' },
-              { label: '提示 (Info)', value: 'info' },
+              { label: t('severity.critical'), value: 'critical' },
+              { label: t('severity.warning'), value: 'warning' },
+              { label: t('severity.info'), value: 'info' },
               { label: 'P0', value: 'p0' },
               { label: 'P1', value: 'p1' },
               { label: 'P2', value: 'p2' },
               { label: 'P3', value: 'p3' },
             ]"
-            placeholder="可选，覆盖默认等级"
+            :placeholder="t('preset.severityPlaceholder')"
             clearable
           />
         </n-form-item>
       </n-form>
       <template #footer>
         <n-space justify="end">
-          <n-button @click="showApplyModal = false">取消</n-button>
+          <n-button @click="showApplyModal = false">{{ t('common.cancel') }}</n-button>
           <n-button type="primary" :loading="applyLoading" :disabled="!applyForm.datasource_id" @click="handleApply">
-            确认应用
+            {{ t('preset.confirmApply') }}
           </n-button>
         </n-space>
       </template>
@@ -366,26 +366,26 @@ onMounted(() => {
     <n-modal
       v-model:show="showImportModal"
       preset="card"
-      title="导入预置规则 (YAML)"
+      :title="t('preset.importModalTitle')"
       style="width: 640px"
       :bordered="false"
       :segmented="{ content: true, footer: true }"
     >
       <div class="import-hint">
-        粘贴 YAML 格式的告警规则定义，支持单条或多条规则。
+        {{ t('preset.importHint') }}
       </div>
       <n-input
         v-model:value="importYAML"
         type="textarea"
         :rows="16"
-        placeholder="粘贴 Prometheus/VM Alert 规则 YAML..."
+        :placeholder="t('preset.importPlaceholder')"
         class="mono-input"
       />
       <template #footer>
         <n-space justify="end">
-          <n-button @click="showImportModal = false">取消</n-button>
+          <n-button @click="showImportModal = false">{{ t('common.cancel') }}</n-button>
           <n-button type="primary" :loading="importLoading" @click="handleImportYAML">
-            导入
+            {{ t('preset.import') }}
           </n-button>
         </n-space>
       </template>

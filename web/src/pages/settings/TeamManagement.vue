@@ -302,7 +302,7 @@ onMounted(fetchList)
     <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px; max-width: 90vw" :bordered="false">
       <NForm label-placement="top">
         <NFormItem :label="t('common.name')" required>
-          <NInput v-model:value="form.name" placeholder="e.g. Platform Engineering" />
+          <NInput v-model:value="form.name" :placeholder="t('teamMgmt.namePlaceholder')" />
         </NFormItem>
         <NFormItem :label="t('common.description')">
           <NInput v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />

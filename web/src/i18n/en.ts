@@ -660,6 +660,23 @@ export default {
     history: 'Alert History',
     historyDesc: 'Browse resolved and closed historical alert events',
     noHistoryDesc: 'No alert records in the current time range',
+    // AI rule generation
+    aiGenerateTitle: 'AI Rule Generation',
+    aiGenerateDesc: 'Describe the alert rule you want, AI will generate it automatically',
+    aiRegenerate: 'Regenerate',
+    aiConfirmCreate: 'Confirm Create',
+    aiGenDuration: 'Duration',
+    aiGenLabels: 'Labels',
+    aiGenSummary: 'Summary',
+    aiGenerateFailed: 'AI generation failed',
+  },
+  errorCode: {
+    invalidCredentials: 'Invalid username or password',
+    sessionExpired: 'Session expired, please log in again',
+    unauthorized: 'Unauthorized',
+    insufficientPermissions: 'Insufficient permissions',
+    resourceNotFound: 'Resource not found',
+    nameTaken: 'Name already taken',
   },
   alertChannel: {
     title: 'Alert Channels',
@@ -1453,6 +1470,8 @@ export default {
     opNeq:    'not equals',
     opRegex:  'regex',
     opNregex: 'not regex',
+    keyPlaceholder: 'label key',
+    valuePlaceholder: 'value',
   },
   palette: {
     searchPlaceholder: 'Search pages, actions…',
@@ -2056,5 +2075,150 @@ export default {
     addPin: 'Add',
     resetLinks: 'Reset links',
     resetPinned: 'Reset pinned',
+  },
+
+  // ── Preset Rules ──
+  preset: {
+    title: 'Preset Rules',
+    subtitle: 'Built-in and custom alert rule templates, apply to datasource in one click',
+    importYaml: 'Import YAML',
+    category: 'Category',
+    searchPlaceholder: 'Search rule name or expression...',
+    noData: 'No preset rules',
+    builtin: 'Built-in',
+    forDuration: 'For {duration}',
+    usageCount: 'Applied {count} times',
+    apply: 'Apply',
+    applyTooltip: 'Apply this rule to a datasource to create an alert rule',
+    applyModalTitle: 'Apply Preset Rule',
+    ruleName: 'Rule Name',
+    expression: 'Expression',
+    datasource: 'Datasource',
+    selectDatasource: 'Select target datasource',
+    severity: 'Severity',
+    severityPlaceholder: 'Optional, override default severity',
+    confirmApply: 'Confirm Apply',
+    applySuccess: 'Rule applied successfully',
+    enterYaml: 'Please enter YAML content',
+    importResult: 'Import complete: {imported} succeeded, {skipped} skipped',
+    importModalTitle: 'Import Preset Rules (YAML)',
+    importHint: 'Paste alert rule definitions in YAML format. Supports single or multiple rules.',
+    importPlaceholder: 'Paste Prometheus/VM Alert rule YAML...',
+    import: 'Import',
+    confirmDeleteTitle: 'Confirm Delete',
+    confirmDeleteMsg: 'Delete preset rule "{name}"?',
+    deleteSuccess: 'Deleted successfully',
+  },
+
+  // ── AI Settings ──
+  aiSettings: {
+    title: 'AI Configuration',
+    subtitle: 'Manage AI providers, module assignments, and connections',
+    previewImpact: 'Preview Impact',
+    testDefault: 'Test Default',
+    saveModules: 'Save Modules',
+    noProvidersWarning: 'No AI providers configured. Add a provider below to enable AI features.',
+    providersTitle: 'AI Providers',
+    providersDesc: 'Configure multiple AI providers. Each module can use a different provider.',
+    addProvider: 'Add Provider',
+    default: 'Default',
+    deleteProviderConfirm: 'Delete provider "{key}"?',
+    model: 'Model',
+    baseUrl: 'Base URL',
+    noProvidersEmpty: 'No providers configured yet. Click "Add Provider" to get started.',
+    moduleConfigTitle: 'Module Configuration',
+    moduleConfigDesc: 'Control each AI module and assign a specific provider',
+    providerLabel: 'Provider:',
+    loadModuleFailed: 'Failed to load module configuration',
+    editProvider: 'Edit Provider',
+    providerKey: 'Key',
+    keyPlaceholder: 'e.g. openai-main',
+    providerType: 'Provider Type',
+    providerOpenAI: 'OpenAI',
+    providerAzure: 'Azure OpenAI',
+    providerOllama: 'Ollama (Local)',
+    providerCustom: 'Custom / Compatible',
+    apiKey: 'API Key',
+    apiKeyPlaceholder: 'Enter API key',
+    baseUrlPlaceholder: 'https://api.openai.com/v1',
+    modelPlaceholder: 'e.g. gpt-4o',
+    previewTitle: 'Label Validation Impact',
+    totalRules: 'Total Rules',
+    passing: 'Passing',
+    failing: 'Failing',
+    pass: 'Pass',
+    fail: 'Fail',
+    sampleFailingRules: 'Sample Failing Rules',
+    allRulesPass: 'All rules pass label validation.',
+    modulePlatform: 'Platform Assistant',
+    modulePlatformDesc: 'Global AI assistant floating panel, supports natural language Q&A and alert context chat',
+    moduleChat: 'AI Chat',
+    moduleChatDesc: 'AI chat panel on alert detail page, supports alert analysis and general Q&A',
+    moduleRuleGen: 'Rule Generation',
+    moduleRuleGenDesc: 'Auto-generate PromQL/MetricsQL alert rule expressions from natural language',
+    moduleAnalysis: 'Alert Analysis',
+    moduleAnalysisDesc: 'AI root cause analysis reports and SOP suggestion generation for alert events',
+    moduleAgent: 'AI Agent',
+    moduleAgentDesc: 'Autonomous alert processing agent with auto-diagnosis, correlation analysis and recommendations',
+    providerKeyRequired: 'Provider key is required',
+    providerKeyDuplicate: 'Provider key already exists',
+    providerSaved: 'Provider configuration saved',
+    moduleSaved: 'AI module configuration saved',
+    testSuccess: 'Connection test successful',
+    testFailed: 'Connection test failed',
+  },
+
+  // ── User Management extras ──
+  userMgmt: {
+    usernamePlaceholder: 'e.g. john.doe',
+    displayNamePlaceholder: 'e.g. John Doe',
+    emailPlaceholder: 'john@example.com',
+    phonePlaceholder: '+86 ...',
+  },
+
+  // ── Team Management extras ──
+  teamMgmt: {
+    namePlaceholder: 'e.g. Platform Engineering',
+  },
+
+  // ── Template extras ──
+  templateMgmt: {
+    namePlaceholder: 'e.g. default-alert-template',
+  },
+
+  // ── Media extras ──
+  mediaMgmt: {
+    webhookUrlPlaceholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/...',
+    smtpHostPlaceholder: 'smtp.example.com',
+    usernamePlaceholder: 'user@example.com',
+    fromPlaceholder: 'noreply@example.com',
+    httpUrlPlaceholder: 'https://api.example.com/webhook',
+    httpBodyPlaceholder: '{"text": "{{.AlertName}} is {{.Status}}"}',
+    scriptPathPlaceholder: '/usr/local/bin/notify.sh',
+    scriptArgsPlaceholder: '--severity {{.Severity}} --name {{.AlertName}}',
+  },
+
+  // ── Datasource extras ──
+  datasourceMgmt: {
+    namePlaceholder: 'e.g. Production VictoriaMetrics',
+    endpointPlaceholder: 'https://vm.example.com:8428',
+  },
+
+  // ── Schedule extras ──
+  scheduleMgmt: {
+    namePlaceholder: 'e.g. Platform Team On-Call',
+    handoffTimePlaceholder: '09:00',
+    severityFilterPlaceholder: 'critical,warning',
+  },
+
+  // ── Mute Rule extras ──
+  muteMgmt: {
+    ruleIdsPlaceholder: '1,2,3',
+  },
+
+  // ── Inhibition Rule extras ──
+  inhibitionMgmt: {
+    equalLabelsPlaceholder: 'alertname,namespace',
+    aiGenerateFailed: 'AI generation failed',
   },
 }

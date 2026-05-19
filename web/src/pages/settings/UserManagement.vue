@@ -296,24 +296,24 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
         <NGrid :x-gap="12" :cols="2">
           <NGi>
             <NFormItem :label="t('auth.username')" required>
-              <NInput v-model:value="form.username" placeholder="e.g. john.doe" :disabled="!!editingId" />
+              <NInput v-model:value="form.username" :placeholder="t('userMgmt.usernamePlaceholder')" :disabled="!!editingId" />
             </NFormItem>
           </NGi>
           <NGi>
             <NFormItem :label="t('settings.displayName')">
-              <NInput v-model:value="form.display_name" placeholder="e.g. John Doe" />
+              <NInput v-model:value="form.display_name" :placeholder="t('userMgmt.displayNamePlaceholder')" />
             </NFormItem>
           </NGi>
         </NGrid>
         <NGrid :x-gap="12" :cols="2">
           <NGi>
             <NFormItem :label="t('settings.email')">
-              <NInput v-model:value="form.email" placeholder="john@example.com" />
+              <NInput v-model:value="form.email" :placeholder="t('userMgmt.emailPlaceholder')" />
             </NFormItem>
           </NGi>
           <NGi>
             <NFormItem :label="t('settings.phone')">
-              <NInput v-model:value="form.phone" placeholder="+86 ..." />
+              <NInput v-model:value="form.phone" :placeholder="t('userMgmt.phonePlaceholder')" />
             </NFormItem>
           </NGi>
         </NGrid>

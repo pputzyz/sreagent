@@ -284,7 +284,7 @@ onMounted(fetchData)
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
             <n-form-item :label="t('template.name')" required>
-              <n-input v-model:value="form.name" placeholder="e.g. default-alert-template" />
+              <n-input v-model:value="form.name" :placeholder="t('templateMgmt.namePlaceholder')" />
             </n-form-item>
           </n-gi>
           <n-gi>

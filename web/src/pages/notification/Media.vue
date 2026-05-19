@@ -344,7 +344,7 @@ onMounted(fetchData)
 
         <template v-if="form.type === 'lark_webhook'">
           <n-form-item :label="t('media.webhookUrl')" required>
-            <n-input v-model:value="form.webhook_url" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
+            <n-input v-model:value="form.webhook_url" :placeholder="t('mediaMgmt.webhookUrlPlaceholder')" />
           </n-form-item>
         </template>
 
@@ -352,7 +352,7 @@ onMounted(fetchData)
           <n-grid :x-gap="12" :cols="2">
             <n-gi>
               <n-form-item :label="t('media.smtpHost')">
-                <n-input v-model:value="form.smtp_host" placeholder="smtp.example.com" />
+                <n-input v-model:value="form.smtp_host" :placeholder="t('mediaMgmt.smtpHostPlaceholder')" />
               </n-form-item>
             </n-gi>
             <n-gi>
@@ -364,7 +364,7 @@ onMounted(fetchData)
           <n-grid :x-gap="12" :cols="2">
             <n-gi>
               <n-form-item :label="t('media.username')">
-                <n-input v-model:value="form.username" placeholder="user@example.com" />
+                <n-input v-model:value="form.username" :placeholder="t('mediaMgmt.usernamePlaceholder')" />
               </n-form-item>
             </n-gi>
             <n-gi>
@@ -374,7 +374,7 @@ onMounted(fetchData)
             </n-gi>
           </n-grid>
           <n-form-item :label="t('media.from')">
-            <n-input v-model:value="form.from" placeholder="noreply@example.com" />
+            <n-input v-model:value="form.from" :placeholder="t('mediaMgmt.fromPlaceholder')" />
           </n-form-item>
         </template>
 
@@ -387,7 +387,7 @@ onMounted(fetchData)
             </n-gi>
             <n-gi :span="3">
               <n-form-item :label="t('media.url')">
-                <n-input v-model:value="form.url" placeholder="https://api.example.com/webhook" />
+                <n-input v-model:value="form.url" :placeholder="t('mediaMgmt.httpUrlPlaceholder')" />
               </n-form-item>
             </n-gi>
           </n-grid>
@@ -396,17 +396,17 @@ onMounted(fetchData)
           </n-form-item>
           <n-form-item :label="t('media.body')">
             <n-input v-model:value="form.body" type="textarea" :rows="4"
-              placeholder='{"text": "{{.AlertName}} is {{.Status}}"}'
+              :placeholder="t('mediaMgmt.httpBodyPlaceholder')"
               style="font-family: var(--sre-font-mono); font-size: 12px" />
           </n-form-item>
         </template>
 
         <template v-if="form.type === 'script'">
           <n-form-item :label="t('media.path')">
-            <n-input v-model:value="form.path" placeholder="/usr/local/bin/notify.sh" />
+            <n-input v-model:value="form.path" :placeholder="t('mediaMgmt.scriptPathPlaceholder')" />
           </n-form-item>
           <n-form-item :label="t('media.args')">
-            <n-input v-model:value="form.args" placeholder="--severity {{.Severity}} --name {{.AlertName}}" />
+            <n-input v-model:value="form.args" :placeholder="t('mediaMgmt.scriptArgsPlaceholder')" />
           </n-form-item>
         </template>
 

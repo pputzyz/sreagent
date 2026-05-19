@@ -275,7 +275,7 @@ async function batchSilence() {
 function rowActions(ev: AlertEvent) {
   const opts = [
     { label: t('alert.detail'), key: 'detail' },
-    { label: t('alert.silence') || 'Silence', key: 'silence' },
+    { label: t('alert.silence'), key: 'silence' },
   ]
   if (ev.status === 'firing' || ev.status === 'acknowledged') {
     opts.unshift({ label: t('alert.resolve'), key: 'resolve' })
@@ -524,7 +524,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 
     <!-- Selection bar -->
     <transition name="ae-fade">
-      <div v-if="selected.size > 0" class="ae-selection-bar" role="toolbar" :aria-label="t('alert.batchActions') || 'Batch actions'">
+      <div v-if="selected.size > 0" class="ae-selection-bar" role="toolbar" :aria-label="t('alert.batchActions')">
         <span class="ae-selection-count tnum">{{ selected.size }} {{ t('alert.selected') }}</span>
         <NButton size="small" type="primary" @click="batchAck">
           {{ t('alert.batchAck') }}

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { NSelect, NDatePicker, NButton, NSpace, NIcon } from 'naive-ui'
-import { relativeTimeOptions } from '@/composables/useTimeRange'
+import { useRelativeTimeOptions } from '@/composables/useTimeRange'
 import type { TimeRange } from '@/types/query'
 
 const props = defineProps<{
@@ -18,6 +18,7 @@ const emit = defineEmits<{
 const showAbsolute = ref(false)
 const absoluteRange = ref<[number, number]>([props.timeRange.start, props.timeRange.end])
 
+const relativeTimeOptions = useRelativeTimeOptions()
 const relativeOptions = relativeTimeOptions.map(o => ({
   label: o.label,
   value: o.value,

@@ -19,7 +19,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="batch-bar" role="toolbar" :aria-label="t('alert.batchActions') || 'Batch actions'">
+  <div class="batch-bar" role="toolbar" :aria-label="t('alert.batchActions')">
     <span class="batch-count tnum">{{ selectedCount }} {{ t('common.selected', { count: selectedCount }) }}</span>
     <n-button size="small" secondary :loading="loading" @click="emit('batchEnable')">
       {{ t('common.enabled') }}

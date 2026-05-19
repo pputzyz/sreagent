@@ -345,7 +345,7 @@ onMounted(fetchList)
     <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px" :bordered="false">
       <NForm label-placement="top">
         <NFormItem :label="t('common.name')" required>
-          <NInput v-model:value="form.name" placeholder="e.g. Production VictoriaMetrics" />
+          <NInput v-model:value="form.name" :placeholder="t('datasourceMgmt.namePlaceholder')" />
         </NFormItem>
 
         <NGrid :x-gap="12" :cols="2">
@@ -362,7 +362,7 @@ onMounted(fetchList)
         </NGrid>
 
         <NFormItem :label="t('datasource.endpointUrl')" required>
-          <NInput v-model:value="form.endpoint" placeholder="https://vm.example.com:8428" />
+          <NInput v-model:value="form.endpoint" :placeholder="t('datasourceMgmt.endpointPlaceholder')" />
         </NFormItem>
 
         <template v-if="form.auth_type === 'basic'">

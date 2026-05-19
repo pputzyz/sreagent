@@ -200,7 +200,7 @@ onMounted(() => {
         <NSelect
           v-model:value="ruleFilter"
           :options="ruleOptions"
-          :placeholder="t('alert.rule') || 'Rule'"
+          :placeholder="t('alert.rule')"
           filterable
           clearable
           size="small"

@@ -75,9 +75,9 @@ export default {
     value: '值',
   },
   severity: {
-    critical: '严重',
-    warning: '警告',
-    info: '信息',
+    critical: '严重 (Critical)',
+    warning: '警告 (Warning)',
+    info: '提示 (Info)',
     p0: 'P0 — 紧急',
     p1: 'P1 — 严重',
     p2: 'P2 — 一般',
@@ -669,6 +669,23 @@ export default {
     history: '历史告警',
     historyDesc: '查看已解决和已关闭的历史告警记录',
     noHistoryDesc: '当前时间范围内无告警记录',
+    // AI rule generation
+    aiGenerateTitle: 'AI 生成规则',
+    aiGenerateDesc: '描述你想要的告警规则，AI 将自动生成',
+    aiRegenerate: '重新生成',
+    aiConfirmCreate: '确认创建',
+    aiGenDuration: '持续时间',
+    aiGenLabels: '标签',
+    aiGenSummary: '摘要',
+    aiGenerateFailed: 'AI 生成失败',
+  },
+  errorCode: {
+    invalidCredentials: '用户名或密码错误',
+    sessionExpired: '登录已过期，请重新登录',
+    unauthorized: '未授权访问',
+    insufficientPermissions: '权限不足',
+    resourceNotFound: '资源不存在',
+    nameTaken: '名称已被占用',
   },
   alertChannel: {
     title: '告警频道',
@@ -1539,6 +1556,8 @@ export default {
     opNeq:    '不等于',
     opRegex:  '正则',
     opNregex: '非正则',
+    keyPlaceholder: '标签 key',
+    valuePlaceholder: '值',
   },
   palette: {
     searchPlaceholder: '搜索页面、操作…',
@@ -2077,5 +2096,150 @@ export default {
     addPin: '添加',
     resetLinks: '重置入口',
     resetPinned: '重置便签',
+  },
+
+  // ── Preset Rules ──
+  preset: {
+    title: '预置规则库',
+    subtitle: '内置和自定义的告警规则模板，一键应用到数据源',
+    importYaml: '导入 YAML',
+    category: '分类',
+    searchPlaceholder: '搜索规则名称或表达式...',
+    noData: '暂无预置规则',
+    builtin: '内置',
+    forDuration: '持续 {duration}',
+    usageCount: '已应用 {count} 次',
+    apply: '应用',
+    applyTooltip: '将此规则应用到数据源，创建告警规则',
+    applyModalTitle: '应用预置规则',
+    ruleName: '规则名称',
+    expression: '表达式',
+    datasource: '数据源',
+    selectDatasource: '选择目标数据源',
+    severity: '严重等级',
+    severityPlaceholder: '可选，覆盖默认等级',
+    confirmApply: '确认应用',
+    applySuccess: '规则应用成功',
+    enterYaml: '请输入 YAML 内容',
+    importResult: '导入完成：成功 {imported} 条，跳过 {skipped} 条',
+    importModalTitle: '导入预置规则 (YAML)',
+    importHint: '粘贴 YAML 格式的告警规则定义，支持单条或多条规则。',
+    importPlaceholder: '粘贴 Prometheus/VM Alert 规则 YAML...',
+    import: '导入',
+    confirmDeleteTitle: '确认删除',
+    confirmDeleteMsg: '确定要删除预置规则「{name}」吗？',
+    deleteSuccess: '删除成功',
+  },
+
+  // ── AI Settings ──
+  aiSettings: {
+    title: 'AI 配置',
+    subtitle: '管理 AI 供应商、模块分配和连接测试',
+    previewImpact: '预览影响',
+    testDefault: '测试默认',
+    saveModules: '保存模块',
+    noProvidersWarning: '尚未配置 AI 供应商，请添加供应商以启用 AI 功能。',
+    providersTitle: 'AI 供应商',
+    providersDesc: '配置多个 AI 供应商，每个模块可使用不同的供应商。',
+    addProvider: '添加供应商',
+    default: '默认',
+    deleteProviderConfirm: '删除供应商「{key}」？',
+    model: '模型',
+    baseUrl: 'Base URL',
+    noProvidersEmpty: '尚未配置供应商，点击「添加供应商」开始。',
+    moduleConfigTitle: '模块配置',
+    moduleConfigDesc: '控制每个 AI 模块并分配特定供应商',
+    providerLabel: '供应商：',
+    loadModuleFailed: '加载模块配置失败',
+    editProvider: '编辑供应商',
+    providerKey: 'Key',
+    keyPlaceholder: '例如 openai-main',
+    providerType: '供应商类型',
+    providerOpenAI: 'OpenAI',
+    providerAzure: 'Azure OpenAI',
+    providerOllama: 'Ollama（本地）',
+    providerCustom: '自定义 / 兼容',
+    apiKey: 'API Key',
+    apiKeyPlaceholder: '输入 API Key',
+    baseUrlPlaceholder: 'https://api.openai.com/v1',
+    modelPlaceholder: '例如 gpt-4o',
+    previewTitle: '标签校验影响',
+    totalRules: '规则总数',
+    passing: '通过',
+    failing: '失败',
+    pass: '通过',
+    fail: '失败',
+    sampleFailingRules: '失败规则示例',
+    allRulesPass: '所有规则均通过标签校验。',
+    modulePlatform: '平台智能助手',
+    modulePlatformDesc: '全局 AI 助手浮窗，支持自然语言问答、告警上下文对话',
+    moduleChat: 'AI 对话',
+    moduleChatDesc: '告警详情页的 AI 对话面板，支持告警分析和通用问答模式',
+    moduleRuleGen: '规则生成',
+    moduleRuleGenDesc: '基于自然语言描述自动生成 PromQL/MetricsQL 告警规则表达式',
+    moduleAnalysis: '告警分析',
+    moduleAnalysisDesc: '告警事件的 AI 根因分析报告和 SOP 建议生成',
+    moduleAgent: 'AI Agent',
+    moduleAgentDesc: '自主告警处理 Agent，支持自动诊断、关联分析和处理建议',
+    providerKeyRequired: '供应商 Key 不能为空',
+    providerKeyDuplicate: '供应商 Key 已存在',
+    providerSaved: '供应商配置已保存',
+    moduleSaved: 'AI 模块配置已保存',
+    testSuccess: '连接测试成功',
+    testFailed: '连接测试失败',
+  },
+
+  // ── User Management extras ──
+  userMgmt: {
+    usernamePlaceholder: '例如 john.doe',
+    displayNamePlaceholder: '例如 John Doe',
+    emailPlaceholder: 'john@example.com',
+    phonePlaceholder: '+86 ...',
+  },
+
+  // ── Team Management extras ──
+  teamMgmt: {
+    namePlaceholder: '例如 Platform Engineering',
+  },
+
+  // ── Template extras ──
+  templateMgmt: {
+    namePlaceholder: '例如 default-alert-template',
+  },
+
+  // ── Media extras ──
+  mediaMgmt: {
+    webhookUrlPlaceholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/...',
+    smtpHostPlaceholder: 'smtp.example.com',
+    usernamePlaceholder: 'user@example.com',
+    fromPlaceholder: 'noreply@example.com',
+    httpUrlPlaceholder: 'https://api.example.com/webhook',
+    httpBodyPlaceholder: '{"text": "{{.AlertName}} is {{.Status}}"}',
+    scriptPathPlaceholder: '/usr/local/bin/notify.sh',
+    scriptArgsPlaceholder: '--severity {{.Severity}} --name {{.AlertName}}',
+  },
+
+  // ── Datasource extras ──
+  datasourceMgmt: {
+    namePlaceholder: '例如 Production VictoriaMetrics',
+    endpointPlaceholder: 'https://vm.example.com:8428',
+  },
+
+  // ── Schedule extras ──
+  scheduleMgmt: {
+    namePlaceholder: '例如 Platform Team On-Call',
+    handoffTimePlaceholder: '09:00',
+    severityFilterPlaceholder: 'critical,warning',
+  },
+
+  // ── Mute Rule extras ──
+  muteMgmt: {
+    ruleIdsPlaceholder: '1,2,3',
+  },
+
+  // ── Inhibition Rule extras ──
+  inhibitionMgmt: {
+    equalLabelsPlaceholder: 'alertname,namespace',
+    aiGenerateFailed: 'AI 生成失败',
   },
 }

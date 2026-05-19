@@ -445,7 +445,7 @@ onMounted(fetchRules)
           </NGi>
           <NGi>
             <NFormItem :label="t('mute.ruleIds')">
-              <NInput v-model:value="form.rule_ids" placeholder="1,2,3" />
+              <NInput v-model:value="form.rule_ids" :placeholder="t('muteMgmt.ruleIdsPlaceholder')" />
             </NFormItem>
           </NGi>
         </NGrid>

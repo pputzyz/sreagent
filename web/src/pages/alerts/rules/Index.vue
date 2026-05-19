@@ -112,7 +112,7 @@ async function handleAIGenerate() {
     })
     aiResult.value = data.data
   } catch (err: unknown) {
-    aiError.value = getErrorMessage(err) || 'AI 生成失败'
+    aiError.value = getErrorMessage(err) || t('alert.aiGenerateFailed')
   } finally {
     aiGenerating.value = false
   }
@@ -644,14 +644,14 @@ onMounted(() => {
         <div v-if="aiResult.expression" class="ai-gen-expr">{{ aiResult.expression }}</div>
         <div v-if="aiResult.description" class="ai-gen-desc">{{ aiResult.description }}</div>
         <div v-if="aiResult.for_duration" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">Duration:</span> {{ aiResult.for_duration }}
+          <span class="ai-gen-meta-label">{{ t('alert.aiGenDuration') }}:</span> {{ aiResult.for_duration }}
         </div>
         <div v-if="aiResult.labels && Object.keys(aiResult.labels).length > 0" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">Labels:</span>
+          <span class="ai-gen-meta-label">{{ t('alert.aiGenLabels') }}:</span>
           <NTag v-for="(v, k) in aiResult.labels" :key="k" size="small" style="margin-right: 4px">{{ k }}={{ v }}</NTag>
         </div>
         <div v-if="aiResult.annotations?.summary" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">Summary:</span> {{ aiResult.annotations.summary }}
+          <span class="ai-gen-meta-label">{{ t('alert.aiGenSummary') }}:</span> {{ aiResult.annotations.summary }}
         </div>
         <NAlert v-if="aiResult.warnings?.length" type="warning" style="margin-top: 12px">
           <div v-for="w in aiResult.warnings" :key="w">{{ w }}</div>

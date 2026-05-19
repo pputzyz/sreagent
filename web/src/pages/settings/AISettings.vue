@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
   NSpace, NTag, NSelect, NInput, NModal, NForm, NFormItem,
@@ -10,6 +11,7 @@ import { aiApi, aiModuleApi, alertRuleApi } from '@/api'
 import type { AIModuleConfig, AIProvider, AIProvidersConfig } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
 
+const { t } = useI18n()
 const message = useMessage()
 
 // ─── Providers config ───
@@ -47,28 +49,28 @@ const providerOptions = [
   { label: 'Custom / Compatible', value: 'custom' },
 ]
 
-const moduleLabels: Record<keyof AIModuleConfig, { name: string; description: string }> = {
+const moduleLabels = computed<Record<keyof AIModuleConfig, { name: string; description: string }>>(() => ({
   platform: {
-    name: '平台智能助手',
-    description: '全局 AI 助手浮窗，支持自然语言问答、告警上下文对话',
+    name: t('aiSettings.modulePlatform'),
+    description: t('aiSettings.modulePlatformDesc'),
   },
   chat: {
-    name: 'AI 对话',
-    description: '告警详情页的 AI 对话面板，支持告警分析和通用问答模式',
+    name: t('aiSettings.moduleChat'),
+    description: t('aiSettings.moduleChatDesc'),
   },
   rule_gen: {
-    name: '规则生成',
-    description: '基于自然语言描述自动生成 PromQL/MetricsQL 告警规则表达式',
+    name: t('aiSettings.moduleRuleGen'),
+    description: t('aiSettings.moduleRuleGenDesc'),
   },
   analysis: {
-    name: '告警分析',
-    description: '告警事件的 AI 根因分析报告和 SOP 建议生成',
+    name: t('aiSettings.moduleAnalysis'),
+    description: t('aiSettings.moduleAnalysisDesc'),
   },
   agent: {
-    name: 'AI Agent',
-    description: '自主告警处理 Agent，支持自动诊断、关联分析和处理建议',
+    name: t('aiSettings.moduleAgent'),
+    description: t('aiSettings.moduleAgentDesc'),
   },
-}
+}))
 
 const moduleKeys: (keyof AIModuleConfig)[] = ['platform', 'chat', 'rule_gen', 'analysis', 'agent']
 
@@ -144,7 +146,7 @@ function handleProviderSave() {
   if (!providersConfig.value) return
 
   if (!providerForm.key.trim()) {
-    message.error('Provider key is required')
+    message.error(t('aiSettings.providerKeyRequired'))
     return
   }
 
@@ -163,7 +165,7 @@ function handleProviderSave() {
   } else {
     // Check duplicate key
     if (providersConfig.value.providers.some(p => p.key === entry.key)) {
-      message.error('Provider key already exists')
+      message.error(t('aiSettings.providerKeyDuplicate'))
       return
     }
     providersConfig.value.providers.push(entry)
@@ -198,7 +200,7 @@ async function saveProvidersConfig() {
   if (!providersConfig.value) return
   try {
     await aiApi.saveProviders(providersConfig.value)
-    message.success('Provider configuration saved')
+    message.success(t('aiSettings.providerSaved'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   }
@@ -221,7 +223,7 @@ async function handleSave() {
   saving.value = true
   try {
     await aiModuleApi.updateModules(modules.value)
-    message.success('AI module configuration saved')
+    message.success(t('aiSettings.moduleSaved'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {
@@ -250,8 +252,8 @@ async function handleTestDefault() {
     const res = await aiApi.testConnection()
     const ok = !!res.data.data?.success
     ok
-      ? message.success(res.data.data?.message || 'Connection test successful')
-      : message.error(res.data.data?.message || 'Connection test failed')
+      ? message.success(res.data.data?.message || t('aiSettings.testSuccess'))
+      : message.error(res.data.data?.message || t('aiSettings.testFailed'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {
@@ -263,7 +265,7 @@ async function handleTestProvider(key: string) {
   testingProvider.value = key
   try {
     const res = await aiApi.testProvider(key)
-    message.success(res.data.data?.message || 'Connection test successful')
+    message.success(res.data.data?.message || t('aiSettings.testSuccess'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {
@@ -295,22 +297,22 @@ onMounted(() => {
         <div>
           <h2 class="sre-config-header-title">
             <n-icon :component="SparklesOutline" :size="20" style="margin-right: 8px; vertical-align: -3px;" />
-            AI Configuration
+            {{ t('aiSettings.title') }}
           </h2>
-          <p class="sre-config-header-sub">Manage AI providers, module assignments, and connections</p>
+          <p class="sre-config-header-sub">{{ t('aiSettings.subtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">
           <n-button size="small" :loading="previewLoading" @click="handlePreviewImpact">
             <template #icon><n-icon :component="PulseOutline" /></template>
-            Preview Impact
+            {{ t('aiSettings.previewImpact') }}
           </n-button>
           <n-button size="small" :loading="testing" @click="handleTestDefault">
             <template #icon><n-icon :component="PulseOutline" /></template>
-            Test Default
+            {{ t('aiSettings.testDefault') }}
           </n-button>
           <n-button type="primary" size="small" :loading="saving" @click="handleSave">
             <template #icon><n-icon :component="SaveOutline" /></template>
-            Save Modules
+            {{ t('aiSettings.saveModules') }}
           </n-button>
         </div>
       </header>
@@ -322,7 +324,7 @@ onMounted(() => {
         :bordered="false"
         style="margin-bottom: 20px"
       >
-        No AI providers configured. Add a provider below to enable AI features.
+        {{ t('aiSettings.noProvidersWarning') }}
       </n-alert>
 
       <div class="config-sections sre-stagger">
@@ -330,12 +332,12 @@ onMounted(() => {
         <section class="sre-config-section">
           <div class="section-header-row">
             <div>
-              <h3 class="sre-config-section-title">AI Providers</h3>
-              <p class="sre-config-section-desc">Configure multiple AI providers. Each module can use a different provider.</p>
+              <h3 class="sre-config-section-title">{{ t('aiSettings.providersTitle') }}</h3>
+              <p class="sre-config-section-desc">{{ t('aiSettings.providersDesc') }}</p>
             </div>
             <n-button size="small" @click="openAddProvider">
               <template #icon><n-icon :component="AddOutline" /></template>
-              Add Provider
+              {{ t('aiSettings.addProvider') }}
             </n-button>
           </div>
 
@@ -350,10 +352,10 @@ onMounted(() => {
                 <div class="provider-card-title">
                   <span class="provider-key">{{ provider.key }}</span>
                   <n-tag v-if="providersConfig!.default_provider === provider.key" type="warning" size="tiny" :bordered="false">
-                    Default
+                    {{ t('aiSettings.default') }}
                   </n-tag>
                   <n-tag :type="provider.enabled ? 'success' : 'default'" size="tiny" :bordered="false">
-                    {{ provider.enabled ? 'Enabled' : 'Disabled' }}
+                    {{ provider.enabled ? t('common.enabled') : t('common.disabled') }}
                   </n-tag>
                 </div>
                 <div class="provider-card-actions">
@@ -372,28 +374,28 @@ onMounted(() => {
                         <template #icon><n-icon :component="TrashOutline" /></template>
                       </n-button>
                     </template>
-                    Delete provider "{{ provider.key }}"?
+                    {{ t('aiSettings.deleteProviderConfirm', { key: provider.key }) }}
                   </n-popconfirm>
                 </div>
               </div>
               <div class="provider-card-body">
                 <div class="provider-detail">
-                  <span class="provider-detail-label">Type</span>
+                  <span class="provider-detail-label">{{ t('common.type') }}</span>
                   <span class="provider-detail-value">{{ providerTypeLabel(provider.provider) }}</span>
                 </div>
                 <div class="provider-detail">
-                  <span class="provider-detail-label">Model</span>
+                  <span class="provider-detail-label">{{ t('aiSettings.model') }}</span>
                   <span class="provider-detail-value mono">{{ provider.model || '-' }}</span>
                 </div>
                 <div class="provider-detail full-row">
-                  <span class="provider-detail-label">Base URL</span>
-                  <span class="provider-detail-value mono">{{ provider.base_url || 'Default' }}</span>
+                  <span class="provider-detail-label">{{ t('aiSettings.baseUrl') }}</span>
+                  <span class="provider-detail-value mono">{{ provider.base_url || t('aiSettings.default') }}</span>
                 </div>
               </div>
             </div>
           </div>
           <div v-else-if="!providersLoading" class="ai-info-empty">
-            No providers configured yet. Click "Add Provider" to get started.
+            {{ t('aiSettings.noProvidersEmpty') }}
           </div>
         </section>
 
@@ -401,8 +403,8 @@ onMounted(() => {
 
         <!-- Section 2: Module Toggles -->
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">Module Configuration</h3>
-          <p class="sre-config-section-desc">Control each AI module and assign a specific provider</p>
+          <h3 class="sre-config-section-title">{{ t('aiSettings.moduleConfigTitle') }}</h3>
+          <p class="sre-config-section-desc">{{ t('aiSettings.moduleConfigDesc') }}</p>
 
           <div v-if="modules" class="module-list">
             <div
@@ -414,18 +416,18 @@ onMounted(() => {
               <div class="module-info">
                 <div class="module-name">
                   {{ moduleLabels[key].name }}
-                  <n-tag v-if="modules[key].enabled" type="success" size="tiny" :bordered="false">Enabled</n-tag>
-                  <n-tag v-else size="tiny" :bordered="false">Disabled</n-tag>
+                  <n-tag v-if="modules[key].enabled" type="success" size="tiny" :bordered="false">{{ t('common.enabled') }}</n-tag>
+                  <n-tag v-else size="tiny" :bordered="false">{{ t('common.disabled') }}</n-tag>
                 </div>
                 <div class="module-desc">{{ moduleLabels[key].description }}</div>
                 <div class="module-provider-row" v-if="hasProviders">
-                  <span class="module-provider-label">Provider:</span>
+                  <span class="module-provider-label">{{ t('aiSettings.providerLabel') }}</span>
                   <n-select
                     :value="modules[key].provider_key || ''"
-                    :options="[{ label: 'Default', value: '' }, ...providerSelectOptions]"
+                    :options="[{ label: t('aiSettings.default'), value: '' }, ...providerSelectOptions]"
                     size="tiny"
                     style="width: 240px"
-                    placeholder="Default"
+                    :placeholder="t('aiSettings.default')"
                     @update:value="(val: string) => setModuleProvider(key, val)"
                   />
                 </div>
@@ -437,7 +439,7 @@ onMounted(() => {
             </div>
           </div>
           <div v-else-if="!moduleLoading" class="ai-info-empty">
-            Failed to load module configuration
+            {{ t('aiSettings.loadModuleFailed') }}
           </div>
         </section>
       </div>
@@ -446,51 +448,51 @@ onMounted(() => {
       <n-modal
         v-model:show="showModal"
         preset="card"
-        :title="editingIndex >= 0 ? 'Edit Provider' : 'Add Provider'"
+        :title="editingIndex >= 0 ? t('aiSettings.editProvider') : t('aiSettings.addProvider')"
         style="max-width: 520px"
         :bordered="false"
         :segmented="{ content: true, footer: true }"
       >
         <n-form label-placement="left" label-width="100">
-          <n-form-item label="Key" required>
+          <n-form-item :label="t('aiSettings.providerKey')" required>
             <n-input
               v-model:value="providerForm.key"
-              placeholder="e.g. openai-main"
+              :placeholder="t('aiSettings.keyPlaceholder')"
               :disabled="editingIndex >= 0"
             />
           </n-form-item>
-          <n-form-item label="Provider Type">
+          <n-form-item :label="t('aiSettings.providerType')">
             <n-select v-model:value="providerForm.provider" :options="providerOptions" />
           </n-form-item>
-          <n-form-item label="API Key">
+          <n-form-item :label="t('aiSettings.apiKey')">
             <n-input
               v-model:value="providerForm.api_key"
               type="password"
               show-password-on="click"
-              placeholder="Enter API key"
+              :placeholder="t('aiSettings.apiKeyPlaceholder')"
             />
           </n-form-item>
-          <n-form-item label="Base URL">
+          <n-form-item :label="t('aiSettings.baseUrl')">
             <n-input
               v-model:value="providerForm.base_url"
-              placeholder="https://api.openai.com/v1"
+              :placeholder="t('aiSettings.baseUrlPlaceholder')"
             />
           </n-form-item>
-          <n-form-item label="Model">
+          <n-form-item :label="t('aiSettings.model')">
             <n-input
               v-model:value="providerForm.model"
-              placeholder="e.g. gpt-4o"
+              :placeholder="t('aiSettings.modelPlaceholder')"
             />
           </n-form-item>
-          <n-form-item label="Enabled">
+          <n-form-item :label="t('common.enabled')">
             <n-switch v-model:value="providerForm.enabled" />
           </n-form-item>
         </n-form>
         <template #footer>
           <n-space justify="end">
-            <n-button @click="showModal = false">Cancel</n-button>
+            <n-button @click="showModal = false">{{ t('common.cancel') }}</n-button>
             <n-button type="primary" @click="handleProviderSave">
-              {{ editingIndex >= 0 ? 'Update' : 'Add' }}
+              {{ editingIndex >= 0 ? t('common.update') : t('common.add') }}
             </n-button>
           </n-space>
         </template>
@@ -500,27 +502,27 @@ onMounted(() => {
       <n-modal
         v-model:show="showPreviewModal"
         preset="card"
-        title="Label Validation Impact"
+        :title="t('aiSettings.previewTitle')"
         style="max-width: 640px"
         :bordered="false"
         :segmented="{ content: true, footer: true }"
       >
         <div v-if="previewResult" class="preview-stats">
-          <n-statistic label="Total Rules" :value="previewResult.total" />
-          <n-statistic label="Passing" :value="previewResult.passing">
-            <template #suffix><n-tag type="success" size="tiny" :bordered="false">Pass</n-tag></template>
+          <n-statistic :label="t('aiSettings.totalRules')" :value="previewResult.total" />
+          <n-statistic :label="t('aiSettings.passing')" :value="previewResult.passing">
+            <template #suffix><n-tag type="success" size="tiny" :bordered="false">{{ t('aiSettings.pass') }}</n-tag></template>
           </n-statistic>
-          <n-statistic label="Failing" :value="previewResult.failing">
-            <template #suffix><n-tag type="warning" size="tiny" :bordered="false">Fail</n-tag></template>
+          <n-statistic :label="t('aiSettings.failing')" :value="previewResult.failing">
+            <template #suffix><n-tag type="warning" size="tiny" :bordered="false">{{ t('aiSettings.fail') }}</n-tag></template>
           </n-statistic>
         </div>
         <n-divider v-if="previewResult && previewResult.samples.length > 0" />
         <div v-if="previewResult && previewResult.samples.length > 0" class="preview-samples">
-          <div class="preview-samples-title">Sample Failing Rules</div>
+          <div class="preview-samples-title">{{ t('aiSettings.sampleFailingRules') }}</div>
           <div v-for="sample in previewResult.samples" :key="sample.rule_id" class="preview-sample-item">
             <div class="preview-sample-name">
               <n-tag :type="sample.pass ? 'success' : 'warning'" size="tiny" :bordered="false">
-                {{ sample.pass ? 'Pass' : 'Fail' }}
+                {{ sample.pass ? t('aiSettings.pass') : t('aiSettings.fail') }}
               </n-tag>
               {{ sample.rule_name }}
             </div>
@@ -530,11 +532,11 @@ onMounted(() => {
           </div>
         </div>
         <div v-else-if="previewResult && previewResult.failing === 0" class="ai-info-empty">
-          All rules pass label validation.
+          {{ t('aiSettings.allRulesPass') }}
         </div>
         <template #footer>
           <n-space justify="end">
-            <n-button @click="showPreviewModal = false">Close</n-button>
+            <n-button @click="showPreviewModal = false">{{ t('common.close') }}</n-button>
           </n-space>
         </template>
       </n-modal>

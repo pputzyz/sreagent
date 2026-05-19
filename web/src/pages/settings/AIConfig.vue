@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { NButton, NIcon, NSwitch, NSelect, NInput, NInputNumber, NFormItem, NSpin, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
@@ -25,12 +25,12 @@ const form = reactive({
   system_prompt: '',
 })
 
-const providerOptions = [
-  { label: 'OpenAI', value: 'openai' },
-  { label: 'Azure OpenAI', value: 'azure' },
-  { label: 'Ollama (Local)', value: 'ollama' },
-  { label: 'Custom / Compatible', value: 'custom' },
-]
+const providerOptions = computed(() => [
+  { label: t('aiSettings.providerOpenAI'), value: 'openai' },
+  { label: t('aiSettings.providerAzure'), value: 'azure' },
+  { label: t('aiSettings.providerOllama'), value: 'ollama' },
+  { label: t('aiSettings.providerCustom'), value: 'custom' },
+])
 
 async function fetchConfig() {
   loading.value = true

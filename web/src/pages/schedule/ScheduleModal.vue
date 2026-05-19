@@ -119,7 +119,7 @@ defineExpose({ openCreate, openEdit })
   <n-modal v-model:show="show" preset="card" :title="modalTitle" style="width: 560px" :bordered="false">
     <n-form label-placement="top">
       <n-form-item :label="t('common.name')" required>
-        <n-input v-model:value="form.name" placeholder="e.g. Platform Team On-Call" />
+        <n-input v-model:value="form.name" :placeholder="t('scheduleMgmt.namePlaceholder')" />
       </n-form-item>
       <n-form-item :label="t('schedule.team')">
         <n-select
@@ -147,12 +147,12 @@ defineExpose({ openCreate, openEdit })
       <n-grid :x-gap="12" :cols="2">
         <n-gi>
           <n-form-item :label="t('schedule.handoffTime')">
-            <n-input v-model:value="form.handoff_time" placeholder="09:00" />
+            <n-input v-model:value="form.handoff_time" :placeholder="t('scheduleMgmt.handoffTimePlaceholder')" />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item :label="t('schedule.severityFilter')">
-            <n-input v-model:value="form.severity_filter" placeholder="critical,warning" />
+            <n-input v-model:value="form.severity_filter" :placeholder="t('scheduleMgmt.severityFilterPlaceholder')" />
           </n-form-item>
         </n-gi>
       </n-grid>

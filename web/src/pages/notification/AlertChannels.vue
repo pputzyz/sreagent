@@ -106,7 +106,7 @@ const severityOptions = [
 ]
 
 const statusOptions = computed(() => [
-  { label: t('common.all') || 'All', value: 'all' },
+  { label: t('common.all'), value: 'all' },
   { label: t('common.enabled'), value: 'enabled' },
   { label: t('common.disabled'), value: 'disabled' },
 ])
@@ -181,7 +181,7 @@ async function copyText(text: string) {
   if (!text) return
   try {
     await navigator.clipboard.writeText(text)
-    message.success(t('common.copied') || 'Copied')
+    message.success(t('common.copied'))
   } catch {
     message.error(t('common.copyFailed'))
   }
@@ -249,7 +249,7 @@ onMounted(() => {
         <n-input
           v-model:value="search"
           size="small"
-          :placeholder="t('common.search') || 'Search'"
+          :placeholder="t('common.search')"
           clearable
           class="ac-search-input"
         >
@@ -341,7 +341,7 @@ onMounted(() => {
               <button
                 type="button"
                 class="ac-copy"
-                :title="t('common.copy') || 'Copy'"
+                :title="t('common.copy')"
                 @click.stop="copyText(mediaWebhookHint(row.media_id))"
               >
                 <n-icon :component="CopyOutline" :size="12" />

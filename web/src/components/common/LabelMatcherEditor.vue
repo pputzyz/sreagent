@@ -113,7 +113,7 @@ function valueAutocomplete(item: LabelMatcher) {
       <n-auto-complete
         :value="item.key"
         :options="keyAutocomplete(item.key)"
-        placeholder="label key"
+        :placeholder="t('labelMatcher.keyPlaceholder')"
         size="small"
         class="lme-key"
         :get-show="() => true"
@@ -130,7 +130,7 @@ function valueAutocomplete(item: LabelMatcher) {
       <n-auto-complete
         :value="item.value"
         :options="valueAutocomplete(item)"
-        placeholder="value"
+        :placeholder="t('labelMatcher.valuePlaceholder')"
         size="small"
         class="lme-val"
         :get-show="() => !!item.key"

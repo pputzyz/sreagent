@@ -93,7 +93,7 @@ onMounted(fetchList)
     <EmptyState
       v-else-if="isEmpty"
       :icon="BarChartOutline"
-      :title="t('dashboardV2.emptyHint') || 'No dashboards yet'"
+      :title="t('dashboardV2.emptyHint')"
       :description="t('dashboardV2.subtitle')"
       :primary-text="t('dashboardV2.newDashboard')"
       @primary="router.push('/alert/dashboards/new')"
@@ -117,7 +117,7 @@ onMounted(fetchList)
               <span class="tnum">{{ relTime(dash.created_at, t) }}</span>
               <template v-if="dash.is_public">
                 <span class="sre-meta-divider" />
-                <span>{{ t('dashboardV2.public') || 'Public' }}</span>
+                <span>{{ t('dashboardV2.public') }}</span>
               </template>
             </div>
           </div>
