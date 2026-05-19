@@ -33,6 +33,17 @@ func (r *BizGroupRepository) GetByID(ctx context.Context, id uint) (*model.BizGr
 	return &group, nil
 }
 
+// GetByIDLight returns a business group by its ID without preloading members.
+// Used for lightweight lookups such as ancestor chain walking.
+func (r *BizGroupRepository) GetByIDLight(ctx context.Context, id uint) (*model.BizGroup, error) {
+	var group model.BizGroup
+	err := r.db.WithContext(ctx).First(&group, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &group, nil
+}
+
 // List returns a paginated list of business groups.
 func (r *BizGroupRepository) List(ctx context.Context, page, pageSize int) ([]model.BizGroup, int64, error) {
 	var list []model.BizGroup

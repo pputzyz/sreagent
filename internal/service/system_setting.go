@@ -2,22 +2,15 @@ package service
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -74,10 +67,6 @@ const (
 
 	// cacheTTL is how long a cached config entry is considered fresh.
 	cacheTTL = 30 * time.Second
-
-	// encPrefix is the prefix prepended to AES-GCM ciphertext stored in the DB.
-	// Format: "enc:" + base64(12-byte nonce + ciphertext)
-	encPrefix = "enc:"
 )
 
 // sensitiveKeys lists the setting keys that must be encrypted at rest.
@@ -137,9 +126,8 @@ func (c *cachedConfig[T]) valid() bool {
 // (32-byte hex string). If the env var is absent, values are stored plaintext
 // and a warning is logged at startup.
 type SystemSettingService struct {
-	repo      *repository.SystemSettingRepository
-	logger    *zap.Logger
-	masterKey []byte // 32-byte AES key; nil if not configured
+	repo   *repository.SystemSettingRepository
+	logger *zap.Logger
 
 	aiMu    sync.RWMutex
 	aiCache cachedConfig[AIConfig]
@@ -158,84 +146,20 @@ type SystemSettingService struct {
 }
 
 // NewSystemSettingService creates a new SystemSettingService.
-// It attempts to load the master encryption key from SREAGENT_SECRET_KEY.
+// Encryption is delegated to the shared crypto package (reads SREAGENT_SECRET_KEY).
 func NewSystemSettingService(repo *repository.SystemSettingRepository, logger *zap.Logger) *SystemSettingService {
-	svc := &SystemSettingService{repo: repo, logger: logger}
-
-	keyHex := os.Getenv("SREAGENT_SECRET_KEY")
-	if keyHex == "" {
-		logger.Warn("SREAGENT_SECRET_KEY not set — sensitive settings will be stored in plaintext")
-	} else {
-		key, err := hex.DecodeString(keyHex)
-		if err != nil || len(key) != 32 {
-			logger.Error("SREAGENT_SECRET_KEY must be a 64-character hex string (32 bytes); falling back to plaintext storage",
-				zap.Error(err),
-			)
-		} else {
-			svc.masterKey = key
-			logger.Info("encryption key loaded for sensitive settings")
-		}
-	}
-
-	return svc
+	return &SystemSettingService{repo: repo, logger: logger}
 }
 
-// encryptValue encrypts a plaintext string using AES-256-GCM.
-// Returns "enc:<base64(nonce+ciphertext)>" or the original value if no key is set.
+// encryptValue encrypts a plaintext string using AES-256-GCM (via shared crypto package).
 func (s *SystemSettingService) encryptValue(plaintext string) (string, error) {
-	if len(s.masterKey) == 0 || plaintext == "" {
-		return plaintext, nil
-	}
-
-	block, err := aes.NewCipher(s.masterKey)
-	if err != nil {
-		return "", err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-
-	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-	return encPrefix + base64.StdEncoding.EncodeToString(ciphertext), nil
+	return crypto.EncryptString(plaintext)
 }
 
 // decryptValue decrypts a value encrypted by encryptValue.
-// Values not starting with encPrefix are returned as-is (backward compatible).
+// Values not starting with "enc:" are returned as-is (backward compatible).
 func (s *SystemSettingService) decryptValue(value string) (string, error) {
-	if len(s.masterKey) == 0 || !strings.HasPrefix(value, encPrefix) {
-		return value, nil
-	}
-
-	data, err := base64.StdEncoding.DecodeString(value[len(encPrefix):])
-	if err != nil {
-		return "", err
-	}
-
-	block, err := aes.NewCipher(s.masterKey)
-	if err != nil {
-		return "", err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonceSize := gcm.NonceSize()
-	if len(data) < nonceSize {
-		return "", io.ErrUnexpectedEOF
-	}
-
-	plaintext, err := gcm.Open(nil, data[:nonceSize], data[nonceSize:], nil)
-	if err != nil {
-		return "", err
-	}
-	return string(plaintext), nil
+	return crypto.DecryptString(value)
 }
 
 // setEncrypted encrypts a value for a given group+key if it is sensitive.

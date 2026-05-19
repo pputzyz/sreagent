@@ -7,7 +7,7 @@ import (
 // registerAlertRoutes registers alert rule, alert event, heartbeat, and alert action routes.
 // root is the top-level engine (for unauthenticated endpoints like heartbeat).
 // auth is the JWT-authenticated group.
-func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, manage, operate gin.HandlerFunc) {
+func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, adminOnly, manage, operate gin.HandlerFunc) {
 	// Alert Rules
 	rules := auth.Group("/alert-rules")
 	{
@@ -24,6 +24,7 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 		rules.POST("/batch/enable", manage, h.AlertRule.BatchEnable)
 		rules.POST("/batch/disable", manage, h.AlertRule.BatchDisable)
 		rules.POST("/batch/delete", manage, h.AlertRule.BatchDelete)
+		rules.GET("/:id/heartbeat-token", adminOnly, h.AlertRule.GetHeartbeatToken)
 	}
 
 	// Alert Rule Templates

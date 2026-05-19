@@ -221,6 +221,14 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Username: GetCurrentUsername(c),
+			Action: model.AuditActionUpdate, ResourceType: model.AuditResourceUserPassword,
+			ResourceID: &userID, IP: c.ClientIP(),
+		})
+	}
 	Success(c, nil)
 }
 

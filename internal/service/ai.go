@@ -409,24 +409,79 @@ func (s *AIService) callLLMJSON(ctx context.Context, cfg AIConfig, systemPrompt,
 }
 
 // stripMarkdownCodeBlock removes markdown code block wrapping from LLM output.
+// Handles fenced blocks (3+ backticks with optional language tag),
+// indented code blocks (4-space indent), nested backticks,
+// mixed line endings, and empty code blocks.
 func stripMarkdownCodeBlock(s string) string {
 	s = strings.TrimSpace(s)
-
-	// Handle ```json ... ``` or ``` ... ```
-	if strings.HasPrefix(s, "```") {
-		// Remove opening fence (with optional language tag)
-		idx := strings.Index(s, "\n")
-		if idx != -1 {
-			s = s[idx+1:]
-		}
-		// Remove closing fence
-		if lastIdx := strings.LastIndex(s, "```"); lastIdx != -1 {
-			s = s[:lastIdx]
-		}
-		s = strings.TrimSpace(s)
+	if s == "" {
+		return s
 	}
 
-	return s
+	// Normalize line endings (\r\n, \r -> \n)
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
+	lines := strings.Split(s, "\n")
+	if len(lines) == 0 {
+		return s
+	}
+
+	// --- Try fenced code block (3+ backticks) ---
+	firstLine := strings.TrimRight(lines[0], " \t")
+	openTicks := countLeadingBackticks(firstLine)
+	if openTicks >= 3 {
+		tag := firstLine[openTicks:]
+		// Opening fence must be only backticks + optional language tag (no backticks in tag)
+		if !strings.Contains(tag, "`") {
+			// Find matching closing fence: a line of only backticks with count >= opening
+			closingIdx := -1
+			for i := 1; i < len(lines); i++ {
+				trimmed := strings.TrimRight(lines[i], " \t")
+				if countLeadingBackticks(trimmed) >= openTicks && strings.TrimLeft(trimmed, "`") == "" {
+					closingIdx = i
+					break
+				}
+			}
+			if closingIdx != -1 {
+				return strings.TrimSpace(strings.Join(lines[1:closingIdx], "\n"))
+			}
+			// No closing fence found — strip opening line only
+			return strings.TrimSpace(strings.Join(lines[1:], "\n"))
+		}
+	}
+
+	// --- Try indented code block (all non-empty lines indented 4 spaces) ---
+	allIndented := true
+	for _, line := range lines {
+		if line != "" && !strings.HasPrefix(line, "    ") {
+			allIndented = false
+			break
+		}
+	}
+	if allIndented {
+		for i, line := range lines {
+			if strings.HasPrefix(line, "    ") {
+				lines[i] = line[4:]
+			}
+		}
+		return strings.TrimSpace(strings.Join(lines, "\n"))
+	}
+
+	return strings.TrimSpace(s)
+}
+
+// countLeadingBackticks returns the number of leading backtick characters in s.
+func countLeadingBackticks(s string) int {
+	count := 0
+	for _, c := range s {
+		if c == '`' {
+			count++
+		} else {
+			break
+		}
+	}
+	return count
 }
 
 // truncateString truncates a string to maxLen, appending "..." if truncated.

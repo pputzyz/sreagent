@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	crypto_rand "crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +15,14 @@ import (
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
+
+// generateSecureToken generates a cryptographically secure random token
+// encoded as a URL-safe base64 string (n bytes of entropy).
+func generateSecureToken(n int) string {
+	b := make([]byte, n)
+	_, _ = crypto_rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)
+}
 
 type AlertRuleService struct {
 	repo        *repository.AlertRuleRepository
@@ -102,6 +112,11 @@ func (s *AlertRuleService) Create(ctx context.Context, rule *model.AlertRule) er
 		}
 	} else if rule.DatasourceType == "" {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "either datasource_id or datasource_type must be provided")
+	}
+
+	// Auto-generate a secure heartbeat token for heartbeat-type rules
+	if rule.RuleType == model.RuleTypeHeartbeat && rule.HeartbeatToken == "" {
+		rule.HeartbeatToken = generateSecureToken(32)
 	}
 
 	rule.Version = 1
@@ -286,6 +301,19 @@ func (s *AlertRuleService) RecordHeartbeatPing(ctx context.Context, token string
 	}
 	s.logger.Debug("heartbeat ping recorded", zap.String("rule_name", rule.Name), zap.Uint("rule_id", rule.ID))
 	return nil
+}
+
+// GetHeartbeatToken returns the full heartbeat token for the given rule (admin-only).
+// Returns an error if the rule is not found or is not a heartbeat-type rule.
+func (s *AlertRuleService) GetHeartbeatToken(ctx context.Context, id uint) (string, error) {
+	rule, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return "", apperr.ErrRuleNotFound
+	}
+	if rule.RuleType != model.RuleTypeHeartbeat {
+		return "", apperr.WithMessage(apperr.ErrInvalidParam, "rule is not a heartbeat-type rule")
+	}
+	return rule.HeartbeatToken, nil
 }
 
 // recordHistory creates an audit trail entry for an alert rule change.

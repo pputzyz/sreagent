@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -175,8 +174,11 @@ func matchCondition(c model.FilterCondition, event *model.AlertEvent) bool {
 	case "not_contains":
 		return !strings.Contains(actual, c.Value)
 	case "regex":
-		matched, _ := regexp.MatchString(c.Value, actual)
-		return matched
+		re, err := getOrCompileRegex(c.Value)
+		if err != nil {
+			return false
+		}
+		return re.MatchString(actual)
 	case "in":
 		for _, v := range strings.Split(c.Value, ",") {
 			if strings.TrimSpace(v) == actual {

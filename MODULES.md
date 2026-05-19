@@ -1,6 +1,6 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-19 | tag: v4.10.34
+> 最后更新: 2026-05-19 | tag: v4.10.35
 > 共 34 个 model, 46 个 handler, 46 个 service, 34 个 repository, 268+ API 端点
 
 ---
@@ -120,7 +120,7 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 ## 通知管道 (notification)
 
 - **功能**: v1 策略管道 + v2 规则管道、多渠道发送、订阅机制
-- **后端**: `service/notification.go`, `service/notify_rule.go`, `service/notify_media.go`, `service/message_template.go`, `service/subscribe_rule.go`
+- **后端**: `service/notification.go`, `service/notification_dedup.go`, `service/notify_rule.go`, `service/notify_media.go`, `service/message_template.go`, `service/subscribe_rule.go`
 - **前端**: `web/src/pages/notification/` (Rules, Media, Templates, Subscribe)
 - **API**: `/api/v1/notify-rules`, `/api/v1/notify-media`, `/api/v1/message-templates`, `/api/v1/subscribe-rules` (~25 endpoints)
 - **状态**: ✅ 完成

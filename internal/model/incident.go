@@ -6,9 +6,10 @@ import "time"
 type IncidentStatus string
 
 const (
-	IncidentStatusTriggered  IncidentStatus = "triggered"  // 待处理
-	IncidentStatusProcessing IncidentStatus = "processing" // 处理中 (at least one person acknowledged)
+	IncidentStatusTriggered  IncidentStatus = "triggered"  // 待处理 (open)
+	IncidentStatusProcessing IncidentStatus = "processing" // 处理中 (acknowledged)
 	IncidentStatusClosed     IncidentStatus = "closed"     // 已关闭
+	IncidentStatusSnoozed    IncidentStatus = "snoozed"    // 暂缓中
 )
 
 // IncidentSeverity uses the same severity as alerts but limited to 3 levels.

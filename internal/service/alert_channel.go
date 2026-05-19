@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -12,6 +13,24 @@ import (
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
+
+// regexCache caches compiled *regexp.Regexp objects keyed by pattern string.
+// Read-heavy with rare writes — sync.Map is ideal.
+var regexCache sync.Map
+
+// getOrCompileRegex returns a cached compiled regexp for the given pattern,
+// compiling and caching it on first access.
+func getOrCompileRegex(pattern string) (*regexp.Regexp, error) {
+	if v, ok := regexCache.Load(pattern); ok {
+		return v.(*regexp.Regexp), nil
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+	actual, _ := regexCache.LoadOrStore(pattern, re)
+	return actual.(*regexp.Regexp), nil
+}
 
 // AlertChannelService provides CRUD and matching logic for alert channels.
 type AlertChannelService struct {
@@ -148,12 +167,12 @@ func labelsMatch(matchLabels, eventLabels model.JSONLabels) bool {
 		tv := eventLabels[k]
 		switch {
 		case strings.HasPrefix(pattern, "!~"):
-			re, err := regexp.Compile(pattern[2:])
+			re, err := getOrCompileRegex(pattern[2:])
 			if err != nil || re.MatchString(tv) {
 				return false
 			}
 		case strings.HasPrefix(pattern, "=~"):
-			re, err := regexp.Compile(pattern[2:])
+			re, err := getOrCompileRegex(pattern[2:])
 			if err != nil || !re.MatchString(tv) {
 				return false
 			}

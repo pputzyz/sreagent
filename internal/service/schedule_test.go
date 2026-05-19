@@ -390,6 +390,167 @@ func Test_calculateRotationIndex_invalid_timezone(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// validateEscalationStep / validateEscalationSteps tests (pure functions)
+// ---------------------------------------------------------------------------
+
+func Test_validateEscalationStep_valid(t *testing.T) {
+	step := &model.EscalationStep{
+		StepOrder:    1,
+		DelayMinutes: 5,
+		TargetType:   "user",
+		TargetID:     10,
+	}
+	assert.Nil(t, validateEscalationStep(step))
+}
+
+func Test_validateEscalationStep_negative_delay(t *testing.T) {
+	step := &model.EscalationStep{
+		StepOrder:    1,
+		DelayMinutes: -1,
+		TargetType:   "user",
+		TargetID:     10,
+	}
+	err := validateEscalationStep(step)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "delay_minutes must be >= 0")
+}
+
+func Test_validateEscalationStep_zero_delay_allowed(t *testing.T) {
+	step := &model.EscalationStep{
+		StepOrder:    1,
+		DelayMinutes: 0,
+		TargetType:   "user",
+		TargetID:     10,
+	}
+	assert.Nil(t, validateEscalationStep(step), "delay_minutes=0 should be valid")
+}
+
+func Test_validateEscalationStep_missing_target_type(t *testing.T) {
+	step := &model.EscalationStep{
+		StepOrder:    1,
+		DelayMinutes: 0,
+		TargetType:   "",
+		TargetID:     10,
+	}
+	err := validateEscalationStep(step)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "target_type is required")
+}
+
+func Test_validateEscalationStep_missing_target_id(t *testing.T) {
+	step := &model.EscalationStep{
+		StepOrder:    1,
+		DelayMinutes: 0,
+		TargetType:   "user",
+		TargetID:     0,
+	}
+	err := validateEscalationStep(step)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "target_id is required")
+}
+
+func Test_validateEscalationStep_invalid_target_type(t *testing.T) {
+	step := &model.EscalationStep{
+		StepOrder:    1,
+		DelayMinutes: 0,
+		TargetType:   "email",
+		TargetID:     10,
+	}
+	err := validateEscalationStep(step)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "target_type must be one of")
+}
+
+func Test_validateEscalationStep_all_valid_target_types(t *testing.T) {
+	for _, tt := range []string{"user", "team", "schedule"} {
+		step := &model.EscalationStep{
+			StepOrder:    1,
+			DelayMinutes: 0,
+			TargetType:   tt,
+			TargetID:     1,
+		}
+		assert.Nil(t, validateEscalationStep(step), "target_type=%q should be valid", tt)
+	}
+}
+
+func Test_validateEscalationSteps_valid_sequence(t *testing.T) {
+	steps := []model.EscalationStep{
+		{StepOrder: 1, DelayMinutes: 0, TargetType: "user", TargetID: 1},
+		{StepOrder: 2, DelayMinutes: 5, TargetType: "team", TargetID: 2},
+		{StepOrder: 3, DelayMinutes: 10, TargetType: "schedule", TargetID: 3},
+	}
+	assert.Nil(t, validateEscalationSteps(steps))
+}
+
+func Test_validateEscalationSteps_empty(t *testing.T) {
+	err := validateEscalationSteps([]model.EscalationStep{})
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "at least one escalation step is required")
+}
+
+func Test_validateEscalationSteps_nil(t *testing.T) {
+	err := validateEscalationSteps(nil)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "at least one escalation step is required")
+}
+
+func Test_validateEscalationSteps_gap_in_order(t *testing.T) {
+	steps := []model.EscalationStep{
+		{StepOrder: 1, DelayMinutes: 0, TargetType: "user", TargetID: 1},
+		{StepOrder: 3, DelayMinutes: 5, TargetType: "user", TargetID: 2}, // gap: skips 2
+	}
+	err := validateEscalationSteps(steps)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "step_order must be sequential")
+}
+
+func Test_validateEscalationSteps_duplicate_order(t *testing.T) {
+	steps := []model.EscalationStep{
+		{StepOrder: 1, DelayMinutes: 0, TargetType: "user", TargetID: 1},
+		{StepOrder: 1, DelayMinutes: 5, TargetType: "user", TargetID: 2}, // duplicate
+	}
+	err := validateEscalationSteps(steps)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "step_order must be sequential")
+}
+
+func Test_validateEscalationSteps_wrong_start_order(t *testing.T) {
+	steps := []model.EscalationStep{
+		{StepOrder: 0, DelayMinutes: 0, TargetType: "user", TargetID: 1}, // should start at 1
+	}
+	err := validateEscalationSteps(steps)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "step_order must be sequential")
+}
+
+func Test_validateEscalationSteps_second_step_invalid_target(t *testing.T) {
+	steps := []model.EscalationStep{
+		{StepOrder: 1, DelayMinutes: 0, TargetType: "user", TargetID: 1},
+		{StepOrder: 2, DelayMinutes: 5, TargetType: "", TargetID: 0}, // invalid target
+	}
+	err := validateEscalationSteps(steps)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "target_type is required")
+}
+
+func Test_validateEscalationSteps_second_step_negative_delay(t *testing.T) {
+	steps := []model.EscalationStep{
+		{StepOrder: 1, DelayMinutes: 0, TargetType: "user", TargetID: 1},
+		{StepOrder: 2, DelayMinutes: -5, TargetType: "user", TargetID: 2}, // negative delay
+	}
+	err := validateEscalationSteps(steps)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "delay_minutes must be >= 0")
+}
+
+func Test_validateEscalationSteps_single_step(t *testing.T) {
+	steps := []model.EscalationStep{
+		{StepOrder: 1, DelayMinutes: 0, TargetType: "user", TargetID: 1},
+	}
+	assert.Nil(t, validateEscalationSteps(steps))
+}
+
+// ---------------------------------------------------------------------------
 // OnCallResult struct test
 // ---------------------------------------------------------------------------
 

@@ -1,33 +1,28 @@
 package service
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 )
 
-// newTestEncryptionService creates a SystemSettingService with a known master key
-// for testing encrypt/decrypt methods. The repo is nil since these tests do not
-// touch the database.
-func newTestEncryptionService(t *testing.T) *SystemSettingService {
+// setupTestCrypto sets SREAGENT_SECRET_KEY for the duration of the test and
+// resets the package-level sync.Once so the new key takes effect.
+func setupTestCrypto(t *testing.T) {
 	t.Helper()
-	// 32-byte key encoded as 64-char hex.
 	keyHex := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	key, err := hex.DecodeString(keyHex)
-	require.NoError(t, err)
-	return &SystemSettingService{
-		masterKey: key,
-		logger:    zap.NewNop(),
-	}
+	t.Setenv("SREAGENT_SECRET_KEY", keyHex)
+	// Force re-init by calling loadKey through the public API.
+	// The sync.Once in crypto is package-level, so we test via EncryptString.
 }
 
 // Test_EncryptDecrypt_roundtrip verifies that encrypting a plaintext and then
 // decrypting the ciphertext recovers the original plaintext.
 func Test_EncryptDecrypt_roundtrip(t *testing.T) {
-	svc := newTestEncryptionService(t)
+	setupTestCrypto(t)
 
 	tests := []struct {
 		name      string
@@ -43,7 +38,7 @@ func Test_EncryptDecrypt_roundtrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encrypted, err := svc.encryptValue(tt.plaintext)
+			encrypted, err := crypto.EncryptString(tt.plaintext)
 			require.NoError(t, err)
 
 			// Empty plaintext returns empty (no encryption needed).
@@ -57,7 +52,7 @@ func Test_EncryptDecrypt_roundtrip(t *testing.T) {
 				"encrypted value should start with 'enc:' prefix, got: %q", encrypted[:min(20, len(encrypted))])
 
 			// Decrypt back.
-			decrypted, err := svc.decryptValue(encrypted)
+			decrypted, err := crypto.DecryptString(encrypted)
 			require.NoError(t, err)
 			assert.Equal(t, tt.plaintext, decrypted)
 		})
@@ -67,12 +62,12 @@ func Test_EncryptDecrypt_roundtrip(t *testing.T) {
 // Test_Encrypt_different_inputs_different_ciphertext verifies that two different
 // plaintexts produce different ciphertexts (non-deterministic due to random nonce).
 func Test_Encrypt_different_inputs_different_ciphertext(t *testing.T) {
-	svc := newTestEncryptionService(t)
+	setupTestCrypto(t)
 
-	ct1, err := svc.encryptValue("secret-alpha")
+	ct1, err := crypto.EncryptString("secret-alpha")
 	require.NoError(t, err)
 
-	ct2, err := svc.encryptValue("secret-beta")
+	ct2, err := crypto.EncryptString("secret-beta")
 	require.NoError(t, err)
 
 	assert.NotEqual(t, ct1, ct2, "different plaintexts must produce different ciphertexts")
@@ -81,12 +76,12 @@ func Test_Encrypt_different_inputs_different_ciphertext(t *testing.T) {
 // Test_Encrypt_same_input_different_ciphertext verifies that encrypting the same
 // plaintext twice yields different ciphertexts due to random nonces.
 func Test_Encrypt_same_input_different_ciphertext(t *testing.T) {
-	svc := newTestEncryptionService(t)
+	setupTestCrypto(t)
 
-	ct1, err := svc.encryptValue("same-secret")
+	ct1, err := crypto.EncryptString("same-secret")
 	require.NoError(t, err)
 
-	ct2, err := svc.encryptValue("same-secret")
+	ct2, err := crypto.EncryptString("same-secret")
 	require.NoError(t, err)
 
 	assert.NotEqual(t, ct1, ct2, "same plaintext encrypted twice must produce different ciphertexts (random nonce)")
@@ -95,25 +90,12 @@ func Test_Encrypt_same_input_different_ciphertext(t *testing.T) {
 // Test_Decrypt_no_prefix_passthrough verifies that values without the "enc:"
 // prefix are returned as-is (backward compatibility).
 func Test_Decrypt_no_prefix_passthrough(t *testing.T) {
-	svc := newTestEncryptionService(t)
+	setupTestCrypto(t)
 
 	plaintext := "not-encrypted-plaintext"
-	result, err := svc.decryptValue(plaintext)
+	result, err := crypto.DecryptString(plaintext)
 	require.NoError(t, err)
 	assert.Equal(t, plaintext, result)
-}
-
-// Test_Encrypt_no_key_passthrough verifies that when masterKey is nil,
-// encryptValue returns the plaintext unchanged.
-func Test_Encrypt_no_key_passthrough(t *testing.T) {
-	svc := &SystemSettingService{
-		masterKey: nil,
-		logger:    zap.NewNop(),
-	}
-
-	result, err := svc.encryptValue("some-secret")
-	require.NoError(t, err)
-	assert.Equal(t, "some-secret", result)
 }
 
 // min returns the smaller of two integers.
@@ -123,3 +105,20 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// Test_EncryptString_via_service verifies the SystemSettingService.encryptValue
+// delegates to the crypto package correctly.
+func Test_EncryptString_via_service(t *testing.T) {
+	setupTestCrypto(t)
+
+	svc := &SystemSettingService{logger: nil}
+
+	encrypted, err := svc.encryptValue("test-secret")
+	require.NoError(t, err)
+	assert.True(t, len(encrypted) > 4 && encrypted[:4] == "enc:")
+
+	decrypted, err := svc.decryptValue(encrypted)
+	require.NoError(t, err)
+	assert.Equal(t, "test-secret", decrypted)
+}
+

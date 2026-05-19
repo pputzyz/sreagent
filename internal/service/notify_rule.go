@@ -201,6 +201,18 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 			continue
 		}
 
+		// Dedup: skip if this event+media was already sent via either pipeline
+		dedupKey := fmt.Sprintf("v2:%d:%d:%s", rule.ID, nc.MediaID, event.Fingerprint)
+		if !routeDedup.TrySend(dedupKey) {
+			s.logger.Debug("v2 notification deduped",
+				zap.Uint("event_id", event.ID),
+				zap.Uint("rule_id", rule.ID),
+				zap.Uint("media_id", nc.MediaID),
+				zap.String("fingerprint", event.Fingerprint),
+			)
+			continue
+		}
+
 		// Load media
 		media, err := s.mediaRepo.GetByID(ctx, nc.MediaID)
 		if err != nil {

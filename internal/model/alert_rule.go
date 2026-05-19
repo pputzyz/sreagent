@@ -83,7 +83,7 @@ type AlertRule struct {
 
 	// Heartbeat monitoring (only relevant when RuleType="heartbeat")
 	// HeartbeatToken is the unique token embedded in the ping URL: POST /heartbeat/:token
-	HeartbeatToken    string     `json:"heartbeat_token" gorm:"size:128;not null;default:''"`
+	HeartbeatToken    string     `json:"heartbeat_token" gorm:"size:128;not null;default:'';uniqueIndex"`
 	// HeartbeatInterval is the expected ping interval in seconds.
 	HeartbeatInterval int        `json:"heartbeat_interval" gorm:"not null;default:300"`
 	// HeartbeatLastAt is the timestamp of the last received ping.
@@ -102,6 +102,16 @@ type AlertRule struct {
 
 func (AlertRule) TableName() string {
 	return "alert_rules"
+}
+
+// MaskHeartbeatToken replaces the HeartbeatToken with a masked value
+// (first 8 chars + "...") for safe exposure in API responses.
+// Returns a copy so the original is not mutated.
+func (r AlertRule) MaskHeartbeatToken() AlertRule {
+	if len(r.HeartbeatToken) > 8 {
+		r.HeartbeatToken = r.HeartbeatToken[:8] + "..."
+	}
+	return r
 }
 
 // AlertRuleHistory records changes to alert rules for audit trail.

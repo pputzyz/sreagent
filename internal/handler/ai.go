@@ -32,7 +32,7 @@ var systemPrompts = map[string]string{
 func (h *AIHandler) Chat(c *gin.Context) {
 	var req struct {
 		Mode    string `json:"mode" binding:"required"`
-		Message string `json:"message" binding:"required"`
+		Message string `json:"message" binding:"required,max=4000"`
 		Context string `json:"context,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {

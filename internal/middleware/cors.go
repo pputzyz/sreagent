@@ -13,6 +13,16 @@ import (
 // When empty, defaults to localhost development origins (debug mode) or an
 // empty list (release mode — origins must be explicitly configured).
 func CORS(originsCSV string) gin.HandlerFunc {
+	// Startup validation: reject wildcard with credentials
+	if originsCSV != "" {
+		for _, o := range strings.Split(originsCSV, ",") {
+			trimmed := strings.TrimSpace(o)
+			if trimmed == "*" {
+				panic("CORS misconfiguration: AllowCredentials=true with wildcard origin is unsafe. Set explicit origins in CORS_ALLOWED_ORIGINS.")
+			}
+		}
+	}
+
 	var allowedOrigins []string
 	if originsCSV != "" {
 		for _, o := range strings.Split(originsCSV, ",") {

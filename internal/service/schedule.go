@@ -249,7 +249,19 @@ func (s *ScheduleService) GetCurrentOnCall(ctx context.Context, scheduleID uint)
 	}
 	now = now.In(loc)
 
-	// Check OnCallShift records first (direct time-slot assignments)
+	// Check for active override first — overrides always take precedence
+	// over regular shifts and rotation calculations.
+	override, err := s.overrideRepo.GetActiveOverride(ctx, scheduleID, now)
+	if err == nil && override != nil {
+		return &OnCallResult{
+			User:       &override.User,
+			Schedule:   schedule,
+			IsOverride: true,
+			Override:   override,
+		}, nil
+	}
+
+	// Check OnCallShift records (direct time-slot assignments)
 	if s.shiftRepo != nil {
 		shift, err := s.shiftRepo.GetCurrentShift(ctx, scheduleID, now)
 		if err != nil {
@@ -264,17 +276,6 @@ func (s *ScheduleService) GetCurrentOnCall(ctx context.Context, scheduleID uint)
 				IsOverride: false,
 			}, nil
 		}
-	}
-
-	// Check for active override next
-	override, err := s.overrideRepo.GetActiveOverride(ctx, scheduleID, now)
-	if err == nil && override != nil {
-		return &OnCallResult{
-			User:       &override.User,
-			Schedule:   schedule,
-			IsOverride: true,
-			Override:   override,
-		}, nil
 	}
 
 	// Fall back to rotation calculation
@@ -336,7 +337,6 @@ func (s *ScheduleService) calculateRotationIndex(
 
 	switch schedule.RotationType {
 	case model.RotationDaily:
-		// Calculate number of complete handoff periods since reference
 		elapsed := now.Sub(ref)
 		periods := int(elapsed.Hours() / 24)
 		return periods % numParticipants
@@ -355,7 +355,6 @@ func (s *ScheduleService) calculateRotationIndex(
 		return periods % numParticipants
 
 	case model.RotationCustom:
-		// Custom: fall back to daily rotation as a sensible default
 		elapsed := now.Sub(ref)
 		periods := int(elapsed.Hours() / 24)
 		return periods % numParticipants
@@ -681,4 +680,84 @@ func (s *ScheduleService) ListEscalationSteps(ctx context.Context, policyID uint
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return steps, nil
+}
+
+// CreateEscalationStep creates a single escalation step after validation.
+func (s *ScheduleService) CreateEscalationStep(ctx context.Context, step *model.EscalationStep) error {
+	if _, err := s.policyRepo.GetByID(ctx, step.PolicyID); err != nil {
+		return apperr.WithMessage(apperr.ErrNotFound, "escalation policy not found")
+	}
+
+	if err := validateEscalationStep(step); err != nil {
+		return err
+	}
+
+	if err := s.stepRepo.Create(ctx, step); err != nil {
+		s.logger.Error("failed to create escalation step", zap.Error(err), zap.Uint("policy_id", step.PolicyID))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// ReplaceEscalationSteps replaces all steps for a policy after validating the
+// full set. Steps are persisted atomically in a single transaction.
+func (s *ScheduleService) ReplaceEscalationSteps(ctx context.Context, policyID uint, steps []model.EscalationStep) error {
+	if _, err := s.policyRepo.GetByID(ctx, policyID); err != nil {
+		return apperr.WithMessage(apperr.ErrNotFound, "escalation policy not found")
+	}
+
+	if err := validateEscalationSteps(steps); err != nil {
+		return err
+	}
+
+	// Ensure each step references the correct policy.
+	for i := range steps {
+		steps[i].PolicyID = policyID
+	}
+
+	if err := s.stepRepo.ReplaceByPolicyID(ctx, policyID, steps); err != nil {
+		s.logger.Error("failed to replace escalation steps", zap.Error(err), zap.Uint("policy_id", policyID))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// validateEscalationStep validates a single escalation step.
+func validateEscalationStep(step *model.EscalationStep) *apperr.AppError {
+	if step.DelayMinutes < 0 {
+		return apperr.WithMessage(apperr.ErrBadRequest, "delay_minutes must be >= 0")
+	}
+	if step.TargetType == "" {
+		return apperr.WithMessage(apperr.ErrBadRequest, "target_type is required")
+	}
+	if step.TargetID == 0 {
+		return apperr.WithMessage(apperr.ErrBadRequest, "target_id is required")
+	}
+	validTargets := map[string]bool{"user": true, "team": true, "schedule": true}
+	if !validTargets[step.TargetType] {
+		return apperr.WithMessage(apperr.ErrBadRequest, "target_type must be one of: user, team, schedule")
+	}
+	return nil
+}
+
+// validateEscalationSteps validates a full ordered set of escalation steps:
+//  1. StepOrder values must be sequential starting at 1 (1, 2, 3...) with no gaps or duplicates.
+//  2. Each step must have a valid target (target_type + target_id).
+//  3. DelayMinutes must be >= 0 for every step.
+func validateEscalationSteps(steps []model.EscalationStep) *apperr.AppError {
+	if len(steps) == 0 {
+		return apperr.WithMessage(apperr.ErrBadRequest, "at least one escalation step is required")
+	}
+
+	for i, step := range steps {
+		if err := validateEscalationStep(&step); err != nil {
+			return err
+		}
+		expectedOrder := i + 1
+		if step.StepOrder != expectedOrder {
+			return apperr.WithMessage(apperr.ErrBadRequest,
+				fmt.Sprintf("step_order must be sequential: expected %d at position %d, got %d", expectedOrder, i, step.StepOrder))
+		}
+	}
+	return nil
 }

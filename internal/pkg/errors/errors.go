@@ -81,8 +81,9 @@ var (
 	ErrIncidentNotFound      = &AppError{Code: 10316, Message: "incident not found"}
 
 	// 10400-10499: Conflict errors
-	ErrConflict      = &AppError{Code: 10400, Message: "resource already exists"}
-	ErrDuplicateName = &AppError{Code: 10401, Message: "name already taken"}
+	ErrConflict          = &AppError{Code: 10400, Message: "resource already exists"}
+	ErrDuplicateName     = &AppError{Code: 10401, Message: "name already taken"}
+	ErrInvalidTransition = &AppError{Code: 10402, Message: "invalid state transition"}
 
 	// 50000+: Internal errors
 	ErrInternal    = &AppError{Code: 50000, Message: "internal server error"}

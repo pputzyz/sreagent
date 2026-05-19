@@ -2,6 +2,8 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/sreagent/sreagent/internal/middleware"
 )
 
 // registerAdminRoutes registers admin and management routes: mute rules, inhibition rules,
@@ -122,13 +124,16 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			incidents.POST("/:id/merge", operate, h.IncidentV2.Merge)
 			incidents.POST("/:id/escalate", operate, h.IncidentV2.Escalate)
 			incidents.POST("/:id/comment", operate, h.IncidentV2.AddComment)
-			// Post-mortem (复盘)
+			// Post-mortem (复盘) — AI endpoints rate limited (0.1 RPS, burst 3)
+			pmRL := middleware.RateLimit(func(c *gin.Context) string {
+				return "pm:" + c.ClientIP()
+			}, 0.1, 3)
 			if h.PostMortem != nil {
 				incidents.GET("/:id/post-mortem", h.PostMortem.Get)
 				incidents.PUT("/:id/post-mortem", operate, h.PostMortem.Update)
 				incidents.POST("/:id/post-mortem/publish", manage, h.PostMortem.Publish)
-				incidents.POST("/:id/post-mortem/ai-generate", operate, h.PostMortem.AIGenerate)
-				incidents.POST("/:id/post-mortem/ai-summary", operate, h.PostMortem.AISummary)
+				incidents.POST("/:id/post-mortem/ai-generate", operate, pmRL, h.PostMortem.AIGenerate)
+				incidents.POST("/:id/post-mortem/ai-summary", operate, pmRL, h.PostMortem.AISummary)
 			}
 		}
 	}

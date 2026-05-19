@@ -21,6 +21,11 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// routeDedup prevents the same alert+destination combination from being
+// dispatched through both the v1 (NotifyPolicy) and v2 (SubscribeRule)
+// pipelines within a short time window.
+var routeDedup = newNotifDedup()
+
 // NotificationService is the notification routing engine.
 type NotificationService struct {
 	channelRepo   *repository.NotifyChannelRepository
@@ -110,6 +115,17 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 			)
 			// Record as throttled
 			s.createRecord(ctx, event.ID, policy.ChannelID, policy.ID, "throttled", "")
+			continue
+		}
+
+		// Dedup: skip if this event+channel was already sent via either pipeline
+		dedupKey := fmt.Sprintf("v1:%d:%d:%s", policy.ID, policy.ChannelID, event.Fingerprint)
+		if !routeDedup.TrySend(dedupKey) {
+			s.logger.Debug("v1 notification deduped",
+				zap.Uint("event_id", event.ID),
+				zap.Uint("policy_id", policy.ID),
+				zap.String("fingerprint", event.Fingerprint),
+			)
 			continue
 		}
 

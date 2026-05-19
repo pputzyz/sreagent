@@ -40,6 +40,7 @@ const (
 	AuditResourceDatasource   = "datasource"
 	AuditResourceNotifyPolicy = "notify_policy"
 	AuditResourceNotifyRule   = "notify_rule"
-	AuditResourceMuteRule     = "mute_rule"
+	AuditResourceMuteRule      = "mute_rule"
 	AuditResourceSystemSetting = "system_setting"
+	AuditResourceUserPassword  = "user_password"
 )

@@ -16,6 +16,9 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// templateRe is the pre-compiled regex for {{key}} placeholders.
+var templateRe = regexp.MustCompile(`\{\{([^}]+)\}\}`)
+
 // DispatchService manages dispatch policies for collaboration channels.
 type DispatchService struct {
 	repo    *repository.DispatchPolicyRepository
@@ -175,8 +178,11 @@ func evalDispatchCondition(op, actual, expected string) bool {
 	case "not_contains":
 		return !strings.Contains(actual, expected)
 	case "regex":
-		matched, _ := regexp.MatchString(expected, actual)
-		return matched
+		re, err := getOrCompileRegex(expected)
+		if err != nil {
+			return false
+		}
+		return re.MatchString(actual)
 	case "in":
 		for _, v := range strings.Split(expected, ",") {
 			if strings.TrimSpace(v) == actual {
@@ -267,7 +273,7 @@ func (s *DispatchService) ApplyLabelEnhancements(rulesJSON string, labels model.
 		case "extract":
 			if rule.SourceField != "" && rule.Regex != "" && rule.TargetLabel != "" {
 				src := fieldValue(result, rule.SourceField)
-				re, err := regexp.Compile(rule.Regex)
+				re, err := getOrCompileRegex(rule.Regex)
 				if err != nil {
 					break
 				}
@@ -320,8 +326,7 @@ func fieldValue(labels model.JSONLabels, field string) string {
 
 // expandTemplate replaces {{labels.xxx}} or {{xxx}} placeholders with label values.
 func expandTemplate(tmpl string, labels model.JSONLabels) string {
-	re := regexp.MustCompile(`\{\{([^}]+)\}\}`)
-	return re.ReplaceAllStringFunc(tmpl, func(m string) string {
+	return templateRe.ReplaceAllStringFunc(tmpl, func(m string) string {
 		key := strings.Trim(m, "{}")
 		key = strings.TrimPrefix(key, "labels.")
 		if v, ok := labels[strings.TrimSpace(key)]; ok {

@@ -102,7 +102,7 @@ func (h *AlertRuleHandler) Get(c *gin.Context) {
 		return
 	}
 
-	Success(c, rule)
+	Success(c, rule.MaskHeartbeatToken())
 }
 
 func (h *AlertRuleHandler) List(c *gin.Context) {
@@ -118,7 +118,12 @@ func (h *AlertRuleHandler) List(c *gin.Context) {
 		return
 	}
 
-	SuccessPage(c, list, total, pq.Page, pq.PageSize)
+	masked := make([]model.AlertRule, len(list))
+	for i, r := range list {
+		masked[i] = r.MaskHeartbeatToken()
+	}
+
+	SuccessPage(c, masked, total, pq.Page, pq.PageSize)
 }
 
 func (h *AlertRuleHandler) Update(c *gin.Context) {
@@ -309,6 +314,24 @@ func (h *AlertRuleHandler) ListCategories(c *gin.Context) {
 		return
 	}
 	Success(c, categories)
+}
+
+// GetHeartbeatToken returns the full (unmasked) heartbeat token for a rule.
+// This endpoint is adminOnly to prevent token leakage.
+func (h *AlertRuleHandler) GetHeartbeatToken(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	token, err := h.svc.GetHeartbeatToken(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, gin.H{"heartbeat_token": token})
 }
 
 // Export exports alert rules as a Prometheus-compatible YAML or JSON file.

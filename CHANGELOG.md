@@ -4,6 +4,61 @@
 
 ---
 
+## [v4.10.35] — 2026-05-19
+
+### Security — P0 生产风险修复（7 项）
+
+**P0-1: 登录暴力破解防护**
+- `internal/middleware/rate_limit.go` — 新增 token bucket 限流中间件（通用 `RateLimit` + 专用 `LoginRateLimit`）
+- `internal/router/router.go` — 登录端点：5 RPS / burst 5 / 5 次失败锁定 15 分钟
+
+**P0-2: AI Chat 端点防护**
+- `internal/handler/ai.go` — Chat message 字段增加 `max=4000` 长度校验
+
+**P0-3: CORS 启动校验**
+- `internal/middleware/cors.go` — 启动时校验：AllowCredentials + wildcard origin 直接 panic
+
+**P0-4: DataSource AuthConfig 加密**
+- `internal/pkg/crypto/crypto.go` — 新增共享 AES-256-GCM 加密包（`enc:` 前缀约定）
+- `internal/service/datasource.go` — Create/Update 加密，5 个读取路径解密
+- `internal/service/system_setting.go` — 重构为委托 crypto 包
+
+**P0-5: HeartbeatToken 自动生成**
+- `internal/service/alert_rule.go` — heartbeat 规则创建时自动生成 crypto/rand token
+- `internal/model/alert_rule.go` — HeartbeatToken 增加 uniqueIndex + MaskHeartbeatToken()
+- `internal/handler/alert_rule.go` — Get/List 返回掩码 token，新增 admin 专用 full-token 端点
+
+**P0-6: 通知 v1/v2 跨管道去重**
+- `internal/service/notification_dedup.go` — 内存去重缓存（TTL 5 分钟 + 定时清理）
+- `internal/service/notification_dedup_test.go` — 6 个单元测试
+- `internal/service/notification.go` + `notify_rule.go` — v1/v2 发送前去重守卫
+
+**P0-7: PostMortem AI 限流**
+- `internal/router/admin_routes.go` — AI 生成端点：0.1 RPS / burst 3
+
+### Fixed — P1 健壮性修复（12 项）
+
+- `internal/service/biz_group.go` — BizGroup 循环引用检测（`wouldCreateCycle` 祖先链遍历）
+- `internal/service/incident.go` — 故障状态机白名单（`validTransitions` + `validateTransition`）
+- `internal/service/schedule.go` — 值班 Override 优先级修正（override 现在优先于 shift）
+- `internal/service/schedule.go` — EscalationStep 顺序校验（sequential order + target 非空 + delay >= 0）
+- `internal/service/schedule_test.go` — 16 个升级步骤校验单元测试
+- `internal/handler/user.go` — ChangePassword 审计日志（action=update, resource=user_password）
+- `internal/service/team.go` — AddMember 幂等性（已存在同角色 → no-op，不同角色 → 更新）
+- `internal/service/message_template.go` — 模板渲染 5 秒超时（context.WithTimeout）
+- `internal/service/alert_channel.go` — 正则缓存（sync.Map + getOrCompileRegex）
+- `internal/service/dispatch.go` — 分派策略正则缓存 + 预编译 template regex
+- `internal/service/mute_rule.go` + `noise_reducer.go` — 共享正则缓存
+- `internal/handler/oidc.go` — OIDC 错误标准化（9 个错误路径统一使用 Error(c, err)，不泄露内部细节）
+- `internal/service/ai.go` — stripMarkdownCodeBlock 增强（嵌套 backtick / CRLF / indented blocks）
+
+### Changed — 性能优化
+
+- `internal/handler/dashboard.go` — GetStats 7 个查询并行化（sync.WaitGroup）
+- `internal/handler/dashboard.go` — IncidentStats 7 个查询并行化
+
+---
+
 ## [v4.10.34] — 2026-05-19
 
 ### Added — 侧边栏图标彩色化

@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -24,6 +25,23 @@ type DataSourceService struct {
 
 func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Logger) *DataSourceService {
 	return &DataSourceService{repo: repo, logger: logger}
+}
+
+// decryptAuthConfig decrypts the datasource's AuthConfig if it is encrypted.
+// Returns the plaintext config, or the original value if not encrypted / on error.
+func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) string {
+	if ds.AuthConfig == "" {
+		return ""
+	}
+	plain, err := crypto.DecryptString(ds.AuthConfig)
+	if err != nil {
+		s.logger.Error("failed to decrypt datasource auth_config, using raw value",
+			zap.Uint("datasource_id", ds.ID),
+			zap.Error(err),
+		)
+		return ds.AuthConfig // fall back to raw value
+	}
+	return plain
 }
 
 // validateEndpoint checks that the endpoint URL does not point to a private/loopback IP (SSRF protection).
@@ -56,6 +74,16 @@ func (s *DataSourceService) Create(ctx context.Context, ds *model.DataSource) er
 	}
 	if existing != nil {
 		return apperr.WithMessage(apperr.ErrDuplicateName, fmt.Sprintf("datasource '%s' already exists", ds.Name))
+	}
+
+	// Encrypt AuthConfig before persisting
+	if ds.AuthConfig != "" && !crypto.IsEncrypted(ds.AuthConfig) {
+		enc, err := crypto.EncryptString(ds.AuthConfig)
+		if err != nil {
+			s.logger.Error("failed to encrypt datasource auth_config", zap.Error(err))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+		ds.AuthConfig = enc
 	}
 
 	if err := s.repo.Create(ctx, ds); err != nil {
@@ -99,7 +127,17 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 	existing.Labels = ds.Labels
 	existing.AuthType = ds.AuthType
 	if ds.AuthConfig != "" {
-		existing.AuthConfig = ds.AuthConfig
+		// Encrypt AuthConfig if not already encrypted
+		if !crypto.IsEncrypted(ds.AuthConfig) {
+			enc, err := crypto.EncryptString(ds.AuthConfig)
+			if err != nil {
+				s.logger.Error("failed to encrypt datasource auth_config", zap.Error(err))
+				return apperr.Wrap(apperr.ErrDatabase, err)
+			}
+			existing.AuthConfig = enc
+		} else {
+			existing.AuthConfig = ds.AuthConfig
+		}
 	}
 	existing.HealthCheckInterval = ds.HealthCheckInterval
 
@@ -148,7 +186,8 @@ func (s *DataSourceService) HealthCheck(ctx context.Context, id uint) (*HealthCh
 		return &HealthCheckResult{Status: model.DSStatusUnknown, Message: "unsupported datasource type"}, nil
 	}
 
-	hr := checker.CheckHealth(ctx, ds.Endpoint, ds.AuthType, ds.AuthConfig)
+	authConfig := s.decryptAuthConfig(ds)
+	hr := checker.CheckHealth(ctx, ds.Endpoint, ds.AuthType, authConfig)
 
 	status := model.DSStatusHealthy
 	if !hr.Healthy {
@@ -213,10 +252,11 @@ func (s *DataSourceService) QueryDatasource(ctx context.Context, dsID uint, expr
 
 	qc := datasource.NewQueryClient()
 	resp := &QueryResponse{}
+	authConfig := s.decryptAuthConfig(ds)
 
 	switch ds.Type {
 	case model.DSTypePrometheus, model.DSTypeVictoriaMetrics:
-		results, err := qc.InstantQuery(ctx, ds.Endpoint, ds.AuthType, ds.AuthConfig, expression, queryTime)
+		results, err := qc.InstantQuery(ctx, ds.Endpoint, ds.AuthType, authConfig, expression, queryTime)
 		if err != nil {
 			return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
 		}
@@ -229,7 +269,7 @@ func (s *DataSourceService) QueryDatasource(ctx context.Context, dsID uint, expr
 			resp.Series = append(resp.Series, item)
 		}
 	case model.DSTypeVictoriaLogs:
-		results, err := datasource.VictoriaLogsInstantQuery(ctx, ds.Endpoint, ds.AuthType, ds.AuthConfig, expression)
+		results, err := datasource.VictoriaLogsInstantQuery(ctx, ds.Endpoint, ds.AuthType, authConfig, expression)
 		if err != nil {
 			return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
 		}
@@ -263,7 +303,8 @@ func (s *DataSourceService) QueryRange(ctx context.Context, dsID uint, expressio
 	}
 
 	qc := datasource.NewQueryClient()
-	results, err := qc.RangeQuery(ctx, ds.Endpoint, ds.AuthType, ds.AuthConfig, expression, start, end, step)
+	authConfig := s.decryptAuthConfig(ds)
+	results, err := qc.RangeQuery(ctx, ds.Endpoint, ds.AuthType, authConfig, expression, start, end, step)
 	if err != nil {
 		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
 	}
@@ -310,7 +351,8 @@ func (s *DataSourceService) QueryLogs(ctx context.Context, dsID uint, params Log
 		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log query only supported for victorialogs datasources")
 	}
 
-	result, err := datasource.QueryLogs(ctx, ds.Endpoint, ds.AuthType, ds.AuthConfig, datasource.QueryLogsParams{
+	authConfig := s.decryptAuthConfig(ds)
+	result, err := datasource.QueryLogs(ctx, ds.Endpoint, ds.AuthType, authConfig, datasource.QueryLogsParams{
 		Query: params.Expression,
 		Start: params.Start,
 		End:   params.End,
@@ -341,5 +383,6 @@ func (s *DataSourceService) ProxyToDatasource(ctx context.Context, dsID uint, pa
 	}
 
 	qc := datasource.NewQueryClient()
-	return qc.ProxyGet(ctx, ds.Endpoint, ds.AuthType, ds.AuthConfig, path, params)
+	authConfig := s.decryptAuthConfig(ds)
+	return qc.ProxyGet(ctx, ds.Endpoint, ds.AuthType, authConfig, path, params)
 }

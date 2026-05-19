@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -132,8 +133,9 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	// API v1 routes
 	api := r.Group("/api/v1")
 	{
-		// Public routes
-		api.POST("/auth/login", handlers.Auth.Login)
+		// Public routes — login rate limited (5 RPS, burst 5, lockout after 5 failures for 15 min)
+		loginRL := middleware.LoginRateLimit(5, 5, 5, 15*time.Minute)
+		api.POST("/auth/login", loginRL, handlers.Auth.Login)
 		api.POST("/auth/refresh", handlers.Auth.Refresh)
 
 		// OIDC routes (public — before JWT middleware)
@@ -160,7 +162,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 
 			// Register routes by module
 			handlers.registerAuthRoutes(auth, adminOnly)
-			handlers.registerAlertRoutes(r, auth, manage, operate)
+			handlers.registerAlertRoutes(r, auth, adminOnly, manage, operate)
 			handlers.registerNotifyRoutes(auth, manage, operate)
 			handlers.registerScheduleRoutes(auth, manage)
 			handlers.registerDatasourceRoutes(auth, adminOnly, manage)

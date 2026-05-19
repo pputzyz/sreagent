@@ -220,6 +220,10 @@ func NewEscalationStepRepository(db *gorm.DB) *EscalationStepRepository {
 	return &EscalationStepRepository{db: db}
 }
 
+func (r *EscalationStepRepository) Create(ctx context.Context, step *model.EscalationStep) error {
+	return r.db.WithContext(ctx).Create(step).Error
+}
+
 func (r *EscalationStepRepository) ListByPolicyID(ctx context.Context, policyID uint) ([]model.EscalationStep, error) {
 	var list []model.EscalationStep
 	err := r.db.WithContext(ctx).
@@ -231,4 +235,26 @@ func (r *EscalationStepRepository) ListByPolicyID(ctx context.Context, policyID 
 
 func (r *EscalationStepRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.EscalationStep{}, id).Error
+}
+
+// DeleteByPolicyID deletes all escalation steps for a given policy.
+func (r *EscalationStepRepository) DeleteByPolicyID(ctx context.Context, policyID uint) error {
+	return r.db.WithContext(ctx).
+		Where("policy_id = ?", policyID).
+		Delete(&model.EscalationStep{}).Error
+}
+
+// ReplaceByPolicyID replaces all steps for a policy in a single transaction.
+func (r *EscalationStepRepository) ReplaceByPolicyID(ctx context.Context, policyID uint, steps []model.EscalationStep) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("policy_id = ?", policyID).Delete(&model.EscalationStep{}).Error; err != nil {
+			return err
+		}
+		for i := range steps {
+			if err := tx.Create(&steps[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

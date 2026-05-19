@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"go.uber.org/zap"
 
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -20,6 +22,15 @@ func NewOIDCHandler(svc *service.OIDCService) *OIDCHandler {
 	return &OIDCHandler{svc: svc}
 }
 
+// logError logs an error with full details server-side using the request-scoped zap logger.
+func (h *OIDCHandler) logError(c *gin.Context, msg string, err error) {
+	if l, exists := c.Get("logger"); exists {
+		if logger, ok := l.(*zap.Logger); ok {
+			logger.Error(msg, zap.Error(err))
+		}
+	}
+}
+
 // SetService swaps the underlying OIDC service (used by hot-reload).
 func (h *OIDCHandler) SetService(svc *service.OIDCService) {
 	h.svc = svc
@@ -31,7 +42,8 @@ func (h *OIDCHandler) SetService(svc *service.OIDCService) {
 func (h *OIDCHandler) LoginRedirect(c *gin.Context) {
 	authURL, state, err := h.svc.GenerateAuthURL()
 	if err != nil {
-		Error(c, apperr.WithMessage(apperr.ErrInternal, "failed to generate OIDC auth URL: "+err.Error()))
+		h.logError(c, "failed to generate OIDC auth URL", err)
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "failed to initiate OIDC login"))
 		return
 	}
 
@@ -50,19 +62,13 @@ func (h *OIDCHandler) Callback(c *gin.Context) {
 	// Verify state for CSRF protection
 	expectedState, err := c.Cookie("oidc_state")
 	if err != nil || expectedState == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    10100,
-			"message": "missing or expired OIDC state cookie",
-		})
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "missing or expired OIDC state"))
 		return
 	}
 
 	actualState := c.Query("state")
 	if actualState != expectedState {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    10100,
-			"message": "OIDC state mismatch (possible CSRF)",
-		})
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "OIDC state mismatch"))
 		return
 	}
 
@@ -73,29 +79,22 @@ func (h *OIDCHandler) Callback(c *gin.Context) {
 	// Check for error from IdP
 	if errParam := c.Query("error"); errParam != "" {
 		errDesc := c.Query("error_description")
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    10102,
-			"message": "OIDC authentication failed: " + errParam + " - " + errDesc,
-		})
+		h.logError(c, "OIDC IdP returned error", fmt.Errorf("%s: %s", errParam, errDesc))
+		Error(c, apperr.WithMessage(apperr.ErrInvalidCreds, "OIDC authentication failed"))
 		return
 	}
 
 	code := c.Query("code")
 	if code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    10001,
-			"message": "missing authorization code",
-		})
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "missing authorization code"))
 		return
 	}
 
 	// Exchange code for tokens and create/login user
 	token, expiresIn, err := h.svc.ExchangeAndLogin(c.Request.Context(), code)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    10102,
-			"message": "OIDC login failed: " + err.Error(),
-		})
+		h.logError(c, "OIDC token exchange failed", err)
+		Error(c, apperr.WithMessage(apperr.ErrInvalidCreds, "OIDC authentication failed"))
 		return
 	}
 
@@ -121,18 +120,12 @@ func (h *OIDCHandler) CallbackJSON(c *gin.Context) {
 
 	// Validate CSRF state (mandatory)
 	if req.State == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    10100,
-			"message": "missing OIDC state parameter (required for CSRF protection)",
-		})
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "missing OIDC state parameter"))
 		return
 	}
 	expectedState, err := c.Cookie("oidc_state")
 	if err != nil || expectedState == "" || req.State != expectedState {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    10100,
-			"message": "OIDC state mismatch (possible CSRF)",
-		})
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "OIDC state mismatch"))
 		return
 	}
 	// Clear the state cookie
@@ -141,10 +134,8 @@ func (h *OIDCHandler) CallbackJSON(c *gin.Context) {
 
 	token, expiresIn, err := h.svc.ExchangeAndLogin(c.Request.Context(), req.Code)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    10102,
-			"message": "OIDC login failed: " + err.Error(),
-		})
+		h.logError(c, "OIDC token exchange failed", err)
+		Error(c, apperr.WithMessage(apperr.ErrInvalidCreds, "OIDC authentication failed"))
 		return
 	}
 

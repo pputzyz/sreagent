@@ -1,6 +1,10 @@
 package router
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/sreagent/sreagent/internal/middleware"
+)
 
 // registerSettingRoutes registers settings, AI, audit, and system routes.
 func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manage, operate gin.HandlerFunc) {
@@ -27,14 +31,18 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 	}
 
 	// AI — config is admin only, usage is for all
+	// Rate limit: 1 RPS, burst 10 for AI inference endpoints
+	aiRL := middleware.RateLimit(func(c *gin.Context) string {
+		return "ai:" + c.ClientIP()
+	}, 1, 10)
 	ai := auth.Group("/ai")
 	{
-		ai.POST("/alert-report", h.AI.GenerateReport)
-		ai.POST("/suggest-sop", h.AI.SuggestSOP)
+		ai.POST("/alert-report", aiRL, h.AI.GenerateReport)
+		ai.POST("/suggest-sop", aiRL, h.AI.SuggestSOP)
 		ai.POST("/test", manage, h.AI.TestConnection)
 		ai.GET("/config", adminOnly, h.AI.GetConfig)
 		ai.PUT("/config", adminOnly, h.AI.UpdateConfig)
-		ai.POST("/chat", h.AI.Chat)
+		ai.POST("/chat", aiRL, h.AI.Chat)
 		ai.GET("/history", h.AI.GetHistory)
 		ai.DELETE("/history", h.AI.ClearHistory)
 		ai.GET("/modules", adminOnly, h.AI.GetModules)
@@ -49,9 +57,9 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		auth.GET("/engine/status", h.Engine.GetStatus)
 	}
 
-	// AI Rule Generation
+	// AI Rule Generation — rate limited
 	if h.AIRule != nil {
-		aiRules := auth.Group("/ai/rules", operate)
+		aiRules := auth.Group("/ai/rules", operate, aiRL)
 		{
 			aiRules.POST("/generate", h.AIRule.Generate)
 			aiRules.POST("/validate", h.AIRule.Validate)

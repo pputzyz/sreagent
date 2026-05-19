@@ -24,6 +24,7 @@ type TeamRepository interface {
 	RemoveMember(ctx context.Context, teamID, userID uint) error
 	ListMembers(ctx context.Context, teamID uint) ([]model.TeamMember, error)
 	GetMember(ctx context.Context, teamID, userID uint) (*model.TeamMember, error)
+	UpdateMember(ctx context.Context, member *model.TeamMember) error
 }
 
 // TeamService provides team management operations.
@@ -115,14 +116,22 @@ func (s *TeamService) AddMember(ctx context.Context, teamID, userID uint, role s
 		return apperr.WithMessage(apperr.ErrNotFound, "team not found")
 	}
 
-	// Check if user is already a member
+	// Check if user is already a member — idempotent: return success if so
 	existing, err := s.repo.GetMember(ctx, teamID, userID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		s.logger.Error("failed to check team member", zap.Error(err), zap.Uint("team_id", teamID), zap.Uint("user_id", userID))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	if existing != nil {
-		return apperr.WithMessage(apperr.ErrConflict, "user is already a member of this team")
+		// Already a member — idempotent no-op, update role if changed
+		if existing.Role != role && role != "" {
+			existing.Role = role
+			if err := s.repo.UpdateMember(ctx, existing); err != nil {
+				s.logger.Error("failed to update team member role", zap.Error(err), zap.Uint("team_id", teamID), zap.Uint("user_id", userID))
+				return apperr.Wrap(apperr.ErrDatabase, err)
+			}
+		}
+		return nil
 	}
 
 	if role == "" {

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -146,12 +145,12 @@ func (s *MuteRuleService) matchesRule(rule *model.MuteRule, event *model.AlertEv
 			tv := event.Labels[k]
 			switch {
 			case strings.HasPrefix(pattern, "!~"):
-				re, err := regexp.Compile(pattern[2:])
+				re, err := getOrCompileRegex(pattern[2:])
 				if err != nil || re.MatchString(tv) {
 					return false
 				}
 			case strings.HasPrefix(pattern, "=~"):
-				re, err := regexp.Compile(pattern[2:])
+				re, err := getOrCompileRegex(pattern[2:])
 				if err != nil || !re.MatchString(tv) {
 					return false
 				}

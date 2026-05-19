@@ -90,6 +90,11 @@ func (r *TeamRepository) AddMember(ctx context.Context, member *model.TeamMember
 	return r.db.WithContext(ctx).Create(member).Error
 }
 
+// UpdateMember updates an existing team member's role.
+func (r *TeamRepository) UpdateMember(ctx context.Context, member *model.TeamMember) error {
+	return r.db.WithContext(ctx).Save(member).Error
+}
+
 // RemoveMember removes a user from a team.
 func (r *TeamRepository) RemoveMember(ctx context.Context, teamID, userID uint) error {
 	return r.db.WithContext(ctx).

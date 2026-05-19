@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -23,6 +24,57 @@ type IncidentService struct {
 
 func NewIncidentService(repo *repository.IncidentRepository, channelSvc *ChannelService, logger *zap.Logger) *IncidentService {
 	return &IncidentService{repo: repo, channelSvc: channelSvc, logger: logger}
+}
+
+// validTransitions defines the allowed status transitions for incidents.
+// Keys are source statuses, values are the set of allowed target statuses.
+//
+//	open (triggered)  → ack (processing), close (closed), snooze (snoozed)
+//	ack (processing)  → open (triggered), close (closed)
+//	close (closed)    → reopen (triggered)
+//	snooze (snoozed)  → open (triggered), close (closed)
+var validTransitions = map[model.IncidentStatus][]model.IncidentStatus{
+	model.IncidentStatusTriggered:  {model.IncidentStatusProcessing, model.IncidentStatusClosed, model.IncidentStatusSnoozed},
+	model.IncidentStatusProcessing: {model.IncidentStatusTriggered, model.IncidentStatusClosed},
+	model.IncidentStatusClosed:     {model.IncidentStatusTriggered},
+	model.IncidentStatusSnoozed:    {model.IncidentStatusTriggered, model.IncidentStatusClosed},
+}
+
+// allowedActionStates defines which statuses allow non-status-changing actions.
+var allowedActionStates = map[string][]model.IncidentStatus{
+	"reassign":  {model.IncidentStatusProcessing},
+	"escalate":  {model.IncidentStatusProcessing},
+}
+
+// validateTransition checks whether a status transition is allowed.
+func validateTransition(from, to model.IncidentStatus) error {
+	targets, ok := validTransitions[from]
+	if !ok {
+		return apperr.WithMessage(apperr.ErrInvalidTransition,
+			fmt.Sprintf("unknown source status %q", from))
+	}
+	for _, t := range targets {
+		if t == to {
+			return nil
+		}
+	}
+	return apperr.WithMessage(apperr.ErrInvalidTransition,
+		fmt.Sprintf("cannot transition from %q to %q", from, to))
+}
+
+// validateActionAllowed checks whether an action is allowed in the current status.
+func validateActionAllowed(action string, current model.IncidentStatus) error {
+	states, ok := allowedActionStates[action]
+	if !ok {
+		return nil // no restriction
+	}
+	for _, s := range states {
+		if s == current {
+			return nil
+		}
+	}
+	return apperr.WithMessage(apperr.ErrInvalidTransition,
+		fmt.Sprintf("action %q not allowed in status %q", action, current))
 }
 
 // Create creates a new incident and updates the channel's active incident count.
@@ -84,8 +136,8 @@ func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) erro
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	if inc.Status == model.IncidentStatusClosed {
-		return apperr.WithMessage(apperr.ErrBadRequest, "cannot acknowledge a closed incident")
+	if err := validateTransition(inc.Status, model.IncidentStatusProcessing); err != nil {
+		return err
 	}
 
 	now := time.Now()
@@ -129,6 +181,10 @@ func (s *IncidentService) Close(ctx context.Context, id, userID uint) error {
 		return nil // idempotent
 	}
 
+	if err := validateTransition(inc.Status, model.IncidentStatusClosed); err != nil {
+		return err
+	}
+
 	now := time.Now()
 	updates := map[string]interface{}{
 		"closed_at": now,
@@ -160,8 +216,8 @@ func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	if inc.Status != model.IncidentStatusClosed {
-		return apperr.WithMessage(apperr.ErrBadRequest, "can only reopen a closed incident")
+	if err := validateTransition(inc.Status, model.IncidentStatusTriggered); err != nil {
+		return err
 	}
 
 	updates := map[string]interface{}{
@@ -186,7 +242,7 @@ func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 
 // Snooze puts an incident on hold until a specified time.
 func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until time.Time) error {
-	_, err := s.repo.GetByID(ctx, id)
+	inc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return apperr.ErrIncidentNotFound
@@ -194,11 +250,14 @@ func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until tim
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
+	if err := validateTransition(inc.Status, model.IncidentStatusSnoozed); err != nil {
+		return err
+	}
+
 	updates := map[string]interface{}{
 		"snoozed_until": until,
 	}
-	// Keep current status; snooze is informational
-	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusProcessing, updates); err != nil {
+	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusSnoozed, updates); err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
@@ -222,6 +281,10 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 			return apperr.ErrIncidentNotFound
 		}
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	if err := validateActionAllowed("reassign", inc.Status); err != nil {
+		return err
 	}
 
 	inc.AssignedTo = &newAssignee
@@ -272,6 +335,9 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 
 	source.MergedIntoID = &targetID
 	now := time.Now()
+	if err := validateTransition(source.Status, model.IncidentStatusClosed); err != nil {
+		return err
+	}
 	source.Status = model.IncidentStatusClosed
 	source.ClosedAt = &now
 	if err := s.repo.Update(ctx, source); err != nil {
@@ -348,6 +414,10 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 			return apperr.ErrIncidentNotFound
 		}
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	if err := validateActionAllowed("escalate", inc.Status); err != nil {
+		return err
 	}
 
 	inc.CurrentEscalationStep++

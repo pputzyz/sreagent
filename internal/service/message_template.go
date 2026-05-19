@@ -17,6 +17,8 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+const templateRenderTimeout = 5 * time.Second
+
 // TemplateData holds the data available to message templates during rendering.
 type TemplateData struct {
 	AlertName   string            `json:"alert_name"`
@@ -142,11 +144,12 @@ func (s *MessageTemplateService) RenderTemplate(ctx context.Context, templateID 
 		return "", apperr.ErrTemplateNotFound
 	}
 
-	return s.RenderContent(tmpl.Content, data)
+	return s.RenderContent(ctx, tmpl.Content, data)
 }
 
 // RenderContent renders a Go template string with the given data.
-func (s *MessageTemplateService) RenderContent(content string, data *TemplateData) (string, error) {
+// A 5-second timeout prevents CPU exhaustion from malicious or buggy templates.
+func (s *MessageTemplateService) RenderContent(ctx context.Context, content string, data *TemplateData) (string, error) {
 	funcMap := template.FuncMap{
 		"join": func(items []string, sep string) string {
 			result := ""
@@ -171,13 +174,39 @@ func (s *MessageTemplateService) RenderContent(content string, data *TemplateDat
 		return "", apperr.WithMessage(apperr.ErrTemplateRender, fmt.Sprintf("parse error: %v", err))
 	}
 
-	var buf bytes.Buffer
-	if err := t.Execute(&buf, data); err != nil {
-		s.logger.Error("failed to execute template", zap.Error(err))
-		return "", apperr.WithMessage(apperr.ErrTemplateRender, fmt.Sprintf("render error: %v", err))
+	type renderResult struct {
+		output string
+		err    error
 	}
 
-	return buf.String(), nil
+	// Use the caller's context deadline if it is tighter, otherwise default timeout.
+	renderCtx, cancel := context.WithTimeout(ctx, templateRenderTimeout)
+	defer cancel()
+
+	ch := make(chan renderResult, 1)
+	go func() {
+		var buf bytes.Buffer
+		if err := t.Execute(&buf, data); err != nil {
+			ch <- renderResult{err: err}
+			return
+		}
+		ch <- renderResult{output: buf.String()}
+	}()
+
+	select {
+	case <-renderCtx.Done():
+		s.logger.Error("template render timed out",
+			zap.Duration("timeout", templateRenderTimeout),
+			zap.Error(renderCtx.Err()),
+		)
+		return "", apperr.WithMessage(apperr.ErrTemplateRender, fmt.Sprintf("render timed out after %s", templateRenderTimeout))
+	case result := <-ch:
+		if result.err != nil {
+			s.logger.Error("failed to execute template", zap.Error(result.err))
+			return "", apperr.WithMessage(apperr.ErrTemplateRender, fmt.Sprintf("render error: %v", result.err))
+		}
+		return result.output, nil
+	}
 }
 
 // RenderPreview renders a template with sample data for preview purposes.
@@ -214,7 +243,7 @@ func (s *MessageTemplateService) RenderPreview(ctx context.Context, content stri
 		},
 	}
 
-	return s.RenderContent(content, sampleData)
+	return s.RenderContent(ctx, content, sampleData)
 }
 
 // EventToTemplateData converts an AlertEvent into TemplateData for template rendering.

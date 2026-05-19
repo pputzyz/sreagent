@@ -107,6 +107,33 @@ func (s *BizGroupService) ListTree(ctx context.Context) ([]*BizGroupTreeNode, er
 	return roots, nil
 }
 
+// wouldCreateCycle walks up the ancestor chain from newParentID and returns true
+// if groupID is found among the ancestors (which would create a circular reference).
+func (s *BizGroupService) wouldCreateCycle(ctx context.Context, groupID, newParentID uint) bool {
+	visited := make(map[uint]bool)
+	current := newParentID
+	for current != 0 {
+		if current == groupID {
+			return true
+		}
+		if visited[current] {
+			// Existing cycle in data (shouldn't happen, but avoid infinite loop)
+			break
+		}
+		visited[current] = true
+
+		parent, err := s.repo.GetByIDLight(ctx, current)
+		if err != nil {
+			break
+		}
+		if parent.ParentID == nil {
+			break
+		}
+		current = *parent.ParentID
+	}
+	return false
+}
+
 // Update updates an existing business group.
 func (s *BizGroupService) Update(ctx context.Context, group *model.BizGroup) error {
 	existing, err := s.repo.GetByID(ctx, group.ID)
@@ -120,8 +147,12 @@ func (s *BizGroupService) Update(ctx context.Context, group *model.BizGroup) err
 		if *group.ParentID == group.ID {
 			return apperr.WithMessage(apperr.ErrBadRequest, "cannot set group as its own parent")
 		}
-		if _, err := s.repo.GetByID(ctx, *group.ParentID); err != nil {
+		if _, err := s.repo.GetByIDLight(ctx, *group.ParentID); err != nil {
 			return apperr.WithMessage(apperr.ErrBizGroupNotFound, "parent group not found")
+		}
+		// Prevent circular parent references
+		if s.wouldCreateCycle(ctx, group.ID, *group.ParentID) {
+			return apperr.WithMessage(apperr.ErrBadRequest, "setting this parent would create a circular reference")
 		}
 	}
 

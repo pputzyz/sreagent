@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -38,68 +39,96 @@ type DashboardStats struct {
 // GetStats returns aggregated dashboard statistics.
 func (h *DashboardHandler) GetStats(c *gin.Context) {
 	var stats DashboardStats
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	wg.Add(7)
 
 	// Total datasources
-	if err := h.db.Model(&model.DataSource{}).Count(&stats.TotalDatasources).Error; err != nil {
-		h.logger.Error("failed to count datasources", zap.Error(err))
-	}
+	go func() {
+		defer wg.Done()
+		if err := h.db.Model(&model.DataSource{}).Count(&stats.TotalDatasources).Error; err != nil {
+			h.logger.Error("failed to count datasources", zap.Error(err))
+		}
+	}()
 
 	// Total alert rules
-	if err := h.db.Model(&model.AlertRule{}).Count(&stats.TotalRules).Error; err != nil {
-		h.logger.Error("failed to count alert rules", zap.Error(err))
-	}
+	go func() {
+		defer wg.Done()
+		if err := h.db.Model(&model.AlertRule{}).Count(&stats.TotalRules).Error; err != nil {
+			h.logger.Error("failed to count alert rules", zap.Error(err))
+		}
+	}()
 
 	// Active alerts (firing + acknowledged)
-	if err := h.db.Model(&model.AlertEvent{}).
-		Where("status IN ?", []string{
-			string(model.EventStatusFiring),
-			string(model.EventStatusAcknowledged),
-		}).
-		Count(&stats.ActiveAlerts).Error; err != nil {
-		h.logger.Error("failed to count active alerts", zap.Error(err))
-	}
+	go func() {
+		defer wg.Done()
+		if err := h.db.Model(&model.AlertEvent{}).
+			Where("status IN ?", []string{
+				string(model.EventStatusFiring),
+				string(model.EventStatusAcknowledged),
+			}).
+			Count(&stats.ActiveAlerts).Error; err != nil {
+			h.logger.Error("failed to count active alerts", zap.Error(err))
+		}
+	}()
 
 	// Resolved today
-	todayStart := time.Now().Truncate(24 * time.Hour)
-	if err := h.db.Model(&model.AlertEvent{}).
-		Where("status = ? AND resolved_at >= ?", string(model.EventStatusResolved), todayStart).
-		Count(&stats.ResolvedToday).Error; err != nil {
-		h.logger.Error("failed to count resolved alerts today", zap.Error(err))
-	}
+	go func() {
+		defer wg.Done()
+		todayStart := time.Now().Truncate(24 * time.Hour)
+		if err := h.db.Model(&model.AlertEvent{}).
+			Where("status = ? AND resolved_at >= ?", string(model.EventStatusResolved), todayStart).
+			Count(&stats.ResolvedToday).Error; err != nil {
+			h.logger.Error("failed to count resolved alerts today", zap.Error(err))
+		}
+	}()
 
 	// Total users
-	if err := h.db.Model(&model.User{}).Count(&stats.TotalUsers).Error; err != nil {
-		h.logger.Error("failed to count users", zap.Error(err))
-	}
+	go func() {
+		defer wg.Done()
+		if err := h.db.Model(&model.User{}).Count(&stats.TotalUsers).Error; err != nil {
+			h.logger.Error("failed to count users", zap.Error(err))
+		}
+	}()
 
 	// Total teams
-	if err := h.db.Model(&model.Team{}).Count(&stats.TotalTeams).Error; err != nil {
-		h.logger.Error("failed to count teams", zap.Error(err))
-	}
+	go func() {
+		defer wg.Done()
+		if err := h.db.Model(&model.Team{}).Count(&stats.TotalTeams).Error; err != nil {
+			h.logger.Error("failed to count teams", zap.Error(err))
+		}
+	}()
 
 	// Severity breakdown of active alerts
-	type sevRow struct {
-		Severity string
-		Cnt      int64
-	}
-	var sevRows []sevRow
-	h.db.Model(&model.AlertEvent{}).
-		Select("severity, COUNT(*) AS cnt").
-		Where("status IN ?", []string{
-			string(model.EventStatusFiring),
-			string(model.EventStatusAcknowledged),
-		}).
-		Group("severity").
-		Scan(&sevRows)
-	stats.SeverityBreakdown = map[string]int64{
-		"critical": 0,
-		"warning":  0,
-		"info":     0,
-	}
-	for _, r := range sevRows {
-		stats.SeverityBreakdown[r.Severity] = r.Cnt
-	}
+	go func() {
+		defer wg.Done()
+		type sevRow struct {
+			Severity string
+			Cnt      int64
+		}
+		var sevRows []sevRow
+		h.db.Model(&model.AlertEvent{}).
+			Select("severity, COUNT(*) AS cnt").
+			Where("status IN ?", []string{
+				string(model.EventStatusFiring),
+				string(model.EventStatusAcknowledged),
+			}).
+			Group("severity").
+			Scan(&sevRows)
+		mu.Lock()
+		stats.SeverityBreakdown = map[string]int64{
+			"critical": 0,
+			"warning":  0,
+			"info":     0,
+		}
+		for _, r := range sevRows {
+			stats.SeverityBreakdown[r.Severity] = r.Cnt
+		}
+		mu.Unlock()
+	}()
 
+	wg.Wait()
 	Success(c, stats)
 }
 
@@ -836,17 +865,42 @@ func (h *DashboardHandler) IncidentStats(c *gin.Context) {
 
 	var stats Stats
 	todayStart := time.Now().Truncate(24 * time.Hour)
+	var wg sync.WaitGroup
 
-	h.db.Model(&model.Incident{}).Count(&stats.TotalIncidents)
-	h.db.Model(&model.Incident{}).Where("status IN ?", []string{"triggered", "processing"}).Count(&stats.ActiveIncidents)
-	h.db.Model(&model.Incident{}).Where("status = 'closed' AND closed_at >= ?", todayStart).Count(&stats.ClosedToday)
-	h.db.Model(&model.Incident{}).Where("status IN ? AND severity = 'critical'", []string{"triggered", "processing"}).Count(&stats.CriticalActive)
-	h.db.Table("incidents").
-		Where("closed_at IS NOT NULL AND deleted_at IS NULL").
-		Select("AVG(TIMESTAMPDIFF(SECOND, triggered_at, closed_at))").
-		Scan(&stats.AvgMTTRSeconds)
-	h.db.Model(&model.PostMortem{}).Count(&stats.TotalPostMortems)
-	h.db.Model(&model.PostMortem{}).Where("status = 'published'").Count(&stats.PublishedPostMortems)
+	wg.Add(7)
 
+	go func() {
+		defer wg.Done()
+		h.db.Model(&model.Incident{}).Count(&stats.TotalIncidents)
+	}()
+	go func() {
+		defer wg.Done()
+		h.db.Model(&model.Incident{}).Where("status IN ?", []string{"triggered", "processing"}).Count(&stats.ActiveIncidents)
+	}()
+	go func() {
+		defer wg.Done()
+		h.db.Model(&model.Incident{}).Where("status = 'closed' AND closed_at >= ?", todayStart).Count(&stats.ClosedToday)
+	}()
+	go func() {
+		defer wg.Done()
+		h.db.Model(&model.Incident{}).Where("status IN ? AND severity = 'critical'", []string{"triggered", "processing"}).Count(&stats.CriticalActive)
+	}()
+	go func() {
+		defer wg.Done()
+		h.db.Table("incidents").
+			Where("closed_at IS NOT NULL AND deleted_at IS NULL").
+			Select("AVG(TIMESTAMPDIFF(SECOND, triggered_at, closed_at))").
+			Scan(&stats.AvgMTTRSeconds)
+	}()
+	go func() {
+		defer wg.Done()
+		h.db.Model(&model.PostMortem{}).Count(&stats.TotalPostMortems)
+	}()
+	go func() {
+		defer wg.Done()
+		h.db.Model(&model.PostMortem{}).Where("status = 'published'").Count(&stats.PublishedPostMortems)
+	}()
+
+	wg.Wait()
 	Success(c, stats)
 }
