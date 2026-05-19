@@ -11,11 +11,12 @@ import (
 // This is separate from OIDCHandler, which handles the actual SSO auth flow.
 type OIDCSettingsHandler struct {
 	settingSvc *service.SystemSettingService
+	onReload   func() // called after config save to trigger hot-reload (may be nil)
 }
 
 // NewOIDCSettingsHandler creates a new OIDCSettingsHandler.
-func NewOIDCSettingsHandler(settingSvc *service.SystemSettingService) *OIDCSettingsHandler {
-	return &OIDCSettingsHandler{settingSvc: settingSvc}
+func NewOIDCSettingsHandler(settingSvc *service.SystemSettingService, onReload func()) *OIDCSettingsHandler {
+	return &OIDCSettingsHandler{settingSvc: settingSvc, onReload: onReload}
 }
 
 // GetConfig returns the current OIDC configuration.
@@ -49,5 +50,11 @@ func (h *OIDCSettingsHandler) UpdateConfig(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save OIDC config: "+err.Error()))
 		return
 	}
-	Success(c, gin.H{"message": "OIDC configuration updated. Restart the server to apply changes."})
+
+	// Trigger hot-reload of the OIDC service if a callback is configured.
+	if h.onReload != nil {
+		h.onReload()
+	}
+
+	Success(c, gin.H{"message": "OIDC configuration updated successfully."})
 }

@@ -64,12 +64,13 @@ type Dependencies struct {
 	// Handlers (for router)
 	Handlers *router.Handlers
 
-	// OIDC hot reload (P1-9)
-	cfg     *config.Config
-	logger  *zap.Logger
-	db      *gorm.DB
-	oidcSvc *service.OIDCService // current OIDC service (may be nil)
-	oidcMu  sync.RWMutex         // protects oidcSvc during reload
+	// OIDC hot reload
+	cfg        *config.Config
+	logger     *zap.Logger
+	db         *gorm.DB
+	oidcSvc    *service.OIDCService    // current OIDC service (may be nil)
+	oidcMu     sync.RWMutex           // protects oidcSvc during reload
+	oidcHdlr   *handler.OIDCHandler   // for SetService on reload
 
 	// Shutdown
 	appCtx    context.Context    // cancelled on shutdown
@@ -396,17 +397,18 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// --------------- Handlers ---------------
 
-	// OIDC handler — uses getter function for hot-reload support (P1-9)
+	// OIDC handler — uses getter function for hot-reload support
 	var oidcHandler *handler.OIDCHandler
 	if oidcSvc != nil {
 		oidcHandler = handler.NewOIDCHandler(oidcSvc)
 		d.oidcSvc = oidcSvc
+		d.oidcHdlr = oidcHandler
 	}
 
 	handlers := &router.Handlers{
 		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(authSvc); h.SetUserService(userSvc); return h }(),
 		OIDC:             oidcHandler,
-		OIDCSettings:     handler.NewOIDCSettingsHandler(settingSvc),
+		OIDCSettings:     handler.NewOIDCSettingsHandler(settingSvc, d.ReloadOIDC),
 		DataSource:       handler.NewDataSourceHandler(dsSvc),
 		AlertRule:        handler.NewAlertRuleHandler(ruleSvc),
 		AlertEvent:       handler.NewAlertEventHandler(eventSvc),
@@ -546,6 +548,26 @@ func (d *Dependencies) initOIDCService(
 		zap.String("client_id", oidcCfg.ClientID),
 	)
 	return svc
+}
+
+// ReloadOIDC re-initializes the OIDC service from the DB and hot-swaps it
+// on the handler. Called by OIDCSettingsHandler after config save.
+func (d *Dependencies) ReloadOIDC() {
+	d.oidcMu.Lock()
+	defer d.oidcMu.Unlock()
+
+	newSvc := d.initOIDCService(d.cfg, d.SettingSvc, d.UserRepo, d.logger)
+
+	d.oidcSvc = newSvc
+	if d.oidcHdlr != nil {
+		d.oidcHdlr.SetService(newSvc)
+	}
+
+	if newSvc != nil {
+		d.logger.Info("OIDC service hot-reloaded successfully")
+	} else {
+		d.logger.Info("OIDC service disabled after config update")
+	}
 }
 
 // Shutdown stops all background workers and closes connections in the correct

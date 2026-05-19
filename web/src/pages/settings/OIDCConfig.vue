@@ -138,11 +138,6 @@ onMounted(fetchConfig)
         <span class="tnum">{{ lastTestResult.time }}</span>
       </div>
 
-      <div class="sre-config-status" data-tone="warning">
-        <span class="sre-dot" data-severity="warning"></span>
-        <span>{{ t('settings.oidcRestartWarning') }}</span>
-      </div>
-
       <div class="config-sections sre-stagger">
         <section class="sre-config-section">
           <h3 class="sre-config-section-title">{{ t('settings.oidcProviderSection') }}</h3>
