@@ -9,6 +9,7 @@ import type {
   Pet,
   PetInteraction,
   AIProvidersConfig,
+  UserPreferences,
 } from '@/types'
 
 // ===== User API =====

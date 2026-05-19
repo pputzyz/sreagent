@@ -6,7 +6,7 @@ import {
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertRuleApi, datasourceApi, templateApi } from '@/api'
-import type { AlertRule, DataSource, AlertSeverity, DataSourceType, QueryResponse } from '@/types'
+import type { AlertRule, AlertRuleType, DataSource, AlertSeverity, DataSourceType, QueryResponse } from '@/types'
 import { kvArrayToRecord } from '@/utils/format'
 import KVEditor from '@/components/common/KVEditor.vue'
 import { PlayOutline } from '@vicons/ionicons5'
@@ -313,7 +313,7 @@ async function handleSave() {
       group_wait_seconds: form.group_wait_seconds,
       group_interval_seconds: form.group_interval_seconds,
       // Advanced fields
-      rule_type: form.rule_type,
+      rule_type: form.rule_type as AlertRuleType,
       eval_interval: form.eval_interval,
       recovery_hold: form.recovery_hold,
       nodata_enabled: form.nodata_enabled,

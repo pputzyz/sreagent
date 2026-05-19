@@ -236,20 +236,22 @@ export interface ScheduleOverride {
 export interface EscalationPolicy {
   id: number
   name: string
+  description?: string
   team_id: number
   team?: Team
   is_enabled: boolean
+  steps?: EscalationStep[]
   created_at: string
 }
 
 export interface EscalationStep {
-  id: number
-  policy_id: number
+  id?: number
+  policy_id?: number
   step_order: number
   delay_minutes: number
   target_type: string
   target_id: number
-  notify_channel_id: number
+  notify_channel_id?: number | null
 }
 
 // ===== Mute Rule =====
