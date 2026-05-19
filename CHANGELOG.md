@@ -6,7 +6,32 @@
 
 ## [v4.10.25] — 2026-05-19
 
-### Added — 全栈审查 6 批次优化
+### Fixed — 二轮审查修复（Batch 7-10）
+
+**Batch 7: 紧急修复**
+- `internal/repository/mute_rule.go` — `BatchUpdateEnabled`/`BatchDelete` 包裹 `db.Transaction` 事务边界
+- `internal/repository/notify_rule.go` — 同上，防止批量操作部分提交
+- `web/src/composables/index.ts` — 补 `useCrudPage` export（之前漏写导致导入报错）
+- `web/src/pages/alerts/events/Index.vue` — `useFilterMemory` 补 `customRange` 持久化（timePreset='custom' 时日期丢失）
+
+**Batch 8: 前端 CRUD 真采纳**
+- `web/src/api/index.ts` — 1021 行 → barrel re-export（~70 行），引用 6 个域文件
+- `web/src/pages/notification/AlertChannels.vue` — 迁移使用 `useCrudPage` composable
+- `web/src/pages/alerts/mute/Index.vue` — 迁移使用 `useCrudPage` composable + preview 内联
+- `web/src/pages/notification/Rules.vue` — 更新使用新 API 导入路径
+
+**Batch 9: 遗留清理**
+- 删除 `web/src/pages/alerts-v2/` 目录（Detail.vue + Index.vue，-898 行死代码）
+- 路由中 `alerts-v2` redirect 保留（指向有效页面，兼容旧书签）
+
+**Batch 10: 文档修正**
+- MODULES.md：文件计数实测修正（34 model / 46 handler / 46 service / 34 repo / 268+ 端点）
+- MODULES.md：4 个新模块完整条目（宠物/状态页面/预设规则/Alertmanager 导入）
+- MODULES.md：测试覆盖表更新（7 个模块有测试标记）
+- docs/api.md：补充 4 个新模块端点文档（§39-42）
+- docs/PLAN-status.md：更新至 v4.10.25
+
+### Added — 全栈审查 6 批次优化（首轮）
 
 **Batch 1: 测试安全网（97 个测试函数）**
 - `internal/engine/evaluator_test.go` — 19 个测试：状态序列化、生命周期、group_wait、recovery hold

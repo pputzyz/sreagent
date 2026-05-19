@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, reactive, computed, onMounted } from 'vue'
 import {
-  useMessage, NButton, NIcon, NSwitch, NDropdown, NDrawer, NDrawerContent,
+  useMessage, NButton, NIcon, NSwitch, NDropdown,
   NRadioGroup, NRadioButton, NInput, NSelect, NSpin, NModal, NForm,
   NFormItem, NGrid, NGi, NDatePicker, NTimePicker, NCheckboxGroup, NCheckbox,
   NSpace, NDivider,
@@ -190,15 +190,22 @@ function handleAction(key: string, rule: MuteRule) {
   if (key === 'delete') handleDelete(rule.id)
 }
 
-// ---------- preview drawer ----------
-const showPreview = ref(false)
+// ---------- inline preview ----------
+const expandedRuleId = ref<number | null>(null)
 const previewLoading = ref(false)
-const previewRuleName = ref('')
 const previewItems = ref<AlertEvent[]>([])
 
-async function previewHits(rule: MuteRule) {
-  previewRuleName.value = rule.name
-  showPreview.value = true
+function isPreviewOpen(rule: MuteRule): boolean {
+  return expandedRuleId.value === rule.id
+}
+
+async function togglePreview(rule: MuteRule) {
+  if (expandedRuleId.value === rule.id) {
+    expandedRuleId.value = null
+    previewItems.value = []
+    return
+  }
+  expandedRuleId.value = rule.id
   previewLoading.value = true
   try {
     const { data } = await muteRuleApi.preview()
@@ -367,91 +374,93 @@ onMounted(fetchRules)
     />
     <NSpin v-else :show="loading">
       <div class="mute-list">
-        <div
-          v-for="rule in filteredRules" :key="rule.id"
-          class="sre-row-card mute-row sre-lift"
-          :data-dim="!rule.is_enabled || undefined"
-          @click="goEdit(rule)"
-        >
-          <div class="mute-main">
-            <div class="mute-headline">
-              <span class="sre-dot" :data-severity="statusToSev(rule)"></span>
-              <span class="mute-status-label">{{ statusText(rule) }}</span>
-              <span class="mute-name">{{ rule.name }}</span>
+        <div v-for="rule in filteredRules" :key="rule.id" class="mute-rule-group">
+          <div
+            class="sre-row-card mute-row sre-lift"
+            :data-dim="!rule.is_enabled || undefined"
+            @click="goEdit(rule)"
+          >
+            <div class="mute-main">
+              <div class="mute-headline">
+                <span class="sre-dot" :data-severity="statusToSev(rule)"></span>
+                <span class="mute-status-label">{{ statusText(rule) }}</span>
+                <span class="mute-name">{{ rule.name }}</span>
+              </div>
+              <div v-if="Object.keys(rule.match_labels || {}).length" class="mute-match">
+                <span class="sre-label-eyebrow">{{ t('mute.matchLabel') }}</span>
+                <span v-for="(v, k) in rule.match_labels" :key="k" class="mute-chip">{{ k }}={{ v }}</span>
+              </div>
+              <div class="mute-schedule">
+                <span class="sre-label-eyebrow">{{ t('mute.schedule') }}</span>
+                <span v-if="ruleType(rule) === 'once'">{{ t('mute.oneTime') }} {{ formatTime(rule.start_time) }} → {{ formatTime(rule.end_time) }}</span>
+                <span v-else-if="ruleType(rule) === 'periodic'">{{ t('mute.periodic') }} {{ describePeriodic(rule) }}</span>
+                <span v-else class="muted">{{ t('mute.noSchedule') }}</span>
+              </div>
+              <div class="mute-footer tnum">
+                <span>{{ t('mute.hits', { n: getHitCount(rule) }) }}</span>
+                <span class="sre-meta-divider"></span>
+                <span v-if="!rule.is_enabled">{{ t('common.disabled') }}</span>
+                <span v-else-if="isActiveNow(rule)">{{ t('mute.statusActive') }} · {{ t('mute.remaining', { n: remainingMin(rule) }) }}</span>
+                <span v-else-if="isFuture(rule)">{{ t('mute.startsIn', { n: relTimeFuture(rule.start_time) }) }}</span>
+                <span v-else-if="isExpired(rule)">{{ t('common.expired') }}</span>
+                <span v-else>{{ t('common.idle') }}</span>
+              </div>
             </div>
-            <div v-if="Object.keys(rule.match_labels || {}).length" class="mute-match">
-              <span class="sre-label-eyebrow">{{ t('mute.matchLabel') }}</span>
-              <span v-for="(v, k) in rule.match_labels" :key="k" class="mute-chip">{{ k }}={{ v }}</span>
-            </div>
-            <div class="mute-schedule">
-              <span class="sre-label-eyebrow">{{ t('mute.schedule') }}</span>
-              <span v-if="ruleType(rule) === 'once'">{{ t('mute.oneTime') }} {{ formatTime(rule.start_time) }} → {{ formatTime(rule.end_time) }}</span>
-              <span v-else-if="ruleType(rule) === 'periodic'">{{ t('mute.periodic') }} {{ describePeriodic(rule) }}</span>
-              <span v-else class="muted">{{ t('mute.noSchedule') }}</span>
-            </div>
-            <div class="mute-footer tnum">
-              <span>{{ t('mute.hits', { n: getHitCount(rule) }) }}</span>
-              <span class="sre-meta-divider"></span>
-              <span v-if="!rule.is_enabled">{{ t('common.disabled') }}</span>
-              <span v-else-if="isActiveNow(rule)">{{ t('mute.statusActive') }} · {{ t('mute.remaining', { n: remainingMin(rule) }) }}</span>
-              <span v-else-if="isFuture(rule)">{{ t('mute.startsIn', { n: relTimeFuture(rule.start_time) }) }}</span>
-              <span v-else-if="isExpired(rule)">{{ t('common.expired') }}</span>
-              <span v-else>{{ t('common.idle') }}</span>
+            <div class="mute-actions" @click.stop>
+              <NButton size="tiny" quaternary :type="isPreviewOpen(rule) ? 'primary' : 'default'" @click="togglePreview(rule)">
+                <template #icon><NIcon :component="EyeOutline" /></template>
+                {{ t('mute.previewBtn') }}
+              </NButton>
+              <NSwitch :value="rule.is_enabled" size="small" @update:value="toggle(rule)" />
+              <NDropdown :options="rowActions(rule)" trigger="click" @select="(k: string) => handleAction(k, rule)">
+                <NButton quaternary circle size="small">
+                  <template #icon><NIcon :component="EllipsisHorizontalOutline" /></template>
+                </NButton>
+              </NDropdown>
             </div>
           </div>
-          <div class="mute-actions" @click.stop>
-            <NButton size="tiny" quaternary @click="previewHits(rule)">
-              <template #icon><NIcon :component="EyeOutline" /></template>
-              {{ t('mute.previewBtn') }}
-            </NButton>
-            <NSwitch :value="rule.is_enabled" size="small" @update:value="toggle(rule)" />
-            <NDropdown :options="rowActions(rule)" trigger="click" @select="(k: string) => handleAction(k, rule)">
-              <NButton quaternary circle size="small">
-                <template #icon><NIcon :component="EllipsisHorizontalOutline" /></template>
-              </NButton>
-            </NDropdown>
+          <!-- Inline preview panel -->
+          <div v-if="isPreviewOpen(rule)" class="mute-inline-preview">
+            <div class="mute-inline-preview-header">
+              <span class="sre-label-eyebrow">{{ t('tooltip.willBeMuted') }}</span>
+            </div>
+            <NSpin :show="previewLoading">
+              <div v-if="!previewLoading && previewItems.length === 0" class="mute-preview-empty">
+                <EmptyState
+                  :icon="AddOutline"
+                  :title="t('mute.previewNoMatch') || 'No alerts currently match this rule'"
+                  size="sm"
+                />
+              </div>
+              <div v-else class="mute-preview-list">
+                <div
+                  v-for="ev in previewItems" :key="ev.id"
+                  class="sre-row-card mute-preview-row"
+                  :data-severity="severityOf(ev)"
+                >
+                  <div class="mute-preview-main">
+                    <div class="mute-preview-head">
+                      <span class="sre-dot" :data-severity="severityOf(ev)"></span>
+                      <span class="mute-preview-sev">{{ severityOf(ev).toUpperCase() }}</span>
+                      <span class="mute-preview-name">{{ ev.alert_name || ev.rule?.name || `#${ev.id}` }}</span>
+                    </div>
+                    <div v-if="ev.annotations?.summary || ev.annotations?.description" class="mute-preview-desc">
+                      {{ ev.annotations?.summary || ev.annotations?.description }}
+                    </div>
+                    <div class="mute-preview-meta tnum">
+                      <span>#{{ ev.id }}</span>
+                      <span v-if="ev.fired_at" class="sre-meta-divider"></span>
+                      <span v-if="ev.fired_at">{{ formatTime(ev.fired_at) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </NSpin>
           </div>
         </div>
       </div>
     </NSpin>
 
-    <!-- Preview Drawer -->
-    <NDrawer v-model:show="showPreview" :width="480" placement="right">
-      <NDrawerContent :title="`${t('tooltip.willBeMuted')} — ${previewRuleName}`" closable>
-        <NSpin :show="previewLoading">
-          <div v-if="!previewLoading && previewItems.length === 0" class="mute-preview-empty">
-            <EmptyState
-              :icon="AddOutline"
-              :title="t('mute.previewNoMatch') || 'No alerts currently match this rule'"
-              size="sm"
-            />
-          </div>
-          <div v-else class="mute-preview-list">
-            <div
-              v-for="ev in previewItems" :key="ev.id"
-              class="sre-row-card mute-preview-row"
-              :data-severity="severityOf(ev)"
-            >
-              <div class="mute-preview-main">
-                <div class="mute-preview-head">
-                  <span class="sre-dot" :data-severity="severityOf(ev)"></span>
-                  <span class="mute-preview-sev">{{ severityOf(ev).toUpperCase() }}</span>
-                  <span class="mute-preview-name">{{ ev.alert_name || ev.rule?.name || `#${ev.id}` }}</span>
-                </div>
-                <div v-if="ev.annotations?.summary || ev.annotations?.description" class="mute-preview-desc">
-                  {{ ev.annotations?.summary || ev.annotations?.description }}
-                </div>
-                <div class="mute-preview-meta tnum">
-                  <span>#{{ ev.id }}</span>
-                  <span v-if="ev.fired_at" class="sre-meta-divider"></span>
-                  <span v-if="ev.fired_at">{{ formatTime(ev.fired_at) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </NSpin>
-      </NDrawerContent>
-    </NDrawer>
 
     <!-- Create/Edit Modal -->
     <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 720px" :bordered="false">
@@ -550,6 +559,17 @@ onMounted(fetchRules)
 .mute-divider { margin: 12px 0; }
 .mute-input-full { width: 100%; }
 .mute-preview-empty { padding: 40px 0; text-align: center; }
+
+.mute-inline-preview {
+  margin-top: -4px;
+  padding: 12px 18px 14px;
+  border-top: 1px dashed var(--sre-border);
+  background: var(--sre-bg-elevated);
+  border-radius: 0 0 var(--sre-radius-lg, 8px) var(--sre-radius-lg, 8px);
+}
+.mute-inline-preview-header {
+  margin-bottom: 8px;
+}
 
 .mute-row {
   padding: 14px 18px; gap: 12px; cursor: pointer;

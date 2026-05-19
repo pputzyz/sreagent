@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
 > 最后更新: 2026-05-19 | tag: v4.10.25
-> 共 34 个 model, 44 个 handler, 46 个 service, 34 个 repository, 179+ API 端点
+> 共 34 个 model, 46 个 handler, 46 个 service, 34 个 repository, 268+ API 端点
 
 ---
 
@@ -45,25 +45,25 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 
 | 模块 | 功能状态 | 单元测试 | 集成测试 | 覆盖率 |
 |------|----------|----------|----------|--------|
-| 告警引擎 | ✅ | ❌ | ❌ | 0% |
+| 告警引擎 | ✅ | ✅ evaluator_test.go (19) + rule_eval_test.go + suppression_test.go (26) | ❌ | service 层 ~40% |
 | 告警规则 | ✅ | ❌ | ❌ | 0% |
 | 告警事件 | ✅ | ❌ | ❌ | 0% |
-| 告警通道 | ✅ | ⚠️ 骨架 | ❌ | 0% |
-| 通知管道 | ✅ | ❌ | ❌ | 0% |
+| 告警通道 | ✅ | ✅ alert_channel_test.go (handler + service) | ❌ | ~30% |
+| 通知管道 | ✅ | ✅ notification_test.go (20 tests) | ❌ | service 层 ~25% |
 | 静默规则 | ✅ | ❌ | ❌ | 0% |
-| 抑制规则 | ✅ | ❌ | ❌ | 0% |
+| 抑制规则 | ✅ | ✅ inhibition_rule_test.go | ❌ | ~15% |
 | 标签注册表 | ✅ | ❌ | ❌ | 0% |
 | 数据源 | ✅ | ❌ | ❌ | 0% |
-| 值班排班 | ✅ | ❌ | ❌ | 0% |
+| 值班排班 | ✅ | ✅ schedule_test.go (32 tests) | ❌ | service 层 ~35% |
 | 升级策略 | ✅ | ❌ | ❌ | 0% |
-| 认证 | ✅ | ❌ | ❌ | 0% |
+| 认证 | ✅ | ✅ auth_test.go (middleware) | ❌ | ~10% |
 | 用户管理 | ✅ | ❌ | ❌ | 0% |
 | 团队 | ✅ | ❌ | ❌ | 0% |
 | 业务分组 | ✅ | ❌ | ❌ | 0% |
 | 仪表盘 | ✅ | ❌ | ❌ | 0% |
 | AI 助手 | ✅ | ❌ | ❌ | 0% |
 | 飞书集成 | ✅ | ❌ | ❌ | 0% |
-| 系统设置 | ✅ | ❌ | ❌ | 0% |
+| 系统设置 | ✅ | ✅ encryption_test.go | ❌ | ~10% |
 | 审计日志 | ✅ | ❌ | ❌ | 0% |
 | Webhook 入站 | ✅ | ❌ | ❌ | 0% |
 | 协作空间 | ✅ | ❌ | ❌ | 0% |
@@ -260,6 +260,39 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 - **API**: `POST /webhooks/alertmanager`, `POST /heartbeat/:token`
 - **状态**: ✅ 完成（仅支持 Alertmanager 格式）
 
+## 宠物系统 (pet)
+
+- **功能**: 用户虚拟宠物养成（喂食/玩耍/互动/升级）、互动记录、等级经验系统
+- **后端**: `model/pet.go`, `handler/pet.go`, `service/pet.go`, `repository/pet.go`
+- **前端**: `web/src/pages/settings/PetSettings.vue`（个人设置内嵌）
+- **API**: `/api/v1/pet` (5 endpoints: GET 获取宠物, PUT 更新名称, POST /feed 喂食, POST /play 玩耍, GET /interactions 互动记录)
+- **状态**: ✅ 完成
+
+## 状态页面 (status-service)
+
+- **功能**: 公开状态页面服务管理（运维/降级/中断/维护四种状态）、排序、图标配置
+- **后端**: `model/status_service.go`, `handler/status_service.go`, `service/status_service.go`, `repository/status_service.go`
+- **API**: `/api/v1/status-services` (5 endpoints: LIST 列表, GET 详情, POST 创建, PUT 更新, DELETE 删除)
+- **权限**: 列表/详情已认证即可，创建/更新/删除仅管理员
+- **状态**: ✅ 完成
+
+## 预设规则 (preset-rule)
+
+- **功能**: 预定义告警规则模板库（社区最佳实践/供应商推荐）、分类浏览、一键应用创建 AlertRule、YAML 导入
+- **后端**: `model/preset_rule.go`, `handler/preset_rule.go`, `service/preset_rule.go`, `repository/preset_rule.go`
+- **API**: `/api/v1/preset-rules` (6 endpoints: LIST 列表, GET 详情, GET /categories 分类列表, POST /:id/apply 应用, POST /import YAML 导入, DELETE 删除)
+- **权限**: 列表/详情/分类已认证即可，应用/导入/删除需管理权限
+- **状态**: ✅ 完成
+
+## Alertmanager 导入 (alertmanager-import)
+
+- **功能**: 解析 Alertmanager YAML 配置文件，自动导入 receivers 为 Channels、inhibit_rules 为 InhibitionRules
+- **后端**: `handler/alertmanager_import.go`, `service/alertmanager_import.go`
+- **API**: `POST /api/v1/integrations/import-alertmanager` (1 endpoint, 管理权限)
+- **输入**: JSON body `{"yaml": "..."}` 或 multipart file upload
+- **输出**: `{channels_created, inhibitions_created, warnings[], errors[]}`
+- **状态**: ✅ 完成
+
 ---
 
 ## 文档索引
@@ -267,7 +300,7 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | 文档 | 内容 |
 |------|------|
 | [CLAUDE.md](CLAUDE.md) | AI 协作规范（代码约定、目录、错误码） |
-| [MODULES.md](MODULES.md) | 本文件：36 个模块清单 + 状态 |
+| [MODULES.md](MODULES.md) | 本文件：40 个模块清单 + 状态 |
 | [CHANGELOG.md](CHANGELOG.md) | 变更日志 |
 | [docs/architecture.md](docs/architecture.md) | 架构设计 + ADR + 引擎状态机 + 通知管道 |
 | [docs/api.md](docs/api.md) | REST API 参考（175+ 端点） |

@@ -55,7 +55,7 @@ const viewMode = ref<AlertViewMode>('mine')
 
 // Persist filter state to localStorage
 const filterMemory = useFilterMemory('alert-events')
-filterMemory.bindRefs({ statusTab, search, severityFilter, ruleFilter, tagFilter, timePreset, viewMode })
+filterMemory.bindRefs({ statusTab, search, severityFilter, ruleFilter, tagFilter, timePreset, customRange, viewMode })
 
 const canViewAll = computed(
   () => authStore.user?.role === 'admin' || authStore.user?.role === 'global_viewer',

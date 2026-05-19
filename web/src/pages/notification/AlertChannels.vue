@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
+import { computed, onMounted, ref, shallowRef } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import {
   AddOutline,
@@ -12,37 +12,87 @@ import {
 import { alertChannelApi, notifyMediaApi, messageTemplateApi } from '@/api'
 import type { AlertChannel, NotifyMedia, MessageTemplate } from '@/types'
 import { getErrorMessage } from '@/utils/format'
-import { usePaginatedList } from '@/composables'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import KVEditor from '@/components/common/KVEditor.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 
 const message = useMessage()
-const dialog = useDialog()
 const { t } = useI18n()
+
+const crud = useCrudPage<AlertChannel>({
+  api: alertChannelApi as unknown as CrudApiModule<AlertChannel>,
+  defaultForm: () => ({
+    name: '',
+    description: '',
+    match_labels: [] as unknown as Record<string, string>,
+    severities: [] as unknown as string,
+    media_id: null as unknown as number,
+    template_id: null as unknown as number | undefined,
+    throttle_min: 5,
+    is_enabled: true,
+  }),
+  i18nKeys: {
+    created: 'alertChannel.created',
+    updated: 'alertChannel.updated',
+    deleted: 'alertChannel.deleted',
+    deleteConfirm: 'alertChannel.deleteConfirm',
+    createTitle: 'alertChannel.create',
+    editTitle: 'common.edit',
+  },
+  rowToForm: (row) => ({
+    name: row.name,
+    description: row.description,
+    match_labels: Object.entries(row.match_labels || {}).map(([key, value]) => ({ key, value })) as unknown as Record<string, string>,
+    severities: (row.severities ? row.severities.split(',').map(s => s.trim()).filter(Boolean) : []) as unknown as string,
+    media_id: row.media_id,
+    template_id: row.template_id,
+    throttle_min: row.throttle_min,
+    is_enabled: row.is_enabled,
+  }),
+  formToPayload: (form) => {
+    const matchLabels: Record<string, string> = {}
+    const ml = form.match_labels as unknown as { key: string; value: string }[]
+    if (Array.isArray(ml)) {
+      ml.forEach(({ key, value }) => {
+        if (key.trim()) matchLabels[key.trim()] = value
+      })
+    }
+    return {
+      name: form.name,
+      description: form.description,
+      match_labels: matchLabels,
+      severities: Array.isArray(form.severities) ? (form.severities as unknown as string[]).join(',') : '',
+      media_id: form.media_id as number,
+      template_id: form.template_id,
+      throttle_min: form.throttle_min,
+      is_enabled: form.is_enabled,
+    } as Partial<AlertChannel>
+  },
+  validate: (form) => {
+    if (!form.name?.trim()) return t('alertChannel.nameRequired')
+    if (!form.media_id) return t('alertChannel.mediaRequired')
+    return null
+  },
+  pageSize: 50,
+})
 
 const {
   loading,
   items: channels,
-  total,
-  page,
-  pageSize,
+  search,
+  showModal,
+  modalTitle,
+  saving,
+  form,
   fetchList,
-  refresh,
-} = usePaginatedList<AlertChannel>({
-  apiFn: alertChannelApi.list,
-  pageSize: 50,
-  onError: (err: unknown) => {
-    message.error((err as Error)?.message)
-  },
-})
+  openCreate,
+  openEdit,
+  handleSave,
+  confirmDelete,
+} = crud
 
-const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
-
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
 const testingId = ref<number | null>(null)
 
 const mediaList = shallowRef<NotifyMedia[]>([])
@@ -59,17 +109,6 @@ const statusOptions = computed(() => [
   { label: t('common.enabled'), value: 'enabled' },
   { label: t('common.disabled'), value: 'disabled' },
 ])
-
-const form = reactive({
-  name: '',
-  description: '',
-  match_labels: [] as { key: string; value: string }[],
-  severities: [] as string[],
-  media_id: null as number | null,
-  template_id: null as number | null,
-  throttle_min: 5,
-  is_enabled: true,
-})
 
 const mediaOptions = computed(() =>
   mediaList.value.map((m) => ({ label: m.name, value: m.id })),
@@ -160,93 +199,6 @@ async function fetchTemplates() {
   }
 }
 
-function resetForm() {
-  form.name = ''
-  form.description = ''
-  form.match_labels = []
-  form.severities = []
-  form.media_id = null
-  form.template_id = null
-  form.throttle_min = 5
-  form.is_enabled = true
-}
-
-function openCreate() {
-  editingId.value = null
-  resetForm()
-  modalTitle.value = t('alertChannel.create')
-  showModal.value = true
-}
-
-function openEdit(row: AlertChannel) {
-  editingId.value = row.id
-  form.name = row.name
-  form.description = row.description
-  form.match_labels = Object.entries(row.match_labels || {}).map(([key, value]) => ({ key, value }))
-  form.severities = row.severities ? row.severities.split(',').map((s) => s.trim()).filter(Boolean) : []
-  form.media_id = row.media_id
-  form.template_id = row.template_id
-  form.throttle_min = row.throttle_min
-  form.is_enabled = row.is_enabled
-  modalTitle.value = t('common.edit')
-  showModal.value = true
-}
-
-function buildPayload() {
-  const matchLabels: Record<string, string> = {}
-  form.match_labels.forEach(({ key, value }) => {
-    if (key.trim()) matchLabels[key.trim()] = value
-  })
-  return {
-    name: form.name,
-    description: form.description,
-    match_labels: matchLabels,
-    severities: form.severities.join(','),
-    media_id: form.media_id as number,
-    template_id: form.template_id,
-    throttle_min: form.throttle_min,
-    is_enabled: form.is_enabled,
-  }
-}
-
-async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('alertChannel.nameRequired'))
-    return
-  }
-  if (!form.media_id) {
-    message.warning(t('alertChannel.mediaRequired'))
-    return
-  }
-  saving.value = true
-  try {
-    const payload = buildPayload()
-    if (editingId.value) {
-      await alertChannelApi.update(editingId.value, payload)
-      message.success(t('alertChannel.updated'))
-    } else {
-      await alertChannelApi.create(payload)
-      message.success(t('alertChannel.created'))
-    }
-    showModal.value = false
-    fetchList()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await alertChannelApi.delete(id)
-    message.success(t('alertChannel.deleted'))
-    fetchList()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  }
-}
-
 async function handleTest(id: number) {
   testingId.value = id
   try {
@@ -259,7 +211,7 @@ async function handleTest(id: number) {
   }
 }
 
-function rowMenuOptions(row: AlertChannel) {
+function rowMenuOptions(_row: AlertChannel) {
   return [
     { label: t('alertChannel.testSend'), key: 'test' },
     { label: t('common.edit'), key: 'edit' },
@@ -271,15 +223,7 @@ function rowMenuOptions(row: AlertChannel) {
 function onMenuSelect(key: string, row: AlertChannel) {
   if (key === 'test') handleTest(row.id)
   else if (key === 'edit') openEdit(row)
-  else if (key === 'delete') {
-    dialog.warning({
-      title: t('common.confirmDelete'),
-      content: t('alertChannel.deleteConfirm'),
-      positiveText: t('common.confirm'),
-      negativeText: t('common.cancel'),
-      onPositiveClick: () => handleDelete(row.id),
-    })
-  }
+  else if (key === 'delete') confirmDelete(row.id)
 }
 
 onMounted(() => {

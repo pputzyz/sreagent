@@ -74,9 +74,11 @@ func (r *MuteRuleRepository) BatchUpdateEnabled(ctx context.Context, ids []uint,
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Model(&model.MuteRule{}).
-		Where("id IN ?", ids).
-		Update("is_enabled", enabled).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.Model(&model.MuteRule{}).
+			Where("id IN ?", ids).
+			Update("is_enabled", enabled).Error
+	})
 }
 
 // BatchDelete soft-deletes all rules whose IDs are in ids.
@@ -84,5 +86,7 @@ func (r *MuteRuleRepository) BatchDelete(ctx context.Context, ids []uint) error 
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.MuteRule{}).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.Where("id IN ?", ids).Delete(&model.MuteRule{}).Error
+	})
 }

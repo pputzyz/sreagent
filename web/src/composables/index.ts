@@ -1,4 +1,6 @@
 export { useCrudModal } from './useCrudModal'
+export { useCrudPage } from './useCrudPage'
+export type { CrudApiModule, UseCrudPageOptions, UseCrudPageReturn } from './useCrudPage'
 export { usePaginatedList } from './usePaginatedList'
 export { useAIChat } from './useAIChat'
 export type { ChatMode } from './useAIChat'

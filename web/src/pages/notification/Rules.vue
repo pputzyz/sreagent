@@ -6,6 +6,7 @@ import { notifyRuleApi } from '@/api'
 import type { NotifyRule } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { AddOutline, SearchOutline, FilterOutline } from '@vicons/ionicons5'
+import EmptyState from '@/components/common/EmptyState.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
@@ -210,11 +211,14 @@ onMounted(fetchData)
 
     <div v-if="loading" class="loading">{{ t('common.loading') }}…</div>
 
-    <div v-else-if="filtered.length === 0" class="empty">
-      <n-icon :component="FilterOutline" size="36" />
-      <div class="empty-text">{{ t('notifyRule.noData') }}</div>
-      <n-button type="primary" size="small" @click="openCreate">{{ t('notifyRule.create') }}</n-button>
-    </div>
+    <EmptyState
+      v-else-if="filtered.length === 0"
+      :icon="FilterOutline"
+      :title="t('notifyRule.noData')"
+      :description="t('notifyRule.subtitle')"
+      :primary-text="t('notifyRule.create')"
+      @primary="openCreate"
+    />
 
     <ul v-else class="row-list sre-stagger">
       <li v-for="r in filtered" :key="r.id" class="sre-notify-card sre-lift">
@@ -326,9 +330,7 @@ onMounted(fetchData)
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .count { font-size: 12px; color: var(--sre-text-secondary, #888); margin-left: auto; font-variant-numeric: tabular-nums; }
 
-.loading, .empty { padding: 60px 20px; text-align: center; color: var(--sre-text-secondary, #888); }
-.empty { display: flex; flex-direction: column; gap: 12px; align-items: center; }
-.empty-text { font-size: 13px; }
+.loading { padding: 60px 20px; text-align: center; color: var(--sre-text-secondary, #888); }
 
 .row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 

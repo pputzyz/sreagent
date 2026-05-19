@@ -77,9 +77,11 @@ func (r *NotifyRuleRepository) BatchUpdateEnabled(ctx context.Context, ids []uin
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Model(&model.NotifyRule{}).
-		Where("id IN ?", ids).
-		Update("is_enabled", enabled).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.Model(&model.NotifyRule{}).
+			Where("id IN ?", ids).
+			Update("is_enabled", enabled).Error
+	})
 }
 
 // BatchDelete soft-deletes all rules whose IDs are in ids.
@@ -87,7 +89,9 @@ func (r *NotifyRuleRepository) BatchDelete(ctx context.Context, ids []uint) erro
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.NotifyRule{}).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.Where("id IN ?", ids).Delete(&model.NotifyRule{}).Error
+	})
 }
 
 // FindMatchingRules returns all enabled notify rules whose match_labels are a subset
