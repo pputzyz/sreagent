@@ -232,8 +232,8 @@ func autoMigrate(db *gorm.DB) error {
 	// Status page services
 	models = append(models, &model.StatusService{})
 
-	// User preferences
-	models = append(models, &model.UserPreference{})
+	// User preferences — table created by migration 000044, skip AutoMigrate
+	// (MySQL strict mode rejects DEFAULT on JSON columns)
 
 	return db.AutoMigrate(models...)
 }
