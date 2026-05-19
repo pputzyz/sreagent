@@ -446,20 +446,23 @@ async function load() {
     if (alertRes.status === 'fulfilled') {
       firingAlerts.value = alertRes.value.data.data || []
     }
-    // Load on-call users for each schedule
+    // Load on-call users for each schedule (parallel)
     if (schedRes.status === 'fulfilled') {
       const schedules: Schedule[] = schedRes.value.data.data?.list || schedRes.value.data.data || []
-      const results: { scheduleName: string; userName: string }[] = []
-      for (const s of schedules.slice(0, 5)) {
-        try {
+      const oncallResults = await Promise.allSettled(
+        schedules.slice(0, 5).map(async (s) => {
           const res = await scheduleApi.getCurrentOnCall(s.id)
           const user = res.data.data
           if (user) {
-            results.push({ scheduleName: s.name, userName: user.username || user.email || `User #${user.id}` })
+            return { scheduleName: s.name, userName: user.username || user.email || `User #${user.id}` }
           }
-        } catch { /* no current on-call for this schedule */ }
-      }
-      oncallUsers.value = results
+          return null
+        })
+      )
+      oncallUsers.value = oncallResults
+        .filter((r): r is PromiseFulfilledResult<{ scheduleName: string; userName: string } | null> => r.status === 'fulfilled')
+        .map(r => r.value)
+        .filter((v): v is { scheduleName: string; userName: string } => v !== null)
     }
   } catch (e: unknown) {
     message.error(getErrorMessage(e) || t('homepage.loadFailed'))

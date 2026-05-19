@@ -2,25 +2,71 @@ package repository
 
 import (
 	"context"
+	"sync"
+	"time"
 
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 )
 
+// notifyRuleCache caches the result of ListEnabled to avoid repeated DB queries.
+type notifyRuleCache struct {
+	mu       sync.RWMutex
+	rules    []model.NotifyRule
+	cachedAt time.Time
+	ttl      time.Duration
+}
+
+func (c *notifyRuleCache) Get() ([]model.NotifyRule, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.rules == nil || time.Since(c.cachedAt) > c.ttl {
+		return nil, false
+	}
+	// Return a copy to prevent callers from mutating cached data
+	out := make([]model.NotifyRule, len(c.rules))
+	copy(out, c.rules)
+	return out, true
+}
+
+func (c *notifyRuleCache) Set(rules []model.NotifyRule) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.rules = rules
+	c.cachedAt = time.Now()
+}
+
+func (c *notifyRuleCache) Invalidate() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.rules = nil
+	c.cachedAt = time.Time{}
+}
+
 // NotifyRuleRepository handles notify_rules persistence.
 type NotifyRuleRepository struct {
-	db *gorm.DB
+	db    *gorm.DB
+	cache notifyRuleCache
 }
 
 // NewNotifyRuleRepository creates a new NotifyRuleRepository.
 func NewNotifyRuleRepository(db *gorm.DB) *NotifyRuleRepository {
-	return &NotifyRuleRepository{db: db}
+	return &NotifyRuleRepository{
+		db: db,
+		cache: notifyRuleCache{
+			ttl: 30 * time.Second,
+		},
+	}
 }
 
 // Create creates a new notify rule.
 func (r *NotifyRuleRepository) Create(ctx context.Context, rule *model.NotifyRule) error {
-	return r.db.WithContext(ctx).Create(rule).Error
+	if err := r.db.WithContext(ctx).Create(rule).Error; err != nil {
+		return err
+	}
+	r.cache.Invalidate()
+	return nil
 }
 
 // GetByID returns a notify rule by its ID.
@@ -54,22 +100,38 @@ func (r *NotifyRuleRepository) List(ctx context.Context, page, pageSize int) ([]
 
 // Update updates an existing notify rule.
 func (r *NotifyRuleRepository) Update(ctx context.Context, rule *model.NotifyRule) error {
-	return r.db.WithContext(ctx).Save(rule).Error
+	if err := r.db.WithContext(ctx).Save(rule).Error; err != nil {
+		return err
+	}
+	r.cache.Invalidate()
+	return nil
 }
 
 // Delete soft-deletes a notify rule by ID.
 func (r *NotifyRuleRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&model.NotifyRule{}, id).Error
+	if err := r.db.WithContext(ctx).Delete(&model.NotifyRule{}, id).Error; err != nil {
+		return err
+	}
+	r.cache.Invalidate()
+	return nil
 }
 
-// ListEnabled returns all enabled notify rules.
+// ListEnabled returns all enabled notify rules. Results are cached in memory
+// for 30 seconds to avoid repeated DB queries during alert processing.
 func (r *NotifyRuleRepository) ListEnabled(ctx context.Context) ([]model.NotifyRule, error) {
+	if cached, ok := r.cache.Get(); ok {
+		return cached, nil
+	}
 	var list []model.NotifyRule
 	err := r.db.WithContext(ctx).
 		Where("is_enabled = ?", true).
 		Order("id ASC").
 		Find(&list).Error
-	return list, err
+	if err != nil {
+		return nil, err
+	}
+	r.cache.Set(list)
+	return list, nil
 }
 
 // BatchUpdateEnabled sets is_enabled for all rules whose IDs are in ids.
@@ -77,11 +139,16 @@ func (r *NotifyRuleRepository) BatchUpdateEnabled(ctx context.Context, ids []uin
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return tx.Model(&model.NotifyRule{}).
 			Where("id IN ?", ids).
 			Update("is_enabled", enabled).Error
 	})
+	if err != nil {
+		return err
+	}
+	r.cache.Invalidate()
+	return nil
 }
 
 // BatchDelete soft-deletes all rules whose IDs are in ids.
@@ -89,9 +156,14 @@ func (r *NotifyRuleRepository) BatchDelete(ctx context.Context, ids []uint) erro
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return tx.Where("id IN ?", ids).Delete(&model.NotifyRule{}).Error
 	})
+	if err != nil {
+		return err
+	}
+	r.cache.Invalidate()
+	return nil
 }
 
 // FindMatchingRules returns all enabled notify rules whose match_labels are a subset

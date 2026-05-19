@@ -1336,7 +1336,9 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 }
 
 @media (max-width: 640px) {
-  .app-sidebar { display: none; }
+  .app-sidebar { width: var(--sre-sidebar-w-rail, 60px) !important; }
+  .app-sidebar .sidebar-label,
+  .app-sidebar .nav-section-title { display: none; }
   .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
   .n-modal-mask + .n-modal-body-wrapper .n-modal {
     width: calc(100vw - 24px) !important;

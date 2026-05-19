@@ -4,6 +4,22 @@
 
 ---
 
+## [v4.10.31] — 2026-05-19
+
+### Fixed — 偷懒补丁 + 性能优化
+
+**移动端 nav bug 修复**
+- `web/src/styles/global.css` — 640px 断点从 `display: none` 改为 rail 模式（60px icon-only），手机用户可正常切页
+
+**性能优化**
+- `internal/repository/notify_rule.go` — `ListEnabled` 加 30s TTL 内存缓存，`FindMatchingRules` 告警评估时不再每次查 DB
+- `web/src/pages/dashboard/UnifiedDashboard.vue` — on-call schedule 串行 fetch 改 `Promise.allSettled` 并行
+
+**文档同步**
+- `docs/PLAN-status.md` — 同步至 v4.10.31
+
+---
+
 ## [v4.10.30] — 2026-05-19
 
 ### Fixed — 收尾优化（落地差距 + 响应式 + ARIA + 测试）
