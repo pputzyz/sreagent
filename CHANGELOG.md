@@ -4,6 +4,17 @@
 
 ---
 
+## [v4.10.33] — 2026-05-19
+
+### Fixed — 死代码清理（-402 行）
+
+- `web/src/pages/settings/Index.vue` — 删除旧版统一设置页（已被独立路由替代）
+- `web/src/api/incident.ts` — 移除从未调用的 `getNoiseConfig` 方法
+- `web/src/api/oncall.ts` — 移除无后端对应的 escalation steps API（createStep/updateStep/deleteStep）
+- `internal/handler/exclusion_rule.go` — 移除未注册路由的 `GetNoiseCfg` / `UpdateNoiseCfg` handler
+
+---
+
 ## [v4.10.32] — 2026-05-19
 
 ### Fixed — AlertChannels KVEditor 类型修复
