@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import type { UserPreferences } from '@/types'
-import { userApi } from '@/api'
+import { authApi } from '@/api'
 
 const defaultPrefs: UserPreferences = {
   user_id: 0,
@@ -19,7 +19,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   async function load() {
     try {
-      const { data } = await userApi.getPreferences()
+      const { data } = await authApi.getPreferences()
       if (data.data) {
         prefs.value = { ...defaultPrefs, ...data.data }
       }
@@ -32,7 +32,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   async function update(patch: Partial<UserPreferences>) {
     try {
-      const { data } = await userApi.updatePreferences(patch)
+      const { data } = await authApi.updatePreferences(patch)
       if (data.data) {
         prefs.value = { ...prefs.value, ...data.data }
       }

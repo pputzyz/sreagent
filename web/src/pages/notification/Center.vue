@@ -66,7 +66,7 @@ async function handleDelete(id: number) {
   }
 }
 
-function typeColor(type: string): string {
+function typeColor(type: string): 'error' | 'warning' | 'info' | 'default' {
   if (type === 'alert') return 'error'
   if (type === 'incident') return 'warning'
   if (type === 'todo') return 'info'
