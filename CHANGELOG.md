@@ -4,6 +4,31 @@
 
 ---
 
+## [v4.11.3] — 2026-05-19
+
+### Added — monitoring-trading 全量兼容
+
+- `scripts/import-presets/main.go` — 全量导入脚本，扫描 monitoring-trading 299 条 YAML 告警规则
+- `docs/monitoring-trading-compat.md` — 完整兼容方案文档（规则导入/抑制模板/多租户标签/通知路由/AI 辅助）
+- 种子抑制规则从 4 条扩展到 16 条，与 Alertmanager inhibit_rules 完全对齐
+- 新增抑制规则：容器 P0/P1 级联、Kafka/Redis/MongoDB/RabbitMQ/Nacos/RocketMQ 宕机级联、ES Red→Yellow、TCP 探测失败级联
+- 所有抑制规则使用 `biz_project` equal_labels 防止跨租户误抑制
+
+## [v4.11.2] — 2026-05-19
+
+### Added — 内置预置规则库 seed
+
+- 启动时自动 seed 45 条内置预置规则到 `preset_rules` 表
+- 覆盖 8 大类：主机/系统(8)、Kubernetes(7)、MySQL(4)、Redis(3)、MongoDB(2)、Elasticsearch(3)、中间件(7)、网络探测(3)、应用(2)、抑制模板(4)
+
+## [v4.11.1] — 2026-05-19
+
+### Fixed — MySQL JSON DEFAULT 错误
+
+- `cmd/server/main.go` — 从 AutoMigrate 列表移除 `UserPreference`（表由迁移 000044 创建）
+- `internal/model/user_preference.go` — 移除 NotificationSeverities 的 default gorm tag
+- `internal/pkg/dbmigrate/migrations/000044_create_user_preferences.up.sql` — `JSON NULL` 替代 `JSON DEFAULT`
+
 ## [v4.11.0] — 2026-05-19
 
 ### Changed — V1/V2 清理 & 架构统一

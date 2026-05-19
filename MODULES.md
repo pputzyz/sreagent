@@ -225,11 +225,11 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 
 ## AI 助手 (ai)
 
-- **功能**: LLM 告警分析报告、SOP 建议、连接测试、多供应商配置、规则生成
+- **功能**: LLM 告警分析报告、SOP 建议、连接测试、多供应商配置、规则生成、标签推荐、抑制规则生成
 - **后端**: `service/ai.go`, `handler/ai.go`, `service/alert_context.go`, `service/alert_pipeline.go`, `service/rule_generator.go`, `handler/ai_rule.go`
-- **前端**: `web/src/pages/settings/AISettings.vue`, `web/src/composables/useAIModule.ts`
-- **API**: `/api/v1/ai/*` (10 endpoints: config, test, chat, report, sop, modules, providers, test-provider, rules/generate, rules/validate)
-- **状态**: ✅ 完成（含多供应商配置 + 模块级供应商选择）
+- **前端**: `web/src/pages/settings/AISettings.vue`, `web/src/composables/useAIModule.ts`, `web/src/pages/alerts/rules/Index.vue`（AI 生成按钮 + 模态框）
+- **API**: `/api/v1/ai/*` (12 endpoints: config, test, chat, report, sop, modules, providers, test-provider, rules/generate, rules/validate, rules/suggest-labels, rules/generate-inhibition)
+- **状态**: ✅ 完成（含多供应商配置 + 模块级供应商选择 + 规则页 AI 生成入口）
 
 ## 飞书集成 (lark)
 
@@ -279,10 +279,13 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 
 ## 预设规则 (preset-rule)
 
-- **功能**: 预定义告警规则模板库（社区最佳实践/供应商推荐）、分类浏览、一键应用创建 AlertRule、YAML 导入
+- **功能**: 预定义告警规则模板库（社区最佳实践/供应商推荐）、分类浏览、一键应用创建 AlertRule、YAML 导入、monitoring-trading 全量导入
 - **后端**: `model/preset_rule.go`, `handler/preset_rule.go`, `service/preset_rule.go`, `repository/preset_rule.go`
+- **脚本**: `scripts/import-presets/main.go` — 从 monitoring-trading YAML 全量导入 299 条规则（支持 --dry-run）
+- **种子数据**: 启动时自动 seed 45 条内置告警规则 + 16 条抑制规则模板（覆盖主机/容器/MySQL/Redis/MongoDB/ES/Kafka/RabbitMQ/Nginx/Blackbox/应用）
 - **API**: `/api/v1/preset-rules` (6 endpoints: LIST 列表, GET 详情, GET /categories 分类列表, POST /:id/apply 应用, POST /import YAML 导入, DELETE 删除)
 - **权限**: 列表/详情/分类已认证即可，应用/导入/删除需管理权限
+- **兼容文档**: `docs/monitoring-trading-compat.md`
 - **状态**: ✅ 完成
 
 ## Alertmanager 导入 (alertmanager-import)
