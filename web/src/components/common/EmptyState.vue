@@ -39,7 +39,7 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="empty-state" :data-size="size || 'md'" :data-variant="variant || 'default'">
+  <div class="empty-state" :data-size="size || 'md'" :data-variant="variant || 'default'" role="status" aria-live="polite">
     <div v-if="icon" class="empty-icon">
       <NIcon :component="icon" />
     </div>

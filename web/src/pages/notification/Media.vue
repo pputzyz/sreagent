@@ -261,7 +261,7 @@ const RowMenu = (row: NotifyMedia) => h(NDropdown, {
   options: rowMenuOptions(row),
   onSelect: (key: string) => onRowMenu(key, row),
 }, {
-  default: () => h('button', { class: 'sre-icon-btn', 'aria-label': 'menu' },
+  default: () => h('button', { class: 'sre-icon-btn', 'aria-label': t('common.actions') },
     h('span', { class: 'sre-dots' })),
 })
 

@@ -294,7 +294,7 @@ onMounted(() => {
               :options="rowMenuOptions(row)"
               @select="(k: string) => onMenuSelect(k, row)"
             >
-              <button type="button" class="ac-menu-btn" @click.stop>
+              <button type="button" class="ac-menu-btn" :aria-label="t('common.actions')" @click.stop>
                 <n-icon :component="EllipsisHorizontal" :size="16" />
               </button>
             </n-dropdown>

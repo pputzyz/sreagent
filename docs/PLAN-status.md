@@ -1,7 +1,7 @@
 # SREAgent 重构执行状态
 
 > 本文件是实时执行状态追踪，所有参与者（人或 AI agent）在完成任务后必须更新此文件。
-> 最后更新：2026-05-19
+> 最后更新：2026-05-19 | v4.10.29
 
 ---
 
@@ -10,13 +10,13 @@
 | 字段 | 值 |
 |------|-----|
 | **当前 Phase** | Phase 1-5 全部完成，后续迭代持续进行 |
-| **当前版本** | v4.10.25 |
+| **当前版本** | v4.10.29 |
 | **目标版本** | v4.11.0（模块补全 + 质量提升） |
 | **阻塞项** | 无 |
 
 ---
 
-## v4.10.23 — v4.10.25 变更摘要
+## v4.10.23 — v4.10.29 变更摘要
 
 ### v4.10.23 — AI 多供应商配置 + Bug 修复 + UI 一致性
 
@@ -38,6 +38,42 @@
 - **Batch 4**: 前端交互体验 — 表单校验规则、错误重试组件、筛选记忆
 - **Batch 5**: 文档对齐 — MODULES.md / api.md / PLAN-status.md 全面更新
 - **Batch 6**: AI 标签校验 + 批量端点 — NotifyRule/MuteRule 批量操作
+
+### v4.10.26 — 二轮审查修复（Batch 7-10）
+
+- **Batch 7**: 紧急修复 — MuteRule/NotifyRule 批量操作事务边界包裹，composable export 补漏，筛选记忆修复
+- **Batch 8**: 前端 CRUD 真采纳 — api/index.ts barrel re-export，AlertChannels/Mute/Rules 迁移 useCrudPage
+- **Batch 9**: 遗留清理 — 删除 alerts-v2 目录（-898 行死代码）
+- **Batch 10**: 文档修正 — MODULES.md 文件计数实测 + 4 个新模块条目 + 测试覆盖表 + api.md 补充 + PLAN-status 更新
+
+### v4.10.27 — 三轮审查最终优化（Batch 7-8）
+
+- **Batch 7**: 一致性清理 — handler.go ErrorWithMessage 清除、错误码迁移 AppError 系统、MuteRuleHandler 构造函数优化、前端 -518 行清理
+- **Batch 8**: 用户侧改进 — PreviewLabelValidation 标签校验预览、notification/schedule DB 集成测试
+
+### v4.10.28 — 终审优化（UI 一致性 + 交互增强 + a11y）
+
+- 后端：4 个 handler 文件 ErrorWithMessage 替换、MuteRule PreviewOne 单规则预览端点
+- 前端 UI 一致性：6 个页面补 PageHeader、prefers-reduced-motion 兜底
+- 前端交互增强：previewOne API + 5 个页面加 LoadingSkeleton
+
+### v4.10.29 — 自审修复（a11y + 后端一致性 + UI token + i18n）
+
+- 后端 ErrorWithMessage 全量清除：31 个 handler 文件 ~120 处替换
+- 前端 a11y：4 个 Modal 焦点归还、14 个可点击 div 补 tabindex/role、批量操作栏补 aria-label
+- 前端 CSS token 统一：10 处硬编码颜色改用 var(--sre-*) token
+- 前端 i18n：6 个页面删除 29 处 fallback 反模式
+
+---
+
+## 新增模块（v4.10.26 — v4.10.29 期间）
+
+| 模块 | 功能 | API | 状态 |
+|------|------|-----|------|
+| 宠物系统 (pet) | 用户虚拟宠物养成（喂食/玩耍/互动/升级） | `/api/v1/pet` (5 endpoints) | ✅ 完成 |
+| 状态页面 (status-service) | 公开状态页面服务管理（运维/降级/中断/维护） | `/api/v1/status-services` (5 endpoints) | ✅ 完成 |
+| 预设规则 (preset-rule) | 预定义告警规则模板库、分类浏览、一键应用、YAML 导入 | `/api/v1/preset-rules` (6 endpoints) | ✅ 完成 |
+| Alertmanager 导入 (alertmanager-import) | 解析 Alertmanager YAML 配置，自动导入 receivers/inhibit_rules | `POST /api/v1/integrations/import-alertmanager` | ✅ 完成 |
 
 ---
 
@@ -201,4 +237,6 @@
 | 2026-05-07 | 完成 Phase 5 故障复盘+分析增强：PostMortem CRUD + AI 生成初稿(AnalyzeAlertWithContext) + 4 个新 Dashboard 统计端点(channel/team/trend/stats) + 前端复盘Tab+AI按钮+IncidentDashboard看板 | @opencode |
 | 2026-05-07 | 确认 P0 安全/稳定性修复已全部落地（WebhookAuth middleware + AlertWorkerPool 64并发 + main.go 优雅关闭顺序）；实现 n9e-quality-gap P1「告警规则批量操作」：后端 BatchEnable/Disable/Delete（repository+service+handler+router）+ 前端多选列+批量工具栏+i18n；go build ✅ vue-tsc 无新增错误 ✅ | @claude |
 | 2026-05-07 | 补齐 3 个 UI 缺口：①故障详情 Snooze/Merge/Reassign 按钮+弹窗；②PostMortem 换用 md-editor-v3（Markdown 预览）；③路由规则 CRUD（后端 RoutingRuleHandler + 路由注册 + main.go wiring；前端 RoutingRules.vue + 集成中心右侧抽屉）；go build ✅ vue-tsc ✅ | @claude |
+| 2026-05-19 | v4.10.26-v4.10.29 迭代：二轮/三轮/终审/自审四轮全栈审查优化、4 个新模块（Pet/StatusService/PresetRule/AlertmanagerImport）、ErrorWithMessage 全量清除、a11y + UI token + i18n 统一 | @claude |
+| 2026-05-19 | PLAN-status.md 同步至 v4.10.29，补充 4 个新模块条目 | @claude |
 | | | |

@@ -289,38 +289,21 @@ body {
 }
 
 /* ============================================================
-   Scrollbar — thin, warm, hover-reveal
+   Scrollbar — always visible
    ============================================================ */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
-
+::-webkit-scrollbar-thumb {
+  background: var(--sre-border, #d6d3d1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sre-border-strong, #a8a29e);
+}
 ::-webkit-scrollbar-track {
   background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: var(--sre-radius-pill);
-  transition: background var(--sre-duration-base) var(--sre-ease-out);
-}
-
-*:hover > ::-webkit-scrollbar-thumb,
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.15);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.28);
-}
-
-body.dark-theme *:hover > ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-body.dark-theme ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
 }
 
 /* ============================================================
@@ -1340,3 +1323,25 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 .bg-app-oncall   { background-color: color-mix(in srgb, var(--sre-brand-oncall) 5%, var(--sre-bg-page)); }
 .bg-app-alert    { background-color: color-mix(in srgb, var(--sre-brand-alert) 5%, var(--sre-bg-page)); }
 .bg-app-platform { background-color: color-mix(in srgb, var(--sre-brand-platform) 5%, var(--sre-bg-page)); }
+
+/* ============================================================
+   Responsive breakpoints
+   ============================================================ */
+@media (max-width: 1024px) {
+  .app-sidebar { width: var(--sre-sidebar-w-rail, 60px) !important; }
+  .app-content { padding-left: 16px; padding-right: 16px; }
+  .crud-toolbar { flex-wrap: wrap; gap: 8px; }
+  .ac-toolbar-left { flex-wrap: wrap; }
+  .sre-config-page { max-width: 100%; }
+}
+
+@media (max-width: 640px) {
+  .app-sidebar { display: none; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .n-modal-mask + .n-modal-body-wrapper .n-modal {
+    width: calc(100vw - 24px) !important;
+    max-width: none !important;
+  }
+  .sre-stagger > * { animation: none; }
+  .filter-bar { flex-direction: column; }
+}

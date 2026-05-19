@@ -185,7 +185,7 @@ function onRowMenu(key: string, row: NotifyRule) {
 const RowMenu = (row: NotifyRule) => h(NDropdown, {
   trigger: 'click', options: rowMenu(row),
   onSelect: (k: string) => onRowMenu(k, row),
-}, { default: () => h('button', { class: 'sre-icon-btn' }, h('span', { class: 'sre-dots' })) })
+}, { default: () => h('button', { class: 'sre-icon-btn', 'aria-label': t('common.actions') }, h('span', { class: 'sre-dots' })) })
 
 onMounted(fetchData)
 </script>
@@ -229,7 +229,7 @@ onMounted(fetchData)
               class="sev-chip" :data-sev="severityDot(s)">{{ t('severity.' + s) }}</span>
           </div>
           <div class="row-actions">
-            <n-switch :value="r.is_enabled" size="small" @update:value="(v: boolean) => toggleEnabled(r, v)" />
+            <n-switch :value="r.is_enabled" size="small" :aria-label="r.name" @update:value="(v: boolean) => toggleEnabled(r, v)" />
             <component :is="RowMenu(r)" />
           </div>
         </div>

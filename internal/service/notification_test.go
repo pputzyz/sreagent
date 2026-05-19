@@ -542,3 +542,75 @@ func Test_NotifyRule_BatchUpdateEnabled_DB(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, fetched3.IsEnabled, "r3 should still be enabled")
 }
+
+// ---------------------------------------------------------------------------
+// NotifyRule FindMatchingRules DB integration tests (require SREAGENT_TEST_DSN)
+// Run with: SREAGENT_TEST_DSN="user:pass@tcp(host:port)/db" go test -run DB
+// ---------------------------------------------------------------------------
+
+// Test_NotifyRule_FindMatchingRules_LabelSubset_DB verifies that a rule with
+// match_labels={"env":"prod","team":"infra"} matches event labels that are a
+// superset (i.e., the rule's labels are a subset of the event labels).
+func Test_NotifyRule_FindMatchingRules_LabelSubset_DB(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	ruleRepo := repository.NewNotifyRuleRepository(db)
+
+	// Create a rule with specific match_labels
+	rule := &model.NotifyRule{
+		Name:           "subset-match-rule",
+		IsEnabled:      true,
+		MatchLabels:    model.JSONLabels{"env": "prod", "team": "infra"},
+		Severities:     "",
+		RepeatInterval: 3600,
+	}
+	require.NoError(t, ruleRepo.Create(context.Background(), rule))
+
+	// Call FindMatchingRules with labels that are a superset of the rule's match_labels
+	eventLabels := map[string]string{
+		"env":      "prod",
+		"team":     "infra",
+		"instance": "web-1",
+		"region":   "us-east-1",
+	}
+	matched, err := ruleRepo.FindMatchingRules(context.Background(), eventLabels, "critical")
+	require.NoError(t, err)
+	require.Len(t, matched, 1, "rule should match when event labels are a superset")
+	assert.Equal(t, rule.ID, matched[0].ID)
+	assert.Equal(t, "subset-match-rule", matched[0].Name)
+}
+
+// Test_NotifyRule_FindMatchingRules_NoMatch_DB verifies that a rule with
+// match_labels={"env":"prod"} does NOT match event labels={"env":"staging"}.
+func Test_NotifyRule_FindMatchingRules_NoMatch_DB(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	ruleRepo := repository.NewNotifyRuleRepository(db)
+
+	// Create a rule that only matches env=prod
+	rule := &model.NotifyRule{
+		Name:           "prod-only-rule",
+		IsEnabled:      true,
+		MatchLabels:    model.JSONLabels{"env": "prod"},
+		Severities:     "",
+		RepeatInterval: 3600,
+	}
+	require.NoError(t, ruleRepo.Create(context.Background(), rule))
+
+	// Call FindMatchingRules with env=staging — should NOT match
+	eventLabels := map[string]string{
+		"env":      "staging",
+		"instance": "web-2",
+	}
+	matched, err := ruleRepo.FindMatchingRules(context.Background(), eventLabels, "warning")
+	require.NoError(t, err)
+	assert.Empty(t, matched, "rule with env=prod should not match env=staging event")
+}

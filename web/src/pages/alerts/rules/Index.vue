@@ -542,7 +542,7 @@ onMounted(() => {
               </div>
             </div>
             <div class="rc-toggle" @click.stop>
-              <n-switch :value="rule.status === 'enabled'" size="small" @update:value="toggleEnabled(rule)" />
+              <n-switch :value="rule.status === 'enabled'" size="small" :aria-label="rule.name" @update:value="toggleEnabled(rule)" />
             </div>
             <div class="rc-actions" @click.stop>
               <n-dropdown :options="rowActions(rule)" trigger="click" @select="(k: string) => onRowAction(k, rule)">

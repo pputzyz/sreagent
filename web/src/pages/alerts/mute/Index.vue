@@ -20,6 +20,10 @@ import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import {
+  ruleType, isActiveNow, isFuture, isExpired, statusToSev, statusKey,
+  getHitCount, remainingMin, relTimeFuture, describePeriodic,
+} from './utils'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -30,97 +34,21 @@ const statusFilter = ref<'all' | 'active' | 'future' | 'expired' | 'disabled'>('
 const searchKeyword = ref('')
 const typeFilter = ref<'all' | 'once' | 'periodic'>('all')
 
-// ---------- type helpers ----------
-function ruleType(r: MuteRule): 'once' | 'periodic' | 'unknown' {
-  if (r.start_time && r.end_time) return 'once'
-  if (r.periodic_start && r.periodic_end) return 'periodic'
-  return 'unknown'
-}
-
-function toMs(t: string | null | undefined): number | null {
-  if (!t) return null
-  const ms = new Date(t).getTime()
-  return Number.isNaN(ms) ? null : ms
-}
-
-function isActiveNow(r: MuteRule): boolean {
-  if (!r.is_enabled) return false
-  const now = Date.now()
-  if (ruleType(r) === 'once') {
-    const s = toMs(r.start_time), e = toMs(r.end_time)
-    return !!(s && e && now >= s && now <= e)
-  }
-  if (ruleType(r) === 'periodic') {
-    // best-effort; just check current time within HH:mm window and weekday
-    const d = new Date()
-    const cur = d.getHours() * 60 + d.getMinutes()
-    const [sh, sm] = (r.periodic_start || '0:0').split(':').map(Number)
-    const [eh, em] = (r.periodic_end || '0:0').split(':').map(Number)
-    const s = sh * 60 + sm, e = eh * 60 + em
-    const inWindow = s <= e ? (cur >= s && cur <= e) : (cur >= s || cur <= e)
-    if (!inWindow) return false
-    const days = (r.days_of_week || '').split(',').map(x => x.trim()).filter(Boolean)
-    if (days.length === 0) return true
-    return days.includes(String(d.getDay()))
-  }
-  return false
-}
-
-function isFuture(r: MuteRule): boolean {
-  if (!r.is_enabled) return false
-  if (ruleType(r) !== 'once') return false
-  const s = toMs(r.start_time)
-  return !!(s && s > Date.now())
-}
-
-function isExpired(r: MuteRule): boolean {
-  if (ruleType(r) !== 'once') return false
-  const e = toMs(r.end_time)
-  return !!(e && e < Date.now())
-}
-
-function statusToSev(r: MuteRule): string {
-  if (!r.is_enabled) return 'muted'
-  if (isActiveNow(r)) return 'success'
-  if (isFuture(r)) return 'info'
-  if (isExpired(r)) return 'muted'
-  return 'info'
-}
-
+// ---------- type helpers (imported from ./utils) ----------
 function statusText(r: MuteRule): string {
-  if (!r.is_enabled) return t('mute.statusDisabled')
-  if (isActiveNow(r)) return t('mute.statusActive')
-  if (isFuture(r)) return t('mute.statusScheduled')
-  if (isExpired(r)) return t('mute.statusExpired')
-  return t('mute.statusIdle')
+  return t(statusKey(r))
 }
 
-function getHitCount(r: MuteRule): number {
-  return (r as MuteRule & { hit_count?: number }).hit_count || 0
+function dayMapForPeriodic(): Record<string, string> {
+  return {
+    '0': t('mute.sunday'), '1': t('mute.monday'), '2': t('mute.tuesday'),
+    '3': t('mute.wednesday'), '4': t('mute.thursday'), '5': t('mute.friday'),
+    '6': t('mute.saturday'),
+  }
 }
 
-function remainingMin(r: MuteRule): number {
-  const e = toMs(r.end_time)
-  if (!e) return 0
-  return Math.max(0, Math.round((e - Date.now()) / 60000))
-}
-
-function relTimeFuture(t: string | null): string {
-  const ms = toMs(t)
-  if (!ms) return '-'
-  const diff = ms - Date.now()
-  const m = Math.round(diff / 60000)
-  if (m < 60) return `${m}m`
-  const h = Math.round(m / 60)
-  if (h < 24) return `${h}h`
-  return `${Math.round(h / 24)}d`
-}
-
-function describePeriodic(r: MuteRule): string {
-  const days = (r.days_of_week || '').split(',').map(x => x.trim()).filter(Boolean)
-  const dayMap: Record<string, string> = { '0': t('mute.sunday'), '1': t('mute.monday'), '2': t('mute.tuesday'), '3': t('mute.wednesday'), '4': t('mute.thursday'), '5': t('mute.friday'), '6': t('mute.saturday') }
-  const dayLabel = days.length ? days.map(d => dayMap[d] || d).join('/') : t('mute.daily')
-  return `${dayLabel} ${r.periodic_start} - ${r.periodic_end} (${r.timezone || 'UTC'})`
+function describePeriodicLocalized(r: MuteRule): string {
+  return describePeriodic(r, dayMapForPeriodic(), t('mute.daily'))
 }
 
 // ---------- filter ----------
@@ -388,7 +316,7 @@ onMounted(fetchRules)
               <div class="mute-schedule">
                 <span class="sre-label-eyebrow">{{ t('mute.schedule') }}</span>
                 <span v-if="ruleType(rule) === 'once'">{{ t('mute.oneTime') }} {{ formatTime(rule.start_time) }} → {{ formatTime(rule.end_time) }}</span>
-                <span v-else-if="ruleType(rule) === 'periodic'">{{ t('mute.periodic') }} {{ describePeriodic(rule) }}</span>
+                <span v-else-if="ruleType(rule) === 'periodic'">{{ t('mute.periodic') }} {{ describePeriodicLocalized(rule) }}</span>
                 <span v-else class="muted">{{ t('mute.noSchedule') }}</span>
               </div>
               <div class="mute-footer tnum">

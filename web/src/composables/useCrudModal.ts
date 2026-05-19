@@ -12,13 +12,9 @@ interface CrudModalReturn {
 }
 
 /**
- * Composable for CRUD modal state management.
- * Provides reactive state for modal visibility, title, edit/create mode, and save loading.
- *
- * @deprecated Use useCrudPage instead for new pages. This composable is still used
- * by existing pages but should not be used for new development.
- *
- * @param onClose - Optional callback when modal closes successfully after save
+ * @deprecated Prefer useCrudPage (provides full list+modal+CRUD loop).
+ *   useCrudModal only provides modal state; you still need manual list/refresh management.
+ *   Planned for removal in v4.11.
  */
 export function useCrudModal(onClose?: () => void): CrudModalReturn {
   const showModal = ref(false)

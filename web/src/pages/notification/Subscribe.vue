@@ -194,7 +194,7 @@ function onRowMenu(key: string, row: SubscribeRule) {
 const RowMenu = (row: SubscribeRule) => h(NDropdown, {
   trigger: 'click', options: rowMenu(row),
   onSelect: (k: string) => onRowMenu(k, row),
-}, { default: () => h('button', { class: 'sre-icon-btn' }, h('span', { class: 'sre-dots' })) })
+}, { default: () => h('button', { class: 'sre-icon-btn', 'aria-label': t('common.actions') }, h('span', { class: 'sre-dots' })) })
 
 onMounted(() => { fetchData(); fetchRefData() })
 </script>
@@ -236,7 +236,7 @@ onMounted(() => { fetchData(); fetchRefData() })
             <span class="sub-kind">{{ getSubscriberLabel(s).type === 'team' ? t('subscribe.team') : t('subscribe.user') }}</span>
           </span>
           <div class="row-actions">
-            <n-switch :value="s.is_enabled" size="small" @update:value="(v: boolean) => toggleEnabled(s, v)" />
+            <n-switch :value="s.is_enabled" size="small" :aria-label="s.name" @update:value="(v: boolean) => toggleEnabled(s, v)" />
             <component :is="RowMenu(s)" />
           </div>
         </div>

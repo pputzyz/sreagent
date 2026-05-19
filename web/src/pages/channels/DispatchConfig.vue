@@ -245,7 +245,7 @@ onMounted(load)
             <n-button size="tiny" circle quaternary @click="movePriority(idx, 1)" :disabled="idx === policies.length - 1">
               <template #icon><n-icon :component="ArrowDownOutline" /></template>
             </n-button>
-            <n-switch :value="policy.is_enabled" size="small" @update:value="toggleEnabled(policy)" />
+            <n-switch :value="policy.is_enabled" size="small" :aria-label="policy.name" @update:value="toggleEnabled(policy)" />
             <n-button size="tiny" @click="openEdit(policy)">{{ t('common.edit') }}</n-button>
             <n-popconfirm @positive-click="deletePolicy(policy.id)">
               <template #trigger>

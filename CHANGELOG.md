@@ -4,6 +4,32 @@
 
 ---
 
+## [v4.10.30] — 2026-05-19
+
+### Fixed — 收尾优化（落地差距 + 响应式 + ARIA + 测试）
+
+**落地差距修复**
+- `web/src/pages/alerts/mute/Index.vue` — 重构：抽取 `utils.ts`（11 个纯函数），SFC 减 ~70 行
+- `web/src/composables/useCrudModal.ts` — 标记 `@deprecated`（计划 v4.11 移除）
+- `docs/PLAN-status.md` — 同步至 v4.10.29，补充 4 个新模块条目
+
+**前端 — 响应式 + 滚动条**
+- `web/src/styles/global.css` — 新增全局响应式断点（1024px 平板 + 640px 手机）
+- `web/src/styles/global.css` — 滚动条改为始终可见（移除 hover-reveal）
+
+**前端 — ARIA 关键场景**
+- `EmptyState.vue` — 补 `role="status"` + `aria-live="polite"`
+- 4 个页面 RowMenu 补 `aria-label`
+- 4 个页面 inline switch 补 `:aria-label="item.name"`
+
+**测试**
+- 新建 `internal/handler/alert_rule_test.go`（7 个测试）
+- 新建 `internal/handler/mute_rule_test.go`（5 个测试）
+- `internal/service/schedule_test.go` — 2 个 DB 集成测试（GetCurrentOnCall + OverridePriority）
+- `internal/service/notification_test.go` — 2 个 DB 集成测试（LabelSubset + NoMatch）
+
+---
+
 ## [v4.10.29] — 2026-05-19
 
 ### Fixed — 自审修复（a11y + 后端一致性 + UI token + i18n）
