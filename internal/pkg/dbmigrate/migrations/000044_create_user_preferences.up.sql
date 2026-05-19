@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     language VARCHAR(16) DEFAULT 'zh-CN',
     timezone VARCHAR(64) DEFAULT 'Asia/Shanghai',
     default_time_range VARCHAR(16) DEFAULT '24h',
-    notification_severities JSON DEFAULT ('["critical","warning"]'),
+    notification_severities JSON NULL,
     ai_chat_mode VARCHAR(16) DEFAULT 'sidebar',
     UNIQUE INDEX idx_user_preferences_user_id (user_id),
     INDEX idx_user_preferences_deleted_at (deleted_at)

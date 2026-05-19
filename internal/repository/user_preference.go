@@ -35,6 +35,10 @@ func (r *UserPreferenceRepository) GetByUserID(ctx context.Context, userID uint)
 	if err != nil {
 		return nil, err
 	}
+	// Ensure JSON fields have valid defaults
+	if pref.NotificationSeverities == "" || pref.NotificationSeverities == "null" {
+		pref.NotificationSeverities = `["critical","warning"]`
+	}
 	return &pref, nil
 }
 

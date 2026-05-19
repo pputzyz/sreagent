@@ -8,7 +8,7 @@ type UserPreference struct {
 	Language               string `json:"language" gorm:"size:16;default:zh-CN"`               // zh-CN | en
 	Timezone               string `json:"timezone" gorm:"size:64;default:Asia/Shanghai"`       // IANA timezone
 	DefaultTimeRange       string `json:"default_time_range" gorm:"size:16;default:24h"`       // 1h | 6h | 24h | 7d | 30d
-	NotificationSeverities string `json:"notification_severities" gorm:"type:json;default:'[\"critical\",\"warning\"]'"` // JSON array
+	NotificationSeverities string `json:"notification_severities" gorm:"type:json"` // JSON array
 	AIChatMode             string `json:"ai_chat_mode" gorm:"size:16;default:sidebar"`         // sidebar | modal | inline
 }
 
