@@ -95,13 +95,34 @@ func (h *HeartbeatChecker) runOnce(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
+	// Collect fingerprints for all enabled rules and batch-query events.
+	enabled := make([]*model.AlertRule, 0, len(rules))
+	fingerprints := make([]string, 0, len(rules))
 	for i := range rules {
-		rule := &rules[i]
-		if rule.Status != model.RuleStatusEnabled {
-			continue
+		if rules[i].Status == model.RuleStatusEnabled {
+			rule := &rules[i]
+			enabled = append(enabled, rule)
+			fingerprints = append(fingerprints, heartbeatFingerprint(rule.ID))
 		}
-		h.checkRule(ctx, rule, now)
+	}
+
+	eventMap, err := h.eventRepo.GetLatestByFingerprints(ctx, fingerprints)
+	if err != nil {
+		h.logger.Error("heartbeat: failed to batch-load events, falling back to per-rule queries",
+			zap.Error(err),
+		)
+		// Fallback: per-rule query (original behaviour).
+		now := time.Now()
+		for _, rule := range enabled {
+			h.checkRule(ctx, rule, now)
+		}
+		return
+	}
+
+	now := time.Now()
+	for _, rule := range enabled {
+		fp := heartbeatFingerprint(rule.ID)
+		h.checkRuleWithEvent(ctx, rule, eventMap[fp], now)
 	}
 }
 
@@ -120,6 +141,21 @@ func (h *HeartbeatChecker) checkRule(ctx context.Context, rule *model.AlertRule,
 		return
 	}
 
+	h.evaluateHeartbeat(ctx, rule, fingerprint, existingEvent, missed, now)
+}
+
+// checkRuleWithEvent evaluates a heartbeat rule using a pre-fetched event (batch path).
+// The event parameter may be nil if no active event exists for the fingerprint.
+func (h *HeartbeatChecker) checkRuleWithEvent(ctx context.Context, rule *model.AlertRule, existingEvent *model.AlertEvent, now time.Time) {
+	fingerprint := heartbeatFingerprint(rule.ID)
+	interval := time.Duration(rule.HeartbeatInterval) * time.Second
+	missed := rule.HeartbeatLastAt == nil || now.Sub(*rule.HeartbeatLastAt) > interval
+
+	h.evaluateHeartbeat(ctx, rule, fingerprint, existingEvent, missed, now)
+}
+
+// evaluateHeartbeat contains the shared decision logic for heartbeat rules.
+func (h *HeartbeatChecker) evaluateHeartbeat(ctx context.Context, rule *model.AlertRule, fingerprint string, existingEvent *model.AlertEvent, missed bool, now time.Time) {
 	if missed {
 		// Heartbeat is overdue — ensure a firing event exists.
 		if existingEvent == nil || existingEvent.Status == model.EventStatusResolved || existingEvent.Status == model.EventStatusClosed {

@@ -51,6 +51,14 @@ engine:
   enabled: true
   sync_interval: 30     # how often to sync alert rules from DB (seconds)
 
+# Bearer token for /metrics endpoint (empty = open access)
+# Legacy env var METRICS_TOKEN also works (SREAGENT_METRICS_TOKEN takes precedence).
+# metrics_token: ""       # override via SREAGENT_METRICS_TOKEN
+
+# Comma-separated list of allowed CORS origins
+# Legacy env var CORS_ALLOWED_ORIGINS also works (SREAGENT_CORS_ALLOWED_ORIGINS takes precedence).
+# cors_allowed_origins: "" # override via SREAGENT_CORS_ALLOWED_ORIGINS
+
 # OIDC SSO (optional — leave enabled: false to use local auth only)
 # oidc:
 #   enabled: false

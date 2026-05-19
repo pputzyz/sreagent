@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"os"
 	"strings"
 	"time"
 
@@ -10,14 +9,13 @@ import (
 )
 
 // CORS returns a CORS middleware configured for development and production.
-// Set the CORS_ALLOWED_ORIGINS environment variable to a comma-separated list
-// of allowed origins (e.g. "http://localhost:5173,https://sreagent.example.com").
-// When unset, defaults to localhost development origins only.
-func CORS() gin.HandlerFunc {
-	originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
+// originsCSV is a comma-separated list of allowed origins (from config).
+// When empty, defaults to localhost development origins (debug mode) or an
+// empty list (release mode — origins must be explicitly configured).
+func CORS(originsCSV string) gin.HandlerFunc {
 	var allowedOrigins []string
-	if originsEnv != "" {
-		for _, o := range strings.Split(originsEnv, ",") {
+	if originsCSV != "" {
+		for _, o := range strings.Split(originsCSV, ",") {
 			if trimmed := strings.TrimSpace(o); trimmed != "" {
 				allowedOrigins = append(allowedOrigins, trimmed)
 			}

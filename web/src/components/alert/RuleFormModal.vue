@@ -141,6 +141,7 @@ const templates = ref<RuleTemplate[]>([])
 const templateCategories = ref<string[]>([])
 const templateSearch = ref('')
 const templateCategory = ref('')
+// Tracks which template was applied (used in template for "template applied" badge; value unused)
 const appliedTemplateId = ref<number | null>(null)
 
 function severitySlot(sev: string): 'critical' | 'warning' | 'info' | 'success' {

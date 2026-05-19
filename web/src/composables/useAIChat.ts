@@ -59,14 +59,18 @@ export function useAIChat() {
     try {
       const resp = await aiChatApi.getHistory(mode.value)
       messages.value = resp.data.data || []
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error('Failed to load AI chat history:', err)
+    }
   }
 
   async function clearHistory() {
     try {
       await aiChatApi.clearHistory(mode.value)
       messages.value = []
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('Failed to clear AI chat history:', err)
+    }
   }
 
   function switchMode(newMode: ChatMode) {

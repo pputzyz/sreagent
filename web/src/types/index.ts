@@ -513,6 +513,8 @@ export interface Channel {
   active_incident_count: number
   sort_order: number
   is_starred?: boolean
+  mtta_label?: string
+  mttr_label?: string
   created_at: string
   updated_at: string
 }

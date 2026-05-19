@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"log"
 	"sync"
 )
 
@@ -9,6 +10,16 @@ var severityOrder = map[string]int{
 	"info":     1,
 	"warning":  2,
 	"critical": 3,
+}
+
+// severityRank returns the numeric rank for a severity string.
+// Unknown severities are treated as "info" level (rank 1) and logged once.
+func severityRank(sev string) int {
+	if rank, ok := severityOrder[sev]; ok {
+		return rank
+	}
+	log.Printf("[WARN] unknown severity %q, defaulting to info level", sev)
+	return 1
 }
 
 // LevelSuppressor implements severity-level suppression.
@@ -43,12 +54,8 @@ func (s *LevelSuppressor) ShouldSuppress(ruleID uint, fingerprint string, severi
 		return false
 	}
 
-	activeOrder, aOK := severityOrder[activeSev]
-	newOrder, nOK := severityOrder[severity]
-
-	if !aOK || !nOK {
-		return false
-	}
+	activeOrder := severityRank(activeSev)
+	newOrder := severityRank(severity)
 
 	// Suppress if the currently active severity is higher than the new one
 	return activeOrder > newOrder
@@ -72,12 +79,19 @@ func (s *LevelSuppressor) UpdateSeverity(ruleID uint, fingerprint string, severi
 		return
 	}
 
-	existingOrder := severityOrder[existing]
-	newOrder := severityOrder[severity]
+	existingOrder := severityRank(existing)
+	newOrder := severityRank(severity)
 
 	if newOrder > existingOrder {
 		fpMap[fingerprint] = severity
 	}
+}
+
+// RemoveRule removes all severity records for a rule (when rule is deleted/disabled).
+func (s *LevelSuppressor) RemoveRule(ruleID uint) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.activeSeverities, ruleID)
 }
 
 // RemoveSeverity removes a severity record (when alert resolves).

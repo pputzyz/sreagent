@@ -37,6 +37,8 @@ export function useCrudModal(onClose?: () => void): CrudModalReturn {
 
   function closeModal() {
     showModal.value = false
+    editingId.value = null
+    modalTitle.value = ''
   }
 
   /**

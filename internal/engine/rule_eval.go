@@ -363,10 +363,15 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 	}
 
 	if err := re.eventRepo.Create(ctx, event); err != nil {
-		re.logger.Error("failed to create alert event",
+		re.logger.Error("failed to create alert event, reverting to pending for retry",
 			zap.String("fingerprint", fp),
 			zap.Error(err),
 		)
+		// Revert state so the next eval cycle retries the create.
+		// Leaving state as "firing" with EventID=0 would silently skip
+		// all subsequent updateFiringEvent/resolveAlertEvent calls.
+		state.Status = "pending"
+		state.FiredAt = time.Time{}
 		return
 	}
 
@@ -391,13 +396,13 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 			re.onAlert(ctx, ev)
 		}
 		if re.workerPool != nil {
-			if !re.workerPool.Submit(context.Background(), fn) {
+			if !re.workerPool.Submit(re.ctx, fn) {
 				re.logger.Warn("worker pool full, onAlert deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)
 			}
 		} else {
-			go fn(context.Background())
+			go fn(re.ctx)
 		}
 	}
 }
@@ -447,10 +452,14 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) {
 	event.ResolvedAt = &now
 
 	if err := re.eventRepo.Update(ctx, event); err != nil {
-		re.logger.Error("failed to resolve alert event",
+		re.logger.Error("failed to resolve alert event, reverting to firing for retry",
 			zap.Uint("event_id", state.EventID),
+			zap.String("alert_name", re.rule.Name),
 			zap.Error(err),
 		)
+		// Revert state so the next eval cycle retries the resolve.
+		state.Status = "firing"
+		state.ResolvedAt = time.Time{}
 		return
 	}
 
@@ -471,13 +480,13 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) {
 			re.onAlert(ctx, ev)
 		}
 		if re.workerPool != nil {
-			if !re.workerPool.Submit(context.Background(), fn) {
+			if !re.workerPool.Submit(re.ctx, fn) {
 				re.logger.Warn("worker pool full, onAlert (resolve) deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)
 			}
 		} else {
-			go fn(context.Background())
+			go fn(re.ctx)
 		}
 	}
 }
@@ -526,8 +535,8 @@ func (re *RuleEvaluator) loadPersistedState() {
 		re.states[fp] = state
 		restored++
 
-		// Restore suppressor entries for firing states
-		if state.Status == "firing" && re.suppressor != nil {
+		// Restore suppressor entries for firing and pending states
+		if (state.Status == "firing" || state.Status == "pending") && re.suppressor != nil {
 			re.suppressor.UpdateSeverity(re.rule.ID, fp, string(re.rule.Severity))
 		}
 	}

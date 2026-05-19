@@ -78,7 +78,7 @@ func main() {
 	}
 
 	// Start label registry sync worker (cancels on shutdown via deps.appCtx)
-	go deps.LabelRegistrySvc.StartSyncWorker(context.Background(), 10*time.Minute)
+	go deps.LabelRegistrySvc.StartSyncWorker(deps.appCtx, 10*time.Minute)
 
 	// Setup router
 	r := router.Setup(cfg, deps.Handlers, zapLogger)

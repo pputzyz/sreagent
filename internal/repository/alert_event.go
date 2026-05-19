@@ -73,6 +73,30 @@ func (r *AlertEventRepository) GetByFingerprint(ctx context.Context, fingerprint
 	return &event, nil
 }
 
+// GetLatestByFingerprints returns the latest non-closed event for each fingerprint
+// in a single query. Fingerprints with no active event are omitted from the map.
+func (r *AlertEventRepository) GetLatestByFingerprints(ctx context.Context, fingerprints []string) (map[string]*model.AlertEvent, error) {
+	if len(fingerprints) == 0 {
+		return nil, nil
+	}
+	var events []model.AlertEvent
+	err := r.db.WithContext(ctx).
+		Where("fingerprint IN ? AND status != ? AND deleted_at IS NULL", fingerprints, model.EventStatusClosed).
+		Find(&events).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]*model.AlertEvent, len(events))
+	for i := range events {
+		// Keep the first match per fingerprint (latest by fired_at is already
+		// the default ordering from the DB, but we guard against duplicates).
+		if _, exists := result[events[i].Fingerprint]; !exists {
+			result[events[i].Fingerprint] = &events[i]
+		}
+	}
+	return result, nil
+}
+
 func (r *AlertEventRepository) List(ctx context.Context, status, severity string, page, pageSize int) ([]model.AlertEvent, int64, error) {
 	var list []model.AlertEvent
 	var total int64

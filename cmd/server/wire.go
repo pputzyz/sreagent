@@ -72,6 +72,7 @@ type Dependencies struct {
 	oidcMu  sync.RWMutex         // protects oidcSvc during reload
 
 	// Shutdown
+	appCtx    context.Context    // cancelled on shutdown
 	appCancel context.CancelFunc // cancels background workers
 }
 
@@ -351,6 +352,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// App-level context for long-running background workers (cancelled on shutdown).
 	appCtx, appCancel := context.WithCancel(context.Background())
+	d.appCtx = appCtx
 	d.appCancel = appCancel
 
 	// Initialize v2 alert pipeline (Alert → Incident lifecycle).

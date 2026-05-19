@@ -4,6 +4,71 @@
 
 ---
 
+## [v4.10.23] — 2026-05-18
+
+### Fixed — 全栈 Review 批量修复（33 issues / 6 batches）
+
+**Batch 1 — P0 引擎稳定性：**
+- 修复 `syncRules` 并发更新 `rule.Version` 时的锁竞争（evaluator.go）
+- 引擎 worker pool 4 处 `context.Background()` 改为可取消 ctx，shutdown 时正确退出
+- `LabelRegistrySvc.StartSyncWorker` 改用 appCtx，shutdown 时 goroutine 不再泄漏
+- 规则删除后 `suppressor.activeSeverities` 正确清理（新增 `RemoveRule` 方法）
+- `eventRepo.Create/Update` 失败时状态回退为 pending/firing，下次评估重试（不再卡死）
+
+**Batch 2 — P0 前端正确性：**
+- Channel 星标切换改为乐观更新 + 失败回滚
+- 通知规则删除从 `confirm()` 改为 Naive UI `dialog.warning()`
+- Channel 类型补全 `mtta_label`/`mttr_label` 字段，移除 `as unknown` 不安全转型
+
+**Batch 3 — P1 一致性与性能：**
+- 引擎状态恢复时重建 suppressor 状态（含 pending 状态）
+- 心跳检查 N+1 查询改为批量 `GetLatestByFingerprints`
+- 未知 severity 不再绕过抑制，降级为 info 级别
+- `SyncAll` 添加 atomic.Bool 并发保护
+- AI chat 历史加载/清空错误从静默吞掉改为 console.error
+- 通知规则 modal 关闭时自动 reset 表单
+
+**Batch 4 — 配置集中 + 测试基线：**
+- `METRICS_TOKEN` / `CORS_ALLOWED_ORIGINS` 从散落 `os.Getenv` 集中到 viper config
+- `alert_channel_test.go` 4 个 TODO 占位替换为真实集成测试
+
+**Batch 5 — P2 UX 清理：**
+- 升级执行器 limit=10000 提取常量 + 超限时 warn 日志
+- `GetFiringEvents` 添加 TODO(perf) 缓存优化注释
+- 批量操作 `selectedKeys` 改为成功后才清空
+- 批量删除添加确认弹窗
+- `useCrudModal.closeModal` 完整重置 editingId/modalTitle
+- MODULES.md 补全 6 个遗漏模块（预设规则/AI规则生成/宠物/状态页等）
+- 审计发现 17 个孤儿后端端点（v1 通知 11 个 + 其他 6 个）
+
+**Batch 6 — P3 文档与重构：**
+- `appliedTemplateId` 添加使用说明注释
+- 重定向 debounce 提取为 `REDIRECT_DEBOUNCE_MS` 常量
+- MODULES.md 移除不存在的 `n9e-gap-analysis.md` 引用
+- CHANGELOG.md v4.10.19 补充迁移文件编号
+
+### Changed — 文件变更（25 files, +443 -102）
+
+- `internal/engine/evaluator.go` — ctx 注入 + suppressor 清理 + GetFiringEvents TODO
+- `internal/engine/rule_eval.go` — 可取消 ctx + 状态回退重试
+- `internal/engine/suppression.go` — RemoveRule + severityRank 默认值
+- `internal/engine/heartbeat_checker.go` — 批量查询重构
+- `internal/engine/escalation_executor.go` — limit 常量 + warn
+- `internal/config/config.go` — MetricsToken/CORSAllowedOrigins 字段
+- `internal/handler/metrics.go` — 闭包工厂替代 os.Getenv
+- `internal/middleware/cors.go` — 参数化 origins
+- `internal/handler/label_registry.go` — atomic.Bool 并发保护
+- `internal/handler/alert_channel_test.go` — 4 个真实集成测试
+- `internal/repository/alert_event.go` — GetLatestByFingerprints 批量方法
+- `cmd/server/main.go` + `wire.go` — appCtx 传递
+- `web/src/pages/channels/Index.vue` — 乐观更新 + 类型补全
+- `web/src/pages/notification/Rules.vue` — dialog + form reset
+- `web/src/pages/alerts/rules/Index.vue` — 批量操作修复
+- `web/src/composables/useCrudModal.ts` — closeModal 完整重置
+- `web/src/composables/useAIChat.ts` — 错误日志
+
+---
+
 ## [v4.10.22] — 2026-05-18
 
 ### Fixed — Bug 修复
@@ -140,6 +205,10 @@ vue-tsc --noEmit 全量类型检查修复，涉及 13 个文件：
 - 迁移 000039 — ALTER TABLE label_registry ADD COLUMN source
 - `handler/label_registry.go` — 新增 /label-registry/datasource-keys + datasource-values 端点
 - 支持按数据源查询标签，为 AI 规则生成提供精准上下文
+
+### DB 迁移
+
+- 迁移: 000038_create_preset_rules, 000039_add_source_to_label_registry
 
 ---
 

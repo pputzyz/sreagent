@@ -43,6 +43,7 @@ type RuleEvaluator struct {
 	workerPool  AlertWorkerPoolSubmiter // optional bounded goroutine pool
 	onAlert     func(ctx context.Context, event *model.AlertEvent)
 	mu          sync.Mutex
+	ctx         context.Context // cancelled when evaluator stops
 	stopCh      chan struct{}
 	logger      *zap.Logger
 }
@@ -70,6 +71,8 @@ type Evaluator struct {
 	suppressor   *LevelSuppressor
 	mu           sync.RWMutex
 	logger       *zap.Logger
+	ctx          context.Context    // cancelled on Stop()
+	cancel       context.CancelFunc // cancels ctx
 	stopCh       chan struct{}
 	startedAt    time.Time
 	syncInterval time.Duration
@@ -134,6 +137,7 @@ func (e *Evaluator) SetWorkerPool(p AlertWorkerPoolSubmiter) {
 // 2. Start a goroutine for each rule
 // 3. Periodically sync rules from DB (detect new/deleted/changed rules)
 func (e *Evaluator) Start() {
+	e.ctx, e.cancel = context.WithCancel(context.Background())
 	e.startedAt = time.Now()
 	e.logger.Info("starting alert evaluator")
 
@@ -166,6 +170,11 @@ func (e *Evaluator) Stop() {
 		return
 	default:
 		close(e.stopCh)
+	}
+
+	// Cancel the evaluator context so in-flight onAlert callbacks are cancelled.
+	if e.cancel != nil {
+		e.cancel()
 	}
 
 	e.mu.Lock()
@@ -207,10 +216,10 @@ func (e *Evaluator) syncRules() {
 		e.mu.RUnlock()
 
 		if exists {
-			// Check if rule has been updated (version changed)
-			existing.mu.Lock()
+			// Check if rule has been updated (version changed).
+			// existing.rule is immutable after creation (set once in startRuleEvaluator,
+			// replaced atomically by stop+start), so no lock is needed to read Version.
 			oldVersion := existing.rule.Version
-			existing.mu.Unlock()
 
 			if oldVersion != rule.Version {
 				e.logger.Info("rule updated, restarting evaluator",
@@ -304,6 +313,7 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 		suppressor:  e.suppressor,
 		workerPool:  e.workerPool,
 		onAlert:     e.onAlert,
+		ctx:         e.ctx,
 		stopCh:      make(chan struct{}),
 		logger:      e.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
 	}
@@ -337,11 +347,20 @@ func (e *Evaluator) stopRuleEvaluator(ruleID uint) {
 			close(re.stopCh)
 		}
 	}
+
+	// Clean up suppressor entries for this rule to prevent memory leak.
+	if e.suppressor != nil {
+		e.suppressor.RemoveRule(ruleID)
+	}
 }
 
 // GetFiringEvents returns a snapshot of all currently firing alert states
 // across all active rule evaluators. This is a cheap in-memory operation
 // that replaces the costly DB scan of eventSvc.List("firing").
+//
+// TODO(perf): This iterates all evaluators and their states under a read lock.
+// For large rule sets (1000+), consider adding a short-lived cache (5s TTL)
+// or a dedicated firing-events index to reduce lock contention.
 func (e *Evaluator) GetFiringEvents() []*AlertState {
 	e.mu.RLock()
 	defer e.mu.RUnlock()

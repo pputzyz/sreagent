@@ -39,6 +39,7 @@ request.interceptors.request.use(
 )
 
 // Prevent multiple simultaneous 401 redirects / refresh attempts
+const REDIRECT_DEBOUNCE_MS = 2000
 let isRedirecting = false
 let refreshPromise: Promise<string> | null = null
 
@@ -50,7 +51,7 @@ function redirectToLogin() {
   import('@/router').then(({ default: router }) => {
     router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
   }).finally(() => {
-    setTimeout(() => { isRedirecting = false }, 2000)
+    setTimeout(() => { isRedirecting = false }, REDIRECT_DEBOUNCE_MS)
   })
 }
 

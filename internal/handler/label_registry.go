@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
 
@@ -11,7 +12,8 @@ import (
 )
 
 type LabelRegistryHandler struct {
-	svc *service.LabelRegistryService
+	svc         *service.LabelRegistryService
+	syncRunning atomic.Bool
 }
 
 func NewLabelRegistryHandler(svc *service.LabelRegistryService) *LabelRegistryHandler {
@@ -97,7 +99,15 @@ func (h *LabelRegistryHandler) GetValuesByDatasource(c *gin.Context) {
 // Sync triggers an immediate sync (admin only).
 // POST /label-registry/sync
 func (h *LabelRegistryHandler) Sync(c *gin.Context) {
-	go h.svc.SyncAll(context.Background())
+	if !h.syncRunning.CompareAndSwap(false, true) {
+		Success(c, gin.H{"message": "sync already in progress"})
+		return
+	}
+	go func() {
+		defer h.syncRunning.Store(false)
+		// Use a detached context since the HTTP request returns immediately.
+		h.svc.SyncAll(context.Background())
+	}()
 	Success(c, gin.H{"message": "sync triggered"})
 }
 

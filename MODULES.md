@@ -1,6 +1,6 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-18 | tag: v4.10.22
+> 最后更新: 2026-05-18 | tag: v4.10.23
 > 共 47 个 model, 42 个 handler, 38 个 service, 43 个 repository, 190+ API 端点
 
 ---
@@ -74,6 +74,12 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | 分派策略 | ✅ | ❌ | ❌ | 0% |
 | 排除规则 | ✅ | ❌ | ❌ | 0% |
 | 故障复盘 | ✅ | ❌ | ❌ | 0% |
+| 预设规则 | ✅ | ❌ | ❌ | 0% |
+| 告警规则模板 | ✅ | ❌ | ❌ | 0% |
+| AI 规则生成 | ✅ | ❌ | ❌ | 0% |
+| 宠物系统 | ✅ | ❌ | ❌ | 0% |
+| 状态页面 | ✅ | ❌ | ❌ | 0% |
+| Alertmanager 导入 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
 
@@ -266,7 +272,6 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | [docs/architecture.md](docs/architecture.md) | 架构设计 + ADR + 引擎状态机 + 通知管道 |
 | [docs/api.md](docs/api.md) | REST API 参考（175+ 端点） |
 | [docs/ci-deploy.md](docs/ci-deploy.md) | CI/CD 部署文档 |
-| [docs/n9e-gap-analysis.md](docs/n9e-gap-analysis.md) | n9e 功能差距分析 + 路线图 |
 | [docs/phases.md](docs/phases.md) | Phase 追踪 + QA 修复汇总 |
 | [docs/PLAN-status.md](docs/PLAN-status.md) | v2.0 重构执行状态（Phase 1-5 全部完成） |
 

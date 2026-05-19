@@ -97,7 +97,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 		}()
 		c.Next()
 	})
-	r.Use(middleware.CORS())
+	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	r.Use(middleware.RequestLogger(logger))
 
 	// Limit request body size to 10MB
@@ -114,7 +114,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	})
 
 	// Prometheus metrics endpoint (no auth) — exposes Go runtime + app metrics
-	r.GET("/metrics", handler.MetricsHandler)
+	r.GET("/metrics", handler.NewMetricsHandler(cfg.MetricsToken))
 
 	// Webhook endpoint — authenticated by shared secret (X-Webhook-Secret header)
 	webhooks := r.Group("/webhooks", middleware.WebhookAuth(cfg.Server.WebhookSecret))

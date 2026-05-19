@@ -117,10 +117,15 @@ func (e *EscalationExecutor) Stop() {
 // runOnce performs a single escalation check pass.
 func (e *EscalationExecutor) runOnce(ctx context.Context) {
 	// Fetch only firing events — avoids full-table scan of resolved/acknowledged/closed events.
-	events, err := e.eventRepo.ListFiringForEscalation(ctx, 10000)
+	const escalationQueryLimit = 10000
+	events, err := e.eventRepo.ListFiringForEscalation(ctx, escalationQueryLimit)
 	if err != nil {
 		e.logger.Error("escalation: failed to list events", zap.Error(err))
 		return
+	}
+	if len(events) == escalationQueryLimit {
+		e.logger.Warn("escalation query hit limit, some records may be missed",
+			zap.Int("limit", escalationQueryLimit))
 	}
 
 	// Batch-load rules for SLA checks — avoids N+1 queries per event.

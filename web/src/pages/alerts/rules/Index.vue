@@ -223,10 +223,11 @@ async function fetchDatasources() {
 // ─── Batch operations ───
 async function handleBatchEnable() {
   if (selectedKeys.value.length === 0) return
+  const ids = [...selectedKeys.value]
   batchLoading.value = true
   try {
-    await alertRuleApi.batchEnable(selectedKeys.value)
-    message.success(t('alert.batchEnabled', { count: selectedKeys.value.length }))
+    await alertRuleApi.batchEnable(ids)
+    message.success(t('alert.batchEnabled', { count: ids.length }))
     selectedKeys.value = []
     fetchList()
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { batchLoading.value = false }
@@ -234,24 +235,37 @@ async function handleBatchEnable() {
 
 async function handleBatchDisable() {
   if (selectedKeys.value.length === 0) return
+  const ids = [...selectedKeys.value]
   batchLoading.value = true
   try {
-    await alertRuleApi.batchDisable(selectedKeys.value)
-    message.success(t('alert.batchDisabled', { count: selectedKeys.value.length }))
+    await alertRuleApi.batchDisable(ids)
+    message.success(t('alert.batchDisabled', { count: ids.length }))
     selectedKeys.value = []
     fetchList()
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { batchLoading.value = false }
 }
 
-async function handleBatchDelete() {
+async function doBatchDelete() {
   if (selectedKeys.value.length === 0) return
+  const ids = [...selectedKeys.value]
   batchLoading.value = true
   try {
-    await alertRuleApi.batchDelete(selectedKeys.value)
-    message.success(t('alert.batchDeleted', { count: selectedKeys.value.length }))
+    await alertRuleApi.batchDelete(ids)
+    message.success(t('alert.batchDeleted', { count: ids.length }))
     selectedKeys.value = []
     fetchList()
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { batchLoading.value = false }
+}
+
+function handleBatchDelete() {
+  if (selectedKeys.value.length === 0) return
+  dialog.warning({
+    title: t('common.confirmDelete'),
+    content: t('alert.batchDeleteConfirm', { count: selectedKeys.value.length }) || `确定要删除选中的 ${selectedKeys.value.length} 条规则吗？`,
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: () => doBatchDelete(),
+  })
 }
 
 function toggleSelect(id: number, checked: boolean) {

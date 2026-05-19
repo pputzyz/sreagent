@@ -88,14 +88,16 @@ const sortedChannels = computed(() => {
 })
 
 async function toggleStar(ch: Channel) {
+  const original = ch.is_starred
+  ch.is_starred = !ch.is_starred
   try {
-    if (ch.is_starred) {
+    if (original) {
       await channelV2Api.unstar(ch.id)
     } else {
       await channelV2Api.star(ch.id)
     }
-    ch.is_starred = !ch.is_starred
   } catch (e: unknown) {
+    ch.is_starred = original
     message.error(getErrorMessage(e) || t('common.failed'))
   }
 }
@@ -298,11 +300,11 @@ onMounted(fetchList)
               <div class="metric-label">{{ t('channel.activeIncidents') }}</div>
             </div>
             <div class="metric">
-              <div class="metric-value">{{ fmtMetric((ch as unknown as Record<string, unknown>).mtta_label as string | undefined) }}</div>
+              <div class="metric-value">{{ fmtMetric(ch.mtta_label) }}</div>
               <div class="metric-label">{{ t('dashboard.mtta') }}</div>
             </div>
             <div class="metric">
-              <div class="metric-value">{{ fmtMetric((ch as unknown as Record<string, unknown>).mttr_label as string | undefined) }}</div>
+              <div class="metric-value">{{ fmtMetric(ch.mttr_label) }}</div>
               <div class="metric-label">{{ t('dashboard.mttr') }}</div>
             </div>
           </div>

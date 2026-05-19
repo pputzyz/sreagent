@@ -2,19 +2,22 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	OIDC     OIDCConfig     `mapstructure:"oidc"`
-	Log      LogConfig      `mapstructure:"log"`
-	Engine   EngineConfig   `mapstructure:"engine"`
+	Server            ServerConfig   `mapstructure:"server"`
+	Database          DatabaseConfig `mapstructure:"database"`
+	Redis             RedisConfig    `mapstructure:"redis"`
+	JWT               JWTConfig      `mapstructure:"jwt"`
+	OIDC              OIDCConfig     `mapstructure:"oidc"`
+	Log               LogConfig      `mapstructure:"log"`
+	Engine            EngineConfig   `mapstructure:"engine"`
+	MetricsToken      string         `mapstructure:"metrics_token"`
+	CORSAllowedOrigins string        `mapstructure:"cors_allowed_origins"`
 }
 
 // EngineConfig holds configuration for the native alert evaluator.
@@ -141,6 +144,8 @@ func Load(cfgFile string) (*Config, error) {
 	_ = viper.BindEnv("redis.host", "SREAGENT_REDIS_HOST")
 	_ = viper.BindEnv("redis.port", "SREAGENT_REDIS_PORT")
 	_ = viper.BindEnv("jwt.secret", "SREAGENT_JWT_SECRET")
+	_ = viper.BindEnv("metrics_token", "SREAGENT_METRICS_TOKEN")
+	_ = viper.BindEnv("cors_allowed_origins", "SREAGENT_CORS_ALLOWED_ORIGINS")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -149,6 +154,19 @@ func Load(cfgFile string) (*Config, error) {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Backward compatibility: legacy env var names without SREAGENT_ prefix.
+	// The new SREAGENT_-prefixed vars (bound above) take precedence.
+	if cfg.MetricsToken == "" {
+		if v := os.Getenv("METRICS_TOKEN"); v != "" {
+			cfg.MetricsToken = v
+		}
+	}
+	if cfg.CORSAllowedOrigins == "" {
+		if v := os.Getenv("CORS_ALLOWED_ORIGINS"); v != "" {
+			cfg.CORSAllowedOrigins = v
+		}
 	}
 
 	return &cfg, nil

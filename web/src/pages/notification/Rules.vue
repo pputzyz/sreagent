@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { reactive, ref, shallowRef, computed, onMounted, h } from 'vue'
-import { useMessage, NDropdown } from 'naive-ui'
+import { reactive, ref, shallowRef, computed, onMounted, watch, h } from 'vue'
+import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyRuleApi } from '@/api'
 import type { NotifyRule } from '@/types'
@@ -10,6 +10,7 @@ import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -74,6 +75,13 @@ function resetForm() {
     callback_url: '', is_enabled: true,
   })
 }
+
+watch(showModal, (val) => {
+  if (!val) {
+    resetForm()
+    editingId.value = null
+  }
+})
 
 function openCreate() {
   editingId.value = null
@@ -160,8 +168,17 @@ function rowMenu(row: NotifyRule) {
   ]
 }
 function onRowMenu(key: string, row: NotifyRule) {
-  if (key === 'edit') openEdit(row)
-  else if (key === 'delete' && confirm(t('notifyRule.deleteConfirm'))) handleDelete(row.id)
+  if (key === 'edit') {
+    openEdit(row)
+  } else if (key === 'delete') {
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: t('notifyRule.deleteConfirm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => handleDelete(row.id),
+    })
+  }
 }
 const RowMenu = (row: NotifyRule) => h(NDropdown, {
   trigger: 'click', options: rowMenu(row),
