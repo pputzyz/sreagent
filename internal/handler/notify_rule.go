@@ -162,3 +162,50 @@ func (h *NotifyRuleHandler) Delete(c *gin.Context) {
 
 	Success(c, nil)
 }
+
+// notifyBatchIDsReq is the request body for batch operations.
+type notifyBatchIDsReq struct {
+	IDs []uint `json:"ids" binding:"required,min=1"`
+}
+
+// BatchEnable enables multiple notify rules.
+func (h *NotifyRuleHandler) BatchEnable(c *gin.Context) {
+	var req notifyBatchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchEnable(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, nil)
+}
+
+// BatchDisable disables multiple notify rules.
+func (h *NotifyRuleHandler) BatchDisable(c *gin.Context) {
+	var req notifyBatchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchDisable(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, nil)
+}
+
+// BatchDelete deletes multiple notify rules.
+func (h *NotifyRuleHandler) BatchDelete(c *gin.Context) {
+	var req notifyBatchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchDelete(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, nil)
+}

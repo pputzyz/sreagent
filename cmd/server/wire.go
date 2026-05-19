@@ -154,6 +154,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
 	ruleSvc := service.NewAlertRuleService(ruleRepo, alertRuleHistoryRepo, dsRepo, zapLogger)
+	ruleSvc.SetSystemSettingService(settingSvc)
 	authSvc := service.NewAuthService(userRepo, &cfg.JWT, settingSvc, zapLogger)
 	larkSvc := service.NewLarkService(zapLogger, cfg.Server.ExternalURL(), cfg.JWT.Secret, settingSvc)
 	aiSvc := service.NewAIService(settingSvc, zapLogger)

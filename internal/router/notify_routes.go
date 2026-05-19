@@ -15,6 +15,9 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 		notifyRules.POST("", manage, h.NotifyRule.Create)
 		notifyRules.PUT("/:id", manage, h.NotifyRule.Update)
 		notifyRules.DELETE("/:id", manage, h.NotifyRule.Delete)
+		notifyRules.POST("/batch/enable", manage, h.NotifyRule.BatchEnable)
+		notifyRules.POST("/batch/disable", manage, h.NotifyRule.BatchDisable)
+		notifyRules.POST("/batch/delete", manage, h.NotifyRule.BatchDelete)
 	}
 
 	// Notify Media

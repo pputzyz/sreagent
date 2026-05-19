@@ -382,3 +382,27 @@ func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string
 		zap.Int("status", resp.StatusCode),
 	)
 }
+
+// BatchEnable enables multiple notify rules.
+func (s *NotifyRuleService) BatchEnable(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.ruleRepo.BatchUpdateEnabled(ctx, ids, true)
+}
+
+// BatchDisable disables multiple notify rules.
+func (s *NotifyRuleService) BatchDisable(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.ruleRepo.BatchUpdateEnabled(ctx, ids, false)
+}
+
+// BatchDelete soft-deletes multiple notify rules.
+func (s *NotifyRuleService) BatchDelete(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.ruleRepo.BatchDelete(ctx, ids)
+}

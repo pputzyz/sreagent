@@ -222,3 +222,50 @@ func (h *MuteRuleHandler) Preview(c *gin.Context) {
 
 	Success(c, result)
 }
+
+// muteBatchIDsReq is the request body for batch operations.
+type muteBatchIDsReq struct {
+	IDs []uint `json:"ids" binding:"required,min=1"`
+}
+
+// BatchEnable enables multiple mute rules.
+func (h *MuteRuleHandler) BatchEnable(c *gin.Context) {
+	var req muteBatchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchEnable(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, nil)
+}
+
+// BatchDisable disables multiple mute rules.
+func (h *MuteRuleHandler) BatchDisable(c *gin.Context) {
+	var req muteBatchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchDisable(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, nil)
+}
+
+// BatchDelete deletes multiple mute rules.
+func (h *MuteRuleHandler) BatchDelete(c *gin.Context) {
+	var req muteBatchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorWithMessage(c, 10001, err.Error())
+		return
+	}
+	if err := h.svc.BatchDelete(c.Request.Context(), req.IDs); err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, nil)
+}

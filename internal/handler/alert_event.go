@@ -440,36 +440,8 @@ func (h *AlertEventHandler) ListGroups(c *gin.Context) {
 		}
 	}
 
-	// Pull raw rows: one row per (alert_name, source, severity, status) combo.
-	type rawRow struct {
-		AlertName    string
-		Source       string
-		Severity     string
-		Status       string
-		Cnt          int64
-		LatestFired  time.Time
-		OldestFired  time.Time
-		MaxFireCount int
-	}
-	q := h.svc.DB().Model(&model.AlertEvent{}).
-		Select(`alert_name, source, severity, status,
-			COUNT(*) AS cnt,
-			MAX(fired_at) AS latest_fired,
-			MIN(fired_at) AS oldest_fired,
-			MAX(fire_count) AS max_fire_count`).
-		Where("deleted_at IS NULL")
-
-	if len(statuses) > 0 {
-		q = q.Where("status IN ?", statuses)
-	}
-	if len(severities) > 0 {
-		q = q.Where("severity IN ?", severities)
-	}
-
-	var rows []rawRow
-	if err := q.Group("alert_name, source, severity, status").
-		Order("latest_fired DESC").
-		Scan(&rows).Error; err != nil {
+	rows, err := h.svc.ListGrouped(c.Request.Context(), statuses, severities)
+	if err != nil {
 		Error(c, err)
 		return
 	}

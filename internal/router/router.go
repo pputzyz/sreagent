@@ -163,6 +163,9 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerAlertRoutes(r, auth, manage, operate)
 			handlers.registerNotifyRoutes(auth, manage, operate)
 			handlers.registerScheduleRoutes(auth, manage)
+			handlers.registerDatasourceRoutes(auth, adminOnly, manage)
+			handlers.registerTeamRoutes(auth, adminOnly, manage)
+			handlers.registerSettingRoutes(auth, adminOnly, manage, operate)
 			handlers.registerAdminRoutes(auth, adminOnly, manage, operate)
 		}
 	}

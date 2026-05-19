@@ -4,6 +4,52 @@
 
 ---
 
+## [v4.10.25] — 2026-05-19
+
+### Added — 全栈审查 6 批次优化
+
+**Batch 1: 测试安全网（97 个测试函数）**
+- `internal/engine/evaluator_test.go` — 19 个测试：状态序列化、生命周期、group_wait、recovery hold
+- `internal/engine/suppression_test.go` — 26 个测试：severity 匹配、并发安全、端到端抑制场景
+- `internal/service/notification_test.go` — 20 个测试：邮件构建、webhook 配置、路由匹配
+- `internal/service/schedule_test.go` — 32 个测试：轮转计算、时区处理、值班查询
+
+**Batch 2: 后端精简**
+- 路由拆分：`admin_routes.go` → `datasource_routes.go` / `team_routes.go` / `setting_routes.go`
+- 修复 `AlertEventService.DB()` 暴露：新增 `ListGrouped()` 服务方法替代直接 DB 访问
+- 错误码统一：`internal/pkg/errors/codes.go` 集中管理（CodeInvalidParam/CodeForbidden/CodeUnauthorized 等）
+
+**Batch 3: 前端 CRUD 通用化**
+- `web/src/composables/useCrudPage.ts` — 通用 CRUD composable（封装分页+增删改查+Modal）
+- `web/src/components/common/CrudListPage.vue` — 通用列表页面组件
+- API 拆分：`api/index.ts`（1021 行）→ 6 个域文件（alert/notify/oncall/admin/data/incident）
+- `usePaginatedList` 适配 `{list,total}` 和 `{items,count}` 两种响应格式
+- 重构 Subscribe.vue 和 Rules.vue 使用新组件
+
+**Batch 4: 前端交互体验**
+- `web/src/utils/formRules.ts` — 13 个表单校验规则工厂（required/email/url/json/promql/severity 等）
+- `web/src/components/common/ErrorRetry.vue` — 错误重试组件
+- `web/src/composables/useFilterMemory.ts` — 筛选条件 localStorage 持久化
+- 应用到告警事件和告警规则页面
+
+**Batch 5: 文档对齐**
+- MODULES.md：修正文件计数（34 model / 44 handler / 46 service / 34 repo / 173+ 端点）
+- MODULES.md：补充 4 个缺失模块条目（宠物/状态页面/预设规则/Alertmanager 导入）
+- api.md：移除已删除端点文档，补充新模块端点，章节重编号 1-38
+- PLAN-status.md：更新至 v4.10.24
+
+**Batch 6: AI 标签校验 + 批量端点**
+- 标签语义校验：AlertRule 保存前校验 severity/job/instance 标签（可配置开关）
+- NotifyRule 批量端点：`POST /notify-rules/batch/enable|disable|delete`
+- MuteRule 批量端点：`POST /mute-rules/batch/enable|disable|delete`
+
+**修改文件清单（40+ 文件）：**
+- 后端：engine/*_test.go, service/*_test.go, router/*_routes.go, handler/alert_event.go, handler/handler.go, handler/metrics.go, handler/mute_rule.go, handler/notify_rule.go, repository/mute_rule.go, repository/notify_rule.go, service/alert_event.go, service/alert_rule.go, service/mute_rule.go, service/notify_rule.go, service/system_setting.go, pkg/errors/codes.go, cmd/server/wire.go
+- 前端：api/alert.ts, api/notify.ts, api/oncall.ts, api/admin.ts, api/data.ts, api/incident.ts, api/index.ts, composables/useCrudPage.ts, composables/useFilterMemory.ts, components/common/CrudListPage.vue, components/common/ErrorRetry.vue, utils/formRules.ts, pages/alerts/events/Index.vue, pages/alerts/rules/Index.vue, pages/notification/Subscribe.vue, pages/notification/Rules.vue
+- 文档：MODULES.md, CLAUDE.md, docs/api.md, docs/PLAN-status.md, CHANGELOG.md
+
+---
+
 ## [v4.10.24] — 2026-05-19
 
 ### Removed — 删除 17 个孤立后端端点

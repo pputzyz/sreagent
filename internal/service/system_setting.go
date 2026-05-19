@@ -797,6 +797,33 @@ func (s *SystemSettingService) SaveSecurityConfig(ctx context.Context, cfg Secur
 	return s.repo.SetGroup(ctx, groupSecurity, kv)
 }
 
+// ---- Label Validation config -------------------------------------------------
+
+// LabelValidationConfig holds the label validation settings stored in the DB.
+type LabelValidationConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
+// GetLabelValidationConfig loads the label validation configuration from DB.
+// Returns default (disabled) if no settings have been saved yet.
+func (s *SystemSettingService) GetLabelValidationConfig(ctx context.Context) (LabelValidationConfig, error) {
+	kv, err := s.repo.ListByGroup(ctx, "alert_rule")
+	if err != nil {
+		return LabelValidationConfig{}, err
+	}
+	return LabelValidationConfig{
+		Enabled: parseBool(kv["label_validation_enabled"]),
+	}, nil
+}
+
+// SaveLabelValidationConfig persists the label validation configuration to DB.
+func (s *SystemSettingService) SaveLabelValidationConfig(ctx context.Context, cfg LabelValidationConfig) error {
+	kv := map[string]string{
+		"label_validation_enabled": strconv.FormatBool(cfg.Enabled),
+	}
+	return s.repo.SetGroup(ctx, "alert_rule", kv)
+}
+
 // ---- helpers -----------------------------------------------------------------
 
 func strDef(v, def string) string {

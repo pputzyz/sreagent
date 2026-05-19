@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -17,6 +18,7 @@ type AlertRuleService struct {
 	repo        *repository.AlertRuleRepository
 	historyRepo *repository.AlertRuleHistoryRepository
 	dsRepo      *repository.DataSourceRepository
+	settingSvc  *SystemSettingService
 	logger      *zap.Logger
 }
 
@@ -29,7 +31,70 @@ func NewAlertRuleService(
 	return &AlertRuleService{repo: repo, historyRepo: historyRepo, dsRepo: dsRepo, logger: logger}
 }
 
+// SetSystemSettingService injects the system setting service (called after construction
+// to avoid circular dependency in DI wiring).
+func (s *AlertRuleService) SetSystemSettingService(svc *SystemSettingService) {
+	s.settingSvc = svc
+}
+
+// validLabelSeverities is the set of allowed label severity values.
+var validLabelSeverities = map[string]bool{
+	"critical": true,
+	"warning":  true,
+	"info":     true,
+	"debug":    true,
+}
+
+// validateLabels checks that labels follow semantic conventions:
+// - Required labels exist: severity, and either job or instance.
+// - Label values are non-empty strings.
+// - severity value is one of: critical, warning, info, debug.
+// Returns nil if labels are empty (no labels = skip validation) or valid.
+func (s *AlertRuleService) validateLabels(labels model.JSONLabels) error {
+	if len(labels) == 0 {
+		return nil
+	}
+
+	// Check that all label values are non-empty
+	for k, v := range labels {
+		if strings.TrimSpace(v) == "" {
+			return apperr.WithMessage(apperr.ErrInvalidParam,
+				fmt.Sprintf("label %q has empty value", k))
+		}
+	}
+
+	// Required label: severity
+	if sev, ok := labels["severity"]; ok {
+		if !validLabelSeverities[strings.ToLower(strings.TrimSpace(sev))] {
+			return apperr.WithMessage(apperr.ErrInvalidParam,
+				fmt.Sprintf("label severity value %q is not allowed; must be one of: critical, warning, info, debug", sev))
+		}
+	} else {
+		return apperr.WithMessage(apperr.ErrInvalidParam,
+			"label \"severity\" is required")
+	}
+
+	// Required label: job or instance (at least one)
+	if _, hasJob := labels["job"]; !hasJob {
+		if _, hasInstance := labels["instance"]; !hasInstance {
+			return apperr.WithMessage(apperr.ErrInvalidParam,
+				"label \"job\" or \"instance\" is required")
+		}
+	}
+
+	return nil
+}
+
 func (s *AlertRuleService) Create(ctx context.Context, rule *model.AlertRule) error {
+	// Validate labels if enabled
+	if s.settingSvc != nil {
+		if cfg, err := s.settingSvc.GetLabelValidationConfig(ctx); err == nil && cfg.Enabled {
+			if err := s.validateLabels(rule.Labels); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Validate datasource: either a specific ID or a type must be provided
 	if rule.DataSourceID != nil {
 		if _, err := s.dsRepo.GetByID(ctx, *rule.DataSourceID); err != nil {
@@ -67,6 +132,15 @@ func (s *AlertRuleService) ListCategories(ctx context.Context) ([]string, error)
 }
 
 func (s *AlertRuleService) Update(ctx context.Context, rule *model.AlertRule) error {
+	// Validate labels if enabled
+	if s.settingSvc != nil {
+		if cfg, err := s.settingSvc.GetLabelValidationConfig(ctx); err == nil && cfg.Enabled {
+			if err := s.validateLabels(rule.Labels); err != nil {
+				return err
+			}
+		}
+	}
+
 	existing, err := s.repo.GetByID(ctx, rule.ID)
 	if err != nil {
 		return apperr.ErrRuleNotFound

@@ -1,0 +1,58 @@
+package router
+
+import "github.com/gin-gonic/gin"
+
+// registerDatasourceRoutes registers data source, label registry, and dashboard routes.
+func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, manage gin.HandlerFunc) {
+	// DataSources
+	ds := auth.Group("/datasources")
+	{
+		ds.GET("", h.DataSource.List)
+		ds.GET("/:id", h.DataSource.Get)
+		ds.POST("", adminOnly, h.DataSource.Create)
+		ds.PUT("/:id", adminOnly, h.DataSource.Update)
+		ds.DELETE("/:id", adminOnly, h.DataSource.Delete)
+		ds.POST("/:id/health-check", manage, h.DataSource.HealthCheck)
+		ds.POST("/:id/query", manage, h.DataSource.Query)
+		ds.POST("/:id/query-range", manage, h.DataSource.RangeQuery)
+		ds.POST("/:id/log-query", manage, h.DataSource.LogQuery)
+		ds.GET("/:id/labels/keys", h.DataSource.LabelKeys)
+		ds.GET("/:id/labels/values", h.DataSource.LabelValues)
+		ds.GET("/:id/metrics", h.DataSource.MetricNames)
+	}
+
+	// Label Registry (autocomplete for match_labels)
+	if h.LabelRegistry != nil {
+		labelReg := auth.Group("/label-registry")
+		{
+			labelReg.GET("/keys", h.LabelRegistry.GetKeys)
+			labelReg.GET("/values", h.LabelRegistry.GetValues)
+			labelReg.POST("/sync", adminOnly, h.LabelRegistry.Sync)
+		}
+	}
+
+	// Dashboard — all authenticated users
+	auth.GET("/dashboard/stats", h.Dashboard.GetStats)
+	auth.GET("/dashboard/mtta-mttr", h.Dashboard.GetMTTRStats)
+	auth.GET("/dashboard/mttr-trend", h.Dashboard.GetMTTRTrend)
+	auth.GET("/dashboard/alert-trend", h.Dashboard.GetAlertTrend)
+	auth.GET("/dashboard/top-rules", h.Dashboard.GetTopRules)
+	auth.GET("/dashboard/severity-history", h.Dashboard.GetSeverityHistory)
+	auth.GET("/dashboard/export", h.Dashboard.ExportReport)
+	// v2 dashboard stats (incident/channel/team dimensions)
+	auth.GET("/dashboard/incident-stats", h.Dashboard.IncidentStats)
+	auth.GET("/dashboard/channel-stats", h.Dashboard.ChannelStats)
+	auth.GET("/dashboard/team-stats", h.Dashboard.TeamStats)
+	auth.GET("/dashboard/incident-trend", h.Dashboard.IncidentTrend)
+
+	// Dashboard v2 (panel/variable dashboards)
+	dashV2 := auth.Group("/dashboards")
+	{
+		dashV2.GET("", h.DashboardV2.List)
+		dashV2.GET("/:id", h.DashboardV2.Get)
+		dashV2.POST("", manage, h.DashboardV2.Create)
+		dashV2.PUT("/:id", manage, h.DashboardV2.Update)
+		dashV2.DELETE("/:id", manage, h.DashboardV2.Delete)
+	}
+
+}

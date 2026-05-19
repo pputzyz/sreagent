@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-19 | tag: v4.10.24
-> 共 47 个 model, 41 个 handler, 37 个 service, 42 个 repository, 175+ API 端点
+> 最后更新: 2026-05-19 | tag: v4.10.25
+> 共 34 个 model, 44 个 handler, 46 个 service, 34 个 repository, 179+ API 端点
 
 ---
 

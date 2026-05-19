@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router'
 import { alertRuleApi, datasourceApi, aiRuleApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
 import type { RuleGenerateResult } from '@/types/ai-module'
-import { usePaginatedList, useAIModule } from '@/composables'
+import { usePaginatedList, useAIModule, useFilterMemory } from '@/composables'
 import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -62,6 +62,10 @@ const searchKeyword = ref('')
 const filterDatasource = ref<number | null>(null)
 const filterSeverity = ref<string | null>(null)
 const filterStatus = ref<string | null>(null)
+
+// Persist filter state to localStorage
+const filterMemory = useFilterMemory('alert-rules')
+filterMemory.bindRefs({ searchKeyword, filterDatasource, filterSeverity, filterStatus })
 
 // ─── Batch selection ───
 const selectedKeys = ref<number[]>([])

@@ -72,6 +72,24 @@ func (r *NotifyRuleRepository) ListEnabled(ctx context.Context) ([]model.NotifyR
 	return list, err
 }
 
+// BatchUpdateEnabled sets is_enabled for all rules whose IDs are in ids.
+func (r *NotifyRuleRepository) BatchUpdateEnabled(ctx context.Context, ids []uint, enabled bool) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.NotifyRule{}).
+		Where("id IN ?", ids).
+		Update("is_enabled", enabled).Error
+}
+
+// BatchDelete soft-deletes all rules whose IDs are in ids.
+func (r *NotifyRuleRepository) BatchDelete(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.NotifyRule{}).Error
+}
+
 // FindMatchingRules returns all enabled notify rules whose match_labels are a subset
 // of the given event labels, and whose severity filter matches (or is empty for all).
 func (r *NotifyRuleRepository) FindMatchingRules(ctx context.Context, labels map[string]string, severity string) ([]model.NotifyRule, error) {

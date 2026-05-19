@@ -252,3 +252,27 @@ func (s *MuteRuleService) isInTimeWindow(rule *model.MuteRule, now time.Time) bo
 	// No time restriction - always active
 	return true
 }
+
+// BatchEnable enables multiple mute rules.
+func (s *MuteRuleService) BatchEnable(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.repo.BatchUpdateEnabled(ctx, ids, true)
+}
+
+// BatchDisable disables multiple mute rules.
+func (s *MuteRuleService) BatchDisable(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.repo.BatchUpdateEnabled(ctx, ids, false)
+}
+
+// BatchDelete soft-deletes multiple mute rules.
+func (s *MuteRuleService) BatchDelete(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.repo.BatchDelete(ctx, ids)
+}

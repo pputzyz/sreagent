@@ -68,3 +68,21 @@ func (r *MuteRuleRepository) FindAllEnabled(ctx context.Context) ([]model.MuteRu
 	err := r.db.WithContext(ctx).Where("is_enabled = ?", true).Find(&rules).Error
 	return rules, err
 }
+
+// BatchUpdateEnabled sets is_enabled for all rules whose IDs are in ids.
+func (r *MuteRuleRepository) BatchUpdateEnabled(ctx context.Context, ids []uint, enabled bool) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.MuteRule{}).
+		Where("id IN ?", ids).
+		Update("is_enabled", enabled).Error
+}
+
+// BatchDelete soft-deletes all rules whose IDs are in ids.
+func (r *MuteRuleRepository) BatchDelete(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.MuteRule{}).Error
+}

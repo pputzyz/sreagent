@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 )
 
 // NewMetricsHandler returns a gin.HandlerFunc that exposes app metrics in
@@ -19,7 +21,7 @@ func NewMetricsHandler(metricsToken string) gin.HandlerFunc {
 			auth := c.GetHeader("Authorization")
 			if !strings.HasPrefix(auth, "Bearer ") || strings.TrimPrefix(auth, "Bearer ") != metricsToken {
 				c.JSON(http.StatusUnauthorized, gin.H{
-					"code":    40001,
+					"code":    apperr.CodeTokenInvalid,
 					"message": "unauthorized: invalid or missing metrics token",
 				})
 				return

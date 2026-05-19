@@ -26,7 +26,7 @@ import {
 } from '@vicons/ionicons5'
 import { alertEventApi, alertRuleApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
-import { usePaginatedList } from '@/composables'
+import { usePaginatedList, useFilterMemory } from '@/composables'
 import { useAuthStore } from '@/stores/auth'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -52,6 +52,11 @@ const customRange = ref<[number, number] | null>(null)
 const timePreset = ref<string>('24h')
 
 const viewMode = ref<AlertViewMode>('mine')
+
+// Persist filter state to localStorage
+const filterMemory = useFilterMemory('alert-events')
+filterMemory.bindRefs({ statusTab, search, severityFilter, ruleFilter, tagFilter, timePreset, viewMode })
+
 const canViewAll = computed(
   () => authStore.user?.role === 'admin' || authStore.user?.role === 'global_viewer',
 )

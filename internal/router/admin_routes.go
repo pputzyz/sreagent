@@ -4,54 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// registerAdminRoutes registers admin and management routes: data sources, users, teams,
-// mute rules, inhibition rules, business groups, label registry, audit logs,
-// SMTP/security settings, dashboard, AI, engine, collaboration channels, incidents,
-// integrations, routing rules, post-mortems, pet, and status services.
+// registerAdminRoutes registers admin and management routes: mute rules, inhibition rules,
+// collaboration channels, integrations, routing rules, incidents, post-mortems, and pet.
+// Data source, team/user, and settings routes are in their own domain files.
 func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage, operate gin.HandlerFunc) {
-	// DataSources
-	ds := auth.Group("/datasources")
-	{
-		ds.GET("", h.DataSource.List)
-		ds.GET("/:id", h.DataSource.Get)
-		ds.POST("", adminOnly, h.DataSource.Create)
-		ds.PUT("/:id", adminOnly, h.DataSource.Update)
-		ds.DELETE("/:id", adminOnly, h.DataSource.Delete)
-		ds.POST("/:id/health-check", manage, h.DataSource.HealthCheck)
-		ds.POST("/:id/query", manage, h.DataSource.Query)
-		ds.POST("/:id/query-range", manage, h.DataSource.RangeQuery)
-		ds.POST("/:id/log-query", manage, h.DataSource.LogQuery)
-		ds.GET("/:id/labels/keys", h.DataSource.LabelKeys)
-		ds.GET("/:id/labels/values", h.DataSource.LabelValues)
-		ds.GET("/:id/metrics", h.DataSource.MetricNames)
-	}
-
-	// Users — admin only for management
-	users := auth.Group("/users")
-	{
-		users.GET("", h.User.List)
-		users.GET("/:id", h.User.Get)
-		users.POST("", adminOnly, h.User.Create)
-		users.POST("/virtual", adminOnly, h.User.CreateVirtual)
-		users.PUT("/:id", adminOnly, h.User.Update)
-		users.PATCH("/:id/active", adminOnly, h.User.ToggleActive)
-		users.PATCH("/:id/password", adminOnly, h.User.ChangePassword)
-		users.DELETE("/:id", adminOnly, h.User.DeleteUser)
-	}
-
-	// Teams
-	teams := auth.Group("/teams")
-	{
-		teams.GET("", h.Team.List)
-		teams.GET("/:id", h.Team.Get)
-		teams.GET("/:id/members", h.Team.ListMembers)
-		teams.POST("", manage, h.Team.Create)
-		teams.PUT("/:id", manage, h.Team.Update)
-		teams.DELETE("/:id", manage, h.Team.Delete)
-		teams.POST("/:id/members", manage, h.Team.AddMember)
-		teams.DELETE("/:id/members/:uid", manage, h.Team.RemoveMember)
-	}
-
 	// Mute Rules
 	mutes := auth.Group("/mute-rules")
 	{
@@ -61,6 +17,9 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		mutes.POST("", manage, h.MuteRule.Create)
 		mutes.PUT("/:id", manage, h.MuteRule.Update)
 		mutes.DELETE("/:id", manage, h.MuteRule.Delete)
+		mutes.POST("/batch/enable", manage, h.MuteRule.BatchEnable)
+		mutes.POST("/batch/disable", manage, h.MuteRule.BatchDisable)
+		mutes.POST("/batch/delete", manage, h.MuteRule.BatchDelete)
 	}
 
 	// Inhibition Rules
@@ -73,117 +32,6 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			inhibitions.PUT("/:id", manage, h.InhibitionRule.Update)
 			inhibitions.DELETE("/:id", manage, h.InhibitionRule.Delete)
 		}
-	}
-
-	// Business Groups
-	bizGroups := auth.Group("/biz-groups")
-	{
-		bizGroups.GET("", h.BizGroup.List)
-		bizGroups.GET("/tree", h.BizGroup.ListTree)
-		bizGroups.GET("/:id", h.BizGroup.Get)
-		bizGroups.GET("/:id/members", h.BizGroup.ListMembers)
-		bizGroups.POST("", manage, h.BizGroup.Create)
-		bizGroups.PUT("/:id", manage, h.BizGroup.Update)
-		bizGroups.DELETE("/:id", manage, h.BizGroup.Delete)
-		bizGroups.POST("/:id/members", manage, h.BizGroup.AddMember)
-		bizGroups.DELETE("/:id/members/:uid", manage, h.BizGroup.RemoveMember)
-	}
-
-	// Label Registry (autocomplete for match_labels)
-	if h.LabelRegistry != nil {
-		labelReg := auth.Group("/label-registry")
-		{
-			labelReg.GET("/keys", h.LabelRegistry.GetKeys)
-			labelReg.GET("/values", h.LabelRegistry.GetValues)
-			labelReg.POST("/sync", adminOnly, h.LabelRegistry.Sync)
-		}
-	}
-
-	// Audit Logs — admin only
-	auth.GET("/audit-logs", adminOnly, h.AuditLog.List)
-
-	// SMTP settings — admin only
-	if h.SMTPSettings != nil {
-		smtpSettings := auth.Group("/settings/smtp")
-		{
-			smtpSettings.GET("", adminOnly, h.SMTPSettings.GetConfig)
-			smtpSettings.PUT("", adminOnly, h.SMTPSettings.UpdateConfig)
-			smtpSettings.POST("/test", adminOnly, h.SMTPSettings.TestConnection)
-		}
-	}
-
-	// Security settings — admin only
-	if h.SecuritySettings != nil {
-		secSettings := auth.Group("/settings/security")
-		{
-			secSettings.GET("", adminOnly, h.SecuritySettings.GetConfig)
-			secSettings.PUT("", adminOnly, h.SecuritySettings.UpdateConfig)
-		}
-	}
-
-	// Dashboard — all authenticated users
-	auth.GET("/dashboard/stats", h.Dashboard.GetStats)
-	auth.GET("/dashboard/mtta-mttr", h.Dashboard.GetMTTRStats)
-	auth.GET("/dashboard/mttr-trend", h.Dashboard.GetMTTRTrend)
-	auth.GET("/dashboard/alert-trend", h.Dashboard.GetAlertTrend)
-	auth.GET("/dashboard/top-rules", h.Dashboard.GetTopRules)
-	auth.GET("/dashboard/severity-history", h.Dashboard.GetSeverityHistory)
-	auth.GET("/dashboard/export", h.Dashboard.ExportReport)
-	// v2 dashboard stats (incident/channel/team dimensions)
-	auth.GET("/dashboard/incident-stats", h.Dashboard.IncidentStats)
-	auth.GET("/dashboard/channel-stats", h.Dashboard.ChannelStats)
-	auth.GET("/dashboard/team-stats", h.Dashboard.TeamStats)
-	auth.GET("/dashboard/incident-trend", h.Dashboard.IncidentTrend)
-
-	// Dashboard v2 (panel/variable dashboards)
-	dashV2 := auth.Group("/dashboards")
-	{
-		dashV2.GET("", h.DashboardV2.List)
-		dashV2.GET("/:id", h.DashboardV2.Get)
-		dashV2.POST("", manage, h.DashboardV2.Create)
-		dashV2.PUT("/:id", manage, h.DashboardV2.Update)
-		dashV2.DELETE("/:id", manage, h.DashboardV2.Delete)
-	}
-
-	// AI — config is admin only, usage is for all
-	ai := auth.Group("/ai")
-	{
-		ai.POST("/alert-report", h.AI.GenerateReport)
-		ai.POST("/suggest-sop", h.AI.SuggestSOP)
-		ai.POST("/test", manage, h.AI.TestConnection)
-		ai.GET("/config", adminOnly, h.AI.GetConfig)
-		ai.PUT("/config", adminOnly, h.AI.UpdateConfig)
-		ai.POST("/chat", h.AI.Chat)
-		ai.GET("/history", h.AI.GetHistory)
-		ai.DELETE("/history", h.AI.ClearHistory)
-		ai.GET("/modules", adminOnly, h.AI.GetModules)
-		ai.PUT("/modules", adminOnly, h.AI.UpdateModules)
-		ai.GET("/providers", adminOnly, h.AI.GetProviders)
-		ai.PUT("/providers", adminOnly, h.AI.SaveProviders)
-		ai.POST("/test-provider", adminOnly, h.AI.TestProvider)
-	}
-
-	// Engine status (simple, no process management)
-	if h.Engine != nil {
-		auth.GET("/engine/status", h.Engine.GetStatus)
-	}
-
-	// AI Rule Generation
-	if h.AIRule != nil {
-		aiRules := auth.Group("/ai/rules", operate)
-		{
-			aiRules.POST("/generate", h.AIRule.Generate)
-			aiRules.POST("/validate", h.AIRule.Validate)
-			aiRules.POST("/suggest-labels", h.AIRule.SuggestLabels)
-			aiRules.POST("/generate-inhibition", h.AIRule.GenerateInhibition)
-		}
-	}
-
-	// Lark Bot config — admin only
-	larkBot := auth.Group("/lark/bot")
-	{
-		larkBot.GET("/config", adminOnly, h.LarkBot.GetConfig)
-		larkBot.PUT("/config", adminOnly, h.LarkBot.UpdateConfig)
 	}
 
 	// Collaboration Channels (协作空间 v2)
@@ -297,17 +145,5 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		pet.POST("/feed", h.Pet.FeedPet)
 		pet.POST("/play", h.Pet.PlayWithPet)
 		pet.GET("/interactions", h.Pet.GetInteractions)
-	}
-
-	// Status Page services (状态页面)
-	if h.StatusService != nil {
-		statusSvc := auth.Group("/status-services")
-		{
-			statusSvc.GET("", h.StatusService.List)
-			statusSvc.GET("/:id", h.StatusService.Get)
-			statusSvc.POST("", adminOnly, h.StatusService.Create)
-			statusSvc.PUT("/:id", adminOnly, h.StatusService.Update)
-			statusSvc.DELETE("/:id", adminOnly, h.StatusService.Delete)
-		}
 	}
 }

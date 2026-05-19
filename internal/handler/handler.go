@@ -53,13 +53,13 @@ func Error(c *gin.Context, err error) {
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusNotFound, types.Response{
-			Code:    10002,
+			Code:    apperr.CodeMissingParam,
 			Message: "resource not found",
 		})
 		return
 	}
 	c.JSON(http.StatusInternalServerError, types.Response{
-		Code:    50000,
+		Code:    apperr.CodeInternal,
 		Message: "internal server error",
 	})
 }

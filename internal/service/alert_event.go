@@ -38,8 +38,44 @@ type AlertEventService struct {
 }
 
 
-// DB returns the underlying database handle for advanced handler-level queries.
-func (s *AlertEventService) DB() *gorm.DB { return s.repo.DB() }
+// AlertGroupRawRow is a single row from the grouped alert query.
+type AlertGroupRawRow struct {
+	AlertName    string
+	Source       string
+	Severity     string
+	Status       string
+	Cnt          int64
+	LatestFired  time.Time
+	OldestFired  time.Time
+	MaxFireCount int
+}
+
+// ListGrouped returns alert events grouped by (alert_name, source, severity, status).
+// Filters: statuses and severities are optional (empty = all).
+func (s *AlertEventService) ListGrouped(ctx context.Context, statuses, severities []string) ([]AlertGroupRawRow, error) {
+	q := s.repo.DB().WithContext(ctx).Model(&model.AlertEvent{}).
+		Select(`alert_name, source, severity, status,
+			COUNT(*) AS cnt,
+			MAX(fired_at) AS latest_fired,
+			MIN(fired_at) AS oldest_fired,
+			MAX(fire_count) AS max_fire_count`).
+		Where("deleted_at IS NULL")
+
+	if len(statuses) > 0 {
+		q = q.Where("status IN ?", statuses)
+	}
+	if len(severities) > 0 {
+		q = q.Where("severity IN ?", severities)
+	}
+
+	var rows []AlertGroupRawRow
+	if err := q.Group("alert_name, source, severity, status").
+		Order("latest_fired DESC").
+		Scan(&rows).Error; err != nil {
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return rows, nil
+}
 
 func NewAlertEventService(
 	repo *repository.AlertEventRepository,
