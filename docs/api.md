@@ -1020,6 +1020,33 @@ AI 驱动的告警分析。支持 LLM 生成的告警报告和 SOP 建议。
 { "code": 0, "data": { "message": "AI connection successful" } }
 ```
 
+### 18.1 AI 规则生成
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| POST | `/ai/rules/generate` | 操作权限 | 自然语言生成告警规则 |
+| POST | `/ai/rules/dry-run` | 操作权限 | 生成 + 自动验证 PromQL |
+| POST | `/ai/rules/validate` | 操作权限 | 验证 PromQL 表达式 |
+| POST | `/ai/rules/suggest-labels` | 操作权限 | AI 推荐标签 |
+| POST | `/ai/rules/generate-inhibition` | 操作权限 | 生成抑制规则 |
+| POST | `/ai/rules/generate-mute` | 操作权限 | 生成静默规则 |
+| POST | `/ai/rules/improve` | 操作权限 | 基于反馈优化规则 |
+
+**生成请求体：**
+
+```json
+{ "description": "CPU 使用率超过 90% 持续 5 分钟", "datasource_id": 1, "rule_type": "alert" }
+```
+
+**Dry-Run 响应：** 返回生成的规则 + PromQL 验证结果（`rule` + `validation`）。
+
+### 18.2 AI 模块配置
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/ai/modules` | 已认证 | 获取 AI 模块开关状态 |
+| PUT | `/ai/modules` | 仅管理员 | 更新 AI 模块配置 |
+
 ---
 
 ## 19. 飞书机器人

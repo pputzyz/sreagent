@@ -20,6 +20,9 @@ type DispatchPolicy struct {
 	// MatchConditions: JSON []FilterCondition — only apply this policy when all conditions match
 	// e.g. [{"field":"severity","operator":"in","value":"critical,p0"}]
 	MatchConditions string `json:"match_conditions" gorm:"type:json"`
+	// Datasource filter (nil = wildcard, matches any datasource)
+	DataSourceID *uint       `json:"datasource_id" gorm:"index"`
+	DataSource   *DataSource `json:"datasource,omitempty" gorm:"foreignKey:DataSourceID"`
 
 	// ActiveTimeConfig: JSON DispatchActiveTimeConfig — restrict when the policy is active
 	// null/empty = always active

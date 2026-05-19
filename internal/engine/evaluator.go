@@ -46,6 +46,9 @@ type RuleEvaluator struct {
 	ctx         context.Context // cancelled when evaluator stops
 	stopCh      chan struct{}
 	logger      *zap.Logger
+
+	// Reliability: consecutive query error tracking
+	consecutiveErrors int
 }
 
 // EngineStatus represents the status of the evaluation engine.

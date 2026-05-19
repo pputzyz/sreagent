@@ -20,7 +20,7 @@ import (
 func Test_RouteAlert_skips_silenced_event(t *testing.T) {
 	logger := testutil.TestLogger()
 
-	svc := NewNotificationService(nil, nil, logger)
+	svc := NewNotificationService(nil, nil, nil, logger)
 
 	futureTime := time.Now().Add(1 * time.Hour)
 	event := &model.AlertEvent{
@@ -38,7 +38,7 @@ func Test_RouteAlert_skips_silenced_event(t *testing.T) {
 
 func Test_NewNotificationService_returns_non_nil(t *testing.T) {
 	logger := testutil.TestLogger()
-	svc := NewNotificationService(nil, nil, logger)
+	svc := NewNotificationService(nil, nil, nil, logger)
 	assert.NotNil(t, svc)
 }
 
@@ -65,7 +65,7 @@ func Test_NotifyRule_MatchByLabels_DB(t *testing.T) {
 	require.NoError(t, ruleRepo.Create(context.Background(), rule))
 
 	matched, err := ruleRepo.FindMatchingRules(context.Background(),
-		map[string]string{"env": "prod", "severity": "critical", "instance": "web-1"}, "critical")
+		map[string]string{"env": "prod", "severity": "critical", "instance": "web-1"}, "critical", nil)
 	require.NoError(t, err)
 	require.Len(t, matched, 1, "should match the rule")
 	assert.Equal(t, rule.ID, matched[0].ID)
@@ -90,7 +90,7 @@ func Test_NotifyRule_SeverityFilter_DB(t *testing.T) {
 	require.NoError(t, ruleRepo.Create(context.Background(), rule))
 
 	matched, err := ruleRepo.FindMatchingRules(context.Background(),
-		map[string]string{"alertname": "TestAlert"}, "info")
+		map[string]string{"alertname": "TestAlert"}, "info", nil)
 	require.NoError(t, err)
 	assert.Empty(t, matched, "info severity should not match critical,warning filter")
 }
@@ -151,7 +151,7 @@ func Test_NotifyRule_FindMatchingRules_LabelSubset_DB(t *testing.T) {
 		"instance": "web-1",
 		"region":   "us-east-1",
 	}
-	matched, err := ruleRepo.FindMatchingRules(context.Background(), eventLabels, "critical")
+	matched, err := ruleRepo.FindMatchingRules(context.Background(), eventLabels, "critical", nil)
 	require.NoError(t, err)
 	require.Len(t, matched, 1, "rule should match when event labels are a superset")
 	assert.Equal(t, rule.ID, matched[0].ID)
@@ -180,7 +180,7 @@ func Test_NotifyRule_FindMatchingRules_NoMatch_DB(t *testing.T) {
 		"env":      "staging",
 		"instance": "web-2",
 	}
-	matched, err := ruleRepo.FindMatchingRules(context.Background(), eventLabels, "warning")
+	matched, err := ruleRepo.FindMatchingRules(context.Background(), eventLabels, "warning", nil)
 	require.NoError(t, err)
 	assert.Empty(t, matched, "rule with env=prod should not match env=staging event")
 }

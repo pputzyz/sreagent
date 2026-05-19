@@ -57,12 +57,27 @@ func (re *RuleEvaluator) evaluate() {
 	// 1. Execute query against datasource — dispatch by datasource type
 	results, err := re.executeQuery(ctx)
 	if err != nil {
-		re.logger.Warn("query execution failed, will retry next cycle",
-			zap.Error(err),
-		)
+		re.consecutiveErrors++
+		if re.consecutiveErrors >= 5 {
+			re.logger.Error("query execution failed repeatedly",
+				zap.Error(err),
+				zap.Int("consecutive_errors", re.consecutiveErrors),
+			)
+		} else {
+			re.logger.Warn("query execution failed, will retry next cycle",
+				zap.Error(err),
+			)
+		}
 		metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "error")
 		// On error, we skip nodata detection to avoid false positives
 		return
+	}
+	// Reset consecutive error count on success
+	if re.consecutiveErrors > 0 {
+		re.logger.Info("query execution recovered after errors",
+			zap.Int("previous_errors", re.consecutiveErrors),
+		)
+		re.consecutiveErrors = 0
 	}
 
 	re.mu.Lock()

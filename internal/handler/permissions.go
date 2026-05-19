@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/sreagent/sreagent/internal/pkg/rbac"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -26,11 +27,21 @@ func (h *PermissionsHandler) GetMyPermissions(c *gin.Context) {
 	role, _ := c.Get("user_role")
 	roleStr, _ := role.(string)
 
-	// Build permission list based on global role
-	perms := buildPermissions(roleStr)
-
-	// Get team-level roles
+	// Get team-level roles and merge with global role
 	teams := h.getTeamRoles(c, uid)
+	teamRoles := make([]string, 0, len(teams))
+	for _, t := range teams {
+		if r, ok := t["role"].(string); ok {
+			teamRoles = append(teamRoles, r)
+		}
+	}
+
+	// Build merged permission list (global role + team roles)
+	effectivePerms := rbac.EffectivePerms(roleStr, teamRoles)
+	perms := make([]string, 0, len(effectivePerms))
+	for p := range effectivePerms {
+		perms = append(perms, p)
+	}
 
 	Success(c, gin.H{
 		"role":   roleStr,
@@ -54,47 +65,3 @@ func (h *PermissionsHandler) getTeamRoles(c *gin.Context, userID uint) []gin.H {
 	return result
 }
 
-func buildPermissions(role string) []string {
-	switch role {
-	case "admin":
-		return []string{
-			"users.manage", "teams.manage", "roles.view",
-			"rules.manage", "rules.create", "rules.edit", "rules.delete",
-			"events.manage", "events.ack", "events.assign",
-			"schedules.manage", "channels.manage",
-			"settings.manage", "audit.view",
-			"datasources.manage", "dashboards.manage",
-			"incidents.manage", "incidents.create",
-			"notifications.view", "todos.manage",
-		}
-	case "team_lead":
-		return []string{
-			"teams.manage",
-			"rules.manage", "rules.create", "rules.edit",
-			"events.manage", "events.ack", "events.assign",
-			"schedules.manage", "channels.manage",
-			"datasources.view", "dashboards.manage",
-			"incidents.manage", "incidents.create",
-			"notifications.view", "todos.manage",
-		}
-	case "member":
-		return []string{
-			"rules.view", "rules.create",
-			"events.ack", "events.assign",
-			"schedules.view", "channels.view",
-			"datasources.view", "dashboards.view",
-			"incidents.view", "incidents.create",
-			"notifications.view", "todos.manage",
-		}
-	case "viewer", "global_viewer":
-		return []string{
-			"rules.view", "events.view",
-			"schedules.view", "channels.view",
-			"datasources.view", "dashboards.view",
-			"incidents.view",
-			"notifications.view", "todos.view",
-		}
-	default:
-		return []string{"notifications.view", "todos.view"}
-	}
-}

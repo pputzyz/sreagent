@@ -2,35 +2,16 @@ package service
 
 import (
 	"context"
-	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
-
-// regexCache caches compiled *regexp.Regexp objects keyed by pattern string.
-// Read-heavy with rare writes — sync.Map is ideal.
-var regexCache sync.Map
-
-// getOrCompileRegex returns a cached compiled regexp for the given pattern,
-// compiling and caching it on first access.
-func getOrCompileRegex(pattern string) (*regexp.Regexp, error) {
-	if v, ok := regexCache.Load(pattern); ok {
-		return v.(*regexp.Regexp), nil
-	}
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-	actual, _ := regexCache.LoadOrStore(pattern, re)
-	return actual.(*regexp.Regexp), nil
-}
 
 // AlertChannelService provides CRUD and matching logic for alert channels.
 type AlertChannelService struct {
@@ -86,6 +67,7 @@ func (s *AlertChannelService) Update(ctx context.Context, ch *model.AlertChannel
 	existing.Name = ch.Name
 	existing.Description = ch.Description
 	existing.MatchLabels = ch.MatchLabels
+	existing.DataSourceID = ch.DataSourceID
 	existing.Severities = ch.Severities
 	existing.MediaID = ch.MediaID
 	existing.TemplateID = ch.TemplateID
@@ -140,7 +122,10 @@ func (s *AlertChannelService) TestChannel(ctx context.Context, id uint) error {
 
 	return nil
 }
-func (s *AlertChannelService) FindMatchingChannels(ctx context.Context, event *model.AlertEvent) ([]model.AlertChannel, error) {
+// FindMatchingChannels returns all enabled channels whose MatchLabels are a
+// subset of the event's labels AND whose severity filter (if set) matches.
+// dataSourceID is the datasource of the alert rule (nil = skip datasource filtering).
+func (s *AlertChannelService) FindMatchingChannels(ctx context.Context, event *model.AlertEvent, dataSourceID *uint) ([]model.AlertChannel, error) {
 	channels, err := s.repo.ListEnabled(ctx)
 	if err != nil {
 		s.logger.Error("failed to list enabled alert channels", zap.Error(err))
@@ -149,7 +134,7 @@ func (s *AlertChannelService) FindMatchingChannels(ctx context.Context, event *m
 
 	var matched []model.AlertChannel
 	for _, ch := range channels {
-		if !labelsMatch(ch.MatchLabels, event.Labels) {
+		if !labelmatch.MatchWithSourceID(map[string]string(event.Labels), dataSourceID, map[string]string(ch.MatchLabels), ch.DataSourceID) {
 			continue
 		}
 		if ch.Severities != "" && !severityMatch(ch.Severities, string(event.Severity)) {
@@ -158,35 +143,6 @@ func (s *AlertChannelService) FindMatchingChannels(ctx context.Context, event *m
 		matched = append(matched, ch)
 	}
 	return matched, nil
-}
-
-// labelsMatch returns true if all entries in matchLabels match eventLabels.
-// Supports operator-encoded values (!=, =~, !~) in matchLabels values.
-func labelsMatch(matchLabels, eventLabels model.JSONLabels) bool {
-	for k, pattern := range matchLabels {
-		tv := eventLabels[k]
-		switch {
-		case strings.HasPrefix(pattern, "!~"):
-			re, err := getOrCompileRegex(pattern[2:])
-			if err != nil || re.MatchString(tv) {
-				return false
-			}
-		case strings.HasPrefix(pattern, "=~"):
-			re, err := getOrCompileRegex(pattern[2:])
-			if err != nil || !re.MatchString(tv) {
-				return false
-			}
-		case strings.HasPrefix(pattern, "!="):
-			if tv == pattern[2:] {
-				return false
-			}
-		default:
-			if tv != pattern {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // severityMatch returns true if the given severity appears in the

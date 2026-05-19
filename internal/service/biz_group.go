@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -195,7 +196,7 @@ func (s *BizGroupService) FindMatchingGroups(ctx context.Context, alertLabels ma
 		if len(g.MatchLabels) == 0 {
 			continue
 		}
-		if labelsMatch(g.MatchLabels, model.JSONLabels(alertLabels)) {
+		if labelmatch.Match(alertLabels, map[string]string(g.MatchLabels)) {
 			matches = append(matches, g)
 		}
 	}

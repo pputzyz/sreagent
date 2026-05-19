@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -139,31 +140,8 @@ func (s *MuteRuleService) matchesRule(rule *model.MuteRule, event *model.AlertEv
 	}
 
 	// 2. Check label matching (alert must match ALL labels in the mute rule)
-	// Supports operator-encoded values (!=, =~, !~) in MatchLabels values.
-	if len(rule.MatchLabels) > 0 {
-		for k, pattern := range rule.MatchLabels {
-			tv := event.Labels[k]
-			switch {
-			case strings.HasPrefix(pattern, "!~"):
-				re, err := getOrCompileRegex(pattern[2:])
-				if err != nil || re.MatchString(tv) {
-					return false
-				}
-			case strings.HasPrefix(pattern, "=~"):
-				re, err := getOrCompileRegex(pattern[2:])
-				if err != nil || !re.MatchString(tv) {
-					return false
-				}
-			case strings.HasPrefix(pattern, "!="):
-				if tv == pattern[2:] {
-					return false
-				}
-			default:
-				if tv != pattern {
-					return false
-				}
-			}
-		}
+	if !labelmatch.Match(map[string]string(event.Labels), map[string]string(rule.MatchLabels)) {
+		return false
 	}
 
 	// 3. Check severity filter

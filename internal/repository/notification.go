@@ -3,12 +3,11 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"regexp"
-	"strings"
 
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 )
 
 // NotifyChannelRepository handles notify_channels persistence.
@@ -42,7 +41,7 @@ func (r *NotifyChannelRepository) ListByLabels(ctx context.Context, labels map[s
 
 	var matched []model.NotifyChannel
 	for _, ch := range allChannels {
-		if labelsMatch(ch.Labels, labels) {
+		if labelmatch.Match(labels, ch.Labels) {
 			matched = append(matched, ch)
 		}
 	}
@@ -83,41 +82,6 @@ func (r *NotifyRecordRepository) GetLastSentRecord(ctx context.Context, channelI
 		return nil, err
 	}
 	return &record, nil
-}
-
-// labelsMatch checks if all selector labels match the target labels.
-// Supports operator-encoded values:
-//   - plain value "foo"   → key = "foo"
-//   - prefix "!=foo"      → key != "foo"
-//   - prefix "=~foo.*"    → key =~ regex "foo.*"
-//   - prefix "!~foo.*"    → key !~ regex "foo.*"
-//
-// An empty selector always matches.
-func labelsMatch(selector, target map[string]string) bool {
-	for k, pattern := range selector {
-		tv := target[k]
-		switch {
-		case strings.HasPrefix(pattern, "!~"):
-			re, err := regexp.Compile(pattern[2:])
-			if err != nil || re.MatchString(tv) {
-				return false
-			}
-		case strings.HasPrefix(pattern, "=~"):
-			re, err := regexp.Compile(pattern[2:])
-			if err != nil || !re.MatchString(tv) {
-				return false
-			}
-		case strings.HasPrefix(pattern, "!="):
-			if tv == pattern[2:] {
-				return false
-			}
-		default:
-			if tv != pattern {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // severityMatches checks if the given severity is contained in the comma-separated severities string.

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -174,7 +175,7 @@ func matchCondition(c model.FilterCondition, event *model.AlertEvent) bool {
 	case "not_contains":
 		return !strings.Contains(actual, c.Value)
 	case "regex":
-		re, err := getOrCompileRegex(c.Value)
+		re, err := labelmatch.CompileRegex(c.Value)
 		if err != nil {
 			return false
 		}

@@ -12,6 +12,9 @@ type NotifyRule struct {
 	Severities string `json:"severities" gorm:"size:128"` // "critical,warning"
 	// Label matchers (optional - if empty, matches all events routed to this rule)
 	MatchLabels JSONLabels `json:"match_labels" gorm:"type:json"`
+	// Datasource filter (nil = wildcard, matches any datasource)
+	DataSourceID *uint       `json:"datasource_id" gorm:"index"`
+	DataSource   *DataSource `json:"datasource,omitempty" gorm:"foreignKey:DataSourceID"`
 	// Event Pipeline config (JSON array of processor configs)
 	// e.g., [{"type":"relabel","config":{...}}, {"type":"ai_summary","config":{"only_critical":true}}]
 	Pipeline string `json:"pipeline" gorm:"type:text"`

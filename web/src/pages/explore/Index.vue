@@ -14,7 +14,7 @@ import { ref, onMounted, onUnmounted, computed, watch, shallowRef, type Componen
 import { useI18n } from 'vue-i18n'
 import {
   NSelect, NButton, NSpace, NTag, NAlert, NSpin,
-  NDataTable, NTabs, NTabPane, NInput, NDatePicker,
+  NDataTable, NTabs, NTabPane, NDatePicker,
   NPopover, NIcon, NTooltip, useMessage,
 } from 'naive-ui'
 import {
@@ -22,6 +22,7 @@ import {
   AlertCircleOutline,
 } from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
+import PromQLEditor from '@/components/query/PromQLEditor.vue'
 import type { DataSource, DataSourceType, QueryResponse, LogEntry } from '@/types'
 
 const { t } = useI18n()
@@ -572,15 +573,21 @@ onUnmounted(() => {
 
       <div v-if="selectedDsId != null" class="query-bar">
         <div class="query-editor-wrap">
-          <NInput
-            v-model:value="expression"
-            type="textarea"
-            :rows="3"
-            :placeholder="isLogs ? t('query.logQueryPlaceholder') : t('query.promqlPlaceholder')"
-            class="expr-input"
+          <PromQLEditor
+            v-if="!isLogs"
+            v-model="expression"
+            :datasource-id="selectedDsId"
+            :placeholder="t('query.promqlPlaceholder')"
+            @execute="run"
+          />
+          <textarea
+            v-else
+            v-model="expression"
+            class="expr-textarea"
+            :placeholder="t('query.logQueryPlaceholder')"
             @keyup.ctrl.enter="run"
             @keyup.meta.enter="run"
-          />
+          ></textarea>
           <div class="editor-tools">
             <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end" class="history-popover">
               <template #trigger>
@@ -865,10 +872,21 @@ onUnmounted(() => {
   position: relative;
 }
 
-.expr-input :deep(textarea) {
+.expr-textarea {
+  width: 100%;
+  min-height: 56px;
   font-family: var(--sre-font-mono);
   font-size: 13px;
-  padding-right: 70px;
+  padding: 8px 12px;
+  border: 1px solid var(--n-border-color, #e0e0e6);
+  border-radius: 4px;
+  resize: vertical;
+  background: var(--n-color, #fff);
+  color: var(--n-text-color, #333);
+  outline: none;
+}
+.expr-textarea:focus {
+  border-color: var(--n-primary-color, #18a058);
 }
 
 .editor-tools {

@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 )
 
 // TeamRepository handles teams and team_members persistence.
@@ -121,7 +122,7 @@ func (r *TeamRepository) GetByLabels(ctx context.Context, labels map[string]stri
 
 	var matched []model.Team
 	for _, team := range allTeams {
-		if labelsMatch(team.Labels, labels) {
+		if labelmatch.Match(labels, map[string]string(team.Labels)) {
 			matched = append(matched, team)
 		}
 	}

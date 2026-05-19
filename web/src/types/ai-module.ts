@@ -86,3 +86,8 @@ export interface ValidationResult {
   error?: string
   warnings?: string[]
 }
+
+export interface DryRunResult {
+  rule: RuleGenerateResult
+  validation?: ValidationResult
+}

@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/repository"
 )
 
 // NotificationService is the notification routing engine.
@@ -14,6 +15,7 @@ import (
 type NotificationService struct {
 	subscribeSvc  *SubscribeRuleService
 	notifyRuleSvc *NotifyRuleService
+	ruleRepo      *repository.AlertRuleRepository
 	logger        *zap.Logger
 }
 
@@ -21,11 +23,13 @@ type NotificationService struct {
 func NewNotificationService(
 	subscribeSvc *SubscribeRuleService,
 	notifyRuleSvc *NotifyRuleService,
+	ruleRepo *repository.AlertRuleRepository,
 	logger *zap.Logger,
 ) *NotificationService {
 	return &NotificationService{
 		subscribeSvc:  subscribeSvc,
 		notifyRuleSvc: notifyRuleSvc,
+		ruleRepo:      ruleRepo,
 		logger:        logger,
 	}
 }
@@ -43,10 +47,18 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 		return nil
 	}
 
+	// Resolve datasource_id from the event's alert rule for routing.
+	var dataSourceID *uint
+	if s.ruleRepo != nil && event.RuleID != nil {
+		if rule, err := s.ruleRepo.GetByID(ctx, *event.RuleID); err == nil {
+			dataSourceID = rule.DataSourceID
+		}
+	}
+
 	// --- V2 Notify Rule Pipeline ---
 	// Match notify rules by labels + severity, process each through the pipeline.
 	if s.notifyRuleSvc != nil {
-		rules, err := s.notifyRuleSvc.FindMatchingRules(ctx, event)
+		rules, err := s.notifyRuleSvc.FindMatchingRules(ctx, event, dataSourceID)
 		if err != nil {
 			s.logger.Error("failed to find matching notify rules",
 				zap.Uint("event_id", event.ID),

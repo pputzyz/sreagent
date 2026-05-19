@@ -62,6 +62,7 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		aiRules := auth.Group("/ai/rules", operate, aiRL)
 		{
 			aiRules.POST("/generate", h.AIRule.Generate)
+			aiRules.POST("/dry-run", h.AIRule.DryRun)
 			aiRules.POST("/validate", h.AIRule.Validate)
 			aiRules.POST("/suggest-labels", h.AIRule.SuggestLabels)
 			aiRules.POST("/generate-inhibition", h.AIRule.GenerateInhibition)

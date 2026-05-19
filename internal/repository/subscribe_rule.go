@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 )
 
 // SubscribeRuleRepository handles subscribe_rules persistence.
@@ -77,7 +78,7 @@ func (r *SubscribeRuleRepository) FindMatchingSubscriptions(ctx context.Context,
 	var matched []model.SubscribeRule
 	for _, rule := range allRules {
 		// Check label matching
-		if !labelsMatch(rule.MatchLabels, labels) {
+		if !labelmatch.Match(labels, map[string]string(rule.MatchLabels)) {
 			continue
 		}
 

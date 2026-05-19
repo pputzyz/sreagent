@@ -8,6 +8,9 @@ type AlertChannel struct {
 	Description string `json:"description" gorm:"size:512"`
 	// Label matchers - alert must match ALL these labels
 	MatchLabels JSONLabels `json:"match_labels" gorm:"type:json"`
+	// Datasource filter (nil = wildcard, matches any datasource)
+	DataSourceID *uint       `json:"datasource_id" gorm:"index"`
+	DataSource   *DataSource `json:"datasource,omitempty" gorm:"foreignKey:DataSourceID"`
 	// Severity filter (empty = all)
 	Severities string `json:"severities" gorm:"size:128"` // "critical,warning"
 	// Notification target

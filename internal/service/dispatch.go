@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -187,7 +188,7 @@ func evalDispatchCondition(op, actual, expected string) bool {
 	case "not_contains":
 		return !strings.Contains(actual, expected)
 	case "regex":
-		re, err := getOrCompileRegex(expected)
+		re, err := labelmatch.CompileRegex(expected)
 		if err != nil {
 			return false
 		}
@@ -282,7 +283,7 @@ func (s *DispatchService) ApplyLabelEnhancements(rulesJSON string, labels model.
 		case "extract":
 			if rule.SourceField != "" && rule.Regex != "" && rule.TargetLabel != "" {
 				src := fieldValue(result, rule.SourceField)
-				re, err := getOrCompileRegex(rule.Regex)
+				re, err := labelmatch.CompileRegex(rule.Regex)
 				if err != nil {
 					break
 				}

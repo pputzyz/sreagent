@@ -180,7 +180,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	)
 	subscribeRuleSvc := service.NewSubscribeRuleService(subscribeRuleRepo, zapLogger)
 
-	notifySvc := service.NewNotificationService(subscribeRuleSvc, notifyRuleSvc, zapLogger)
+	notifySvc := service.NewNotificationService(subscribeRuleSvc, notifyRuleSvc, ruleRepo, zapLogger)
 	userSvc := service.NewUserService(userRepo, zapLogger)
 	teamSvc := service.NewTeamService(teamRepo, zapLogger)
 	scheduleSvc := service.NewScheduleService(scheduleRepo, participantRepo, overrideRepo, onCallShiftRepo, escalationPolicyRepo, escalationStepRepo, zapLogger)

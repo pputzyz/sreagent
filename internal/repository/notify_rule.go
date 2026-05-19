@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 )
 
 // notifyRuleCache caches the result of ListEnabled to avoid repeated DB queries.
@@ -168,7 +169,8 @@ func (r *NotifyRuleRepository) BatchDelete(ctx context.Context, ids []uint) erro
 
 // FindMatchingRules returns all enabled notify rules whose match_labels are a subset
 // of the given event labels, and whose severity filter matches (or is empty for all).
-func (r *NotifyRuleRepository) FindMatchingRules(ctx context.Context, labels map[string]string, severity string) ([]model.NotifyRule, error) {
+// dataSourceID filters rules by datasource (nil pattern = wildcard, matches any).
+func (r *NotifyRuleRepository) FindMatchingRules(ctx context.Context, labels map[string]string, severity string, dataSourceID *uint) ([]model.NotifyRule, error) {
 	allRules, err := r.ListEnabled(ctx)
 	if err != nil {
 		return nil, err
@@ -176,8 +178,8 @@ func (r *NotifyRuleRepository) FindMatchingRules(ctx context.Context, labels map
 
 	var matched []model.NotifyRule
 	for _, rule := range allRules {
-		// Check label matching
-		if !labelsMatch(rule.MatchLabels, labels) {
+		// Check label + datasource matching
+		if !labelmatch.MatchWithSourceID(labels, dataSourceID, map[string]string(rule.MatchLabels), rule.DataSourceID) {
 			continue
 		}
 

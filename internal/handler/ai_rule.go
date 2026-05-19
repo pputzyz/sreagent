@@ -34,6 +34,23 @@ func (h *AIRuleHandler) Generate(c *gin.Context) {
 	Success(c, result)
 }
 
+// DryRun handles POST /ai/rules/dry-run — generates and validates a rule in one call.
+func (h *AIRuleHandler) DryRun(c *gin.Context) {
+	var req service.RuleGenerateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	result, err := h.ruleGenSvc.DryRun(c.Request.Context(), &req)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, result)
+}
+
 // Validate handles POST /ai/rules/validate — validates a PromQL expression.
 func (h *AIRuleHandler) Validate(c *gin.Context) {
 	var req struct {

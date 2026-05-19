@@ -4,6 +4,49 @@
 
 ---
 
+## [v4.13.0] — 2026-05-19
+
+### Added — 多数据源路由 + RBAC 后端强制 + AI Dry-Run
+
+**多数据源路由（Theme A）**
+- 新增 `internal/pkg/labelmatch/matcher.go`：统一标签匹配引擎，支持 `Match` / `MatchWithSourceID` / `CompileRegex`（带缓存）
+- 新增 `internal/pkg/labelmatch/matcher_test.go`：16 个单元测试（精确/正则/否定/通配/数据源维度）
+- 迁移 `000047_add_datasource_id_to_routing.{up,down}.sql`：alert_channels / notify_rules / dispatch_policies 新增 `datasource_id` 列
+- `AlertChannel` / `NotifyRule` / `DispatchPolicy` 模型新增 `DataSourceID *uint` + `DataSource` 外键
+- `NotifyRuleRepository.FindMatchingRules` 支持 `dataSourceID` 参数，使用 `labelmatch.MatchWithSourceID` 过滤
+- `NotificationService.RouteAlert` 自动从 event.RuleID 解析 DataSourceID 并传递给规则匹配
+- `NotificationService` 新增 `ruleRepo` 依赖，用于解析 DataSourceID
+- 全面迁移：`alert_channel.go` / `biz_group.go` / `mute_rule.go` / `dispatch.go` / `noise_reducer.go` / `notification.go`（repository） / `subscribe_rule.go` / `team.go` 均改用 `labelmatch` 包
+
+**RBAC 后端强制（Theme B）**
+- 新增 `internal/pkg/rbac/rbac.go`：权限逻辑集中管理（`HasPerm` / `EffectivePerms` / `HighestTeamRole`）
+- 新增 `internal/pkg/rbac/rbac_test.go`：10 个单元测试
+- `handler/permissions.go`：`GetMyPermissions` 合并全局角色 + 团队角色，返回有效权限集
+- 新增 `internal/middleware/permission.go`：`RequirePerm` 中间件，支持全局 + 团队权限检查
+
+**AI Dry-Run（Theme C）**
+- `RuleGeneratorService.DryRun`：生成规则 + 自动验证 PromQL 表达式，一步到位
+- `POST /ai/rules/dry-run` 端点（handler + 路由）
+- 前端 `DryRunResult` 类型 + `aiRuleApi.dryRun` 方法
+
+**v1/v2 清理（Theme D）**
+- 删除 `AuditResourceNotifyPolicy` 死常量（NotifyPolicy 已在 v4.11.0 删除）
+
+**Explore 页面升级（Theme E）**
+- 替换 NInput textarea 为 `PromQLEditor` 组件（CodeMirror 6 + PromQL 语法高亮 + 自动补全）
+- Logs 模式保留 textarea 回退
+
+**引擎可靠性（Theme F）**
+- `RuleEvaluator` 新增 `consecutiveErrors` 计数器
+- 连续 5 次查询失败升级为 Error 级别日志
+- 查询恢复时记录恢复日志
+
+**文档更新（Theme G）**
+- `docs/api.md` 新增 AI 规则生成端点文档（generate / dry-run / validate / suggest-labels / generate-inhibition / generate-mute / improve）
+- 新增 AI 模块配置端点文档
+
+---
+
 ## [v4.12.1] — 2026-05-19
 
 ### Added — RBAC 权限体系 + AI 规则引擎增强 + 前端体验优化

@@ -185,6 +185,35 @@ func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRe
 	return &result, nil
 }
 
+// DryRunResult combines a generated rule with its validation result.
+type DryRunResult struct {
+	Rule       *RuleGenerateResult `json:"rule"`
+	Validation *ValidationResult   `json:"validation,omitempty"`
+}
+
+// DryRun generates a rule and validates its PromQL expression in one call.
+// This lets the frontend preview the rule and test the expression before saving.
+func (s *RuleGeneratorService) DryRun(ctx context.Context, req *RuleGenerateRequest) (*DryRunResult, error) {
+	result, err := s.Generate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	dr := &DryRunResult{Rule: result}
+
+	// Validate expression if datasource and expression are available
+	if req.DatasourceID != nil && result.Expression != "" {
+		vr, err := s.ValidateExpression(ctx, *req.DatasourceID, result.Expression)
+		if err != nil {
+			s.logger.Warn("dry-run validation failed", zap.Error(err))
+		} else {
+			dr.Validation = vr
+		}
+	}
+
+	return dr, nil
+}
+
 // ValidateExpression validates a PromQL expression against a datasource.
 func (s *RuleGeneratorService) ValidateExpression(ctx context.Context, datasourceID uint, expression string) (*ValidationResult, error) {
 	result := &ValidationResult{}
