@@ -96,6 +96,12 @@ export interface AlertRule {
   // Group notification timing (0 = disabled)
   group_wait_seconds: number
   group_interval_seconds: number
+  // Advanced fields
+  eval_interval: number
+  recovery_hold: string
+  nodata_enabled: boolean
+  nodata_duration: string
+  suppress_enabled: boolean
 }
 
 // ===== Alert Event =====
@@ -736,6 +742,19 @@ export interface DispatchPolicy {
   updated_at: string
 }
 
+// ===== Dispatch Log =====
+export interface DispatchLog {
+  id: number
+  incident_id: number
+  dispatch_policy_id: number
+  status: 'pending' | 'sent' | 'skipped' | 'failed'
+  attempt: number
+  next_attempt_at: number | null
+  note: string
+  created_at: string
+  updated_at: string
+}
+
 // ===== Post-Mortem =====
 export interface PostMortem {
   id: number
@@ -782,6 +801,20 @@ export interface IncidentTrendPoint {
   date: string
   triggered: number
   closed: number
+}
+
+// ===== User Preferences =====
+export interface UserPreferences {
+  id?: number
+  user_id: number
+  theme: 'auto' | 'light' | 'dark'
+  language: string
+  timezone: string
+  default_time_range: string
+  notification_severities: string
+  ai_chat_mode: 'sidebar' | 'modal' | 'inline'
+  created_at?: string
+  updated_at?: string
 }
 
 // ===== Preset Rules & AI Modules =====

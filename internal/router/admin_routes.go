@@ -124,6 +124,10 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			incidents.POST("/:id/merge", operate, h.IncidentV2.Merge)
 			incidents.POST("/:id/escalate", operate, h.IncidentV2.Escalate)
 			incidents.POST("/:id/comment", operate, h.IncidentV2.AddComment)
+			// Dispatch logs
+			if h.DispatchPolicy != nil {
+				incidents.GET("/:id/dispatch-logs", h.DispatchPolicy.ListLogs)
+			}
 			// Post-mortem (复盘) — AI endpoints rate limited (0.1 RPS, burst 3)
 			pmRL := middleware.RateLimit(func(c *gin.Context) string {
 				return "pm:" + c.ClientIP()

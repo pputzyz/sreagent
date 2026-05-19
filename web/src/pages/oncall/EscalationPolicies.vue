@@ -1,0 +1,287 @@
+<script setup lang="ts">
+import { ref, onMounted, h } from 'vue'
+import {
+  useMessage, NButton, NDataTable, NIcon, NSpace, NPopconfirm,
+  NModal, NForm, NFormItem, NInput, NSelect, NInputNumber, NTag,
+} from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+import { escalationApi, teamApi, userApi, scheduleApi } from '@/api'
+import type { EscalationPolicy, Team, User, Schedule } from '@/types'
+import { getErrorMessage } from '@/utils/format'
+import PageHeader from '@/components/common/PageHeader.vue'
+import { AddOutline, TrashOutline } from '@vicons/ionicons5'
+
+const message = useMessage()
+const { t } = useI18n()
+
+const loading = ref(false)
+const policies = ref<EscalationPolicy[]>([])
+const teams = ref<Team[]>([])
+const users = ref<User[]>([])
+const schedules = ref<Schedule[]>([])
+
+// Modal state
+const showModal = ref(false)
+const editingId = ref<number | null>(null)
+const form = ref({
+  name: '',
+  description: '',
+  team_id: null as number | null,
+  steps: [] as { step_order: number; target_type: string; target_id: number; delay_minutes: number; notify_channel_id: number | null }[],
+})
+
+const targetTypeOptions = [
+  { label: 'User', value: 'user' },
+  { label: 'Team', value: 'team' },
+  { label: 'Schedule', value: 'schedule' },
+]
+
+async function fetchPolicies() {
+  loading.value = true
+  try {
+    const res = await escalationApi.list({ page: 1, page_size: 100 })
+    policies.value = res.data.data?.list || []
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchSupportData() {
+  try {
+    const [teamRes, userRes, schedRes] = await Promise.all([
+      teamApi.list({ page: 1, page_size: 100 }),
+      userApi.list({ page: 1, page_size: 100 }),
+      scheduleApi.list({ page: 1, page_size: 100 }),
+    ])
+    teams.value = teamRes.data.data?.list || []
+    users.value = userRes.data.data?.list || []
+    schedules.value = schedRes.data.data?.list || []
+  } catch { /* ignore */ }
+}
+
+function openCreate() {
+  editingId.value = null
+  form.value = { name: '', description: '', team_id: null, steps: [] }
+  showModal.value = true
+}
+
+function openEdit(policy: EscalationPolicy) {
+  editingId.value = policy.id
+  form.value = {
+    name: policy.name,
+    description: policy.description || '',
+    team_id: policy.team_id || null,
+    steps: (policy.steps || []).map((s, i) => ({
+      step_order: s.step_order ?? i + 1,
+      target_type: s.target_type || 'user',
+      target_id: s.target_id || 0,
+      delay_minutes: s.delay_minutes || 5,
+      notify_channel_id: s.notify_channel_id || null,
+    })),
+  }
+  showModal.value = true
+}
+
+function addStep() {
+  form.value.steps.push({
+    step_order: form.value.steps.length + 1,
+    target_type: 'user',
+    target_id: 0,
+    delay_minutes: 5,
+    notify_channel_id: null,
+  })
+}
+
+function removeStep(index: number) {
+  form.value.steps.splice(index, 1)
+  form.value.steps.forEach((s, i) => { s.step_order = i + 1 })
+}
+
+async function handleSave() {
+  if (!form.value.name.trim()) {
+    message.warning(t('common.required'))
+    return
+  }
+  try {
+    const payload = {
+      name: form.value.name,
+      description: form.value.description,
+      team_id: form.value.team_id || undefined,
+      steps: form.value.steps,
+    }
+    if (editingId.value) {
+      await escalationApi.update(editingId.value, payload)
+      message.success(t('common.saveSuccess'))
+    } else {
+      await escalationApi.create(payload)
+      message.success(t('common.createSuccess'))
+    }
+    showModal.value = false
+    fetchPolicies()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  }
+}
+
+async function handleDelete(id: number) {
+  try {
+    await escalationApi.delete(id)
+    message.success(t('common.deleteSuccess'))
+    fetchPolicies()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  }
+}
+
+function getTargetName(type: string, id: number): string {
+  if (type === 'user') {
+    const u = users.value.find(u => u.id === id)
+    return u ? (u.display_name || u.username) : `#${id}`
+  }
+  if (type === 'team') {
+    const t = teams.value.find(t => t.id === id)
+    return t ? t.name : `#${id}`
+  }
+  if (type === 'schedule') {
+    const s = schedules.value.find(s => s.id === id)
+    return s ? s.name : `#${id}`
+  }
+  return `#${id}`
+}
+
+const columns = [
+  { title: 'ID', key: 'id', width: 60 },
+  { title: t('common.name'), key: 'name', ellipsis: { tooltip: true } },
+  { title: t('common.description'), key: 'description', ellipsis: { tooltip: true } },
+  {
+    title: t('escalation.steps'),
+    key: 'steps',
+    width: 100,
+    render: (row: EscalationPolicy) => (row.steps || []).length,
+  },
+  {
+    title: t('common.actions'),
+    key: 'actions',
+    width: 160,
+    render: (row: EscalationPolicy) =>
+      h(NSpace, { size: 'small' }, () => [
+        h(NButton, { size: 'tiny', secondary: true, onClick: () => openEdit(row) }, () => t('common.edit')),
+        h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
+          trigger: () => h(NButton, { size: 'tiny', type: 'error', secondary: true }, () => t('common.delete')),
+          default: () => t('common.confirmDelete'),
+        }),
+      ]),
+  },
+]
+
+onMounted(() => {
+  fetchPolicies()
+  fetchSupportData()
+})
+</script>
+
+<template>
+  <div class="page-container">
+    <PageHeader :title="t('escalation.policies')" :subtitle="t('escalation.policiesSubtitle')">
+      <template #actions>
+        <n-button type="primary" size="small" @click="openCreate">
+          <template #icon><n-icon :component="AddOutline" /></template>
+          {{ t('escalation.createPolicy') }}
+        </n-button>
+      </template>
+    </PageHeader>
+
+    <n-data-table
+      :columns="columns"
+      :data="policies"
+      :loading="loading"
+      :bordered="false"
+      size="small"
+      striped
+    />
+
+    <!-- Create/Edit Modal -->
+    <n-modal
+      v-model:show="showModal"
+      preset="card"
+      :title="editingId ? t('escalation.editPolicy') : t('escalation.createPolicy')"
+      style="max-width: 700px"
+      :bordered="false"
+    >
+      <n-form label-placement="top">
+        <n-form-item :label="t('common.name')" required>
+          <n-input v-model:value="form.name" :placeholder="t('common.name')" />
+        </n-form-item>
+        <n-form-item :label="t('common.description')">
+          <n-input v-model:value="form.description" type="textarea" :rows="2" />
+        </n-form-item>
+        <n-form-item :label="t('escalation.team')">
+          <n-select
+            v-model:value="form.team_id"
+            :options="teams.map(t => ({ label: t.name, value: t.id }))"
+            clearable
+            :placeholder="t('escalation.teamPlaceholder')"
+          />
+        </n-form-item>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <span style="font-weight: 600;">{{ t('escalation.steps') }}</span>
+          <n-button size="tiny" secondary @click="addStep">
+            <template #icon><n-icon :component="AddOutline" /></template>
+            {{ t('escalation.addStep') }}
+          </n-button>
+        </div>
+
+        <div v-for="(step, idx) in form.steps" :key="idx" style="border: 1px solid var(--sre-border); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <n-tag size="small">Step {{ step.step_order }}</n-tag>
+            <n-button size="tiny" type="error" text @click="removeStep(idx)">
+              <template #icon><n-icon :component="TrashOutline" /></template>
+            </n-button>
+          </div>
+          <n-form-item :label="t('escalation.targetType')" label-placement="left" label-width="100">
+            <n-select v-model:value="step.target_type" :options="targetTypeOptions" />
+          </n-form-item>
+          <n-form-item :label="t('escalation.target')" label-placement="left" label-width="100">
+            <n-select
+              v-if="step.target_type === 'user'"
+              v-model:value="step.target_id"
+              :options="users.map(u => ({ label: u.display_name || u.username, value: u.id }))"
+              filterable
+            />
+            <n-select
+              v-else-if="step.target_type === 'team'"
+              v-model:value="step.target_id"
+              :options="teams.map(t => ({ label: t.name, value: t.id }))"
+              filterable
+            />
+            <n-select
+              v-else
+              v-model:value="step.target_id"
+              :options="schedules.map(s => ({ label: s.name, value: s.id }))"
+              filterable
+            />
+          </n-form-item>
+          <n-form-item :label="t('escalation.delay')" label-placement="left" label-width="100">
+            <n-input-number v-model:value="step.delay_minutes" :min="0" :max="1440" style="width: 120px;">
+              <template #suffix>{{ t('common.minutes') }}</template>
+            </n-input-number>
+          </n-form-item>
+        </div>
+
+        <div v-if="form.steps.length === 0" style="text-align: center; color: var(--sre-text-tertiary); padding: 16px;">
+          {{ t('escalation.noSteps') }}
+        </div>
+      </n-form>
+
+      <template #action>
+        <n-space>
+          <n-button @click="showModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+  </div>
+</template>

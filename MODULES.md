@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-19 | tag: v4.10.37
-> 共 34 个 model, 46 个 handler, 46 个 service, 34 个 repository, 268+ API 端点
+> 最后更新: 2026-05-19 | tag: v4.11.0
+> 共 34 个 model, 46 个 handler, 47 个 service, 34 个 repository, 268+ API 端点
 
 ---
 
@@ -49,7 +49,7 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | 告警规则 | ✅ | ❌ | ❌ | 0% |
 | 告警事件 | ✅ | ❌ | ❌ | 0% |
 | 告警通道 | ✅ | ✅ alert_channel_test.go (handler + service) | ❌ | ~30% |
-| 通知管道 | ✅ | ✅ notification_test.go (20 tests) | ❌ | service 层 ~25% |
+| 通知管道 | ✅ | ✅ notification_test.go (7 tests) | ❌ | service 层 ~25% |
 | 静默规则 | ✅ | ❌ | ❌ | 0% |
 | 抑制规则 | ✅ | ✅ inhibition_rule_test.go | ❌ | ~15% |
 | 标签注册表 | ✅ | ❌ | ❌ | 0% |
@@ -119,11 +119,11 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 
 ## 通知管道 (notification)
 
-- **功能**: v1 策略管道 + v2 规则管道、多渠道发送、订阅机制
+- **功能**: v2 规则管道（标签匹配 + 严重级别 + 节流 + 去重 + 模板渲染 + 多渠道发送）、订阅机制
 - **后端**: `service/notification.go`, `service/notification_dedup.go`, `service/notify_rule.go`, `service/notify_media.go`, `service/message_template.go`, `service/subscribe_rule.go`
 - **前端**: `web/src/pages/notification/` (Rules, Media, Templates, Subscribe)
 - **API**: `/api/v1/notify-rules`, `/api/v1/notify-media`, `/api/v1/message-templates`, `/api/v1/subscribe-rules` (~25 endpoints)
-- **状态**: ✅ 完成
+- **状态**: ✅ 完成（v4.11.0 移除 v1 NotifyPolicy 管道，统一为 v2）
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
 
 ## 静默规则 (mute-rule)
@@ -157,11 +157,11 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 - **API**: `/api/v1/datasources` (12 endpoints: CRUD + health-check + query + query-range + log-query + labels/keys + labels/values + metrics)
 - **状态**: ✅ 完成
 
-## 仪表盘 V2 (dashboard-v2)
+## 仪表盘 V2 (dashboards)
 
 - **功能**: 面板仪表盘、变量模板系统、PromQL 查询 + ECharts 时序图
 - **后端**: `model/dashboard.go`, `handler/dashboard_v2.go`, `service/dashboard.go`, `repository/dashboard.go`
-- **前端**: `web/src/pages/dashboard-v2/Index.vue`, `web/src/pages/dashboard-v2/View.vue`, `web/src/components/query/`, `web/src/components/time/`
+- **前端**: `web/src/pages/dashboards/Index.vue`, `web/src/pages/dashboards/View.vue`, `web/src/components/query/`, `web/src/components/time/`
 - **API**: `/api/v1/dashboards` (5 endpoints: CRUD)
 - **依赖**: datasource (查询数据)
 - **状态**: ✅ 完成
@@ -179,6 +179,7 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 
 - **功能**: 多步骤升级，支持 user/team/schedule 目标，lark_personal/email/webhook 渠道
 - **后端**: `model/schedule.go` (EscalationPolicy/Step), `handler/schedule.go`, `service/schedule.go`
+- **前端**: `web/src/pages/oncall/EscalationPolicies.vue`（CRUD + 步骤管理）
 - **API**: `/api/v1/escalation-policies` (8 endpoints)
 - **状态**: ✅ 完成
 
@@ -195,8 +196,8 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 - **功能**: 用户 CRUD、虚拟用户、密码管理、个人设置、飞书绑定
 - **后端**: `model/user.go`, `handler/user.go`, `service/user.go`, `repository/user.go`
 - **前端**: `web/src/pages/settings/UserManagement.vue`, `VirtualUsers.vue`
-- **API**: `/api/v1/users` (8 endpoints) + `/api/v1/me/*` (5 endpoints)
-- **状态**: ✅ 完成
+- **API**: `/api/v1/users` (8 endpoints) + `/api/v1/me/*` (7 endpoints, 含 preferences)
+- **状态**: ✅ 完成（v4.11.0 新增用户偏好系统）
 
 ## 团队 (team)
 
@@ -217,10 +218,10 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 ## 仪表盘 (dashboard)
 
 - **功能**: 统计概览、MTTA/MTTR 分析、趋势图、Top 规则、CSV 导出
-- **后端**: `handler/dashboard.go`
+- **后端**: `handler/dashboard.go`（274 行）, `service/dashboard_stats.go`（821 行，12 个方法）
 - **前端**: `web/src/pages/dashboard/Index.vue`
 - **API**: `/api/v1/dashboard/*` (7 endpoints)
-- **状态**: ✅ 完成
+- **状态**: ✅ 完成（v4.11.0 handler/service 拆分）
 
 ## AI 助手 (ai)
 
@@ -315,12 +316,12 @@ dashboard ──→ alert-event + incident + channel + team (统计数据)
 | 模块 | 文件 | 状态 | 说明 |
 |------|------|------|------|
 | **协作空间** Channel | model/channel.go + repo/service/handler/channel.go | ✅ 生产就绪 | CRUD + Star + 降噪配置 + 分派策略 |
-| **故障** Incident | model/incident.go + repo/service/handler/incident.go | ✅ 生产就绪 | 完整生命周期：ack/close/reopen/snooze/merge/reassign/escalate + 自动关闭 |
+| **故障** Incident | model/incident.go + repo/service/handler/incident.go + service/incident_aggregator.go | ✅ 生产就绪 | 完整生命周期：ack/close/reopen/snooze/merge/reassign/escalate + 自动关闭 + fingerprint 聚合 |
 | **告警 v2** Alert + AlertEventV2 | model/alert.go + repo/service/alert.go + handler/alert.go | ✅ 生产就绪 | 按 alert_key 去重，关联 Channel + Incident |
-| **告警 v2 管道** AlertV2Pipeline | service/alert_v2_pipeline.go | ✅ 生产就绪 | 非侵入式引擎桥接，WrapOnAlert hook |
+| **告警 v2 管道** AlertV2Pipeline | service/alert_v2_pipeline.go | ✅ 生产就绪 | 非侵入式引擎桥接，WrapOnAlert hook + IncidentAggregator 钩子 |
 | **降噪引擎** NoiseReducer | service/noise_reducer.go | ✅ 生产就绪 | 排除规则 + 聚合 + 风暴预警 + 抖动检测 |
 | **排除规则** ExclusionRule | repo/service/handler/exclusion_rule.go | ✅ 生产就绪 | Per-channel 排除规则 CRUD |
-| **分派策略** DispatchPolicy | model/dispatch.go + repo/service/dispatch.go + handler/dispatch.go | ✅ 生产就绪 | 触发条件 + 延迟 + 重复 + 标签增强 + 升级绑定 |
+| **分派策略** DispatchPolicy | model/dispatch.go + repo/service/dispatch.go + handler/dispatch.go | ✅ 生产就绪 | 触发条件 + 延迟 + 重复 + 标签增强 + 升级绑定 + 分派日志查看 |
 | **Webhook 集成** Integration | model/integration.go + repo/service/integration.go + handler/integration.go | ✅ 生产就绪 | Standard/AlertManager/Grafana 三格式 + Pipeline + 限流 100/s |
 | **路由规则** RoutingRule | model/integration.go + repo/integration.go | ✅ 生产就绪 | 共享集成的 label 路由 |
 | **故障复盘** PostMortem | model/incident.go + repo/service/handler/post_mortem.go | ✅ 生产就绪 | CRUD + AI 生成初稿 + 发布 |

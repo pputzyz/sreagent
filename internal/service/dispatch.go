@@ -98,6 +98,15 @@ func (s *DispatchService) Update(ctx context.Context, id uint, updates *model.Di
 	return existing, nil
 }
 
+// ListLogsByIncident returns all dispatch logs for an incident.
+func (s *DispatchService) ListLogsByIncident(ctx context.Context, incidentID uint) ([]model.DispatchLog, error) {
+	list, err := s.logRepo.ListByIncident(ctx, incidentID)
+	if err != nil {
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return list, nil
+}
+
 func (s *DispatchService) Delete(ctx context.Context, id uint) error {
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		if err == gorm.ErrRecordNotFound {

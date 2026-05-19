@@ -12,6 +12,12 @@ func (h *Handlers) registerAuthRoutes(auth *gin.RouterGroup, admin gin.HandlerFu
 	auth.POST("/me/password", h.Auth.ChangeMyPassword)
 	auth.PUT("/me/lark-bind", h.Auth.BindLark)
 
+	// User preferences
+	if h.UserPreference != nil {
+		auth.GET("/me/preferences", h.UserPreference.Get)
+		auth.PUT("/me/preferences", h.UserPreference.Update)
+	}
+
 	// OIDC settings — admin only (separate from /auth/oidc/* which is the SSO auth flow)
 	if h.OIDCSettings != nil {
 		oidcSettings := auth.Group("/settings/oidc")

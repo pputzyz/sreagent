@@ -29,31 +29,6 @@ func (NotifyChannel) TableName() string {
 	return "notify_channels"
 }
 
-// NotifyPolicy defines routing rules: which alerts go to which channels.
-type NotifyPolicy struct {
-	BaseModel
-	Name        string `json:"name" gorm:"size:128;not null"`
-	Description string `json:"description" gorm:"size:512"`
-	// Label matchers for this policy (must match ALL labels)
-	MatchLabels JSONLabels `json:"match_labels" gorm:"type:json;not null"`
-	// Severity filter (empty = all severities)
-	Severities string `json:"severities" gorm:"size:128"` // comma-separated: "critical,warning"
-	// Target channel
-	ChannelID uint          `json:"channel_id" gorm:"index;not null"`
-	Channel   NotifyChannel `json:"channel,omitempty" gorm:"foreignKey:ChannelID"`
-	// Throttle settings
-	ThrottleMinutes int `json:"throttle_minutes" gorm:"default:5"` // min interval between notifications
-	// Template
-	TemplateName string `json:"template_name" gorm:"size:64;default:default"`
-	IsEnabled    bool   `json:"is_enabled" gorm:"default:true"`
-	// Priority (higher = evaluated first)
-	Priority int `json:"priority" gorm:"default:0"`
-}
-
-func (NotifyPolicy) TableName() string {
-	return "notify_policies"
-}
-
 // NotifyRecord tracks sent notifications for audit and throttling.
 type NotifyRecord struct {
 	BaseModel

@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import {
   useMessage, NModal, NButton, NIcon, NForm, NFormItem, NGrid, NGi,
-  NInput, NInputNumber, NSelect, NCollapseTransition,
+  NInput, NInputNumber, NSelect, NCollapseTransition, NSwitch, NCollapse, NCollapseItem,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertRuleApi, datasourceApi, templateApi } from '@/api'
@@ -45,6 +45,16 @@ const defaultForm = {
   category: '',
   group_wait_seconds: 0,
   group_interval_seconds: 0,
+  // Advanced fields
+  rule_type: 'threshold' as string,
+  eval_interval: 60,
+  recovery_hold: '0s',
+  nodata_enabled: false,
+  nodata_duration: '5m',
+  suppress_enabled: false,
+  heartbeat_token: '',
+  heartbeat_interval: 300,
+  ack_sla_minutes: 0,
 }
 const form = reactive({ ...defaultForm })
 
@@ -238,6 +248,16 @@ function formDataFromRule(r: AlertRule) {
     category: r.category || '',
     group_wait_seconds: r.group_wait_seconds || 0,
     group_interval_seconds: r.group_interval_seconds || 0,
+    // Advanced fields
+    rule_type: r.rule_type || 'threshold',
+    eval_interval: r.eval_interval || 60,
+    recovery_hold: r.recovery_hold || '0s',
+    nodata_enabled: r.nodata_enabled || false,
+    nodata_duration: r.nodata_duration || '5m',
+    suppress_enabled: r.suppress_enabled || false,
+    heartbeat_token: r.heartbeat_token || '',
+    heartbeat_interval: r.heartbeat_interval || 300,
+    ack_sla_minutes: r.ack_sla_minutes || 0,
   }
 }
 
@@ -292,6 +312,16 @@ async function handleSave() {
       category: form.category,
       group_wait_seconds: form.group_wait_seconds,
       group_interval_seconds: form.group_interval_seconds,
+      // Advanced fields
+      rule_type: form.rule_type,
+      eval_interval: form.eval_interval,
+      recovery_hold: form.recovery_hold,
+      nodata_enabled: form.nodata_enabled,
+      nodata_duration: form.nodata_enabled ? form.nodata_duration : '',
+      suppress_enabled: form.suppress_enabled,
+      heartbeat_token: form.rule_type === 'heartbeat' ? form.heartbeat_token : '',
+      heartbeat_interval: form.rule_type === 'heartbeat' ? form.heartbeat_interval : 0,
+      ack_sla_minutes: form.ack_sla_minutes,
     }
     if (editingId.value) {
       await alertRuleApi.update(editingId.value, payload)
@@ -515,6 +545,79 @@ async function handleSave() {
       <n-form-item :label="t('alert.annotations')">
         <KVEditor v-model:modelValue="form.annotations" :add-label="t('alert.addAnnotation')" :key-placeholder="t('alert.annotationKeyPlaceholder')" />
       </n-form-item>
+
+      <!-- Advanced Settings -->
+      <n-collapse>
+        <n-collapse-item :title="t('alert.advancedSettings')" name="advanced">
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('alert.ruleType')">
+                <n-select v-model:value="form.rule_type" :options="[
+                  { label: t('alert.ruleTypeThreshold'), value: 'threshold' },
+                  { label: t('alert.ruleTypeHeartbeat'), value: 'heartbeat' },
+                ]" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('alert.evalInterval')">
+                <n-input-number v-model:value="form.eval_interval" :min="10" :max="86400" class="rfm-input-full">
+                  <template #suffix>{{ t('common.seconds') }}</template>
+                </n-input-number>
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('alert.recoveryHold')">
+                <n-input v-model:value="form.recovery_hold" placeholder="0s" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('alert.ackSla')">
+                <n-input-number v-model:value="form.ack_sla_minutes" :min="0" :max="1440" class="rfm-input-full">
+                  <template #suffix>{{ t('common.minutes') }}</template>
+                </n-input-number>
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('alert.nodataEnabled')">
+                <n-switch v-model:value="form.nodata_enabled" />
+              </n-form-item>
+            </n-gi>
+            <n-gi v-if="form.nodata_enabled">
+              <n-form-item :label="t('alert.nodataDuration')">
+                <n-input v-model:value="form.nodata_duration" placeholder="5m" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+
+          <n-form-item :label="t('alert.suppressEnabled')">
+            <n-switch v-model:value="form.suppress_enabled" />
+          </n-form-item>
+
+          <!-- Heartbeat fields (only for heartbeat type) -->
+          <template v-if="form.rule_type === 'heartbeat'">
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.heartbeatToken')">
+                  <n-input v-model:value="form.heartbeat_token" :placeholder="t('alert.heartbeatTokenPlaceholder')" />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item :label="t('alert.heartbeatInterval')">
+                  <n-input-number v-model:value="form.heartbeat_interval" :min="30" :max="86400" class="rfm-input-full">
+                    <template #suffix>{{ t('common.seconds') }}</template>
+                  </n-input-number>
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+          </template>
+        </n-collapse-item>
+      </n-collapse>
     </n-form>
 
     <template #action>

@@ -36,6 +36,9 @@ type Incident struct {
 	ChannelID uint     `json:"channel_id" gorm:"index;not null"`
 	Channel   *Channel `json:"channel,omitempty" gorm:"foreignKey:ChannelID"`
 
+	// Fingerprint links this incident to alert events with the same fingerprint.
+	Fingerprint string `json:"fingerprint" gorm:"size:64;index"`
+
 	// Labels inherited from the first alert
 	Labels JSONLabels `json:"labels" gorm:"type:json"`
 

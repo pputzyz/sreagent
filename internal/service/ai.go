@@ -245,8 +245,10 @@ func (s *AIService) TestProviderConnection(ctx context.Context, providerKey stri
 
 // chatCompletionRequest represents an OpenAI-compatible chat completion request.
 type chatCompletionRequest struct {
-	Model    string        `json:"model"`
-	Messages []ChatMessage `json:"messages"`
+	Model       string        `json:"model"`
+	Messages    []ChatMessage `json:"messages"`
+	Temperature *float64      `json:"temperature,omitempty"`
+	MaxTokens   *int          `json:"max_tokens,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat conversation.
@@ -275,6 +277,11 @@ func (s *AIService) AnalyzeAlertWithContext(ctx context.Context, contextText str
 	}
 	if !cfg.Enabled {
 		return nil, fmt.Errorf("AI is not enabled")
+	}
+
+	// Truncate context to configured budget
+	if cfg.ContextMaxChars > 0 && len(contextText) > cfg.ContextMaxChars {
+		contextText = contextText[:cfg.ContextMaxChars] + "\n...(truncated)"
 	}
 
 	systemPrompt := `You are an expert SRE assistant for a monitoring platform. You analyze alerts with their associated metric data.
@@ -323,6 +330,12 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 	reqBody := chatCompletionRequest{
 		Model:    cfg.Model,
 		Messages: messages,
+	}
+	if cfg.Temperature > 0 {
+		reqBody.Temperature = &cfg.Temperature
+	}
+	if cfg.MaxTokens > 0 {
+		reqBody.MaxTokens = &cfg.MaxTokens
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -377,7 +390,10 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 // callLLMJSON sends a prompt to the LLM and parses the JSON response into the target.
 // It includes retry logic and handles markdown code block wrapping that LLMs sometimes add.
 func (s *AIService) callLLMJSON(ctx context.Context, cfg AIConfig, systemPrompt, userPrompt string, target interface{}) error {
-	const maxRetries = 2
+	maxRetries := cfg.RetryMax
+	if maxRetries <= 0 {
+		maxRetries = 2
+	}
 
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -500,6 +516,12 @@ func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemP
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},
+	}
+	if cfg.Temperature > 0 {
+		reqBody.Temperature = &cfg.Temperature
+	}
+	if cfg.MaxTokens > 0 {
+		reqBody.MaxTokens = &cfg.MaxTokens
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)

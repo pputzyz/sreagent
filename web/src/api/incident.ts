@@ -11,6 +11,7 @@ import type {
   RoutingRule,
   Integration,
   DispatchPolicy,
+  DispatchLog,
   ExclusionRule,
   PostMortem,
   IncidentStats,
@@ -102,6 +103,9 @@ export const incidentApi = {
 
   getTimeline: (id: number) =>
     request.get<ApiResponse<IncidentTimeline[]>>(`/incidents/${id}/timeline`),
+
+  getDispatchLogs: (id: number) =>
+    request.get<ApiResponse<DispatchLog[]>>(`/incidents/${id}/dispatch-logs`),
 
   // Post-mortem (复盘)
   getPostMortem: (incidentId: number) =>

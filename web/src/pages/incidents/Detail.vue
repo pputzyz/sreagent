@@ -2,10 +2,10 @@
 import { ref, shallowRef, onMounted, computed, h, inject } from 'vue'
 import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMessage, NIcon } from 'naive-ui'
+import { useMessage, NIcon, NDataTable, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi, alertV2Api } from '@/api'
-import type { Incident, IncidentTimeline, AlertV2, PostMortem } from '@/types'
+import type { Incident, IncidentTimeline, AlertV2, PostMortem, DispatchLog } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import SnoozeModal from '@/components/incident/SnoozeModal.vue'
 import MergeModal from '@/components/incident/MergeModal.vue'
@@ -32,6 +32,7 @@ const incidentId = computed(() => Number(route.params.id))
 const incident = shallowRef<Incident | null>(null)
 const timeline = shallowRef<IncidentTimeline[]>([])
 const relatedAlerts = shallowRef<AlertV2[]>([])
+const dispatchLogs = shallowRef<DispatchLog[]>([])
 const loading = ref(false)
 const activeTab = ref('overview')
 const commentText = ref('')
@@ -93,14 +94,16 @@ function durationStr(start?: string, end?: string): string {
 async function load() {
   loading.value = true
   try {
-    const [incRes, tlRes, alertRes] = await Promise.all([
+    const [incRes, tlRes, alertRes, dlRes] = await Promise.all([
       incidentApi.get(incidentId.value),
       incidentApi.getTimeline(incidentId.value),
       alertV2Api.list({ incident_id: incidentId.value, page: 1, page_size: 50 }),
+      incidentApi.getDispatchLogs(incidentId.value),
     ])
     incident.value = incRes.data.data ?? null
     timeline.value = tlRes.data.data ?? []
     relatedAlerts.value = alertRes.data.data?.list ?? []
+    dispatchLogs.value = dlRes.data.data ?? []
   } catch (e: unknown) {
     message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally { loading.value = false }
@@ -186,6 +189,34 @@ function handleMoreAction(key: string) {
     case 'silence': showQuickSilence.value = true; break
   }
 }
+
+// Dispatch log table columns
+const dispatchLogColumns = [
+  { title: 'ID', key: 'id', width: 60 },
+  {
+    title: t('incident.dispatchStatus'),
+    key: 'status',
+    width: 80,
+    render: (row: DispatchLog) => {
+      const typeMap: Record<string, string> = { sent: 'success', pending: 'warning', skipped: 'default', failed: 'error' }
+      return h(NTag, { type: (typeMap[row.status] || 'default') as any, size: 'small', bordered: false }, () => row.status)
+    },
+  },
+  { title: t('incident.dispatchPolicy'), key: 'dispatch_policy_id', width: 80 },
+  { title: t('incident.dispatchAttempt'), key: 'attempt', width: 70 },
+  {
+    title: t('incident.dispatchNote'),
+    key: 'note',
+    ellipsis: { tooltip: true },
+    render: (row: DispatchLog) => row.note || '—',
+  },
+  {
+    title: t('incident.dispatchTime'),
+    key: 'created_at',
+    width: 160,
+    render: (row: DispatchLog) => formatTime(row.created_at),
+  },
+]
 
 // B4/B5: MdEditor computed properties from i18n locale + injected theme
 const isDark = inject<Ref<boolean>>('isDark', ref(false))
@@ -473,6 +504,24 @@ onMounted(async () => {
                   </n-button>
                 </div>
               </n-spin>
+            </n-tab-pane>
+
+            <!-- Dispatch Logs -->
+            <n-tab-pane name="dispatch-logs" :tab="t('incident.dispatchLogs')">
+              <EmptyState
+                v-if="!dispatchLogs.length"
+                :icon="TimeOutline"
+                :title="t('incident.dispatchLogEmpty')"
+                size="sm"
+              />
+              <n-data-table
+                v-else
+                :columns="dispatchLogColumns"
+                :data="dispatchLogs"
+                :bordered="false"
+                size="small"
+                striped
+              />
             </n-tab-pane>
 
           </n-tabs>

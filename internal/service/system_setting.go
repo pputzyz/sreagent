@@ -20,11 +20,16 @@ import (
 // Deprecated: Use AIProviderConfig / AIProvidersConfig for multi-provider support.
 // Retained for backward compatibility with existing callers.
 type AIConfig struct {
-	Provider string `json:"provider"` // openai, azure, ollama, custom
-	APIKey   string `json:"api_key"`
-	BaseURL  string `json:"base_url"`
-	Model    string `json:"model"`
-	Enabled  bool   `json:"enabled"`
+	Provider        string  `json:"provider"`      // openai, azure, ollama, custom
+	APIKey          string  `json:"api_key"`
+	BaseURL         string  `json:"base_url"`
+	Model           string  `json:"model"`
+	Enabled         bool    `json:"enabled"`
+	Temperature     float64 `json:"temperature"`     // 0.0-2.0, default 0.3
+	MaxTokens       int     `json:"max_tokens"`      // default 1024
+	SystemPrompt    string  `json:"system_prompt"`   // custom system prompt prefix
+	RetryMax        int     `json:"retry_max"`       // LLM call retries, default 2
+	ContextMaxChars int     `json:"context_max_chars"` // context text char limit, default 8000
 }
 
 // AIProviderConfig describes a single named AI provider configuration.
@@ -227,11 +232,16 @@ func (s *SystemSettingService) GetAIConfig(ctx context.Context) (AIConfig, error
 		return AIConfig{}, err
 	}
 	cfg := AIConfig{
-		Provider: strDef(kv["provider"], "openai"),
-		APIKey:   s.getDecrypted(groupAI, "api_key", kv["api_key"]),
-		BaseURL:  strDef(kv["base_url"], "https://api.openai.com/v1"),
-		Model:    strDef(kv["model"], "gpt-4o"),
-		Enabled:  parseBool(kv["enabled"]),
+		Provider:     strDef(kv["provider"], "openai"),
+		APIKey:       s.getDecrypted(groupAI, "api_key", kv["api_key"]),
+		BaseURL:      strDef(kv["base_url"], "https://api.openai.com/v1"),
+		Model:        strDef(kv["model"], "gpt-4o"),
+		Enabled:      parseBool(kv["enabled"]),
+		Temperature:     parseFloatDef(kv["temperature"], 0.3),
+		MaxTokens:       parseIntDef(kv["max_tokens"], 1024),
+		SystemPrompt:    kv["system_prompt"],
+		RetryMax:        parseIntDef(kv["retry_max"], 2),
+		ContextMaxChars: parseIntDef(kv["context_max_chars"], 8000),
 	}
 
 	s.aiMu.Lock()
@@ -245,10 +255,15 @@ func (s *SystemSettingService) GetAIConfig(ctx context.Context) (AIConfig, error
 // Empty api_key means "do not overwrite the existing key".
 func (s *SystemSettingService) SaveAIConfig(ctx context.Context, cfg AIConfig) error {
 	kv := map[string]string{
-		"provider": cfg.Provider,
-		"base_url": cfg.BaseURL,
-		"model":    cfg.Model,
-		"enabled":  strconv.FormatBool(cfg.Enabled),
+		"provider":      cfg.Provider,
+		"base_url":      cfg.BaseURL,
+		"model":         cfg.Model,
+		"enabled":       strconv.FormatBool(cfg.Enabled),
+		"temperature":       strconv.FormatFloat(cfg.Temperature, 'f', -1, 64),
+		"max_tokens":        strconv.Itoa(cfg.MaxTokens),
+		"system_prompt":     cfg.SystemPrompt,
+		"retry_max":         strconv.Itoa(cfg.RetryMax),
+		"context_max_chars": strconv.Itoa(cfg.ContextMaxChars),
 	}
 	// Only save api_key when caller provided a non-empty value (avoids clearing
 	// a stored key when the frontend sends back the masked placeholder).
@@ -775,4 +790,28 @@ func parseBoolDef(v string, def bool) bool {
 		return def
 	}
 	return b
+}
+
+// parseIntDef parses an int string with a default value when the string is empty.
+func parseIntDef(v string, def int) int {
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
+// parseFloatDef parses a float64 string with a default value when the string is empty.
+func parseFloatDef(v string, def float64) float64 {
+	if v == "" {
+		return def
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return def
+	}
+	return f
 }

@@ -25,6 +25,7 @@ import {
   GitBranchOutline,
   FolderOpenOutline,
   MailOutline,
+  SwapVerticalOutline,
   // ALERT
   StatsChartOutline,
   ListOutline,
@@ -216,6 +217,7 @@ export function useAppNav() {
               { label: t('menu.routingRules'),     key: '/oncall/config/routing-rules', icon: GitBranchOutline },
               { label: t('menu.bizGroups'),        key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
               { label: t('menu.subscriptions'),    key: '/oncall/config/subscribe-rules', icon: MailOutline },
+              { label: t('menu.escalationPolicies'), key: '/oncall/config/escalation-policies', icon: SwapVerticalOutline },
             ],
           },
         ]

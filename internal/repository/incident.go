@@ -141,6 +141,22 @@ func (r *IncidentRepository) ListForAutoClose(ctx context.Context, now time.Time
 
 // --- Counts ---
 
+// FindOpenByFingerprint returns the first open incident (triggered/processing) for a fingerprint.
+func (r *IncidentRepository) FindOpenByFingerprint(ctx context.Context, fingerprint string) (*model.Incident, error) {
+	var inc model.Incident
+	err := r.db.WithContext(ctx).
+		Where("fingerprint = ? AND status IN ?", fingerprint, []string{
+			string(model.IncidentStatusTriggered),
+			string(model.IncidentStatusProcessing),
+		}).
+		Order("id DESC").
+		First(&inc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &inc, nil
+}
+
 func (r *IncidentRepository) CountByStatus(ctx context.Context, channelID uint) (map[string]int64, error) {
 	type result struct {
 		Status string

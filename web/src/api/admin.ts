@@ -71,9 +71,9 @@ export const bizGroupApi = {
 // ===== AI API =====
 export const aiApi = {
   getConfig: () =>
-    request.get<ApiResponse<{ provider: string; api_key: string; base_url: string; model: string; enabled: boolean }>>('/ai/config'),
+    request.get<ApiResponse<{ provider: string; api_key: string; base_url: string; model: string; enabled: boolean; temperature: number; max_tokens: number; system_prompt: string; retry_max: number; context_max_chars: number }>>('/ai/config'),
 
-  updateConfig: (data: { provider?: string; api_key?: string; base_url?: string; model?: string; enabled?: boolean }) =>
+  updateConfig: (data: { provider?: string; api_key?: string; base_url?: string; model?: string; enabled?: boolean; temperature?: number; max_tokens?: number; system_prompt?: string; retry_max?: number; context_max_chars?: number }) =>
     request.put<ApiResponse<null>>('/ai/config', data),
 
   testConnection: () =>
@@ -147,6 +147,12 @@ export const authApi = {
 
   getOIDCConfig: () =>
     request.get<ApiResponse<{ enabled: boolean; login_url?: string }>>('/auth/oidc/config'),
+
+  getPreferences: () =>
+    request.get<ApiResponse<UserPreferences>>('/me/preferences'),
+
+  updatePreferences: (data: Partial<UserPreferences>) =>
+    request.put<ApiResponse<UserPreferences>>('/me/preferences', data),
 }
 
 // ===== Audit Log API =====

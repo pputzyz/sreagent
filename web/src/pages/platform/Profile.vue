@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted } from 'vue'
-import { useMessage, NForm, NFormItem, NInput, NButton, NSpin, NTabs, NTabPane } from 'naive-ui'
+import { reactive, ref, computed, onMounted, watch } from 'vue'
+import { useMessage, NForm, NFormItem, NInput, NButton, NSpin, NTabs, NTabPane, NSelect, NSwitch } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import type { UserPreferences } from '@/types'
 
 const message = useMessage()
 const { t } = useI18n()
@@ -58,6 +59,41 @@ function selectPreset(preset: string) {
 const passwordForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
 const changingPassword = ref(false)
 
+// Preferences
+const prefsLoading = ref(false)
+const prefsSaving = ref(false)
+const prefs = reactive<UserPreferences>({
+  user_id: 0,
+  theme: 'auto',
+  language: 'zh-CN',
+  timezone: 'Asia/Shanghai',
+  default_time_range: '24h',
+  notification_severities: '["critical","warning"]',
+  ai_chat_mode: 'sidebar',
+})
+
+const themeOptions = [
+  { label: 'Auto', value: 'auto' },
+  { label: 'Light', value: 'light' },
+  { label: 'Dark', value: 'dark' },
+]
+const langOptions = [
+  { label: '中文', value: 'zh-CN' },
+  { label: 'English', value: 'en' },
+]
+const timeRangeOptions = [
+  { label: '1h', value: '1h' },
+  { label: '6h', value: '6h' },
+  { label: '24h', value: '24h' },
+  { label: '7d', value: '7d' },
+  { label: '30d', value: '30d' },
+]
+const chatModeOptions = [
+  { label: 'Sidebar', value: 'sidebar' },
+  { label: 'Modal', value: 'modal' },
+  { label: 'Inline', value: 'inline' },
+]
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -72,6 +108,20 @@ onMounted(async () => {
     }
   } finally {
     loading.value = false
+  }
+
+  // Load preferences
+  prefsLoading.value = true
+  try {
+    const res = await authApi.getPreferences()
+    const p = res.data?.data
+    if (p) {
+      Object.assign(prefs, p)
+    }
+  } catch {
+    // Use defaults
+  } finally {
+    prefsLoading.value = false
   }
 })
 
@@ -121,6 +171,18 @@ async function handleChangePassword() {
 function handleLogout() {
   authStore.logout()
   router.push('/login')
+}
+
+async function handleSavePrefs() {
+  prefsSaving.value = true
+  try {
+    await authApi.updatePreferences({ ...prefs })
+    message.success(t('common.saved'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.saveFailed'))
+  } finally {
+    prefsSaving.value = false
+  }
 }
 </script>
 
@@ -200,6 +262,36 @@ function handleLogout() {
               </n-button>
             </n-form-item>
           </n-form>
+        </div>
+      </n-tab-pane>
+
+      <!-- Tab 3: Preferences -->
+      <n-tab-pane name="preferences" :tab="t('profile.preferences')">
+        <div class="content-card" style="max-width: 520px;">
+          <n-spin :show="prefsLoading">
+            <n-form :model="prefs" label-placement="left" label-width="auto">
+              <n-form-item :label="t('profile.theme')">
+                <n-select v-model:value="prefs.theme" :options="themeOptions" />
+              </n-form-item>
+              <n-form-item :label="t('profile.language')">
+                <n-select v-model:value="prefs.language" :options="langOptions" />
+              </n-form-item>
+              <n-form-item :label="t('profile.timezone')">
+                <n-input v-model:value="prefs.timezone" placeholder="Asia/Shanghai" />
+              </n-form-item>
+              <n-form-item :label="t('profile.defaultTimeRange')">
+                <n-select v-model:value="prefs.default_time_range" :options="timeRangeOptions" />
+              </n-form-item>
+              <n-form-item :label="t('profile.aiChatMode')">
+                <n-select v-model:value="prefs.ai_chat_mode" :options="chatModeOptions" />
+              </n-form-item>
+              <n-form-item>
+                <n-button type="primary" :loading="prefsSaving" @click="handleSavePrefs">
+                  {{ t('common.save') }}
+                </n-button>
+              </n-form-item>
+            </n-form>
+          </n-spin>
         </div>
       </n-tab-pane>
     </n-tabs>

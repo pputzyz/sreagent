@@ -28,7 +28,7 @@ type EscalationExecutor struct {
 	timelineRepo         *repository.AlertTimelineRepository
 	channelRepo          *repository.NotifyChannelRepository
 	userRepo             *repository.UserRepository
-	notifySvc            *service.NotificationService
+	notifyMediaSvc       *service.NotifyMediaService
 	userNotifyConfigRepo *repository.UserNotifyConfigRepository
 	teamRepo             service.TeamRepository
 	onCallShiftRepo      *repository.OnCallShiftRepository
@@ -49,7 +49,7 @@ func NewEscalationExecutor(
 	timelineRepo *repository.AlertTimelineRepository,
 	channelRepo *repository.NotifyChannelRepository,
 	userRepo *repository.UserRepository,
-	notifySvc *service.NotificationService,
+	notifyMediaSvc *service.NotifyMediaService,
 	userNotifyConfigRepo *repository.UserNotifyConfigRepository,
 	teamRepo service.TeamRepository,
 	onCallShiftRepo *repository.OnCallShiftRepository,
@@ -66,7 +66,7 @@ func NewEscalationExecutor(
 		timelineRepo:         timelineRepo,
 		channelRepo:          channelRepo,
 		userRepo:             userRepo,
-		notifySvc:            notifySvc,
+		notifyMediaSvc:       notifyMediaSvc,
 		userNotifyConfigRepo: userNotifyConfigRepo,
 		teamRepo:             teamRepo,
 		onCallShiftRepo:      onCallShiftRepo,
@@ -81,6 +81,43 @@ func NewEscalationExecutor(
 // SetInterval overrides the default 60-second check interval.
 func (e *EscalationExecutor) SetInterval(d time.Duration) {
 	e.interval = d
+}
+
+// sendViaChannel adapts a v1 NotifyChannel to the v2 NotifyMediaService dispatch.
+func (e *EscalationExecutor) sendViaChannel(ctx context.Context, event *model.AlertEvent, channel *model.NotifyChannel) error {
+	mediaType := mapChannelTypeToMediaType(channel.Type)
+	media := &model.NotifyMedia{
+		Name:      channel.Name,
+		Type:      mediaType,
+		Config:    channel.Config,
+		IsEnabled: true,
+	}
+	data := &service.TemplateData{
+		AlertName:   event.AlertName,
+		Severity:    string(event.Severity),
+		Status:      string(event.Status),
+		Labels:      map[string]string(event.Labels),
+		Annotations: map[string]string(event.Annotations),
+		FiredAt:     event.FiredAt,
+		EventID:     event.ID,
+		Source:      event.Source,
+	}
+	rendered := fmt.Sprintf("[%s] %s - %s", event.Severity, event.AlertName, event.Status)
+	return e.notifyMediaSvc.SendNotification(ctx, media, rendered, data)
+}
+
+// mapChannelTypeToMediaType maps v1 NotifyChannelType to v2 NotifyMediaType.
+func mapChannelTypeToMediaType(ct model.NotifyChannelType) model.NotifyMediaType {
+	switch ct {
+	case model.ChannelTypeLarkWebhook:
+		return model.MediaTypeLarkWebhook
+	case model.ChannelTypeEmail:
+		return model.MediaTypeEmail
+	case model.ChannelTypeCustom:
+		return model.MediaTypeHTTP
+	default:
+		return model.MediaTypeHTTP
+	}
 }
 
 // Start runs the escalation check loop in a background goroutine.
@@ -288,7 +325,7 @@ func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.Alert
 		if err != nil {
 			return fmt.Errorf("channel %d not found: %w", *step.NotifyChannelID, err)
 		}
-		if err := e.notifySvc.SendNotification(ctx, event, channel, nil, nil); err != nil {
+		if err := e.sendViaChannel(ctx, event, channel); err != nil {
 			return fmt.Errorf("send notification via channel %d: %w", *step.NotifyChannelID, err)
 		}
 	} else {
@@ -448,7 +485,7 @@ func (e *EscalationExecutor) notifyUserPersonal(ctx context.Context, event *mode
 				Type:   model.ChannelTypeCustom,
 				Config: cfg.Config,
 			}
-			if err := e.notifySvc.SendNotification(ctx, event, syntheticChannel, nil, nil); err != nil {
+			if err := e.sendViaChannel(ctx, event, syntheticChannel); err != nil {
 				e.logger.Warn("escalation: personal webhook notify failed",
 					zap.Uint("user_id", userID), zap.Error(err))
 				lastErr = err
@@ -525,7 +562,7 @@ func (e *EscalationExecutor) notifyUserPersonal(ctx context.Context, event *mode
 				Type:   model.ChannelTypeEmail,
 				Config: string(chanBytes),
 			}
-			if err := e.notifySvc.SendNotification(ctx, event, syntheticEmailChannel, nil, nil); err != nil {
+			if err := e.sendViaChannel(ctx, event, syntheticEmailChannel); err != nil {
 				e.logger.Warn("escalation: personal email failed",
 					zap.Uint("user_id", userID), zap.String("to", emailCfg.Email), zap.Error(err))
 				lastErr = err

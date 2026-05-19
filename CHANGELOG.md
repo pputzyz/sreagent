@@ -4,6 +4,90 @@
 
 ---
 
+## [v4.11.0] — 2026-05-19
+
+### Changed — V1/V2 清理 & 架构统一
+
+**Phase 2.1: 删除 AlertV2Service 死代码**
+- `internal/service/alert.go` — 删除 `UpsertFromEvent`（从未调用）和 `LinkToIncident`（pipeline 直接调 repo）
+
+**Phase 2.2: NotifyPolicy v1 → NotifyRule v2 完全迁移**
+- `internal/service/notification.go` — 完全重写：移除 v1 策略管道（SendNotification、isThrottled、email/webhook helper），新构造函数仅依赖 subscribeRuleSvc + notifyRuleSvc
+- `internal/model/notification.go` — 删除 `NotifyPolicy` 结构体
+- `internal/repository/notification.go` — 删除 `NotifyPolicyRepository`
+- `internal/engine/escalation_executor.go` — 改用 `NotifyMediaService` + `sendViaChannel` 适配器
+- `internal/service/notify_rule.go` — 新增 `FindMatchingRules` 方法
+- `internal/service/notification_dedup.go` — 移入 `routeDedup` 变量初始化
+- `cmd/server/wire.go` — 移除 policyRepo，更新 NotificationService 构造参数
+- `cmd/server/main.go` — AutoMigrate 移除 `NotifyPolicy`
+- `internal/service/notification_test.go` — 重写：移除 v1 测试，保留 v2 测试
+- 迁移: `000042_drop_notify_policies` — DROP TABLE notify_policies
+
+**Phase 2.3: Dashboard handler/service 拆分**
+- `internal/service/dashboard_stats.go` — 新建：DashboardStatsService（821 行，12 个方法）
+- `internal/handler/dashboard.go` — 906→274 行：handler 仅做参数解析 + 调用 service + 返回 JSON
+
+**Phase 2.4: IncidentAggregator 告警-故障桥接**
+- `internal/service/incident_aggregator.go` — 新建：基于 fingerprint 的 Incident 聚合（OnEventFired/OnEventResolved）
+- `internal/model/incident.go` — 新增 `Fingerprint` 字段
+- `internal/repository/incident.go` — 新增 `FindOpenByFingerprint` 方法
+- `internal/repository/alert_event.go` — 新增 `CountByFingerprintAndStatus` 方法
+- `internal/service/alert_v2_pipeline.go` — 新增 `SetIncidentAggregator`，process() 中调用 aggregator 钩子
+- `cmd/server/wire.go` — 创建 IncidentAggregator 并注入 pipeline
+- 迁移: `000043_add_incident_fingerprint` — ALTER TABLE incidents ADD COLUMN fingerprint
+
+**Phase 2.5: dashboard-v2 重命名**
+- `web/src/pages/dashboard-v2/` → `web/src/pages/dashboards/` — 目录重命名
+- `web/src/router/index.ts` — 更新 import 路径
+
+### Added — 后端能力暴露（Section 6 P0）
+
+**Gap 6: 用户偏好系统**
+- `internal/model/user_preference.go` — 新建 UserPreference 模型（theme/language/timezone/default_time_range/notification_severities/ai_chat_mode）
+- `internal/repository/user_preference.go` — 新建 repository（GetByUserID + Upsert）
+- `internal/service/user_preference.go` — 新建 service
+- `internal/handler/user_preference.go` — 新建 handler（GET/PUT /me/preferences）
+- `internal/router/auth_routes.go` — 添加 /me/preferences 路由
+- `cmd/server/wire.go` — 接入 UserPreference 依赖链
+- `web/src/pages/platform/Profile.vue` — 新增"偏好设置"Tab（主题/语言/时区/默认时间范围/AI 对话模式）
+- `web/src/types/index.ts` — 新增 UserPreferences 类型
+- `web/src/api/admin.ts` — 新增 getPreferences/updatePreferences API
+- `web/src/i18n/zh-CN.ts` + `en.ts` — 新增偏好设置 i18n keys
+- 迁移: `000044_create_user_preferences` — CREATE TABLE user_preferences
+
+**Gap 1: AlertRule 高级字段 UI**
+- `web/src/components/alert/RuleFormModal.vue` — 新增"高级设置"折叠面板（rule_type/eval_interval/recovery_hold/nodata_enabled/nodata_duration/suppress_enabled/heartbeat_token/heartbeat_interval/ack_sla_minutes）
+- `web/src/types/index.ts` — AlertRule 接口新增 eval_interval/recovery_hold/nodata_enabled/nodata_duration/suppress_enabled 字段
+- `web/src/i18n/zh-CN.ts` + `en.ts` — 新增高级设置 i18n keys（advancedSettings/ruleType/evalInterval/recoveryHold/nodata/suppress/heartbeat/ackSla）
+
+**Gap 4: 升级策略管理页面**
+- `web/src/pages/oncall/EscalationPolicies.vue` — 新建：完整 CRUD 页面（多步骤升级，支持 user/team/schedule 目标）
+- `web/src/router/index.ts` — 添加 `/oncall/config/escalation-policies` 路由
+- `web/src/composables/useAppNav.ts` — 侧边栏"配置中心"组新增"升级策略"入口
+- `web/src/i18n/zh-CN.ts` + `en.ts` — 新增 `escalation` 命名空间 + `menu.escalationPolicies`
+
+**Gap 5: 通知分派记录**
+- `internal/service/dispatch.go` — 新增 `ListLogsByIncident` 方法
+- `internal/handler/dispatch.go` — 新增 `ListLogs` handler（GET /incidents/:id/dispatch-logs）
+- `internal/router/admin_routes.go` — 注册 dispatch-logs 路由
+- `web/src/api/incident.ts` — 新增 `getDispatchLogs` API 方法
+- `web/src/types/index.ts` — 新增 `DispatchLog` 类型
+- `web/src/pages/incidents/Detail.vue` — 新增"通知记录"Tab（NDataTable 展示分派日志）
+- `web/src/i18n/zh-CN.ts` + `en.ts` — 新增 dispatchLog i18n keys
+
+**Gap 7: AI temperature/max_tokens/system_prompt 透传**
+- `internal/service/system_setting.go` — AIConfig 新增 Temperature/MaxTokens/SystemPrompt 字段 + GetAIConfig 加载 + SaveAIConfig 持久化 + parseFloatDef/parseIntDef helpers
+- `internal/service/ai.go` — chatCompletionRequest 新增 Temperature/MaxTokens 字段，callLLMWithSystem 和 Chat 方法透传配置值
+- `web/src/api/admin.ts` — aiApi.getConfig/updateConfig 类型定义新增 temperature/max_tokens/system_prompt
+
+**Gap 8: AI 高级配置（重试 + 上下文预算）**
+- `internal/service/system_setting.go` — AIConfig 新增 RetryMax/ContextMaxChars 字段 + 持久化
+- `internal/service/ai.go` — callLLMJSON 使用 cfg.RetryMax 替代硬编码；AnalyzeAlertWithContext 增加上下文截断
+- `web/src/pages/settings/AIConfig.vue` — 新增"最大重试次数"和"上下文字符上限"控件
+- `web/src/i18n/zh-CN.ts` + `en.ts` — 新增 aiRetryMax/aiContextMaxChars
+
+---
+
 ## [v4.10.37] — 2026-05-19
 
 ### Changed — 前端国际化完善

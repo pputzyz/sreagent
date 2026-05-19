@@ -1431,8 +1431,10 @@ AI 驱动的告警分析。支持 LLM 生成的告警报告和 SOP 建议。
 | GET | `/dispatch-policies/:id` | 已认证 | 按 ID 获取 |
 | PUT | `/dispatch-policies/:id` | 管理权限 | 更新 |
 | DELETE | `/dispatch-policies/:id` | 管理权限 | 删除 |
+| GET | `/incidents/:id/dispatch-logs` | 已认证 | 故障的分派日志 |
 
 > 列表和创建端点挂载在协作空间下：`GET /channels/:id/dispatch-policies` 和 `POST /channels/:id/dispatch-policies`（参见 [协作空间](#30-协作空间)）。
+> 分派日志端点挂载在故障下：`GET /incidents/:id/dispatch-logs`（参见 [故障管理](#28-故障管理)）。
 
 **创建 / 更新请求体：**
 

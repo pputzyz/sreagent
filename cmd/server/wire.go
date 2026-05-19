@@ -93,7 +93,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	timelineRepo := repository.NewAlertTimelineRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	channelRepo := repository.NewNotifyChannelRepository(db)
-	policyRepo := repository.NewNotifyPolicyRepository(db)
 	recordRepo := repository.NewNotifyRecordRepository(db)
 	scheduleRepo := repository.NewScheduleRepository(db)
 	participantRepo := repository.NewScheduleParticipantRepository(db)
@@ -151,6 +150,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Preset rule repository
 	presetRuleRepo := repository.NewPresetRuleRepository(db)
 
+	// User preference repository
+	userPreferenceRepo := repository.NewUserPreferenceRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -172,7 +174,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	)
 	subscribeRuleSvc := service.NewSubscribeRuleService(subscribeRuleRepo, zapLogger)
 
-	notifySvc := service.NewNotificationService(channelRepo, policyRepo, recordRepo, eventRepo, larkSvc, alertPipeline, subscribeRuleSvc, notifyRuleSvc, zapLogger)
+	notifySvc := service.NewNotificationService(subscribeRuleSvc, notifyRuleSvc, zapLogger)
 	userSvc := service.NewUserService(userRepo, zapLogger)
 	teamSvc := service.NewTeamService(teamRepo, zapLogger)
 	scheduleSvc := service.NewScheduleService(scheduleRepo, participantRepo, overrideRepo, onCallShiftRepo, escalationPolicyRepo, escalationStepRepo, zapLogger)
@@ -216,6 +218,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Preset rule service
 	presetRuleSvc := service.NewPresetRuleService(presetRuleRepo, ruleRepo, dsRepo, zapLogger)
+
+	// User preference service
+	userPreferenceSvc := service.NewUserPreferenceService(userPreferenceRepo, zapLogger)
 
 	// AI rule generation service
 	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
@@ -272,7 +277,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		timelineRepo,
 		channelRepo,
 		userRepo,
-		notifySvc,
+		notifyMediaSvc,
 		userNotifyConfigRepo,
 		teamRepo,
 		onCallShiftRepo,
@@ -362,6 +367,11 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	alertV2Pipeline.InitDefaultChannel(context.Background())
 	alertV2Pipeline.SetNoiseReducer(noiseReducer)
 	alertV2Pipeline.SetDispatchService(dispatchSvc)
+
+	// Incident aggregator: bridges AlertEvent fingerprint to Incident lifecycle.
+	incidentAggregator := service.NewIncidentAggregator(incidentSvc, eventRepo, incidentRepo, zapLogger)
+	alertV2Pipeline.SetIncidentAggregator(incidentAggregator)
+
 	onAlertFn = alertV2Pipeline.WrapOnAlert(onAlertFn)
 
 	// Integration service needs the pipeline (must be after pipeline setup)
@@ -395,6 +405,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		engineHandler = handler.NewEngineHandler(evaluator)
 	}
 
+	// --------------- Services (stats) ---------------
+	dashboardStatsSvc := service.NewDashboardStatsService(db, zapLogger)
+
 	// --------------- Handlers ---------------
 
 	// OIDC handler — uses getter function for hot-reload support
@@ -415,7 +428,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		User:             handler.NewUserHandler(userSvc),
 		Team:             handler.NewTeamHandler(teamSvc),
 		Schedule:         handler.NewScheduleHandler(scheduleSvc),
-		Dashboard:        handler.NewDashboardHandler(db, zapLogger),
+		Dashboard:        handler.NewDashboardHandler(dashboardStatsSvc),
 		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc, petSvc),
 		LarkBot:          handler.NewLarkBotHandler(larkBotSvc),
 		Engine:           engineHandler,
@@ -449,6 +462,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		PresetRule:          handler.NewPresetRuleHandler(presetRuleSvc),
 		AIRule:              handler.NewAIRuleHandler(ruleGenSvc),
 		AlertmanagerImport:  handler.NewAlertmanagerImportHandler(alertmanagerImportSvc),
+		UserPreference:      handler.NewUserPreferenceHandler(userPreferenceSvc),
 	}
 
 	// Inject audit service into handlers that support it

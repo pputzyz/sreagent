@@ -195,7 +195,6 @@ func autoMigrate(db *gorm.DB) error {
 		&model.EscalationPolicy{},
 		&model.EscalationStep{},
 		&model.NotifyChannel{},
-		&model.NotifyPolicy{},
 		&model.NotifyRecord{},
 		&model.MuteRule{},
 	}
@@ -232,6 +231,9 @@ func autoMigrate(db *gorm.DB) error {
 
 	// Status page services
 	models = append(models, &model.StatusService{})
+
+	// User preferences
+	models = append(models, &model.UserPreference{})
 
 	return db.AutoMigrate(models...)
 }

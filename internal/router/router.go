@@ -60,6 +60,7 @@ type Handlers struct {
 	PresetRule          *handler.PresetRuleHandler          // preset rules (预设规则)
 	AIRule              *handler.AIRuleHandler              // AI rule generation (AI 规则生成)
 	AlertmanagerImport  *handler.AlertmanagerImportHandler  // alertmanager config import
+	UserPreference      *handler.UserPreferenceHandler     // user preferences (用户偏好)
 }
 
 // Setup initializes the Gin router with all routes and middleware.

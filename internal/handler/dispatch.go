@@ -148,6 +148,22 @@ func (h *DispatchHandler) Update(c *gin.Context) {
 	Success(c, p)
 }
 
+// ListLogs returns dispatch logs for an incident.
+// GET /api/v1/incidents/:id/dispatch-logs
+func (h *DispatchHandler) ListLogs(c *gin.Context) {
+	incidentID, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	list, err := h.svc.ListLogsByIncident(c.Request.Context(), incidentID)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, list)
+}
+
 // Delete deletes a dispatch policy.
 // DELETE /api/v1/dispatch-policies/:id
 func (h *DispatchHandler) Delete(c *gin.Context) {

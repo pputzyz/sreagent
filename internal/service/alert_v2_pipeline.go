@@ -44,6 +44,10 @@ type AlertV2Pipeline struct {
 
 	// dispatchSvc applies dispatch policy label enhancements.
 	dispatchSvc *DispatchService
+
+	// incidentAggregator bridges AlertEvent lifecycle to Incident management.
+	// Optional — when set, called on firing/resolved events.
+	incidentAggregator *IncidentAggregator
 }
 
 // NewAlertV2Pipeline creates a new pipeline. Call SetDefaultChannelID before use.
@@ -70,6 +74,11 @@ func (p *AlertV2Pipeline) SetNoiseReducer(nr *NoiseReducer) {
 // SetDispatchService attaches a DispatchService for label enhancement.
 func (p *AlertV2Pipeline) SetDispatchService(svc *DispatchService) {
 	p.dispatchSvc = svc
+}
+
+// SetIncidentAggregator attaches an IncidentAggregator for fingerprint-based incident tracking.
+func (p *AlertV2Pipeline) SetIncidentAggregator(agg *IncidentAggregator) {
+	p.incidentAggregator = agg
 }
 
 // SetDefaultChannelID sets the collaboration channel ID to route alerts to.
@@ -226,9 +235,17 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 		if err := p.ensureIncident(ctx, alert, event); err != nil {
 			return fmt.Errorf("ensure incident: %w", err)
 		}
+		// 3a. Fingerprint-based incident aggregation (optional)
+		if p.incidentAggregator != nil {
+			p.incidentAggregator.OnEventFired(ctx, event)
+		}
 	} else {
 		if err := p.handleResolution(ctx, alert); err != nil {
 			return fmt.Errorf("handle resolution: %w", err)
+		}
+		// 3b. Fingerprint-based incident aggregation (optional)
+		if p.incidentAggregator != nil {
+			p.incidentAggregator.OnEventResolved(ctx, event)
 		}
 	}
 

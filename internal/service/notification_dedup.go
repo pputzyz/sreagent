@@ -7,10 +7,8 @@ import (
 
 // notifDedup is a lightweight in-memory dedup cache that prevents the same
 // notification (identified by a string key) from being sent more than once
-// within a short TTL window.  This solves the v1/v2 cross-pipeline duplicate
-// problem where the same alert event can match both a NotifyPolicy and a
-// SubscribeRule, causing the same physical channel to receive the notification
-// twice.
+// within a short TTL window.  This prevents duplicate notifications when the
+// same alert event matches both a NotifyRule and a SubscribeRule.
 type notifDedup struct {
 	mu   sync.Mutex
 	sent map[string]time.Time
@@ -41,6 +39,10 @@ func (d *notifDedup) cleanup() {
 		d.mu.Unlock()
 	}
 }
+
+// routeDedup prevents duplicate notifications from being dispatched within
+// a short time window (e.g. when both notify rules and subscriptions match).
+var routeDedup = newNotifDedup()
 
 // TrySend returns true if this notification key hasn't been sent recently,
 // and records it.  Returns false if the key was already seen within the TTL.

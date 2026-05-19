@@ -51,6 +51,12 @@ func NewNotifyRuleService(
 	}
 }
 
+// FindMatchingRules returns all enabled notify rules whose match_labels are a
+// subset of the event labels and whose severity filter matches.
+func (s *NotifyRuleService) FindMatchingRules(ctx context.Context, event *model.AlertEvent) ([]model.NotifyRule, error) {
+	return s.ruleRepo.FindMatchingRules(ctx, map[string]string(event.Labels), string(event.Severity))
+}
+
 // Create creates a new notify rule.
 func (s *NotifyRuleService) Create(ctx context.Context, rule *model.NotifyRule) error {
 	if err := s.ruleRepo.Create(ctx, rule); err != nil {

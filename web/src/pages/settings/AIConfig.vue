@@ -23,6 +23,8 @@ const form = reactive({
   temperature: 0.3,
   max_tokens: 1024,
   system_prompt: '',
+  retry_max: 2,
+  context_max_chars: 8000,
 })
 
 const providerOptions = computed(() => [
@@ -46,6 +48,8 @@ async function fetchConfig() {
       form.temperature = (d as Record<string, unknown>).temperature as number ?? 0.3
       form.max_tokens = (d as Record<string, unknown>).max_tokens as number ?? 1024
       form.system_prompt = ((d as Record<string, unknown>).system_prompt as string) || ''
+      form.retry_max = (d as Record<string, unknown>).retry_max as number ?? 2
+      form.context_max_chars = (d as Record<string, unknown>).context_max_chars as number ?? 8000
     }
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
@@ -150,6 +154,12 @@ onMounted(fetchConfig)
             </NFormItem>
             <NFormItem :label="t('settings.aiSystemPrompt')" class="full-row">
               <NInput v-model:value="form.system_prompt" type="textarea" :rows="4" :placeholder="t('settings.aiSystemPromptPlaceholder')" />
+            </NFormItem>
+            <NFormItem :label="t('settings.aiRetryMax')">
+              <NInputNumber v-model:value="form.retry_max" :min="0" :max="5" style="width: 100%" />
+            </NFormItem>
+            <NFormItem :label="t('settings.aiContextMaxChars')">
+              <NInputNumber v-model:value="form.context_max_chars" :min="1000" :max="50000" :step="1000" style="width: 100%" />
             </NFormItem>
           </div>
         </section>

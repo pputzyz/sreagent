@@ -264,6 +264,16 @@ func (r *AlertEventRepository) BulkClose(ctx context.Context, ids []uint) (int64
 	return result.RowsAffected, result.Error
 }
 
+// CountByFingerprintAndStatus counts events matching a fingerprint and status.
+func (r *AlertEventRepository) CountByFingerprintAndStatus(ctx context.Context, fingerprint string, status model.AlertEventStatus) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.AlertEvent{}).
+		Where("fingerprint = ? AND status = ?", fingerprint, status).
+		Count(&count).Error
+	return count, err
+}
+
 // AlertTimelineRepository handles alert timeline persistence.
 type AlertTimelineRepository struct {
 	db *gorm.DB

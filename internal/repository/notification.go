@@ -49,48 +49,6 @@ func (r *NotifyChannelRepository) ListByLabels(ctx context.Context, labels map[s
 	return matched, nil
 }
 
-// NotifyPolicyRepository handles notify_policies persistence.
-type NotifyPolicyRepository struct {
-	db *gorm.DB
-}
-
-func NewNotifyPolicyRepository(db *gorm.DB) *NotifyPolicyRepository {
-	return &NotifyPolicyRepository{db: db}
-}
-
-// FindMatchingPolicies returns all enabled policies where ALL match_labels are
-// a subset of the given alert labels, and the severity matches (or policy has no severity filter).
-func (r *NotifyPolicyRepository) FindMatchingPolicies(ctx context.Context, labels map[string]string, severity string) ([]model.NotifyPolicy, error) {
-	var allPolicies []model.NotifyPolicy
-	err := r.db.WithContext(ctx).
-		Preload("Channel").
-		Where("is_enabled = ?", true).
-		Order("priority DESC, id ASC").
-		Find(&allPolicies).Error
-	if err != nil {
-		return nil, err
-	}
-
-	var matched []model.NotifyPolicy
-	for _, policy := range allPolicies {
-		// Check label matching: ALL policy match_labels must be present in alert labels
-		if !labelsMatch(policy.MatchLabels, labels) {
-			continue
-		}
-
-		// Check severity filter
-		if policy.Severities != "" {
-			if !severityMatches(policy.Severities, severity) {
-				continue
-			}
-		}
-
-		matched = append(matched, policy)
-	}
-
-	return matched, nil
-}
-
 // NotifyRecordRepository handles notify_records persistence.
 type NotifyRecordRepository struct {
 	db *gorm.DB
