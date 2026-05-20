@@ -4,6 +4,27 @@
 
 ---
 
+## [v4.15.2] — 2026-05-21
+
+### PR9 — PromQL 真解析 + 校验顺序修正 + 错误类型分离 + 关键单测
+
+**后端**
+- `internal/service/rule_generator_improve.go`：`validatePromQLSyntax` 改用 `prometheus/prometheus/promql/parser.ParseExpr` 真解析（替换括号匹配）
+- `internal/service/rule_generator_improve.go`：`ImproveRule` 校验顺序修正 — LLM 前校验输入表达式、LLM 后校验输出表达式、语法错误直接阻断返回
+- `internal/service/rule_generator_dryrun.go`：`ValidateExpression` 区分 `syntax:` 和 `query:` 两类错误（先离线 parse 再查数据源）
+- `internal/service/alert_v2_pipeline_test.go`：新增 5 个 `buildAlertKey` 单测（跨数据源无碰撞、稳定性、标签排序、nil ID）
+- `internal/service/preset_rule_test.go`：新增 4 个 `autoMatchDatasource` 测试（空集群、匹配、无匹配、禁用数据源忽略）
+
+**前端**
+- `web/src/pages/ai/AgentView.vue`：`isPolling` computed 返回 `!!` 修复 `boolean | null` 类型错误
+- `web/src/pages/oncall/MyAlerts.vue`：`r.data?.items` 修正为 `r.data?.data?.list`（匹配 ApiResponse<PageData> 结构）
+- `web/src/pages/oncall/MyAlerts.vue`：`formatTime(t)` 参数 `t` 遮蔽 i18n `t` 函数，重命名为 `timeStr`
+
+**依赖**
+- 新增 `github.com/prometheus/prometheus v0.304.2`（promql/parser）
+
+---
+
 ## [v4.15.1] — 2026-05-20
 
 ### 代码审查修复 — Agent 并发安全 + DI 两阶段 + 异步执行 + i18n
