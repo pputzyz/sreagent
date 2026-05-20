@@ -270,6 +270,20 @@ func (h *AIHandler) SaveProviders(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	// Validate at least one provider is enabled.
+	hasEnabled := false
+	for _, p := range req.Providers {
+		if p.Enabled {
+			hasEnabled = true
+			break
+		}
+	}
+	if !hasEnabled {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "at least one AI provider must be enabled"))
+		return
+	}
+
 	if err := h.aiSvc.SaveProvidersConfig(c.Request.Context(), req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save AI providers: "+err.Error()))
 		return

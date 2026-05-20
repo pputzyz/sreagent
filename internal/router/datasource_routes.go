@@ -1,6 +1,10 @@
 package router
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/sreagent/sreagent/internal/middleware"
+)
 
 // registerDatasourceRoutes registers data source, label registry, and dashboard routes.
 func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, manage gin.HandlerFunc) {
@@ -9,9 +13,9 @@ func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, ma
 	{
 		ds.GET("", h.DataSource.List)
 		ds.GET("/:id", h.DataSource.Get)
-		ds.POST("", adminOnly, h.DataSource.Create)
-		ds.PUT("/:id", adminOnly, h.DataSource.Update)
-		ds.DELETE("/:id", adminOnly, h.DataSource.Delete)
+		ds.POST("", adminOnly, middleware.RequirePerm("datasource.write"), h.DataSource.Create)
+		ds.PUT("/:id", adminOnly, middleware.RequirePerm("datasource.write"), h.DataSource.Update)
+		ds.DELETE("/:id", adminOnly, middleware.RequirePerm("datasource.write"), h.DataSource.Delete)
 		ds.POST("/:id/health-check", manage, h.DataSource.HealthCheck)
 		ds.POST("/:id/query", manage, h.DataSource.Query)
 		ds.POST("/:id/query-range", manage, h.DataSource.RangeQuery)

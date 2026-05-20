@@ -8,6 +8,10 @@ import (
 	"github.com/sreagent/sreagent/internal/pkg/rbac"
 )
 
+// OnPermissionDenied is an optional callback invoked when RequirePerm denies access.
+// Wired at startup to enable audit logging of permission denials without circular imports.
+var OnPermissionDenied func(userID uint, perm string, path string)
+
 // RequirePerm returns a middleware that checks if the user's effective permissions
 // (global role + team roles) include the required permission.
 // For team-scoped endpoints, team roles can elevate permissions beyond the global role.
@@ -47,6 +51,17 @@ func RequirePerm(perm string) gin.HandlerFunc {
 					return
 				}
 			}
+		}
+
+		// Fire audit callback if wired (non-blocking, best-effort).
+		if OnPermissionDenied != nil {
+			var uid uint
+			if id, exists := c.Get(ContextKeyUserID); exists {
+				if idUint, ok := id.(uint); ok {
+					uid = idUint
+				}
+			}
+			OnPermissionDenied(uid, perm, c.Request.URL.Path)
 		}
 
 		c.JSON(http.StatusForbidden, gin.H{

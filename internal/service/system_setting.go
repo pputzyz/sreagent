@@ -331,6 +331,18 @@ func (s *SystemSettingService) GetProvidersConfig(ctx context.Context) (AIProvid
 // SaveProvidersConfig persists the multi-provider AI configuration to DB.
 // API keys within providers are encrypted before storage.
 func (s *SystemSettingService) SaveProvidersConfig(ctx context.Context, cfg AIProvidersConfig) error {
+	// Validate at least one provider is enabled.
+	hasEnabled := false
+	for _, p := range cfg.Providers {
+		if p.Enabled {
+			hasEnabled = true
+			break
+		}
+	}
+	if !hasEnabled {
+		return fmt.Errorf("at least one AI provider must be enabled")
+	}
+
 	// Encrypt the entire JSON blob (which contains api_key fields).
 	jsonBytes, err := json.Marshal(cfg)
 	if err != nil {

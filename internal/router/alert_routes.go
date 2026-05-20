@@ -2,6 +2,8 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/sreagent/sreagent/internal/middleware"
 )
 
 // registerAlertRoutes registers alert rule, alert event, heartbeat, and alert action routes.
@@ -16,14 +18,14 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 		rules.GET("/categories", h.AlertRule.ListCategories)
 		rules.GET("/export", h.AlertRule.Export)
 		rules.GET("/label-validation-preview", manage, h.AlertRule.LabelValidationPreview)
-		rules.POST("", manage, h.AlertRule.Create)
-		rules.PUT("/:id", manage, h.AlertRule.Update)
-		rules.DELETE("/:id", manage, h.AlertRule.Delete)
-		rules.PATCH("/:id/status", manage, h.AlertRule.ToggleStatus)
-		rules.POST("/import", manage, h.AlertRule.Import)
-		rules.POST("/batch/enable", manage, h.AlertRule.BatchEnable)
-		rules.POST("/batch/disable", manage, h.AlertRule.BatchDisable)
-		rules.POST("/batch/delete", manage, h.AlertRule.BatchDelete)
+		rules.POST("", manage, middleware.RequirePerm("rules.write"), h.AlertRule.Create)
+		rules.PUT("/:id", manage, middleware.RequirePerm("rules.write"), h.AlertRule.Update)
+		rules.DELETE("/:id", manage, middleware.RequirePerm("rules.write"), h.AlertRule.Delete)
+		rules.PATCH("/:id/status", manage, middleware.RequirePerm("rules.write"), h.AlertRule.ToggleStatus)
+		rules.POST("/import", manage, middleware.RequirePerm("rules.write"), h.AlertRule.Import)
+		rules.POST("/batch/enable", manage, middleware.RequirePerm("rules.write"), h.AlertRule.BatchEnable)
+		rules.POST("/batch/disable", manage, middleware.RequirePerm("rules.write"), h.AlertRule.BatchDisable)
+		rules.POST("/batch/delete", manage, middleware.RequirePerm("rules.write"), h.AlertRule.BatchDelete)
 		rules.GET("/:id/heartbeat-token", adminOnly, h.AlertRule.GetHeartbeatToken)
 	}
 

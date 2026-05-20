@@ -28,7 +28,8 @@ const (
 	AuditActionClose   = "close"
 	AuditActionSilence = "silence"
 	AuditActionComment = "comment"
-	AuditActionImport  = "import"
+	AuditActionImport           = "import"
+	AuditActionPermissionDenied = "permission_denied"
 )
 
 // Audit resource type constants.

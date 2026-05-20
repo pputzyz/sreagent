@@ -17,12 +17,12 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		mutes.GET("/preview", h.MuteRule.Preview)
 		mutes.GET("/:id", h.MuteRule.Get)
 		mutes.GET("/:id/preview", operate, h.MuteRule.PreviewOne)
-		mutes.POST("", manage, h.MuteRule.Create)
-		mutes.PUT("/:id", manage, h.MuteRule.Update)
-		mutes.DELETE("/:id", manage, h.MuteRule.Delete)
-		mutes.POST("/batch/enable", manage, h.MuteRule.BatchEnable)
-		mutes.POST("/batch/disable", manage, h.MuteRule.BatchDisable)
-		mutes.POST("/batch/delete", manage, h.MuteRule.BatchDelete)
+		mutes.POST("", manage, middleware.RequirePerm("mute.write"), h.MuteRule.Create)
+		mutes.PUT("/:id", manage, middleware.RequirePerm("mute.write"), h.MuteRule.Update)
+		mutes.DELETE("/:id", manage, middleware.RequirePerm("mute.write"), h.MuteRule.Delete)
+		mutes.POST("/batch/enable", manage, middleware.RequirePerm("mute.write"), h.MuteRule.BatchEnable)
+		mutes.POST("/batch/disable", manage, middleware.RequirePerm("mute.write"), h.MuteRule.BatchDisable)
+		mutes.POST("/batch/delete", manage, middleware.RequirePerm("mute.write"), h.MuteRule.BatchDelete)
 	}
 
 	// Inhibition Rules
@@ -31,9 +31,9 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			inhibitions.GET("", h.InhibitionRule.List)
 			inhibitions.GET("/:id", h.InhibitionRule.Get)
-			inhibitions.POST("", manage, h.InhibitionRule.Create)
-			inhibitions.PUT("/:id", manage, h.InhibitionRule.Update)
-			inhibitions.DELETE("/:id", manage, h.InhibitionRule.Delete)
+			inhibitions.POST("", manage, middleware.RequirePerm("inhibition.write"), h.InhibitionRule.Create)
+			inhibitions.PUT("/:id", manage, middleware.RequirePerm("inhibition.write"), h.InhibitionRule.Update)
+			inhibitions.DELETE("/:id", manage, middleware.RequirePerm("inhibition.write"), h.InhibitionRule.Delete)
 		}
 	}
 

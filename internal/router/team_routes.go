@@ -1,6 +1,10 @@
 package router
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/sreagent/sreagent/internal/middleware"
+)
 
 // registerTeamRoutes registers user, team, and business group routes.
 func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage gin.HandlerFunc) {
@@ -9,12 +13,12 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 	{
 		users.GET("", h.User.List)
 		users.GET("/:id", h.User.Get)
-		users.POST("", adminOnly, h.User.Create)
-		users.POST("/virtual", adminOnly, h.User.CreateVirtual)
-		users.PUT("/:id", adminOnly, h.User.Update)
-		users.PATCH("/:id/active", adminOnly, h.User.ToggleActive)
-		users.PATCH("/:id/password", adminOnly, h.User.ChangePassword)
-		users.DELETE("/:id", adminOnly, h.User.DeleteUser)
+		users.POST("", adminOnly, middleware.RequirePerm("user.write"), h.User.Create)
+		users.POST("/virtual", adminOnly, middleware.RequirePerm("user.write"), h.User.CreateVirtual)
+		users.PUT("/:id", adminOnly, middleware.RequirePerm("user.write"), h.User.Update)
+		users.PATCH("/:id/active", adminOnly, middleware.RequirePerm("user.write"), h.User.ToggleActive)
+		users.PATCH("/:id/password", adminOnly, middleware.RequirePerm("user.write"), h.User.ChangePassword)
+		users.DELETE("/:id", adminOnly, middleware.RequirePerm("user.write"), h.User.DeleteUser)
 	}
 
 	// Teams
@@ -23,11 +27,11 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 		teams.GET("", h.Team.List)
 		teams.GET("/:id", h.Team.Get)
 		teams.GET("/:id/members", h.Team.ListMembers)
-		teams.POST("", manage, h.Team.Create)
-		teams.PUT("/:id", manage, h.Team.Update)
-		teams.DELETE("/:id", manage, h.Team.Delete)
-		teams.POST("/:id/members", manage, h.Team.AddMember)
-		teams.DELETE("/:id/members/:uid", manage, h.Team.RemoveMember)
+		teams.POST("", manage, middleware.RequirePerm("team.write"), h.Team.Create)
+		teams.PUT("/:id", manage, middleware.RequirePerm("team.write"), h.Team.Update)
+		teams.DELETE("/:id", manage, middleware.RequirePerm("team.write"), h.Team.Delete)
+		teams.POST("/:id/members", manage, middleware.RequirePerm("team.write"), h.Team.AddMember)
+		teams.DELETE("/:id/members/:uid", manage, middleware.RequirePerm("team.write"), h.Team.RemoveMember)
 	}
 
 	// Business Groups

@@ -2,6 +2,8 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/sreagent/sreagent/internal/middleware"
 )
 
 // registerNotifyRoutes registers all notification-related routes:
@@ -12,12 +14,12 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 	{
 		notifyRules.GET("", h.NotifyRule.List)
 		notifyRules.GET("/:id", h.NotifyRule.Get)
-		notifyRules.POST("", manage, h.NotifyRule.Create)
-		notifyRules.PUT("/:id", manage, h.NotifyRule.Update)
-		notifyRules.DELETE("/:id", manage, h.NotifyRule.Delete)
-		notifyRules.POST("/batch/enable", manage, h.NotifyRule.BatchEnable)
-		notifyRules.POST("/batch/disable", manage, h.NotifyRule.BatchDisable)
-		notifyRules.POST("/batch/delete", manage, h.NotifyRule.BatchDelete)
+		notifyRules.POST("", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.Create)
+		notifyRules.PUT("/:id", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.Update)
+		notifyRules.DELETE("/:id", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.Delete)
+		notifyRules.POST("/batch/enable", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.BatchEnable)
+		notifyRules.POST("/batch/disable", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.BatchDisable)
+		notifyRules.POST("/batch/delete", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.BatchDelete)
 	}
 
 	// Notify Media
@@ -25,10 +27,10 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 	{
 		notifyMedia.GET("", h.NotifyMedia.List)
 		notifyMedia.GET("/:id", h.NotifyMedia.Get)
-		notifyMedia.POST("", manage, h.NotifyMedia.Create)
-		notifyMedia.PUT("/:id", manage, h.NotifyMedia.Update)
-		notifyMedia.DELETE("/:id", manage, h.NotifyMedia.Delete)
-		notifyMedia.POST("/:id/test", manage, h.NotifyMedia.Test)
+		notifyMedia.POST("", manage, middleware.RequirePerm("notify.write"), h.NotifyMedia.Create)
+		notifyMedia.PUT("/:id", manage, middleware.RequirePerm("notify.write"), h.NotifyMedia.Update)
+		notifyMedia.DELETE("/:id", manage, middleware.RequirePerm("notify.write"), h.NotifyMedia.Delete)
+		notifyMedia.POST("/:id/test", manage, middleware.RequirePerm("notify.write"), h.NotifyMedia.Test)
 	}
 
 	// Message Templates
@@ -36,9 +38,9 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 	{
 		msgTemplates.GET("", h.MessageTemplate.List)
 		msgTemplates.GET("/:id", h.MessageTemplate.Get)
-		msgTemplates.POST("", manage, h.MessageTemplate.Create)
-		msgTemplates.PUT("/:id", manage, h.MessageTemplate.Update)
-		msgTemplates.DELETE("/:id", manage, h.MessageTemplate.Delete)
+		msgTemplates.POST("", manage, middleware.RequirePerm("notify.write"), h.MessageTemplate.Create)
+		msgTemplates.PUT("/:id", manage, middleware.RequirePerm("notify.write"), h.MessageTemplate.Update)
+		msgTemplates.DELETE("/:id", manage, middleware.RequirePerm("notify.write"), h.MessageTemplate.Delete)
 		msgTemplates.POST("/preview", h.MessageTemplate.Preview)
 	}
 
@@ -58,10 +60,10 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 		{
 			alertChannels.GET("", h.AlertChannel.List)
 			alertChannels.GET("/:id", h.AlertChannel.Get)
-			alertChannels.POST("", manage, h.AlertChannel.Create)
-			alertChannels.PUT("/:id", manage, h.AlertChannel.Update)
-			alertChannels.DELETE("/:id", manage, h.AlertChannel.Delete)
-			alertChannels.POST("/:id/test", manage, h.AlertChannel.Test)
+			alertChannels.POST("", manage, middleware.RequirePerm("channels.write"), h.AlertChannel.Create)
+			alertChannels.PUT("/:id", manage, middleware.RequirePerm("channels.write"), h.AlertChannel.Update)
+			alertChannels.DELETE("/:id", manage, middleware.RequirePerm("channels.write"), h.AlertChannel.Delete)
+			alertChannels.POST("/:id/test", manage, middleware.RequirePerm("channels.write"), h.AlertChannel.Test)
 		}
 	}
 
