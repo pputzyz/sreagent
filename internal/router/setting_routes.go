@@ -56,6 +56,12 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		if h.Agent != nil {
 			ai.POST("/agent/run", aiRL, h.Agent.RunAgent)
 			ai.GET("/agent/tasks/:id", h.Agent.GetAgentTask)
+
+			// Agent 会话持久化
+			ai.GET("/agent/conversations", h.Agent.ListConversations)
+			ai.GET("/agent/conversations/:id", h.Agent.GetConversation)
+			ai.DELETE("/agent/conversations/:id", h.Agent.DeleteConversation)
+			ai.GET("/agent/conversations/:id/tool-calls", h.Agent.ListToolCalls)
 		}
 	}
 

@@ -10,18 +10,22 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/repository"
 )
 
 // AgentTask 表示一个 Agent 任务
 type AgentTask struct {
-	ID          string      `json:"id"`
-	Query       string      `json:"query"`
-	Status      string      `json:"status"` // planning, executing, completed, failed
-	Steps       []AgentStep `json:"steps"`
-	Result      string      `json:"result"`
-	Error       string      `json:"error,omitempty"`
-	CreatedAt   time.Time   `json:"created_at"`
-	CompletedAt *time.Time  `json:"completed_at,omitempty"`
+	ID             string      `json:"id"`
+	ConversationID uint        `json:"conversation_id,omitempty"`
+	Query          string      `json:"query"`
+	Status         string      `json:"status"` // planning, executing, completed, failed
+	Steps          []AgentStep `json:"steps"`
+	Result         string      `json:"result"`
+	Error          string      `json:"error,omitempty"`
+	CreatedAt      time.Time   `json:"created_at"`
+	CompletedAt    *time.Time  `json:"completed_at,omitempty"`
 }
 
 // AgentStep 表示 Agent 执行的一步
@@ -37,22 +41,24 @@ type AgentStep struct {
 
 // AgentService 管理 Agent 任务的规划与执行
 type AgentService struct {
-	aiSvc   *AIService
-	toolReg *AIToolRegistry
-	logger  *zap.Logger
+	aiSvc    *AIService
+	toolReg  *AIToolRegistry
+	convRepo *repository.AIConversationRepository
+	logger   *zap.Logger
 
-	// 内存任务存储（生产环境可替换为 Redis/DB）
+	// 内存任务存储（用于快速轮询，DB 用于持久化）
 	mu    sync.RWMutex
 	tasks map[string]*AgentTask
 }
 
 // NewAgentService 创建 Agent 服务
-func NewAgentService(aiSvc *AIService, toolReg *AIToolRegistry, logger *zap.Logger) *AgentService {
+func NewAgentService(aiSvc *AIService, convRepo *repository.AIConversationRepository, toolReg *AIToolRegistry, logger *zap.Logger) *AgentService {
 	s := &AgentService{
-		aiSvc:   aiSvc,
-		toolReg: toolReg,
-		logger:  logger,
-		tasks:   make(map[string]*AgentTask),
+		aiSvc:    aiSvc,
+		toolReg:  toolReg,
+		convRepo: convRepo,
+		logger:   logger,
+		tasks:    make(map[string]*AgentTask),
 	}
 	// 定期清理过期任务，防止 OOM
 	go s.cleanupLoop()
@@ -99,13 +105,27 @@ type planStep struct {
 }
 
 // StartAgent 异步启动 Agent 任务，立即返回任务 ID，后台执行完成后前端轮询获取结果
-func (s *AgentService) StartAgent(query string) (*AgentTask, error) {
+func (s *AgentService) StartAgent(userID uint, query string) (*AgentTask, error) {
 	task := &AgentTask{
 		ID:        uuid.New().String(),
 		Query:     query,
 		Status:    "planning",
 		Steps:     nil,
 		CreatedAt: time.Now(),
+	}
+
+	// 持久化会话到 DB
+	if s.convRepo != nil {
+		conv := &model.AIConversation{
+			UserID: userID,
+			Title:  truncateString(query, 100),
+			Status: "active",
+		}
+		if err := s.convRepo.Create(context.Background(), conv); err != nil {
+			s.logger.Warn("创建 AI 会话失败", zap.Error(err))
+		} else {
+			task.ConversationID = conv.ID
+		}
 	}
 
 	s.mu.Lock()
@@ -122,13 +142,27 @@ func (s *AgentService) StartAgent(query string) (*AgentTask, error) {
 }
 
 // RunAgent 执行一个 Agent 任务（同步模式，创建新任务并执行）
-func (s *AgentService) RunAgent(ctx context.Context, query string) (*AgentTask, error) {
+func (s *AgentService) RunAgent(ctx context.Context, userID uint, query string) (*AgentTask, error) {
 	task := &AgentTask{
 		ID:        uuid.New().String(),
 		Query:     query,
 		Status:    "planning",
 		Steps:     nil,
 		CreatedAt: time.Now(),
+	}
+
+	// 持久化会话到 DB
+	if s.convRepo != nil {
+		conv := &model.AIConversation{
+			UserID: userID,
+			Title:  truncateString(query, 100),
+			Status: "active",
+		}
+		if err := s.convRepo.Create(ctx, conv); err != nil {
+			s.logger.Warn("创建 AI 会话失败", zap.Error(err))
+		} else {
+			task.ConversationID = conv.ID
+		}
 	}
 
 	s.mu.Lock()
@@ -175,7 +209,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		step.Status = "running"
 		startTime := time.Now()
 
-		err := s.executeStep(ctx, step)
+		err := s.executeStep(ctx, task, step)
 		step.Duration = time.Since(startTime).Milliseconds()
 
 		if err != nil {
@@ -223,6 +257,38 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 
 	s.logger.Info("Agent 任务完成", zap.String("id", task.ID))
 	return task, nil
+}
+
+// ListConversations returns paginated conversations for a user.
+func (s *AgentService) ListConversations(ctx context.Context, userID uint, page, pageSize int) ([]model.AIConversation, int64, error) {
+	if s.convRepo == nil {
+		return nil, 0, nil
+	}
+	return s.convRepo.ListByUser(ctx, userID, page, pageSize)
+}
+
+// GetConversation returns a conversation by ID.
+func (s *AgentService) GetConversation(ctx context.Context, id uint) (*model.AIConversation, error) {
+	if s.convRepo == nil {
+		return nil, fmt.Errorf("conversation repository not available")
+	}
+	return s.convRepo.GetByID(ctx, id)
+}
+
+// DeleteConversation soft-deletes a conversation.
+func (s *AgentService) DeleteConversation(ctx context.Context, id uint) error {
+	if s.convRepo == nil {
+		return fmt.Errorf("conversation repository not available")
+	}
+	return s.convRepo.Delete(ctx, id)
+}
+
+// ListToolCalls returns all tool calls for a conversation.
+func (s *AgentService) ListToolCalls(ctx context.Context, conversationID uint) ([]model.AIToolCall, error) {
+	if s.convRepo == nil {
+		return nil, nil
+	}
+	return s.convRepo.ListToolCalls(ctx, conversationID)
 }
 
 // GetTask 获取任务详情
@@ -291,10 +357,28 @@ func (s *AgentService) planSteps(ctx context.Context, query string) ([]AgentStep
 }
 
 // executeStep 执行单个步骤
-func (s *AgentService) executeStep(ctx context.Context, step *AgentStep) error {
+func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *AgentStep) error {
 	tool, ok := s.toolReg.Get(step.Tool)
 	if !ok {
 		return fmt.Errorf("工具 %q 不存在", step.Tool)
+	}
+
+	// 持久化工具调用记录
+	var callID uint
+	if s.convRepo != nil && task.ConversationID > 0 {
+		paramsBytes, _ := json.Marshal(step.Parameters)
+		call := &model.AIToolCall{
+			ConversationID: task.ConversationID,
+			StepIndex:      step.Index,
+			ToolName:       step.Tool,
+			Parameters:     string(paramsBytes),
+			Status:         "running",
+		}
+		if err := s.convRepo.CreateToolCall(ctx, call); err != nil {
+			s.logger.Warn("保存工具调用记录失败", zap.Error(err))
+		} else {
+			callID = call.ID
+		}
 	}
 
 	// 工具执行超时 30s
@@ -303,9 +387,28 @@ func (s *AgentService) executeStep(ctx context.Context, step *AgentStep) error {
 
 	result, err := tool.Execute(toolCtx, step.Parameters)
 	if err != nil {
+		// 更新调用记录状态
+		if callID > 0 {
+			_ = s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
+				ID:       callID,
+				Status:   "failed",
+				Error:    err.Error(),
+				DurationMs: step.Duration,
+			})
+		}
 		return fmt.Errorf("工具 %q 执行失败: %w", step.Tool, err)
 	}
 	step.Result = result
+
+	// 更新调用记录
+	if callID > 0 {
+		_ = s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
+			ID:         callID,
+			Result:     truncateString(result, 5000),
+			Status:     "completed",
+			DurationMs: step.Duration,
+		})
+	}
 	return nil
 }
 

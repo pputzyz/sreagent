@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -36,7 +38,9 @@ func (h *AgentHandler) RunAgent(c *gin.Context) {
 	}
 
 	// 异步执行：立即返回任务 ID，前端轮询状态
-	task, err := h.agentSvc.StartAgent(req.Query)
+	uid, _ := c.Get("user_id")
+	userID, _ := uid.(uint)
+	task, err := h.agentSvc.StartAgent(userID, req.Query)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "Agent 启动失败: "+err.Error()))
 		return
@@ -67,4 +71,94 @@ func (h *AgentHandler) GetAgentTask(c *gin.Context) {
 	}
 
 	Success(c, task)
+}
+
+// ListConversations godoc
+// @Summary 列出 AI 会话
+// @Tags AI Agent
+// @Produce json
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(20)
+// @Success 200 {object} handler.SuccessResponse
+// @Router /ai/agent/conversations [get]
+func (h *AgentHandler) ListConversations(c *gin.Context) {
+	pq := GetPageQuery(c)
+	uid, _ := c.Get("user_id")
+	userID, _ := uid.(uint)
+
+	convs, total, err := h.agentSvc.ListConversations(c.Request.Context(), userID, pq.Page, pq.PageSize)
+	if err != nil {
+		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+		return
+	}
+
+	Success(c, gin.H{"list": convs, "total": total})
+}
+
+// GetConversation godoc
+// @Summary 获取 AI 会话详情
+// @Tags AI Agent
+// @Produce json
+// @Param id path int true "会话 ID"
+// @Success 200 {object} model.AIConversation
+// @Router /ai/agent/conversations/{id} [get]
+func (h *AgentHandler) GetConversation(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
+		return
+	}
+
+	conv, err := h.agentSvc.GetConversation(c.Request.Context(), uint(id))
+	if err != nil {
+		Error(c, apperr.ErrNotFound)
+		return
+	}
+
+	Success(c, conv)
+}
+
+// DeleteConversation godoc
+// @Summary 删除 AI 会话
+// @Tags AI Agent
+// @Produce json
+// @Param id path int true "会话 ID"
+// @Success 200
+// @Router /ai/agent/conversations/{id} [delete]
+func (h *AgentHandler) DeleteConversation(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
+		return
+	}
+
+	if err := h.agentSvc.DeleteConversation(c.Request.Context(), uint(id)); err != nil {
+		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+		return
+	}
+
+	Success(c, nil)
+}
+
+// ListToolCalls godoc
+// @Summary 列出会话的工具调用记录
+// @Tags AI Agent
+// @Produce json
+// @Param id path int true "会话 ID"
+// @Success 200 {array} model.AIToolCall
+// @Router /ai/agent/conversations/{id}/tool-calls [get]
+func (h *AgentHandler) ListToolCalls(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
+		return
+	}
+
+	calls, err := h.agentSvc.ListToolCalls(c.Request.Context(), uint(id))
+	if err != nil {
+		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+		return
+	}
+
+	Success(c, calls)
 }

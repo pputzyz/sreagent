@@ -149,6 +149,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Chat history repository
 	chatHistoryRepo := repository.NewChatHistoryRepository(db)
 
+	// AI conversation repository
+	aiConvRepo := repository.NewAIConversationRepository(db)
+
 	// Preset rule repository
 	presetRuleRepo := repository.NewPresetRuleRepository(db)
 
@@ -234,7 +237,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
 
 	// AI Agent service (Phase 3 — 自主执行能力)
-	agentSvc := service.NewAgentService(aiSvc, nil, zapLogger)
+	agentSvc := service.NewAgentService(aiSvc, aiConvRepo, nil, zapLogger)
 
 	// Alertmanager config import service
 	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, zapLogger)
