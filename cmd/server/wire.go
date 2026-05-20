@@ -61,6 +61,7 @@ type Dependencies struct {
 	// Optional
 	RedisClient *sredis.Client
 	StateStore  engine.StateStore
+	Leader      engine.LeaderElection // nil if no Redis or single-instance
 
 	// Handlers (for router)
 	Handlers *router.Handlers
@@ -303,6 +304,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Initialize and start the heartbeat checker
 	heartbeatChecker := engine.NewHeartbeatChecker(ruleRepo, eventRepo, timelineRepo, zapLogger)
+	if cfg.Engine.HeartbeatInterval > 0 {
+		heartbeatChecker.SetInterval(time.Duration(cfg.Engine.HeartbeatInterval) * time.Second)
+	}
 
 	// Initialize alert group manager (group_wait / group_interval)
 	alertGroupMgr := service.NewAlertGroupManager(
@@ -395,7 +399,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Wire the heartbeat checker into the notification pipeline.
 	heartbeatChecker.SetOnAlert(onAlertFn)
-	heartbeatChecker.Start()
 
 	// Initialize alert evaluator
 	var engineHandler *handler.EngineHandler
@@ -414,10 +417,21 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		}
 		evaluator.SetPerDatasourceEval(cfg.Engine.PerDatasourceEval)
 		evaluator.SetOnAlert(onAlertFn)
+
+		// Leader election: only one instance evaluates rules at a time
+		if d.RedisClient != nil {
+			leader := engine.NewRedisLeaderElection(d.RedisClient.Raw(), zapLogger)
+			evaluator.SetLeaderElection(leader)
+			heartbeatChecker.SetLeaderElection(leader)
+			d.Leader = leader
+		}
+
 		evaluator.Start()
 
 		engineHandler = handler.NewEngineHandler(evaluator)
 	}
+
+	heartbeatChecker.Start()
 
 	// --------------- Services (stats) ---------------
 	dashboardStatsSvc := service.NewDashboardStatsService(db, zapLogger)

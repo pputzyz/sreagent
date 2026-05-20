@@ -167,6 +167,7 @@ type EngineStatus struct {
 	TotalRules   int    `json:"total_rules"`
 	ActiveAlerts int    `json:"active_alerts"`
 	Uptime       string `json:"uptime"`
+	IsLeader     bool   `json:"is_leader"`
 }
 
 // Evaluator manages all rule evaluators.
@@ -191,6 +192,7 @@ type Evaluator struct {
 	syncInterval time.Duration
 	perDS        sync.Map           // map[uint]*PerDatasourceEvaluator, key is datasourceID
 	perDSEval    bool               // feature flag: per-datasource bucket evaluation
+	leader       LeaderElection     // optional; nil = single-instance mode (no election)
 }
 
 // AlertWorkerPoolSubmiter is the subset of AlertWorkerPool used by the evaluator.
@@ -234,6 +236,12 @@ func (e *Evaluator) SetSyncInterval(d time.Duration) {
 // SetPerDatasourceEval enables/disables per-datasource bucket evaluation.
 func (e *Evaluator) SetPerDatasourceEval(enabled bool) {
 	e.perDSEval = enabled
+}
+
+// SetLeaderElection sets an optional distributed leader election mechanism.
+// When set, only the leader instance will run rule evaluators.
+func (e *Evaluator) SetLeaderElection(le LeaderElection) {
+	e.leader = le
 }
 
 // buildEvaluatorDeps bundles current Evaluator fields into evaluatorDeps for PerDatasourceEvaluator.
@@ -311,8 +319,19 @@ func (e *Evaluator) Start() {
 	e.suppressor.SetLogger(e.logger)
 	e.suppressor.Start()
 
-	// Initial sync
-	e.syncRules()
+	// Leader election: try to acquire and start renewal
+	if e.leader != nil {
+		acquired := e.leader.TryAcquire(e.ctx)
+		e.leader.Start(e.ctx)
+		if !acquired {
+			e.logger.Info("evaluator waiting for leadership (standby mode)")
+		} else {
+			e.syncRules()
+		}
+	} else {
+		// Single-instance mode — no election needed
+		e.syncRules()
+	}
 
 	// Periodic sync loop
 	go func() {
@@ -322,6 +341,11 @@ func (e *Evaluator) Start() {
 		for {
 			select {
 			case <-ticker.C:
+				if e.leader != nil && !e.leader.IsLeader() {
+					// Not leader — stop any running evaluators and skip sync
+					e.stopAllEvaluators()
+					continue
+				}
 				e.syncRules()
 			case <-e.stopCh:
 				return
@@ -340,6 +364,11 @@ func (e *Evaluator) Stop() {
 		return
 	default:
 		close(e.stopCh)
+	}
+
+	// Release leadership first — other instances can take over immediately
+	if e.leader != nil {
+		e.leader.Stop()
 	}
 
 	// Stop level suppressor GC
@@ -564,6 +593,37 @@ func (e *Evaluator) stopRuleEvaluator(ruleID uint) {
 	}
 }
 
+// stopAllEvaluators stops all running evaluators and clears the maps.
+// Used when leadership is lost to avoid duplicate evaluations.
+func (e *Evaluator) stopAllEvaluators() {
+	e.mu.Lock()
+	evaluators := make(map[uint]*RuleEvaluator, len(e.evaluators))
+	for id, re := range e.evaluators {
+		evaluators[id] = re
+	}
+	e.evaluators = make(map[uint]*RuleEvaluator)
+	e.mu.Unlock()
+
+	for _, re := range evaluators {
+		re.Stop()
+	}
+
+	// Also clear per-datasource evaluators
+	if e.perDSEval {
+		e.perDS.Range(func(key, value interface{}) bool {
+			if bucket, ok := value.(*PerDatasourceEvaluator); ok {
+				bucket.Stop()
+			}
+			e.perDS.Delete(key)
+			return true
+		})
+	}
+
+	if len(evaluators) > 0 {
+		e.logger.Info("stopped all evaluators (leadership lost)", zap.Int("count", len(evaluators)))
+	}
+}
+
 // GetFiringEvents returns a snapshot of all currently firing alert states
 // across all active rule evaluators. This is a cheap in-memory operation
 // that replaces the costly DB scan of eventSvc.List("firing").
@@ -635,10 +695,16 @@ func (e *Evaluator) GetStatus() EngineStatus {
 		uptime = time.Since(e.startedAt).Truncate(time.Second).String()
 	}
 
+	isLeader := e.leader == nil // single-instance mode = always leader
+	if e.leader != nil {
+		isLeader = e.leader.IsLeader()
+	}
+
 	return EngineStatus{
 		Running:      running,
 		TotalRules:   len(e.evaluators),
 		ActiveAlerts: activeAlerts,
 		Uptime:       uptime,
+		IsLeader:     isLeader,
 	}
 }

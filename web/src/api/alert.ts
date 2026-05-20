@@ -143,7 +143,7 @@ export const alertExportApi = {
 // ===== Engine API =====
 export const engineApi = {
   getStatus: () =>
-    request.get<ApiResponse<{ running: boolean; total_rules: number; active_alerts: number; uptime: string }>>('/engine/status'),
+    request.get<ApiResponse<{ running: boolean; total_rules: number; active_alerts: number; uptime: string; is_leader: boolean }>>('/engine/status'),
 }
 
 // ===== Expression Test / Query =====

@@ -2149,6 +2149,7 @@ export default {
     greeting: '你好，{name}',
     engineRunning: '引擎运行 {days} 天',
     engineDown: '引擎已停止',
+    engineStandby: '待机（从节点）',
     noOnCallToday: '今天无值班安排',
     onCallNow: '当前值班：{name}',
     moduleStatus: '模块状态',

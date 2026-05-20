@@ -25,6 +25,7 @@ type EngineConfig struct {
 	Enabled            bool `mapstructure:"enabled"`               // default true
 	SyncInterval       int  `mapstructure:"sync_interval"`         // how often to sync rules from DB (seconds, default 30)
 	PerDatasourceEval  bool `mapstructure:"per_datasource_eval"`   // per-datasource bucket evaluation (default false = legacy)
+	HeartbeatInterval  int  `mapstructure:"heartbeat_interval"`    // heartbeat check interval (seconds, default 60)
 }
 
 type ServerConfig struct {

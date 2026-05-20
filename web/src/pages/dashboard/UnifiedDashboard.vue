@@ -296,6 +296,7 @@ function resetPinned() {
 const loading = ref(true)
 const engineOk = ref(false)
 const engineUptime = ref('')
+const engineIsLeader = ref(true) // default true for single-instance mode
 const activeIncidents = ref<Incident[]>([])
 const recentIncidents = ref<Incident[]>([])
 const firingAlerts = ref<AlertGroupItem[]>([])
@@ -432,6 +433,7 @@ async function load() {
       const d = engineRes.value.data.data
       engineOk.value = d.running
       engineUptime.value = d.uptime || ''
+      engineIsLeader.value = d.is_leader !== false
     }
     if (statsRes.status === 'fulfilled') {
       const d = statsRes.value.data.data
@@ -594,6 +596,10 @@ onMounted(load)
                 <span v-else class="gc-badge gc-badge--down">
                   <span class="dot dot-critical"></span>
                   {{ t('homepage.engineDown') }}
+                </span>
+                <span v-if="engineOk && !engineIsLeader" class="gc-badge gc-badge--standby">
+                  <span class="dot dot-standby"></span>
+                  {{ t('homepage.engineStandby') }}
                 </span>
               </div>
             </div>
@@ -857,6 +863,9 @@ onMounted(load)
 .gc-badge--ok .dot { background: var(--sre-success); box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
 .gc-badge--down { color: var(--sre-critical); background: rgba(239,68,68,0.08); }
 .gc-badge--down .dot { background: var(--sre-critical); box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
+.gc-badge--standby { color: var(--sre-warning); background: rgba(234,179,8,0.08); }
+.gc-badge--standby .dot { background: var(--sre-warning); box-shadow: 0 0 0 3px rgba(234,179,8,0.12); }
+.dot-standby { background: var(--sre-warning); }
 
 /* ===== Module Strip ===== */
 .module-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }

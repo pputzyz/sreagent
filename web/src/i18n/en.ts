@@ -2128,6 +2128,7 @@ export default {
     greeting: 'Hello, {name}',
     engineRunning: 'Engine running for {days} days',
     engineDown: 'Engine is down',
+    engineStandby: 'Standby (follower)',
     noOnCallToday: 'No on-call today',
     onCallNow: 'On-call: {name}',
     moduleStatus: 'Module Status',

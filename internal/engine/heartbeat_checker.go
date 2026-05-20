@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -24,6 +25,7 @@ type HeartbeatChecker struct {
 	eventRepo    *repository.AlertEventRepository
 	timelineRepo *repository.AlertTimelineRepository
 	onAlert      func(ctx context.Context, event *model.AlertEvent)
+	leader       LeaderElection // optional; nil = always run
 	logger       *zap.Logger
 
 	interval time.Duration
@@ -56,6 +58,12 @@ func (h *HeartbeatChecker) SetOnAlert(fn func(ctx context.Context, event *model.
 	h.onAlert = fn
 }
 
+// SetLeaderElection sets an optional distributed leader election mechanism.
+// When set, only the leader instance will run heartbeat checks.
+func (h *HeartbeatChecker) SetLeaderElection(le LeaderElection) {
+	h.leader = le
+}
+
 // Start runs the heartbeat check loop in a background goroutine.
 func (h *HeartbeatChecker) Start() {
 	go func() {
@@ -65,6 +73,9 @@ func (h *HeartbeatChecker) Start() {
 		for {
 			select {
 			case <-ticker.C:
+				if h.leader != nil && !h.leader.IsLeader() {
+					continue
+				}
 				ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
 				h.runOnce(ctx)
 				cancel()
@@ -92,6 +103,7 @@ func (h *HeartbeatChecker) runOnce(ctx context.Context) {
 	rules, _, err := h.ruleRepo.ListHeartbeat(ctx)
 	if err != nil {
 		h.logger.Error("heartbeat: failed to list heartbeat rules", zap.Error(err))
+		metrics.IncHeartbeatChecks("error")
 		return
 	}
 
@@ -106,11 +118,14 @@ func (h *HeartbeatChecker) runOnce(ctx context.Context) {
 		}
 	}
 
+	metrics.SetHeartbeatActiveRules(len(enabled))
+
 	eventMap, err := h.eventRepo.GetLatestByFingerprints(ctx, fingerprints)
 	if err != nil {
 		h.logger.Error("heartbeat: failed to batch-load events, falling back to per-rule queries",
 			zap.Error(err),
 		)
+		metrics.IncHeartbeatChecks("error")
 		// Fallback: per-rule query (original behaviour).
 		now := time.Now()
 		for _, rule := range enabled {
@@ -206,6 +221,7 @@ func (h *HeartbeatChecker) fireHeartbeatAlert(ctx context.Context, rule *model.A
 		zap.Uint("rule_id", rule.ID),
 		zap.String("fingerprint", fingerprint),
 	)
+	metrics.IncHeartbeatChecks("missed")
 
 	// Record in timeline
 	h.recordTimeline(ctx, event.ID, "Heartbeat alert fired — ping timeout exceeded")
@@ -227,6 +243,7 @@ func (h *HeartbeatChecker) resolveHeartbeatAlert(ctx context.Context, event *mod
 	}
 	h.recordTimeline(ctx, event.ID, "Heartbeat recovered — ping received")
 	h.logger.Info("heartbeat alert resolved", zap.Uint("event_id", event.ID))
+	metrics.IncHeartbeatChecks("resolved")
 }
 
 // recordTimeline appends a heartbeat action to the event timeline.

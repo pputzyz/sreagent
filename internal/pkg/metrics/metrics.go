@@ -46,6 +46,32 @@ var (
 		},
 		[]string{"provider", "direction"},
 	)
+
+	// engineLeaderStatus indicates whether this instance is the engine leader (1) or not (0).
+	engineLeaderStatus = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "sreagent_engine_leader_status",
+			Help: "Whether this instance is the engine leader (1) or follower (0)",
+		},
+	)
+
+	// heartbeatChecksTotal counts heartbeat check passes.
+	// Labels: result (string: "ok", "missed", "resolved", "error")
+	heartbeatChecksTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sreagent_heartbeat_checks_total",
+			Help: "Total number of heartbeat checks performed",
+		},
+		[]string{"result"},
+	)
+
+	// heartbeatActiveRules gauges the number of active heartbeat rules being monitored.
+	heartbeatActiveRules = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "sreagent_heartbeat_active_rules",
+			Help: "Number of active heartbeat rules being monitored",
+		},
+	)
 )
 
 func init() {
@@ -53,6 +79,9 @@ func init() {
 	prometheus.MustRegister(notificationsSentTotal)
 	prometheus.MustRegister(escalationStepsTotal)
 	prometheus.MustRegister(aiTokensUsedTotal)
+	prometheus.MustRegister(engineLeaderStatus)
+	prometheus.MustRegister(heartbeatChecksTotal)
+	prometheus.MustRegister(heartbeatActiveRules)
 }
 
 // IncAlertsEvaluated increments the alert evaluation counter.
@@ -84,4 +113,24 @@ func IncAITokensUsed(provider, direction string, count int) {
 	if count > 0 {
 		aiTokensUsedTotal.WithLabelValues(provider, direction).Add(float64(count))
 	}
+}
+
+// SetEngineLeaderStatus sets the engine leader status gauge (1 = leader, 0 = follower).
+func SetEngineLeaderStatus(isLeader bool) {
+	if isLeader {
+		engineLeaderStatus.Set(1)
+	} else {
+		engineLeaderStatus.Set(0)
+	}
+}
+
+// IncHeartbeatChecks increments the heartbeat check counter.
+// result is one of: "ok", "missed", "resolved", "error".
+func IncHeartbeatChecks(result string) {
+	heartbeatChecksTotal.WithLabelValues(result).Inc()
+}
+
+// SetHeartbeatActiveRules sets the number of active heartbeat rules being monitored.
+func SetHeartbeatActiveRules(count int) {
+	heartbeatActiveRules.Set(float64(count))
 }

@@ -6,6 +6,25 @@
 
 ## [v4.14.0] — 2026-05-20
 
+### Added — Sprint 3: High Availability + Cleanup
+
+**Leader Election（S3.1）**
+- `engine/leader_election.go`：Redis-based distributed leader election（SET NX EX + Lua atomic release）
+- `RedisLeaderElection`：15s TTL，5s 续期，自动重新竞选
+- `Evaluator.SetLeaderElection`：非 leader 实例暂停所有 rule evaluator，leader 恢复时自动重启
+- `HeartbeatChecker.SetLeaderElection`：非 leader 跳过心跳检查
+- `EngineStatus` 新增 `is_leader` 字段，`GET /engine/status` 返回 leader 状态
+- Prometheus gauge `sreagent_engine_leader_status`（1=leader, 0=follower）
+- 首页 Dashboard 显示待机（follower）徽章
+
+**Heartbeat Checker 增强（S3.2）**
+- `EngineConfig.HeartbeatInterval`：配置化心跳检查间隔（秒，默认 60）
+- Prometheus counter `sreagent_heartbeat_checks_total`（labels: result=ok/missed/resolved/error）
+- Prometheus gauge `sreagent_heartbeat_active_rules`：当前监控的活跃心跳规则数
+
+**Tech Debt（S3.3）**
+- `go vet` / `vue-tsc` / `vite build` 全部通过，无 dead code
+
 ### Added — Sprint 2: AI Intelligence + Observability
 
 **AI 增强（S2.1-S2.2）**
