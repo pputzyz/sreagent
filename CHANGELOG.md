@@ -4,6 +4,22 @@
 
 ---
 
+## [v4.15.4] — 2026-05-21
+
+### P1.3 + P1.4 — 知识库服务 + AI Agent 会话持久化
+
+**后端**
+- 新增 `knowledge_documents` 表（迁移 000054）：MySQL FULLTEXT ngram 全文检索
+- 新增 KnowledgeDocument 模型 / KnowledgeRepository / KnowledgeBaseService / KnowledgeHandler
+- 注册 `search_knowledge` AI 工具（支持 query/source/top_k 参数）
+- 新增 `ai_conversations` + `ai_tool_calls` 表（迁移 000055）
+- 新增 AIConversation / AIToolCall 模型 / AIConversationRepository
+- AgentService 集成 DB 持久化：启动时创建会话，执行时记录工具调用
+- 新增 API: `GET/POST/PUT/DELETE /knowledge`, `POST /knowledge/search`, `POST /knowledge/:id/helpful`
+- 新增 API: `GET/DELETE /ai/agent/conversations`, `GET /ai/agent/conversations/:id/tool-calls`
+
+---
+
 ## [v4.15.3] — 2026-05-21
 
 ### 紧急修复 — Migration 000049 启动崩溃
