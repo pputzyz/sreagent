@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { reactive, ref, shallowRef, computed, onMounted, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, h } from 'vue'
 import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { subscribeRuleApi, notifyRuleApi, userApi, teamApi } from '@/api'
 import type { SubscribeRule, NotifyRule, User, Team } from '@/types'
 import { getErrorMessage } from '@/utils/format'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import { AddOutline, SearchOutline, NotificationsOutline } from '@vicons/ionicons5'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -13,29 +15,86 @@ import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const subscriptions = shallowRef<SubscribeRule[]>([])
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
-const search = ref('')
+function recordToMatchers(record: Record<string, string> | undefined): LabelMatcher[] {
+  return Object.entries(record || {}).map(([key, raw]) => {
+    for (const op of ['!=', '=~', '!~'] as const) {
+      if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
+    }
+    return { key, op: '=' as const, value: raw }
+  })
+}
+
+function matchersToRecord(matchers: LabelMatcher[]): Record<string, string> {
+  return Object.fromEntries((matchers || []).map(m => {
+    const v = m.op === '=' ? m.value : `${m.op}${m.value}`
+    return [m.key, v]
+  }))
+}
+
+const crud = useCrudPage<SubscribeRule>({
+  api: subscribeRuleApi as unknown as CrudApiModule<SubscribeRule>,
+  defaultForm: () => ({
+    name: '', description: '', match_labels: [] as LabelMatcher[],
+    severities: [] as string[], notify_rule_id: null as number | null,
+    subscriber_type: 'user' as 'user' | 'team',
+    user_id: null as number | null, team_id: null as number | null,
+    is_enabled: true,
+  } as any),
+  i18nKeys: {
+    created: 'subscribe.created',
+    updated: 'subscribe.updated',
+    deleted: 'subscribe.deleted',
+    deleteConfirm: 'subscribe.deleteConfirm',
+    createTitle: 'subscribe.create',
+    editTitle: 'subscribe.edit',
+  },
+  rowToForm: (row) => ({
+    name: row.name, description: row.description,
+    match_labels: recordToMatchers(row.match_labels),
+    severities: (row.severities || '').split(',').filter(Boolean),
+    notify_rule_id: row.notify_rule_id,
+    subscriber_type: row.team_id ? 'team' : 'user',
+    user_id: row.user_id, team_id: row.team_id,
+    is_enabled: row.is_enabled,
+  } as any),
+  formToPayload: (form) => {
+    const f = form as Record<string, any>
+    return {
+      name: form.name, description: form.description,
+      match_labels: matchersToRecord(f.match_labels),
+      severities: (f.severities || []).join(','),
+      notify_rule_id: f.notify_rule_id || null,
+      user_id: f.subscriber_type === 'user' ? f.user_id : null,
+      team_id: f.subscriber_type === 'team' ? f.team_id : null,
+      is_enabled: form.is_enabled,
+    }
+  },
+  validate: (form) => {
+    if (!form.name?.trim()) return t('subscribe.nameRequired')
+    return null
+  },
+  pageSize: 100,
+})
+
+const {
+  loading,
+  items: subscriptions,
+  search,
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  fetchList,
+  openCreate,
+  openEdit,
+  handleSave,
+  confirmDelete,
+} = crud
+const form = crud.form as any
 
 const notifyRules = shallowRef<NotifyRule[]>([])
 const users = shallowRef<User[]>([])
 const teams = shallowRef<Team[]>([])
-
-const form = reactive({
-  name: '',
-  description: '',
-  match_labels: [] as LabelMatcher[],
-  severities: [] as string[],
-  notify_rule_id: null as number | null,
-  subscriber_type: 'user' as 'user' | 'team',
-  user_id: null as number | null,
-  team_id: null as number | null,
-  is_enabled: true,
-})
 
 const severityOptions = computed(() => [
   { label: t('alert.critical'), value: 'critical' },
@@ -78,14 +137,6 @@ const filtered = computed(() => {
   )
 })
 
-async function fetchData() {
-  loading.value = true
-  try {
-    const { data } = await subscribeRuleApi.list({ page: 1, page_size: 100 })
-    subscriptions.value = data.data.list || []
-  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { loading.value = false }
-}
-
 async function fetchRefData() {
   try {
     const [rulesRes, usersRes, teamsRes] = await Promise.all([
@@ -96,80 +147,6 @@ async function fetchRefData() {
     notifyRules.value = rulesRes.data.data.list || []
     users.value = usersRes.data.data.list || []
     teams.value = teamsRes.data.data.list || []
-  } catch (err: unknown) { message.error(getErrorMessage(err)) }
-}
-
-function resetForm() {
-  Object.assign(form, {
-    name: '', description: '', match_labels: [], severities: [],
-    notify_rule_id: null, subscriber_type: 'user', user_id: null, team_id: null,
-    is_enabled: true,
-  })
-}
-
-function openCreate() {
-  editingId.value = null
-  modalTitle.value = t('subscribe.create')
-  resetForm()
-  showModal.value = true
-}
-
-function openEdit(row: SubscribeRule) {
-  editingId.value = row.id
-  modalTitle.value = t('subscribe.edit')
-  Object.assign(form, {
-    name: row.name,
-    description: row.description,
-    match_labels: Object.entries(row.match_labels || {}).map(([key, raw]) => {
-      for (const op of ['!=', '=~', '!~'] as const) {
-        if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
-      }
-      return { key, op: '=' as const, value: raw }
-    }),
-    severities: (row.severities || '').split(',').filter(Boolean),
-    notify_rule_id: row.notify_rule_id,
-    subscriber_type: row.team_id ? 'team' : 'user',
-    user_id: row.user_id,
-    team_id: row.team_id,
-    is_enabled: row.is_enabled,
-  })
-  showModal.value = true
-}
-
-async function handleSave() {
-  if (!form.name.trim()) { message.warning(t('subscribe.nameRequired')); return }
-  saving.value = true
-  try {
-    const payload: Partial<SubscribeRule> = {
-      name: form.name,
-      description: form.description,
-      match_labels: Object.fromEntries(form.match_labels.map(m => {
-        const v = m.op === '=' ? m.value : `${m.op}${m.value}`
-        return [m.key, v]
-      })),
-      severities: form.severities.join(','),
-      notify_rule_id: form.notify_rule_id || null,
-      user_id: form.subscriber_type === 'user' ? form.user_id : null,
-      team_id: form.subscriber_type === 'team' ? form.team_id : null,
-      is_enabled: form.is_enabled,
-    }
-    if (editingId.value) {
-      await subscribeRuleApi.update(editingId.value, payload)
-      message.success(t('subscribe.updated'))
-    } else {
-      await subscribeRuleApi.create(payload)
-      message.success(t('subscribe.created'))
-    }
-    showModal.value = false
-    fetchData()
-  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { saving.value = false }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await subscribeRuleApi.delete(id)
-    message.success(t('subscribe.deleted'))
-    fetchData()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
@@ -189,14 +166,14 @@ function rowMenu(row: SubscribeRule) {
 }
 function onRowMenu(key: string, row: SubscribeRule) {
   if (key === 'edit') openEdit(row)
-  else if (key === 'delete' && confirm(t('subscribe.deleteConfirm'))) handleDelete(row.id)
+  else if (key === 'delete') confirmDelete(row.id)
 }
 const RowMenu = (row: SubscribeRule) => h(NDropdown, {
   trigger: 'click', options: rowMenu(row),
   onSelect: (k: string) => onRowMenu(k, row),
 }, { default: () => h('button', { class: 'sre-icon-btn', 'aria-label': t('common.actions') }, h('span', { class: 'sre-dots' })) })
 
-onMounted(() => { fetchData(); fetchRefData() })
+onMounted(() => { fetchList(); fetchRefData() })
 </script>
 
 <template>
@@ -217,7 +194,7 @@ onMounted(() => { fetchData(); fetchRefData() })
       <span class="count tnum">{{ filtered.length }} / {{ subscriptions.length }}</span>
     </div>
 
-    <div v-if="loading" class="loading">{{ t('common.loading') }}…</div>
+    <div v-if="loading" class="loading">{{ t('common.loading') }}...</div>
 
     <div v-else-if="filtered.length === 0" class="empty">
       <n-icon :component="NotificationsOutline" size="36" />

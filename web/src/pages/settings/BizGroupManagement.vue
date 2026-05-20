@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, shallowRef, reactive, computed, onMounted, defineComponent, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, defineComponent, h } from 'vue'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { bizGroupApi } from '@/api'
 import type { User, BizGroup } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { kvArrayToRecord } from '@/utils/format'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import {
   AddOutline,
   FolderOutline,
@@ -34,27 +36,77 @@ const props = defineProps<{ allUsers: User[] }>()
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const list = shallowRef<BizGroup[]>([])
+function recordToMatchers(record: Record<string, string> | undefined): LabelMatcher[] {
+  return Object.entries(record || {}).map(([key, raw]) => {
+    for (const op of ['!=', '=~', '!~'] as const) {
+      if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
+    }
+    return { key, op: '=' as const, value: raw }
+  })
+}
+
+function matchersToRecord(matchers: LabelMatcher[]): Record<string, string> {
+  return Object.fromEntries((matchers || []).map(m => {
+    const v = m.op === '=' ? m.value : `${m.op}${m.value}`
+    return [m.key, v]
+  }))
+}
+
+const crud = useCrudPage<BizGroup>({
+  api: bizGroupApi as unknown as CrudApiModule<BizGroup>,
+  defaultForm: () => ({
+    name: '', description: '',
+    labels: [] as { key: string; value: string }[],
+    match_labels: [] as LabelMatcher[],
+  } as any),
+  i18nKeys: {
+    created: 'bizGroup.createSuccess',
+    updated: 'bizGroup.updated',
+    deleted: 'bizGroup.deleted',
+    deleteConfirm: 'bizGroup.deleteConfirm',
+    createTitle: 'bizGroup.create',
+    editTitle: 'bizGroup.edit',
+  },
+  rowToForm: (row) => ({
+    name: row.name, description: row.description,
+    labels: Object.entries(row.labels || {}).map(([key, value]) => ({ key, value })),
+    match_labels: recordToMatchers(row.match_labels),
+  } as any),
+  formToPayload: (form) => {
+    const f = form as Record<string, any>
+    return {
+      name: form.name, description: form.description,
+      labels: kvArrayToRecord(f.labels || []),
+      match_labels: matchersToRecord(f.match_labels || []),
+    }
+  },
+  validate: (form) => {
+    if (!form.name?.trim()) return t('settings.nameRequired')
+    return null
+  },
+  pageSize: 500,
+})
+
+const {
+  loading,
+  items: list,
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  fetchList: rawFetchList,
+  openCreate,
+  handleSave,
+} = crud
+const form = crud.form as any
+
 const selected = ref<BizGroup | null>(null)
 const members = ref<User[]>([])
 const membersLoading = ref(false)
 const expanded = ref<Set<string | number>>(new Set())
-
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
 const showAddMemberModal = ref(false)
 const selectedMemberUserId = ref<number | null>(null)
 const selectedMemberRole = ref<string>('member')
-
-const form = reactive({
-  name: '',
-  description: '',
-  labels: [] as { key: string; value: string }[],
-  match_labels: [] as LabelMatcher[],
-})
 
 const memberRoleOptions = [
   { label: t('settings.admin'), value: 'admin' },
@@ -124,19 +176,11 @@ function relTime(iso?: string): string {
 }
 
 async function fetchList() {
-  loading.value = true
-  try {
-    const { data } = await bizGroupApi.list({ page: 1, page_size: 500 })
-    list.value = data.data.list || []
-    if (expanded.value.size === 0) {
-      const next = new Set<string | number>()
-      tree.value.forEach(n => next.add(n.fullPath))
-      expanded.value = next
-    }
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    loading.value = false
+  await rawFetchList()
+  if (expanded.value.size === 0) {
+    const next = new Set<string | number>()
+    tree.value.forEach(n => next.add(n.fullPath))
+    expanded.value = next
   }
 }
 
@@ -173,70 +217,9 @@ async function fetchMembers(groupId: number) {
   }
 }
 
-function recordToMatchers(record: Record<string, string> | undefined): LabelMatcher[] {
-  return Object.entries(record || {}).map(([key, raw]) => {
-    for (const op of ['!=', '=~', '!~'] as const) {
-      if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
-    }
-    return { key, op: '=' as const, value: raw }
-  })
-}
-
-function matchersToRecord(matchers: LabelMatcher[]): Record<string, string> {
-  return Object.fromEntries(matchers.map(m => {
-    const v = m.op === '=' ? m.value : `${m.op}${m.value}`
-    return [m.key, v]
-  }))
-}
-
-function openCreate() {
-  editingId.value = null
-  modalTitle.value = t('bizGroup.create')
-  Object.assign(form, { name: '', description: '', labels: [], match_labels: [] })
-  showModal.value = true
-}
-
 function openEdit() {
   if (!selected.value) return
-  const g = selected.value
-  editingId.value = g.id
-  modalTitle.value = t('bizGroup.edit')
-  Object.assign(form, {
-    name: g.name,
-    description: g.description,
-    labels: Object.entries(g.labels || {}).map(([key, value]) => ({ key, value })),
-    match_labels: recordToMatchers(g.match_labels),
-  })
-  showModal.value = true
-}
-
-async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('settings.nameRequired'))
-    return
-  }
-  saving.value = true
-  try {
-    const payload = {
-      name: form.name,
-      description: form.description,
-      labels: kvArrayToRecord(form.labels),
-      match_labels: matchersToRecord(form.match_labels),
-    }
-    if (editingId.value) {
-      await bizGroupApi.update(editingId.value, payload)
-      message.success(t('bizGroup.updated'))
-    } else {
-      await bizGroupApi.create(payload)
-      message.success(t('bizGroup.createSuccess'))
-    }
-    showModal.value = false
-    await fetchList()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
+  crud.openEdit(selected.value)
 }
 
 async function handleDelete() {

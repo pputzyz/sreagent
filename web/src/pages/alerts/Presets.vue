@@ -9,7 +9,8 @@ import { useI18n } from 'vue-i18n'
 import { presetRuleApi, datasourceApi } from '@/api'
 import type { PresetRule, PresetRuleOverride } from '@/types/preset-rule'
 import type { DataSource } from '@/types'
-import { usePaginatedList } from '@/composables'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
@@ -30,7 +31,18 @@ const categories = ref<string[]>([])
 // ─── Search ───
 const searchKeyword = ref('')
 
-// ─── List ───
+// ─── List via useCrudPage (no create/update for presets) ───
+const presetCrudApi = {
+  list: (params?: Record<string, unknown>) => presetRuleApi.list({
+    ...params,
+    category: activeCategory.value || undefined,
+    search: searchKeyword.value.trim() || undefined,
+  }),
+  create: async () => { throw new Error('Not supported') },
+  update: async () => { throw new Error('Not supported') },
+  delete: presetRuleApi.delete,
+} as unknown as CrudApiModule<PresetRule>
+
 const {
   loading,
   items: presets,
@@ -39,18 +51,11 @@ const {
   pageSize,
   fetchList,
   refresh,
-} = usePaginatedList<PresetRule>({
-  apiFn: presetRuleApi.list,
+} = useCrudPage<PresetRule>({
+  api: presetCrudApi,
+  defaultForm: () => ({} as any),
+  i18nKeys: {},
   pageSize: 20,
-  extraParams: () => {
-    const params: Record<string, unknown> = {}
-    if (activeCategory.value) params.category = activeCategory.value
-    if (searchKeyword.value.trim()) params.search = searchKeyword.value.trim()
-    return params
-  },
-  onError: (err: unknown) => {
-    message.error(getErrorMessage(err))
-  },
 })
 
 // ─── Datasources for apply dialog ───

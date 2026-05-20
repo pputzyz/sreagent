@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, shallowRef, reactive, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, h } from 'vue'
 import { useMessage, useDialog, NIcon, NButton, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { messageTemplateApi } from '@/api'
 import type { MessageTemplate } from '@/types'
 import { getErrorMessage } from '@/utils/format'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import {
   AddOutline, SearchOutline, EllipsisHorizontalOutline,
   CreateOutline, EyeOutline, TrashOutline, DocumentTextOutline,
@@ -16,27 +18,58 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
 
-const loading = ref(false)
-const templates = shallowRef<MessageTemplate[]>([])
-const search = ref('')
-const typeFilter = ref<string>('')
+const crud = useCrudPage<MessageTemplate>({
+  api: messageTemplateApi as unknown as CrudApiModule<MessageTemplate>,
+  defaultForm: () => ({
+    name: '', description: '',
+    type: 'text' as 'text' | 'html' | 'markdown' | 'lark_card',
+    content: '',
+  } as any),
+  i18nKeys: {
+    created: 'template.created',
+    updated: 'template.updated',
+    deleted: 'template.deleted',
+    deleteConfirm: 'template.deleteConfirm',
+    createTitle: 'template.create',
+    editTitle: 'template.edit',
+  },
+  rowToForm: (row) => ({
+    name: row.name, description: row.description,
+    type: row.type, content: row.content || '',
+  } as any),
+  formToPayload: (form) => ({
+    name: form.name, description: form.description,
+    type: form.type, content: form.content,
+  }),
+  validate: (form) => {
+    if (!form.name?.trim()) return t('template.nameRequired')
+    return null
+  },
+  pageSize: 100,
+})
 
-// Modal state
-const showModal = ref(false)
-const editingId = ref<number | null>(null)
-const saving = ref(false)
+const {
+  loading,
+  items: templates,
+  search,
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  fetchList,
+  openCreate,
+  openEdit,
+  handleSave,
+  confirmDelete,
+} = crud
+const form = crud.form as any
+
+const typeFilter = ref<string>('')
 
 // Preview state
 const showPreviewModal = ref(false)
 const previewLoading = ref(false)
 const previewResult = ref('')
-
-const form = reactive({
-  name: '',
-  description: '',
-  type: 'text' as 'text' | 'html' | 'markdown' | 'lark_card',
-  content: '',
-})
 
 const typeOptions = computed(() => [
   { label: t('template.text'), value: 'text' },
@@ -73,78 +106,6 @@ const filtered = computed(() => {
   }
   return list
 })
-
-async function fetchData() {
-  loading.value = true
-  try {
-    const { data } = await messageTemplateApi.list({ page: 1, page_size: 100 })
-    templates.value = data.data.list || []
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    loading.value = false
-  }
-}
-
-function resetForm() {
-  Object.assign(form, { name: '', description: '', type: 'text', content: '' })
-}
-
-function openCreate() {
-  editingId.value = null
-  resetForm()
-  showModal.value = true
-}
-
-function openEdit(row: MessageTemplate) {
-  editingId.value = row.id
-  Object.assign(form, {
-    name: row.name,
-    description: row.description,
-    type: row.type,
-    content: row.content || '',
-  })
-  showModal.value = true
-}
-
-async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('template.nameRequired'))
-    return
-  }
-  saving.value = true
-  try {
-    const payload = {
-      name: form.name,
-      description: form.description,
-      type: form.type,
-      content: form.content,
-    }
-    if (editingId.value) {
-      await messageTemplateApi.update(editingId.value, payload)
-      message.success(t('template.updated'))
-    } else {
-      await messageTemplateApi.create(payload)
-      message.success(t('template.created'))
-    }
-    showModal.value = false
-    fetchData()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await messageTemplateApi.delete(id)
-    message.success(t('template.deleted'))
-    fetchData()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  }
-}
 
 async function handlePreview(row: MessageTemplate) {
   previewLoading.value = true
@@ -200,7 +161,7 @@ function handleAction(key: string, row: MessageTemplate) {
       content: t('template.deleteConfirm'),
       positiveText: t('common.confirm'),
       negativeText: t('common.cancel'),
-      onPositiveClick: () => handleDelete(row.id),
+      onPositiveClick: () => confirmDelete(row.id),
     })
   }
 }
@@ -209,14 +170,12 @@ function handleAction(key: string, row: MessageTemplate) {
 function contentPreview(content: string | null | undefined): string {
   if (!content) return '—'
   const trimmed = content.trim().replace(/\s+/g, ' ')
-  return trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed
+  return trimmed.length > 80 ? trimmed.slice(0, 80) + '...' : trimmed
 }
 
 const availableVariables = '{{.AlertName}} {{.Severity}} {{.Status}} {{.Labels}} {{.Annotations}} {{.FiredAt}} {{.Value}} {{.Duration}} {{.RuleName}}'
 
-import { h } from 'vue'
-
-onMounted(fetchData)
+onMounted(fetchList)
 </script>
 
 <template>
@@ -279,7 +238,7 @@ onMounted(fetchData)
     </div>
 
     <!-- Create/Edit Modal -->
-    <n-modal v-model:show="showModal" preset="card" :title="editingId ? t('template.edit') : t('template.create')" :bordered="false" class="tmpl-modal">
+    <n-modal v-model:show="showModal" preset="card" :title="modalTitle" :bordered="false" class="tmpl-modal">
       <n-form label-placement="top">
         <n-grid :x-gap="12" :cols="2">
           <n-gi>

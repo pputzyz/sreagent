@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { reactive, ref, shallowRef, computed, onMounted, h, type Component } from 'vue'
+import { ref, computed, onMounted, h, type Component } from 'vue'
 import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyMediaApi } from '@/api'
 import type { NotifyMedia } from '@/types'
 import { getErrorMessage } from '@/utils/format'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import {
   AddOutline,
   SearchOutline,
-  EllipsisHorizontal,
   ChatbubblesOutline,
   MailOutline,
   GlobeOutline,
@@ -22,38 +23,98 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const mediaList = shallowRef<NotifyMedia[]>([])
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
-const testingId = ref<number | null>(null)
-
-const search = ref('')
-const typeFilter = ref<string>('')
-
 type MediaType = 'lark_webhook' | 'email' | 'http' | 'script'
 
-const form = reactive({
-  name: '',
-  description: '',
-  type: 'lark_webhook' as MediaType,
-  is_enabled: true,
-  variables: '{}',
-  webhook_url: '',
-  smtp_host: '',
-  smtp_port: 25,
-  username: '',
-  password: '',
-  from: '',
-  method: 'POST',
-  url: '',
-  headers: [] as { key: string; value: string }[],
-  body: '',
-  path: '',
-  args: '',
+function parseConfig(configStr: string): Record<string, unknown> {
+  try { return JSON.parse(configStr || '{}') } catch { return {} }
+}
+
+function buildConfigString(f: Record<string, unknown>): string {
+  switch (f.type) {
+    case 'lark_webhook':
+      return JSON.stringify({ webhook_url: f.webhook_url }, null, 2)
+    case 'email':
+      return JSON.stringify({
+        smtp_host: f.smtp_host, smtp_port: f.smtp_port,
+        username: f.username, password: f.password, from: f.from,
+      }, null, 2)
+    case 'http': {
+      const hdrs: Record<string, string> = {}
+      for (const h of (f.headers as { key: string; value: string }[] || [])) { if (h.key?.trim()) hdrs[h.key.trim()] = h.value }
+      return JSON.stringify({ method: f.method, url: f.url, headers: hdrs, body: f.body }, null, 2)
+    }
+    case 'script':
+      return JSON.stringify({ path: f.path, args: f.args }, null, 2)
+    default:
+      return '{}'
+  }
+}
+
+const crud = useCrudPage<NotifyMedia>({
+  api: notifyMediaApi as unknown as CrudApiModule<NotifyMedia>,
+  defaultForm: () => ({
+    name: '', description: '', type: 'lark_webhook' as MediaType,
+    is_enabled: true, config: '{}', variables: '{}',
+    webhook_url: '', smtp_host: '', smtp_port: 25,
+    username: '', password: '', from: '',
+    method: 'POST', url: '', headers: [] as { key: string; value: string }[],
+    body: '', path: '', args: '',
+  } as any),
+  i18nKeys: {
+    created: 'media.created',
+    updated: 'media.updated',
+    deleted: 'media.deleted',
+    deleteConfirm: 'media.deleteConfirm',
+    createTitle: 'media.create',
+    editTitle: 'media.edit',
+  },
+  rowToForm: (row) => {
+    const cfg = parseConfig(row.config || '{}')
+    return {
+      name: row.name, description: row.description, type: row.type,
+      is_enabled: row.is_enabled, config: row.config, variables: row.variables || '{}',
+      webhook_url: (cfg.webhook_url as string) || '',
+      smtp_host: (cfg.smtp_host as string) || '', smtp_port: (cfg.smtp_port as number) || 25,
+      username: (cfg.username as string) || '', password: (cfg.password as string) || '', from: (cfg.from as string) || '',
+      method: (cfg.method as string) || 'POST', url: (cfg.url as string) || '',
+      headers: Object.entries((cfg.headers as Record<string, string>) || {}).map(([key, value]) => ({ key, value: String(value) })),
+      body: (cfg.body as string) || '', path: (cfg.path as string) || '', args: (cfg.args as string) || '',
+    } as any
+  },
+  formToPayload: (form) => {
+    const f = form as Record<string, unknown>
+    return {
+      name: form.name, description: form.description, type: form.type,
+      is_enabled: form.is_enabled, config: buildConfigString(f), variables: form.variables,
+    }
+  },
+  validate: (form) => {
+    if (!form.name?.trim()) return t('media.nameRequired')
+    try { JSON.parse(form.variables || '{}') } catch { return t('media.variables') + ': ' + t('media.invalidJson') }
+    return null
+  },
+  pageSize: 100,
 })
+
+const {
+  loading,
+  items: mediaList,
+  search,
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  fetchList,
+  openCreate,
+  openEdit,
+  handleSave,
+  confirmDelete,
+} = crud
+// Cast form to any so template can access extra config fields (webhook_url, smtp_host, etc.)
+const form = crud.form as any
+
+const testingId = ref<number | null>(null)
+const typeFilter = ref<string>('')
 
 const typeOptions = computed(() => [
   { label: t('media.larkWebhook'), value: 'lark_webhook' },
@@ -127,104 +188,6 @@ const filtered = computed(() => {
   })
 })
 
-async function fetchData() {
-  loading.value = true
-  try {
-    const { data } = await notifyMediaApi.list({ page: 1, page_size: 100 })
-    mediaList.value = data.data.list || []
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    loading.value = false
-  }
-}
-
-function parseConfig(configStr: string): Record<string, unknown> {
-  try { return JSON.parse(configStr || '{}') } catch { return {} }
-}
-
-function buildConfigString(): string {
-  switch (form.type) {
-    case 'lark_webhook':
-      return JSON.stringify({ webhook_url: form.webhook_url }, null, 2)
-    case 'email':
-      return JSON.stringify({
-        smtp_host: form.smtp_host, smtp_port: form.smtp_port,
-        username: form.username, password: form.password, from: form.from,
-      }, null, 2)
-    case 'http': {
-      const hdrs: Record<string, string> = {}
-      for (const h of form.headers) { if (h.key.trim()) hdrs[h.key.trim()] = h.value }
-      return JSON.stringify({ method: form.method, url: form.url, headers: hdrs, body: form.body }, null, 2)
-    }
-    case 'script':
-      return JSON.stringify({ path: form.path, args: form.args }, null, 2)
-    default:
-      return '{}'
-  }
-}
-
-function resetForm() {
-  Object.assign(form, {
-    name: '', description: '', type: 'lark_webhook', is_enabled: true, variables: '{}',
-    webhook_url: '', smtp_host: '', smtp_port: 25, username: '', password: '', from: '',
-    method: 'POST', url: '', headers: [], body: '', path: '', args: '',
-  })
-}
-
-function openCreate() {
-  editingId.value = null
-  modalTitle.value = t('media.create')
-  resetForm()
-  showModal.value = true
-}
-
-function openEdit(row: NotifyMedia) {
-  editingId.value = row.id
-  modalTitle.value = t('media.edit')
-  const cfg = parseConfig(row.config)
-  Object.assign(form, {
-    name: row.name, description: row.description, type: row.type,
-    is_enabled: row.is_enabled, variables: row.variables || '{}',
-    webhook_url: cfg.webhook_url || '',
-    smtp_host: cfg.smtp_host || '', smtp_port: cfg.smtp_port || 25,
-    username: cfg.username || '', password: cfg.password || '', from: cfg.from || '',
-    method: cfg.method || 'POST', url: cfg.url || '',
-    headers: Object.entries(cfg.headers || {}).map(([key, value]) => ({ key, value: String(value) })),
-    body: cfg.body || '', path: cfg.path || '', args: cfg.args || '',
-  })
-  showModal.value = true
-}
-
-async function handleSave() {
-  if (!form.name.trim()) { message.warning(t('media.nameRequired')); return }
-  try { JSON.parse(form.variables) } catch { message.warning(t('media.variables') + ': ' + t('media.invalidJson')); return }
-  saving.value = true
-  try {
-    const payload = {
-      name: form.name, description: form.description, type: form.type,
-      is_enabled: form.is_enabled, config: buildConfigString(), variables: form.variables,
-    }
-    if (editingId.value) {
-      await notifyMediaApi.update(editingId.value, payload)
-      message.success(t('media.updated'))
-    } else {
-      await notifyMediaApi.create(payload)
-      message.success(t('media.created'))
-    }
-    showModal.value = false
-    fetchData()
-  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { saving.value = false }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await notifyMediaApi.delete(id)
-    message.success(t('media.deleted'))
-    fetchData()
-  } catch (err: unknown) { message.error(getErrorMessage(err)) }
-}
-
 async function handleTest(id: number) {
   testingId.value = id
   try {
@@ -250,9 +213,7 @@ function rowMenuOptions(row: NotifyMedia) {
 function onRowMenu(key: string, row: NotifyMedia) {
   if (key === 'edit') openEdit(row)
   else if (key === 'test') handleTest(row.id)
-  else if (key === 'delete' && !row.is_builtin) {
-    if (confirm(t('media.deleteConfirm'))) handleDelete(row.id)
-  }
+  else if (key === 'delete' && !row.is_builtin) confirmDelete(row.id)
 }
 
 // Render dropdown trigger via h to keep template light
@@ -265,7 +226,7 @@ const RowMenu = (row: NotifyMedia) => h(NDropdown, {
     h('span', { class: 'sre-dots' })),
 })
 
-onMounted(fetchData)
+onMounted(fetchList)
 </script>
 
 <template>

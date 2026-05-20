@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { reactive, shallowRef, ref, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, h } from 'vue'
 import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, NDrawer, NDrawerContent, NDataTable, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import type { DataSource, DataSourceType, DataSourceStatus } from '@/types'
 import { kvArrayToRecord } from '@/utils/format'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import {
   AddOutline,
   RefreshOutline,
@@ -28,11 +30,81 @@ interface DSCard extends DataSource {
 
 const message = useMessage()
 const { t } = useI18n()
-const loading = ref(false)
-const datasources = shallowRef<DSCard[]>([])
+
+const crud = useCrudPage<DataSource>({
+  api: datasourceApi as unknown as CrudApiModule<DataSource>,
+  defaultForm: () => ({
+    name: '', type: 'prometheus' as DataSourceType,
+    endpoint: '', description: '',
+    auth_type: 'none', auth_username: '', auth_password: '',
+    auth_token: '', auth_key_header: '', auth_key_value: '',
+    labels: [] as { key: string; value: string }[],
+    health_check_interval: 60, is_enabled: true,
+  } as any),
+  i18nKeys: {
+    created: 'datasource.created',
+    updated: 'datasource.updated',
+    deleted: 'datasource.deleted',
+    deleteConfirm: 'datasource.deleteConfirm',
+    createTitle: 'datasource.add',
+    editTitle: 'common.edit',
+  },
+  rowToForm: (row) => ({
+    name: row.name, type: row.type, endpoint: row.endpoint,
+    description: row.description,
+    auth_type: row.auth_type || 'none',
+    auth_username: '', auth_password: '',
+    auth_token: '', auth_key_header: '', auth_key_value: '',
+    labels: Object.entries(row.labels || {}).map(([key, value]) => ({ key, value })),
+    health_check_interval: row.health_check_interval || 60,
+    is_enabled: row.is_enabled,
+  } as any),
+  formToPayload: (form) => {
+    const f = form as Record<string, any>
+    let auth_config = ''
+    if (f.auth_type === 'basic' && (f.auth_username || f.auth_password)) {
+      auth_config = JSON.stringify({ username: f.auth_username, password: f.auth_password })
+    } else if (f.auth_type === 'bearer' && f.auth_token) {
+      auth_config = JSON.stringify({ token: f.auth_token })
+    } else if (f.auth_type === 'api_key' && f.auth_key_value) {
+      auth_config = JSON.stringify({ header: f.auth_key_header || 'X-API-Key', value: f.auth_key_value })
+    }
+    return {
+      name: form.name, type: form.type, endpoint: form.endpoint,
+      description: form.description,
+      auth_type: f.auth_type, auth_config,
+      labels: kvArrayToRecord(f.labels || []),
+      health_check_interval: f.health_check_interval,
+      is_enabled: form.is_enabled,
+    }
+  },
+  validate: (form) => {
+    if (!form.name?.trim()) return t('datasource.nameRequired')
+    if (!form.endpoint?.trim()) return t('datasource.endpointRequired')
+    return null
+  },
+  pageSize: 100,
+})
+
+const {
+  loading,
+  items: rawDatasources,
+  search,
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  fetchList,
+  openCreate,
+  openEdit,
+  handleSave,
+  confirmDelete,
+} = crud
+const form = crud.form as any
+// Cast items to DSCard[] so template can access _testing, _latencyMs, _lastCheckAt
+const datasources = rawDatasources as unknown as Ref<DSCard[]>
 
 const typeFilter = ref<'all' | DataSourceType>('all')
-const search = ref('')
 
 // Health check history drawer
 interface HealthLogEntry {
@@ -62,30 +134,6 @@ function openHealthDrawer(ds: DSCard) {
   healthDrawerVisible.value = true
 }
 
-// Modal state
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
-
-const defaultForm = {
-  name: '',
-  type: 'prometheus' as DataSourceType,
-  endpoint: '',
-  description: '',
-  auth_type: 'none',
-  auth_username: '',
-  auth_password: '',
-  auth_token: '',
-  auth_key_header: '',
-  auth_key_value: '',
-  labels: [] as { key: string; value: string }[],
-  health_check_interval: 60,
-  is_enabled: true,
-}
-
-const form = reactive({ ...defaultForm })
-
 const typeOptions = [
   { label: () => t('datasource.typePrometheus'), value: 'prometheus' },
   { label: () => t('datasource.typeVictoriaMetrics'), value: 'victoriametrics' },
@@ -108,102 +156,6 @@ const filteredList = computed(() => {
     return true
   })
 })
-
-async function fetchList() {
-  loading.value = true
-  try {
-    const { data } = await datasourceApi.list({ page: 1, page_size: 100 })
-    datasources.value = (data.data.list || []) as DSCard[]
-  } catch (err: unknown) {
-    message.error((err as Error)?.message || t('common.loadFailed'))
-  } finally {
-    loading.value = false
-  }
-}
-
-function openCreate() {
-  editingId.value = null
-  modalTitle.value = t('datasource.add')
-  Object.assign(form, defaultForm, { labels: [] })
-  showModal.value = true
-}
-
-function openEdit(ds: DataSource) {
-  editingId.value = ds.id
-  modalTitle.value = t('common.edit')
-  Object.assign(form, {
-    name: ds.name,
-    type: ds.type,
-    endpoint: ds.endpoint,
-    description: ds.description,
-    auth_type: ds.auth_type || 'none',
-    auth_username: '',
-    auth_password: '',
-    auth_token: '',
-    auth_key_header: '',
-    auth_key_value: '',
-    labels: Object.entries(ds.labels || {}).map(([key, value]) => ({ key, value })),
-    health_check_interval: ds.health_check_interval || 60,
-    is_enabled: ds.is_enabled,
-  })
-  showModal.value = true
-}
-
-async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('datasource.nameRequired'))
-    return
-  }
-  if (!form.endpoint.trim()) {
-    message.warning(t('datasource.endpointRequired'))
-    return
-  }
-  saving.value = true
-  try {
-    let auth_config = ''
-    if (form.auth_type === 'basic' && (form.auth_username || form.auth_password)) {
-      auth_config = JSON.stringify({ username: form.auth_username, password: form.auth_password })
-    } else if (form.auth_type === 'bearer' && form.auth_token) {
-      auth_config = JSON.stringify({ token: form.auth_token })
-    } else if (form.auth_type === 'api_key' && form.auth_key_value) {
-      auth_config = JSON.stringify({ header: form.auth_key_header || 'X-API-Key', value: form.auth_key_value })
-    }
-    const payload = {
-      name: form.name,
-      type: form.type,
-      endpoint: form.endpoint,
-      description: form.description,
-      auth_type: form.auth_type,
-      auth_config,
-      labels: kvArrayToRecord(form.labels),
-      health_check_interval: form.health_check_interval,
-      is_enabled: form.is_enabled,
-    }
-    if (editingId.value) {
-      await datasourceApi.update(editingId.value, payload)
-      message.success(t('datasource.updated'))
-    } else {
-      await datasourceApi.create(payload)
-      message.success(t('datasource.created'))
-    }
-    showModal.value = false
-    fetchList()
-  } catch (err: unknown) {
-    message.error((err as Error)?.message || t('common.loadFailed'))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await datasourceApi.delete(id)
-    message.success(t('datasource.deleted'))
-    fetchList()
-  } catch (err: unknown) {
-    message.error((err as Error)?.message || t('common.loadFailed'))
-  }
-}
 
 async function testHealth(ds: DSCard) {
   ds._testing = true
@@ -241,13 +193,9 @@ function rowActions(_ds: DSCard) {
   ]
 }
 
-import { h } from 'vue'
-
 function handleAction(key: string, ds: DSCard) {
   if (key === 'edit') openEdit(ds)
-  else if (key === 'delete') {
-    if (confirm(t('datasource.deleteConfirm'))) handleDelete(ds.id)
-  }
+  else if (key === 'delete') confirmDelete(ds.id)
 }
 
 function healthSev(ds: DSCard): 'success' | 'warning' | 'critical' | null {

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { reactive, ref, shallowRef, computed, onMounted, watch, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, h } from 'vue'
 import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyRuleApi } from '@/api'
 import type { NotifyRule } from '@/types'
 import { getErrorMessage } from '@/utils/format'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import { AddOutline, SearchOutline, FilterOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -15,25 +17,86 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
 
-const loading = ref(false)
-const rules = shallowRef<NotifyRule[]>([])
-const showModal = ref(false)
-const modalTitle = ref('')
-const editingId = ref<number | null>(null)
-const saving = ref(false)
-const search = ref('')
+function recordToMatchers(record: Record<string, string> | undefined): LabelMatcher[] {
+  return Object.entries(record || {}).map(([key, raw]) => {
+    for (const op of ['!=', '=~', '!~'] as const) {
+      if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
+    }
+    return { key, op: '=' as const, value: raw }
+  })
+}
 
-const form = reactive({
-  name: '',
-  description: '',
-  severities: [] as string[],
-  match_labels: [] as LabelMatcher[],
-  pipeline: '[]',
-  notify_configs: '[]',
-  repeat_interval: 3600,
-  callback_url: '',
-  is_enabled: true,
+function matchersToRecord(matchers: LabelMatcher[]): Record<string, string> {
+  return Object.fromEntries((matchers || []).map(m => {
+    const v = m.op === '=' ? m.value : `${m.op}${m.value}`
+    return [m.key, v]
+  }))
+}
+
+const crud = useCrudPage<NotifyRule>({
+  api: notifyRuleApi as unknown as CrudApiModule<NotifyRule>,
+  defaultForm: () => ({
+    name: '', description: '', severities: [] as string[],
+    match_labels: [] as LabelMatcher[],
+    pipeline: '[]', notify_configs: '[]',
+    repeat_interval: 3600, callback_url: '', is_enabled: true,
+  } as any),
+  i18nKeys: {
+    created: 'notifyRule.created',
+    updated: 'notifyRule.updated',
+    deleted: 'notifyRule.deleted',
+    deleteConfirm: 'notifyRule.deleteConfirm',
+    createTitle: 'notifyRule.create',
+    editTitle: 'notifyRule.edit',
+  },
+  rowToForm: (row) => ({
+    name: row.name, description: row.description,
+    severities: (row.severities || '').split(',').filter(Boolean),
+    match_labels: recordToMatchers(row.match_labels),
+    pipeline: row.pipeline || '[]',
+    notify_configs: row.notify_configs || '[]',
+    repeat_interval: row.repeat_interval,
+    callback_url: row.callback_url || '',
+    is_enabled: row.is_enabled,
+  } as any),
+  formToPayload: (form) => {
+    const f = form as Record<string, any>
+    return {
+      name: form.name, description: form.description,
+      severities: (f.severities || []).join(','),
+      match_labels: matchersToRecord(f.match_labels || []),
+      pipeline: f.pipeline,
+      notify_configs: f.notify_configs,
+      repeat_interval: f.repeat_interval,
+      callback_url: f.callback_url,
+      is_enabled: form.is_enabled,
+    }
+  },
+  validate: (form) => {
+    if (!form.name?.trim()) return t('notifyRule.nameRequired')
+    const f = form as Record<string, any>
+    try { JSON.parse(f.pipeline) } catch { return t('notifyRule.pipeline') + ': ' + t('notifyRule.invalidJson') }
+    try { JSON.parse(f.notify_configs) } catch { return t('notifyRule.notifyConfigs') + ': ' + t('notifyRule.invalidJson') }
+    return null
+  },
+  pageSize: 100,
 })
+
+const {
+  loading,
+  items: rules,
+  search,
+  showModal,
+  modalTitle,
+  editingId,
+  saving,
+  fetchList,
+  openCreate,
+  openEdit,
+  handleSave,
+  confirmDelete,
+} = crud
+const form = crud.form as any
 
 const severityOptions = computed(() => [
   { label: t('alert.critical'), value: 'critical' },
@@ -62,99 +125,6 @@ function summarizeMedia(r: NotifyRule): string[] {
   } catch { return [] }
 }
 
-async function fetchData() {
-  loading.value = true
-  try {
-    const { data } = await notifyRuleApi.list({ page: 1, page_size: 100 })
-    rules.value = data.data.list || []
-  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { loading.value = false }
-}
-
-function resetForm() {
-  Object.assign(form, {
-    name: '', description: '', severities: [], match_labels: [],
-    pipeline: '[]', notify_configs: '[]', repeat_interval: 3600,
-    callback_url: '', is_enabled: true,
-  })
-}
-
-watch(showModal, (val) => {
-  if (!val) {
-    resetForm()
-    editingId.value = null
-  }
-})
-
-function openCreate() {
-  editingId.value = null
-  modalTitle.value = t('notifyRule.create')
-  resetForm()
-  showModal.value = true
-}
-
-function openEdit(row: NotifyRule) {
-  editingId.value = row.id
-  modalTitle.value = t('notifyRule.edit')
-  Object.assign(form, {
-    name: row.name,
-    description: row.description,
-    severities: (row.severities || '').split(',').filter(Boolean),
-    match_labels: Object.entries(row.match_labels || {}).map(([key, raw]) => {
-      for (const op of ['!=', '=~', '!~'] as const) {
-        if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
-      }
-      return { key, op: '=' as const, value: raw }
-    }),
-    pipeline: row.pipeline || '[]',
-    notify_configs: row.notify_configs || '[]',
-    repeat_interval: row.repeat_interval,
-    callback_url: row.callback_url || '',
-    is_enabled: row.is_enabled,
-  })
-  showModal.value = true
-}
-
-async function handleSave() {
-  if (!form.name.trim()) { message.warning(t('notifyRule.nameRequired')); return }
-  try { JSON.parse(form.pipeline) } catch { message.warning(t('notifyRule.pipeline') + ': ' + t('notifyRule.invalidJson')); return }
-  try { JSON.parse(form.notify_configs) } catch { message.warning(t('notifyRule.notifyConfigs') + ': ' + t('notifyRule.invalidJson')); return }
-
-  saving.value = true
-  try {
-    const payload = {
-      name: form.name,
-      description: form.description,
-      severities: form.severities.join(','),
-      match_labels: Object.fromEntries(form.match_labels.map(m => {
-        const v = m.op === '=' ? m.value : `${m.op}${m.value}`
-        return [m.key, v]
-      })),
-      pipeline: form.pipeline,
-      notify_configs: form.notify_configs,
-      repeat_interval: form.repeat_interval,
-      callback_url: form.callback_url,
-      is_enabled: form.is_enabled,
-    }
-    if (editingId.value) {
-      await notifyRuleApi.update(editingId.value, payload)
-      message.success(t('notifyRule.updated'))
-    } else {
-      await notifyRuleApi.create(payload)
-      message.success(t('notifyRule.created'))
-    }
-    showModal.value = false
-    fetchData()
-  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { saving.value = false }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await notifyRuleApi.delete(id)
-    message.success(t('notifyRule.deleted'))
-    fetchData()
-  } catch (err: unknown) { message.error(getErrorMessage(err)) }
-}
-
 async function toggleEnabled(row: NotifyRule, val: boolean) {
   try {
     await notifyRuleApi.update(row.id, { ...row, is_enabled: val })
@@ -178,7 +148,7 @@ function onRowMenu(key: string, row: NotifyRule) {
       content: t('notifyRule.deleteConfirm'),
       positiveText: t('common.confirm'),
       negativeText: t('common.cancel'),
-      onPositiveClick: () => handleDelete(row.id),
+      onPositiveClick: () => confirmDelete(row.id),
     })
   }
 }
@@ -187,7 +157,7 @@ const RowMenu = (row: NotifyRule) => h(NDropdown, {
   onSelect: (k: string) => onRowMenu(k, row),
 }, { default: () => h('button', { class: 'sre-icon-btn', 'aria-label': t('common.actions') }, h('span', { class: 'sre-dots' })) })
 
-onMounted(fetchData)
+onMounted(fetchList)
 </script>
 
 <template>
@@ -208,7 +178,7 @@ onMounted(fetchData)
       <span class="count tnum">{{ filtered.length }} / {{ rules.length }}</span>
     </div>
 
-    <div v-if="loading" class="loading">{{ t('common.loading') }}…</div>
+    <div v-if="loading" class="loading">{{ t('common.loading') }}...</div>
 
     <EmptyState
       v-else-if="filtered.length === 0"
