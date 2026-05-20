@@ -121,7 +121,7 @@ async function refresh() {
       params.status = filter.value
     }
     const r = await alertEventApi.list(params)
-    alerts.value = r.data?.items || []
+    alerts.value = r.data?.data?.list || []
   } catch {
     loadError.value = true
   } finally {
@@ -161,9 +161,9 @@ function statusType(status: string) {
   return ({ firing: 'error', assigned: 'warning', acknowledged: 'info', resolved: 'success', closed: 'default' } as any)[status] || 'default'
 }
 
-function formatTime(t: string) {
-  if (!t) return '-'
-  const date = new Date(t)
+function formatTime(timeStr: string) {
+  if (!timeStr) return '-'
+  const date = new Date(timeStr)
   const diffMs = Date.now() - date.getTime()
   const min = Math.floor(diffMs / 60000)
   if (min < 1) return t('myAlerts.justNow')

@@ -24,7 +24,7 @@ const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
 
 // 是否正在轮询（任务执行中）
 const isPolling = computed(() => {
-  return task.value && (task.value.status === 'planning' || task.value.status === 'executing')
+  return !!task.value && (task.value.status === 'planning' || task.value.status === 'executing')
 })
 
 // 执行 Agent
