@@ -223,7 +223,7 @@ function clearExpression() {
 // --- computed ---
 const selectedDs = computed(() => datasources.value.find(d => d.id === selectedDsId.value))
 const metricDatasources = computed(() =>
-  datasources.value.filter(d => ['prometheus', 'victoriametrics', 'zabbix'].includes(d.type))
+  datasources.value.filter(d => d.supports_query && d.type !== 'victorialogs')
 )
 const logDatasources = computed(() =>
   datasources.value.filter(d => d.type === 'victorialogs')

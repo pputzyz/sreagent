@@ -481,7 +481,7 @@ func (s *RuleGeneratorService) SaveDraft(ctx context.Context, result *RuleGenera
 		UpdatedBy:      userID,
 	}
 
-	if err := s.ruleSvc.Create(ctx, rule); err != nil {
+	if err := s.ruleSvc.Create(ctx, rule, "ai_draft"); err != nil {
 		return nil, apperr.WithMessage(apperr.ErrDatabase, fmt.Sprintf("failed to save draft rule: %v", err))
 	}
 
