@@ -94,4 +94,5 @@ export interface DryRunResult {
   series_count: number
   sample_series?: Record<string, string>[]
   would_fire: boolean
+  eval_duration_ms: number
 }
