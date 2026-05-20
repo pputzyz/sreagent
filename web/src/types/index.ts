@@ -63,7 +63,7 @@ export interface DataSource {
 
 // ===== Alert Rule =====
 export type AlertSeverity = 'p0' | 'p1' | 'p2' | 'p3' | 'p4' | 'critical' | 'warning' | 'info'
-export type AlertRuleStatus = 'enabled' | 'disabled' | 'muted' | 'draft'
+export type AlertRuleStatus = 'active' | 'disabled' | 'draft'
 export type AlertRuleType = 'threshold' | 'heartbeat'
 
 export interface AlertRule {

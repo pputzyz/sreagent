@@ -71,7 +71,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		Category:             req.Category,
 		GroupWaitSeconds:     req.GroupWaitSeconds,
 		GroupIntervalSeconds: req.GroupIntervalSeconds,
-		Status:               model.RuleStatusEnabled,
+		Status:               model.RuleStatusActive,
 		CreatedBy:            GetCurrentUserID(c),
 	}
 
@@ -269,7 +269,7 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 				Labels:       model.JSONLabels(r.Labels),
 				Annotations:  model.JSONLabels(r.Annotations),
 				GroupName:    group.Name,
-				Status:       model.RuleStatusEnabled,
+				Status:       model.RuleStatusActive,
 				DataSourceID: datasourceID,
 				CreatedBy:    userID,
 			}

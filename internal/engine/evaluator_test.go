@@ -385,7 +385,7 @@ func Test_syncRules_loads_enabled_rules(t *testing.T) {
 		DataSourceID:   &ds.ID,
 		Expression:     "up == 0",
 		Severity:       model.SeverityWarning,
-		Status:         model.RuleStatusEnabled,
+		Status:         model.RuleStatusActive,
 		EvalInterval:   60,
 		DatasourceType: model.DSTypePrometheus,
 	}

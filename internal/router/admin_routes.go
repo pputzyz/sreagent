@@ -75,8 +75,8 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		dp := auth.Group("/dispatch-policies")
 		{
 			dp.GET("/:id", h.DispatchPolicy.Get)
-			dp.PUT("/:id", manage, h.DispatchPolicy.Update)
-			dp.DELETE("/:id", manage, h.DispatchPolicy.Delete)
+			dp.PUT("/:id", manage, middleware.RequirePerm("dispatch.write"), h.DispatchPolicy.Update)
+			dp.DELETE("/:id", manage, middleware.RequirePerm("dispatch.write"), h.DispatchPolicy.Delete)
 		}
 	}
 
@@ -86,9 +86,9 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			integrations.GET("", h.Integration.List)
 			integrations.GET("/:id", h.Integration.Get)
-			integrations.POST("", manage, h.Integration.Create)
-			integrations.PUT("/:id", manage, h.Integration.Update)
-			integrations.DELETE("/:id", manage, h.Integration.Delete)
+			integrations.POST("", manage, middleware.RequirePerm("integration.write"), h.Integration.Create)
+			integrations.PUT("/:id", manage, middleware.RequirePerm("integration.write"), h.Integration.Update)
+			integrations.DELETE("/:id", manage, middleware.RequirePerm("integration.write"), h.Integration.Delete)
 		}
 	}
 

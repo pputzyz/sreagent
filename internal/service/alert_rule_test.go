@@ -47,7 +47,7 @@ func Test_Create_source_ai_defaults_to_draft(t *testing.T) {
 		Expression:   "up == 0",
 		ForDuration:  "5m",
 		Severity:     model.SeverityWarning,
-		Status:       model.RuleStatusEnabled, // caller sets enabled, but AI overrides
+		Status:       model.RuleStatusActive, // caller sets enabled, but AI overrides
 		Labels:       model.JSONLabels{"severity": "warning", "job": "test"},
 	}
 
@@ -58,7 +58,7 @@ func Test_Create_source_ai_defaults_to_draft(t *testing.T) {
 }
 
 // Test_Create_source_manual_defaults_to_enabled verifies that manually created
-// rules keep their provided status (typically "enabled").
+// rules keep their provided status (typically "active").
 func Test_Create_source_manual_defaults_to_enabled(t *testing.T) {
 	svc, db := setupAlertRuleService(t)
 	ds := seedDataSource(t, db, "prometheus-manual", model.DSTypePrometheus)
@@ -69,13 +69,13 @@ func Test_Create_source_manual_defaults_to_enabled(t *testing.T) {
 		Expression:   "up == 0",
 		ForDuration:  "1m",
 		Severity:     model.SeverityCritical,
-		Status:       model.RuleStatusEnabled,
+		Status:       model.RuleStatusActive,
 		Labels:       model.JSONLabels{"severity": "critical", "job": "test"},
 	}
 
 	err := svc.Create(context.Background(), rule, "manual")
 	require.NoError(t, err)
-	assert.Equal(t, model.RuleStatusEnabled, rule.Status, "manual rules should keep their status")
+	assert.Equal(t, model.RuleStatusActive, rule.Status, "manual rules should keep their status")
 }
 
 // Test_Create_missing_datasource_returns_error verifies that creating a rule
@@ -122,7 +122,7 @@ func Test_List_filter_by_status(t *testing.T) {
 
 	r1 := &model.AlertRule{
 		Name: "enabled-rule", DataSourceID: &ds.ID,
-		Expression: "a", Severity: model.SeverityWarning, Status: model.RuleStatusEnabled,
+		Expression: "a", Severity: model.SeverityWarning, Status: model.RuleStatusActive,
 	}
 	r2 := &model.AlertRule{
 		Name: "draft-rule", DataSourceID: &ds.ID,

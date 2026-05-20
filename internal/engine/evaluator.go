@@ -209,7 +209,7 @@ func (e *Evaluator) syncRules() {
 	var rules []model.AlertRule
 	if err := e.db.WithContext(ctx).
 		Preload("DataSource").
-		Where("status = ?", model.RuleStatusEnabled).
+		Where("status = ?", model.RuleStatusActive).
 		Find(&rules).Error; err != nil {
 		e.logger.Error("failed to load alert rules for sync", zap.Error(err))
 		return

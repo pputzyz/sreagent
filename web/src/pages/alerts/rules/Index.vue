@@ -295,23 +295,23 @@ function onImportDone() {
 // ─── Row actions ───
 async function toggleEnabled(rule: AlertRule) {
   if (rule.status === 'draft') return
-  const newStatus = rule.status === 'enabled' ? 'disabled' : 'enabled'
+  const newStatus = rule.status === 'active' ? 'disabled' : 'active'
   try {
     await alertRuleApi.toggleStatus(rule.id, newStatus)
-    message.success(newStatus === 'enabled' ? t('alert.ruleEnabled') : t('alert.ruleDisabled'))
+    message.success(newStatus === 'active' ? t('alert.ruleEnabled') : t('alert.ruleDisabled'))
     fetchList()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
 
 function statusTagType(status: string): 'default' | 'success' | 'warning' {
-  if (status === 'enabled') return 'success'
+  if (status === 'active') return 'success'
   if (status === 'disabled') return 'warning'
   return 'default'
 }
 
 function statusLabel(status: string): string {
   if (status === 'draft') return t('alert.statusDraft')
-  if (status === 'enabled') return t('common.enabled')
+  if (status === 'active') return t('common.enabled')
   if (status === 'disabled') return t('common.disabled')
   return status
 }
@@ -329,7 +329,7 @@ function rowActions(rule: AlertRule) {
     { label: t('common.edit'), key: 'edit', icon: () => h(NIcon, { component: CreateOutline }) },
   ]
   if (rule.status !== 'draft') {
-    actions.push({ label: rule.status === 'enabled' ? t('common.disabled') : t('common.enabled'), key: 'toggle', icon: () => h(NIcon, { component: PowerOutline }) })
+    actions.push({ label: rule.status === 'active' ? t('common.disabled') : t('common.enabled'), key: 'toggle', icon: () => h(NIcon, { component: PowerOutline }) })
   }
   actions.push(
     { label: t('common.duplicate'), key: 'duplicate', icon: () => h(NIcon, { component: CopyOutline }) },
@@ -499,7 +499,7 @@ onMounted(() => {
             :key="rule.id"
             class="sre-row-card rule-row"
             :data-severity="severitySlot(rule.severity)"
-            :data-dim="rule.status !== 'enabled' || undefined"
+            :data-dim="rule.status !== 'active' || undefined"
             :data-status="rule.status"
             @click="goDetail(rule)"
           >
@@ -538,7 +538,7 @@ onMounted(() => {
               </div>
             </div>
             <div class="rc-toggle" @click.stop>
-              <n-switch :value="rule.status === 'enabled'" size="small" :disabled="rule.status === 'draft'" :aria-label="rule.name" @update:value="toggleEnabled(rule)" />
+              <n-switch :value="rule.status === 'active'" size="small" :disabled="rule.status === 'draft'" :aria-label="rule.name" @update:value="toggleEnabled(rule)" />
             </div>
             <div class="rc-actions" @click.stop>
               <n-dropdown :options="rowActions(rule)" trigger="click" @select="(k: string) => onRowAction(k, rule)">

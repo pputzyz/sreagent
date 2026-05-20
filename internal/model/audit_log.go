@@ -32,6 +32,12 @@ const (
 	AuditActionPermissionDenied = "permission_denied"
 )
 
+// Audit result constants.
+const (
+	AuditResultDenied = "denied"
+	AuditResultSuccess = "success"
+)
+
 // Audit resource type constants.
 const (
 	AuditResourceAlertRule    = "alert_rule"

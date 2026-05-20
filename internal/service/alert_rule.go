@@ -260,7 +260,7 @@ func (s *AlertRuleService) BatchEnable(ctx context.Context, ids []uint) error {
 	if len(ids) == 0 {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "ids must not be empty")
 	}
-	if err := s.repo.BatchUpdateStatus(ctx, ids, model.RuleStatusEnabled); err != nil {
+	if err := s.repo.BatchUpdateStatus(ctx, ids, model.RuleStatusActive); err != nil {
 		s.logger.Error("failed to batch enable alert rules", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}

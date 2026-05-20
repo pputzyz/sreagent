@@ -99,7 +99,7 @@ func (h *HeartbeatChecker) runOnce(ctx context.Context) {
 	enabled := make([]*model.AlertRule, 0, len(rules))
 	fingerprints := make([]string, 0, len(rules))
 	for i := range rules {
-		if rules[i].Status == model.RuleStatusEnabled {
+		if rules[i].Status == model.RuleStatusActive {
 			rule := &rules[i]
 			enabled = append(enabled, rule)
 			fingerprints = append(fingerprints, heartbeatFingerprint(rule.ID))

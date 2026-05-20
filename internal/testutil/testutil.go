@@ -52,7 +52,7 @@ func SeedAlertRule(t *testing.T, db *gorm.DB, name string, dsID uint) *model.Ale
 		Expression:   "up == 0",
 		ForDuration:  "60s",
 		Severity:     model.SeverityWarning,
-		Status:       model.RuleStatusEnabled,
+		Status:       model.RuleStatusActive,
 	}
 	require.NoError(t, db.Create(rule).Error)
 	return rule
