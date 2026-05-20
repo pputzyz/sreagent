@@ -86,6 +86,9 @@ export const aiApi = {
   suggestSOP: (eventId: number) =>
     request.post<ApiResponse<{ title: string; steps: string[]; references: string[] }>>('/ai/suggest-sop', { event_id: eventId }),
 
+  analyzeAlert: (eventId: number) =>
+    request.post<ApiResponse<{ summary: string; severity: string; probable_causes: string[]; impact: string; recommended_steps: string[]; root_cause_hint: string }>>('/ai/analyze-alert', { event_id: eventId }),
+
   getProviders: () =>
     request.get<ApiResponse<AIProvidersConfig>>('/ai/providers'),
 

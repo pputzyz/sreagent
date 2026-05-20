@@ -36,12 +36,23 @@ var (
 		},
 		[]string{"policy_id", "status"},
 	)
+
+	// aiTokensUsedTotal counts the total number of LLM tokens consumed.
+	// Labels: provider (string), direction (string: "prompt", "completion")
+	aiTokensUsedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sreagent_ai_tokens_used_total",
+			Help: "Total number of LLM tokens consumed",
+		},
+		[]string{"provider", "direction"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(alertsEvaluatedTotal)
 	prometheus.MustRegister(notificationsSentTotal)
 	prometheus.MustRegister(escalationStepsTotal)
+	prometheus.MustRegister(aiTokensUsedTotal)
 }
 
 // IncAlertsEvaluated increments the alert evaluation counter.
@@ -63,4 +74,14 @@ func IncNotificationsSent(channelType, status string) {
 // status is "success" or "failure".
 func IncEscalationSteps(policyID, status string) {
 	escalationStepsTotal.WithLabelValues(policyID, status).Inc()
+}
+
+// IncAITokensUsed increments the AI token usage counter.
+// provider is the AI provider name (e.g. "openai", "azure").
+// direction is "prompt" or "completion".
+// count is the number of tokens consumed.
+func IncAITokensUsed(provider, direction string, count int) {
+	if count > 0 {
+		aiTokensUsedTotal.WithLabelValues(provider, direction).Add(float64(count))
+	}
 }

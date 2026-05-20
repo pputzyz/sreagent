@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -192,6 +194,44 @@ func (h *AIHandler) SuggestSOP(c *gin.Context) {
 	}
 
 	Success(c, gin.H{"sop": sop, "event_id": req.EventID})
+}
+
+// AnalyzeAlert performs structured root cause analysis using AnalyzeAlertWithContext.
+func (h *AIHandler) AnalyzeAlert(c *gin.Context) {
+	var req struct {
+		EventID uint `json:"event_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	event, err := h.eventSvc.GetByID(c.Request.Context(), req.EventID)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	// Build context text for the LLM
+	ctxText := fmt.Sprintf(
+		"Alert Name: %s\nSeverity: %s\nStatus: %s\nLabels: %v\nAnnotations: %v\nFired At: %s\nFire Count: %d\nSource: %s",
+		event.AlertName,
+		event.Severity,
+		event.Status,
+		event.Labels,
+		event.Annotations,
+		event.FiredAt.Format("2006-01-02 15:04:05"),
+		event.FireCount,
+		event.Source,
+	)
+
+	analysis, err := h.aiSvc.AnalyzeAlertWithContext(c.Request.Context(), ctxText)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, err.Error()))
+		return
+	}
+
+	Success(c, analysis)
 }
 
 // GetConfig returns the current AI configuration with masked API key.

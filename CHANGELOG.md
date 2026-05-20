@@ -6,6 +6,20 @@
 
 ## [v4.14.0] — 2026-05-20
 
+### Added — Sprint 2: AI Intelligence + Observability
+
+**AI 增强（S2.1-S2.2）**
+- `chatCompletionRequest` 新增 `TopP` 字段，从 `AIConfig.TopP` 读取并传递给 LLM
+- `chatCompletionResponse` 新增 `Usage` 字段，解析 `prompt_tokens` / `completion_tokens`
+- `metrics.IncAITokensUsed` 新增 Prometheus counter `sreagent_ai_tokens_used_total`（labels: provider, direction）
+- `callLLMWithSystem` + `Chat` 两个调用路径均记录 token usage
+- `POST /ai/analyze-alert` 端点：接入已有的 `AnalyzeAlertWithContext` 方法，前端 `aiApi.analyzeAlert` 方法
+- `AIConfig` 新增 `TopP` 字段（0.0-1.0）
+
+**已确认完成的前序工作**
+- S2.3: GenerateMute + Improve 端点已存在（`aiRules.POST("/generate-mute")` + `aiRules.POST("/improve")`）
+- S2.4: request_id 中间件已在 `logger.go` 中实现（UUID + header propagation + log enrichment）
+
 ### Added — Sprint 1: 多数据源自动路由 + 前端批量应用
 
 **多数据源自动路由（S1.1）**

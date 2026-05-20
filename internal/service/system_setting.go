@@ -27,6 +27,7 @@ type AIConfig struct {
 	Enabled         bool    `json:"enabled"`
 	Temperature     float64 `json:"temperature"`     // 0.0-2.0, default 0.3
 	MaxTokens       int     `json:"max_tokens"`      // default 1024
+	TopP            float64 `json:"top_p"`           // 0.0-1.0, default 1.0
 	SystemPrompt    string  `json:"system_prompt"`   // custom system prompt prefix
 	RetryMax        int     `json:"retry_max"`       // LLM call retries, default 2
 	ContextMaxChars int     `json:"context_max_chars"` // context text char limit, default 8000

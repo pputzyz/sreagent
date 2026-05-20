@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
@@ -249,6 +250,7 @@ type chatCompletionRequest struct {
 	Messages    []ChatMessage `json:"messages"`
 	Temperature *float64      `json:"temperature,omitempty"`
 	MaxTokens   *int          `json:"max_tokens,omitempty"`
+	TopP        *float64      `json:"top_p,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat conversation.
@@ -264,6 +266,11 @@ type chatCompletionResponse struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
@@ -337,6 +344,9 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 	if cfg.MaxTokens > 0 {
 		reqBody.MaxTokens = &cfg.MaxTokens
 	}
+	if cfg.TopP > 0 && cfg.TopP < 1.0 {
+		reqBody.TopP = &cfg.TopP
+	}
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -382,6 +392,12 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 
 	if len(completionResp.Choices) == 0 {
 		return "", fmt.Errorf("AI API returned no choices")
+	}
+
+	// Record token usage metrics
+	if completionResp.Usage != nil {
+		metrics.IncAITokensUsed(cfg.Provider, "prompt", completionResp.Usage.PromptTokens)
+		metrics.IncAITokensUsed(cfg.Provider, "completion", completionResp.Usage.CompletionTokens)
 	}
 
 	return completionResp.Choices[0].Message.Content, nil
@@ -523,6 +539,9 @@ func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemP
 	if cfg.MaxTokens > 0 {
 		reqBody.MaxTokens = &cfg.MaxTokens
 	}
+	if cfg.TopP > 0 && cfg.TopP < 1.0 {
+		reqBody.TopP = &cfg.TopP
+	}
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -568,6 +587,12 @@ func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemP
 
 	if len(completionResp.Choices) == 0 {
 		return "", fmt.Errorf("AI API returned no choices")
+	}
+
+	// Record token usage metrics
+	if completionResp.Usage != nil {
+		metrics.IncAITokensUsed(cfg.Provider, "prompt", completionResp.Usage.PromptTokens)
+		metrics.IncAITokensUsed(cfg.Provider, "completion", completionResp.Usage.CompletionTokens)
 	}
 
 	return completionResp.Choices[0].Message.Content, nil

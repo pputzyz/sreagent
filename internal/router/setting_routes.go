@@ -38,6 +38,7 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 	ai := auth.Group("/ai")
 	{
 		ai.POST("/alert-report", aiRL, h.AI.GenerateReport)
+		ai.POST("/analyze-alert", aiRL, h.AI.AnalyzeAlert)
 		ai.POST("/suggest-sop", aiRL, h.AI.SuggestSOP)
 		ai.POST("/test", manage, h.AI.TestConnection)
 		ai.GET("/config", adminOnly, h.AI.GetConfig)
