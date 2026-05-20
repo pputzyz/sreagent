@@ -22,8 +22,9 @@ type Config struct {
 
 // EngineConfig holds configuration for the native alert evaluator.
 type EngineConfig struct {
-	Enabled      bool `mapstructure:"enabled"`       // default true
-	SyncInterval int  `mapstructure:"sync_interval"` // how often to sync rules from DB (seconds, default 30)
+	Enabled            bool `mapstructure:"enabled"`               // default true
+	SyncInterval       int  `mapstructure:"sync_interval"`         // how often to sync rules from DB (seconds, default 30)
+	PerDatasourceEval  bool `mapstructure:"per_datasource_eval"`   // per-datasource bucket evaluation (default false = legacy)
 }
 
 type ServerConfig struct {

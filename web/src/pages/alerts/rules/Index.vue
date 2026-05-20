@@ -118,8 +118,8 @@ const severityFilterOptions = computed(() => [
 
 const statusFilterOptions = computed(() => [
   { label: t('alert.statusDraft'), value: 'draft' },
-  { label: t('common.enabled'), value: 'enabled' },
-  { label: t('common.disabled'), value: 'disabled' },
+  { label: t('alert.statusActive'), value: 'active' },
+  { label: t('alert.statusDisabled'), value: 'disabled' },
 ])
 
 const datasourceOptions = computed(() =>

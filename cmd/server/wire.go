@@ -412,6 +412,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		if cfg.Engine.SyncInterval > 0 {
 			evaluator.SetSyncInterval(time.Duration(cfg.Engine.SyncInterval) * time.Second)
 		}
+		evaluator.SetPerDatasourceEval(cfg.Engine.PerDatasourceEval)
 		evaluator.SetOnAlert(onAlertFn)
 		evaluator.Start()
 
@@ -496,7 +497,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			ResourceType: "permission",
 			ResourceName: path,
 			Detail:       fmt.Sprintf("permission: %s", perm),
-			Status:       "denied",
+			Status:       model.AuditResultDenied,
 		})
 	}
 

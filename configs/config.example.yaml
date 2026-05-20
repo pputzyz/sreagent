@@ -50,6 +50,7 @@ log:
 engine:
   enabled: true
   sync_interval: 30     # how often to sync alert rules from DB (seconds)
+  per_datasource_eval: false  # per-datasource bucket evaluation (true = isolated per DS, false = legacy fan-out)
 
 # Bearer token for /metrics endpoint (empty = open access)
 # Legacy env var METRICS_TOKEN also works (SREAGENT_METRICS_TOKEN takes precedence).

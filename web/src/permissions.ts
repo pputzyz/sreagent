@@ -53,6 +53,18 @@ export const PERM_NOTIFICATIONS_VIEW = 'notifications.view'
 export const PERM_TODOS_VIEW = 'todos.view'
 export const PERM_TODOS_MANAGE = 'todos.manage'
 
+// ── .write suffix constants (aligned with backend RBAC rbac.go, PR5-A task 1.5) ──
+export const PERM_CHANNELS_WRITE = 'channels.write'
+export const PERM_DATASOURCE_WRITE = 'datasource.write'
+export const PERM_DISPATCH_WRITE = 'dispatch.write'
+export const PERM_INHIBITION_WRITE = 'inhibition.write'
+export const PERM_INTEGRATION_WRITE = 'integration.write'
+export const PERM_MUTE_WRITE = 'mute.write'
+export const PERM_NOTIFY_WRITE = 'notify.write'
+export const PERM_RULES_WRITE = 'rules.write'
+export const PERM_TEAM_WRITE = 'team.write'
+export const PERM_USER_WRITE = 'user.write'
+
 // ── Preset Groups for common UI patterns ──
 
 /** Can create/edit/delete alert rules */

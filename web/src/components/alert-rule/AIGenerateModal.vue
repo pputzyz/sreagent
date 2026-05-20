@@ -51,7 +51,13 @@ const dryRunResult = ref<{
 const dryRunLoading = ref(false)
 
 // Label preview state
-const labelHits = ref<Array<{ key: string; matched: boolean }>>([])
+interface LabelHit {
+  key: string
+  matched: boolean
+  ruleValue: string
+  registryValues: string[]
+}
+const labelHits = ref<LabelHit[]>([])
 const labelLoading = ref(false)
 
 const show = computed({
@@ -110,13 +116,25 @@ function handleApply() {
 
 async function handleSaveAsDraft() {
   if (!result.value) return
+  const ruleResult = result.value as RuleGenerateResult
+  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  if (!dsId) {
+    message.warning('请先选择数据源')
+    return
+  }
   saving.value = true
   try {
-    await aiRuleApi.generate({
-      description: description.value,
-      datasource_id: selectedDatasourceId.value ?? undefined,
-      rule_type: 'alert',
-      save_as_draft: true,
+    await alertRuleApi.create({
+      name: ruleResult.name,
+      expression: ruleResult.expression,
+      datasource_id: dsId,
+      for_duration: ruleResult.for_duration || '5m',
+      severity: ruleResult.severity as AlertSeverity | undefined,
+      labels: ruleResult.labels || {},
+      annotations: ruleResult.annotations || {},
+      description: ruleResult.description,
+      status: 'draft',
+      enabled: false,
     })
     message.success('已保存为草稿')
     emit('saved', { draft: true })
@@ -131,18 +149,24 @@ async function handleSaveAsDraft() {
 async function handleSaveAsActive() {
   if (!result.value) return
   const ruleResult = result.value as RuleGenerateResult
+  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  if (!dsId) {
+    message.warning('请先选择数据源')
+    return
+  }
   saving.value = true
   try {
     await alertRuleApi.create({
       name: ruleResult.name,
       expression: ruleResult.expression,
-      for_duration: ruleResult.for_duration,
+      datasource_id: dsId,
+      for_duration: ruleResult.for_duration || '5m',
       severity: ruleResult.severity as AlertSeverity | undefined,
-      labels: ruleResult.labels,
-      annotations: ruleResult.annotations,
+      labels: ruleResult.labels || {},
+      annotations: ruleResult.annotations || {},
       description: ruleResult.description,
-      datasource_id: selectedDatasourceId.value ?? undefined,
       status: 'active',
+      enabled: true,
     })
     message.success('规则已创建并启用')
     emit('saved', { draft: false })
@@ -156,12 +180,21 @@ async function handleSaveAsActive() {
 
 async function handleDryRun() {
   if (!result.value) return
+  const ruleResult = result.value as RuleGenerateResult
+  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  if (!dsId) {
+    message.warning('请先选择数据源')
+    return
+  }
   dryRunLoading.value = true
   try {
     const resp = await aiRuleApi.dryRun({
-      description: description.value,
-      datasource_id: selectedDatasourceId.value ?? undefined,
-      rule_type: 'alert',
+      datasource_id: dsId,
+      expr: ruleResult.expression,
+      for: ruleResult.for_duration || '5m',
+      labels: ruleResult.labels || {},
+      annotations: ruleResult.annotations || {},
+      severity: ruleResult.severity || 'warning',
     })
     const data = resp.data.data
     dryRunResult.value = {
@@ -178,19 +211,32 @@ async function handleDryRun() {
 }
 
 async function handleLabelPreview() {
-  if (!selectedDatasourceId.value || !result.value) return
+  if (!result.value) return
   const ruleResult = result.value as RuleGenerateResult
+  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  if (!dsId) {
+    message.warning('请先选择数据源')
+    return
+  }
   labelLoading.value = true
   try {
-    const resp = await datasourceApi.labelKeys(selectedDatasourceId.value)
-    const keys: string[] = resp.data.data ?? []
-    const ruleKeys = Object.keys(ruleResult.labels || {})
-    labelHits.value = keys.map((k: string) => ({
-      key: k,
-      matched: ruleKeys.includes(k),
-    }))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
+    const ruleLabels = ruleResult.labels || {}
+    const hits: LabelHit[] = []
+    for (const [key, val] of Object.entries(ruleLabels)) {
+      try {
+        const resp = await datasourceApi.labelValues(dsId, key)
+        const registryValues: string[] = (resp.data.data ?? []).slice(0, 10)
+        hits.push({
+          key,
+          matched: registryValues.includes(String(val)),
+          ruleValue: String(val),
+          registryValues,
+        })
+      } catch {
+        hits.push({ key, matched: false, ruleValue: String(val), registryValues: [] })
+      }
+    }
+    labelHits.value = hits
   } finally {
     labelLoading.value = false
   }
@@ -349,9 +395,13 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
             </NButton>
             <template v-if="labelHits.length">
               <div v-for="hit in labelHits" :key="hit.key" class="label-hit-item">
-                <NTag :type="hit.matched ? 'success' : 'default'" size="small">
-                  {{ hit.key }}
+                <NTag :type="hit.matched ? 'success' : 'warning'" size="small">
+                  {{ hit.matched ? '✓' : '⚠' }} {{ hit.key }}
                 </NTag>
+                <span class="label-hit-detail">规则值: {{ hit.ruleValue }}</span>
+                <span v-if="hit.registryValues.length" class="label-hit-detail">
+                  已有: {{ hit.registryValues.join(', ') }}
+                </span>
               </div>
             </template>
           </NSpace>
@@ -447,5 +497,10 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
   display: inline-block;
   margin-right: 6px;
   margin-bottom: 4px;
+}
+.label-hit-detail {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  margin-left: 4px;
 }
 </style>

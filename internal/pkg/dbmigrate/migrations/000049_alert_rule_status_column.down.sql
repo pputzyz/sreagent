@@ -1,2 +1,1 @@
-ALTER TABLE `alert_rules` DROP INDEX `idx_alert_rules_status`;
-ALTER TABLE `alert_rules` DROP COLUMN `status`;
+ALTER TABLE `alert_rules` DROP INDEX `idx_alert_rules_status`, DROP COLUMN `status`;

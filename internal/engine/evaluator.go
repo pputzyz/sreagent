@@ -57,6 +57,110 @@ type RuleEvaluator struct {
 	consecutiveErrors int
 }
 
+// Stop signals the evaluator to stop its Run loop.
+func (re *RuleEvaluator) Stop() {
+	select {
+	case <-re.stopCh:
+		// Already stopped
+	default:
+		close(re.stopCh)
+	}
+}
+
+// PerDatasourceEvaluator is an isolated evaluation bucket for one datasource.
+// Each datasource owns its own bucket so a DS outage doesn't affect others.
+type PerDatasourceEvaluator struct {
+	DatasourceID uint
+	rules        sync.Map // map[uint]*RuleEvaluator, key is ruleID
+	ctx          context.Context
+	cancel       context.CancelFunc
+	log          *zap.Logger
+}
+
+// NewPerDatasourceEvaluator creates a new per-datasource bucket.
+func NewPerDatasourceEvaluator(parentCtx context.Context, dsID uint, log *zap.Logger) *PerDatasourceEvaluator {
+	ctx, cancel := context.WithCancel(parentCtx)
+	return &PerDatasourceEvaluator{
+		DatasourceID: dsID,
+		ctx:          ctx,
+		cancel:       cancel,
+		log:          log.With(zap.Uint("datasource_id", dsID)),
+	}
+}
+
+// AddRule adds a rule to this bucket and starts its evaluator.
+// If ruleID already exists, stops the old one first.
+func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSource, deps evaluatorDeps) {
+	if old, loaded := p.rules.LoadAndDelete(rule.ID); loaded {
+		old.(*RuleEvaluator).Stop()
+	}
+	ev := newRuleEvaluatorFromDeps(rule, ds, deps)
+	p.rules.Store(rule.ID, ev)
+	go ev.Run()
+	p.log.Info("rule added to datasource bucket",
+		zap.Uint("rule_id", rule.ID),
+		zap.String("rule_name", rule.Name))
+}
+
+// RemoveRule stops a rule's evaluator in this bucket.
+func (p *PerDatasourceEvaluator) RemoveRule(ruleID uint) {
+	if v, loaded := p.rules.LoadAndDelete(ruleID); loaded {
+		v.(*RuleEvaluator).Stop()
+		p.log.Info("rule removed from datasource bucket", zap.Uint("rule_id", ruleID))
+	}
+}
+
+// Stop stops the entire bucket (all rule evaluators exit).
+func (p *PerDatasourceEvaluator) Stop() {
+	p.cancel()
+	p.rules.Range(func(k, v any) bool {
+		v.(*RuleEvaluator).Stop()
+		return true
+	})
+	p.log.Info("datasource bucket stopped", zap.Uint("datasource_id", p.DatasourceID))
+}
+
+// RuleCount returns the number of rules in this bucket.
+func (p *PerDatasourceEvaluator) RuleCount() int {
+	count := 0
+	p.rules.Range(func(_, _ any) bool {
+		count++
+		return true
+	})
+	return count
+}
+
+// evaluatorDeps bundles dependencies for creating a RuleEvaluator.
+type evaluatorDeps struct {
+	db          *gorm.DB
+	eventRepo   *repository.AlertEventRepository
+	queryClient *datasource.QueryClient
+	stateStore  StateStore
+	suppressor  *LevelSuppressor
+	workerPool  AlertWorkerPoolSubmiter
+	onAlert     func(ctx context.Context, event *model.AlertEvent)
+	ctx         context.Context
+	logger      *zap.Logger
+}
+
+// newRuleEvaluatorFromDeps creates a RuleEvaluator from bundled deps.
+func newRuleEvaluatorFromDeps(rule *model.AlertRule, ds *model.DataSource, deps evaluatorDeps) *RuleEvaluator {
+	return &RuleEvaluator{
+		rule:        rule,
+		datasource:  ds,
+		db:          deps.db,
+		eventRepo:   deps.eventRepo,
+		queryClient: deps.queryClient,
+		stateStore:  deps.stateStore,
+		suppressor:  deps.suppressor,
+		workerPool:  deps.workerPool,
+		onAlert:     deps.onAlert,
+		ctx:         deps.ctx,
+		stopCh:      make(chan struct{}),
+		logger:      deps.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
+	}
+}
+
 // EngineStatus represents the status of the evaluation engine.
 type EngineStatus struct {
 	Running      bool   `json:"running"`
@@ -85,6 +189,8 @@ type Evaluator struct {
 	stopCh       chan struct{}
 	startedAt    time.Time
 	syncInterval time.Duration
+	perDS        sync.Map           // map[uint]*PerDatasourceEvaluator, key is datasourceID
+	perDSEval    bool               // feature flag: per-datasource bucket evaluation
 }
 
 // AlertWorkerPoolSubmiter is the subset of AlertWorkerPool used by the evaluator.
@@ -123,6 +229,57 @@ func (e *Evaluator) SetSyncInterval(d time.Duration) {
 	if d > 0 {
 		e.syncInterval = d
 	}
+}
+
+// SetPerDatasourceEval enables/disables per-datasource bucket evaluation.
+func (e *Evaluator) SetPerDatasourceEval(enabled bool) {
+	e.perDSEval = enabled
+}
+
+// buildEvaluatorDeps bundles current Evaluator fields into evaluatorDeps for PerDatasourceEvaluator.
+func (e *Evaluator) buildEvaluatorDeps() evaluatorDeps {
+	return evaluatorDeps{
+		db:          e.db,
+		eventRepo:   e.eventRepo,
+		queryClient: e.queryClient,
+		stateStore:  e.stateStore,
+		suppressor:  e.suppressor,
+		workerPool:  e.workerPool,
+		onAlert:     e.onAlert,
+		ctx:         e.ctx,
+		logger:      e.logger,
+	}
+}
+
+// getOrCreateDSBucket gets or creates a per-datasource evaluation bucket.
+func (e *Evaluator) getOrCreateDSBucket(dsID uint) *PerDatasourceEvaluator {
+	if v, ok := e.perDS.Load(dsID); ok {
+		return v.(*PerDatasourceEvaluator)
+	}
+	bucket := NewPerDatasourceEvaluator(e.ctx, dsID, e.logger)
+	actual, loaded := e.perDS.LoadOrStore(dsID, bucket)
+	if loaded {
+		bucket.cancel()
+		return actual.(*PerDatasourceEvaluator)
+	}
+	return bucket
+}
+
+// removeDSBucket removes a per-datasource evaluation bucket.
+func (e *Evaluator) removeDSBucket(dsID uint) {
+	if v, loaded := e.perDS.LoadAndDelete(dsID); loaded {
+		v.(*PerDatasourceEvaluator).Stop()
+	}
+}
+
+// listDSBuckets returns all per-datasource buckets (for testing/monitoring).
+func (e *Evaluator) listDSBuckets() []*PerDatasourceEvaluator {
+	var buckets []*PerDatasourceEvaluator
+	e.perDS.Range(func(_, v any) bool {
+		buckets = append(buckets, v.(*PerDatasourceEvaluator))
+		return true
+	})
+	return buckets
 }
 
 // SetOnAlert sets the callback function called when a new alert event is created.
@@ -197,13 +354,15 @@ func (e *Evaluator) Stop() {
 	defer e.mu.Unlock()
 
 	for ruleID, re := range e.evaluators {
-		select {
-		case <-re.stopCh:
-		default:
-			close(re.stopCh)
-		}
+		re.Stop()
 		delete(e.evaluators, ruleID)
 	}
+
+	// Clean up per-datasource buckets
+	e.perDS.Range(func(k, v any) bool {
+		v.(*PerDatasourceEvaluator).Stop()
+		return true
+	})
 
 	e.logger.Info("alert evaluator stopped")
 }
@@ -223,46 +382,64 @@ func (e *Evaluator) syncRules() {
 
 	activeRuleIDs := make(map[uint]bool, len(rules))
 
-	for i := range rules {
-		rule := &rules[i]
-		activeRuleIDs[rule.ID] = true
-
-		e.mu.RLock()
-		existing, exists := e.evaluators[rule.ID]
-		e.mu.RUnlock()
-
-		if exists {
-			// Check if rule has been updated (version changed).
-			// existing.rule is immutable after creation (set once in startRuleEvaluator,
-			// replaced atomically by stop+start), so no lock is needed to read Version.
-			oldVersion := existing.rule.Version
-
-			if oldVersion != rule.Version {
-				e.logger.Info("rule updated, restarting evaluator",
-					zap.Uint("rule_id", rule.ID),
-					zap.String("name", rule.Name),
-				)
-				e.stopRuleEvaluator(rule.ID)
-				e.startRuleEvaluators(ctx, rule)
-			}
-		} else {
+	if e.perDSEval {
+		// Per-datasource bucket mode: AddRule is idempotent (replaces old evaluator)
+		for i := range rules {
+			rule := &rules[i]
+			activeRuleIDs[rule.ID] = true
 			e.startRuleEvaluators(ctx, rule)
 		}
-	}
+		// Clean up removed/disabled rules from all buckets
+		e.perDS.Range(func(_, v any) bool {
+			bucket := v.(*PerDatasourceEvaluator)
+			bucket.rules.Range(func(k, _ any) bool {
+				ruleID := k.(uint)
+				if !activeRuleIDs[ruleID] {
+					bucket.RemoveRule(ruleID)
+				}
+				return true
+			})
+			return true
+		})
+	} else {
+		// Legacy mode: individual evaluators in e.evaluators map
+		for i := range rules {
+			rule := &rules[i]
+			activeRuleIDs[rule.ID] = true
 
-	// Stop evaluators for rules that are no longer enabled
-	e.mu.RLock()
-	toStop := make([]uint, 0)
-	for ruleID := range e.evaluators {
-		if !activeRuleIDs[ruleID] {
-			toStop = append(toStop, ruleID)
+			e.mu.RLock()
+			existing, exists := e.evaluators[rule.ID]
+			e.mu.RUnlock()
+
+			if exists {
+				oldVersion := existing.rule.Version
+				if oldVersion != rule.Version {
+					e.logger.Info("rule updated, restarting evaluator",
+						zap.Uint("rule_id", rule.ID),
+						zap.String("name", rule.Name),
+					)
+					e.stopRuleEvaluator(rule.ID)
+					e.startRuleEvaluators(ctx, rule)
+				}
+			} else {
+				e.startRuleEvaluators(ctx, rule)
+			}
 		}
-	}
-	e.mu.RUnlock()
 
-	for _, ruleID := range toStop {
-		e.logger.Info("stopping evaluator for removed/disabled rule", zap.Uint("rule_id", ruleID))
-		e.stopRuleEvaluator(ruleID)
+		// Stop evaluators for rules that are no longer enabled
+		e.mu.RLock()
+		toStop := make([]uint, 0)
+		for ruleID := range e.evaluators {
+			if !activeRuleIDs[ruleID] {
+				toStop = append(toStop, ruleID)
+			}
+		}
+		e.mu.RUnlock()
+
+		for _, ruleID := range toStop {
+			e.logger.Info("stopping evaluator for removed/disabled rule", zap.Uint("rule_id", ruleID))
+			e.stopRuleEvaluator(ruleID)
+		}
 	}
 
 	e.logger.Debug("rule sync completed",
@@ -272,27 +449,45 @@ func (e *Evaluator) syncRules() {
 }
 
 // startRuleEvaluators dispatches rule evaluation:
-// - If rule.DataSourceID is non-nil, start a single evaluator for that specific datasource.
-// - If rule.DataSourceID is nil and rule.DatasourceType is set, start one evaluator per
-//   enabled datasource matching that type.
+// - If perDSEval is true, uses per-datasource bucket isolation.
+// - If perDSEval is false (legacy), fans out to individual evaluators.
 func (e *Evaluator) startRuleEvaluators(ctx context.Context, rule *model.AlertRule) {
+	dsList := e.resolveDatasources(ctx, rule)
+	if len(dsList) == 0 {
+		return
+	}
+
+	if e.perDSEval {
+		// Per-datasource bucket mode: each DS gets an isolated bucket
+		deps := e.buildEvaluatorDeps()
+		for _, ds := range dsList {
+			bucket := e.getOrCreateDSBucket(ds.ID)
+			bucket.AddRule(rule, ds, deps)
+		}
+	} else {
+		// Legacy mode: individual evaluators
+		for _, ds := range dsList {
+			e.startRuleEvaluator(rule, ds)
+		}
+	}
+}
+
+// resolveDatasources returns the list of datasources a rule should evaluate against.
+func (e *Evaluator) resolveDatasources(ctx context.Context, rule *model.AlertRule) []*model.DataSource {
 	if rule.DataSourceID != nil {
-		// Specific datasource: use the preloaded DataSource (may be nil if not found)
 		ds := rule.DataSource
 		if ds == nil {
 			e.logger.Warn("rule has datasource_id but DataSource is nil after preload — skipping",
 				zap.Uint("rule_id", rule.ID))
-			return
+			return nil
 		}
-		e.startRuleEvaluator(rule, ds)
-		return
+		return []*model.DataSource{ds}
 	}
 
-	// No specific datasource — fan out to all enabled datasources of the declared type.
 	if rule.DatasourceType == "" {
 		e.logger.Warn("rule has no datasource_id and no datasource_type — skipping",
 			zap.Uint("rule_id", rule.ID))
-		return
+		return nil
 	}
 
 	dsList, err := e.dsRepo.ListEnabledByType(ctx, rule.DatasourceType)
@@ -302,21 +497,21 @@ func (e *Evaluator) startRuleEvaluators(ctx context.Context, rule *model.AlertRu
 			zap.String("type", string(rule.DatasourceType)),
 			zap.Error(err),
 		)
-		return
+		return nil
 	}
 	if len(dsList) == 0 {
 		e.logger.Warn("no enabled datasources found for rule type",
 			zap.Uint("rule_id", rule.ID),
 			zap.String("type", string(rule.DatasourceType)),
 		)
-		return
+		return nil
 	}
 
-	// Fan out to all matching datasources so the rule is evaluated against every
-	// enabled datasource of the declared type (not just the first one).
+	result := make([]*model.DataSource, len(dsList))
 	for i := range dsList {
-		e.startRuleEvaluator(rule, &dsList[i])
+		result[i] = &dsList[i]
 	}
+	return result
 }
 
 // startRuleEvaluator creates and starts a goroutine for a single rule against a specific datasource.
@@ -360,11 +555,7 @@ func (e *Evaluator) stopRuleEvaluator(ruleID uint) {
 	e.mu.Unlock()
 
 	if exists && re != nil {
-		select {
-		case <-re.stopCh:
-		default:
-			close(re.stopCh)
-		}
+		re.Stop()
 	}
 
 	// Clean up suppressor entries for this rule to prevent memory leak.
@@ -386,8 +577,7 @@ func (e *Evaluator) GetFiringEvents() []*AlertState {
 
 	var result []*AlertState
 	for _, re := range e.evaluators {
-		re.states.Range(func(k, v any) bool {
-			sl := v.(*stateLock)
+		re.rangeStates(func(_ string, sl *stateLock) bool {
 			sl.mu.Lock()
 			if sl.state != nil && sl.state.Status == "firing" {
 				result = append(result, sl.state)
@@ -422,8 +612,7 @@ func (e *Evaluator) GetStatus() EngineStatus {
 
 	activeAlerts := 0
 	for _, re := range e.evaluators {
-		re.states.Range(func(k, v any) bool {
-			sl := v.(*stateLock)
+		re.rangeStates(func(_ string, sl *stateLock) bool {
 			sl.mu.Lock()
 			if sl.state != nil && sl.state.Status == "firing" {
 				activeAlerts++

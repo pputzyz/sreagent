@@ -23,6 +23,19 @@ func (re *RuleEvaluator) lockState(fp string) *stateLock {
 	return sl.(*stateLock)
 }
 
+// deleteState removes a fingerprint's state (used after alert resolved cleanup).
+func (re *RuleEvaluator) deleteState(fp string) {
+	re.deleteState(fp)
+}
+
+// rangeStates iterates all states. fn returns false to stop early.
+// fn must lock sl.mu itself if it reads/writes sl.state.
+func (re *RuleEvaluator) rangeStates(fn func(fp string, sl *stateLock) bool) {
+	re.states.Range(func(k, v any) bool {
+		return fn(k.(string), v.(*stateLock))
+	})
+}
+
 // Run is the main loop for a single rule evaluator.
 func (re *RuleEvaluator) Run() {
 	// Parse evaluation interval from rule (default 60s)
@@ -218,15 +231,13 @@ func (re *RuleEvaluator) evaluate() {
 		sl.mu.Unlock()
 	}
 
-	// 3. Check for resolved alerts — iterate with Range, lock each fp individually
+	// 3. Check for resolved alerts — iterate with rangeStates, lock each fp individually
 	now := time.Now()
-	re.states.Range(func(k, v any) bool {
-		fp := k.(string)
+	re.rangeStates(func(fp string, sl *stateLock) bool {
 		if seenFingerprints[fp] {
 			return true // skip, already processed above
 		}
 
-		sl := v.(*stateLock)
 		sl.mu.Lock()
 		state := sl.state
 		if state == nil {
@@ -238,7 +249,7 @@ func (re *RuleEvaluator) evaluate() {
 		case "pending":
 			// Pending alert disappeared, just remove it
 			sl.state = nil
-			re.states.Delete(fp)
+			re.deleteState(fp)
 			re.deletePersistedState(fp)
 
 		case "firing":
@@ -262,7 +273,7 @@ func (re *RuleEvaluator) evaluate() {
 				re.resolveAlertEvent(state)
 				metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "resolved")
 				sl.state = nil
-				re.states.Delete(fp)
+				re.deleteState(fp)
 				re.deletePersistedState(fp)
 			}
 		}
@@ -309,23 +320,19 @@ func (re *RuleEvaluator) evaluate() {
 	} else {
 		// Data received, clear nodata state if it exists
 		noDataFP := fmt.Sprintf("nodata_%d", re.rule.ID)
-		if v, ok := re.states.Load(noDataFP); ok {
-			sl := v.(*stateLock)
-			sl.mu.Lock()
-			if sl.state != nil && sl.state.Status == "firing" {
+		sl := re.lockState(noDataFP)
+		sl.mu.Lock()
+		if sl.state != nil {
+			if sl.state.Status == "firing" {
 				sl.state.Status = "resolved"
 				sl.state.ResolvedAt = now
 				re.resolveAlertEvent(sl.state)
-				sl.state = nil
-				re.states.Delete(noDataFP)
-				re.deletePersistedState(noDataFP)
-			} else if sl.state != nil {
-				sl.state = nil
-				re.states.Delete(noDataFP)
-				re.deletePersistedState(noDataFP)
 			}
-			sl.mu.Unlock()
+			sl.state = nil
+			re.deleteState(noDataFP)
+			re.deletePersistedState(noDataFP)
 		}
+		sl.mu.Unlock()
 	}
 }
 

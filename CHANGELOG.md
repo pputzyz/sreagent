@@ -62,6 +62,29 @@
 - `inhibition/Index.vue` 新增 `hit_count` 显示（>0 红色高亮）
 - 7 页迁移至 `useCrudPage` composable，删除 `useCrudModal`
 
+> **注**：原计划的 `000050_drop_notifications_legacy` 已**撤销**。
+> notifications 表是 v4.12.0 新增的用户通知中心（user_notifications），属于通知中心功能，不应被删除。
+> 该决策已在第二轮整改时确认，参见 plan-rework-v4.13.0.md。
+
+**PR5 — 第五轮返工修复（PR4 残留补全）**
+- 修 `evaluator.lockState()` 辅助方法补全 `deleteState()` + `rangeStates()`（第四轮残留）
+- 所有 `re.states.Delete` / `re.states.Range` 改用 `deleteState()` / `rangeStates()` 包装
+- 完整实现 `PerDatasourceEvaluator` 分桶 + `per_datasource_eval` feature flag（第四轮零落地补全）
+- `Evaluator` 新增 `perDS sync.Map` + `getOrCreateDSBucket` / `removeDSBucket` / `listDSBuckets` 辅助方法
+- `syncRules` 分流：perDS 模式走 bucket、legacy 模式走 `e.evaluators` map
+- `RuleEvaluator` 新增 `Stop()` 方法（关闭 stopCh）
+- 修 AI Modal `handleDryRun` 传 `expr`/`labels`/`severity` 而非 `description`
+- 修 AI Modal `handleSaveAsDraft` 调 `alertRuleApi.create`（status=draft, enabled=false）而非 `aiRuleApi.generate`
+- 修 AI Modal `handleSaveAsActive` 加 `enabled: true`
+- 修 AI Modal `handleLabelPreview` 调 `labelValues` 返回 `registryValues`
+- 补 `dispatch-policies` POST 端点 + 漏挂 `RequirePerm("dispatch.write")` 中间件
+- 修 `wire.go` audit_log `Status` 硬编码 `"denied"` 改用 `model.AuditResultDenied` 常量
+- 修 `rules/Index.vue` `statusFilterOptions` value `'enabled'` → `'active'`
+- 补 `web/src/permissions.ts` 10 个 `.write` 后缀常量
+- 修 `000049` down.sql 多语句违规（合并为单条 ALTER）
+- `config.go` 新增 `EngineConfig.PerDatasourceEval` + `config.example.yaml` 配置项
+- `wire.go` 接线 `evaluator.SetPerDatasourceEval(cfg.Engine.PerDatasourceEval)`
+
 ---
 
 ## [v4.12.1] — 2026-05-19
