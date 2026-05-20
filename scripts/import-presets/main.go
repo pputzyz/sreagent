@@ -44,6 +44,7 @@ type PresetRule struct {
 	Category    string `gorm:"size:50;index"`
 	SubCategory string `gorm:"size:50"`
 	Component   string `gorm:"size:50"`
+	Cluster     string `gorm:"size:100;index"`
 	Expression  string `gorm:"type:text;not null"`
 	ForDuration string `gorm:"size:32"`
 	Severity    string `gorm:"size:20;index"`
@@ -179,6 +180,12 @@ func parseFile(path, baseDir string) ([]PresetRule, error) {
 				alertType = "threshold"
 			}
 
+			// Extract cluster from labels if present
+			cluster := ""
+			if c, ok := rule.Labels["cluster"]; ok {
+				cluster = c
+			}
+
 			// Build labels JSON (exclude severity and alert_type which have dedicated columns)
 			labelMap := map[string]string{}
 			for k, v := range rule.Labels {
@@ -211,6 +218,7 @@ func parseFile(path, baseDir string) ([]PresetRule, error) {
 				Category:    category,
 				SubCategory: subCategory,
 				Component:   component,
+				Cluster:     cluster,
 				Expression:  strings.TrimSpace(rule.Expr),
 				ForDuration: rule.For,
 				Severity:    severity,
