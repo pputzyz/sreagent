@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, shallowRef, ref, computed, onMounted } from 'vue'
-import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, useMessage } from 'naive-ui'
+import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, NDrawer, NDrawerContent, NDataTable, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import type { DataSource, DataSourceType, DataSourceStatus } from '@/types'
@@ -33,6 +33,34 @@ const datasources = shallowRef<DSCard[]>([])
 
 const typeFilter = ref<'all' | DataSourceType>('all')
 const search = ref('')
+
+// Health check history drawer
+interface HealthLogEntry {
+  id: number
+  time: string
+  status: 'healthy' | 'unhealthy'
+  latency: string
+  error: string
+}
+const healthDrawerVisible = ref(false)
+const healthDrawerTitle = ref('')
+const healthLogs = ref<HealthLogEntry[]>([])
+let healthLogIdSeq = 0
+
+const healthLogColumns = [
+  { title: t('datasource.healthLogTime'), key: 'time', width: 180 },
+  {
+    title: t('common.status'), key: 'status', width: 100,
+    render: (row: HealthLogEntry) => row.status === 'healthy' ? t('datasource.healthy') : t('datasource.unhealthy'),
+  },
+  { title: t('datasource.latency'), key: 'latency', width: 100 },
+  { title: t('common.error'), key: 'error', ellipsis: { tooltip: true } },
+]
+
+function openHealthDrawer(ds: DSCard) {
+  healthDrawerTitle.value = `${ds.name} — ${t('datasource.healthLog')}`
+  healthDrawerVisible.value = true
+}
 
 // Modal state
 const showModal = ref(false)
@@ -187,6 +215,12 @@ async function testHealth(ds: DSCard) {
     ds._lastCheckAt = new Date().toISOString()
     ds.status = r.status as DataSourceStatus
     if (r.version) ds.version = r.version
+    // Push to health log (max 20 entries)
+    healthLogIdSeq++
+    healthLogs.value = [
+      { id: healthLogIdSeq, time: new Date().toLocaleString(), status: r.status as 'healthy' | 'unhealthy', latency: r.latency_ms >= 0 ? `${r.latency_ms}ms` : '—', error: r.message || '' },
+      ...healthLogs.value,
+    ].slice(0, 20)
     if (r.status === 'healthy') {
       message.success(`${ds.name} · ${r.latency_ms}ms${r.version ? ' · ' + r.version : ''}`, { duration: 3500 })
     } else {
@@ -292,7 +326,7 @@ onMounted(fetchList)
         >
           <div class="ds-stripe" :data-type="ds.type"></div>
 
-          <div class="ds-status">
+          <div class="ds-status" @click.stop="openHealthDrawer(ds)" style="cursor: pointer">
             <span class="sre-dot" :data-severity="healthSev(ds) || ''"></span>
             <span class="ds-status-text">{{ healthLabel(ds) }}</span>
             <span v-if="!ds.is_enabled" class="ds-disabled">· {{ t('common.disabled') }}</span>
@@ -341,6 +375,20 @@ onMounted(fetchList)
         />
       </div>
     </template>
+
+    <!-- Health Check History Drawer -->
+    <NDrawer v-model:show="healthDrawerVisible" :width="520" placement="right">
+      <NDrawerContent :title="healthDrawerTitle">
+        <NDataTable
+          :columns="healthLogColumns"
+          :data="healthLogs.slice(0, 10)"
+          :row-key="(r: HealthLogEntry) => r.id"
+          size="small"
+          :single-line="false"
+          striped
+        />
+      </NDrawerContent>
+    </NDrawer>
 
     <NModal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 560px" :bordered="false">
       <NForm label-placement="top">

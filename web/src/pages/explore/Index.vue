@@ -10,23 +10,36 @@
  *
  * All heavy deps (ECharts) lazy-loaded with fallback.
  */
-import { ref, onMounted, onUnmounted, computed, watch, shallowRef, type Component } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, shallowRef, h, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import {
   NSelect, NButton, NSpace, NTag, NAlert, NSpin,
   NDataTable, NTabs, NTabPane, NDatePicker,
-  NPopover, NIcon, NTooltip, useMessage,
+  NPopover, NIcon, NTooltip, NButtonGroup, NDrawer, NDrawerContent,
+  NDescriptions, NDescriptionsItem, useMessage,
 } from 'naive-ui'
 import {
   RefreshOutline, TimeOutline, TrashOutline, DownloadOutline,
-  AlertCircleOutline,
+  AlertCircleOutline, AddOutline,
 } from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
 import PromQLEditor from '@/components/query/PromQLEditor.vue'
+import LogsQLEditor from '@/components/query/LogsQLEditor.vue'
 import type { DataSource, DataSourceType, QueryResponse, LogEntry } from '@/types'
 
 const { t } = useI18n()
 const message = useMessage()
+const router = useRouter()
+
+// --- Query mode (instant / range) ---
+type QueryMode = 'instant' | 'range'
+const queryMode = ref<QueryMode>('range')
+
+// --- Label detail drawer ---
+const labelDrawerVisible = ref(false)
+const labelDrawerData = ref<Record<string, string>>({})
+const labelDrawerSeriesName = ref('')
 
 // --- Lazy ECharts ---
 const ChartReady = ref(false)
@@ -291,6 +304,16 @@ async function run() {
         logTotal.value = data.total || 0
         logTruncated.value = data.truncated || false
       }
+    } else if (queryMode.value === 'instant') {
+      const res = await datasourceApi.query(selectedDsId.value, {
+        expression: expression.value,
+        time: timeEnd.value,
+      })
+      const data = res.data?.data
+      if (data?.series && data.series.length > metricLimit.value) {
+        data.series = data.series.slice(0, metricLimit.value)
+      }
+      metricData.value = data
     } else {
       const res = await datasourceApi.rangeQuery(selectedDsId.value, {
         expression: expression.value,
@@ -349,15 +372,67 @@ const chartOption = computed(() => {
   }
 })
 
+interface MetricTableRow { _key: number; name: string; value: string; labels: string; _rawLabels: Record<string, string>; _rawExpression: string }
+
+function openLabelDrawer(labels: Record<string, string>, seriesName: string) {
+  labelDrawerData.value = labels
+  labelDrawerSeriesName.value = seriesName
+  labelDrawerVisible.value = true
+}
+
+function goToCreateAlertRule(expr: string) {
+  router.push({ path: '/alert/rules', query: { from: 'explore', expr: encodeURIComponent(expr) } })
+}
+
+function buildExpression(labels: Record<string, string>): string {
+  const name = labels.__name__ || ''
+  const parts: string[] = []
+  for (const [k, v] of Object.entries(labels)) {
+    if (k !== '__name__') parts.push(`${k}="${v}"`)
+  }
+  return parts.length > 0 ? `${name}{${parts.join(',')}}` : name
+}
+
 const metricColumns = computed(() => [
   { title: t('query.metricName'), key: 'name', ellipsis: { tooltip: true }, width: 200 },
   { title: t('query.value'), key: 'value', width: 160 },
-  { title: t('query.labelsHeader'), key: 'labels', ellipsis: { tooltip: true } },
+  {
+    title: t('query.labelsHeader'), key: 'labels', ellipsis: { tooltip: true },
+    render: (row: MetricTableRow) => {
+      const labels = row._rawLabels || {}
+      const entries = Object.entries(labels).filter(([k]) => k !== '__name__')
+      if (entries.length === 0) return '-'
+      return h('span', {
+        style: 'cursor: pointer; text-decoration: underline dotted; color: var(--sre-primary)',
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation()
+          openLabelDrawer(labels, row.name)
+        },
+      }, formatLabelsStr(labels))
+    },
+  },
+  {
+    title: '',
+    key: 'actions',
+    width: 140,
+    render: (row: MetricTableRow) => {
+      const expr = row._rawExpression || ''
+      if (!expr) return null
+      return h(NButton, {
+        size: 'tiny',
+        quaternary: true,
+        type: 'primary',
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation()
+          goToCreateAlertRule(expr)
+        },
+      }, { default: () => t('query.addToAlertRule'), icon: () => h(NIcon, { component: AddOutline }) })
+    },
+  },
 ])
 
 const metricTableData = computed(() => {
   if (!metricData.value?.series) return []
-  interface MetricTableRow { _key: number; name: string; value: string; labels: string }
   const rows: MetricTableRow[] = []
   let idx = 0
   for (const s of metricData.value.series) {
@@ -367,6 +442,8 @@ const metricTableData = computed(() => {
         name: s.labels?.__name__ || '-',
         value: typeof v.value === 'number' ? v.value.toFixed(4) : String(v.value ?? '-'),
         labels: formatLabelsStr(s.labels),
+        _rawLabels: s.labels || {},
+        _rawExpression: buildExpression(s.labels || {}),
       })
     }
   }
@@ -460,7 +537,27 @@ watch(activeTab, () => {
   errorMsg.value = ''
 })
 
+// --- URL sync for query mode ---
+function syncModeFromURL() {
+  const params = new URLSearchParams(window.location.search)
+  const type = params.get('type')
+  if (type === 'instant' || type === 'range') {
+    queryMode.value = type
+  }
+}
+
+function syncModeToURL() {
+  const url = new URL(window.location.href)
+  url.searchParams.set('type', queryMode.value)
+  window.history.replaceState({}, '', url.toString())
+}
+
+watch(queryMode, () => {
+  syncModeToURL()
+})
+
 onMounted(() => {
+  syncModeFromURL()
   loadDs()
   loadECharts()
   loadHistory()
@@ -580,14 +677,13 @@ onUnmounted(() => {
             :placeholder="t('query.promqlPlaceholder')"
             @execute="run"
           />
-          <textarea
+          <LogsQLEditor
             v-else
             v-model="expression"
-            class="expr-textarea"
+            :datasource-id="selectedDsId"
             :placeholder="t('query.logQueryPlaceholder')"
-            @keyup.ctrl.enter="run"
-            @keyup.meta.enter="run"
-          ></textarea>
+            @execute="run"
+          />
           <div class="editor-tools">
             <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end" class="history-popover">
               <template #trigger>
@@ -629,6 +725,14 @@ onUnmounted(() => {
       <div v-if="selectedDsId != null" class="query-actions-row">
         <NSpace :size="8" align="center">
           <template v-if="!isLogs">
+            <NButtonGroup size="small">
+              <NButton :type="queryMode === 'instant' ? 'primary' : 'default'" :secondary="queryMode !== 'instant'" @click="queryMode = 'instant'">
+                {{ t('query.instant') }}
+              </NButton>
+              <NButton :type="queryMode === 'range' ? 'primary' : 'default'" :secondary="queryMode !== 'range'" @click="queryMode = 'range'">
+                {{ t('query.range') }}
+              </NButton>
+            </NButtonGroup>
             <span class="field-label">{{ t('query.step') }}</span>
             <NSelect v-model:value="stepValue" :options="stepOptions" size="small" class="control-select-sm" />
             <span class="field-label">{{ t('query.limit') }}</span>
@@ -754,6 +858,30 @@ onUnmounted(() => {
     >
       {{ t('query.noResults') }}
     </div>
+
+    <!-- Label Detail Drawer -->
+    <NDrawer v-model:show="labelDrawerVisible" :width="400" placement="right">
+      <NDrawerContent :title="t('query.labelDetails')">
+        <div class="label-drawer-header">
+          <span class="label-drawer-series">{{ labelDrawerSeriesName }}</span>
+        </div>
+        <NDescriptions :column="1" bordered size="small" label-placement="left">
+          <NDescriptionsItem v-for="(v, k) in labelDrawerData" :key="k" :label="String(k)">
+            <span class="label-drawer-value">{{ v }}</span>
+          </NDescriptionsItem>
+        </NDescriptions>
+        <div class="label-drawer-actions">
+          <NButton
+            type="primary"
+            size="small"
+            @click="goToCreateAlertRule(buildExpression(labelDrawerData))"
+          >
+            <template #icon><NIcon :component="AddOutline" /></template>
+            {{ t('query.addToAlertRule') }}
+          </NButton>
+        </div>
+      </NDrawerContent>
+    </NDrawer>
   </div>
 </template>
 
@@ -1090,6 +1218,27 @@ onUnmounted(() => {
   gap: 8px;
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+/* ---- Label drawer ---- */
+.label-drawer-header {
+  margin-bottom: 16px;
+}
+.label-drawer-series {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  font-family: var(--sre-font-mono, monospace);
+}
+.label-drawer-value {
+  font-family: var(--sre-font-mono, monospace);
+  font-size: 12px;
+  word-break: break-all;
+}
+.label-drawer-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ---- Mobile responsive ---- */

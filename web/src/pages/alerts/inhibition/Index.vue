@@ -2,7 +2,7 @@
 import { ref, shallowRef, computed, onMounted, h } from 'vue'
 import {
   NButton, NIcon, NSwitch, NDropdown, NInput, NSpin,
-  NModal, NForm, NFormItem, NSpace, NAlert, NTag, useMessage, useDialog,
+  NModal, NForm, NFormItem, NSpace, useMessage, useDialog,
 } from 'naive-ui'
 import type { FormInst } from 'naive-ui'
 import {
@@ -10,14 +10,15 @@ import {
 } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { inhibitionRuleApi, aiRuleApi } from '@/api'
+import { inhibitionRuleApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 import type { InhibitionRule } from '@/types'
-import type { RuleGenerateResult } from '@/types/ai-module'
+import type { RuleGenerateResult, MuteRuleGenerateResult } from '@/types/ai-module'
 import { useAIModule } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import AIGenerateModal from '@/components/alert-rule/AIGenerateModal.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
@@ -35,60 +36,35 @@ const searchKeyword = ref('')
 
 // ─── AI Inhibition Generation ───
 const showAIModal = ref(false)
-const aiDescription = ref('')
-const aiGenerating = ref(false)
-const aiResult = ref<RuleGenerateResult | null>(null)
-const aiError = ref('')
 
 function openAIGenerate() {
-  aiDescription.value = ''
-  aiResult.value = null
-  aiError.value = ''
   showAIModal.value = true
 }
 
-async function handleAIGenerate() {
-  if (!aiDescription.value.trim()) return
-  aiGenerating.value = true
-  aiResult.value = null
-  aiError.value = ''
-  try {
-    const { data } = await aiRuleApi.generateInhibition({
-      description: aiDescription.value,
-    })
-    aiResult.value = data.data
-  } catch (err: unknown) {
-    aiError.value = getErrorMessage(err) || t('inhibitionMgmt.aiGenerateFailed')
-  } finally {
-    aiGenerating.value = false
-  }
-}
-
-async function handleAIConfirmCreate() {
-  if (!aiResult.value) return
+async function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) {
+  const inhibResult = result as RuleGenerateResult
   try {
     const sourceMatch: Record<string, string> = {}
-    if (aiResult.value.source_labels) {
-      for (const label of aiResult.value.source_labels) {
-        sourceMatch[label] = label === 'alertname' ? (aiResult.value.source_value || '') : '=~.*'
+    if (inhibResult.source_labels) {
+      for (const label of inhibResult.source_labels) {
+        sourceMatch[label] = label === 'alertname' ? (inhibResult.source_value || '') : '=~.*'
       }
     }
     const targetMatch: Record<string, string> = {}
-    if (aiResult.value.target_labels) {
-      for (const label of aiResult.value.target_labels) {
+    if (inhibResult.target_labels) {
+      for (const label of inhibResult.target_labels) {
         targetMatch[label] = '=~.*'
       }
     }
     await inhibitionRuleApi.create({
-      name: aiResult.value.name,
-      description: aiResult.value.description,
+      name: inhibResult.name,
+      description: inhibResult.description,
       source_match: sourceMatch,
       target_match: targetMatch,
-      equal_labels: (aiResult.value.equal_labels || []).join(','),
+      equal_labels: (inhibResult.equal_labels || []).join(','),
       is_enabled: true,
     })
     message.success(t('common.createSuccess'))
-    showAIModal.value = false
     fetchList()
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
@@ -387,60 +363,11 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
     </NModal>
 
     <!-- AI Generate Inhibition Modal -->
-    <NModal
-      v-model:show="showAIModal"
-      :title="t('alert.aiGenerate')"
-      preset="card"
-      :mask-closable="false"
-      :bordered="false"
-      style="max-width: 620px"
-    >
-      <div class="ai-gen-form">
-        <div class="ai-gen-field">
-          <label class="ai-gen-label">{{ t('alert.aiDescription') }}</label>
-          <NInput
-            v-model:value="aiDescription"
-            type="textarea"
-            :rows="3"
-            :placeholder="t('alert.aiInhibitionPlaceholder')"
-          />
-        </div>
-        <NButton type="primary" :loading="aiGenerating" :disabled="!aiDescription.trim()" @click="handleAIGenerate">
-          <template #icon><NIcon :component="SparklesOutline" /></template>
-          {{ t('alert.aiGenerateBtn') }}
-        </NButton>
-      </div>
-
-      <NAlert v-if="aiError" type="error" style="margin-top: 16px">{{ aiError }}</NAlert>
-
-      <div v-if="aiResult" class="ai-gen-preview">
-        <div class="ai-gen-preview-header">
-          <span class="ai-gen-preview-title">{{ aiResult.name }}</span>
-          <span class="ai-gen-confidence">{{ Math.round(aiResult.confidence * 100) }}%</span>
-        </div>
-        <div v-if="aiResult.description" class="ai-gen-desc">{{ aiResult.description }}</div>
-        <div v-if="aiResult.source_labels?.length" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">{{ t('inhibition.sourceLabel') }}:</span>
-          <NTag v-for="l in aiResult.source_labels" :key="l" size="small" style="margin-right: 4px">{{ l }}</NTag>
-          <span v-if="aiResult.source_value"> = {{ aiResult.source_value }}</span>
-        </div>
-        <div v-if="aiResult.target_labels?.length" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">{{ t('inhibition.targetLabel') }}:</span>
-          <NTag v-for="l in aiResult.target_labels" :key="l" size="small" style="margin-right: 4px">{{ l }}</NTag>
-        </div>
-        <div v-if="aiResult.equal_labels?.length" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">{{ t('inhibition.equalLabel') }}:</span>
-          <NTag v-for="l in aiResult.equal_labels" :key="l" size="small" style="margin-right: 4px">{{ l }}</NTag>
-        </div>
-        <NAlert v-if="aiResult.warnings?.length" type="warning" style="margin-top: 12px">
-          <div v-for="w in aiResult.warnings" :key="w">{{ w }}</div>
-        </NAlert>
-        <NSpace justify="end" style="margin-top: 16px">
-          <NButton @click="handleAIGenerate">{{ t('alert.aiRegenerate') }}</NButton>
-          <NButton type="primary" @click="handleAIConfirmCreate">{{ t('alert.aiConfirmCreate') }}</NButton>
-        </NSpace>
-      </div>
-    </NModal>
+    <AIGenerateModal
+      v-model:visible="showAIModal"
+      rule-type="inhibition"
+      @generated="handleAIGenerated"
+    />
   </div>
 </template>
 

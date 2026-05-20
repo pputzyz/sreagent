@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, shallowRef, onMounted, h, watch } from 'vue'
+import { computed, ref, shallowRef, onMounted, h, watch } from 'vue'
 import {
   useMessage,
   NButton,
@@ -19,7 +19,8 @@ import {
 import { useI18n } from 'vue-i18n'
 import { teamApi } from '@/api'
 import type { User, Team } from '@/types'
-import { usePaginatedList, useCrudModal } from '@/composables'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import { kvArrayToRecord } from '@/utils/format'
 import { AddOutline, EllipsisHorizontal, SearchOutline } from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
@@ -30,30 +31,59 @@ const props = defineProps<{ allUsers: User[] }>()
 const message = useMessage()
 const { t } = useI18n()
 
-const {
-  loading,
-  items: teamsList,
-  fetchList,
-} = usePaginatedList<Team>({
-  apiFn: teamApi.list,
-  pageSize: 100,
-  onError: (err: unknown) => {
-    message.error((err as Error).message)
+const crud = useCrudPage<Team>({
+  api: teamApi as unknown as CrudApiModule<Team>,
+  defaultForm: () => ({ name: '', description: '', labels: [] as unknown as Record<string, string> }),
+  i18nKeys: {
+    created: 'settings.teamCreated',
+    updated: 'settings.teamUpdated',
+    deleted: 'settings.teamDeleted',
+    deleteConfirm: 'settings.deleteTeamConfirm',
+    createTitle: 'settings.createTeam',
+    editTitle: 'settings.editTeam',
   },
+  rowToForm: (row) => ({
+    name: row.name,
+    description: row.description,
+    labels: Object.entries(row.labels || {}).map(([key, value]) => ({ key, value })) as unknown as Record<string, string>,
+  }),
+  formToPayload: (form) => {
+    const labels = form.labels as unknown as { key: string; value: string }[]
+    return {
+      name: form.name,
+      description: form.description,
+      labels: Array.isArray(labels) ? kvArrayToRecord(labels) : {},
+    }
+  },
+  validate: (form) => {
+    if (!form.name?.trim()) return t('settings.nameRequired')
+    return null
+  },
+  pageSize: 100,
 })
 
 const {
+  loading,
+  items: teamsList,
+  search,
   showModal,
   modalTitle,
   editingId,
   saving,
-  openCreate: baseOpenCreate,
-  openEdit: baseOpenEdit,
-  closeModal,
-  withSaving,
-} = useCrudModal(fetchList)
+  form,
+  fetchList,
+  openCreate,
+  openEdit,
+  handleSave,
+  confirmDelete,
+} = crud
 
-const search = ref('')
+// Computed for KVEditor binding (form stores labels as KV array via rowToForm/formToPayload)
+const labelsKV = computed({
+  get: () => form.value.labels as unknown as { key: string; value: string }[],
+  set: (v: { key: string; value: string }[]) => { (form.value as any).labels = v },
+})
+
 const firstLoad = ref(true)
 
 watch(loading, (isLoading) => {
@@ -66,12 +96,6 @@ const membersTeamName = ref('')
 const teamMembers = shallowRef<User[]>([])
 const selectedMemberUserId = ref<number | null>(null)
 const membersLoading = ref(false)
-
-const form = reactive({
-  name: '',
-  description: '',
-  labels: [] as { key: string; value: string }[],
-})
 
 const allUserOptions = computed(() =>
   props.allUsers.map(u => ({ label: u.display_name || u.username, value: u.id }))
@@ -90,50 +114,7 @@ function initials(u: User): string {
   return s.charAt(0).toUpperCase()
 }
 
-function openCreate() {
-  Object.assign(form, { name: '', description: '', labels: [] })
-  baseOpenCreate(t('settings.createTeam'))
-}
-
-function openEdit(tm: Team) {
-  Object.assign(form, {
-    name: tm.name,
-    description: tm.description,
-    labels: Object.entries(tm.labels || {}).map(([key, value]) => ({ key, value })),
-  })
-  baseOpenEdit(tm.id, t('settings.editTeam'))
-}
-
-async function handleSave() {
-  if (!form.name.trim()) {
-    message.warning(t('settings.nameRequired'))
-    return
-  }
-  await withSaving(async () => {
-    const payload = {
-      name: form.name,
-      description: form.description,
-      labels: kvArrayToRecord(form.labels),
-    }
-    if (editingId.value) {
-      await teamApi.update(editingId.value, payload)
-      message.success(t('settings.teamUpdated'))
-    } else {
-      await teamApi.create(payload)
-      message.success(t('settings.teamCreated'))
-    }
-  })
-}
-
-async function handleDelete(id: number) {
-  try {
-    await teamApi.delete(id)
-    message.success(t('settings.teamDeleted'))
-    fetchList()
-  } catch (err: unknown) {
-    message.error((err as Error).message)
-  }
-}
+// openCreate, openEdit, handleSave are now provided by useCrudPage
 
 async function openMembers(tm: Team) {
   membersTeamId.value = tm.id
@@ -197,9 +178,7 @@ function cardMenuOptions() {
 function handleCardMenu(key: string, tm: Team, evt?: MouseEvent) {
   if (key === 'edit') openEdit(tm)
   else if (key === 'members') openMembers(tm)
-  else if (key === 'delete') {
-    if (confirm(t('settings.deleteTeamConfirm'))) handleDelete(tm.id)
-  }
+  else if (key === 'delete') confirmDelete(tm.id)
   evt?.stopPropagation()
 }
 
@@ -308,7 +287,7 @@ onMounted(fetchList)
           <NInput v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
         </NFormItem>
         <NFormItem :label="t('settings.labels')">
-          <KVEditor v-model="form.labels" :add-label="t('settings.addTeamLabel')" />
+          <KVEditor v-model="labelsKV" :add-label="t('settings.addTeamLabel')" />
         </NFormItem>
       </NForm>
       <template #action>

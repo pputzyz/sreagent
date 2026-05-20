@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted, watch, h } from 'vue'
+import { computed, ref, onMounted, watch, h } from 'vue'
 import {
   useMessage,
   NButton,
@@ -20,53 +20,82 @@ import {
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api'
 import type { User } from '@/types'
-import { usePaginatedList, useCrudModal } from '@/composables'
+import { useCrudPage } from '@/composables/useCrudPage'
+import type { CrudApiModule } from '@/composables/useCrudPage'
 import { AddOutline, EllipsisHorizontal, SearchOutline } from '@vicons/ionicons5'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const message = useMessage()
 const { t } = useI18n()
 
-const {
-  loading,
-  items: usersList,
-  fetchList,
-} = usePaginatedList<User>({
-  apiFn: userApi.list,
-  pageSize: 200,
-  onError: (err: unknown) => {
-    message.error((err as Error).message)
+const crud = useCrudPage<User>({
+  api: userApi as unknown as CrudApiModule<User>,
+  defaultForm: () => ({
+    username: '',
+    display_name: '',
+    email: '',
+    phone: '',
+    role: 'member' as User['role'],
+    password: '',
+    is_active: true,
+  }),
+  i18nKeys: {
+    created: 'settings.userCreated',
+    updated: 'settings.userUpdated',
+    deleted: 'settings.userDeleted',
+    createTitle: 'settings.createUser',
+    editTitle: 'settings.editUser',
   },
+  rowToForm: (row) => ({
+    username: row.username,
+    display_name: row.display_name,
+    email: row.email,
+    phone: row.phone,
+    role: row.role,
+    password: '',
+    is_active: row.is_active,
+  }),
+  validate: (form) => {
+    if (!form.username?.trim()) return t('settings.usernameRequired')
+    return null
+  },
+  formToPayload: (form) => ({
+    username: form.username,
+    display_name: form.display_name,
+    email: form.email,
+    phone: form.phone,
+    role: form.role,
+    is_active: form.is_active,
+  }),
+  pageSize: 200,
 })
 
 const {
+  loading,
+  items: usersList,
+  search,
   showModal,
   modalTitle,
   editingId,
   saving,
-  openCreate: baseOpenCreate,
-  openEdit: baseOpenEdit,
-  closeModal,
-  withSaving,
-} = useCrudModal(fetchList)
+  form,
+  fetchList,
+  openCreate,
+  openEdit,
+  handleSave,
+} = crud
 
 const filterRole = ref<'all' | 'admin' | 'team_lead' | 'member' | 'viewer'>('all')
 const filterStatus = ref<'all' | 'active' | 'inactive'>('all')
-const search = ref('')
 const firstLoad = ref(true)
+const passwordField = ref('')
 
 watch(loading, (isLoading) => {
   if (!isLoading) firstLoad.value = false
 })
 
-const form = reactive({
-  username: '',
-  display_name: '',
-  email: '',
-  phone: '',
-  role: 'member' as User['role'],
-  password: '',
-  is_active: true,
+watch(showModal, (v) => {
+  if (v) passwordField.value = ''
 })
 
 const roleOptions = computed(() => [
@@ -106,67 +135,52 @@ const filtered = computed(() => {
   })
 })
 
-function openCreate() {
-  Object.assign(form, {
-    username: '',
-    display_name: '',
-    email: '',
-    phone: '',
-    role: 'member',
-    password: '',
-    is_active: true,
-  })
-  baseOpenCreate(t('settings.createUser'))
-}
+// openCreate and openEdit are now provided by useCrudPage
 
-function openEdit(u: User) {
-  Object.assign(form, {
-    username: u.username,
-    display_name: u.display_name,
-    email: u.email,
-    phone: u.phone,
-    role: u.role,
-    password: '',
-    is_active: u.is_active,
-  })
-  baseOpenEdit(u.id, t('settings.editUser'))
-}
-
-async function handleSave() {
-  if (!form.username.trim()) {
+// Custom handleSave to support password and changePassword
+async function handleSaveUser() {
+  if (!form.value.username?.trim()) {
     message.warning(t('settings.usernameRequired'))
     return
   }
-  if (!editingId.value && !form.password.trim()) {
+  if (!editingId.value && !passwordField.value.trim()) {
     message.warning(t('settings.passwordRequired'))
     return
   }
-  await withSaving(async () => {
+  saving.value = true
+  try {
     if (editingId.value) {
       await userApi.update(editingId.value, {
-        username: form.username,
-        display_name: form.display_name,
-        email: form.email,
-        phone: form.phone,
-        role: form.role,
-      })
-      if (form.password.trim()) {
-        await userApi.changePassword(editingId.value, { password: form.password })
+        username: form.value.username,
+        display_name: form.value.display_name,
+        email: form.value.email,
+        phone: form.value.phone,
+        role: form.value.role,
+      } as Partial<User>)
+      if (passwordField.value.trim()) {
+        await userApi.changePassword(editingId.value, { password: passwordField.value })
       }
       message.success(t('settings.userUpdated'))
     } else {
       await userApi.create({
-        username: form.username,
-        display_name: form.display_name,
-        email: form.email,
-        phone: form.phone,
-        role: form.role,
-        password: form.password,
-        is_active: form.is_active,
-      })
+        username: form.value.username,
+        display_name: form.value.display_name,
+        email: form.value.email,
+        phone: form.value.phone,
+        role: form.value.role,
+        password: passwordField.value,
+        is_active: form.value.is_active,
+      } as Partial<User> & { password?: string })
       message.success(t('settings.userCreated'))
     }
-  })
+    showModal.value = false
+    passwordField.value = ''
+    await fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error).message)
+  } finally {
+    saving.value = false
+  }
 }
 
 async function toggleActive(u: User) {
@@ -326,7 +340,7 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
           <NGi>
             <NFormItem :label="editingId ? t('settings.newPasswordKeep') : t('auth.password')" :required="!editingId">
               <NInput
-                v-model:value="form.password"
+                v-model:value="passwordField"
                 type="password"
                 :placeholder="t('auth.enterPassword')"
                 show-password-on="click"
@@ -338,7 +352,7 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
       <template #action>
         <NSpace justify="end">
           <NButton @click="showModal = false">{{ t('common.cancel') }}</NButton>
-          <NButton type="primary" :loading="saving" @click="handleSave">
+          <NButton type="primary" :loading="saving" @click="handleSaveUser">
             {{ editingId ? t('common.update') : t('common.create') }}
           </NButton>
         </NSpace>

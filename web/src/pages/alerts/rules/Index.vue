@@ -3,9 +3,9 @@ import { h, ref, computed, onMounted, watch } from 'vue'
 import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch, NModal, NForm, NFormItem, NSpace, NSpin, NAlert, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { alertRuleApi, datasourceApi, aiRuleApi } from '@/api'
+import { alertRuleApi, datasourceApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
-import type { RuleGenerateResult } from '@/types/ai-module'
+import type { RuleGenerateResult, MuteRuleGenerateResult } from '@/types/ai-module'
 import { usePaginatedList, useAIModule, useFilterMemory, usePermissions } from '@/composables'
 import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -14,6 +14,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import RuleFormModal from '@/components/alert/RuleFormModal.vue'
 import ImportModal from '@/components/alert/ImportModal.vue'
 import BatchOperations from '@/components/alert/BatchOperations.vue'
+import AIGenerateModal from '@/components/alert-rule/AIGenerateModal.vue'
 import {
   AddOutline,
   CloudUploadOutline,
@@ -86,53 +87,22 @@ const showImportModal = ref(false)
 // ─── AI Rule Generation ───
 const { isEnabled: isAIModuleEnabled, loadModules } = useAIModule()
 const showAIModal = ref(false)
-const aiDescription = ref('')
-const aiDatasourceId = ref<number | null>(null)
-const aiGenerating = ref(false)
-const aiResult = ref<RuleGenerateResult | null>(null)
-const aiError = ref('')
 
 function openAIGenerate() {
-  aiDescription.value = ''
-  aiDatasourceId.value = null
-  aiResult.value = null
-  aiError.value = ''
   showAIModal.value = true
 }
 
-async function handleAIGenerate() {
-  if (!aiDescription.value.trim()) return
-  aiGenerating.value = true
-  aiResult.value = null
-  aiError.value = ''
-  try {
-    const { data } = await aiRuleApi.generate({
-      description: aiDescription.value,
-      datasource_id: aiDatasourceId.value ?? undefined,
-      rule_type: 'alert',
-    })
-    aiResult.value = data.data
-  } catch (err: unknown) {
-    aiError.value = getErrorMessage(err) || t('alert.aiGenerateFailed')
-  } finally {
-    aiGenerating.value = false
-  }
-}
-
-async function handleAIConfirmCreate() {
-  if (!aiResult.value) return
+async function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) {
   try {
     await alertRuleApi.create({
-      name: aiResult.value.name,
-      expression: aiResult.value.expression || '',
-      for_duration: aiResult.value.for_duration || '0s',
-      severity: (aiResult.value.severity as AlertRule['severity']) || 'warning',
-      labels: aiResult.value.labels || {},
-      annotations: aiResult.value.annotations || {},
-      datasource_id: aiDatasourceId.value ?? undefined,
+      name: result.name,
+      expression: (result as RuleGenerateResult).expression || '',
+      for_duration: (result as RuleGenerateResult).for_duration || '0s',
+      severity: ((result as RuleGenerateResult).severity as AlertRule['severity']) || 'warning',
+      labels: (result as RuleGenerateResult).labels || {},
+      annotations: (result as RuleGenerateResult).annotations || {},
     })
     message.success(t('common.createSuccess'))
-    showAIModal.value = false
     fetchList()
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
@@ -147,6 +117,7 @@ const severityFilterOptions = computed(() => [
 ])
 
 const statusFilterOptions = computed(() => [
+  { label: t('alert.statusDraft'), value: 'draft' },
   { label: t('common.enabled'), value: 'enabled' },
   { label: t('common.disabled'), value: 'disabled' },
 ])
@@ -323,12 +294,26 @@ function onImportDone() {
 
 // ─── Row actions ───
 async function toggleEnabled(rule: AlertRule) {
+  if (rule.status === 'draft') return
   const newStatus = rule.status === 'enabled' ? 'disabled' : 'enabled'
   try {
     await alertRuleApi.toggleStatus(rule.id, newStatus)
     message.success(newStatus === 'enabled' ? t('alert.ruleEnabled') : t('alert.ruleDisabled'))
     fetchList()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
+}
+
+function statusTagType(status: string): 'default' | 'success' | 'warning' {
+  if (status === 'enabled') return 'success'
+  if (status === 'disabled') return 'warning'
+  return 'default'
+}
+
+function statusLabel(status: string): string {
+  if (status === 'draft') return t('alert.statusDraft')
+  if (status === 'enabled') return t('common.enabled')
+  if (status === 'disabled') return t('common.disabled')
+  return status
 }
 
 async function handleDelete(id: number) {
@@ -340,13 +325,18 @@ async function handleDelete(id: number) {
 }
 
 function rowActions(rule: AlertRule) {
-  return [
+  const actions: Array<{ label?: string; key: string; icon?: () => ReturnType<typeof h>; type?: 'divider' }> = [
     { label: t('common.edit'), key: 'edit', icon: () => h(NIcon, { component: CreateOutline }) },
-    { label: rule.status === 'enabled' ? t('common.disabled') : t('common.enabled'), key: 'toggle', icon: () => h(NIcon, { component: PowerOutline }) },
-    { label: t('common.duplicate'), key: 'duplicate', icon: () => h(NIcon, { component: CopyOutline }) },
-    { type: 'divider' as const, key: 'd1' },
-    { label: t('common.delete'), key: 'delete', icon: () => h(NIcon, { component: TrashOutline }) },
   ]
+  if (rule.status !== 'draft') {
+    actions.push({ label: rule.status === 'enabled' ? t('common.disabled') : t('common.enabled'), key: 'toggle', icon: () => h(NIcon, { component: PowerOutline }) })
+  }
+  actions.push(
+    { label: t('common.duplicate'), key: 'duplicate', icon: () => h(NIcon, { component: CopyOutline }) },
+    { type: 'divider', key: 'd1' },
+    { label: t('common.delete'), key: 'delete', icon: () => h(NIcon, { component: TrashOutline }) },
+  )
+  return actions
 }
 
 function onRowAction(key: string, rule: AlertRule) {
@@ -510,6 +500,7 @@ onMounted(() => {
             class="sre-row-card rule-row"
             :data-severity="severitySlot(rule.severity)"
             :data-dim="rule.status !== 'enabled' || undefined"
+            :data-status="rule.status"
             @click="goDetail(rule)"
           >
             <input
@@ -526,6 +517,10 @@ onMounted(() => {
               </div>
               <div class="rc-expr">{{ rule.expression }}</div>
               <div class="rc-meta">
+                <NTag :type="statusTagType(rule.status)" size="small" :bordered="false" round>
+                  {{ statusLabel(rule.status) }}
+                </NTag>
+                <span class="sre-meta-divider"></span>
                 <span class="rc-meta-item">
                   <span class="sre-dot" :data-severity="severitySlot(rule.severity)"></span>
                   {{ severityLabel(rule.severity) }}
@@ -543,7 +538,7 @@ onMounted(() => {
               </div>
             </div>
             <div class="rc-toggle" @click.stop>
-              <n-switch :value="rule.status === 'enabled'" size="small" :aria-label="rule.name" @update:value="toggleEnabled(rule)" />
+              <n-switch :value="rule.status === 'enabled'" size="small" :disabled="rule.status === 'draft'" :aria-label="rule.name" @update:value="toggleEnabled(rule)" />
             </div>
             <div class="rc-actions" @click.stop>
               <n-dropdown :options="rowActions(rule)" trigger="click" @select="(k: string) => onRowAction(k, rule)">
@@ -588,81 +583,12 @@ onMounted(() => {
     />
 
     <!-- AI Generate Modal -->
-    <NModal
-      v-model:show="showAIModal"
-      :title="t('alert.aiGenerate')"
-      preset="card"
-      class="ai-gen-modal"
-      :mask-closable="false"
-      :bordered="false"
-      style="max-width: 680px"
-    >
-      <div class="ai-gen-form">
-        <div class="ai-gen-field">
-          <label class="ai-gen-label">{{ t('alert.aiDescription') }}</label>
-          <NInput
-            v-model:value="aiDescription"
-            type="textarea"
-            :rows="3"
-            :placeholder="t('alert.aiDescriptionPlaceholder')"
-          />
-        </div>
-        <div class="ai-gen-field">
-          <label class="ai-gen-label">{{ t('alert.dataSource') }} ({{ t('common.optional') }})</label>
-          <NSelect
-            v-model:value="aiDatasourceId"
-            :options="datasourceOptions"
-            :placeholder="t('alert.selectDatasource')"
-            clearable
-          />
-        </div>
-        <NButton type="primary" :loading="aiGenerating" :disabled="!aiDescription.trim()" @click="handleAIGenerate">
-          <template #icon><NIcon :component="SparklesOutline" /></template>
-          {{ t('alert.aiGenerateBtn') }}
-        </NButton>
-      </div>
-
-      <!-- AI Error -->
-      <NAlert v-if="aiError" type="error" style="margin-top: 16px">
-        {{ aiError }}
-      </NAlert>
-
-      <!-- AI Result Preview -->
-      <div v-if="aiResult" class="ai-gen-preview">
-        <div class="ai-gen-preview-header">
-          <span class="ai-gen-preview-title">{{ aiResult.name }}</span>
-          <NTag v-if="aiResult.severity" :type="aiResult.severity === 'critical' ? 'error' : aiResult.severity === 'warning' ? 'warning' : 'info'" size="small">
-            {{ aiResult.severity }}
-          </NTag>
-          <NTag
-            size="small"
-            :bordered="false"
-            :type="aiResult.confidence >= 0.8 ? 'success' : aiResult.confidence >= 0.5 ? 'warning' : 'error'"
-          >
-            {{ Math.round(aiResult.confidence * 100) }}%
-          </NTag>
-        </div>
-        <div v-if="aiResult.expression" class="ai-gen-expr">{{ aiResult.expression }}</div>
-        <div v-if="aiResult.description" class="ai-gen-desc">{{ aiResult.description }}</div>
-        <div v-if="aiResult.for_duration" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">{{ t('alert.aiGenDuration') }}:</span> {{ aiResult.for_duration }}
-        </div>
-        <div v-if="aiResult.labels && Object.keys(aiResult.labels).length > 0" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">{{ t('alert.aiGenLabels') }}:</span>
-          <NTag v-for="(v, k) in aiResult.labels" :key="k" size="small" style="margin-right: 4px">{{ k }}={{ v }}</NTag>
-        </div>
-        <div v-if="aiResult.annotations?.summary" class="ai-gen-meta">
-          <span class="ai-gen-meta-label">{{ t('alert.aiGenSummary') }}:</span> {{ aiResult.annotations.summary }}
-        </div>
-        <NAlert v-if="aiResult.warnings?.length" type="warning" style="margin-top: 12px">
-          <div v-for="w in aiResult.warnings" :key="w">{{ w }}</div>
-        </NAlert>
-        <NSpace justify="end" style="margin-top: 16px">
-          <NButton @click="handleAIGenerate">{{ t('alert.aiRegenerate') }}</NButton>
-          <NButton type="primary" @click="handleAIConfirmCreate">{{ t('alert.aiConfirmCreate') }}</NButton>
-        </NSpace>
-      </div>
-    </NModal>
+    <AIGenerateModal
+      v-model:visible="showAIModal"
+      rule-type="rule"
+      :datasource-options="datasourceOptions"
+      @generated="handleAIGenerated"
+    />
   </div>
 </template>
 

@@ -11,8 +11,9 @@ import {
   AddOutline, RefreshOutline, EyeOutline, EllipsisHorizontalOutline,
   CreateOutline, TrashOutline, SearchOutline, SparklesOutline,
 } from '@vicons/ionicons5'
-import { muteRuleApi, aiRuleApi } from '@/api'
+import { muteRuleApi } from '@/api'
 import type { MuteRule } from '@/types'
+import type { RuleGenerateResult, MuteRuleGenerateResult } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
 import { formatTime } from '@/utils/format'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
@@ -20,6 +21,7 @@ import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import AIGenerateModal from '@/components/alert-rule/AIGenerateModal.vue'
 import {
   ruleType, isActiveNow, isFuture, isExpired, statusToSev, statusKey,
   getHitCount, remainingMin, relTimeFuture, describePeriodic,
@@ -256,48 +258,28 @@ onMounted(fetchRules)
 
 // ---------- AI Mute Generation ----------
 const showAIModal = ref(false)
-const aiDescription = ref('')
-const aiLoading = ref(false)
-const aiResult = ref<any>(null)
 
 function openAIGenerate() {
-  aiDescription.value = ''
-  aiResult.value = null
   showAIModal.value = true
 }
 
-async function handleAIGenerate() {
-  if (!aiDescription.value.trim()) return
-  aiLoading.value = true
-  try {
-    const { data } = await aiRuleApi.generateMute({ description: aiDescription.value })
-    aiResult.value = data.data || data
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err) || t('mute.aiGenerateFailed'))
-  } finally {
-    aiLoading.value = false
-  }
-}
-
-function applyAIResult() {
-  if (!aiResult.value) return
-  // Map AI result to form
+function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) {
+  const muteResult = result as MuteRuleGenerateResult
   editingId.value = null
   modalTitle.value = t('mute.create')
   resetForm()
-  form.name = aiResult.value.name || ''
-  form.description = aiResult.value.description || ''
-  form.match_labels = Object.entries(aiResult.value.match_labels || {}).map(([key, value]) => ({
+  form.name = muteResult.name || ''
+  form.description = muteResult.description || ''
+  form.match_labels = Object.entries(muteResult.match_labels || {}).map(([key, value]) => ({
     key, op: '=' as const, value: String(value),
   }))
-  form.severities = aiResult.value.severities || []
-  if (aiResult.value.periodic_start) form.periodic_start = aiResult.value.periodic_start
-  if (aiResult.value.periodic_end) form.periodic_end = aiResult.value.periodic_end
-  form.days_of_week = aiResult.value.days_of_week || []
-  if (aiResult.value.start_time) form.start_time = new Date(aiResult.value.start_time).getTime()
-  if (aiResult.value.end_time) form.end_time = new Date(aiResult.value.end_time).getTime()
-  if (aiResult.value.timezone) form.timezone = aiResult.value.timezone
-  showAIModal.value = false
+  form.severities = muteResult.severities || []
+  if (muteResult.periodic_start) form.periodic_start = muteResult.periodic_start
+  if (muteResult.periodic_end) form.periodic_end = muteResult.periodic_end
+  form.days_of_week = muteResult.days_of_week || []
+  if (muteResult.start_time) form.start_time = new Date(muteResult.start_time).getTime()
+  if (muteResult.end_time) form.end_time = new Date(muteResult.end_time).getTime()
+  if (muteResult.timezone) form.timezone = muteResult.timezone
   showModal.value = true
 }
 </script>
@@ -515,51 +497,11 @@ function applyAIResult() {
     </NModal>
 
     <!-- AI Generate Modal -->
-    <NModal v-model:show="showAIModal" preset="card" :title="t('mute.aiGenerate')" style="width: 600px" :bordered="false">
-      <NFormItem :label="t('alert.aiDescription')">
-        <NInput
-          v-model:value="aiDescription"
-          type="textarea"
-          :rows="3"
-          :placeholder="t('alert.aiMutePlaceholder')"
-        />
-      </NFormItem>
-      <NSpace>
-        <NButton type="primary" :loading="aiLoading" :disabled="!aiDescription.trim()" @click="handleAIGenerate">
-          <template #icon><NIcon :component="SparklesOutline" /></template>
-          {{ t('alert.aiGenerateBtn') }}
-        </NButton>
-      </NSpace>
-      <div v-if="aiResult" style="margin-top: 16px;">
-        <NDivider />
-        <div style="font-size: 13px; margin-bottom: 8px;">
-          <strong>{{ aiResult.name }}</strong>
-          <span v-if="aiResult.confidence" style="margin-left: 8px; color: var(--sre-text-tertiary);">
-            {{ t('mute.aiConfidence') }}: {{ Math.round(aiResult.confidence * 100) }}%
-          </span>
-        </div>
-        <div v-if="aiResult.description" style="font-size: 12px; color: var(--sre-text-secondary); margin-bottom: 8px;">{{ aiResult.description }}</div>
-        <div v-if="aiResult.match_labels && Object.keys(aiResult.match_labels).length" style="margin-bottom: 6px;">
-          <span class="sre-label-eyebrow">{{ t('mute.aiMatchLabels') }}</span>
-          <span v-for="(v, k) in aiResult.match_labels" :key="k" class="mute-chip" style="margin-left: 4px;">{{ k }}={{ v }}</span>
-        </div>
-        <div v-if="aiResult.severities?.length" style="margin-bottom: 6px;">
-          <span class="sre-label-eyebrow">{{ t('mute.aiSeverities') }}</span>
-          {{ aiResult.severities.join(', ') }}
-        </div>
-        <div v-if="aiResult.periodic_start" style="margin-bottom: 6px;">
-          <span class="sre-label-eyebrow">{{ t('mute.aiPeriodicTime') }}</span>
-          {{ aiResult.periodic_start }} → {{ aiResult.periodic_end }}
-        </div>
-        <div v-if="aiResult.warnings?.length" style="margin-top: 8px; font-size: 12px; color: var(--sre-text-tertiary);">
-          <div v-for="(w, i) in aiResult.warnings" :key="i">- {{ w }}</div>
-        </div>
-        <NSpace style="margin-top: 12px;">
-          <NButton type="primary" @click="applyAIResult">{{ t('common.apply') }}</NButton>
-          <NButton @click="showAIModal = false">{{ t('common.cancel') }}</NButton>
-        </NSpace>
-      </div>
-    </NModal>
+    <AIGenerateModal
+      v-model:visible="showAIModal"
+      rule-type="mute"
+      @generated="handleAIGenerated"
+    />
   </div>
 </template>
 
