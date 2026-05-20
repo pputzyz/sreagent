@@ -16,6 +16,13 @@ import (
 	"github.com/sreagent/sreagent/internal/pkg/metrics"
 )
 
+// lockState returns (or creates) the per-fingerprint stateLock.
+// This is the primary entry point for fine-grained locking.
+func (re *RuleEvaluator) lockState(fp string) *stateLock {
+	sl, _ := re.states.LoadOrStore(fp, &stateLock{})
+	return sl.(*stateLock)
+}
+
 // Run is the main loop for a single rule evaluator.
 func (re *RuleEvaluator) Run() {
 	// Parse evaluation interval from rule (default 60s)
@@ -50,6 +57,7 @@ func (re *RuleEvaluator) Run() {
 }
 
 // evaluate performs one evaluation cycle.
+// Uses per-fingerprint locking via sync.Map + stateLock instead of a single global mutex.
 func (re *RuleEvaluator) evaluate() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -80,9 +88,6 @@ func (re *RuleEvaluator) evaluate() {
 		re.consecutiveErrors = 0
 	}
 
-	re.mu.Lock()
-	defer re.mu.Unlock()
-
 	// Parse for_duration
 	forDuration := parseDuration(re.rule.ForDuration)
 
@@ -92,7 +97,7 @@ func (re *RuleEvaluator) evaluate() {
 	// Track which fingerprints were seen in this cycle
 	seenFingerprints := make(map[string]bool, len(results))
 
-	// 2. For each result series
+	// 2. For each result series — lock only the affected fingerprint
 	for _, result := range results {
 		// Get value (use last value if multiple)
 		if len(result.Values) == 0 {
@@ -104,9 +109,12 @@ func (re *RuleEvaluator) evaluate() {
 		fp := generateFingerprint(result.Labels)
 		seenFingerprints[fp] = true
 
-		state, exists := re.states[fp]
+		sl := re.lockState(fp)
+		sl.mu.Lock()
 
-		if !exists {
+		state := sl.state
+
+		if state == nil {
 			// New alert series detected
 			now := time.Now()
 			state = &AlertState{
@@ -124,13 +132,13 @@ func (re *RuleEvaluator) evaluate() {
 						zap.String("fingerprint", fp),
 						zap.String("severity", severity),
 					)
-					re.states[fp] = state
+					sl.state = state
 					re.persistState(fp, state)
 				} else {
 					state.Status = "firing"
 					state.ActiveAt = now
 					state.FiredAt = now
-					re.states[fp] = state
+					sl.state = state
 
 					if re.suppressor != nil {
 						re.suppressor.UpdateSeverity(re.rule.ID, fp, severity)
@@ -143,7 +151,7 @@ func (re *RuleEvaluator) evaluate() {
 				// Enter pending state
 				state.Status = "pending"
 				state.ActiveAt = now
-				re.states[fp] = state
+				sl.state = state
 				re.persistState(fp, state)
 			}
 		} else {
@@ -206,19 +214,31 @@ func (re *RuleEvaluator) evaluate() {
 				}
 			}
 		}
+
+		sl.mu.Unlock()
 	}
 
-	// 3. Check for resolved alerts
+	// 3. Check for resolved alerts — iterate with Range, lock each fp individually
 	now := time.Now()
-	for fp, state := range re.states {
+	re.states.Range(func(k, v any) bool {
+		fp := k.(string)
 		if seenFingerprints[fp] {
-			continue
+			return true // skip, already processed above
+		}
+
+		sl := v.(*stateLock)
+		sl.mu.Lock()
+		state := sl.state
+		if state == nil {
+			sl.mu.Unlock()
+			return true
 		}
 
 		switch state.Status {
 		case "pending":
 			// Pending alert disappeared, just remove it
-			delete(re.states, fp)
+			sl.state = nil
+			re.states.Delete(fp)
 			re.deletePersistedState(fp)
 
 		case "firing":
@@ -232,7 +252,6 @@ func (re *RuleEvaluator) evaluate() {
 				re.persistState(fp, state)
 			} else if recoveryHold > 0 && now.Before(state.RecoveryHoldUntil) {
 				// Still in observation period, skip
-				continue
 			} else {
 				// Resolve the alert
 				state.Status = "resolved"
@@ -242,10 +261,15 @@ func (re *RuleEvaluator) evaluate() {
 				}
 				re.resolveAlertEvent(state)
 				metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "resolved")
+				sl.state = nil
+				re.states.Delete(fp)
 				re.deletePersistedState(fp)
 			}
 		}
-	}
+
+		sl.mu.Unlock()
+		return true
+	})
 
 	// 4. NoData detection
 	if re.rule.NoDataEnabled && len(results) == 0 {
@@ -255,9 +279,10 @@ func (re *RuleEvaluator) evaluate() {
 		}
 
 		noDataFP := fmt.Sprintf("nodata_%d", re.rule.ID)
-		noDataState, exists := re.states[noDataFP]
+		sl := re.lockState(noDataFP)
+		sl.mu.Lock()
 
-		if !exists {
+		if sl.state == nil {
 			// First time seeing no data - start tracking
 			newState := &AlertState{
 				Labels: map[string]string{
@@ -270,27 +295,36 @@ func (re *RuleEvaluator) evaluate() {
 				LastSeen:    now,
 				Annotations: map[string]string{"description": "No data received for rule: " + re.rule.Name},
 			}
-			re.states[noDataFP] = newState
+			sl.state = newState
 			re.persistState(noDataFP, newState)
-		} else if noDataState.Status == "pending" && time.Since(noDataState.ActiveAt) >= noDataDuration {
-			noDataState.Status = "firing"
-			noDataState.FiredAt = now
-			re.createAlertEvent(noDataState, model.EventStatusFiring)
+		} else if sl.state.Status == "pending" && time.Since(sl.state.ActiveAt) >= noDataDuration {
+			sl.state.Status = "firing"
+			sl.state.FiredAt = now
+			re.createAlertEvent(sl.state, model.EventStatusFiring)
 			metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "nodata")
-			re.persistState(noDataFP, noDataState)
+			re.persistState(noDataFP, sl.state)
 		}
+
+		sl.mu.Unlock()
 	} else {
 		// Data received, clear nodata state if it exists
 		noDataFP := fmt.Sprintf("nodata_%d", re.rule.ID)
-		if noDataState, exists := re.states[noDataFP]; exists && noDataState.Status == "firing" {
-			noDataState.Status = "resolved"
-			noDataState.ResolvedAt = now
-			re.resolveAlertEvent(noDataState)
-			delete(re.states, noDataFP)
-			re.deletePersistedState(noDataFP)
-		} else if exists {
-			delete(re.states, noDataFP)
-			re.deletePersistedState(noDataFP)
+		if v, ok := re.states.Load(noDataFP); ok {
+			sl := v.(*stateLock)
+			sl.mu.Lock()
+			if sl.state != nil && sl.state.Status == "firing" {
+				sl.state.Status = "resolved"
+				sl.state.ResolvedAt = now
+				re.resolveAlertEvent(sl.state)
+				sl.state = nil
+				re.states.Delete(noDataFP)
+				re.deletePersistedState(noDataFP)
+			} else if sl.state != nil {
+				sl.state = nil
+				re.states.Delete(noDataFP)
+				re.deletePersistedState(noDataFP)
+			}
+			sl.mu.Unlock()
 		}
 	}
 }
@@ -541,13 +575,13 @@ func (re *RuleEvaluator) loadPersistedState() {
 		return
 	}
 
-	re.mu.Lock()
-	defer re.mu.Unlock()
-
 	restored := 0
 	for fp, entry := range entries {
 		state := fromStateEntry(entry)
-		re.states[fp] = state
+		sl := re.lockState(fp)
+		sl.mu.Lock()
+		sl.state = state
+		sl.mu.Unlock()
 		restored++
 
 		// Restore suppressor entries for firing and pending states

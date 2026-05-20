@@ -48,7 +48,7 @@ permissions ──→ team (团队角色查询)
 
 | 模块 | 功能状态 | 单元测试 | 集成测试 | 覆盖率 |
 |------|----------|----------|----------|--------|
-| 告警引擎 | ✅ | ✅ evaluator_test.go (19) + rule_eval_test.go + suppression_test.go (26) | ❌ | service 层 ~40% |
+| 告警引擎 | ✅ | ✅ evaluator_test.go (19) + evaluator_concurrent_test.go (4) + rule_eval_test.go + suppression_test.go (26) | ❌ | service 层 ~40% |
 | 告警规则 | ✅ | ❌ | ❌ | 0% |
 | 告警事件 | ✅ | ❌ | ❌ | 0% |
 | 告警通道 | ✅ | ✅ alert_channel_test.go (handler + service) | ❌ | ~30% |
@@ -342,6 +342,11 @@ permissions ──→ team (团队角色查询)
 | [docs/ci-deploy.md](docs/ci-deploy.md) | CI/CD 部署文档 |
 | [docs/phases.md](docs/phases.md) | Phase 追踪 + QA 修复汇总 |
 | [docs/PLAN-status.md](docs/PLAN-status.md) | v2.0 重构执行状态（Phase 1-5 全部完成） |
+| [docs/rbac.md](docs/rbac.md) | RBAC 权限体系设计（角色 + 权限 + 中间件） |
+| [docs/data-source-routing.md](docs/data-source-routing.md) | 多数据源路由 + 标签匹配引擎 |
+| [docs/ai-rule-generation.md](docs/ai-rule-generation.md) | AI 规则生成引擎（dry-run + few-shot + 缓存） |
+| [docs/preset-rule-library.md](docs/preset-rule-library.md) | 预置规则库（monitoring-trading 315 条导入） |
+| [docs/notification-pipeline.md](docs/notification-pipeline.md) | v2 通知管道（规则匹配 + 模板渲染 + 多渠道分发） |
 
 ---
 

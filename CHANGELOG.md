@@ -45,6 +45,23 @@
 - `docs/api.md` 新增 AI 规则生成端点文档（generate / dry-run / validate / suggest-labels / generate-inhibition / generate-mute / improve）
 - 新增 AI 模块配置端点文档
 
+**PR4 — 枚举统一 + 并发重构 + AI 试算 + useCrudPage 迁移（Theme H）**
+
+- 迁移 `000049_alert_rule_status_column.{up,down}.sql`：`alert_rules.status` 列 DEFAULT `'active'`（单语句，含索引）
+- `AlertRuleStatus` 枚举统一为 `draft / active / disabled`（移除 `enabled` / `muted`）
+- 后端全量替换 `RuleStatusEnabled → RuleStatusActive`（8 文件）
+- 前端 `AlertRuleStatus` 类型 + `rules/Index.vue` 状态标签/开关对齐 `active`
+- `rbac.go` 补全 `.write` 后缀权限（rules.write / mute.write / inhibition.write / notify.write / channels.write / dispatch.write / datasource.write / integration.write / team.write / user.write）
+- `admin_routes.go`：DispatchPolicy / Integration 路由补挂 `RequirePerm`
+- `audit_log.go` 新增 `AuditResultDenied` / `AuditResultSuccess` 常量
+- 引擎 B1：`RuleEvaluator.states` 改为 `sync.Map` + per-fingerprint `stateLock`，移除全局 mutex
+- 引擎 B2：`startRuleEvaluators` 改为 fan-out 所有匹配数据源（非首个）
+- 新增 `evaluator_concurrent_test.go`：4 个并发安全测试
+- AI Modal（B3）：dry-run 试算（series_count / sample_series / would_fire / eval_duration_ms）+ 标签预览 + 三按钮（重新生成 / 保存草稿 / 直接启用）
+- `AISettings.vue` 响应式网格 `repeat(auto-fit, minmax(350px, 1fr))`
+- `inhibition/Index.vue` 新增 `hit_count` 显示（>0 红色高亮）
+- 7 页迁移至 `useCrudPage` composable，删除 `useCrudModal`
+
 ---
 
 ## [v4.12.1] — 2026-05-19

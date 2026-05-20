@@ -556,7 +556,7 @@ func (s *RuleGeneratorService) mustLoadConfig(ctx context.Context) AIConfig {
 }
 
 // buildLabelContext builds a context string from the label registry.
-// A 5-second timeout is enforced; on timeout or error the fallback context is returned.
+// A 5-second timeout is enforced; on timeout or error, cached keys are used as fallback.
 func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasourceID *uint) (string, error) {
 	var dsIDs []uint
 	if datasourceID != nil {
@@ -580,14 +580,23 @@ func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasource
 	var keys []string
 	select {
 	case <-timeoutCtx.Done():
-		s.logger.Warn("label context timeout, using fallback", zap.Error(timeoutCtx.Err()))
-		return s.buildFallbackLabelContext(datasourceID), nil
-	case res := <-ch:
-		if res.err != nil {
-			s.logger.Warn("label context query failed, using fallback", zap.Error(res.err))
+		s.logger.Warn("label context timeout, using cached fallback", zap.Error(timeoutCtx.Err()))
+		keys = s.labelRegSvc.GetKeysFallback(dsIDs)
+		if len(keys) == 0 {
 			return s.buildFallbackLabelContext(datasourceID), nil
 		}
-		keys = res.keys
+	case res := <-ch:
+		if res.err != nil {
+			s.logger.Warn("label context query failed, using cached fallback", zap.Error(res.err))
+			keys = s.labelRegSvc.GetKeysFallback(dsIDs)
+			if len(keys) == 0 {
+				return s.buildFallbackLabelContext(datasourceID), nil
+			}
+		} else {
+			keys = res.keys
+			// Cache the successful result for future fallback
+			s.labelRegSvc.SetKeys(dsIDs, keys)
+		}
 	}
 
 	var sb strings.Builder

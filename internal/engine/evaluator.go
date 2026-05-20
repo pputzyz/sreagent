@@ -13,6 +13,13 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// stateLock pairs a per-fingerprint mutex with its AlertState,
+// enabling fine-grained concurrent access instead of a single global lock.
+type stateLock struct {
+	mu    sync.Mutex
+	state *AlertState
+}
+
 // AlertState tracks the state of an alert for a specific label combination.
 type AlertState struct {
 	Labels      map[string]string
@@ -34,7 +41,7 @@ type AlertState struct {
 type RuleEvaluator struct {
 	rule        *model.AlertRule
 	datasource  *model.DataSource
-	states      map[string]*AlertState // key: fingerprint of label set
+	states      sync.Map // map[string]*stateLock, key is fingerprint — per-fp locking
 	db          *gorm.DB
 	eventRepo   *repository.AlertEventRepository
 	queryClient *datasource.QueryClient
@@ -42,7 +49,6 @@ type RuleEvaluator struct {
 	suppressor  *LevelSuppressor
 	workerPool  AlertWorkerPoolSubmiter // optional bounded goroutine pool
 	onAlert     func(ctx context.Context, event *model.AlertEvent)
-	mu          sync.Mutex
 	ctx         context.Context // cancelled when evaluator stops
 	stopCh      chan struct{}
 	logger      *zap.Logger
@@ -306,8 +312,11 @@ func (e *Evaluator) startRuleEvaluators(ctx context.Context, rule *model.AlertRu
 		return
 	}
 
-	// Use the first matching datasource. Future: fan-out with composite evaluator key.
-	e.startRuleEvaluator(rule, &dsList[0])
+	// Fan out to all matching datasources so the rule is evaluated against every
+	// enabled datasource of the declared type (not just the first one).
+	for i := range dsList {
+		e.startRuleEvaluator(rule, &dsList[i])
+	}
 }
 
 // startRuleEvaluator creates and starts a goroutine for a single rule against a specific datasource.
@@ -315,7 +324,7 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 	re := &RuleEvaluator{
 		rule:        rule,
 		datasource:  ds,
-		states:      make(map[string]*AlertState),
+		// states is zero-value sync.Map, ready to use
 		db:          e.db,
 		eventRepo:   e.eventRepo,
 		queryClient: e.queryClient,
@@ -377,13 +386,15 @@ func (e *Evaluator) GetFiringEvents() []*AlertState {
 
 	var result []*AlertState
 	for _, re := range e.evaluators {
-		re.mu.Lock()
-		for _, state := range re.states {
-			if state.Status == "firing" {
-				result = append(result, state)
+		re.states.Range(func(k, v any) bool {
+			sl := v.(*stateLock)
+			sl.mu.Lock()
+			if sl.state != nil && sl.state.Status == "firing" {
+				result = append(result, sl.state)
 			}
-		}
-		re.mu.Unlock()
+			sl.mu.Unlock()
+			return true
+		})
 	}
 	return result
 }
@@ -411,13 +422,15 @@ func (e *Evaluator) GetStatus() EngineStatus {
 
 	activeAlerts := 0
 	for _, re := range e.evaluators {
-		re.mu.Lock()
-		for _, state := range re.states {
-			if state.Status == "firing" {
+		re.states.Range(func(k, v any) bool {
+			sl := v.(*stateLock)
+			sl.mu.Lock()
+			if sl.state != nil && sl.state.Status == "firing" {
 				activeAlerts++
 			}
-		}
-		re.mu.Unlock()
+			sl.mu.Unlock()
+			return true
+		})
 	}
 
 	uptime := ""

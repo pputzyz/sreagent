@@ -177,27 +177,24 @@ func Test_GetFiringEvents_returns_only_firing(t *testing.T) {
 	logger := zap.NewNop()
 	eval := NewEvaluator(nil, nil, nil, nil, nil, nil, logger)
 
-	// Inject a rule evaluator with mixed states
-	re := &RuleEvaluator{
-		states: map[string]*AlertState{
-			"fp_firing": {
-				Labels: map[string]string{"alertname": "A"},
-				Status: "firing",
-			},
-			"fp_pending": {
-				Labels: map[string]string{"alertname": "B"},
-				Status: "pending",
-			},
-			"fp_resolved": {
-				Labels: map[string]string{"alertname": "C"},
-				Status: "resolved",
-			},
-			"fp_firing2": {
-				Labels: map[string]string{"alertname": "D"},
-				Status: "firing",
-			},
-		},
-	}
+	// Inject a rule evaluator with mixed states (sync.Map)
+	re := &RuleEvaluator{}
+	re.states.Store("fp_firing", &stateLock{state: &AlertState{
+		Labels: map[string]string{"alertname": "A"},
+		Status: "firing",
+	}})
+	re.states.Store("fp_pending", &stateLock{state: &AlertState{
+		Labels: map[string]string{"alertname": "B"},
+		Status: "pending",
+	}})
+	re.states.Store("fp_resolved", &stateLock{state: &AlertState{
+		Labels: map[string]string{"alertname": "C"},
+		Status: "resolved",
+	}})
+	re.states.Store("fp_firing2", &stateLock{state: &AlertState{
+		Labels: map[string]string{"alertname": "D"},
+		Status: "firing",
+	}})
 
 	eval.mu.Lock()
 	eval.evaluators[1] = re
@@ -211,15 +208,12 @@ func Test_GetFiringAlertEvents_adaptation(t *testing.T) {
 	logger := zap.NewNop()
 	eval := NewEvaluator(nil, nil, nil, nil, nil, nil, logger)
 
-	re := &RuleEvaluator{
-		states: map[string]*AlertState{
-			"fp1": {
-				Labels:  map[string]string{"alertname": "Test", "severity": "critical"},
-				Status:  "firing",
-				EventID: 99,
-			},
-		},
-	}
+	re := &RuleEvaluator{}
+	re.states.Store("fp1", &stateLock{state: &AlertState{
+		Labels:  map[string]string{"alertname": "Test", "severity": "critical"},
+		Status:  "firing",
+		EventID: 99,
+	}})
 
 	eval.mu.Lock()
 	eval.evaluators[1] = re

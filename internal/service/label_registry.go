@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -11,10 +12,19 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+type labelKeyCacheEntry struct {
+	keys      []string
+	expiresAt time.Time
+}
+
 type LabelRegistryService struct {
 	repo   *repository.LabelRegistryRepository
 	dsRepo *repository.DataSourceRepository
 	logger *zap.Logger
+
+	keyCache   sync.RWMutex
+	keyEntries map[string]*labelKeyCacheEntry // key: "all" or comma-separated dsIDs
+	keyTTL     time.Duration
 }
 
 func NewLabelRegistryService(
@@ -22,7 +32,13 @@ func NewLabelRegistryService(
 	dsRepo *repository.DataSourceRepository,
 	logger *zap.Logger,
 ) *LabelRegistryService {
-	return &LabelRegistryService{repo: repo, dsRepo: dsRepo, logger: logger}
+	return &LabelRegistryService{
+		repo:       repo,
+		dsRepo:     dsRepo,
+		logger:     logger,
+		keyEntries: make(map[string]*labelKeyCacheEntry),
+		keyTTL:     10 * time.Minute,
+	}
 }
 
 // SyncDatasource scrapes all label key/values from one Prometheus-compatible datasource.
@@ -130,5 +146,59 @@ func (s *LabelRegistryService) GetValues(key string, datasourceIDs []uint) ([]st
 // GetKeys returns known label keys (for key autocomplete).
 func (s *LabelRegistryService) GetKeys(datasourceIDs []uint) ([]string, error) {
 	return s.repo.GetKeys(datasourceIDs)
+}
+
+// keyCacheKey builds a deterministic cache key from datasource IDs.
+func keyCacheKey(datasourceIDs []uint) string {
+	if len(datasourceIDs) == 0 {
+		return "all"
+	}
+	// Use a simple concatenation since dsIDs are small integers
+	b := make([]byte, 0, len(datasourceIDs)*4)
+	for _, id := range datasourceIDs {
+		b = append(b, byte(id), byte(id>>8), byte(id>>16), byte(id>>24))
+	}
+	return string(b)
+}
+
+// SetKeys caches label keys for the given datasource IDs.
+func (s *LabelRegistryService) SetKeys(datasourceIDs []uint, keys []string) {
+	s.keyCache.Lock()
+	defer s.keyCache.Unlock()
+	s.keyEntries[keyCacheKey(datasourceIDs)] = &labelKeyCacheEntry{
+		keys:      keys,
+		expiresAt: time.Now().Add(s.keyTTL),
+	}
+}
+
+// GetKeysFallback returns cached label keys if available, otherwise queries
+// the repo and caches the result. Returns empty slice on error (never nil).
+func (s *LabelRegistryService) GetKeysFallback(datasourceIDs []uint) []string {
+	ck := keyCacheKey(datasourceIDs)
+
+	// Try cache first
+	s.keyCache.RLock()
+	if entry, ok := s.keyEntries[ck]; ok && time.Now().Before(entry.expiresAt) {
+		s.keyCache.RUnlock()
+		return entry.keys
+	}
+	s.keyCache.RUnlock()
+
+	// Cache miss — query repo
+	keys, err := s.repo.GetKeys(datasourceIDs)
+	if err != nil {
+		s.logger.Warn("GetKeysFallback: repo query failed", zap.Error(err))
+		return []string{}
+	}
+
+	// Store in cache
+	s.keyCache.Lock()
+	s.keyEntries[ck] = &labelKeyCacheEntry{
+		keys:      keys,
+		expiresAt: time.Now().Add(s.keyTTL),
+	}
+	s.keyCache.Unlock()
+
+	return keys
 }
 
