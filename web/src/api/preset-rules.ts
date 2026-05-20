@@ -1,6 +1,6 @@
 import request from './request'
 import type { ApiResponse, PageData } from '@/types'
-import type { PresetRule, PresetRuleOverride } from '@/types/preset-rule'
+import type { PresetRule, PresetRuleOverride, BatchApplyRequest, BatchApplyResult } from '@/types/preset-rule'
 import type {
   AIModuleConfig, RuleGenerateRequest, DryRunRequest, RuleGenerateResult, MuteRuleGenerateResult, ValidationResult, DryRunResult,
 } from '@/types/ai-module'
@@ -21,6 +21,9 @@ export const presetRuleApi = {
 
   importYAML: (yaml: string) =>
     request.post<ApiResponse<{ imported: number; skipped: number; errors: string[] }>>('/preset-rules/import', { yaml }),
+
+  batchApply: (data: BatchApplyRequest) =>
+    request.post<ApiResponse<{ applied: BatchApplyResult[]; failed: BatchApplyResult[] }>>('/preset-rules/batch-apply', data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/preset-rules/${id}`),

@@ -51,6 +51,7 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 			presets.GET("/categories", h.PresetRule.Categories)
 			presets.GET("/:id", h.PresetRule.Get)
 			presets.POST("/:id/apply", manage, h.PresetRule.Apply)
+			presets.POST("/batch-apply", manage, h.PresetRule.BatchApply)
 			presets.POST("/import", manage, h.PresetRule.Import)
 			presets.DELETE("/:id", manage, h.PresetRule.Delete)
 		}

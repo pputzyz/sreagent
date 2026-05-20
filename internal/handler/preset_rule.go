@@ -97,6 +97,25 @@ func (h *PresetRuleHandler) Import(c *gin.Context) {
 	Success(c, gin.H{"imported": count})
 }
 
+func (h *PresetRuleHandler) BatchApply(c *gin.Context) {
+	var req struct {
+		PresetIDs            []uint `json:"preset_ids" binding:"required,min=1"`
+		AutoMatchDatasource  bool   `json:"auto_match_datasource"`
+		FallbackDatasourceID uint   `json:"fallback_datasource_id"`
+		ChannelID            uint   `json:"channel_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	applied, failed := h.svc.BatchApply(c.Request.Context(), req.PresetIDs, req.AutoMatchDatasource, req.FallbackDatasourceID, req.ChannelID)
+	Success(c, gin.H{
+		"applied": applied,
+		"failed":  failed,
+	})
+}
+
 func (h *PresetRuleHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

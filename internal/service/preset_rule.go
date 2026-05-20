@@ -72,14 +72,27 @@ func (s *PresetRuleService) Categories(ctx context.Context) ([]string, error) {
 }
 
 // Apply creates an AlertRule from a preset rule with optional overrides.
+// When DatasourceID is not provided, auto-matches by preset.Cluster → datasource Labels["cluster"].
 func (s *PresetRuleService) Apply(ctx context.Context, presetID uint, override *PresetRuleOverride) (*model.AlertRule, error) {
 	preset, err := s.repo.GetByID(ctx, presetID)
 	if err != nil {
 		return nil, apperr.ErrNotFound
 	}
 
-	// Validate datasource if provided
-	if override != nil && override.DatasourceID > 0 {
+	if override == nil {
+		override = &PresetRuleOverride{}
+	}
+
+	// Auto-match datasource if not explicitly provided
+	if override.DatasourceID == 0 {
+		dsID, matchErr := s.autoMatchDatasource(ctx, preset.Cluster)
+		if matchErr != nil {
+			return nil, apperr.WithMessage(apperr.ErrInvalidParam,
+				fmt.Sprintf("preset %q (cluster=%s) auto-match datasource failed: %v", preset.Name, preset.Cluster, matchErr))
+		}
+		override.DatasourceID = dsID
+	} else {
+		// Validate explicitly provided datasource
 		if _, err := s.dsRepo.GetByID(ctx, override.DatasourceID); err != nil {
 			return nil, apperr.WithMessage(apperr.ErrDSNotFound, fmt.Sprintf("datasource ID %d not found", override.DatasourceID))
 		}
@@ -98,25 +111,21 @@ func (s *PresetRuleService) Apply(ctx context.Context, presetID uint, override *
 	}
 
 	// Apply overrides
-	if override != nil {
-		if override.DatasourceID > 0 {
-			dsID := override.DatasourceID
-			rule.DataSourceID = &dsID
+	dsID := override.DatasourceID
+	rule.DataSourceID = &dsID
+	if override.ChannelID > 0 {
+		chID := override.ChannelID
+		rule.ChannelID = &chID
+	}
+	if override.Severity != "" {
+		rule.Severity = model.AlertSeverity(override.Severity)
+	}
+	if len(override.Labels) > 0 {
+		if rule.Labels == nil {
+			rule.Labels = make(model.JSONLabels)
 		}
-		if override.ChannelID > 0 {
-			chID := override.ChannelID
-			rule.ChannelID = &chID
-		}
-		if override.Severity != "" {
-			rule.Severity = model.AlertSeverity(override.Severity)
-		}
-		if len(override.Labels) > 0 {
-			if rule.Labels == nil {
-				rule.Labels = make(model.JSONLabels)
-			}
-			for k, v := range override.Labels {
-				rule.Labels[k] = v
-			}
+		for k, v := range override.Labels {
+			rule.Labels[k] = v
 		}
 	}
 
@@ -130,6 +139,74 @@ func (s *PresetRuleService) Apply(ctx context.Context, presetID uint, override *
 	_ = s.repo.IncrementUsage(ctx, presetID)
 
 	return rule, nil
+}
+
+// autoMatchDatasource finds a datasource whose Labels["cluster"] matches the preset's cluster.
+// Returns the first match (by earliest created_at). Returns error if no match.
+func (s *PresetRuleService) autoMatchDatasource(ctx context.Context, cluster string) (uint, error) {
+	if cluster == "" {
+		return 0, fmt.Errorf("preset has empty cluster, cannot auto-match")
+	}
+
+	datasources, err := s.dsRepo.ListEnabled(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list datasources: %w", err)
+	}
+
+	for _, ds := range datasources {
+		if ds.Labels != nil {
+			if dsCluster, ok := ds.Labels["cluster"]; ok && dsCluster == cluster {
+				return ds.ID, nil
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("no datasource with labels.cluster=%q found (create a datasource with labels {cluster: %s} first)", cluster, cluster)
+}
+
+// BatchApplyResult holds the result of a single preset application in a batch.
+type BatchApplyResult struct {
+	PresetID       uint   `json:"preset_id"`
+	AlertRuleID    uint   `json:"alert_rule_id,omitempty"`
+	DatasourceID   uint   `json:"matched_datasource_id,omitempty"`
+	Error          string `json:"error,omitempty"`
+}
+
+// BatchApply applies multiple preset rules at once.
+// If AutoMatchDatasource is true, each preset's cluster is used to auto-match a datasource.
+// FallbackDatasourceID is used when auto-match fails (if set).
+func (s *PresetRuleService) BatchApply(ctx context.Context, presetIDs []uint, autoMatch bool, fallbackDSID uint, channelID uint) ([]BatchApplyResult, []BatchApplyResult) {
+	var applied, failed []BatchApplyResult
+
+	for _, pid := range presetIDs {
+		override := &PresetRuleOverride{
+			ChannelID: channelID,
+		}
+		if !autoMatch && fallbackDSID > 0 {
+			override.DatasourceID = fallbackDSID
+		}
+
+		rule, err := s.Apply(ctx, pid, override)
+		if err != nil {
+			failed = append(failed, BatchApplyResult{
+				PresetID: pid,
+				Error:    err.Error(),
+			})
+			continue
+		}
+
+		var dsID uint
+		if rule.DataSourceID != nil {
+			dsID = *rule.DataSourceID
+		}
+		applied = append(applied, BatchApplyResult{
+			PresetID:     pid,
+			AlertRuleID:  rule.ID,
+			DatasourceID: dsID,
+		})
+	}
+
+	return applied, failed
 }
 
 // BatchCreate inserts multiple PresetRules at once.

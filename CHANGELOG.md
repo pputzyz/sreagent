@@ -4,6 +4,41 @@
 
 ---
 
+## [v4.14.0] — 2026-05-20
+
+### Added — Sprint 1: 多数据源自动路由 + 前端批量应用
+
+**多数据源自动路由（S1.1）**
+- `PresetRuleService.autoMatchDatasource`：按 preset.Cluster 自动匹配 DataSource.Labels["cluster"]
+- `PresetRuleService.Apply` 改造：DatasourceID 为 0 时自动匹配，无需手动选择
+- `PresetRuleService.BatchApply`：批量应用预置规则，支持 autoMatch + fallbackDatasourceID
+- `POST /preset-rules/batch-apply` 端点（handler + route）
+- `AlertEvent` 模型新增 `DataSourceID *uint` 字段（迁移 `000050_alert_event_datasource_id`）
+- `rule_eval.go` createAlertEvent 自动填充 DataSourceID
+- `alert_v2_pipeline.go` buildAlertKey 加入 datasource_id 维度，防止跨数据源 key 碰撞
+- `PresetRule` 前端类型新增 `cluster` 字段
+
+**前端批量应用 UI（S1.1.3）**
+- `preset-rules.ts` 新增 `batchApply` API 方法
+- `preset-rule.ts` 新增 `BatchApplyResult` / `BatchApplyRequest` 类型
+- `Presets.vue` 新增「批量应用」按钮 + Modal：
+  - 按集群分组展示预置规则
+  - 自动匹配数据源预览（cluster → datasource labels）
+  - 兜底数据源选择
+  - 批量应用结果展示（成功/失败列表）
+- i18n 新增 16 个批量应用相关中英文 key
+
+### 已确认完成的前序工作
+
+- Phase 2.1: AlertV2Service 死代码已在前次清理中移除
+- Phase 2.2: NotifyPolicy v1 已完全迁移到 NotifyRule v2
+- Phase 2.3: Dashboard handler/service 已拆分（handler 274 行 / service 821 行）
+- Phase 2.4: IncidentAggregator 已存在并集成到 AlertV2Pipeline
+- Phase 2.5: dashboard-v2 已重定向到 alert/dashboards
+- S1.3: On-call UI 已实现（Detail action bar + list inline actions + MyAlerts view mode）
+
+---
+
 ## [v4.13.0] — 2026-05-19
 
 ### Added — 多数据源路由 + RBAC 后端强制 + AI Dry-Run

@@ -5,6 +5,7 @@ export interface PresetRule {
   category: string
   sub_category: string
   component: string
+  cluster: string
   expression: string
   for_duration: string
   severity: string
@@ -24,4 +25,18 @@ export interface PresetRuleOverride {
   channel_id?: number
   labels?: Record<string, string>
   severity?: string
+}
+
+export interface BatchApplyResult {
+  preset_id: number
+  alert_rule_id?: number
+  matched_datasource_id?: number
+  error?: string
+}
+
+export interface BatchApplyRequest {
+  preset_ids: number[]
+  auto_match_datasource?: boolean
+  fallback_datasource_id?: number
+  channel_id?: number
 }

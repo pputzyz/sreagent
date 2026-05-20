@@ -405,17 +405,19 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 	}
 
 	ruleID := re.rule.ID
+	dsID := re.datasource.ID
 	event := &model.AlertEvent{
-		Fingerprint: fp,
-		RuleID:      &ruleID,
-		AlertName:   re.rule.Name,
-		Severity:    re.rule.Severity,
-		Status:      status,
-		Labels:      labels,
-		Annotations: annotations,
-		Source:      re.datasource.Name,
-		FiredAt:     state.FiredAt,
-		FireCount:   1,
+		Fingerprint:  fp,
+		RuleID:       &ruleID,
+		AlertName:    re.rule.Name,
+		Severity:     re.rule.Severity,
+		Status:       status,
+		Labels:       labels,
+		Annotations:  annotations,
+		Source:       re.datasource.Name,
+		DataSourceID: &dsID,
+		FiredAt:      state.FiredAt,
+		FireCount:    1,
 	}
 
 	if err := re.eventRepo.Create(ctx, event); err != nil {

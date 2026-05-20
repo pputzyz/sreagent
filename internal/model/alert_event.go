@@ -28,6 +28,7 @@ type AlertEvent struct {
 	Annotations JSONLabels       `json:"annotations" gorm:"type:json"`
 	// Source information
 	Source       string `json:"source" gorm:"size:128"` // datasource name or external
+	DataSourceID *uint  `json:"datasource_id" gorm:"index"` // which datasource triggered this event
 	GeneratorURL string `json:"generator_url" gorm:"size:512"`
 	// Timestamps
 	FiredAt    time.Time  `json:"fired_at" gorm:"not null;index"`

@@ -476,12 +476,16 @@ func (p *AlertV2Pipeline) handleResolution(ctx context.Context, alert *model.Ale
 }
 
 // buildAlertKey generates a stable deduplication key for an alert event.
-// Key = md5(rule_id + sorted(labels)) — same logic as engine fingerprint
-// but with rule_id prefix to scope per-rule.
+// Key = md5(rule_id + datasource_id + sorted(labels))
+// Includes datasource_id to prevent cross-datasource key collisions
+// when the same rule evaluates against multiple Prometheus instances.
 func (p *AlertV2Pipeline) buildAlertKey(event *model.AlertEvent) string {
 	var rulePrefix string
 	if event.RuleID != nil {
 		rulePrefix = fmt.Sprintf("rule:%d|", *event.RuleID)
+	}
+	if event.DataSourceID != nil {
+		rulePrefix += fmt.Sprintf("ds:%d|", *event.DataSourceID)
 	}
 
 	keys := make([]string, 0, len(event.Labels))

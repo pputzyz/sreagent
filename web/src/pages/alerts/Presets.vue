@@ -4,10 +4,11 @@ import {
   useMessage, useDialog,
   NButton, NIcon, NInput, NTag, NModal, NForm, NFormItem,
   NSelect, NSpace, NPagination, NSpin, NEmpty, NCard, NTooltip,
+  NCheckbox, NCheckboxGroup, NScrollbar, NDivider, NSwitch, NResult,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { presetRuleApi, datasourceApi } from '@/api'
-import type { PresetRule, PresetRuleOverride } from '@/types/preset-rule'
+import type { PresetRule, PresetRuleOverride, BatchApplyResult } from '@/types/preset-rule'
 import type { DataSource } from '@/types'
 import { useCrudPage } from '@/composables/useCrudPage'
 import type { CrudApiModule } from '@/composables/useCrudPage'
@@ -15,7 +16,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   SearchOutline, RefreshOutline, CloudUploadOutline,
-  RocketOutline,
+  RocketOutline, LayersOutline,
 } from '@vicons/ionicons5'
 import { getErrorMessage } from '@/utils/format'
 import { severityLabel, severityType } from '@/utils/severity'
@@ -117,6 +118,89 @@ async function handleImportYAML() {
   }
 }
 
+// ─── Batch Apply dialog ───
+const showBatchModal = ref(false)
+const batchSelectedIds = ref<number[]>([])
+const batchAutoMatch = ref(true)
+const batchFallbackDsId = ref<number | null>(null)
+const batchLoading = ref(false)
+const batchResult = ref<{ applied: BatchApplyResult[]; failed: BatchApplyResult[] } | null>(null)
+
+// All presets loaded for batch selection (not paginated)
+const allPresets = ref<PresetRule[]>([])
+const allPresetsLoading = ref(false)
+
+// Group presets by cluster for display
+const presetsByCluster = computed(() => {
+  const groups: Record<string, PresetRule[]> = {}
+  for (const p of allPresets.value) {
+    const cluster = p.cluster || ''
+    if (!groups[cluster]) groups[cluster] = []
+    groups[cluster].push(p)
+  }
+  return groups
+})
+
+// Auto-match preview: for each cluster, find matching datasource
+const clusterDsMap = computed(() => {
+  const map: Record<string, DataSource | undefined> = {}
+  for (const cluster of Object.keys(presetsByCluster.value)) {
+    if (!cluster) continue
+    map[cluster] = datasources.value.find(ds =>
+      ds.labels && typeof ds.labels === 'object' && ds.labels.cluster === cluster,
+    )
+  }
+  return map
+})
+
+async function openBatchModal() {
+  showBatchModal.value = true
+  batchSelectedIds.value = []
+  batchResult.value = null
+  batchAutoMatch.value = true
+  batchFallbackDsId.value = null
+
+  // Load all presets for selection
+  allPresetsLoading.value = true
+  try {
+    const res = await presetRuleApi.list({ page: 1, page_size: 500 })
+    allPresets.value = res.data.data.list || []
+  } catch {
+    allPresets.value = presets.value // fallback to current page
+  } finally {
+    allPresetsLoading.value = false
+  }
+}
+
+async function handleBatchApply() {
+  if (batchSelectedIds.value.length === 0) {
+    message.warning(t('preset.batchApplyNoSelection'))
+    return
+  }
+  batchLoading.value = true
+  batchResult.value = null
+  try {
+    const res = await presetRuleApi.batchApply({
+      preset_ids: batchSelectedIds.value,
+      auto_match_datasource: batchAutoMatch.value,
+      fallback_datasource_id: batchFallbackDsId.value || undefined,
+    })
+    batchResult.value = res.data.data
+    const { applied, failed } = res.data.data
+    if (failed.length === 0) {
+      message.success(t('preset.batchApplySuccess'))
+    } else {
+      message.warning(t('preset.batchApplyResult', { applied: applied.length, failed: failed.length }))
+    }
+    refresh()
+    fetchCategories()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    batchLoading.value = false
+  }
+}
+
 // ─── Delete ───
 function confirmDelete(preset: PresetRule) {
   dialog.warning({
@@ -180,6 +264,10 @@ onMounted(() => {
   <div class="presets-page">
     <PageHeader :title="t('preset.title')" :subtitle="t('preset.subtitle')">
       <template #actions>
+        <n-button size="small" type="primary" @click="openBatchModal">
+          <template #icon><n-icon :component="LayersOutline" /></template>
+          {{ t('preset.batchApply') }}
+        </n-button>
         <n-button size="small" secondary @click="showImportModal = true">
           <template #icon><n-icon :component="CloudUploadOutline" /></template>
           {{ t('preset.importYaml') }}
@@ -395,6 +483,136 @@ onMounted(() => {
         </n-space>
       </template>
     </n-modal>
+
+    <!-- Batch Apply Dialog -->
+    <n-modal
+      v-model:show="showBatchModal"
+      preset="card"
+      :title="t('preset.batchApplyTitle')"
+      style="width: 720px"
+      :bordered="false"
+      :segmented="{ content: true, footer: true }"
+    >
+      <!-- Result view -->
+      <template v-if="batchResult">
+        <n-result
+          :status="batchResult.failed.length === 0 ? 'success' : 'warning'"
+          :title="t('preset.batchApplyResult', { applied: batchResult.applied.length, failed: batchResult.failed.length })"
+          size="small"
+        >
+          <template v-if="batchResult.failed.length > 0" #footer>
+            <div class="batch-fail-list">
+              <div v-for="f in batchResult.failed" :key="f.preset_id" class="batch-fail-item">
+                <span class="batch-fail-id">#{{ f.preset_id }}</span>
+                <span class="batch-fail-err">{{ f.error }}</span>
+              </div>
+            </div>
+          </template>
+        </n-result>
+      </template>
+
+      <!-- Selection view -->
+      <template v-else>
+        <div class="batch-hint">{{ t('preset.batchApplyHint') }}</div>
+
+        <!-- Options -->
+        <div class="batch-options">
+          <div class="batch-option-row">
+            <n-switch v-model:value="batchAutoMatch" />
+            <span class="batch-option-label">{{ t('preset.autoMatchDatasource') }}</span>
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <span class="batch-option-hint">?</span>
+              </template>
+              {{ t('preset.autoMatchTooltip') }}
+            </n-tooltip>
+          </div>
+          <div v-if="!batchAutoMatch" class="batch-option-row">
+            <n-select
+              v-model:value="batchFallbackDsId"
+              :options="datasourceOptions"
+              :placeholder="t('preset.selectDatasource')"
+              filterable
+              style="width: 300px"
+            />
+          </div>
+          <div v-else class="batch-option-row">
+            <span class="batch-option-label dim">{{ t('preset.fallbackDatasource') }}:</span>
+            <n-select
+              v-model:value="batchFallbackDsId"
+              :options="datasourceOptions"
+              :placeholder="t('preset.fallbackTooltip')"
+              filterable
+              clearable
+              style="width: 300px"
+            />
+          </div>
+        </div>
+
+        <n-divider />
+
+        <!-- Preset list grouped by cluster -->
+        <n-scrollbar style="max-height: 400px">
+          <n-spin :show="allPresetsLoading">
+            <div class="batch-cluster-groups">
+              <div
+                v-for="(presetsInCluster, cluster) in presetsByCluster"
+                :key="cluster"
+                class="batch-cluster-group"
+              >
+                <div class="batch-cluster-header">
+                  <span class="batch-cluster-name">
+                    {{ cluster ? t('preset.clusterGroup', { cluster }) : t('preset.noCluster') }}
+                  </span>
+                  <span v-if="cluster && clusterDsMap[cluster]" class="batch-cluster-ds">
+                    {{ t('preset.matchedDs', { name: clusterDsMap[cluster]!.name }) }}
+                  </span>
+                  <span v-else-if="cluster" class="batch-cluster-ds no-match">
+                    {{ t('preset.noMatchDs') }}
+                  </span>
+                  <span class="batch-cluster-count">
+                    {{ presetsInCluster.filter(p => batchSelectedIds.includes(p.id)).length }}/{{ presetsInCluster.length }}
+                  </span>
+                </div>
+                <n-checkbox-group v-model:value="batchSelectedIds">
+                  <div class="batch-preset-items">
+                    <n-checkbox
+                      v-for="p in presetsInCluster"
+                      :key="p.id"
+                      :value="p.id"
+                      class="batch-preset-item"
+                    >
+                      <span class="batch-preset-name">{{ p.display_name || p.name }}</span>
+                      <n-tag :type="severityType(p.severity)" size="tiny" :bordered="false">
+                        {{ severityLabel(p.severity) }}
+                      </n-tag>
+                    </n-checkbox>
+                  </div>
+                </n-checkbox-group>
+              </div>
+            </div>
+          </n-spin>
+        </n-scrollbar>
+
+        <div class="batch-selected-info">
+          {{ t('preset.selectedCount', { count: batchSelectedIds.length }) }}
+        </div>
+      </template>
+
+      <template #footer>
+        <n-space justify="end">
+          <template v-if="batchResult">
+            <n-button type="primary" @click="showBatchModal = false">{{ t('common.close') }}</n-button>
+          </template>
+          <template v-else>
+            <n-button @click="showBatchModal = false">{{ t('common.cancel') }}</n-button>
+            <n-button type="primary" :loading="batchLoading" :disabled="batchSelectedIds.length === 0" @click="handleBatchApply">
+              {{ t('preset.batchApply') }}
+            </n-button>
+          </template>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -583,5 +801,119 @@ onMounted(() => {
 
 .empty-state {
   margin-top: 80px;
+}
+
+/* Batch Apply */
+.batch-hint {
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  margin-bottom: 12px;
+}
+.batch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.batch-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.batch-option-label {
+  font-size: 13px;
+  color: var(--sre-text-primary);
+}
+.batch-option-label.dim {
+  color: var(--sre-text-secondary);
+}
+.batch-option-hint {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  cursor: help;
+  border: 1px solid var(--sre-hairline-color, rgba(255,255,255,0.1));
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.batch-cluster-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.batch-cluster-group {
+  border: var(--sre-hairline);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.batch-cluster-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--sre-bg-hover, rgba(255,255,255,0.03));
+  font-size: 13px;
+  border-bottom: var(--sre-hairline);
+}
+.batch-cluster-name {
+  font-weight: 600;
+  color: var(--sre-text-primary);
+}
+.batch-cluster-ds {
+  font-size: 12px;
+  color: var(--sre-success, #18a058);
+}
+.batch-cluster-ds.no-match {
+  color: var(--sre-warning, #f0a020);
+}
+.batch-cluster-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-family: var(--sre-font-mono, monospace);
+  color: var(--sre-text-tertiary);
+}
+.batch-preset-items {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.batch-preset-item {
+  padding: 4px 0;
+}
+.batch-preset-name {
+  font-size: 13px;
+  margin-right: 6px;
+}
+.batch-selected-info {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+  text-align: right;
+}
+.batch-fail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.batch-fail-item {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+.batch-fail-id {
+  font-family: var(--sre-font-mono, monospace);
+  color: var(--sre-text-tertiary);
+  flex-shrink: 0;
+}
+.batch-fail-err {
+  color: var(--sre-error, #d03050);
+  word-break: break-all;
 }
 </style>
