@@ -872,24 +872,6 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 }
 
 /* ============================================================
-   Pet animation classes
-   ============================================================ */
-.pet-avatar-container {
-  position: relative;
-  display: inline-flex;
-}
-.pet-avatar-container .pet-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--sre-success);
-  border: 2px solid var(--sre-bg-card);
-}
-
-/* ============================================================
    Page container
    ============================================================ */
 .page-container {

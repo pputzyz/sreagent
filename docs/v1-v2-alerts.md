@@ -62,7 +62,7 @@ engine:
 
 | Component | v1 | v2 |
 |-----------|----|----|
-| Evaluator | `engine/rule_eval.go` | `engine/v2_pipeline.go` |
+| Evaluator | `engine/rule_eval.go` | `service/alert_v2_pipeline.go` |
 | State | In-memory `sync.Map` | `engine/state_store.go` |
 | Suppression | `engine/suppression.go` | `engine/suppression.go` (shared) |
 | Heartbeat | `engine/heartbeat_checker.go` | `engine/heartbeat_checker.go` (shared) |

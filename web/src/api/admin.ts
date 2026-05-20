@@ -99,13 +99,13 @@ export const aiApi = {
 
 // ===== AI Chat API =====
 export const aiChatApi = {
-  send: (data: { mode: 'alert' | 'general' | 'pet'; message: string; context?: string }) =>
+  send: (data: { mode: 'alert' | 'general'; message: string; context?: string }) =>
     request.post<ApiResponse<{ reply: string }>>('/ai/chat', data),
 
-  getHistory: (mode: 'alert' | 'general' | 'pet') =>
+  getHistory: (mode: 'alert' | 'general') =>
     request.get<ApiResponse<ChatMessage[]>>('/ai/history', { params: { mode } }),
 
-  clearHistory: (mode: 'alert' | 'general' | 'pet') =>
+  clearHistory: (mode: 'alert' | 'general') =>
     request.delete<ApiResponse<null>>('/ai/history', { params: { mode } }),
 }
 

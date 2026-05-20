@@ -130,15 +130,30 @@ func validatePromQLSyntax(expr string) error {
 }
 
 // tokenizeExpression splits a PromQL expression into unique tokens for similarity comparison.
+// PromQL function keywords are excluded so Jaccard similarity reflects actual metric overlap.
 func tokenizeExpression(expr string) map[string]bool {
 	tokens := make(map[string]bool)
 	for _, tok := range metricRegexp.FindAllString(expr, -1) {
 		tok = strings.ToLower(tok)
-		if len(tok) > 1 {
+		if len(tok) > 1 && !promqlKeywords[tok] {
 			tokens[tok] = true
 		}
 	}
 	return tokens
+}
+
+// promqlKeywords is the set of PromQL function/keyword names to exclude from tokenization.
+var promqlKeywords = map[string]bool{
+	"sum": true, "avg": true, "min": true, "max": true, "count": true,
+	"rate": true, "irate": true, "increase": true, "delta": true,
+	"by": true, "without": true, "on": true, "ignoring": true,
+	"group_left": true, "group_right": true, "bool": true,
+	"topk": true, "bottomk": true, "sort": true, "sort_desc": true,
+	"abs": true, "ceil": true, "floor": true, "round": true,
+	"clamp_min": true, "clamp_max": true, "label_replace": true,
+	"label_join": true, "absent": true, "absent_over_time": true,
+	"vector": true, "scalar": true, "time": true, "timestamp": true,
+	"histogram_quantile": true,
 }
 
 // jaccardSimilarity computes the Jaccard similarity coefficient between two token sets.

@@ -114,7 +114,7 @@ async function handleResolve(alert: any) {
 }
 
 function goDetail(alert: any) {
-  router.push(`/alerts/events/${alert.id}`)
+  router.push(`/alert/events/${alert.id}`)
 }
 
 function severityType(sev: string) {
@@ -130,11 +130,11 @@ function formatTime(t: string) {
   const date = new Date(t)
   const diffMs = Date.now() - date.getTime()
   const min = Math.floor(diffMs / 60000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
+  if (min < 1) return t('myAlerts.justNow')
+  if (min < 60) return t('myAlerts.minutesAgo', { n: min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} 小时前`
-  return date.toLocaleString('zh-CN')
+  if (hr < 24) return t('myAlerts.hoursAgo', { n: hr })
+  return date.toLocaleString()
 }
 
 watch(filter, refresh)

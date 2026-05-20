@@ -75,10 +75,6 @@ function toggleAIChat() {
   showAIChat.value = !showAIChat.value
 }
 
-function openPetChat() {
-  showAIChat.value = true
-}
-
 function toggleCollapse() {
   collapsed.value = !collapsed.value
 }

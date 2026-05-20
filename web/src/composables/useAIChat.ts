@@ -4,7 +4,7 @@ import { aiChatApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 import type { ChatMessage } from '@/types'
 
-export type ChatMode = 'alert' | 'general' | 'pet'
+export type ChatMode = 'alert' | 'general'
 
 export function useAIChat() {
   const { t } = useI18n()

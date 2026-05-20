@@ -49,9 +49,11 @@ func Test_validatePromQLSyntax_invalid(t *testing.T) {
 func Test_tokenizeExpression(t *testing.T) {
 	tokens := tokenizeExpression(`rate(http_requests_total{job="api"}[5m])`)
 	assert.True(t, tokens["http_requests_total"])
-	assert.True(t, tokens["rate"])
 	assert.True(t, tokens["job"])
 	assert.True(t, tokens["api"])
+	// PromQL keywords should be filtered out
+	assert.False(t, tokens["rate"])
+	assert.False(t, tokens["sum"])
 	// Single-char tokens should be excluded
 	assert.False(t, tokens["m"])
 }

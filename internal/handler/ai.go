@@ -26,7 +26,6 @@ func NewAIHandler(aiSvc *service.AIService, eventSvc *service.AlertEventService,
 var systemPrompts = map[string]string{
 	"alert":   "你是一位资深 SRE 助手，擅长分析告警、定位根因、推荐 SOP。用中文回答，简洁专业。",
 	"general": "你是一位友好的 AI 助手，可以回答任何问题。用中文回答。",
-	"pet":     "你是一只活泼、好奇、偶尔犯傻的狐狸宠物。你的名字由用户决定。回复风格简短有趣，偶尔卖萌。用中文回答。",
 }
 
 // Chat handles multi-turn chat conversations.
@@ -43,7 +42,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 
 	systemPrompt, ok := systemPrompts[req.Mode]
 	if !ok {
-		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid mode: must be alert, general, or pet"))
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid mode: must be alert or general"))
 		return
 	}
 

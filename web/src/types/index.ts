@@ -632,7 +632,7 @@ export interface AlertEventV2 {
 export interface ChatMessage {
   id?: number
   user_id?: number
-  mode: 'alert' | 'general' | 'pet'
+  mode: 'alert' | 'general'
   role: 'user' | 'assistant'
   content: string
   context?: string

@@ -131,6 +131,7 @@ func (h *HeartbeatChecker) runOnce(ctx context.Context) {
 		for _, rule := range enabled {
 			h.checkRule(ctx, rule, now)
 		}
+		metrics.SetEngineLastHeartbeatTimestamp()
 		return
 	}
 
