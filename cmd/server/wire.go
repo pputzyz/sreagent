@@ -120,6 +120,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Audit log repository
 	auditLogRepo := repository.NewAuditLogRepository(db)
 
+	// Knowledge base repository
+	knowledgeRepo := repository.NewKnowledgeRepository(db)
+
 	// Dashboard v2 repository
 	dashboardV2Repo := repository.NewDashboardRepository(db)
 	templateRepo := repository.NewAlertRuleTemplateRepository(db)
@@ -189,6 +192,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Audit log service
 	auditLogSvc := service.NewAuditLogService(auditLogRepo, zapLogger)
+
+	// Knowledge base service
+	knowledgeSvc := service.NewKnowledgeBaseService(knowledgeRepo, aiSvc, zapLogger)
 
 	// Dashboard v2 service
 	dashboardV2Svc := service.NewDashboardService(dashboardV2Repo, zapLogger)
@@ -426,7 +432,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// --------------- AI 工具注册表 ---------------
 	toolRegistry := service.NewAIToolRegistry(zapLogger)
-	toolRegistry.RegisterBuiltinTools(dsSvc, ruleSvc, incidentSvc, auditLogSvc, eventSvc,
+	toolRegistry.RegisterBuiltinTools(dsSvc, ruleSvc, incidentSvc, auditLogSvc, eventSvc, knowledgeSvc,
 		func() (interface{}, bool) {
 			if evaluator == nil {
 				return nil, false
@@ -497,6 +503,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		UserNotification:    handler.NewUserNotificationHandler(userNotificationSvc),
 		Permissions:         handler.NewPermissionsHandler(teamSvc),
 		Agent:               handler.NewAgentHandler(agentSvc),
+		Knowledge:           handler.NewKnowledgeHandler(knowledgeSvc),
 	}
 
 	// Inject audit service into handlers that support it

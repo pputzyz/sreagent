@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `knowledge_documents` (
+    `id`              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `source`          VARCHAR(50)  NOT NULL,
+    `title`           VARCHAR(255) NOT NULL,
+    `content`         MEDIUMTEXT   NOT NULL,
+    `summary`         TEXT         DEFAULT NULL,
+    `tags`            JSON         DEFAULT NULL,
+    `source_ref`      VARCHAR(255) DEFAULT NULL,
+    `owner_id`        BIGINT UNSIGNED DEFAULT NULL,
+    `status`          VARCHAR(20)  DEFAULT 'active',
+    `view_count`      INT          DEFAULT 0,
+    `helpful_count`   INT          DEFAULT 0,
+    `created_at`      DATETIME(3)  NOT NULL,
+    `updated_at`      DATETIME(3)  NOT NULL,
+    `deleted_at`      DATETIME(3)  DEFAULT NULL,
+    INDEX `idx_kb_source_status` (`source`, `status`),
+    INDEX `idx_kb_owner` (`owner_id`),
+    INDEX `idx_kb_deleted_at` (`deleted_at`),
+    FULLTEXT INDEX `ft_kb_content` (`title`, `content`, `summary`) WITH PARSER ngram
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

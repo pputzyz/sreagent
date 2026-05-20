@@ -63,6 +63,7 @@ type Handlers struct {
 	UserNotification    *handler.UserNotificationHandler   // notification center (通知中心)
 	Permissions         *handler.PermissionsHandler        // RBAC permissions (权限查询)
 	Agent               *handler.AgentHandler              // AI Agent (自主执行)
+	Knowledge           *handler.KnowledgeHandler          // 知识库 (Knowledge Base)
 }
 
 // Setup initializes the Gin router with all routes and middleware.

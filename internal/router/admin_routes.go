@@ -148,4 +148,18 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 	if h.PostMortem != nil {
 		auth.GET("/post-mortems", h.PostMortem.List)
 	}
+
+	// Knowledge Base (知识库)
+	if h.Knowledge != nil {
+		kb := auth.Group("/knowledge")
+		{
+			kb.GET("", h.Knowledge.List)
+			kb.GET("/:id", h.Knowledge.Get)
+			kb.POST("", manage, h.Knowledge.Create)
+			kb.PUT("/:id", manage, h.Knowledge.Update)
+			kb.DELETE("/:id", manage, h.Knowledge.Delete)
+			kb.POST("/search", h.Knowledge.Search)
+			kb.POST("/:id/helpful", operate, h.Knowledge.Helpful)
+		}
+	}
 }

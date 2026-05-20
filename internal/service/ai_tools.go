@@ -80,6 +80,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	incidentSvc *IncidentService,
 	auditLogSvc *AuditLogService,
 	eventSvc *AlertEventService,
+	kbSvc *KnowledgeBaseService,
 	getEngineStatus func() (interface{}, bool),
 ) {
 	// ── query_datasource: 执行 PromQL 查询 ──
@@ -680,6 +681,67 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 			data, _ := json.Marshal(map[string]interface{}{
 				"total":  len(summaries),
 				"events": summaries,
+			})
+			return string(data), nil
+		},
+	})
+
+	// ── search_knowledge: 搜索知识库 ──
+	r.Register(&AITool{
+		Name:        "search_knowledge",
+		Description: "搜索知识库文档（SOP、事故案例、Runbook 等）。支持全文检索，可按来源过滤。用于查找排障手册、历史事故处理方案。",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"query": map[string]interface{}{
+					"type":        "string",
+					"description": "搜索关键词",
+				},
+				"source": map[string]interface{}{
+					"type":        "string",
+					"description": "来源过滤: sop / incident_case / runbook / template_example / wiki",
+				},
+				"top_k": map[string]interface{}{
+					"type":        "integer",
+					"description": "返回数量上限，默认 10",
+				},
+			},
+			"required": []string{"query"},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			query, _ := params["query"].(string)
+			source, _ := params["source"].(string)
+			topK, _ := aiToolToInt(params["top_k"])
+			if topK <= 0 {
+				topK = 10
+			}
+
+			docs, err := kbSvc.Search(ctx, query, source, topK)
+			if err != nil {
+				return fmt.Sprintf("搜索知识库失败: %v", err), nil
+			}
+
+			type docSummary struct {
+				ID           uint   `json:"id"`
+				Source       string `json:"source"`
+				Title        string `json:"title"`
+				Summary      string `json:"summary"`
+				HelpfulCount int    `json:"helpful_count"`
+			}
+			summaries := make([]docSummary, 0, len(docs))
+			for _, d := range docs {
+				summaries = append(summaries, docSummary{
+					ID:           d.ID,
+					Source:       string(d.Source),
+					Title:        d.Title,
+					Summary:      d.Summary,
+					HelpfulCount: d.HelpfulCount,
+				})
+			}
+
+			data, _ := json.Marshal(map[string]interface{}{
+				"total": len(summaries),
+				"docs":  summaries,
 			})
 			return string(data), nil
 		},
