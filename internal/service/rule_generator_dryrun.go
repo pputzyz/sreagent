@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -78,13 +79,22 @@ func (s *RuleGeneratorService) extractSampleSeries(ctx context.Context, datasour
 }
 
 // ValidateExpression validates a PromQL expression against a datasource.
+// First performs offline syntax parsing, then queries the datasource for runtime validation.
 func (s *RuleGeneratorService) ValidateExpression(ctx context.Context, datasourceID uint, expression string) (*ValidationResult, error) {
 	result := &ValidationResult{}
 
+	// Step 1: Offline syntax validation (catches syntax errors without network dependency)
+	if err := validatePromQLSyntax(expression); err != nil {
+		result.Valid = false
+		result.Error = fmt.Sprintf("syntax: %v", err)
+		return result, nil
+	}
+
+	// Step 2: Query datasource for runtime validation (catches metric/label issues)
 	resp, err := s.dsSvc.QueryDatasource(ctx, datasourceID, expression, time.Now())
 	if err != nil {
 		result.Valid = false
-		result.Error = err.Error()
+		result.Error = fmt.Sprintf("query: %v", err)
 		return result, nil
 	}
 

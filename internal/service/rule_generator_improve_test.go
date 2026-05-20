@@ -27,21 +27,21 @@ func Test_validatePromQLSyntax_valid(t *testing.T) {
 
 func Test_validatePromQLSyntax_invalid(t *testing.T) {
 	tests := []struct {
-		name    string
-		expr    string
-		wantErr string
+		name string
+		expr string
 	}{
-		{"empty", "", "表达式为空"},
-		{"unclosed paren", `rate(http_requests_total[5m]`, "缺少 ')'"},
-		{"extra closing", `rate(http_requests_total[5m]))`, "多余的 ')'"},
-		{"mismatched brace", `cpu_usage{env="prod"`, "缺少 '}'"},
-		{"mismatched bracket", `rate(http_requests_total[5m)`, "括号不匹配"},
+		{"empty", ""},
+		{"unclosed paren", `rate(http_requests_total[5m]`},
+		{"extra closing", `rate(http_requests_total[5m]))`},
+		{"mismatched brace", `cpu_usage{env="prod"`},
+		{"mismatched bracket", `rate(http_requests_total[5m)`},
+		{"invalid operator in range", `rate(up == 0)`},
+		{"nonsensical expression", `sum by (==)`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validatePromQLSyntax(tt.expr)
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }

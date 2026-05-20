@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/prometheus/prometheus/promql/parser"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 )
 
@@ -61,10 +62,17 @@ func (s *RuleGeneratorService) CheckConflicts(ctx context.Context, expression st
 }
 
 // ImproveRule takes an existing AI-generated rule and user feedback, returns an improved version.
-// Post-LLM: runs conflict detection (syntax + similarity) and appends warnings.
+// Pre-LLM: validates input expression. Post-LLM: validates output expression and detects conflicts.
 func (s *RuleGeneratorService) ImproveRule(ctx context.Context, req *ImproveRuleRequest) (*RuleGenerateResult, error) {
 	if err := s.checkAIEnabled(ctx); err != nil {
 		return nil, err
+	}
+
+	// Pre-LLM: validate input expression syntax
+	if req.Rule.Type == "alert" && req.Rule.Expression != "" {
+		if err := validatePromQLSyntax(req.Rule.Expression); err != nil {
+			return nil, apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("输入表达式语法错误: %v", err))
+		}
 	}
 
 	ruleJSON, _ := json.Marshal(req.Rule)
@@ -88,12 +96,13 @@ func (s *RuleGeneratorService) ImproveRule(ctx context.Context, req *ImproveRule
 	result.Type = req.Rule.Type
 	s.postProcessResult(&result)
 
-	// Post-LLM conflict detection
+	// Post-LLM: validate output expression syntax + conflict detection
 	if result.Type == "alert" && result.Expression != "" {
-		conflict := s.CheckConflicts(ctx, result.Expression, req.DatasourceID)
-		if !conflict.SyntaxValid {
-			result.Warnings = append(result.Warnings, "语法检查: "+conflict.SyntaxError)
+		if err := validatePromQLSyntax(result.Expression); err != nil {
+			return nil, apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("AI 生成的表达式语法错误: %v", err))
 		}
+
+		conflict := s.CheckConflicts(ctx, result.Expression, req.DatasourceID)
 		for _, w := range conflict.Warnings {
 			result.Warnings = append(result.Warnings, "冲突检测: "+w)
 		}
@@ -102,29 +111,14 @@ func (s *RuleGeneratorService) ImproveRule(ctx context.Context, req *ImproveRule
 	return &result, nil
 }
 
-// validatePromQLSyntax performs basic PromQL syntax validation (balanced braces/parens/brackets).
+// validatePromQLSyntax performs real PromQL syntax validation using the Prometheus parser.
 func validatePromQLSyntax(expr string) error {
-	var stack []rune
-	for _, ch := range expr {
-		switch ch {
-		case '(':
-			stack = append(stack, ')')
-		case '{':
-			stack = append(stack, '}')
-		case '[':
-			stack = append(stack, ']')
-		case ')', '}', ']':
-			if len(stack) == 0 || stack[len(stack)-1] != ch {
-				return fmt.Errorf("括号不匹配: 多余的 '%c'", ch)
-			}
-			stack = stack[:len(stack)-1]
-		}
-	}
-	if len(stack) > 0 {
-		return fmt.Errorf("括号不匹配: 缺少 '%c'", stack[len(stack)-1])
-	}
 	if strings.TrimSpace(expr) == "" {
 		return fmt.Errorf("表达式为空")
+	}
+	_, err := parser.ParseExpr(expr)
+	if err != nil {
+		return fmt.Errorf("PromQL 语法错误: %w", err)
 	}
 	return nil
 }
