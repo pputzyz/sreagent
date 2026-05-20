@@ -2,7 +2,7 @@ import request from './request'
 import type { ApiResponse, PageData } from '@/types'
 import type { PresetRule, PresetRuleOverride } from '@/types/preset-rule'
 import type {
-  AIModuleConfig, RuleGenerateRequest, RuleGenerateResult, MuteRuleGenerateResult, ValidationResult, DryRunResult,
+  AIModuleConfig, RuleGenerateRequest, DryRunRequest, RuleGenerateResult, MuteRuleGenerateResult, ValidationResult, DryRunResult,
 } from '@/types/ai-module'
 
 // ===== Preset Rule API =====
@@ -40,7 +40,7 @@ export const aiRuleApi = {
   generate: (data: RuleGenerateRequest) =>
     request.post<ApiResponse<RuleGenerateResult>>('/ai/rules/generate', data),
 
-  dryRun: (data: RuleGenerateRequest) =>
+  dryRun: (data: DryRunRequest) =>
     request.post<ApiResponse<DryRunResult>>('/ai/rules/dry-run', data),
 
   validate: (data: { datasource_id: number; expression: string }) =>

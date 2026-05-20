@@ -117,7 +117,7 @@ function handleApply() {
 async function handleSaveAsDraft() {
   if (!result.value) return
   const ruleResult = result.value as RuleGenerateResult
-  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  const dsId = selectedDatasourceId.value
   if (!dsId) {
     message.warning('请先选择数据源')
     return
@@ -134,7 +134,6 @@ async function handleSaveAsDraft() {
       annotations: ruleResult.annotations || {},
       description: ruleResult.description,
       status: 'draft',
-      enabled: false,
     })
     message.success('已保存为草稿')
     emit('saved', { draft: true })
@@ -149,7 +148,7 @@ async function handleSaveAsDraft() {
 async function handleSaveAsActive() {
   if (!result.value) return
   const ruleResult = result.value as RuleGenerateResult
-  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  const dsId = selectedDatasourceId.value
   if (!dsId) {
     message.warning('请先选择数据源')
     return
@@ -166,7 +165,6 @@ async function handleSaveAsActive() {
       annotations: ruleResult.annotations || {},
       description: ruleResult.description,
       status: 'active',
-      enabled: true,
     })
     message.success('规则已创建并启用')
     emit('saved', { draft: false })
@@ -181,7 +179,7 @@ async function handleSaveAsActive() {
 async function handleDryRun() {
   if (!result.value) return
   const ruleResult = result.value as RuleGenerateResult
-  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  const dsId = selectedDatasourceId.value
   if (!dsId) {
     message.warning('请先选择数据源')
     return
@@ -190,7 +188,7 @@ async function handleDryRun() {
   try {
     const resp = await aiRuleApi.dryRun({
       datasource_id: dsId,
-      expr: ruleResult.expression,
+      expr: ruleResult.expression || '',
       for: ruleResult.for_duration || '5m',
       labels: ruleResult.labels || {},
       annotations: ruleResult.annotations || {},
@@ -213,7 +211,7 @@ async function handleDryRun() {
 async function handleLabelPreview() {
   if (!result.value) return
   const ruleResult = result.value as RuleGenerateResult
-  const dsId = selectedDatasourceId.value ?? ruleResult.datasource_id
+  const dsId = selectedDatasourceId.value
   if (!dsId) {
     message.warning('请先选择数据源')
     return

@@ -40,6 +40,15 @@ export interface RuleGenerateRequest {
   }
 }
 
+export interface DryRunRequest {
+  datasource_id: number
+  expr: string
+  for?: string
+  labels?: Record<string, string>
+  annotations?: Record<string, string>
+  severity?: string
+}
+
 export interface RuleGenerateResult {
   type: string
   name: string
