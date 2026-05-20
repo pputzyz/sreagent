@@ -31,6 +31,7 @@ export interface RuleGenerateRequest {
   description: string
   datasource_id?: number
   rule_type?: string
+  save_as_draft?: boolean
   context?: {
     existing_rules?: boolean
     include_labels?: boolean
@@ -90,4 +91,7 @@ export interface ValidationResult {
 export interface DryRunResult {
   rule: RuleGenerateResult
   validation?: ValidationResult
+  series_count: number
+  sample_series?: Record<string, string>[]
+  would_fire: boolean
 }

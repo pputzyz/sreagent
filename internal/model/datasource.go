@@ -1,5 +1,7 @@
 package model
 
+import "gorm.io/gorm"
+
 // DataSourceType defines the type of monitoring data source.
 type DataSourceType string
 
@@ -35,8 +37,22 @@ type DataSource struct {
 	HealthCheckInterval int    `json:"health_check_interval" gorm:"default:60"` // seconds
 	IsEnabled           bool   `json:"is_enabled" gorm:"default:true"`
 	Version             string `json:"version" gorm:"size:128"` // populated by health check
+	// Computed (not stored in DB) — populated by AfterFind hook
+	SupportsQueryField bool `json:"supports_query" gorm:"-"` // true for PromQL/LogsQL types; false for Zabbix
 }
 
 func (DataSource) TableName() string {
 	return "datasources"
+}
+
+// SupportsQuery returns true if this datasource type supports direct querying (PromQL/LogsQL).
+// Zabbix datasources are used for alert ingestion only and do not support query.
+func (ds *DataSource) SupportsQuery() bool {
+	return ds.Type != DSTypeZabbix
+}
+
+// AfterFind is a GORM hook that populates computed fields after loading from DB.
+func (ds *DataSource) AfterFind(tx *gorm.DB) error {
+	ds.SupportsQueryField = ds.SupportsQuery()
+	return nil
 }

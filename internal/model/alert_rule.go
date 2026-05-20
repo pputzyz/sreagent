@@ -28,6 +28,7 @@ const (
 	RuleStatusEnabled  AlertRuleStatus = "enabled"
 	RuleStatusDisabled AlertRuleStatus = "disabled"
 	RuleStatusMuted    AlertRuleStatus = "muted"
+	RuleStatusDraft    AlertRuleStatus = "draft"
 )
 
 // AlertRuleType identifies the evaluation strategy for a rule.

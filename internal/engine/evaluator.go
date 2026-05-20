@@ -144,6 +144,10 @@ func (e *Evaluator) Start() {
 	e.startedAt = time.Now()
 	e.logger.Info("starting alert evaluator")
 
+	// Start level suppressor GC
+	e.suppressor.SetLogger(e.logger)
+	e.suppressor.Start()
+
 	// Initial sync
 	e.syncRules()
 
@@ -174,6 +178,9 @@ func (e *Evaluator) Stop() {
 	default:
 		close(e.stopCh)
 	}
+
+	// Stop level suppressor GC
+	e.suppressor.Stop()
 
 	// Cancel the evaluator context so in-flight onAlert callbacks are cancelled.
 	if e.cancel != nil {

@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -53,6 +54,7 @@ type RuleGenerateRequest struct {
 	Description  string          `json:"description" binding:"required"`
 	DatasourceID *uint           `json:"datasource_id"`
 	RuleType     string          `json:"rule_type"` // "alert" or "inhibition"
+	SaveAsDraft  bool            `json:"save_as_draft"`
 	Context      GenerateContext `json:"context"`
 }
 
@@ -187,8 +189,11 @@ func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRe
 
 // DryRunResult combines a generated rule with its validation result.
 type DryRunResult struct {
-	Rule       *RuleGenerateResult `json:"rule"`
-	Validation *ValidationResult   `json:"validation,omitempty"`
+	Rule         *RuleGenerateResult `json:"rule"`
+	Validation   *ValidationResult   `json:"validation,omitempty"`
+	SeriesCount  int                 `json:"series_count"`
+	SampleSeries []map[string]string `json:"sample_series,omitempty"` // max 5
+	WouldFire    bool                `json:"would_fire"`
 }
 
 // DryRun generates a rule and validates its PromQL expression in one call.
@@ -208,10 +213,34 @@ func (s *RuleGeneratorService) DryRun(ctx context.Context, req *RuleGenerateRequ
 			s.logger.Warn("dry-run validation failed", zap.Error(err))
 		} else {
 			dr.Validation = vr
+			dr.SeriesCount = vr.SampleCount
+			dr.WouldFire = vr.SampleCount > 0
+			// Extract up to 5 sample label sets from the query response
+			if vr.SampleCount > 0 {
+				dr.SampleSeries = s.extractSampleSeries(ctx, *req.DatasourceID, result.Expression)
+			}
 		}
 	}
 
 	return dr, nil
+}
+
+// extractSampleSeries queries the datasource and returns up to 5 sample label sets.
+func (s *RuleGeneratorService) extractSampleSeries(ctx context.Context, datasourceID uint, expression string) []map[string]string {
+	resp, err := s.dsSvc.QueryDatasource(ctx, datasourceID, expression, time.Now())
+	if err != nil {
+		return nil
+	}
+
+	limit := 5
+	if len(resp.Series) < limit {
+		limit = len(resp.Series)
+	}
+	samples := make([]map[string]string, 0, limit)
+	for i := 0; i < limit; i++ {
+		samples = append(samples, resp.Series[i].Labels)
+	}
+	return samples
 }
 
 // ValidateExpression validates a PromQL expression against a datasource.
@@ -411,6 +440,54 @@ type ImproveRuleRequest struct {
 	Rule        RuleGenerateResult `json:"rule" binding:"required"`
 	Feedback    string             `json:"feedback" binding:"required"`
 	DatasourceID *uint             `json:"datasource_id"`
+}
+
+// GenerateWithDraftResult wraps a RuleGenerateResult with optional draft info.
+type GenerateWithDraftResult struct {
+	*RuleGenerateResult
+	RuleID uint `json:"rule_id,omitempty"`
+	Draft  bool `json:"draft,omitempty"`
+}
+
+// SaveDraft persists an AI-generated alert rule as a draft (status=draft, enabled=false).
+// Only alert-type rules can be saved as draft; inhibition rules are returned as-is.
+func (s *RuleGeneratorService) SaveDraft(ctx context.Context, result *RuleGenerateResult, datasourceID *uint, userID uint) (*GenerateWithDraftResult, error) {
+	res := &GenerateWithDraftResult{RuleGenerateResult: result}
+
+	if result.Type != "alert" {
+		return res, nil
+	}
+
+	labels := make(model.JSONLabels)
+	for k, v := range result.Labels {
+		labels[k] = v
+	}
+	annotations := make(model.JSONLabels)
+	for k, v := range result.Annotations {
+		annotations[k] = v
+	}
+
+	rule := &model.AlertRule{
+		Name:           result.Name,
+		Description:    result.Description,
+		DataSourceID:   datasourceID,
+		Expression:     result.Expression,
+		ForDuration:    result.ForDuration,
+		Severity:       model.AlertSeverity(result.Severity),
+		Labels:         labels,
+		Annotations:    annotations,
+		Status:         model.RuleStatusDraft,
+		CreatedBy:      userID,
+		UpdatedBy:      userID,
+	}
+
+	if err := s.ruleSvc.Create(ctx, rule); err != nil {
+		return nil, apperr.WithMessage(apperr.ErrDatabase, fmt.Sprintf("failed to save draft rule: %v", err))
+	}
+
+	res.RuleID = rule.ID
+	res.Draft = true
+	return res, nil
 }
 
 // ImproveRule takes an existing AI-generated rule and user feedback, returns an improved version.

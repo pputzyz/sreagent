@@ -31,6 +31,17 @@ func (h *AIRuleHandler) Generate(c *gin.Context) {
 		return
 	}
 
+	if req.SaveAsDraft {
+		userID := GetCurrentUserID(c)
+		draftResult, err := h.ruleGenSvc.SaveDraft(c.Request.Context(), result, req.DatasourceID, userID)
+		if err != nil {
+			Error(c, err)
+			return
+		}
+		Success(c, draftResult)
+		return
+	}
+
 	Success(c, result)
 }
 

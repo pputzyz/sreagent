@@ -1,8 +1,12 @@
 package engine
 
 import (
+	"context"
 	"log"
 	"sync"
+	"time"
+
+	"go.uber.org/zap"
 )
 
 // severityOrder maps severity names to numeric priority (higher = more severe).
@@ -28,13 +32,87 @@ func severityRank(sev string) int {
 type LevelSuppressor struct {
 	// Map of rule_id -> map of fingerprint -> highest severity firing
 	activeSeverities map[uint]map[string]string
-	mu               sync.RWMutex
+	// Map of rule_id -> map of fingerprint -> last update time (for GC)
+	lastUpdates map[uint]map[string]time.Time
+	mu          sync.RWMutex
+	ctx         context.Context
+	cancel      context.CancelFunc
+	logger      *zap.Logger
 }
 
 // NewLevelSuppressor creates a new LevelSuppressor.
 func NewLevelSuppressor() *LevelSuppressor {
 	return &LevelSuppressor{
 		activeSeverities: make(map[uint]map[string]string),
+		lastUpdates:      make(map[uint]map[string]time.Time),
+	}
+}
+
+// SetLogger sets the logger for the suppressor (called before Start).
+func (s *LevelSuppressor) SetLogger(logger *zap.Logger) {
+	s.logger = logger
+}
+
+// Start launches the background GC goroutine that removes stale entries every hour.
+// Entries whose lastUpdate is older than 24 hours are deleted.
+func (s *LevelSuppressor) Start() {
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				s.gc()
+			case <-s.ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// Stop terminates the background GC goroutine.
+func (s *LevelSuppressor) Stop() {
+	if s.cancel != nil {
+		s.cancel()
+	}
+}
+
+// gc removes entries whose lastUpdate is older than 24 hours.
+// Must be called with no locks held; acquires write lock internally.
+func (s *LevelSuppressor) gc() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	threshold := time.Now().Add(-24 * time.Hour)
+	removed := 0
+
+	for ruleID, fpMap := range s.lastUpdates {
+		for fp, lastUp := range fpMap {
+			if lastUp.Before(threshold) {
+				delete(fpMap, fp)
+				// Also remove from activeSeverities
+				if sevMap, ok := s.activeSeverities[ruleID]; ok {
+					delete(sevMap, fp)
+					if len(sevMap) == 0 {
+						delete(s.activeSeverities, ruleID)
+					}
+				}
+				removed++
+			}
+		}
+		// Clean up empty maps
+		if len(fpMap) == 0 {
+			delete(s.lastUpdates, ruleID)
+		}
+	}
+
+	if removed > 0 && s.logger != nil {
+		s.logger.Debug("level suppressor GC completed",
+			zap.Int("removed_entries", removed),
+		)
 	}
 }
 
@@ -76,6 +154,7 @@ func (s *LevelSuppressor) UpdateSeverity(ruleID uint, fingerprint string, severi
 	existing, ok := fpMap[fingerprint]
 	if !ok {
 		fpMap[fingerprint] = severity
+		s.touchLastUpdate(ruleID, fingerprint)
 		return
 	}
 
@@ -84,6 +163,7 @@ func (s *LevelSuppressor) UpdateSeverity(ruleID uint, fingerprint string, severi
 
 	if newOrder > existingOrder {
 		fpMap[fingerprint] = severity
+		s.touchLastUpdate(ruleID, fingerprint)
 	}
 }
 
@@ -92,6 +172,7 @@ func (s *LevelSuppressor) RemoveRule(ruleID uint) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.activeSeverities, ruleID)
+	delete(s.lastUpdates, ruleID)
 }
 
 // RemoveSeverity removes a severity record (when alert resolves).
@@ -112,10 +193,28 @@ func (s *LevelSuppressor) RemoveSeverity(ruleID uint, fingerprint string, severi
 	// Only remove if the severity matches what's currently active
 	if activeSev == severity {
 		delete(fpMap, fingerprint)
+		// Clean up lastUpdates
+		if luMap, ok := s.lastUpdates[ruleID]; ok {
+			delete(luMap, fingerprint)
+			if len(luMap) == 0 {
+				delete(s.lastUpdates, ruleID)
+			}
+		}
 	}
 
 	// Clean up empty maps
 	if len(fpMap) == 0 {
 		delete(s.activeSeverities, ruleID)
 	}
+}
+
+// touchLastUpdate records the current time for a rule+fingerprint.
+// Must be called with s.mu write lock held.
+func (s *LevelSuppressor) touchLastUpdate(ruleID uint, fingerprint string) {
+	luMap, ok := s.lastUpdates[ruleID]
+	if !ok {
+		luMap = make(map[string]time.Time)
+		s.lastUpdates[ruleID] = luMap
+	}
+	luMap[fingerprint] = time.Now()
 }
