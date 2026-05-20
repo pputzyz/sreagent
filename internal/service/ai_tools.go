@@ -340,6 +340,272 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 		},
 	})
 
+	// ── list_metrics: 列出数据源的指标名 ──
+	r.Register(&AITool{
+		Name:        "list_metrics",
+		Description: "列出某数据源的所有指标名（metric names）。可按前缀过滤。用于探索数据源有哪些可用指标。",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"datasource_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "数据源 ID",
+				},
+				"prefix": map[string]interface{}{
+					"type":        "string",
+					"description": "指标名前缀过滤，如 'mysql_'、'node_'、'redis_'",
+				},
+				"limit": map[string]interface{}{
+					"type":        "integer",
+					"description": "返回数量上限，默认 100",
+				},
+			},
+			"required": []string{"datasource_id"},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			dsID, _ := aiToolToUint(params["datasource_id"])
+			prefix, _ := params["prefix"].(string)
+			limit, _ := aiToolToInt(params["limit"])
+			if limit <= 0 {
+				limit = 100
+			}
+
+			// 通过 Prometheus /api/v1/label/__name__/values 获取指标名
+			raw, err := dsSvc.ProxyToDatasource(ctx, dsID, "/api/v1/label/__name__/values", nil)
+			if err != nil {
+				return fmt.Sprintf("获取指标名失败: %v", err), nil
+			}
+
+			var resp struct {
+				Status string   `json:"status"`
+				Data   []string `json:"data"`
+			}
+			if err := json.Unmarshal(raw, &resp); err != nil {
+				return fmt.Sprintf("解析响应失败: %v", err), nil
+			}
+
+			metrics := resp.Data
+			if prefix != "" {
+				filtered := make([]string, 0)
+				for _, m := range metrics {
+					if strings.HasPrefix(m, prefix) {
+						filtered = append(filtered, m)
+					}
+				}
+				metrics = filtered
+			}
+
+			if len(metrics) > limit {
+				metrics = metrics[:limit]
+			}
+
+			data, _ := json.Marshal(map[string]interface{}{
+				"total":   len(resp.Data),
+				"filtered": len(metrics),
+				"prefix":  prefix,
+				"metrics": metrics,
+			})
+			return string(data), nil
+		},
+	})
+
+	// ── list_label_keys: 列出数据源的 label keys ──
+	r.Register(&AITool{
+		Name:        "list_label_keys",
+		Description: "列出某数据源的所有 label key（标签名）。用于了解数据源的标签维度。",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"datasource_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "数据源 ID",
+				},
+			},
+			"required": []string{"datasource_id"},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			dsID, _ := aiToolToUint(params["datasource_id"])
+
+			raw, err := dsSvc.ProxyToDatasource(ctx, dsID, "/api/v1/labels", nil)
+			if err != nil {
+				return fmt.Sprintf("获取 label keys 失败: %v", err), nil
+			}
+
+			var resp struct {
+				Status string   `json:"status"`
+				Data   []string `json:"data"`
+			}
+			if err := json.Unmarshal(raw, &resp); err != nil {
+				return fmt.Sprintf("解析响应失败: %v", err), nil
+			}
+
+			data, _ := json.Marshal(map[string]interface{}{
+				"total": len(resp.Data),
+				"keys":  resp.Data,
+			})
+			return string(data), nil
+		},
+	})
+
+	// ── list_label_values: 列出某 label key 的所有值 ──
+	r.Register(&AITool{
+		Name:        "list_label_values",
+		Description: "列出某数据源中指定 label key 的所有值。用于探索标签值分布，如列出所有 job 名、instance 等。",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"datasource_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "数据源 ID",
+				},
+				"label_key": map[string]interface{}{
+					"type":        "string",
+					"description": "要查询的 label key，如 'job'、'instance'、'env'",
+				},
+				"limit": map[string]interface{}{
+					"type":        "integer",
+					"description": "返回数量上限，默认 100",
+				},
+			},
+			"required": []string{"datasource_id", "label_key"},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			dsID, _ := aiToolToUint(params["datasource_id"])
+			labelKey, _ := params["label_key"].(string)
+			limit, _ := aiToolToInt(params["limit"])
+			if limit <= 0 {
+				limit = 100
+			}
+
+			path := fmt.Sprintf("/api/v1/label/%s/values", labelKey)
+			raw, err := dsSvc.ProxyToDatasource(ctx, dsID, path, nil)
+			if err != nil {
+				return fmt.Sprintf("获取 label values 失败: %v", err), nil
+			}
+
+			var resp struct {
+				Status string   `json:"status"`
+				Data   []string `json:"data"`
+			}
+			if err := json.Unmarshal(raw, &resp); err != nil {
+				return fmt.Sprintf("解析响应失败: %v", err), nil
+			}
+
+			values := resp.Data
+			if len(values) > limit {
+				values = values[:limit]
+			}
+
+			data, _ := json.Marshal(map[string]interface{}{
+				"total":      len(resp.Data),
+				"returned":   len(values),
+				"label_key":  labelKey,
+				"values":     values,
+			})
+			return string(data), nil
+		},
+	})
+
+	// ── query_instant: 即时查询 PromQL ──
+	r.Register(&AITool{
+		Name:        "query_instant",
+		Description: "对指定数据源执行 PromQL 即时查询（当前时刻的快照值）。适用于查看当前状态、单值指标。",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"datasource_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "数据源 ID",
+				},
+				"query": map[string]interface{}{
+					"type":        "string",
+					"description": "PromQL 查询表达式",
+				},
+			},
+			"required": []string{"datasource_id", "query"},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			dsID, _ := aiToolToUint(params["datasource_id"])
+			query, _ := params["query"].(string)
+
+			resp, err := dsSvc.QueryDatasource(ctx, dsID, query, time.Now())
+			if err != nil {
+				return fmt.Sprintf("即时查询失败: %v", err), nil
+			}
+
+			summary := fmt.Sprintf("查询结果: %d 条时间序列", len(resp.Series))
+			for i, s := range resp.Series {
+				if i >= 5 {
+					summary += fmt.Sprintf("\n... 还有 %d 条", len(resp.Series)-5)
+					break
+				}
+				labels := ""
+				for k, v := range s.Labels {
+					if labels != "" {
+						labels += ", "
+					}
+					labels += fmt.Sprintf("%s=%s", k, v)
+				}
+				if len(s.Values) > 0 {
+					summary += fmt.Sprintf("\n  {%s} = %.4f", labels, s.Values[len(s.Values)-1].Value)
+				}
+			}
+			return summary, nil
+		},
+	})
+
+	// ── get_metric_metadata: 获取指标元数据 ──
+	r.Register(&AITool{
+		Name:        "get_metric_metadata",
+		Description: "获取某指标的元数据（help 文本、类型如 counter/gauge/histogram）。用于理解指标含义。",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"datasource_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "数据源 ID",
+				},
+				"metric_name": map[string]interface{}{
+					"type":        "string",
+					"description": "指标名，如 'http_requests_total'",
+				},
+			},
+			"required": []string{"datasource_id", "metric_name"},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			dsID, _ := aiToolToUint(params["datasource_id"])
+			metricName, _ := params["metric_name"].(string)
+
+			queryParams := map[string]string{"metric": metricName}
+			raw, err := dsSvc.ProxyToDatasource(ctx, dsID, "/api/v1/metadata", queryParams)
+			if err != nil {
+				return fmt.Sprintf("获取元数据失败: %v", err), nil
+			}
+
+			var resp struct {
+				Status string                              `json:"status"`
+				Data   map[string][]map[string]interface{} `json:"data"`
+			}
+			if err := json.Unmarshal(raw, &resp); err != nil {
+				return fmt.Sprintf("解析响应失败: %v", err), nil
+			}
+
+			entries, ok := resp.Data[metricName]
+			if !ok || len(entries) == 0 {
+				return fmt.Sprintf("指标 %q 无元数据（可能是 untyped 或数据源不支持 metadata API）", metricName), nil
+			}
+
+			entry := entries[0]
+			data, _ := json.Marshal(map[string]interface{}{
+				"metric": metricName,
+				"type":   entry["type"],
+				"help":   entry["help"],
+				"unit":   entry["unit"],
+			})
+			return string(data), nil
+		},
+	})
+
 	r.logger.Info("AI 工具注册表初始化完成",
 		zap.Int("tool_count", len(r.tools)),
 		zap.String("tools", strings.Join(aiToolNames(r), ", ")),
