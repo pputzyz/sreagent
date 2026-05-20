@@ -46,6 +46,7 @@ const providerOptions = [
   { label: 'OpenAI', value: 'openai' },
   { label: 'Azure OpenAI', value: 'azure' },
   { label: 'Ollama (Local)', value: 'ollama' },
+  { label: 'Anthropic Claude', value: 'anthropic' },
   { label: 'Custom / Compatible', value: 'custom' },
 ]
 
@@ -284,6 +285,7 @@ function providerTypeLabel(p: string) {
     openai: 'OpenAI',
     azure: 'Azure OpenAI',
     ollama: 'Ollama (Local)',
+    anthropic: 'Anthropic Claude',
     custom: 'Custom / Compatible',
   }
   return map[p] || p

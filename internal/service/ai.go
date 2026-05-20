@@ -31,9 +31,15 @@ type AlertAnalysis struct {
 // Configuration is loaded from the DB via SystemSettingService on every call,
 // so changes made in the Web UI take effect immediately without a restart.
 type AIService struct {
-	settingSvc *SystemSettingService
-	client     *http.Client
-	logger     *zap.Logger
+	settingSvc   *SystemSettingService
+	toolRegistry *AIToolRegistry
+	client       *http.Client
+	logger       *zap.Logger
+}
+
+// SetToolRegistry 注入工具注册表（延迟注入，避免 DI 循环依赖）
+func (s *AIService) SetToolRegistry(registry *AIToolRegistry) {
+	s.toolRegistry = registry
 }
 
 // NewAIService creates a new AIService backed by DB-stored configuration.
@@ -214,7 +220,8 @@ func (s *AIService) TestConnection(ctx context.Context) error {
 	if !cfg.Enabled {
 		return fmt.Errorf("AI is not enabled")
 	}
-	if cfg.BaseURL == "" {
+	// Anthropic 有默认 base URL，不需要强制配置
+	if cfg.Provider != "anthropic" && cfg.BaseURL == "" {
 		return fmt.Errorf("AI base URL is not configured")
 	}
 	if cfg.APIKey == "" {
@@ -235,7 +242,8 @@ func (s *AIService) TestProviderConnection(ctx context.Context, providerKey stri
 	if !provider.Enabled {
 		return fmt.Errorf("provider %q is not enabled", providerKey)
 	}
-	if provider.BaseURL == "" {
+	// Anthropic 有默认 base URL，不需要强制配置
+	if provider.Provider != "anthropic" && provider.BaseURL == "" {
 		return fmt.Errorf("provider %q base URL is not configured", providerKey)
 	}
 
@@ -246,24 +254,38 @@ func (s *AIService) TestProviderConnection(ctx context.Context, providerKey stri
 
 // chatCompletionRequest represents an OpenAI-compatible chat completion request.
 type chatCompletionRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	Temperature *float64      `json:"temperature,omitempty"`
-	MaxTokens   *int          `json:"max_tokens,omitempty"`
-	TopP        *float64      `json:"top_p,omitempty"`
+	Model       string                   `json:"model"`
+	Messages    []ChatMessage            `json:"messages"`
+	Tools       []map[string]interface{} `json:"tools,omitempty"`
+	Temperature *float64                 `json:"temperature,omitempty"`
+	MaxTokens   *int                     `json:"max_tokens,omitempty"`
+	TopP        *float64                 `json:"top_p,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat conversation.
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string      `json:"role"`
+	Content    string      `json:"content"`
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
+	ToolCallID string      `json:"tool_call_id,omitempty"`
+}
+
+// ToolCall represents a tool call from the LLM.
+type ToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
 }
 
 // chatCompletionResponse represents an OpenAI-compatible chat completion response.
 type chatCompletionResponse struct {
 	Choices []struct {
 		Message struct {
-			Content string `json:"content"`
+			Content   string     `json:"content"`
+			ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 		} `json:"message"`
 	} `json:"choices"`
 	Usage *struct {
@@ -275,6 +297,38 @@ type chatCompletionResponse struct {
 		Message string `json:"message"`
 	} `json:"error"`
 }
+
+// ---- Anthropic API 类型定义 ----
+
+// anthropicRequest represents an Anthropic Messages API request.
+type anthropicRequest struct {
+	Model       string           `json:"model"`
+	MaxTokens   int              `json:"max_tokens"`
+	System      string           `json:"system,omitempty"`
+	Messages    []ChatMessage    `json:"messages"`
+	Temperature *float64         `json:"temperature,omitempty"`
+	TopP        *float64         `json:"top_p,omitempty"`
+}
+
+// anthropicResponse represents an Anthropic Messages API response.
+type anthropicResponse struct {
+	Content []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"content"`
+	Usage *struct {
+		InputTokens  int `json:"input_tokens"`
+		OutputTokens int `json:"output_tokens"`
+	} `json:"usage"`
+	Error *struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// anthropicDefaultMaxTokens is the default max_tokens for Anthropic API calls
+// when the user has not configured a value. Anthropic requires max_tokens > 0.
+const anthropicDefaultMaxTokens = 4096
 
 // AnalyzeAlertWithContext performs LLM analysis with full metric context.
 func (s *AIService) AnalyzeAlertWithContext(ctx context.Context, contextText string) (*AlertAnalysis, error) {
@@ -320,6 +374,7 @@ Respond in Chinese (简体中文).`
 
 // Chat sends a multi-turn conversation to the LLM and returns the assistant reply.
 // The caller supplies the system prompt, conversation history, and the new user message.
+// 根据 provider 类型分发：anthropic 走原生 Messages API，其余走 OpenAI 兼容协议。
 func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []ChatMessage, userMessage string) (string, error) {
 	cfg, err := s.loadConfig(ctx)
 	if err != nil {
@@ -327,6 +382,11 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 	}
 	if !cfg.Enabled {
 		return "", fmt.Errorf("AI is not enabled")
+	}
+
+	// Anthropic 走原生 Messages API（system 独立字段）
+	if cfg.Provider == "anthropic" {
+		return s.chatAnthropic(ctx, cfg, systemPrompt, history, userMessage)
 	}
 
 	messages := make([]ChatMessage, 0, 1+len(history)+1)
@@ -524,8 +584,12 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
-// callLLMWithSystem sends a prompt to the configured OpenAI-compatible API with a custom system prompt.
+// callLLMWithSystem sends a prompt to the configured LLM API with a custom system prompt.
+// 根据 provider 类型分发：anthropic 走原生 Messages API，其余走 OpenAI 兼容协议。
 func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemPrompt, userPrompt string) (string, error) {
+	if cfg.Provider == "anthropic" {
+		return s.callLLMAnthropic(ctx, cfg, systemPrompt, userPrompt)
+	}
 	reqBody := chatCompletionRequest{
 		Model: cfg.Model,
 		Messages: []ChatMessage{
@@ -598,6 +662,173 @@ func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemP
 	return completionResp.Choices[0].Message.Content, nil
 }
 
+// callLLMAnthropic sends a prompt to the Anthropic Messages API.
+// 与 OpenAI 兼容协议的主要区别：
+//   - system prompt 是独立顶层字段，不在 messages 数组中
+//   - 认证使用 x-api-key 头而非 Authorization: Bearer
+//   - 响应格式为 content[0].text 而非 choices[0].message.content
+//   - 必须显式指定 max_tokens（Anthropic 要求 > 0）
+func (s *AIService) callLLMAnthropic(ctx context.Context, cfg AIConfig, systemPrompt, userPrompt string) (string, error) {
+	maxTokens := cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = anthropicDefaultMaxTokens
+	}
+
+	reqBody := anthropicRequest{
+		Model:     cfg.Model,
+		MaxTokens: maxTokens,
+		System:    systemPrompt,
+		Messages: []ChatMessage{
+			{Role: "user", Content: userPrompt},
+		},
+	}
+	if cfg.Temperature > 0 {
+		reqBody.Temperature = &cfg.Temperature
+	}
+	if cfg.TopP > 0 && cfg.TopP < 1.0 {
+		reqBody.TopP = &cfg.TopP
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal anthropic request: %w", err)
+	}
+
+	baseURL := strings.TrimRight(cfg.BaseURL, "/")
+	if baseURL == "" {
+		baseURL = "https://api.anthropic.com"
+	}
+	url := baseURL + "/v1/messages"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create anthropic request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", cfg.APIKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to call Anthropic API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read Anthropic response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var anthropicResp anthropicResponse
+	if err := json.Unmarshal(respBody, &anthropicResp); err != nil {
+		return "", fmt.Errorf("failed to parse Anthropic response: %w", err)
+	}
+
+	if anthropicResp.Error != nil {
+		return "", fmt.Errorf("Anthropic API error: %s", anthropicResp.Error.Message)
+	}
+
+	if len(anthropicResp.Content) == 0 {
+		return "", fmt.Errorf("Anthropic API returned empty content")
+	}
+
+	// 记录 token 用量指标
+	if anthropicResp.Usage != nil {
+		metrics.IncAITokensUsed(cfg.Provider, "prompt", anthropicResp.Usage.InputTokens)
+		metrics.IncAITokensUsed(cfg.Provider, "completion", anthropicResp.Usage.OutputTokens)
+	}
+
+	return anthropicResp.Content[0].Text, nil
+}
+
+// chatAnthropic sends a multi-turn conversation to the Anthropic Messages API.
+// Anthropic 要求 system prompt 作为独立顶层字段，messages 数组中只包含 user/assistant 角色。
+func (s *AIService) chatAnthropic(ctx context.Context, cfg AIConfig, systemPrompt string, history []ChatMessage, userMessage string) (string, error) {
+	maxTokens := cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = anthropicDefaultMaxTokens
+	}
+
+	// 构建消息列表：历史消息 + 新用户消息（不含 system，Anthropic 的 system 是独立字段）
+	messages := make([]ChatMessage, 0, len(history)+1)
+	messages = append(messages, history...)
+	messages = append(messages, ChatMessage{Role: "user", Content: userMessage})
+
+	reqBody := anthropicRequest{
+		Model:     cfg.Model,
+		MaxTokens: maxTokens,
+		System:    systemPrompt,
+		Messages:  messages,
+	}
+	if cfg.Temperature > 0 {
+		reqBody.Temperature = &cfg.Temperature
+	}
+	if cfg.TopP > 0 && cfg.TopP < 1.0 {
+		reqBody.TopP = &cfg.TopP
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal anthropic chat request: %w", err)
+	}
+
+	baseURL := strings.TrimRight(cfg.BaseURL, "/")
+	if baseURL == "" {
+		baseURL = "https://api.anthropic.com"
+	}
+	url := baseURL + "/v1/messages"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create anthropic chat request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", cfg.APIKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to call Anthropic API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read Anthropic response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var anthropicResp anthropicResponse
+	if err := json.Unmarshal(respBody, &anthropicResp); err != nil {
+		return "", fmt.Errorf("failed to parse Anthropic response: %w", err)
+	}
+
+	if anthropicResp.Error != nil {
+		return "", fmt.Errorf("Anthropic API error: %s", anthropicResp.Error.Message)
+	}
+
+	if len(anthropicResp.Content) == 0 {
+		return "", fmt.Errorf("Anthropic API returned empty content")
+	}
+
+	// 记录 token 用量指标
+	if anthropicResp.Usage != nil {
+		metrics.IncAITokensUsed(cfg.Provider, "prompt", anthropicResp.Usage.InputTokens)
+		metrics.IncAITokensUsed(cfg.Provider, "completion", anthropicResp.Usage.OutputTokens)
+	}
+
+	return anthropicResp.Content[0].Text, nil
+}
+
 // defaultSystemPrompt is used by callLLM for general-purpose SRE assistance.
 const defaultSystemPrompt = "You are a helpful SRE assistant for an alert management platform."
 
@@ -605,4 +836,153 @@ const defaultSystemPrompt = "You are a helpful SRE assistant for an alert manage
 // default system prompt. It delegates to callLLMWithSystem.
 func (s *AIService) callLLM(ctx context.Context, cfg AIConfig, prompt string) (string, error) {
 	return s.callLLMWithSystem(ctx, cfg, defaultSystemPrompt, prompt)
+}
+
+// callLLMWithTools sends a prompt to the LLM with tool definitions enabled.
+// 如果 LLM 返回 tool_calls，执行对应工具并将结果作为 tool message 回传，
+// 循环直到 LLM 返回最终文本回答（最多 maxToolRounds 轮）。
+// 仅支持 OpenAI 兼容协议；Anthropic 的 tool_use 机制不同，暂不在此方法处理。
+func (s *AIService) callLLMWithTools(ctx context.Context, cfg AIConfig, systemPrompt, userPrompt string, tools []map[string]interface{}) (string, error) {
+	const maxToolRounds = 5
+
+	messages := []ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPrompt},
+	}
+
+	for round := 0; round < maxToolRounds; round++ {
+		reqBody := chatCompletionRequest{
+			Model:    cfg.Model,
+			Messages: messages,
+			Tools:    tools,
+		}
+		if cfg.Temperature > 0 {
+			reqBody.Temperature = &cfg.Temperature
+		}
+		if cfg.MaxTokens > 0 {
+			reqBody.MaxTokens = &cfg.MaxTokens
+		}
+		if cfg.TopP > 0 && cfg.TopP < 1.0 {
+			reqBody.TopP = &cfg.TopP
+		}
+
+		bodyBytes, err := json.Marshal(reqBody)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal request: %w", err)
+		}
+
+		baseURL := strings.TrimRight(cfg.BaseURL, "/")
+		url := baseURL + "/chat/completions"
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		if cfg.APIKey != "" {
+			req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+		}
+
+		resp, err := s.client.Do(req)
+		if err != nil {
+			return "", fmt.Errorf("failed to call AI API: %w", err)
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return "", fmt.Errorf("failed to read AI response: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, string(respBody))
+		}
+
+		var completionResp chatCompletionResponse
+		if err := json.Unmarshal(respBody, &completionResp); err != nil {
+			return "", fmt.Errorf("failed to parse AI response: %w", err)
+		}
+
+		if completionResp.Error != nil {
+			return "", fmt.Errorf("AI API error: %s", completionResp.Error.Message)
+		}
+
+		if len(completionResp.Choices) == 0 {
+			return "", fmt.Errorf("AI API returned no choices")
+		}
+
+		// 记录 token 用量指标
+		if completionResp.Usage != nil {
+			metrics.IncAITokensUsed(cfg.Provider, "prompt", completionResp.Usage.PromptTokens)
+			metrics.IncAITokensUsed(cfg.Provider, "completion", completionResp.Usage.CompletionTokens)
+		}
+
+		assistantMsg := completionResp.Choices[0].Message
+
+		// 如果没有 tool_calls，说明 LLM 已经给出了最终文本回答
+		if len(assistantMsg.ToolCalls) == 0 {
+			return assistantMsg.Content, nil
+		}
+
+		// 有 tool_calls：将 assistant 消息（含 tool_calls）加入上下文
+		messages = append(messages, ChatMessage{
+			Role:      "assistant",
+			Content:   assistantMsg.Content,
+			ToolCalls: assistantMsg.ToolCalls,
+		})
+
+		// 逐个执行工具调用，将结果作为 tool message 回传
+		for _, tc := range assistantMsg.ToolCalls {
+			s.logger.Info("AI 工具调用",
+				zap.String("tool", tc.Function.Name),
+				zap.String("call_id", tc.ID),
+			)
+
+			var params map[string]interface{}
+			if err := json.Unmarshal([]byte(tc.Function.Arguments), &params); err != nil {
+				s.logger.Warn("AI 工具参数解析失败",
+					zap.String("tool", tc.Function.Name),
+					zap.String("arguments", tc.Function.Arguments),
+					zap.Error(err),
+				)
+				params = map[string]interface{}{}
+			}
+
+			result := s.executeTool(ctx, tc.Function.Name, params)
+
+			messages = append(messages, ChatMessage{
+				Role:       "tool",
+				Content:    result,
+				ToolCallID: tc.ID,
+			})
+		}
+	}
+
+	// 达到最大轮次，返回最后一次的文本内容（如果有）
+	s.logger.Warn("AI 工具调用达到最大轮次", zap.Int("max_rounds", maxToolRounds))
+	return "工具调用轮次已达上限，请基于已有信息回答用户问题。", nil
+}
+
+// executeTool 执行指定工具并返回结果字符串。
+// 工具执行失败不会崩溃，返回错误信息让 LLM 自行处理。
+func (s *AIService) executeTool(ctx context.Context, name string, params map[string]interface{}) string {
+	if s.toolRegistry == nil {
+		return "工具系统未初始化"
+	}
+
+	tool, ok := s.toolRegistry.Get(name)
+	if !ok {
+		return fmt.Sprintf("工具 %q 不存在", name)
+	}
+
+	result, err := tool.Execute(ctx, params)
+	if err != nil {
+		s.logger.Warn("AI 工具执行失败",
+			zap.String("tool", name),
+			zap.Error(err),
+		)
+		return fmt.Sprintf("工具执行失败: %v", err)
+	}
+	return result
 }

@@ -235,6 +235,22 @@ const ACTION_LABEL_MAP: Record<string, string> = {
   created: 'alert.created',
   notified: 'alert.notified',
 }
+
+// Timeline dot color by action type
+const ACTION_COLOR_MAP: Record<string, string> = {
+  acknowledge: 'ack',   // blue
+  resolve: 'resolve',   // green
+  escalate: 'escalate', // orange
+  comment: 'comment',   // gray
+  close: 'resolve',
+  reopen: 'escalate',
+  assign: 'ack',
+  created: 'default',
+  notified: 'default',
+}
+function timelineActionColor(action: string): string {
+  return ACTION_COLOR_MAP[action] || 'default'
+}
 function actionLabel(action: string): string {
   return t(ACTION_LABEL_MAP[action] ?? action)
 }
@@ -413,7 +429,7 @@ onMounted(async () => {
               />
               <ol v-else class="tl-list">
                 <li v-for="entry in timeline" :key="entry.id" class="tl-item">
-                  <span class="tl-dot" />
+                  <span class="tl-dot" :data-action="timelineActionColor(entry.action)" />
                   <div class="tl-body">
                     <div class="tl-line">
                       <span class="tl-action">{{ actionLabel(entry.action) }}</span>
@@ -579,7 +595,7 @@ onMounted(async () => {
             <div class="sre-label-eyebrow card-eyebrow">{{ t('incident.timelineBrief') }}</div>
             <ol v-if="timeline.length" class="brief-list">
               <li v-for="e in timeline.slice(0, 5)" :key="e.id" class="brief-item">
-                <span class="brief-dot" />
+                <span class="brief-dot" :data-action="timelineActionColor(e.action)" />
                 <div class="brief-body">
                   <div class="brief-action">{{ actionLabel(e.action) }}</div>
                   <div class="brief-meta tnum">{{ relTime(e.created_at) }}</div>
@@ -842,6 +858,15 @@ onMounted(async () => {
   flex-shrink: 0;
   box-shadow: 0 0 0 3px var(--sre-bg-card);
 }
+/* Timeline dot colors by action type */
+.tl-dot[data-action="ack"],
+.brief-dot[data-action="ack"]      { background: var(--sre-info, #3b82f6); }
+.tl-dot[data-action="resolve"],
+.brief-dot[data-action="resolve"]  { background: var(--sre-success, #22c55e); }
+.tl-dot[data-action="escalate"],
+.brief-dot[data-action="escalate"] { background: var(--sre-warning, #f59e0b); }
+.tl-dot[data-action="comment"],
+.brief-dot[data-action="comment"]  { background: var(--sre-text-tertiary, #94a3b8); }
 .tl-body { flex: 1; min-width: 0; }
 .tl-line {
   display: flex;

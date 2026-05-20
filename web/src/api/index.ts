@@ -34,6 +34,7 @@ export {
   bizGroupApi,
   aiApi,
   aiChatApi,
+  aiAgentApi,
   authApi,
   auditLogApi,
   userNotifyConfigApi,
@@ -43,7 +44,7 @@ export {
   securitySettingsApi,
   statusServiceApi,
 } from './admin'
-export type { StatusServiceItem } from './admin'
+export type { StatusServiceItem, AgentTask, AgentStep } from './admin'
 
 // ===== Data domain =====
 export {

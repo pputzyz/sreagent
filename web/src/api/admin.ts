@@ -109,6 +109,36 @@ export const aiChatApi = {
     request.delete<ApiResponse<null>>('/ai/history', { params: { mode } }),
 }
 
+// ===== AI Agent API =====
+export interface AgentStep {
+  index: number
+  description: string
+  tool: string
+  parameters: Record<string, unknown>
+  result: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  duration_ms: number
+}
+
+export interface AgentTask {
+  id: string
+  query: string
+  status: 'planning' | 'executing' | 'completed' | 'failed'
+  steps: AgentStep[]
+  result: string
+  error?: string
+  created_at: string
+  completed_at?: string
+}
+
+export const aiAgentApi = {
+  run: (query: string) =>
+    request.post<ApiResponse<AgentTask>>('/ai/agent/run', { query }),
+
+  getTask: (id: string) =>
+    request.get<ApiResponse<AgentTask>>(`/ai/agent/tasks/${id}`),
+}
+
 // ===== Auth API =====
 export const authApi = {
   login: (data: { username: string; password: string }) =>

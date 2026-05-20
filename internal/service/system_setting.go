@@ -20,7 +20,7 @@ import (
 // Deprecated: Use AIProviderConfig / AIProvidersConfig for multi-provider support.
 // Retained for backward compatibility with existing callers.
 type AIConfig struct {
-	Provider        string  `json:"provider"`      // openai, azure, ollama, custom
+	Provider        string  `json:"provider"`      // openai, azure, ollama, custom, anthropic
 	APIKey          string  `json:"api_key"`
 	BaseURL         string  `json:"base_url"`
 	Model           string  `json:"model"`
@@ -36,7 +36,7 @@ type AIConfig struct {
 // AIProviderConfig describes a single named AI provider configuration.
 type AIProviderConfig struct {
 	Key      string `json:"key"`       // unique identifier, e.g. "openai-main"
-	Provider string `json:"provider"`  // openai, azure, ollama, custom
+	Provider string `json:"provider"`  // openai, azure, ollama, custom, anthropic
 	APIKey   string `json:"api_key"`
 	BaseURL  string `json:"base_url"`
 	Model    string `json:"model"`

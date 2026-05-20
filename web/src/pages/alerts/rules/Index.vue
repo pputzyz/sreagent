@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, ref, computed, onMounted, watch } from 'vue'
+import { h, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch, NModal, NForm, NFormItem, NSpace, NSpin, NAlert, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -361,11 +361,44 @@ function goDetail(rule: AlertRule) {
   router.push(`/alert/rules/${rule.id}`).catch(() => { /* no-op */ })
 }
 
+// ─── Keyboard navigation ───
+const selectedIndex = ref(-1)
+
+function handleKeydown(e: KeyboardEvent) {
+  const target = e.target as HTMLElement
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+  const list = filteredRules.value
+  if (!list.length) return
+
+  if (e.key === 'j' || e.key === 'ArrowDown') {
+    e.preventDefault()
+    selectedIndex.value = Math.min(selectedIndex.value + 1, list.length - 1)
+    scrollToSelected()
+  } else if (e.key === 'k' || e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+    scrollToSelected()
+  } else if (e.key === 'Enter' && selectedIndex.value >= 0) {
+    e.preventDefault()
+    goDetail(list[selectedIndex.value])
+  }
+}
+
+function scrollToSelected() {
+  const el = document.querySelector('.rule-row[data-selected="true"]')
+  if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+}
+
 onMounted(() => {
   fetchList()
   fetchDatasources()
   fetchCategories()
   loadModules()
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -495,13 +528,15 @@ onMounted(() => {
           :class="{ 'sre-stagger': isFirstLoad }"
         >
           <div
-            v-for="rule in filteredRules"
+            v-for="(rule, idx) in filteredRules"
             :key="rule.id"
             class="sre-row-card rule-row"
             :data-severity="severitySlot(rule.severity)"
             :data-dim="rule.status !== 'active' || undefined"
             :data-status="rule.status"
+            :data-selected="idx === selectedIndex || undefined"
             @click="goDetail(rule)"
+            @mouseenter="selectedIndex = idx"
           >
             <input
               type="checkbox"
@@ -552,6 +587,9 @@ onMounted(() => {
 
         <!-- Pagination -->
         <div v-if="filteredRules.length > 0" class="pagination-wrap">
+          <span class="kbd-hint">
+            <kbd>j</kbd>/<kbd>k</kbd> {{ t('alert.kbdNav') }} · <kbd>Enter</kbd> {{ t('alert.kbdOpen') }}
+          </span>
           <n-pagination
             v-model:page="page"
             :page-size="pageSize"
@@ -767,6 +805,13 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+/* Keyboard-selected row */
+.rule-row[data-selected="true"] {
+  outline: 2px solid var(--sre-primary);
+  outline-offset: -2px;
+  background: var(--sre-primary-soft, rgba(34, 197, 94, 0.06));
+}
+
 /* Dimmed (disabled) rows */
 .sre-row-card[data-dim] {
   opacity: 0.55;
@@ -779,7 +824,22 @@ onMounted(() => {
 .pagination-wrap {
   margin-top: 24px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+}
+.kbd-hint {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+}
+.kbd-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: var(--sre-font-mono, monospace);
+  background: var(--sre-bg-elevated, rgba(255,255,255,0.06));
+  border: 1px solid var(--sre-border);
+  border-radius: 3px;
+  line-height: 1.4;
 }
 
 /* AI Generate Modal */

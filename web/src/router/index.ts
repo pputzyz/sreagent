@@ -71,6 +71,9 @@ const routes: RouteRecordRaw[] = [
       // ===== Notification Center =====
       { path: 'notifications', component: () => import('@/pages/notification/Center.vue'), meta: { title: 'notification.centerTitle' } },
 
+      // ===== AI Agent =====
+      { path: 'ai/agent', component: () => import('@/pages/ai/AgentView.vue'), meta: { title: 'menu.aiAgent' } },
+
       // ===== Legacy Redirects =====
       { path: 'dashboard', redirect: '/oncall/overview' },
       { path: 'channels', redirect: '/oncall/spaces' },

@@ -4,6 +4,27 @@
 
 ---
 
+## [v4.15.0] — 2026-05-20
+
+### AI Phase 1 — 原生 Anthropic/Claude Provider 支持
+
+**后端**
+- `internal/service/ai.go`：新增 `callLLMAnthropic` 方法，原生调用 Anthropic Messages API（`/v1/messages`）
+- `internal/service/ai.go`：新增 `chatAnthropic` 方法，支持多轮对话走 Anthropic 原生协议
+- `internal/service/ai.go`：`callLLMWithSystem` 和 `Chat` 方法根据 `provider` 类型自动分发（`anthropic` → 原生 API，其余 → OpenAI 兼容）
+- `internal/service/ai.go`：`callLLMJSON` 通过 `callLLMWithSystem` 自动继承 Anthropic 支持
+- `internal/service/ai.go`：Anthropic provider 不强制要求 BaseURL（默认 `https://api.anthropic.com`）
+- `internal/service/system_setting.go`：`AIConfig` 和 `AIProviderConfig` 注释新增 `anthropic` 类型
+
+**前端**
+- `web/src/pages/settings/AISettings.vue`：`providerOptions` 新增 `Anthropic Claude` 选项
+- `web/src/pages/settings/AISettings.vue`：`providerTypeLabel` 新增 `anthropic` 映射
+- `web/src/i18n/zh-CN.ts`：新增 `providerAnthropic: 'Anthropic Claude'`
+- `web/src/i18n/en.ts`：新增 `providerAnthropic: 'Anthropic Claude'`
+- `web/src/types/ai-module.ts`：`AIProvider.provider` 注释新增 `anthropic`
+
+---
+
 ## [v4.14.0] — 2026-05-20
 
 ### PR8 — 收尾完成（v4.14.0 最终发版）

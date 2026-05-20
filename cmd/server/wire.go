@@ -227,6 +227,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// AI rule generation service
 	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
 
+	// AI Agent service (Phase 3 — 自主执行能力)
+	aiToolReg := service.NewAIToolRegistry(zapLogger)
+	agentSvc := service.NewAgentService(aiSvc, aiToolReg, zapLogger)
+
 	// Alertmanager config import service
 	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, zapLogger)
 
@@ -421,6 +425,18 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	heartbeatChecker.Start()
 
+	// --------------- AI 工具注册表 ---------------
+	toolRegistry := service.NewAIToolRegistry(zapLogger)
+	toolRegistry.RegisterBuiltinTools(dsSvc, ruleSvc, incidentSvc, auditLogSvc,
+		func() (interface{}, bool) {
+			if evaluator == nil {
+				return nil, false
+			}
+			return evaluator.GetStatus(), true
+		},
+	)
+	aiSvc.SetToolRegistry(toolRegistry)
+
 	// --------------- Services (stats) ---------------
 	dashboardStatsSvc := service.NewDashboardStatsService(db, zapLogger)
 
@@ -480,6 +496,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		UserPreference:      handler.NewUserPreferenceHandler(userPreferenceSvc),
 		UserNotification:    handler.NewUserNotificationHandler(userNotificationSvc),
 		Permissions:         handler.NewPermissionsHandler(teamSvc),
+		Agent:               handler.NewAgentHandler(agentSvc),
 	}
 
 	// Inject audit service into handlers that support it

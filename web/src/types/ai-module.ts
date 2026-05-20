@@ -14,7 +14,7 @@ export interface AIModuleConfig {
 
 export interface AIProvider {
   key: string
-  provider: string // 'openai' | 'azure' | 'ollama' | 'custom'
+  provider: string // 'openai' | 'azure' | 'ollama' | 'custom' | 'anthropic'
   api_key: string
   base_url: string
   model: string

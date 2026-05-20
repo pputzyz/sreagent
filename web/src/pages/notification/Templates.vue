@@ -175,6 +175,28 @@ function contentPreview(content: string | null | undefined): string {
 
 const availableVariables = '{{.AlertName}} {{.Severity}} {{.Status}} {{.Labels}} {{.Annotations}} {{.FiredAt}} {{.Value}} {{.Duration}} {{.RuleName}}'
 
+const templateVars = [
+  { name: '{{.AlertName}}', desc: 'template.varAlertName' },
+  { name: '{{.Severity}}', desc: 'template.varSeverity' },
+  { name: '{{.Status}}', desc: 'template.varStatus' },
+  { name: '{{.Labels.xxx}}', desc: 'template.varLabels' },
+  { name: '{{.Summary}}', desc: 'template.varSummary' },
+  { name: '{{.FiredAt}}', desc: 'template.varFiredAt' },
+  { name: '{{.Value}}', desc: 'template.varValue' },
+  { name: '{{.Duration}}', desc: 'template.varDuration' },
+  { name: '{{.RuleName}}', desc: 'template.varRuleName' },
+  { name: '{{.Annotations}}', desc: 'template.varAnnotations' },
+]
+
+async function copyVar(name: string) {
+  try {
+    await navigator.clipboard.writeText(name)
+    message.success(t('common.copied'))
+  } catch {
+    message.error(t('common.copyFailed'))
+  }
+}
+
 onMounted(fetchList)
 </script>
 
@@ -257,11 +279,22 @@ onMounted(fetchList)
           <n-input v-model:value="form.description" :placeholder="t('template.description')" />
         </n-form-item>
 
-        <n-collapse>
-          <n-collapse-item :title="t('template.availableVariables')" name="variables">
-            <n-code :code="availableVariables" language="text" class="tmpl-variables-code" />
-          </n-collapse-item>
-        </n-collapse>
+        <div class="var-section">
+          <div class="var-title">{{ t('template.availableVariables') }}</div>
+          <div class="var-grid">
+            <div
+              v-for="v in templateVars"
+              :key="v.name"
+              class="var-chip"
+              :title="t(v.desc)"
+              @click="copyVar(v.name)"
+            >
+              <code class="var-name">{{ v.name }}</code>
+              <span class="var-desc">{{ t(v.desc) }}</span>
+            </div>
+          </div>
+          <div class="var-hint">{{ t('template.clickToCopy') }}</div>
+        </div>
 
         <n-form-item :label="t('template.content')" class="tmpl-content-field">
           <n-input
@@ -417,5 +450,57 @@ onMounted(fetchList)
 .tmpl-modal { width: 600px; }
 .tmpl-content-field { margin-top: 12px; }
 .tmpl-content-input { font-family: var(--sre-font-mono); font-size: 12px; }
-.tmpl-variables-code { font-size: 12px; }
+
+/* Variable hint section */
+.var-section {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: var(--sre-bg-elevated, rgba(255,255,255,0.03));
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+}
+.var-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sre-text-secondary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.var-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.var-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--sre-bg-card, rgba(0,0,0,0.12));
+  border: 1px solid var(--sre-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+}
+.var-chip:hover {
+  border-color: var(--sre-primary);
+  background: var(--sre-primary-soft);
+}
+.var-name {
+  font-family: var(--sre-font-mono, monospace);
+  font-size: 11px;
+  color: var(--sre-primary);
+  white-space: nowrap;
+}
+.var-desc {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  white-space: nowrap;
+}
+.var-hint {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  margin-top: 8px;
+}
 </style>

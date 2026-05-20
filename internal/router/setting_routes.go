@@ -51,6 +51,12 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		ai.GET("/providers", adminOnly, h.AI.GetProviders)
 		ai.PUT("/providers", adminOnly, h.AI.SaveProviders)
 		ai.POST("/test-provider", adminOnly, h.AI.TestProvider)
+
+		// AI Agent — 自主执行任务
+		if h.Agent != nil {
+			ai.POST("/agent/run", aiRL, h.Agent.RunAgent)
+			ai.GET("/agent/tasks/:id", h.Agent.GetAgentTask)
+		}
 	}
 
 	// Engine status (simple, no process management)
