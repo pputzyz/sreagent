@@ -4,6 +4,24 @@
 
 ---
 
+## [v4.15.1] — 2026-05-20
+
+### 代码审查修复 — Agent 并发安全 + DI 两阶段 + 异步执行 + i18n
+
+**后端**
+- `cmd/server/wire.go`：移除重复的空 toolRegistry 创建，改用 `SetToolRegistry` 延迟注入（DI 两阶段初始化）
+- `internal/service/ai_agent.go`：添加 `cleanupLoop` 定时清理过期任务（每 10 分钟清理 1 小时前已完成任务），防止 OOM
+- `internal/service/ai_agent.go`：提取 `StartAgent`（异步）+ `runTask`（核心逻辑），handler 改为异步返回任务 ID
+- `internal/service/ai_agent.go`：`runTask` 使用 `task.Query` 替代闭包变量，修复 `undefined: query` 编译错误
+- `internal/handler/ai_agent.go`：`RunAgent` handler 改为调用 `StartAgent` 异步执行
+
+**前端**
+- `web/src/pages/settings/AISettings.vue`：硬编码中文 `默认 Provider 未启用或不可用` 替换为 `t('aiSettings.defaultProviderUnhealthy')`
+- `web/src/composables/useAppNav.ts`：`/ai` 路由正确映射到 `platform` app（之前默认映射到 `oncall`）
+- `web/src/i18n/en.ts` + `zh-CN.ts`：新增 `aiSettings.defaultProviderUnhealthy` 翻译 key
+
+---
+
 ## [v4.15.0] — 2026-05-20
 
 ### AI Phase 1 — 原生 Anthropic/Claude Provider 支持
