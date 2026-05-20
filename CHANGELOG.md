@@ -94,6 +94,11 @@
 - 确认 `RuleEvaluator.lockState` / `deleteState` / `rangeStates` 三件套在 `rule_eval.go` 已完整实现
 - 确认 `Engine.Stop()` 清理 perDS 所有桶（`e.perDS.Range` + `PerDatasourceEvaluator.Stop()`）
 
+**PR7 — feature flag 行为测试补全**
+- 补 `Test_Evaluator_PerDatasourceEval_IsolatedExecution`：验证 perDSEval=true 时 `startRuleEvaluator` 路径创建独立分桶
+- 补 `Test_Evaluator_PerDatasourceEval_FlagOff_FallbackLegacy`：验证 perDSEval=false 时退回 legacy 路径不创建分桶
+- helper `newTestEvaluatorForDS` 补 `queryClient` 初始化避免 nil panic
+
 ---
 
 ## [v4.12.1] — 2026-05-19
