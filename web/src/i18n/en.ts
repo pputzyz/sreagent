@@ -2273,6 +2273,7 @@ export default {
     providerKeyRequired: 'Provider key is required',
     providerKeyDuplicate: 'Provider key already exists',
     providerSaved: 'Provider configuration saved',
+    defaultProviderUnhealthy: 'Default provider is not enabled or unavailable. AI features will not work.',
     moduleSaved: 'AI module configuration saved',
     testSuccess: 'Connection test successful',
     testFailed: 'Connection test failed',

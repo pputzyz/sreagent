@@ -48,11 +48,35 @@ type AgentService struct {
 
 // NewAgentService 创建 Agent 服务
 func NewAgentService(aiSvc *AIService, toolReg *AIToolRegistry, logger *zap.Logger) *AgentService {
-	return &AgentService{
+	s := &AgentService{
 		aiSvc:   aiSvc,
 		toolReg: toolReg,
 		logger:  logger,
 		tasks:   make(map[string]*AgentTask),
+	}
+	// 定期清理过期任务，防止 OOM
+	go s.cleanupLoop()
+	return s
+}
+
+// SetToolRegistry 延迟注入工具注册表（DI 两阶段初始化）
+func (s *AgentService) SetToolRegistry(reg *AIToolRegistry) {
+	s.toolReg = reg
+}
+
+// cleanupLoop 每 10 分钟清理超过 1 小时的已完成任务
+func (s *AgentService) cleanupLoop() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		s.mu.Lock()
+		cutoff := time.Now().Add(-1 * time.Hour)
+		for id, t := range s.tasks {
+			if t.CompletedAt != nil && t.CompletedAt.Before(cutoff) {
+				delete(s.tasks, id)
+			}
+		}
+		s.mu.Unlock()
 	}
 }
 
@@ -74,12 +98,8 @@ type planStep struct {
 	Parameters  map[string]interface{} `json:"parameters"`
 }
 
-// RunAgent 执行一个 Agent 任务（同步模式，内部逐步执行）
-func (s *AgentService) RunAgent(ctx context.Context, query string) (*AgentTask, error) {
-	// 总超时
-	ctx, cancel := context.WithTimeout(ctx, agentTotalTimeout)
-	defer cancel()
-
+// StartAgent 异步启动 Agent 任务，立即返回任务 ID，后台执行完成后前端轮询获取结果
+func (s *AgentService) StartAgent(query string) (*AgentTask, error) {
 	task := &AgentTask{
 		ID:        uuid.New().String(),
 		Query:     query,
@@ -88,15 +108,46 @@ func (s *AgentService) RunAgent(ctx context.Context, query string) (*AgentTask, 
 		CreatedAt: time.Now(),
 	}
 
-	// 存入内存
 	s.mu.Lock()
 	s.tasks[task.ID] = task
 	s.mu.Unlock()
 
-	s.logger.Info("Agent 任务开始", zap.String("id", task.ID), zap.String("query", query))
+	go func() {
+		ctx := context.Background()
+		_, _ = s.runTask(ctx, task)
+	}()
+
+	s.logger.Info("Agent 任务已启动", zap.String("id", task.ID), zap.String("query", query))
+	return task, nil
+}
+
+// RunAgent 执行一个 Agent 任务（同步模式，创建新任务并执行）
+func (s *AgentService) RunAgent(ctx context.Context, query string) (*AgentTask, error) {
+	task := &AgentTask{
+		ID:        uuid.New().String(),
+		Query:     query,
+		Status:    "planning",
+		Steps:     nil,
+		CreatedAt: time.Now(),
+	}
+
+	s.mu.Lock()
+	s.tasks[task.ID] = task
+	s.mu.Unlock()
+
+	return s.runTask(ctx, task)
+}
+
+// runTask 执行已创建的任务（核心逻辑）
+func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask, error) {
+	// 总超时
+	ctx, cancel := context.WithTimeout(ctx, agentTotalTimeout)
+	defer cancel()
+
+	s.logger.Info("Agent 任务开始", zap.String("id", task.ID), zap.String("query", task.Query))
 
 	// 第 1 步：规划
-	steps, err := s.planSteps(ctx, query)
+	steps, err := s.planSteps(ctx, task.Query)
 	if err != nil {
 		task.Status = "failed"
 		task.Error = fmt.Sprintf("规划失败: %v", err)

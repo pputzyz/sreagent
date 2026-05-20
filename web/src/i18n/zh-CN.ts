@@ -2294,6 +2294,7 @@ export default {
     providerKeyRequired: '供应商 Key 不能为空',
     providerKeyDuplicate: '供应商 Key 已存在',
     providerSaved: '供应商配置已保存',
+    defaultProviderUnhealthy: '默认 Provider 未启用或不可用，AI 功能将无法工作',
     moduleSaved: 'AI 模块配置已保存',
     testSuccess: '连接测试成功',
     testFailed: '连接测试失败',

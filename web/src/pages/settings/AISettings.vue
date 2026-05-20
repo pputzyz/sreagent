@@ -349,7 +349,7 @@ onMounted(() => {
           </div>
 
           <n-alert v-if="hasProviders && !defaultProviderHealthy" type="error" class="mb-4">
-            默认 Provider 未启用或不可用，AI 功能将无法工作
+            {{ t('aiSettings.defaultProviderUnhealthy') }}
           </n-alert>
 
           <div v-if="hasProviders" class="providers-grid">

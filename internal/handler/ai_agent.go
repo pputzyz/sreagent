@@ -35,9 +35,10 @@ func (h *AgentHandler) RunAgent(c *gin.Context) {
 		return
 	}
 
-	task, err := h.agentSvc.RunAgent(c.Request.Context(), req.Query)
+	// 异步执行：立即返回任务 ID，前端轮询状态
+	task, err := h.agentSvc.StartAgent(req.Query)
 	if err != nil {
-		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "Agent 执行失败: "+err.Error()))
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "Agent 启动失败: "+err.Error()))
 		return
 	}
 

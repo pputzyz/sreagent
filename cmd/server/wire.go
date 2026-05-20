@@ -228,8 +228,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
 
 	// AI Agent service (Phase 3 — 自主执行能力)
-	aiToolReg := service.NewAIToolRegistry(zapLogger)
-	agentSvc := service.NewAgentService(aiSvc, aiToolReg, zapLogger)
+	agentSvc := service.NewAgentService(aiSvc, nil, zapLogger)
 
 	// Alertmanager config import service
 	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, zapLogger)
@@ -436,6 +435,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		},
 	)
 	aiSvc.SetToolRegistry(toolRegistry)
+	agentSvc.SetToolRegistry(toolRegistry)
 
 	// --------------- Services (stats) ---------------
 	dashboardStatsSvc := service.NewDashboardStatsService(db, zapLogger)

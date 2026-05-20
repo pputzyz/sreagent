@@ -142,7 +142,7 @@ function resolveAppFromPath(path: string): AppKey {
   ) return 'alert'
 
   // Legacy routes — platform
-  if (path.startsWith('/settings')) return 'platform'
+  if (path.startsWith('/settings') || path.startsWith('/ai')) return 'platform'
 
   // Default
   return 'oncall'
