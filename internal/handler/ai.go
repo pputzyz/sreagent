@@ -15,12 +15,11 @@ type AIHandler struct {
 	aiSvc          *service.AIService
 	eventSvc       *service.AlertEventService
 	chatHistorySvc *service.ChatHistoryService
-	petSvc         *service.PetService
 }
 
 // NewAIHandler creates a new AIHandler.
-func NewAIHandler(aiSvc *service.AIService, eventSvc *service.AlertEventService, chatHistorySvc *service.ChatHistoryService, petSvc *service.PetService) *AIHandler {
-	return &AIHandler{aiSvc: aiSvc, eventSvc: eventSvc, chatHistorySvc: chatHistorySvc, petSvc: petSvc}
+func NewAIHandler(aiSvc *service.AIService, eventSvc *service.AlertEventService, chatHistorySvc *service.ChatHistoryService) *AIHandler {
+	return &AIHandler{aiSvc: aiSvc, eventSvc: eventSvc, chatHistorySvc: chatHistorySvc}
 }
 
 // systemPrompts maps chat modes to their system prompts.
@@ -99,11 +98,6 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	if err := h.chatHistorySvc.Save(c.Request.Context(), assistantMsg); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to save assistant message: "+err.Error()))
 		return
-	}
-
-	// Award pet exp for pet mode chat (non-critical)
-	if req.Mode == "pet" {
-		_, _ = h.petSvc.AddChatExp(c.Request.Context(), userID)
 	}
 
 	Success(c, gin.H{"reply": reply, "mode": req.Mode})

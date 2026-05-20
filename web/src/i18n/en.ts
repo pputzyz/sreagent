@@ -2123,6 +2123,26 @@ export default {
     skipToContent: 'Skip to content',
   },
 
+  // ===== My Alerts =====
+  myAlerts: {
+    title: 'My Alerts',
+    subtitle: 'Alerts assigned to me during on-call',
+    pending: 'Pending',
+    assigned: 'Assigned',
+    acked: 'Acknowledged',
+    all: 'All',
+    refresh: 'Refresh',
+    noAlerts: 'No alerts',
+    ack: 'Acknowledge',
+    resolve: 'Resolved',
+    detail: 'Detail',
+    ackedSuccess: 'Acknowledged',
+    resolvedSuccess: 'Marked as resolved',
+    loadError: 'Load failed: ',
+    ackError: 'Ack failed: ',
+    resolveError: 'Operation failed: ',
+  },
+
   // ===== Homepage =====
   homepage: {
     greeting: 'Hello, {name}',

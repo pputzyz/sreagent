@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -11,11 +12,16 @@ import (
 // InhibitionRuleHandler handles inhibition rule API requests.
 type InhibitionRuleHandler struct {
 	svc *service.InhibitionRuleService
+	log *zap.Logger
 }
 
 // NewInhibitionRuleHandler creates a new InhibitionRuleHandler.
-func NewInhibitionRuleHandler(svc *service.InhibitionRuleService) *InhibitionRuleHandler {
-	return &InhibitionRuleHandler{svc: svc}
+func NewInhibitionRuleHandler(svc *service.InhibitionRuleService, logger ...*zap.Logger) *InhibitionRuleHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &InhibitionRuleHandler{svc: svc, log: l}
 }
 
 // InhibitionRuleRequest is the request body for create/update.
@@ -35,6 +41,12 @@ func (h *InhibitionRuleHandler) Create(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+	userID := GetCurrentUserID(c)
+	h.log.Info("inhibition rule create",
+		zap.Uint("user_id", userID),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.InhibitionRule{
 		Name:        req.Name,
 		Description: req.Description,
@@ -42,7 +54,7 @@ func (h *InhibitionRuleHandler) Create(c *gin.Context) {
 		TargetMatch: req.TargetMatch,
 		EqualLabels: req.EqualLabels,
 		IsEnabled:   req.IsEnabled,
-		CreatedBy:   GetCurrentUserID(c),
+		CreatedBy:   userID,
 	}
 	if rule.SourceMatch == nil {
 		rule.SourceMatch = model.JSONLabels{}
@@ -95,6 +107,12 @@ func (h *InhibitionRuleHandler) Update(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+	h.log.Info("inhibition rule update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.InhibitionRule{
 		Name:        req.Name,
 		Description: req.Description,
@@ -124,6 +142,12 @@ func (h *InhibitionRuleHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("inhibition rule delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return

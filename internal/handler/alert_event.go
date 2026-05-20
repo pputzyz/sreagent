@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -17,10 +18,15 @@ import (
 type AlertEventHandler struct {
 	svc      *service.AlertEventService
 	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
-func NewAlertEventHandler(svc *service.AlertEventService) *AlertEventHandler {
-	return &AlertEventHandler{svc: svc}
+func NewAlertEventHandler(svc *service.AlertEventService, logger ...*zap.Logger) *AlertEventHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &AlertEventHandler{svc: svc, log: l}
 }
 
 func (h *AlertEventHandler) SetAuditService(svc *service.AuditLogService) {
@@ -85,6 +91,11 @@ func (h *AlertEventHandler) Acknowledge(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+	h.log.Info("alert event acknowledge",
+		zap.Uint("user_id", userID),
+		zap.Uint("event_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Acknowledge(c.Request.Context(), id, userID); err != nil {
 		Error(c, err)
 		return
@@ -118,6 +129,12 @@ func (h *AlertEventHandler) Assign(c *gin.Context) {
 	}
 
 	operatorID := GetCurrentUserID(c)
+	h.log.Info("alert event assign",
+		zap.Uint("user_id", operatorID),
+		zap.Uint("event_id", id),
+		zap.Uint("assign_to", req.AssignTo),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Assign(c.Request.Context(), id, req.AssignTo, operatorID, req.Note); err != nil {
 		Error(c, err)
 		return
@@ -150,6 +167,11 @@ func (h *AlertEventHandler) Resolve(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+	h.log.Info("alert event resolve",
+		zap.Uint("user_id", userID),
+		zap.Uint("event_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Resolve(c.Request.Context(), id, userID, req.Resolution); err != nil {
 		Error(c, err)
 		return
@@ -182,6 +204,11 @@ func (h *AlertEventHandler) Close(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+	h.log.Info("alert event close",
+		zap.Uint("user_id", userID),
+		zap.Uint("event_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Close(c.Request.Context(), id, userID, req.Note); err != nil {
 		Error(c, err)
 		return
@@ -214,6 +241,11 @@ func (h *AlertEventHandler) AddComment(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+	h.log.Info("alert event add comment",
+		zap.Uint("user_id", userID),
+		zap.Uint("event_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.AddComment(c.Request.Context(), id, userID, req.Note); err != nil {
 		Error(c, err)
 		return
@@ -257,6 +289,12 @@ func (h *AlertEventHandler) Silence(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+	h.log.Info("alert event silence",
+		zap.Uint("user_id", userID),
+		zap.Uint("event_id", id),
+		zap.Int("duration_minutes", req.DurationMinutes),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Silence(c.Request.Context(), id, userID, req.DurationMinutes, req.Reason); err != nil {
 		Error(c, err)
 		return
@@ -283,6 +321,11 @@ func (h *AlertEventHandler) BatchAcknowledge(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+	h.log.Info("alert event batch acknowledge",
+		zap.Uint("user_id", userID),
+		zap.Int("count", len(req.IDs)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	success, failed, err := h.svc.BatchAcknowledge(c.Request.Context(), req.IDs, userID)
 	if err != nil {
 		Error(c, err)
@@ -310,6 +353,11 @@ func (h *AlertEventHandler) BatchClose(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+	h.log.Info("alert event batch close",
+		zap.Uint("user_id", userID),
+		zap.Int("count", len(req.IDs)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	success, failed, err := h.svc.BatchClose(c.Request.Context(), req.IDs, userID)
 	if err != nil {
 		Error(c, err)

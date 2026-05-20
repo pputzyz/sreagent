@@ -139,6 +139,9 @@ func (h *HeartbeatChecker) runOnce(ctx context.Context) {
 		fp := heartbeatFingerprint(rule.ID)
 		h.checkRuleWithEvent(ctx, rule, eventMap[fp], now)
 	}
+
+	// Deadman switch: record successful heartbeat pass
+	metrics.SetEngineLastHeartbeatTimestamp()
 }
 
 // checkRule evaluates a single heartbeat rule.

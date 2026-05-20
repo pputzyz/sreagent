@@ -1,0 +1,1 @@
+ALTER TABLE alert_events ADD INDEX idx_alert_events_fp_status (fingerprint, status), ADD INDEX idx_alert_events_status_created (status, created_at), ADD INDEX idx_alert_events_ds_rule (datasource_id, rule_id);

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -14,10 +15,15 @@ import (
 
 type DataSourceHandler struct {
 	svc *service.DataSourceService
+	log *zap.Logger
 }
 
-func NewDataSourceHandler(svc *service.DataSourceService) *DataSourceHandler {
-	return &DataSourceHandler{svc: svc}
+func NewDataSourceHandler(svc *service.DataSourceService, logger ...*zap.Logger) *DataSourceHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &DataSourceHandler{svc: svc, log: l}
 }
 
 // CreateDataSourceRequest is the request body for creating/updating a datasource.
@@ -40,6 +46,12 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	h.log.Info("datasource create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("name", req.Name),
+		zap.String("type", string(req.Type)),
+		zap.String("request_id", c.GetString("request_id")))
 
 	ds := &model.DataSource{
 		Name:                req.Name,
@@ -106,6 +118,12 @@ func (h *DataSourceHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("datasource update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("datasource_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	ds := &model.DataSource{
 		Name:                req.Name,
 		Type:                req.Type,
@@ -136,6 +154,11 @@ func (h *DataSourceHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("datasource delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("datasource_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)

@@ -140,9 +140,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	userNotifyConfigRepo := repository.NewUserNotifyConfigRepository(db)
 	systemSettingRepo := repository.NewSystemSettingRepository(db)
 
-	// Pet repository
-	petRepo := repository.NewPetRepository(db)
-
 	// Status service repository
 	statusServiceRepo := repository.NewStatusServiceRepository(db)
 
@@ -157,9 +154,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Notification center repository
 	userNotificationRepo := repository.NewUserNotificationRepository(db)
-
-	// Todo item repository
-	todoItemRepo := repository.NewTodoItemRepository(db)
 
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
@@ -215,9 +209,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, zapLogger)
 	userNotifyConfigSvc := service.NewUserNotifyConfigService(userNotifyConfigRepo, zapLogger)
 
-	// Pet service
-	petSvc := service.NewPetService(petRepo, zapLogger)
-
 	// Status service
 	statusServiceSvc := service.NewStatusServiceService(statusServiceRepo, zapLogger)
 
@@ -232,9 +223,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Notification center service
 	userNotificationSvc := service.NewUserNotificationService(userNotificationRepo, zapLogger)
-
-	// Todo item service
-	todoItemSvc := service.NewTodoItemService(todoItemRepo, zapLogger)
 
 	// AI rule generation service
 	ruleGenSvc := service.NewRuleGeneratorService(aiSvc, labelRegistrySvc, dsSvc, ruleSvc, presetRuleRepo, dsRepo, zapLogger)
@@ -450,29 +438,29 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(authSvc); h.SetUserService(userSvc); return h }(),
 		OIDC:             oidcHandler,
 		OIDCSettings:     handler.NewOIDCSettingsHandler(settingSvc, d.ReloadOIDC),
-		DataSource:       handler.NewDataSourceHandler(dsSvc),
-		AlertRule:        handler.NewAlertRuleHandler(ruleSvc),
-		AlertEvent:       handler.NewAlertEventHandler(eventSvc),
-		User:             handler.NewUserHandler(userSvc),
-		Team:             handler.NewTeamHandler(teamSvc),
-		Schedule:         handler.NewScheduleHandler(scheduleSvc),
+		DataSource:       handler.NewDataSourceHandler(dsSvc, zapLogger),
+		AlertRule:        handler.NewAlertRuleHandler(ruleSvc, zapLogger),
+		AlertEvent:       handler.NewAlertEventHandler(eventSvc, zapLogger),
+		User:             handler.NewUserHandler(userSvc, zapLogger),
+		Team:             handler.NewTeamHandler(teamSvc, zapLogger),
+		Schedule:         handler.NewScheduleHandler(scheduleSvc, zapLogger),
 		Dashboard:        handler.NewDashboardHandler(dashboardStatsSvc),
-		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc, petSvc),
+		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc),
 		LarkBot:          handler.NewLarkBotHandler(larkBotSvc),
 		Engine:           engineHandler,
 		AlertAction:      handler.NewAlertActionHandler(eventSvc, userRepo, cfg.JWT.Secret, zapLogger),
-		MuteRule:         handler.NewMuteRuleHandler(muteRuleSvc, eventSvc),
-		NotifyRule:       handler.NewNotifyRuleHandler(notifyRuleSvc),
-		NotifyMedia:      handler.NewNotifyMediaHandler(notifyMediaSvc),
-		MessageTemplate:  handler.NewMessageTemplateHandler(messageTemplateSvc),
-		SubscribeRule:    handler.NewSubscribeRuleHandler(subscribeRuleSvc),
-		BizGroup:         handler.NewBizGroupHandler(bizGroupSvc),
-		AlertChannel:     handler.NewAlertChannelHandler(alertChannelSvc),
+		MuteRule:         handler.NewMuteRuleHandler(muteRuleSvc, eventSvc, zapLogger),
+		NotifyRule:       handler.NewNotifyRuleHandler(notifyRuleSvc, zapLogger),
+		NotifyMedia:      handler.NewNotifyMediaHandler(notifyMediaSvc, zapLogger),
+		MessageTemplate:  handler.NewMessageTemplateHandler(messageTemplateSvc, zapLogger),
+		SubscribeRule:    handler.NewSubscribeRuleHandler(subscribeRuleSvc, zapLogger),
+		BizGroup:         handler.NewBizGroupHandler(bizGroupSvc, zapLogger),
+		AlertChannel:     handler.NewAlertChannelHandler(alertChannelSvc, zapLogger),
 		UserNotifyConfig: handler.NewUserNotifyConfigHandler(userNotifyConfigSvc),
 		AuditLog:         handler.NewAuditLogHandler(auditLogSvc),
 		SMTPSettings:     handler.NewSMTPSettingsHandler(settingSvc),
 		SecuritySettings: handler.NewSecuritySettingsHandler(settingSvc, &cfg.JWT),
-		InhibitionRule:   handler.NewInhibitionRuleHandler(inhibitionRuleSvc),
+		InhibitionRule:   handler.NewInhibitionRuleHandler(inhibitionRuleSvc, zapLogger),
 		Heartbeat:        handler.NewHeartbeatHandler(ruleSvc),
 		LabelRegistry:    handler.NewLabelRegistryHandler(labelRegistrySvc),
 		DashboardV2:      handler.NewDashboardV2Handler(dashboardV2Svc),
@@ -482,17 +470,15 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		AlertV2:             handler.NewAlertV2Handler(alertV2Svc),
 		ExclusionRule:       handler.NewExclusionRuleHandler(exclusionRuleSvc),
 		DispatchPolicy:      handler.NewDispatchHandler(dispatchSvc),
-		Integration:         handler.NewIntegrationHandler(integrationSvc),
+		Integration:         handler.NewIntegrationHandler(integrationSvc, zapLogger),
 		RoutingRule:         handler.NewRoutingRuleHandler(routingRuleRepo),
 		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
-		Pet:                 handler.NewPetHandler(petSvc),
 		StatusService:       handler.NewStatusServiceHandler(statusServiceSvc),
 		PresetRule:          handler.NewPresetRuleHandler(presetRuleSvc),
 		AIRule:              handler.NewAIRuleHandler(ruleGenSvc),
 		AlertmanagerImport:  handler.NewAlertmanagerImportHandler(alertmanagerImportSvc),
 		UserPreference:      handler.NewUserPreferenceHandler(userPreferenceSvc),
 		UserNotification:    handler.NewUserNotificationHandler(userNotificationSvc),
-		TodoItem:            handler.NewTodoItemHandler(todoItemSvc),
 		Permissions:         handler.NewPermissionsHandler(teamSvc),
 	}
 

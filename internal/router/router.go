@@ -55,14 +55,12 @@ type Handlers struct {
 	Integration    *handler.IntegrationHandler    // webhook integrations (集成中心)
 	RoutingRule    *handler.RoutingRuleHandler    // routing rules for shared integrations (路由规则)
 	PostMortem     *handler.PostMortemHandler     // incident post-mortems (故障复盘)
-	Pet            *handler.PetHandler            // virtual pet system (宠物系统)
 	StatusService  *handler.StatusServiceHandler  // status page services (状态页面)
 	PresetRule          *handler.PresetRuleHandler          // preset rules (预设规则)
 	AIRule              *handler.AIRuleHandler              // AI rule generation (AI 规则生成)
 	AlertmanagerImport  *handler.AlertmanagerImportHandler  // alertmanager config import
 	UserPreference      *handler.UserPreferenceHandler     // user preferences (用户偏好)
 	UserNotification    *handler.UserNotificationHandler   // notification center (通知中心)
-	TodoItem            *handler.TodoItemHandler           // todo/task center (待办事项)
 	Permissions         *handler.PermissionsHandler        // RBAC permissions (权限查询)
 }
 

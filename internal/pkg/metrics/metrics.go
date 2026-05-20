@@ -3,6 +3,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -72,6 +74,15 @@ var (
 			Help: "Number of active heartbeat rules being monitored",
 		},
 	)
+
+	// engineLastHeartbeatTimestamp records the Unix timestamp of the last successful
+	// engine evaluation cycle. A stale timestamp indicates the engine is stuck or dead.
+	engineLastHeartbeatTimestamp = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "sreagent_engine_last_heartbeat_timestamp",
+			Help: "Unix timestamp of the last successful engine heartbeat (deadman switch)",
+		},
+	)
 )
 
 func init() {
@@ -82,6 +93,7 @@ func init() {
 	prometheus.MustRegister(engineLeaderStatus)
 	prometheus.MustRegister(heartbeatChecksTotal)
 	prometheus.MustRegister(heartbeatActiveRules)
+	prometheus.MustRegister(engineLastHeartbeatTimestamp)
 }
 
 // IncAlertsEvaluated increments the alert evaluation counter.
@@ -133,4 +145,10 @@ func IncHeartbeatChecks(result string) {
 // SetHeartbeatActiveRules sets the number of active heartbeat rules being monitored.
 func SetHeartbeatActiveRules(count int) {
 	heartbeatActiveRules.Set(float64(count))
+}
+
+// SetEngineLastHeartbeatTimestamp records the current time as the last engine heartbeat.
+// Call this at the end of each successful evaluation cycle.
+func SetEngineLastHeartbeatTimestamp() {
+	engineLastHeartbeatTimestamp.Set(float64(time.Now().Unix()))
 }

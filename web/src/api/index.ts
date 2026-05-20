@@ -34,7 +34,6 @@ export {
   bizGroupApi,
   aiApi,
   aiChatApi,
-  petApi,
   authApi,
   auditLogApi,
   userNotifyConfigApi,
@@ -69,6 +68,6 @@ export {
 // ===== Preset rules & AI modules =====
 export { presetRuleApi, aiModuleApi, aiRuleApi } from './preset-rules'
 
-// ===== Notification Center, Todos & Permissions =====
-export { notificationCenterApi, todoApi, permissionsApi } from './center'
-export type { UserNotification, TodoItem, CreateTodoRequest, MyPermissions, TeamRole } from './center'
+// ===== Notification Center & Permissions =====
+export { notificationCenterApi, permissionsApi } from './center'
+export type { UserNotification, MyPermissions, TeamRole } from './center'

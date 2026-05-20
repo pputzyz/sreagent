@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -11,11 +12,16 @@ import (
 // BizGroupHandler handles HTTP requests for business groups.
 type BizGroupHandler struct {
 	svc *service.BizGroupService
+	log *zap.Logger
 }
 
 // NewBizGroupHandler creates a new BizGroupHandler.
-func NewBizGroupHandler(svc *service.BizGroupService) *BizGroupHandler {
-	return &BizGroupHandler{svc: svc}
+func NewBizGroupHandler(svc *service.BizGroupService, logger ...*zap.Logger) *BizGroupHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &BizGroupHandler{svc: svc, log: l}
 }
 
 // CreateBizGroupRequest is the request body for creating a business group.
@@ -47,6 +53,11 @@ func (h *BizGroupHandler) Create(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	h.log.Info("biz group create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
 
 	group := &model.BizGroup{
 		Name:        req.Name,
@@ -118,6 +129,12 @@ func (h *BizGroupHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("biz group update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("group_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	group := &model.BizGroup{
 		Name:        req.Name,
 		Description: req.Description,
@@ -141,6 +158,11 @@ func (h *BizGroupHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("biz group delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("group_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)

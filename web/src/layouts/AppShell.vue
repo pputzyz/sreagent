@@ -13,11 +13,8 @@ import ChangePasswordModal from '@/components/common/ChangePasswordModal.vue'
 import NotificationBell from '@/components/common/NotificationBell.vue'
 import AIChatButton from '@/components/ai/AIChatButton.vue'
 import AIChatPanel from '@/components/ai/AIChatPanel.vue'
-import PetCorner from '@/components/pet/PetCorner.vue'
 import { useRouter } from 'vue-router'
 import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
-import { MessageCircle, PawPrint } from 'lucide-vue-next'
-import { usePetStore } from '@/stores/pet'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -25,7 +22,6 @@ const { activeApp, switchApp, menuSections, activeMenuKey, pageTitle } = useAppN
 const { open: openPalette, registerAction } = useCommandPalette()
 
 const router = useRouter()
-const petStore = usePetStore()
 
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
@@ -265,25 +261,6 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </svg>
       <span class="float-ai-label">{{ t('ai.askAI') }}</span>
     </button>
-
-    <!-- Floating Pet button with level/attribute summary -->
-    <div class="float-pet-wrap">
-      <button class="float-pet-btn" @click="router.push('/pet')" :title="t('pet.viewDetail')">
-        <PawPrint :size="20" color="white" :stroke-width="2" />
-      </button>
-      <div v-if="petStore.pet" class="float-pet-summary">
-        <span class="float-pet-name">{{ petStore.pet.name }}</span>
-        <span class="float-pet-level">{{ t('pet.levelPrefix') }}{{ petStore.pet.level }}</span>
-        <div class="float-pet-bars">
-          <div class="float-pet-bar" :title="`${t('pet.hunger')}: ${petStore.hungerPercent}%`">
-            <div class="float-pet-bar-fill hunger" :style="{ width: `${petStore.hungerPercent}%` }" />
-          </div>
-          <div class="float-pet-bar" :title="`${t('pet.mood')}: ${petStore.moodPercent}%`">
-            <div class="float-pet-bar-fill mood" :style="{ width: `${petStore.moodPercent}%` }" />
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -439,97 +416,6 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   transform: scale(0.97);
 }
 
-.float-pet-wrap {
-  position: fixed;
-  bottom: 88px;
-  right: 24px;
-  z-index: var(--sre-z-tooltip);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-direction: row-reverse;
-}
-
-.float-pet-btn {
-  width: 48px; height: 48px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(135deg, #A855F7, #C084FC);
-  color: white;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
-  transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
-  flex-shrink: 0;
-}
-.float-pet-btn:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
-}
-
-.float-pet-summary {
-  background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: var(--sre-radius-md);
-  padding: 6px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  opacity: 0;
-  transform: translateX(8px);
-  transition: opacity 200ms var(--sre-ease-out), transform 200ms var(--sre-ease-out);
-  pointer-events: none;
-  min-width: 100px;
-}
-
-.float-pet-wrap:hover .float-pet-summary {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-.float-pet-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sre-text-primary);
-  white-space: nowrap;
-}
-
-.float-pet-level {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--sre-lavender);
-}
-
-.float-pet-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 2px;
-}
-
-.float-pet-bar {
-  height: 4px;
-  background: var(--sre-bg-sunken);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.float-pet-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 500ms var(--sre-ease-out);
-}
-
-.float-pet-bar-fill.hunger {
-  background: var(--sre-coral);
-}
-
-.float-pet-bar-fill.mood {
-  background: var(--sre-amber);
-}
-
 .float-ai-label {
   font-size: 13px;
   font-weight: 600;
@@ -561,13 +447,6 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     padding: 10px 16px;
   }
   .float-ai-label {
-    display: none;
-  }
-  .float-pet-wrap {
-    bottom: 76px;
-    right: 16px;
-  }
-  .float-pet-summary {
     display: none;
   }
 }

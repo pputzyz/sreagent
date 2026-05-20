@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
 > 最后更新: 2026-05-20 | tag: v4.14.0
-> 共 36 个 model, 49 个 handler, 50 个 service, 37 个 repository, 282+ API 端点
+> 共 34 个 model, 47 个 handler, 48 个 service, 35 个 repository, 270+ API 端点
 
 ---
 
@@ -38,7 +38,6 @@ auth ──→ user (用户信息)
 ai ──→ alert-engine (读取告警上下文)
 dashboard ──→ alert-event + incident + channel + team (统计数据)
 user-notification ──→ user (按用户推送)
-todo-item ──→ user (个人待办)
 permissions ──→ team (团队角色查询)
 ```
 
@@ -80,7 +79,6 @@ permissions ──→ team (团队角色查询)
 | 预设规则 | ✅ | ❌ | ❌ | 0% |
 | 告警规则模板 | ✅ | ❌ | ❌ | 0% |
 | AI 规则生成 | ✅ | ❌ | ❌ | 0% |
-| 宠物系统 | ✅ | ❌ | ❌ | 0% |
 | 状态页面 | ✅ | ❌ | ❌ | 0% |
 | Alertmanager 导入 | ✅ | ❌ | ❌ | 0% |
 
@@ -264,14 +262,6 @@ permissions ──→ team (团队角色查询)
 - **API**: `POST /webhooks/alertmanager`, `POST /heartbeat/:token`
 - **状态**: ✅ 完成（仅支持 Alertmanager 格式）
 
-## 宠物系统 (pet)
-
-- **功能**: 用户虚拟宠物养成（喂食/玩耍/互动/升级）、互动记录、等级经验系统
-- **后端**: `model/pet.go`, `handler/pet.go`, `service/pet.go`, `repository/pet.go`
-- **前端**: `web/src/pages/settings/PetSettings.vue`（个人设置内嵌）
-- **API**: `/api/v1/pet` (5 endpoints: GET 获取宠物, PUT 更新名称, POST /feed 喂食, POST /play 玩耍, GET /interactions 互动记录)
-- **状态**: ✅ 完成
-
 ## 状态页面 (status-service)
 
 - **功能**: 公开状态页面服务管理（运维/降级/中断/维护四种状态）、排序、图标配置
@@ -298,15 +288,6 @@ permissions ──→ team (团队角色查询)
 - **前端**: `web/src/pages/notification/Center.vue`, `web/src/components/common/NotificationBell.vue`
 - **API**: `/api/v1/notifications` (5 endpoints: LIST 列表, GET /unread-count 未读数, PATCH /:id/read 标记已读, POST /read-all 全部已读, DELETE 删除)
 - **迁移**: 000045_create_notifications
-- **状态**: ✅ 完成
-
-## 待办事项 (todo-item)
-
-- **功能**: 个人任务/待办管理，支持优先级、截止时间、状态流转（pending/completed/dismissed）
-- **后端**: `model/todo_item.go`, `handler/todo_item.go`, `service/todo_item.go`, `repository/todo_item.go`
-- **前端**: `web/src/pages/platform/Todos.vue`，侧边栏"待办事项"入口
-- **API**: `/api/v1/todos` (6 endpoints: LIST 列表, GET /pending-count 待办数, POST 创建, PUT /:id 更新, PATCH /:id/complete 完成, DELETE 删除)
-- **迁移**: 000046_create_todo_items
 - **状态**: ✅ 完成
 
 ## RBAC 权限查询 (permissions)

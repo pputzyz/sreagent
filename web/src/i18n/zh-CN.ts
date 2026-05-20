@@ -2144,6 +2144,26 @@ export default {
     skipToContent: '跳转到内容',
   },
 
+  // ===== My Alerts =====
+  myAlerts: {
+    title: '我的告警',
+    subtitle: '当班期间分派给我的告警',
+    pending: '待处理',
+    assigned: '已分派',
+    acked: '已认领',
+    all: '全部',
+    refresh: '刷新',
+    noAlerts: '当前无告警',
+    ack: '认领',
+    resolve: '已解决',
+    detail: '详情',
+    ackedSuccess: '已认领',
+    resolvedSuccess: '已标记解决',
+    loadError: '加载失败：',
+    ackError: '认领失败：',
+    resolveError: '操作失败：',
+  },
+
   // ===== Homepage =====
   homepage: {
     greeting: '你好，{name}',

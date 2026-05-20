@@ -187,6 +187,7 @@ export function useAppNav() {
           {
             items: [
               { label: t('menu.overview'), key: '/oncall/overview', icon: HomeOutline },
+              { label: t('myAlerts.title'), key: '/oncall/my-alerts', icon: AlertCircleOutline },
             ],
           },
           {
@@ -265,7 +266,6 @@ export function useAppNav() {
           {
             items: [
               { label: t('menu.profile'), key: '/platform/profile', icon: PersonOutline },
-              { label: t('todo.title'), key: '/platform/todos', icon: ListOutline },
             ],
           },
           {

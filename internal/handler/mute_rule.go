@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -14,11 +15,16 @@ import (
 type MuteRuleHandler struct {
 	svc      *service.MuteRuleService
 	eventSvc *service.AlertEventService
+	log      *zap.Logger
 }
 
 // NewMuteRuleHandler creates a new MuteRuleHandler.
-func NewMuteRuleHandler(svc *service.MuteRuleService, eventSvc *service.AlertEventService) *MuteRuleHandler {
-	return &MuteRuleHandler{svc: svc, eventSvc: eventSvc}
+func NewMuteRuleHandler(svc *service.MuteRuleService, eventSvc *service.AlertEventService, logger ...*zap.Logger) *MuteRuleHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &MuteRuleHandler{svc: svc, eventSvc: eventSvc, log: l}
 }
 
 // CreateMuteRuleRequest is the request body for creating a mute rule.
@@ -50,6 +56,12 @@ func (h *MuteRuleHandler) Create(c *gin.Context) {
 		tz = "Asia/Shanghai"
 	}
 
+	userID := GetCurrentUserID(c)
+	h.log.Info("mute rule create",
+		zap.Uint("user_id", userID),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.MuteRule{
 		Name:          req.Name,
 		Description:   req.Description,
@@ -61,7 +73,7 @@ func (h *MuteRuleHandler) Create(c *gin.Context) {
 		PeriodicEnd:   req.PeriodicEnd,
 		DaysOfWeek:    req.DaysOfWeek,
 		Timezone:      tz,
-		CreatedBy:     GetCurrentUserID(c),
+		CreatedBy:     userID,
 		IsEnabled:     req.IsEnabled,
 		RuleIDs:       req.RuleIDs,
 	}
@@ -123,6 +135,12 @@ func (h *MuteRuleHandler) Update(c *gin.Context) {
 		tz = "Asia/Shanghai"
 	}
 
+	h.log.Info("mute rule update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.MuteRule{
 		Name:          req.Name,
 		Description:   req.Description,
@@ -154,6 +172,11 @@ func (h *MuteRuleHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("mute rule delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)

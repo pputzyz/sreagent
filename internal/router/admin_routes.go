@@ -7,7 +7,7 @@ import (
 )
 
 // registerAdminRoutes registers admin and management routes: mute rules, inhibition rules,
-// collaboration channels, integrations, routing rules, incidents, post-mortems, and pet.
+// collaboration channels, integrations, routing rules, incidents, and post-mortems.
 // Data source, team/user, and settings routes are in their own domain files.
 func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage, operate gin.HandlerFunc) {
 	// Mute Rules
@@ -147,15 +147,5 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 	// Post-mortems list (global view)
 	if h.PostMortem != nil {
 		auth.GET("/post-mortems", h.PostMortem.List)
-	}
-
-	// Pet — virtual pet system
-	pet := auth.Group("/pet")
-	{
-		pet.GET("", h.Pet.GetPet)
-		pet.PUT("", h.Pet.UpdatePet)
-		pet.POST("/feed", h.Pet.FeedPet)
-		pet.POST("/play", h.Pet.PlayWithPet)
-		pet.GET("/interactions", h.Pet.GetInteractions)
 	}
 }

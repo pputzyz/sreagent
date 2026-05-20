@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -10,10 +11,15 @@ import (
 
 type TeamHandler struct {
 	svc *service.TeamService
+	log *zap.Logger
 }
 
-func NewTeamHandler(svc *service.TeamService) *TeamHandler {
-	return &TeamHandler{svc: svc}
+func NewTeamHandler(svc *service.TeamService, logger ...*zap.Logger) *TeamHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &TeamHandler{svc: svc, log: l}
 }
 
 // CreateTeamRequest is the request body for creating a team.
@@ -43,6 +49,11 @@ func (h *TeamHandler) Create(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	h.log.Info("team create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
 
 	team := &model.Team{
 		Name:        req.Name,
@@ -102,6 +113,12 @@ func (h *TeamHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("team update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("team_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	team := &model.Team{
 		Name:        req.Name,
 		Description: req.Description,
@@ -125,6 +142,11 @@ func (h *TeamHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("team delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("team_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
@@ -147,6 +169,12 @@ func (h *TeamHandler) AddMember(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("team add member",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("team_id", teamID),
+		zap.Uint("member_user_id", req.UserID),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.AddMember(c.Request.Context(), teamID, req.UserID, req.Role); err != nil {
 		Error(c, err)
 		return
@@ -168,6 +196,12 @@ func (h *TeamHandler) RemoveMember(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("team remove member",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("team_id", teamID),
+		zap.Uint("member_user_id", userID),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.RemoveMember(c.Request.Context(), teamID, userID); err != nil {
 		Error(c, err)

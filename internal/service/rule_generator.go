@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -95,36 +94,6 @@ type ChannelSuggestion struct {
 	Reason string `json:"reason"`
 }
 
-// ValidationResult is the result of validating a PromQL expression.
-type ValidationResult struct {
-	Valid        bool     `json:"valid"`
-	ResultType   string   `json:"result_type,omitempty"`
-	SampleCount  int      `json:"sample_count,omitempty"`
-	SampleLabels []string `json:"sample_labels,omitempty"`
-	Error        string   `json:"error,omitempty"`
-	Warnings     []string `json:"warnings,omitempty"`
-}
-
-// LabelSuggestionResult is AI-suggested labels for an expression.
-type LabelSuggestionResult struct {
-	DetectedMetrics    map[string]string      `json:"detected_metrics"`
-	SuggestedLabels    map[string]LabelValue  `json:"suggested_labels"`
-	AvailableInstances []InstanceInfo         `json:"available_instances"`
-}
-
-// LabelValue holds a suggested label value with confidence.
-type LabelValue struct {
-	Value      string  `json:"value"`
-	Confidence float64 `json:"confidence"`
-	Source     string  `json:"source"`
-}
-
-// InstanceInfo holds information about a metric instance.
-type InstanceInfo struct {
-	Labels map[string]string `json:"labels"`
-	Value  float64           `json:"value"`
-}
-
 // Generate creates a rule from natural language description.
 func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRequest) (*RuleGenerateResult, error) {
 	// 0. Check cache
@@ -185,140 +154,6 @@ func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRe
 	s.cache.Set(req.Description, req.DatasourceID, req.RuleType, &result)
 
 	return &result, nil
-}
-
-// DryRunResult combines a generated rule with its validation result.
-type DryRunResult struct {
-	Rule            *RuleGenerateResult `json:"rule"`
-	Validation      *ValidationResult   `json:"validation,omitempty"`
-	SeriesCount     int                 `json:"series_count"`
-	SampleSeries    []map[string]string `json:"sample_series,omitempty"` // max 5
-	WouldFire       bool                `json:"would_fire"`
-	EvalDurationMs  int64               `json:"eval_duration_ms"`
-}
-
-// DryRun generates a rule and validates its PromQL expression in one call.
-// This lets the frontend preview the rule and test the expression before saving.
-func (s *RuleGeneratorService) DryRun(ctx context.Context, req *RuleGenerateRequest) (*DryRunResult, error) {
-	start := time.Now()
-
-	result, err := s.Generate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	dr := &DryRunResult{Rule: result}
-
-	// Validate expression if datasource and expression are available
-	if req.DatasourceID != nil && result.Expression != "" {
-		vr, err := s.ValidateExpression(ctx, *req.DatasourceID, result.Expression)
-		if err != nil {
-			s.logger.Warn("dry-run validation failed", zap.Error(err))
-		} else {
-			dr.Validation = vr
-			dr.SeriesCount = vr.SampleCount
-			dr.WouldFire = vr.SampleCount > 0
-			// Extract up to 5 sample label sets from the query response
-			if vr.SampleCount > 0 {
-				dr.SampleSeries = s.extractSampleSeries(ctx, *req.DatasourceID, result.Expression)
-			}
-		}
-	}
-
-	dr.EvalDurationMs = time.Since(start).Milliseconds()
-	return dr, nil
-}
-
-// extractSampleSeries queries the datasource and returns up to 5 sample label sets.
-func (s *RuleGeneratorService) extractSampleSeries(ctx context.Context, datasourceID uint, expression string) []map[string]string {
-	resp, err := s.dsSvc.QueryDatasource(ctx, datasourceID, expression, time.Now())
-	if err != nil {
-		return nil
-	}
-
-	limit := 5
-	if len(resp.Series) < limit {
-		limit = len(resp.Series)
-	}
-	samples := make([]map[string]string, 0, limit)
-	for i := 0; i < limit; i++ {
-		samples = append(samples, resp.Series[i].Labels)
-	}
-	return samples
-}
-
-// ValidateExpression validates a PromQL expression against a datasource.
-func (s *RuleGeneratorService) ValidateExpression(ctx context.Context, datasourceID uint, expression string) (*ValidationResult, error) {
-	result := &ValidationResult{}
-
-	resp, err := s.dsSvc.QueryDatasource(ctx, datasourceID, expression, time.Now())
-	if err != nil {
-		result.Valid = false
-		result.Error = err.Error()
-		return result, nil
-	}
-
-	result.Valid = true
-	result.ResultType = resp.ResultType
-	result.SampleCount = len(resp.Series)
-
-	// Extract sample labels
-	labelSet := make(map[string]bool)
-	for _, series := range resp.Series {
-		for k := range series.Labels {
-			if !labelSet[k] {
-				labelSet[k] = true
-				result.SampleLabels = append(result.SampleLabels, k)
-			}
-		}
-	}
-
-	if result.SampleCount == 0 {
-		result.Warnings = append(result.Warnings, "表达式返回 0 条时间序列，请检查指标名或标签条件是否正确")
-	}
-
-	return result, nil
-}
-
-// SuggestLabels suggests labels for an expression based on label registry.
-func (s *RuleGeneratorService) SuggestLabels(ctx context.Context, datasourceID uint, expression string) (*LabelSuggestionResult, error) {
-	result := &LabelSuggestionResult{
-		DetectedMetrics: make(map[string]string),
-		SuggestedLabels: make(map[string]LabelValue),
-	}
-
-	// Extract metric names from expression
-	metrics := extractMetricNames(expression)
-	for _, m := range metrics {
-		result.DetectedMetrics[m] = m
-	}
-
-	// Get label keys from registry
-	dsIDs := []uint{datasourceID}
-	keys, err := s.labelRegSvc.GetKeys(dsIDs)
-	if err != nil {
-		return result, nil // return partial result
-	}
-
-	// For common labels, suggest values
-	commonLabels := []string{"instance", "job", "env", "service", "namespace", "cluster", "pod", "container"}
-	for _, key := range keys {
-		for _, cl := range commonLabels {
-			if key == cl {
-				vals, err := s.labelRegSvc.GetValues(key, dsIDs)
-				if err == nil && len(vals) > 0 {
-					result.SuggestedLabels[key] = LabelValue{
-						Value:      vals[0],
-						Confidence: 0.8,
-						Source:     "label_registry",
-					}
-				}
-				break
-			}
-		}
-	}
-
-	return result, nil
 }
 
 // GenerateInhibition generates an inhibition rule from natural language.
@@ -439,13 +274,6 @@ func (s *RuleGeneratorService) GenerateMute(ctx context.Context, description str
 	return &result, nil
 }
 
-// ImproveRuleRequest is the input for rule improvement.
-type ImproveRuleRequest struct {
-	Rule        RuleGenerateResult `json:"rule" binding:"required"`
-	Feedback    string             `json:"feedback" binding:"required"`
-	DatasourceID *uint             `json:"datasource_id"`
-}
-
 // GenerateWithDraftResult wraps a RuleGenerateResult with optional draft info.
 type GenerateWithDraftResult struct {
 	*RuleGenerateResult
@@ -492,36 +320,6 @@ func (s *RuleGeneratorService) SaveDraft(ctx context.Context, result *RuleGenera
 	res.RuleID = rule.ID
 	res.Draft = true
 	return res, nil
-}
-
-// ImproveRule takes an existing AI-generated rule and user feedback, returns an improved version.
-func (s *RuleGeneratorService) ImproveRule(ctx context.Context, req *ImproveRuleRequest) (*RuleGenerateResult, error) {
-	if err := s.checkAIEnabled(ctx); err != nil {
-		return nil, err
-	}
-
-	ruleJSON, _ := json.Marshal(req.Rule)
-
-	systemPrompt := `你是 SRE 告警规则优化助手。用户会给你一条已有的告警规则和改进反馈，请根据反馈优化规则。
-
-输出格式与输入相同（严格 JSON），保持原有字段不变，只修改反馈中提到的问题。
-- 如果反馈提到表达式问题，修正 expression
-- 如果反馈提到严重等级，调整 severity
-- 如果反馈提到标签，修改 labels
-- 如果反馈提到持续时间，调整 for_duration
-- 在 warnings 中说明做了哪些修改`
-
-	userPrompt := fmt.Sprintf("当前规则:\n%s\n\n改进反馈: %s", string(ruleJSON), req.Feedback)
-
-	var result RuleGenerateResult
-	if err := s.aiSvc.callLLMJSON(ctx, s.mustLoadConfig(ctx), systemPrompt, userPrompt, &result); err != nil {
-		return nil, apperr.WithMessage(apperr.ErrExternalAPI, fmt.Sprintf("AI rule improvement failed: %v", err))
-	}
-
-	result.Type = req.Rule.Type
-	s.postProcessResult(&result)
-
-	return &result, nil
 }
 
 // checkAIEnabled verifies AI and rule_gen module are enabled.

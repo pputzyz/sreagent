@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -16,10 +17,15 @@ import (
 
 type ScheduleHandler struct {
 	svc *service.ScheduleService
+	log *zap.Logger
 }
 
-func NewScheduleHandler(svc *service.ScheduleService) *ScheduleHandler {
-	return &ScheduleHandler{svc: svc}
+func NewScheduleHandler(svc *service.ScheduleService, logger ...*zap.Logger) *ScheduleHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &ScheduleHandler{svc: svc, log: l}
 }
 
 // ---------------------------------------------------------------------------
@@ -126,6 +132,12 @@ func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 		handoffTime = "09:00"
 	}
 
+	h.log.Info("schedule create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("name", req.Name),
+		zap.String("rotation_type", string(req.RotationType)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	schedule := &model.Schedule{
 		Name:         req.Name,
 		TeamID:       req.TeamID,
@@ -201,6 +213,12 @@ func (h *ScheduleHandler) UpdateSchedule(c *gin.Context) {
 		isEnabled = *req.IsEnabled
 	}
 
+	h.log.Info("schedule update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("schedule_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	schedule := &model.Schedule{
 		Name:         req.Name,
 		Description:  req.Description,
@@ -227,6 +245,11 @@ func (h *ScheduleHandler) DeleteSchedule(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("schedule delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("schedule_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.DeleteSchedule(c.Request.Context(), id); err != nil {
 		Error(c, err)
@@ -325,6 +348,12 @@ func (h *ScheduleHandler) CreateOverride(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("schedule override create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("schedule_id", scheduleID),
+		zap.Uint("override_user_id", req.UserID),
+		zap.String("request_id", c.GetString("request_id")))
+
 	override := &model.ScheduleOverride{
 		ScheduleID: scheduleID,
 		UserID:     req.UserID,
@@ -390,6 +419,12 @@ func (h *ScheduleHandler) CreateEscalationPolicy(c *gin.Context) {
 	if req.IsEnabled != nil {
 		isEnabled = *req.IsEnabled
 	}
+
+	h.log.Info("escalation policy create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("name", req.Name),
+		zap.Uint("team_id", req.TeamID),
+		zap.String("request_id", c.GetString("request_id")))
 
 	policy := &model.EscalationPolicy{
 		Name:      req.Name,
@@ -465,6 +500,12 @@ func (h *ScheduleHandler) UpdateEscalationPolicy(c *gin.Context) {
 		isEnabled = *req.IsEnabled
 	}
 
+	h.log.Info("escalation policy update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("policy_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	policy := &model.EscalationPolicy{
 		Name:      req.Name,
 		TeamID:    req.TeamID,
@@ -487,6 +528,11 @@ func (h *ScheduleHandler) DeleteEscalationPolicy(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("escalation policy delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("policy_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.DeleteEscalationPolicy(c.Request.Context(), id); err != nil {
 		Error(c, err)
@@ -554,6 +600,12 @@ func (h *ScheduleHandler) CreateShift(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("schedule shift create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("schedule_id", scheduleID),
+		zap.Uint("shift_user_id", req.UserID),
+		zap.String("request_id", c.GetString("request_id")))
+
 	shift := &model.OnCallShift{
 		ScheduleID:     scheduleID,
 		UserID:         req.UserID,
@@ -593,6 +645,11 @@ func (h *ScheduleHandler) UpdateShift(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("schedule shift update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("shift_id", shiftID),
+		zap.String("request_id", c.GetString("request_id")))
+
 	shift := &model.OnCallShift{
 		UserID:         req.UserID,
 		StartTime:      req.StartTime,
@@ -624,6 +681,11 @@ func (h *ScheduleHandler) DeleteShift(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("schedule shift delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("shift_id", shiftID),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.DeleteShift(c.Request.Context(), shiftID); err != nil {
 		Error(c, err)

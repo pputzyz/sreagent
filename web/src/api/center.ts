@@ -7,7 +7,7 @@ export interface UserNotification {
   user_id: number
   title: string
   content: string
-  type: 'alert' | 'incident' | 'system' | 'todo'
+  type: 'alert' | 'incident' | 'system'
   is_read: boolean
   link: string
   metadata?: Record<string, string>
@@ -30,51 +30,6 @@ export const notificationCenterApi = {
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/notifications/${id}`),
-}
-
-// ===== Todo / Task Center =====
-export interface TodoItem {
-  id: number
-  user_id: number
-  title: string
-  description: string
-  type: string
-  status: 'pending' | 'completed' | 'dismissed'
-  priority: 'high' | 'medium' | 'low'
-  link: string
-  due_at?: string
-  completed_at?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface CreateTodoRequest {
-  title: string
-  description?: string
-  type?: string
-  priority?: 'high' | 'medium' | 'low'
-  link?: string
-  due_at?: string
-}
-
-export const todoApi = {
-  list: (params?: { page?: number; page_size?: number; status?: string }) =>
-    request.get<ApiResponse<PageData<TodoItem>>>('/todos', { params }),
-
-  pendingCount: () =>
-    request.get<ApiResponse<{ count: number }>>('/todos/pending-count'),
-
-  create: (data: CreateTodoRequest) =>
-    request.post<ApiResponse<TodoItem>>('/todos', data),
-
-  update: (id: number, data: CreateTodoRequest) =>
-    request.put<ApiResponse<TodoItem>>(`/todos/${id}`, data),
-
-  complete: (id: number) =>
-    request.patch<ApiResponse<null>>(`/todos/${id}/complete`),
-
-  delete: (id: number) =>
-    request.delete<ApiResponse<null>>(`/todos/${id}`),
 }
 
 // ===== RBAC Permissions =====

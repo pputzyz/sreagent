@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -11,11 +12,16 @@ import (
 // AlertChannelHandler handles HTTP requests for alert channels.
 type AlertChannelHandler struct {
 	svc *service.AlertChannelService
+	log *zap.Logger
 }
 
 // NewAlertChannelHandler creates a new AlertChannelHandler.
-func NewAlertChannelHandler(svc *service.AlertChannelService) *AlertChannelHandler {
-	return &AlertChannelHandler{svc: svc}
+func NewAlertChannelHandler(svc *service.AlertChannelService, logger ...*zap.Logger) *AlertChannelHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &AlertChannelHandler{svc: svc, log: l}
 }
 
 // CreateAlertChannelRequest is the request body for creating an alert channel.
@@ -55,6 +61,12 @@ func (h *AlertChannelHandler) Create(c *gin.Context) {
 		isEnabled = *req.IsEnabled
 	}
 
+	userID := GetCurrentUserID(c)
+	h.log.Info("alert channel create",
+		zap.Uint("user_id", userID),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	ch := &model.AlertChannel{
 		Name:        req.Name,
 		Description: req.Description,
@@ -64,7 +76,7 @@ func (h *AlertChannelHandler) Create(c *gin.Context) {
 		TemplateID:  req.TemplateID,
 		ThrottleMin: req.ThrottleMin,
 		IsEnabled:   isEnabled,
-		CreatedBy:   GetCurrentUserID(c),
+		CreatedBy:   userID,
 	}
 
 	if err := h.svc.Create(c.Request.Context(), ch); err != nil {
@@ -124,6 +136,12 @@ func (h *AlertChannelHandler) Update(c *gin.Context) {
 		isEnabled = *req.IsEnabled
 	}
 
+	h.log.Info("alert channel update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("channel_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	ch := &model.AlertChannel{
 		Name:        req.Name,
 		Description: req.Description,
@@ -151,6 +169,11 @@ func (h *AlertChannelHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("alert channel delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("channel_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)

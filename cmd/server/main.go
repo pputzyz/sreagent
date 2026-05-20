@@ -226,9 +226,6 @@ func autoMigrate(db *gorm.DB) error {
 	// V2 feature models (alerts, channels, incidents, integrations, dispatch, templates)
 	models = append(models, model.V2Models()...)
 
-	// Virtual pet system
-	models = append(models, &model.Pet{}, &model.PetInteraction{})
-
 	// Chat history
 	models = append(models, &model.ChatHistory{})
 

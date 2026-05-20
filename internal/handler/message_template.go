@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -11,11 +12,16 @@ import (
 // MessageTemplateHandler handles HTTP requests for message templates.
 type MessageTemplateHandler struct {
 	svc *service.MessageTemplateService
+	log *zap.Logger
 }
 
 // NewMessageTemplateHandler creates a new MessageTemplateHandler.
-func NewMessageTemplateHandler(svc *service.MessageTemplateService) *MessageTemplateHandler {
-	return &MessageTemplateHandler{svc: svc}
+func NewMessageTemplateHandler(svc *service.MessageTemplateService, logger ...*zap.Logger) *MessageTemplateHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &MessageTemplateHandler{svc: svc, log: l}
 }
 
 // CreateMessageTemplateRequest is the request body for creating a message template.
@@ -51,6 +57,11 @@ func (h *MessageTemplateHandler) Create(c *gin.Context) {
 	if tmplType == "" {
 		tmplType = "text"
 	}
+
+	h.log.Info("message template create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
 
 	tmpl := &model.MessageTemplate{
 		Name:        req.Name,
@@ -116,6 +127,12 @@ func (h *MessageTemplateHandler) Update(c *gin.Context) {
 		tmplType = "text"
 	}
 
+	h.log.Info("message template update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("template_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	tmpl := &model.MessageTemplate{
 		Name:        req.Name,
 		Description: req.Description,
@@ -139,6 +156,11 @@ func (h *MessageTemplateHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("message template delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("template_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)

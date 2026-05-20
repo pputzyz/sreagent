@@ -640,28 +640,6 @@ export interface ChatMessage {
   _failed?: boolean
 }
 
-// ===== Pet =====
-export interface Pet {
-  id: number
-  user_id: number
-  name: string
-  species: string
-  level: number
-  exp: number
-  hunger: number
-  mood: number
-  created_at: string
-  updated_at: string
-}
-
-export interface PetInteraction {
-  id: number
-  pet_id: number
-  type: 'feed' | 'play' | 'chat' | 'level_up'
-  value: number
-  created_at: string
-}
-
 // ===== Routing Rules =====
 export interface RoutingRule {
   id: number

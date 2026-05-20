@@ -6,6 +6,40 @@
 
 ## [v4.14.0] — 2026-05-20
 
+### PR8 — 收尾完成（v4.14.0 最终发版）
+
+**删除废弃模块**
+- 删除 Pet 系统（model/handler/service/repository/前端页面 + 迁移 000051_drop_pets）
+- 删除 Todo 系统（model/handler/service/repository/前端页面 + 迁移 000052_drop_todo_items）
+- Pet/Todo 从 wire.go、router、前端路由、侧边栏、i18n、types 全链路清除
+
+**新增功能**
+- 新建 `MyAlerts.vue` 值班视图 + 侧边栏入口 + i18n（中英文）
+- 后端 `view_mode=mine` 已支持，前端直接对接
+
+**可观测性**
+- handler 层 60+ 端点补 zap.Info 操作日志（user_id + request_id + 实体标识）
+
+**数据库**
+- 迁移 000051：DROP pets / pet_interactions
+- 迁移 000052：DROP todo_items
+- 迁移 000053：alert_events 复合索引（fp+status, status+created_at, datasource_id+rule_id）
+
+**AI 规则生成增强**
+- SuggestLabels 改为 LLM 动态推荐（回退到启发式）
+- ImproveRule 加冲突检测（PromQL 语法校验 + Jaccard 相似度检查）
+- rule_generator.go 拆分为 4 文件：main / dryrun / suggest / improve
+
+**可观测性增强**
+- 新增 Prometheus gauge `sreagent_engine_last_heartbeat_timestamp`（deadman switch）
+- heartbeat checker 每次成功 pass 更新时间戳
+
+**文档**
+- 新增 `docs/v1-v2-alerts.md`：v1/v2 双轨评估引擎说明
+
+**测试**
+- 新增 `rule_generator_improve_test.go`：validatePromQLSyntax / tokenizeExpression / jaccardSimilarity / extractMetricNames / extractKeywords / postProcessResult 共 20+ 测试用例
+
 ### Added — Sprint 3: High Availability + Cleanup
 
 **Leader Election（S3.1）**

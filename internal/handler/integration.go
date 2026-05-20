@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -13,10 +14,15 @@ import (
 // IntegrationHandler manages webhook integrations.
 type IntegrationHandler struct {
 	svc *service.IntegrationService
+	log *zap.Logger
 }
 
-func NewIntegrationHandler(svc *service.IntegrationService) *IntegrationHandler {
-	return &IntegrationHandler{svc: svc}
+func NewIntegrationHandler(svc *service.IntegrationService, logger ...*zap.Logger) *IntegrationHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &IntegrationHandler{svc: svc, log: l}
 }
 
 type CreateIntegrationRequest struct {
@@ -68,6 +74,12 @@ func (h *IntegrationHandler) Create(c *gin.Context) {
 		mode = model.IntegrationModeExclusive
 	}
 
+	h.log.Info("integration create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("name", req.Name),
+		zap.String("type", req.Type),
+		zap.String("request_id", c.GetString("request_id")))
+
 	integ := &model.Integration{
 		Name:                   req.Name,
 		Description:            req.Description,
@@ -115,6 +127,12 @@ func (h *IntegrationHandler) Update(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+	h.log.Info("integration update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("integration_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	updates := &model.Integration{
 		Name:                   req.Name,
 		Description:            req.Description,
@@ -138,6 +156,12 @@ func (h *IntegrationHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("integration delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("integration_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return

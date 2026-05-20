@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -20,10 +21,15 @@ import (
 type AlertRuleHandler struct {
 	svc      *service.AlertRuleService
 	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
-func NewAlertRuleHandler(svc *service.AlertRuleService) *AlertRuleHandler {
-	return &AlertRuleHandler{svc: svc}
+func NewAlertRuleHandler(svc *service.AlertRuleService, logger ...*zap.Logger) *AlertRuleHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &AlertRuleHandler{svc: svc, log: l}
 }
 
 func (h *AlertRuleHandler) SetAuditService(svc *service.AuditLogService) {
@@ -65,6 +71,12 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		status = model.RuleStatusActive
 	}
 
+	userID := GetCurrentUserID(c)
+	h.log.Info("alert rule create",
+		zap.Uint("user_id", userID),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.AlertRule{
 		Name:                 req.Name,
 		DisplayName:          req.DisplayName,
@@ -81,7 +93,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		GroupWaitSeconds:     req.GroupWaitSeconds,
 		GroupIntervalSeconds: req.GroupIntervalSeconds,
 		Status:               status,
-		CreatedBy:            GetCurrentUserID(c),
+		CreatedBy:            userID,
 	}
 
 	if err := h.svc.Create(c.Request.Context(), rule, req.Source); err != nil {
@@ -150,6 +162,13 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 		return
 	}
 
+	userID := GetCurrentUserID(c)
+	h.log.Info("alert rule update",
+		zap.Uint("user_id", userID),
+		zap.Uint("rule_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.AlertRule{
 		Name:                 req.Name,
 		DisplayName:          req.DisplayName,
@@ -165,7 +184,7 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 		Category:             req.Category,
 		GroupWaitSeconds:     req.GroupWaitSeconds,
 		GroupIntervalSeconds: req.GroupIntervalSeconds,
-		UpdatedBy:            GetCurrentUserID(c),
+		UpdatedBy:            userID,
 	}
 	rule.ID = id
 
@@ -191,6 +210,11 @@ func (h *AlertRuleHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("alert rule delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
@@ -285,6 +309,11 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 			rules = append(rules, rule)
 		}
 	}
+
+	h.log.Info("alert rule import",
+		zap.Uint("user_id", userID),
+		zap.Int("total_rules", len(rules)),
+		zap.String("request_id", c.GetString("request_id")))
 
 	success, failed, errors := h.svc.ImportRules(c.Request.Context(), rules)
 	c.JSON(http.StatusOK, gin.H{
@@ -421,6 +450,12 @@ func (h *AlertRuleHandler) ToggleStatus(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("alert rule toggle status",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("status", string(req.Status)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.UpdateStatus(c.Request.Context(), id, req.Status); err != nil {
 		Error(c, err)
 		return
@@ -449,6 +484,12 @@ func (h *AlertRuleHandler) BatchEnable(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	h.log.Info("alert rule batch enable",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Int("count", len(req.IDs)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.BatchEnable(c.Request.Context(), req.IDs); err != nil {
 		Error(c, err)
 		return
@@ -471,6 +512,12 @@ func (h *AlertRuleHandler) BatchDisable(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	h.log.Info("alert rule batch disable",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Int("count", len(req.IDs)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.BatchDisable(c.Request.Context(), req.IDs); err != nil {
 		Error(c, err)
 		return
@@ -493,6 +540,12 @@ func (h *AlertRuleHandler) BatchDelete(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	h.log.Info("alert rule batch delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Int("count", len(req.IDs)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.BatchDelete(c.Request.Context(), req.IDs); err != nil {
 		Error(c, err)
 		return

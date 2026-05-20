@@ -28,6 +28,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'oncall/postmortems', component: () => import('@/pages/incidents/PostMortems.vue'), meta: { title: 'menu.postmortems' } },
       { path: 'oncall/integrations', component: () => import('@/pages/integrations/Index.vue'), meta: { title: 'menu.integrations', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/schedule', component: () => import('@/pages/schedule/Index.vue'), meta: { title: 'menu.schedule', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/my-alerts', component: () => import('@/pages/oncall/MyAlerts.vue'), meta: { title: 'myAlerts.title' } },
       { path: 'oncall/config/escalation-policies', component: () => import('@/pages/oncall/EscalationPolicies.vue'), meta: { title: 'menu.escalationPolicies', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/config/notify-rules', component: () => import('@/pages/notification/Rules.vue'), meta: { title: 'menu.notifyChannels' } },
       { path: 'oncall/config/routing-rules', component: () => import('@/pages/integrations/RoutingRules.vue'), meta: { title: 'menu.routingRules' } },
@@ -56,7 +57,6 @@ const routes: RouteRecordRaw[] = [
       // ===== Platform =====
       { path: 'platform', redirect: '/platform/profile' },
       { path: 'platform/profile', component: () => import('@/pages/platform/Profile.vue'), meta: { title: 'menu.profile' } },
-      { path: 'pet', component: () => import('@/pages/pet/Index.vue'), meta: { title: 'route.pet' } },
       { path: 'platform/org/members', component: () => import('@/pages/settings/UserManagement.vue'), meta: { title: 'menu.members', requiresRole: ['admin'] } },
       { path: 'platform/org/teams', component: () => import('@/pages/settings/TeamManagement.vue'), meta: { title: 'menu.teams', requiresRole: ['admin', 'team_lead'] } },
       { path: 'platform/org/roles', component: () => import('@/pages/platform/Roles.vue'), meta: { title: 'menu.roles' } },
@@ -68,9 +68,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/settings/ai-settings', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiModuleConfig', requiresRole: ['admin'] } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
 
-      // ===== Notification Center & Todos =====
+      // ===== Notification Center =====
       { path: 'notifications', component: () => import('@/pages/notification/Center.vue'), meta: { title: 'notification.centerTitle' } },
-      { path: 'platform/todos', component: () => import('@/pages/platform/Todos.vue'), meta: { title: 'todo.title' } },
 
       // ===== Legacy Redirects =====
       { path: 'dashboard', redirect: '/oncall/overview' },

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -11,10 +12,15 @@ import (
 type UserHandler struct {
 	svc      *service.UserService
 	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
-func NewUserHandler(svc *service.UserService) *UserHandler {
-	return &UserHandler{svc: svc}
+func NewUserHandler(svc *service.UserService, logger ...*zap.Logger) *UserHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &UserHandler{svc: svc, log: l}
 }
 
 func (h *UserHandler) SetAuditService(svc *service.AuditLogService) {
@@ -66,6 +72,11 @@ func (h *UserHandler) Create(c *gin.Context) {
 	if role == "" {
 		role = model.RoleMember
 	}
+
+	h.log.Info("user create",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("username", req.Username),
+		zap.String("request_id", c.GetString("request_id")))
 
 	user := &model.User{
 		Username:    req.Username,
@@ -141,6 +152,11 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("user update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("target_user_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	user := &model.User{
 		DisplayName: req.DisplayName,
 		Email:       req.Email,
@@ -181,6 +197,12 @@ func (h *UserHandler) ToggleActive(c *gin.Context) {
 		return
 	}
 
+	h.log.Info("user toggle active",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("target_user_id", id),
+		zap.Bool("is_active", req.IsActive),
+		zap.String("request_id", c.GetString("request_id")))
+
 	if err := h.svc.ToggleActive(c.Request.Context(), id, req.IsActive); err != nil {
 		Error(c, err)
 		return
@@ -215,6 +237,11 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	h.log.Info("user change password",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("target_user_id", userID),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
 		Error(c, err)
@@ -256,6 +283,12 @@ func (h *UserHandler) CreateVirtual(c *gin.Context) {
 		role = model.RoleMember
 	}
 
+	h.log.Info("user create virtual",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.String("username", req.Username),
+		zap.String("user_type", string(req.UserType)),
+		zap.String("request_id", c.GetString("request_id")))
+
 	user := &model.User{
 		Username:     req.Username,
 		DisplayName:  req.DisplayName,
@@ -279,6 +312,11 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("user delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("target_user_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)

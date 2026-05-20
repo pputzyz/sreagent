@@ -6,8 +6,6 @@ import type {
   AuditLog,
   BizGroup,
   ChatMessage,
-  Pet,
-  PetInteraction,
   AIProvidersConfig,
   UserPreferences,
 } from '@/types'
@@ -109,24 +107,6 @@ export const aiChatApi = {
 
   clearHistory: (mode: 'alert' | 'general' | 'pet') =>
     request.delete<ApiResponse<null>>('/ai/history', { params: { mode } }),
-}
-
-// ===== Pet API =====
-export const petApi = {
-  get: () =>
-    request.get<ApiResponse<Pet>>('/pet'),
-
-  update: (data: { name?: string }) =>
-    request.put<ApiResponse<Pet>>('/pet', data),
-
-  feed: () =>
-    request.post<ApiResponse<Pet>>('/pet/feed'),
-
-  play: () =>
-    request.post<ApiResponse<Pet>>('/pet/play'),
-
-  getInteractions: () =>
-    request.get<ApiResponse<PetInteraction[]>>('/pet/interactions'),
 }
 
 // ===== Auth API =====

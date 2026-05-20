@@ -103,19 +103,6 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		}
 	}
 
-	// Todo / Task Center (待办事项)
-	if h.TodoItem != nil {
-		todos := auth.Group("/todos")
-		{
-			todos.GET("", h.TodoItem.List)
-			todos.GET("/pending-count", h.TodoItem.CountPending)
-			todos.POST("", h.TodoItem.Create)
-			todos.PUT("/:id", h.TodoItem.Update)
-			todos.PATCH("/:id/complete", h.TodoItem.Complete)
-			todos.DELETE("/:id", h.TodoItem.Delete)
-		}
-	}
-
 	// RBAC Permissions (权限查询)
 	if h.Permissions != nil {
 		auth.GET("/me/permissions", h.Permissions.GetMyPermissions)

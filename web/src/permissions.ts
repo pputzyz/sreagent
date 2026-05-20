@@ -48,10 +48,8 @@ export const PERM_ROLES_VIEW = 'roles.view'
 export const PERM_SETTINGS_MANAGE = 'settings.manage'
 export const PERM_AUDIT_VIEW = 'audit.view'
 
-// ── Notifications & Todos ──
+// ── Notifications ──
 export const PERM_NOTIFICATIONS_VIEW = 'notifications.view'
-export const PERM_TODOS_VIEW = 'todos.view'
-export const PERM_TODOS_MANAGE = 'todos.manage'
 
 // ── .write suffix constants (aligned with backend RBAC rbac.go, PR5-A task 1.5) ──
 export const PERM_CHANNELS_WRITE = 'channels.write'

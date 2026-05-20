@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -11,11 +12,16 @@ import (
 // NotifyRuleHandler handles HTTP requests for notify rules.
 type NotifyRuleHandler struct {
 	svc *service.NotifyRuleService
+	log *zap.Logger
 }
 
 // NewNotifyRuleHandler creates a new NotifyRuleHandler.
-func NewNotifyRuleHandler(svc *service.NotifyRuleService) *NotifyRuleHandler {
-	return &NotifyRuleHandler{svc: svc}
+func NewNotifyRuleHandler(svc *service.NotifyRuleService, logger ...*zap.Logger) *NotifyRuleHandler {
+	l := zap.NewNop()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+	return &NotifyRuleHandler{svc: svc, log: l}
 }
 
 // CreateNotifyRuleRequest is the request body for creating a notify rule.
@@ -57,6 +63,12 @@ func (h *NotifyRuleHandler) Create(c *gin.Context) {
 		isEnabled = *req.IsEnabled
 	}
 
+	userID := GetCurrentUserID(c)
+	h.log.Info("notify rule create",
+		zap.Uint("user_id", userID),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.NotifyRule{
 		Name:           req.Name,
 		Description:    req.Description,
@@ -67,7 +79,7 @@ func (h *NotifyRuleHandler) Create(c *gin.Context) {
 		NotifyConfigs:  req.NotifyConfigs,
 		RepeatInterval: req.RepeatInterval,
 		CallbackURL:    req.CallbackURL,
-		CreatedBy:      GetCurrentUserID(c),
+		CreatedBy:      userID,
 	}
 
 	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
@@ -127,6 +139,12 @@ func (h *NotifyRuleHandler) Update(c *gin.Context) {
 		isEnabled = *req.IsEnabled
 	}
 
+	h.log.Info("notify rule update",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("name", req.Name),
+		zap.String("request_id", c.GetString("request_id")))
+
 	rule := &model.NotifyRule{
 		Name:           req.Name,
 		Description:    req.Description,
@@ -155,6 +173,11 @@ func (h *NotifyRuleHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	h.log.Info("notify rule delete",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
