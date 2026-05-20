@@ -85,6 +85,15 @@
 - `config.go` 新增 `EngineConfig.PerDatasourceEval` + `config.example.yaml` 配置项
 - `wire.go` 接线 `evaluator.SetPerDatasourceEval(cfg.Engine.PerDatasourceEval)`
 
+**PR6 — 第六轮返工修复（实质补全）**
+- 修 handler `CreateAlertRuleRequest` 新增 `Status` 字段，不再硬编码 `RuleStatusActive`（前端 `status: 'draft'` 之前被忽略）
+- AI Modal `handleSaveAsDraft` 补 `enabled: false` 字段
+- AI Modal `handleSaveAsActive` 补 `enabled: true` 字段
+- 前端 `AlertRule` 类型新增 `enabled?: boolean` 可选字段
+- 新建 `evaluator_datasource_test.go`：5 个分桶测试（CreateAndCaches / Remove / Empty / StopCleanup / Concurrent）
+- 确认 `RuleEvaluator.lockState` / `deleteState` / `rangeStates` 三件套在 `rule_eval.go` 已完整实现
+- 确认 `Engine.Stop()` 清理 perDS 所有桶（`e.perDS.Range` + `PerDatasourceEvaluator.Stop()`）
+
 ---
 
 ## [v4.12.1] — 2026-05-19

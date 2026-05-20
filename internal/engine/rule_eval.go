@@ -25,7 +25,7 @@ func (re *RuleEvaluator) lockState(fp string) *stateLock {
 
 // deleteState removes a fingerprint's state (used after alert resolved cleanup).
 func (re *RuleEvaluator) deleteState(fp string) {
-	re.deleteState(fp)
+	re.states.Delete(fp)
 }
 
 // rangeStates iterates all states. fn returns false to stop early.

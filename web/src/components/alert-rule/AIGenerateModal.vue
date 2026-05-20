@@ -134,6 +134,7 @@ async function handleSaveAsDraft() {
       annotations: ruleResult.annotations || {},
       description: ruleResult.description,
       status: 'draft',
+      enabled: false,
     })
     message.success('已保存为草稿')
     emit('saved', { draft: true })
@@ -165,6 +166,7 @@ async function handleSaveAsActive() {
       annotations: ruleResult.annotations || {},
       description: ruleResult.description,
       status: 'active',
+      enabled: true,
     })
     message.success('规则已创建并启用')
     emit('saved', { draft: false })

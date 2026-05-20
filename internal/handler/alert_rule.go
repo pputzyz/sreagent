@@ -45,6 +45,9 @@ type CreateAlertRuleRequest struct {
 	Category             string               `json:"category"`
 	GroupWaitSeconds     int                  `json:"group_wait_seconds"`
 	GroupIntervalSeconds int                  `json:"group_interval_seconds"`
+	// Status allows the caller to set the initial status (draft/active/disabled).
+	// Defaults to "active" if empty.
+	Status model.AlertRuleStatus `json:"status"`
 	// Source indicates the origin of this rule (e.g. "ai", "import", "manual").
 	Source string `json:"source"`
 }
@@ -54,6 +57,12 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
+	}
+
+	// Default to active if caller did not specify a status.
+	status := req.Status
+	if status == "" {
+		status = model.RuleStatusActive
 	}
 
 	rule := &model.AlertRule{
@@ -71,7 +80,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		Category:             req.Category,
 		GroupWaitSeconds:     req.GroupWaitSeconds,
 		GroupIntervalSeconds: req.GroupIntervalSeconds,
-		Status:               model.RuleStatusActive,
+		Status:               status,
 		CreatedBy:            GetCurrentUserID(c),
 	}
 

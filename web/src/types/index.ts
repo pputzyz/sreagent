@@ -81,6 +81,7 @@ export interface AlertRule {
   labels: Record<string, string>
   annotations: Record<string, string>
   status: AlertRuleStatus
+  enabled?: boolean
   group_name: string
   category: string
   version: number
