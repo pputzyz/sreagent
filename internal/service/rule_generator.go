@@ -189,16 +189,19 @@ func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRe
 
 // DryRunResult combines a generated rule with its validation result.
 type DryRunResult struct {
-	Rule         *RuleGenerateResult `json:"rule"`
-	Validation   *ValidationResult   `json:"validation,omitempty"`
-	SeriesCount  int                 `json:"series_count"`
-	SampleSeries []map[string]string `json:"sample_series,omitempty"` // max 5
-	WouldFire    bool                `json:"would_fire"`
+	Rule            *RuleGenerateResult `json:"rule"`
+	Validation      *ValidationResult   `json:"validation,omitempty"`
+	SeriesCount     int                 `json:"series_count"`
+	SampleSeries    []map[string]string `json:"sample_series,omitempty"` // max 5
+	WouldFire       bool                `json:"would_fire"`
+	EvalDurationMs  int64               `json:"eval_duration_ms"`
 }
 
 // DryRun generates a rule and validates its PromQL expression in one call.
 // This lets the frontend preview the rule and test the expression before saving.
 func (s *RuleGeneratorService) DryRun(ctx context.Context, req *RuleGenerateRequest) (*DryRunResult, error) {
+	start := time.Now()
+
 	result, err := s.Generate(ctx, req)
 	if err != nil {
 		return nil, err
@@ -222,6 +225,7 @@ func (s *RuleGeneratorService) DryRun(ctx context.Context, req *RuleGenerateRequ
 		}
 	}
 
+	dr.EvalDurationMs = time.Since(start).Milliseconds()
 	return dr, nil
 }
 
@@ -552,15 +556,38 @@ func (s *RuleGeneratorService) mustLoadConfig(ctx context.Context) AIConfig {
 }
 
 // buildLabelContext builds a context string from the label registry.
+// A 5-second timeout is enforced; on timeout or error the fallback context is returned.
 func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasourceID *uint) (string, error) {
 	var dsIDs []uint
 	if datasourceID != nil {
 		dsIDs = []uint{*datasourceID}
 	}
 
-	keys, err := s.labelRegSvc.GetKeys(dsIDs)
-	if err != nil {
-		return "", err
+	// 5-second timeout for label registry queries
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	type keysResult struct {
+		keys []string
+		err  error
+	}
+	ch := make(chan keysResult, 1)
+	go func() {
+		k, e := s.labelRegSvc.GetKeys(dsIDs)
+		ch <- keysResult{keys: k, err: e}
+	}()
+
+	var keys []string
+	select {
+	case <-timeoutCtx.Done():
+		s.logger.Warn("label context timeout, using fallback", zap.Error(timeoutCtx.Err()))
+		return s.buildFallbackLabelContext(datasourceID), nil
+	case res := <-ch:
+		if res.err != nil {
+			s.logger.Warn("label context query failed, using fallback", zap.Error(res.err))
+			return s.buildFallbackLabelContext(datasourceID), nil
+		}
+		keys = res.keys
 	}
 
 	var sb strings.Builder
@@ -583,6 +610,12 @@ func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasource
 	}
 
 	return sb.String(), nil
+}
+
+// buildFallbackLabelContext returns a basic label context when the label registry
+// is unavailable (timeout or error).
+func (s *RuleGeneratorService) buildFallbackLabelContext(datasourceID *uint) string {
+	return "Common labels: job, instance, severity, alertname, cluster, namespace, pod, container"
 }
 
 // buildExistingRulesContext builds a context string from existing rules.

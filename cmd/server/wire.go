@@ -14,6 +14,7 @@ import (
 	"github.com/sreagent/sreagent/internal/config"
 	"github.com/sreagent/sreagent/internal/engine"
 	"github.com/sreagent/sreagent/internal/handler"
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
@@ -484,6 +485,20 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.AlertRule.SetAuditService(auditLogSvc)
 	handlers.AlertEvent.SetAuditService(auditLogSvc)
 	handlers.User.SetAuditService(auditLogSvc)
+
+	// Wire permission-denied audit callback into the RBAC middleware.
+	middleware.SetPermLogger(zapLogger)
+	middleware.OnPermissionDenied = func(userID uint, perm string, path string) {
+		uid := userID
+		auditLogSvc.Record(&model.AuditLog{
+			UserID:       &uid,
+			Action:       model.AuditActionPermissionDenied,
+			ResourceType: "permission",
+			ResourceName: path,
+			Detail:       fmt.Sprintf("permission: %s", perm),
+			Status:       "denied",
+		})
+	}
 
 
 	// Store references needed for shutdown and hot reload
