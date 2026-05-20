@@ -45,6 +45,8 @@ type CreateAlertRuleRequest struct {
 	Category             string               `json:"category"`
 	GroupWaitSeconds     int                  `json:"group_wait_seconds"`
 	GroupIntervalSeconds int                  `json:"group_interval_seconds"`
+	// Source indicates the origin of this rule (e.g. "ai", "import", "manual").
+	Source string `json:"source"`
 }
 
 func (h *AlertRuleHandler) Create(c *gin.Context) {
@@ -73,7 +75,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		CreatedBy:            GetCurrentUserID(c),
 	}
 
-	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
+	if err := h.svc.Create(c.Request.Context(), rule, req.Source); err != nil {
 		Error(c, err)
 		return
 	}

@@ -22,13 +22,15 @@ const (
 )
 
 // AlertRuleStatus defines the status of an alert rule.
+// - draft: AI-generated rule, not yet activated by the user.
+// - enabled: actively evaluating.
+// - disabled: paused / not evaluating.
 type AlertRuleStatus string
 
 const (
+	RuleStatusDraft    AlertRuleStatus = "draft"    // AI-generated, not yet activated
 	RuleStatusEnabled  AlertRuleStatus = "enabled"
 	RuleStatusDisabled AlertRuleStatus = "disabled"
-	RuleStatusMuted    AlertRuleStatus = "muted"
-	RuleStatusDraft    AlertRuleStatus = "draft"
 )
 
 // AlertRuleType identifies the evaluation strategy for a rule.

@@ -95,7 +95,7 @@ func (s *AlertRuleService) validateLabels(labels model.JSONLabels) error {
 	return nil
 }
 
-func (s *AlertRuleService) Create(ctx context.Context, rule *model.AlertRule) error {
+func (s *AlertRuleService) Create(ctx context.Context, rule *model.AlertRule, source string) error {
 	// Validate labels if enabled
 	if s.settingSvc != nil {
 		if cfg, err := s.settingSvc.GetLabelValidationConfig(ctx); err == nil && cfg.Enabled {
@@ -112,6 +112,11 @@ func (s *AlertRuleService) Create(ctx context.Context, rule *model.AlertRule) er
 		}
 	} else if rule.DatasourceType == "" {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "either datasource_id or datasource_type must be provided")
+	}
+
+	// AI-generated rules start as draft and disabled until the user activates them.
+	if source == "ai" {
+		rule.Status = model.RuleStatusDraft
 	}
 
 	// Auto-generate a secure heartbeat token for heartbeat-type rules

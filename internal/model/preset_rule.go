@@ -10,6 +10,7 @@ type PresetRule struct {
 	Category    string     `json:"category" gorm:"size:50;index"`
 	SubCategory string     `json:"sub_category" gorm:"size:50"`
 	Component   string     `json:"component" gorm:"size:50"`
+	Cluster     string     `json:"cluster" gorm:"size:100;index"`
 	Expression  string     `json:"expression" gorm:"type:text;not null"`
 	ForDuration string     `json:"for_duration" gorm:"size:32"`
 	Severity    string     `json:"severity" gorm:"size:20;index"`
