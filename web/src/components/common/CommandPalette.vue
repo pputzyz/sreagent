@@ -124,7 +124,7 @@ function hintColor(item: PaletteItem) {
         <div class="cp-body">
           <template v-if="allItems.length === 0">
             <div class="cp-empty">
-              <span class="cp-empty-icon">🔍</span>
+              <svg class="cp-empty-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <span>{{ t('palette.noResults', { q: query }) }}</span>
               <span class="cp-empty-hint">{{ t('palette.trySomethingElse') }}</span>
             </div>
@@ -257,9 +257,8 @@ body.light-theme .cp-panel {
 }
 
 .cp-empty-icon {
-  font-size: 28px;
-  line-height: 1;
-  opacity: 0.6;
+  opacity: 0.4;
+  color: var(--sre-text-muted);
 }
 
 .cp-empty-hint {

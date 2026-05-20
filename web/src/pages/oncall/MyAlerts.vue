@@ -17,7 +17,21 @@
     <n-divider />
 
     <n-spin :show="loading">
-      <n-empty v-if="!loading && !alerts.length" :description="t('myAlerts.noAlerts')" />
+      <div v-if="loadError" class="my-alerts-error">
+        <n-result status="warning" :title="t('myAlerts.loadError')" :description="t('myAlerts.loadErrorDetail')">
+          <template #footer>
+            <n-button size="small" @click="refresh">{{ t('common.retry') }}</n-button>
+          </template>
+        </n-result>
+      </div>
+
+      <div v-else-if="!loading && !alerts.length" class="my-alerts-empty">
+        <n-empty :description="emptyTitle">
+          <template #extra>
+            <p class="my-alerts-empty-hint">{{ emptyHint }}</p>
+          </template>
+        </n-empty>
+      </div>
 
       <n-list bordered>
         <n-list-item v-for="alert in alerts" :key="alert.id">
@@ -63,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -76,9 +90,31 @@ const { t } = useI18n()
 const filter = ref<string>('firing')
 const alerts = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref(false)
+
+const emptyTitle = computed(() => {
+  const map: Record<string, string> = {
+    firing: t('myAlerts.emptyFiring'),
+    assigned: t('myAlerts.emptyAssigned'),
+    acknowledged: t('myAlerts.emptyAcked'),
+    all: t('myAlerts.emptyAll'),
+  }
+  return map[filter.value] || t('myAlerts.emptyAll')
+})
+
+const emptyHint = computed(() => {
+  const map: Record<string, string> = {
+    firing: t('myAlerts.emptyFiringHint'),
+    assigned: t('myAlerts.emptyAssignedHint'),
+    acknowledged: t('myAlerts.emptyAckedHint'),
+    all: t('myAlerts.emptyAllHint'),
+  }
+  return map[filter.value] || t('myAlerts.emptyAllHint')
+})
 
 async function refresh() {
   loading.value = true
+  loadError.value = false
   try {
     const params: any = { view_mode: 'mine', page_size: 100 }
     if (filter.value !== 'all') {
@@ -86,8 +122,8 @@ async function refresh() {
     }
     const r = await alertEventApi.list(params)
     alerts.value = r.data?.items || []
-  } catch (e: any) {
-    message.error(t('myAlerts.loadError') + (e?.message || ''))
+  } catch {
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -98,8 +134,8 @@ async function handleAck(alert: any) {
     await alertEventApi.acknowledge(alert.id)
     message.success(t('myAlerts.ackedSuccess'))
     await refresh()
-  } catch (e: any) {
-    message.error(t('myAlerts.ackError') + (e?.message || ''))
+  } catch {
+    message.error(t('myAlerts.ackError'))
   }
 }
 
@@ -108,8 +144,8 @@ async function handleResolve(alert: any) {
     await alertEventApi.resolve(alert.id)
     message.success(t('myAlerts.resolvedSuccess'))
     await refresh()
-  } catch (e: any) {
-    message.error(t('myAlerts.resolveError') + (e?.message || ''))
+  } catch {
+    message.error(t('myAlerts.resolveError'))
   }
 }
 
@@ -144,5 +180,14 @@ onMounted(refresh)
 <style scoped>
 .my-alerts-page {
   padding: 16px;
+}
+.my-alerts-error,
+.my-alerts-empty {
+  padding: 48px 20px;
+}
+.my-alerts-empty-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sre-text-muted);
 }
 </style>

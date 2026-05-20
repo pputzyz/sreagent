@@ -138,13 +138,14 @@ function handleMenuUpdate(key: string) {
   overflow-x: hidden;
   padding: 8px;
   opacity: 1;
-  transition: opacity 200ms var(--sre-ease-out);
+  transition: opacity 180ms var(--sre-ease-out) 100ms;
 }
 
 .sidebar-nav.nav-hidden {
   opacity: 0;
   pointer-events: none;
   padding: 0;
+  transition-delay: 0ms;
 }
 
 .sidebar-nav-inner {

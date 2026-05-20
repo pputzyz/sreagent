@@ -36,6 +36,21 @@ const defaultRoleOptions = computed(() => [
   { label: t('settings.viewerName'), value: 'viewer' },
 ])
 
+// Inline validation
+const urlPattern = /^https:\/\/.+/i
+const issuerError = computed(() => {
+  if (!form.issuer_url) return ''
+  return urlPattern.test(form.issuer_url) ? '' : t('settings.oidcInvalidUrl')
+})
+const roleMappingError = computed(() => {
+  if (!form.role_mapping || !form.role_mapping.trim()) return ''
+  try {
+    const parsed = JSON.parse(form.role_mapping)
+    return (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) ? '' : t('settings.oidcInvalidJson')
+  } catch { return t('settings.oidcInvalidJson') }
+})
+const canSave = computed(() => !issuerError.value && !roleMappingError.value)
+
 async function fetchConfig() {
   loading.value = true
   try {
@@ -124,7 +139,7 @@ onMounted(fetchConfig)
             <template #icon><NIcon :component="PulseOutline" /></template>
             {{ t('common.test') }}
           </NButton>
-          <NButton type="primary" size="small" :loading="saving" @click="save">
+          <NButton type="primary" size="small" :loading="saving" :disabled="!canSave" @click="save">
             <template #icon><NIcon :component="SaveOutline" /></template>
             {{ t('common.save') }}
           </NButton>
@@ -146,7 +161,7 @@ onMounted(fetchConfig)
             <NFormItem :label="t('settings.oidcEnabled')" class="full-row">
               <NSwitch v-model:value="form.enabled" />
             </NFormItem>
-            <NFormItem :label="t('settings.oidcIssuerUrl')" class="full-row">
+            <NFormItem :label="t('settings.oidcIssuerUrl')" class="full-row" :validation-status="issuerError ? 'error' : undefined" :feedback="issuerError || t('settings.oidcIssuerUrlHelp')">
               <NInput v-model:value="form.issuer_url" :placeholder="t('settings.oidcIssuerUrlPlaceholder')" />
             </NFormItem>
             <NFormItem :label="t('settings.oidcClientId')">
@@ -174,10 +189,10 @@ onMounted(fetchConfig)
             <NFormItem :label="t('settings.oidcEmailClaim')">
               <NInput v-model:value="form.email_claim" :placeholder="t('settings.oidcEmailClaimPlaceholder')" />
             </NFormItem>
-            <NFormItem :label="t('settings.oidcRoleClaim')" class="full-row">
+            <NFormItem :label="t('settings.oidcRoleClaim')" class="full-row" :feedback="t('settings.oidcRoleClaimHelp')">
               <NInput v-model:value="form.role_claim" :placeholder="t('settings.oidcRoleClaimPlaceholder')" />
             </NFormItem>
-            <NFormItem :label="t('settings.oidcRoleMapping')" class="full-row">
+            <NFormItem :label="t('settings.oidcRoleMapping')" class="full-row" :validation-status="roleMappingError ? 'error' : undefined" :feedback="roleMappingError || (t('settings.oidcRoleMappingHelp') + ' ' + t('settings.oidcRoleMappingExample'))">
               <NInput v-model:value="form.role_mapping" type="textarea" :rows="3" :placeholder="t('settings.oidcRoleMappingPlaceholder')" />
             </NFormItem>
           </div>
