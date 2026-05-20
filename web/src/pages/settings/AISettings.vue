@@ -87,6 +87,11 @@ const hasProviders = computed(() => {
   return (providersConfig.value?.providers?.length ?? 0) > 0
 })
 
+const defaultProviderHealthy = computed(() => {
+  const def = providersConfig.value?.providers.find((p: AIProvider) => p.key === providersConfig.value?.default_provider)
+  return def?.enabled === true
+})
+
 // ─── Fetch providers ───
 async function fetchProviders() {
   providersLoading.value = true
@@ -341,6 +346,10 @@ onMounted(() => {
             </n-button>
           </div>
 
+          <n-alert v-if="hasProviders && !defaultProviderHealthy" type="error" class="mb-4">
+            默认 Provider 未启用或不可用，AI 功能将无法工作
+          </n-alert>
+
           <div v-if="hasProviders" class="providers-grid">
             <div
               v-for="(provider, idx) in providersConfig!.providers"
@@ -559,9 +568,9 @@ onMounted(() => {
 
 /* Provider Cards */
 .providers-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 16px;
 }
 .provider-card {
   border: 1px solid var(--sre-border);
@@ -727,5 +736,8 @@ onMounted(() => {
   font-size: 12px;
   color: var(--sre-text-tertiary);
   line-height: 1.6;
+}
+.mb-4 {
+  margin-bottom: 16px;
 }
 </style>

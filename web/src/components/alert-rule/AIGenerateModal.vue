@@ -2,11 +2,14 @@
 import { ref, watch, computed } from 'vue'
 import {
   NModal, NInput, NSelect, NButton, NIcon, NSpace, NAlert, NTag,
+  NText, NCollapse, NCollapseItem, NDataTable, useMessage,
 } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { SparklesOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
-import { aiRuleApi } from '@/api'
+import { aiRuleApi, datasourceApi, alertRuleApi } from '@/api'
 import type { RuleGenerateResult, MuteRuleGenerateResult } from '@/types/ai-module'
+import type { AlertSeverity } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 
 export interface AIGenerateModalProps {
@@ -24,16 +27,32 @@ const props = withDefaults(defineProps<AIGenerateModalProps>(), {
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
   (e: 'generated', result: RuleGenerateResult | MuteRuleGenerateResult): void
-  (e: 'saved'): void
+  (e: 'saved', payload: { draft: boolean }): void
 }>()
+
+const message = useMessage()
 
 const { t } = useI18n()
 
 const description = ref('')
 const selectedDatasourceId = ref<number | null>(null)
 const generating = ref(false)
+const saving = ref(false)
 const result = ref<RuleGenerateResult | MuteRuleGenerateResult | null>(null)
 const error = ref('')
+
+// Dry-run state
+const dryRunResult = ref<{
+  series_count: number
+  sample_series: Array<Record<string, string>>
+  would_fire: boolean
+  eval_duration_ms: number
+} | null>(null)
+const dryRunLoading = ref(false)
+
+// Label preview state
+const labelHits = ref<Array<{ key: string; matched: boolean }>>([])
+const labelLoading = ref(false)
 
 const show = computed({
   get: () => props.visible,
@@ -48,6 +67,8 @@ watch(() => props.visible, (v) => {
     selectedDatasourceId.value = props.datasourceId ?? null
     result.value = null
     error.value = ''
+    dryRunResult.value = null
+    labelHits.value = []
   }
 })
 
@@ -87,17 +108,99 @@ function handleApply() {
   show.value = false
 }
 
-function handleSaveDraft() {
+async function handleSaveAsDraft() {
   if (!result.value) return
-  emit('generated', result.value)
-  show.value = false
+  saving.value = true
+  try {
+    await aiRuleApi.generate({
+      description: description.value,
+      datasource_id: selectedDatasourceId.value ?? undefined,
+      rule_type: 'alert',
+      save_as_draft: true,
+    })
+    message.success('已保存为草稿')
+    emit('saved', { draft: true })
+    show.value = false
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    saving.value = false
+  }
 }
 
-function handleEnableDirect() {
+async function handleSaveAsActive() {
   if (!result.value) return
-  emit('generated', result.value)
-  show.value = false
+  const ruleResult = result.value as RuleGenerateResult
+  saving.value = true
+  try {
+    await alertRuleApi.create({
+      name: ruleResult.name,
+      expression: ruleResult.expression,
+      for_duration: ruleResult.for_duration,
+      severity: ruleResult.severity as AlertSeverity | undefined,
+      labels: ruleResult.labels,
+      annotations: ruleResult.annotations,
+      description: ruleResult.description,
+      datasource_id: selectedDatasourceId.value ?? undefined,
+      status: 'active',
+    })
+    message.success('规则已创建并启用')
+    emit('saved', { draft: false })
+    show.value = false
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    saving.value = false
+  }
 }
+
+async function handleDryRun() {
+  if (!result.value) return
+  dryRunLoading.value = true
+  try {
+    const resp = await aiRuleApi.dryRun({
+      description: description.value,
+      datasource_id: selectedDatasourceId.value ?? undefined,
+      rule_type: 'alert',
+    })
+    const data = resp.data.data
+    dryRunResult.value = {
+      series_count: data.series_count,
+      sample_series: data.sample_series ?? [],
+      would_fire: data.would_fire,
+      eval_duration_ms: data.eval_duration_ms,
+    }
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    dryRunLoading.value = false
+  }
+}
+
+async function handleLabelPreview() {
+  if (!selectedDatasourceId.value || !result.value) return
+  const ruleResult = result.value as RuleGenerateResult
+  labelLoading.value = true
+  try {
+    const resp = await datasourceApi.labelKeys(selectedDatasourceId.value)
+    const keys: string[] = resp.data.data ?? []
+    const ruleKeys = Object.keys(ruleResult.labels || {})
+    labelHits.value = keys.map((k: string) => ({
+      key: k,
+      matched: ruleKeys.includes(k),
+    }))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    labelLoading.value = false
+  }
+}
+
+const sampleColumns = computed(() => {
+  if (!dryRunResult.value?.sample_series?.length) return [] as DataTableColumns<Record<string, string>>
+  const keys = Object.keys(dryRunResult.value.sample_series[0])
+  return keys.map(k => ({ title: k, key: k, ellipsis: { tooltip: true } })) as DataTableColumns<Record<string, string>>
+})
 
 const isRuleResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is RuleGenerateResult =>
   'expression' in r
@@ -213,11 +316,59 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
         <div v-for="w in result.warnings" :key="w">{{ w }}</div>
       </NAlert>
 
+      <!-- Dry-run & Label Preview (rule type only) -->
+      <NCollapse v-if="result && ruleType === 'rule'" class="mt-3">
+        <NCollapseItem title="试算（最近 1h）" name="dry-run">
+          <NSpace vertical>
+            <NButton size="small" :loading="dryRunLoading" @click="handleDryRun">
+              运行试算
+            </NButton>
+            <template v-if="dryRunResult">
+              <NSpace>
+                <NTag :type="dryRunResult.would_fire ? 'error' : 'success'" size="small">
+                  {{ dryRunResult.would_fire ? '会触发' : '不会触发' }}
+                </NTag>
+                <NText>命中 series: {{ dryRunResult.series_count }} 条</NText>
+                <NText>评估耗时: {{ dryRunResult.eval_duration_ms }}ms</NText>
+              </NSpace>
+              <NDataTable
+                v-if="dryRunResult.sample_series?.length"
+                :columns="sampleColumns"
+                :data="dryRunResult.sample_series"
+                size="small"
+                :max-height="200"
+              />
+            </template>
+          </NSpace>
+        </NCollapseItem>
+
+        <NCollapseItem title="标签命中预览" name="labels">
+          <NSpace vertical>
+            <NButton size="small" :loading="labelLoading" @click="handleLabelPreview">
+              查询命中
+            </NButton>
+            <template v-if="labelHits.length">
+              <div v-for="hit in labelHits" :key="hit.key" class="label-hit-item">
+                <NTag :type="hit.matched ? 'success' : 'default'" size="small">
+                  {{ hit.key }}
+                </NTag>
+              </div>
+            </template>
+          </NSpace>
+        </NCollapseItem>
+      </NCollapse>
+
       <NSpace justify="end" style="margin-top: 16px">
-        <NButton @click="handleRegenerate">{{ t('alert.aiRegenerate') }}</NButton>
+        <NButton :loading="generating" @click="handleRegenerate">
+          重新生成
+        </NButton>
         <template v-if="ruleType === 'rule'">
-          <NButton @click="handleSaveDraft">{{ t('alert.aiSaveDraft') }}</NButton>
-          <NButton type="primary" @click="handleEnableDirect">{{ t('alert.aiConfirmCreate') }}</NButton>
+          <NButton :loading="saving" @click="handleSaveAsDraft">
+            保存为草稿
+          </NButton>
+          <NButton type="primary" :loading="saving" @click="handleSaveAsActive">
+            直接启用并保存
+          </NButton>
         </template>
         <template v-else>
           <NButton type="primary" @click="handleApply">{{ t('common.apply') }}</NButton>
@@ -288,5 +439,13 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
 .ai-gen-meta-label {
   font-weight: 600;
   color: var(--sre-text-secondary);
+}
+.mt-3 {
+  margin-top: 12px;
+}
+.label-hit-item {
+  display: inline-block;
+  margin-right: 6px;
+  margin-bottom: 4px;
 }
 </style>

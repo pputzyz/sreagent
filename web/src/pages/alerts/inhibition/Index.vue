@@ -288,6 +288,9 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
               <span class="sre-dot" :data-severity="rule.is_enabled ? 'success' : 'muted'"></span>
               <span class="inhib-status">{{ rule.is_enabled ? t('inhibition.statusEnabled') : t('inhibition.statusDisabled') }}</span>
               <span class="inhib-name">{{ rule.name }}</span>
+              <span class="inhib-hit-badge" :data-active="getHitCount(rule) > 0 || undefined">
+                {{ t('inhibition.hits', { n: getHitCount(rule) }) }}
+              </span>
             </div>
             <div v-if="rule.description" class="inhib-desc">{{ rule.description }}</div>
             <div class="inhib-row-config">
@@ -395,6 +398,22 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
   text-transform: uppercase; letter-spacing: 0.6px;
 }
 .inhib-name { color: var(--sre-text-primary); }
+.inhib-hit-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sre-text-tertiary);
+  background: var(--sre-bg-elevated);
+  border: var(--sre-hairline);
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.inhib-hit-badge[data-active] {
+  color: var(--sre-error, #e88080);
+  border-color: var(--sre-error, #e88080);
+  background: rgba(232, 128, 128, 0.08);
+}
 .inhib-desc { font-size: 12px; color: var(--sre-text-secondary); }
 
 .inhib-row-config {
