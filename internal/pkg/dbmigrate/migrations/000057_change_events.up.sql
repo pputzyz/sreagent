@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `change_events` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `source` VARCHAR(50) NOT NULL,
+    `change_type` VARCHAR(50) NOT NULL DEFAULT 'deploy',
+    `service` VARCHAR(255) NOT NULL DEFAULT '',
+    `environment` VARCHAR(50) DEFAULT '',
+    `commit_sha` VARCHAR(64) DEFAULT '',
+    `author` VARCHAR(255) DEFAULT '',
+    `description` TEXT DEFAULT NULL,
+    `risk_level` VARCHAR(20) DEFAULT 'low',
+    `metadata` JSON DEFAULT NULL,
+    `timestamp` DATETIME(3) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL,
+    `deleted_at` DATETIME(3) DEFAULT NULL,
+    INDEX `idx_ce_service` (`service`),
+    INDEX `idx_ce_env` (`environment`),
+    INDEX `idx_ce_timestamp` (`timestamp`),
+    INDEX `idx_ce_source` (`source`),
+    INDEX `idx_ce_deleted` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

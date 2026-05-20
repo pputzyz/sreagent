@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS `diagnostic_run_steps`;
+DROP TABLE IF EXISTS `diagnostic_runs`;
+DROP TABLE IF EXISTS `diagnostic_workflow_steps`;
+DROP TABLE IF EXISTS `diagnostic_workflows`;
