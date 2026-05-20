@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -78,6 +79,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	ruleSvc *AlertRuleService,
 	incidentSvc *IncidentService,
 	auditLogSvc *AuditLogService,
+	eventSvc *AlertEventService,
 	getEngineStatus func() (interface{}, bool),
 ) {
 	// ── query_datasource: 执行 PromQL 查询 ──
@@ -601,6 +603,83 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				"type":   entry["type"],
 				"help":   entry["help"],
 				"unit":   entry["unit"],
+			})
+			return string(data), nil
+		},
+	})
+
+	// ── search_similar_alerts: 搜索相似告警历史 ──
+	r.Register(&AITool{
+		Name:        "search_similar_alerts",
+		Description: "搜索最近的告警事件。可按名称、严重等级、状态过滤。用于查找历史告警记录，辅助根因分析。",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"alert_name": map[string]interface{}{
+					"type":        "string",
+					"description": "告警名称（模糊匹配）",
+				},
+				"severity": map[string]interface{}{
+					"type":        "string",
+					"description": "严重等级: critical / warning / info",
+				},
+				"status": map[string]interface{}{
+					"type":        "string",
+					"description": "状态: firing / acknowledged / resolved / closed",
+				},
+				"limit": map[string]interface{}{
+					"type":        "integer",
+					"description": "返回数量上限，默认 20",
+				},
+			},
+			"required": []string{},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			alertName, _ := params["alert_name"].(string)
+			severity, _ := params["severity"].(string)
+			status, _ := params["status"].(string)
+			limit, _ := aiToolToInt(params["limit"])
+			if limit <= 0 {
+				limit = 20
+			}
+
+			events, _, err := eventSvc.List(ctx, status, severity, 1, limit)
+			if err != nil {
+				return fmt.Sprintf("搜索告警历史失败: %v", err), nil
+			}
+
+			// 按 alert_name 过滤（List 不支持名称模糊匹配）
+			if alertName != "" {
+				filtered := make([]model.AlertEvent, 0)
+				for _, e := range events {
+					if strings.Contains(strings.ToLower(e.AlertName), strings.ToLower(alertName)) {
+						filtered = append(filtered, e)
+					}
+				}
+				events = filtered
+			}
+
+			type eventSummary struct {
+				ID        uint   `json:"id"`
+				AlertName string `json:"alert_name"`
+				Severity  string `json:"severity"`
+				Status    string `json:"status"`
+				FiredAt   string `json:"fired_at"`
+			}
+			summaries := make([]eventSummary, 0, len(events))
+			for _, e := range events {
+				summaries = append(summaries, eventSummary{
+					ID:        e.ID,
+					AlertName: e.AlertName,
+					Severity:  string(e.Severity),
+					Status:    string(e.Status),
+					FiredAt:   e.FiredAt.Format(time.RFC3339),
+				})
+			}
+
+			data, _ := json.Marshal(map[string]interface{}{
+				"total":  len(summaries),
+				"events": summaries,
 			})
 			return string(data), nil
 		},

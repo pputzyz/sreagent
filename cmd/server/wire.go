@@ -426,7 +426,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// --------------- AI 工具注册表 ---------------
 	toolRegistry := service.NewAIToolRegistry(zapLogger)
-	toolRegistry.RegisterBuiltinTools(dsSvc, ruleSvc, incidentSvc, auditLogSvc,
+	toolRegistry.RegisterBuiltinTools(dsSvc, ruleSvc, incidentSvc, auditLogSvc, eventSvc,
 		func() (interface{}, bool) {
 			if evaluator == nil {
 				return nil, false
