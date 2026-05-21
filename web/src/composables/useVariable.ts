@@ -1,5 +1,6 @@
 import { ref, watch, computed, type Ref } from 'vue'
 import { datasourceApi } from '@/api'
+import { computeTimeStep } from '@/utils/timeStep'
 import type { VariableConfig } from '@/types/dashboard'
 import type { TimeRange } from '@/types/query'
 
@@ -113,10 +114,5 @@ export function useVariable(
 }
 
 function autoInterval(tr: TimeRange): string {
-  const sec = (tr.end - tr.start) / 1000
-  if (sec <= 300) return '15s'
-  if (sec <= 3600) return '1m'
-  if (sec <= 21600) return '5m'
-  if (sec <= 86400) return '15m'
-  return '1h'
+  return computeTimeStep((tr.end - tr.start) / 1000)
 }

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -31,6 +32,13 @@ type LarkBotService struct {
 	userRepo    *repository.UserRepository // optional; enables OpenID→User mapping
 	client      *http.Client
 	logger      *zap.Logger
+
+	// Runtime lifecycle metrics (in-memory, not persisted).
+	lastMessageAt       time.Time
+	lastError           string
+	lastErrorAt         time.Time
+	consecutiveErrors   int
+	mu                  sync.Mutex
 }
 
 // NewLarkBotService creates a new LarkBotService backed by DB-stored configuration.
@@ -432,10 +440,12 @@ func (s *LarkBotService) SendMessage(ctx context.Context, chatID, content string
 	if cfg.AppID != "" && cfg.AppSecret != "" && chatID != "" {
 		bot := lark.NewBotClient(cfg.AppID, cfg.AppSecret)
 		if _, err := bot.SendText(ctx, "chat_id", chatID, content); err != nil {
+			s.recordMessageError(err)
 			s.logger.Warn("lark bot: Bot API send failed",
 				zap.String("chat_id", chatID), zap.Error(err))
 			return fmt.Errorf("lark bot API send failed: %w", err)
 		}
+		s.recordMessageSuccess()
 		s.logger.Debug("lark bot text reply sent via Bot API", zap.String("chat_id", chatID))
 		return nil
 	}
@@ -506,12 +516,16 @@ func (s *LarkBotService) TestBotAPI(ctx context.Context) error {
 
 // BotStatus holds diagnostic info about the bot connection.
 type BotStatus struct {
-	Configured     bool   `json:"configured"`
-	AppID          string `json:"app_id,omitempty"`
-	WebhookSet     bool   `json:"webhook_set"`
-	CommandsEnabled bool  `json:"commands_enabled"`
-	NLEnabled      bool   `json:"natural_language_enabled"`
-	DebugMode      bool   `json:"debug_mode"`
+	Configured       bool   `json:"configured"`
+	AppID            string `json:"app_id,omitempty"`
+	WebhookSet       bool   `json:"webhook_set"`
+	CommandsEnabled  bool   `json:"commands_enabled"`
+	NLEnabled        bool   `json:"natural_language_enabled"`
+	DebugMode        bool   `json:"debug_mode"`
+	LastMessageAt    string `json:"last_message_at,omitempty"`
+	LastError        string `json:"last_error,omitempty"`
+	LastErrorAt      string `json:"last_error_at,omitempty"`
+	ConsecutiveErrors int   `json:"consecutive_errors"`
 }
 
 // GetBotStatus returns the current bot connection status and diagnostics.
@@ -520,14 +534,48 @@ func (s *LarkBotService) GetBotStatus(ctx context.Context) (*BotStatus, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lark config: %w", err)
 	}
-	return &BotStatus{
-		Configured:      cfg.AppID != "" && cfg.AppSecret != "",
-		AppID:           cfg.AppID,
-		WebhookSet:      cfg.DefaultWebhook != "",
-		CommandsEnabled: cfg.CommandsEnabled,
-		NLEnabled:       cfg.NaturalLanguageEnabled,
-		DebugMode:       cfg.DebugMode,
-	}, nil
+
+	s.mu.Lock()
+	lastMsg := s.lastMessageAt
+	lastErr := s.lastError
+	lastErrAt := s.lastErrorAt
+	consecErrs := s.consecutiveErrors
+	s.mu.Unlock()
+
+	status := &BotStatus{
+		Configured:       cfg.AppID != "" && cfg.AppSecret != "",
+		AppID:            cfg.AppID,
+		WebhookSet:       cfg.DefaultWebhook != "",
+		CommandsEnabled:  cfg.CommandsEnabled,
+		NLEnabled:        cfg.NaturalLanguageEnabled,
+		DebugMode:        cfg.DebugMode,
+		ConsecutiveErrors: consecErrs,
+	}
+	if !lastMsg.IsZero() {
+		status.LastMessageAt = lastMsg.Format(time.RFC3339)
+	}
+	if lastErr != "" {
+		status.LastError = lastErr
+		status.LastErrorAt = lastErrAt.Format(time.RFC3339)
+	}
+	return status, nil
+}
+
+// recordMessageSuccess updates lifecycle metrics on successful send.
+func (s *LarkBotService) recordMessageSuccess() {
+	s.mu.Lock()
+	s.lastMessageAt = time.Now()
+	s.consecutiveErrors = 0
+	s.mu.Unlock()
+}
+
+// recordMessageError updates lifecycle metrics on failed send.
+func (s *LarkBotService) recordMessageError(err error) {
+	s.mu.Lock()
+	s.lastError = err.Error()
+	s.lastErrorAt = time.Now()
+	s.consecutiveErrors++
+	s.mu.Unlock()
 }
 
 // mapNaturalLanguage maps natural language input to bot commands.

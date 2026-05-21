@@ -105,7 +105,7 @@ type planStep struct {
 }
 
 // StartAgent 异步启动 Agent 任务，立即返回任务 ID，后台执行完成后前端轮询获取结果
-func (s *AgentService) StartAgent(userID uint, query string) (*AgentTask, error) {
+func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string) (*AgentTask, error) {
 	task := &AgentTask{
 		ID:        uuid.New().String(),
 		Query:     query,
@@ -114,14 +114,14 @@ func (s *AgentService) StartAgent(userID uint, query string) (*AgentTask, error)
 		CreatedAt: time.Now(),
 	}
 
-	// 持久化会话到 DB
+	// 持久化会话到 DB — use request context for the DB write
 	if s.convRepo != nil {
 		conv := &model.AIConversation{
 			UserID: userID,
 			Title:  truncateString(query, 100),
 			Status: "active",
 		}
-		if err := s.convRepo.Create(context.Background(), conv); err != nil {
+		if err := s.convRepo.Create(ctx, conv); err != nil {
 			s.logger.Warn("创建 AI 会话失败", zap.Error(err))
 		} else {
 			task.ConversationID = conv.ID
@@ -132,9 +132,11 @@ func (s *AgentService) StartAgent(userID uint, query string) (*AgentTask, error)
 	s.tasks[task.ID] = task
 	s.mu.Unlock()
 
+	// Background goroutine: detach from request lifecycle but keep a timeout.
 	go func() {
-		ctx := context.Background()
-		_, _ = s.runTask(ctx, task)
+		bgCtx, cancel := context.WithTimeout(context.Background(), agentTotalTimeout)
+		defer cancel()
+		_, _ = s.runTask(bgCtx, task)
 	}()
 
 	s.logger.Info("Agent 任务已启动", zap.String("id", task.ID), zap.String("query", query))

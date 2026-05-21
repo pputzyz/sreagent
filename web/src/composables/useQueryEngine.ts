@@ -2,16 +2,11 @@ import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
+import { computeTimeStep } from '@/utils/timeStep'
 import type { TimeRange, QueryTarget, QuerySeriesItem } from '@/types/query'
 
 function autoStep(timeRange: TimeRange): string {
-  const durationSec = (timeRange.end - timeRange.start) / 1000
-  if (durationSec <= 300) return '15s'       // 5min
-  if (durationSec <= 3600) return '30s'      // 1h
-  if (durationSec <= 21600) return '1m'      // 6h
-  if (durationSec <= 86400) return '5m'      // 24h
-  if (durationSec <= 604800) return '15m'    // 7d
-  return '1h'
+  return computeTimeStep((timeRange.end - timeRange.start) / 1000)
 }
 
 function generateId(): string {

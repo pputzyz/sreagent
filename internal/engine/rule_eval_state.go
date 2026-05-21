@@ -1,0 +1,115 @@
+package engine
+
+import (
+	"context"
+	"time"
+
+	"go.uber.org/zap"
+)
+
+// lockState returns (or creates) the per-fingerprint stateLock.
+// This is the primary entry point for fine-grained locking.
+func (re *RuleEvaluator) lockState(fp string) *stateLock {
+	sl, _ := re.states.LoadOrStore(fp, &stateLock{})
+	return sl.(*stateLock)
+}
+
+// deleteState removes a fingerprint's state (used after alert resolved cleanup).
+func (re *RuleEvaluator) deleteState(fp string) {
+	re.states.Delete(fp)
+}
+
+// rangeStates iterates all states. fn returns false to stop early.
+// fn must lock sl.mu itself if it reads/writes sl.state.
+func (re *RuleEvaluator) rangeStates(fn func(fp string, sl *stateLock) bool) {
+	re.states.Range(func(k, v any) bool {
+		return fn(k.(string), v.(*stateLock))
+	})
+}
+
+// loadPersistedState restores alert states from the StateStore on startup.
+// If no StateStore is configured or loading fails, this is a no-op (in-memory only).
+func (re *RuleEvaluator) loadPersistedState() {
+	if re.stateStore == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	entries, err := re.stateStore.LoadStates(ctx, re.rule.ID)
+	if err != nil {
+		re.logger.Warn("failed to load persisted states, starting fresh",
+			zap.Error(err),
+		)
+		return
+	}
+
+	if len(entries) == 0 {
+		return
+	}
+
+	restored := 0
+	for fp, entry := range entries {
+		state := fromStateEntry(entry)
+		sl := re.lockState(fp)
+		sl.mu.Lock()
+		sl.state = state
+		sl.mu.Unlock()
+		restored++
+
+		// Restore suppressor entries for firing and pending states
+		if (state.Status == "firing" || state.Status == "pending") && re.suppressor != nil {
+			re.suppressor.UpdateSeverity(re.rule.ID, fp, string(re.rule.Severity))
+		}
+	}
+
+	re.logger.Info("restored persisted alert states",
+		zap.Int("count", restored),
+	)
+}
+
+// stateTTL returns the TTL for persisted state entries (3x eval interval).
+func (re *RuleEvaluator) stateTTL() time.Duration {
+	interval := time.Duration(re.rule.EvalInterval) * time.Second
+	if interval <= 0 {
+		interval = 60 * time.Second
+	}
+	return 3 * interval
+}
+
+// persistState saves a state entry to the StateStore (if configured).
+// Errors are logged but not propagated — Redis is best-effort.
+func (re *RuleEvaluator) persistState(fp string, state *AlertState) {
+	if re.stateStore == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	entry := toStateEntry(fp, state)
+	if err := re.stateStore.SaveState(ctx, re.rule.ID, fp, entry, re.stateTTL()); err != nil {
+		re.logger.Warn("failed to persist state to redis",
+			zap.String("fingerprint", fp),
+			zap.Error(err),
+		)
+	}
+}
+
+// deletePersistedState removes a state entry from the StateStore (if configured).
+func (re *RuleEvaluator) deletePersistedState(fp string) {
+	if re.stateStore == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := re.stateStore.DeleteState(ctx, re.rule.ID, fp); err != nil {
+		re.logger.Warn("failed to delete persisted state from redis",
+			zap.String("fingerprint", fp),
+			zap.Error(err),
+		)
+	}
+}

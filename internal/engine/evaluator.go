@@ -193,6 +193,12 @@ type Evaluator struct {
 	perDS        sync.Map           // map[uint]*PerDatasourceEvaluator, key is datasourceID
 	perDSEval    bool               // feature flag: per-datasource bucket evaluation
 	leader       LeaderElection     // optional; nil = single-instance mode (no election)
+
+	// Firing events TTL cache — reduces lock contention for high-frequency callers.
+	firingCache    []*AlertState
+	firingCacheAt  time.Time
+	firingCacheMu  sync.RWMutex
+	firingCacheTTL time.Duration // default 5s
 }
 
 // AlertWorkerPoolSubmiter is the subset of AlertWorkerPool used by the evaluator.
@@ -471,6 +477,8 @@ func (e *Evaluator) syncRules() {
 		}
 	}
 
+	e.invalidateFiringCache()
+
 	e.logger.Debug("rule sync completed",
 		zap.Int("active_rules", len(rules)),
 		zap.Int("evaluators", len(e.evaluators)),
@@ -594,6 +602,7 @@ func (e *Evaluator) stopRuleEvaluator(ruleID uint) {
 	if e.suppressor != nil {
 		e.suppressor.RemoveRule(ruleID)
 	}
+	e.invalidateFiringCache()
 }
 
 // stopAllEvaluators stops all running evaluators and clears the maps.
@@ -625,119 +634,5 @@ func (e *Evaluator) stopAllEvaluators() {
 	if len(evaluators) > 0 {
 		e.logger.Info("stopped all evaluators (leadership lost)", zap.Int("count", len(evaluators)))
 	}
-}
-
-// GetFiringEvents returns a snapshot of all currently firing alert states
-// across all active rule evaluators. This is a cheap in-memory operation
-// that replaces the costly DB scan of eventSvc.List("firing").
-//
-// TODO(perf): This iterates all evaluators and their states under a read lock.
-// For large rule sets (1000+), consider adding a short-lived cache (5s TTL)
-// or a dedicated firing-events index to reduce lock contention.
-func (e *Evaluator) GetFiringEvents() []*AlertState {
-	// Snapshot the evaluator list under the read lock, then release it before
-	// iterating per-fingerprint state locks. This prevents the evaluator-level
-	// read lock from blocking rule add/remove operations during large iterations.
-	e.mu.RLock()
-	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
-	for _, re := range e.evaluators {
-		evals = append(evals, re)
-	}
-	e.mu.RUnlock()
-
-	var result []*AlertState
-	for _, re := range evals {
-		re.rangeStates(func(_ string, sl *stateLock) bool {
-			sl.mu.Lock()
-			if sl.state != nil && sl.state.Status == "firing" {
-				result = append(result, copyAlertState(sl.state))
-			}
-			sl.mu.Unlock()
-			return true
-		})
-	}
-	return result
-}
-
-// copyAlertState deep-copies an AlertState including map fields.
-func copyAlertState(s *AlertState) *AlertState {
-	cp := *s
-	if s.Labels != nil {
-		cp.Labels = make(map[string]string, len(s.Labels))
-		for k, v := range s.Labels {
-			cp.Labels[k] = v
-		}
-	}
-	if s.Annotations != nil {
-		cp.Annotations = make(map[string]string, len(s.Annotations))
-		for k, v := range s.Annotations {
-			cp.Annotations[k] = v
-		}
-	}
-	return &cp
-}
-
-// GetFiringAlertEvents returns firing alerts as []model.AlertEvent,
-// a lightweight adapter for callers that need model.AlertEvent
-// (e.g. inhibition rule matching). Only ID, Status, and Labels are populated.
-func (e *Evaluator) GetFiringAlertEvents() []model.AlertEvent {
-	states := e.GetFiringEvents()
-	events := make([]model.AlertEvent, 0, len(states))
-	for _, s := range states {
-		events = append(events, model.AlertEvent{
-			BaseModel: model.BaseModel{ID: s.EventID},
-			Status:    model.AlertEventStatus(s.Status),
-			Labels:    model.JSONLabels(s.Labels),
-		})
-	}
-	return events
-}
-
-// GetStatus returns status of the evaluation engine.
-func (e *Evaluator) GetStatus() EngineStatus {
-	// Snapshot evaluator list to avoid holding e.mu during state iteration.
-	e.mu.RLock()
-	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
-	for _, re := range e.evaluators {
-		evals = append(evals, re)
-	}
-	e.mu.RUnlock()
-
-	activeAlerts := 0
-	for _, re := range evals {
-		re.rangeStates(func(_ string, sl *stateLock) bool {
-			sl.mu.Lock()
-			if sl.state != nil && sl.state.Status == "firing" {
-				activeAlerts++
-			}
-			sl.mu.Unlock()
-			return true
-		})
-	}
-
-	uptime := ""
-	running := false
-	select {
-	case <-e.stopCh:
-		running = false
-	default:
-		running = !e.startedAt.IsZero()
-	}
-
-	if running && !e.startedAt.IsZero() {
-		uptime = time.Since(e.startedAt).Truncate(time.Second).String()
-	}
-
-	isLeader := e.leader == nil // single-instance mode = always leader
-	if e.leader != nil {
-		isLeader = e.leader.IsLeader()
-	}
-
-	return EngineStatus{
-		Running:      running,
-		TotalRules:   len(e.evaluators),
-		ActiveAlerts: activeAlerts,
-		Uptime:       uptime,
-		IsLeader:     isLeader,
-	}
+	e.invalidateFiringCache()
 }

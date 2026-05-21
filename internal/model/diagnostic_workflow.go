@@ -48,6 +48,7 @@ type DiagnosticRun struct {
 	Status        string     `json:"status" gorm:"size:20;default:pending"`
 	CurrentStep   int        `json:"current_step" gorm:"default:0"`
 	ResultSummary string     `json:"result_summary" gorm:"type:text"`
+	Version       int        `json:"version" gorm:"default:1"` // optimistic lock
 	StartedAt     *time.Time `json:"started_at,omitempty"`
 	CompletedAt   *time.Time `json:"completed_at,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`

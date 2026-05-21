@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -117,7 +118,23 @@ func (r *DiagnosticWorkflowRepository) GetRun(ctx context.Context, id uint) (*mo
 }
 
 func (r *DiagnosticWorkflowRepository) UpdateRun(ctx context.Context, run *model.DiagnosticRun) error {
-	return r.db.WithContext(ctx).Save(run).Error
+	oldVersion := run.Version
+	run.Version++
+	result := r.db.WithContext(ctx).
+		Model(run).
+		Where("version = ?", oldVersion).
+		Updates(map[string]interface{}{
+			"status":         run.Status,
+			"current_step":   run.CurrentStep,
+			"result_summary": run.ResultSummary,
+			"started_at":     run.StartedAt,
+			"completed_at":   run.CompletedAt,
+			"version":        run.Version,
+		})
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("optimistic lock conflict on diagnostic run %d (version %d)", run.ID, oldVersion)
+	}
+	return result.Error
 }
 
 func (r *DiagnosticWorkflowRepository) ListRuns(ctx context.Context, workflowID *uint, incidentID *uint, status string, page, pageSize int) ([]model.DiagnosticRun, int64, error) {

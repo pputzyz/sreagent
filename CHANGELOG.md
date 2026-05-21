@@ -4,6 +4,39 @@
 
 ---
 
+## [v4.15.6] — 2026-05-21
+
+### Review Round 3 — 剩余项全量实现
+
+**后端**
+- `internal/model/diagnostic_workflow.go`：DiagnosticRun 新增 `Version` 字段，`UpdateRun` 改用乐观锁（`WHERE version = ?`）
+- `internal/pkg/dbmigrate/migrations/000059_diagnostic_run_version.{up|down}.sql`：迁移文件
+- `internal/service/ai_agent.go`：`StartAgent` 接收 `ctx`，DB 写入用请求 ctx，后台 goroutine 用 `context.WithTimeout(context.Background(), 30m)`
+- `internal/handler/ai_agent.go`：传递 `c.Request.Context()` 给 `StartAgent`
+- `internal/engine/evaluator.go`：`GetFiringEvents` 新增 5s TTL 缓存 + `firingCacheMu` RWMutex；`syncRules` 完成后调用 `invalidateFiringCache()`
+- `internal/service/larkbot.go`：`LarkBotService` 新增 `lastMessageAt`/`lastError`/`consecutiveErrors` 生命周期指标；`GetBotStatus` 返回运行时指标；`SendMessage` 记录成功/失败
+
+**文件拆分**
+- `internal/engine/evaluator.go`（785→638 行）：拆出 `evaluator_cache.go`（GetFiringEvents/GetFiringAlertEvents/GetStatus/copyAlertState）
+- `internal/engine/rule_eval.go`（688→370 行）：拆出 `rule_eval_state.go`（lockState/deleteState/rangeStates/persistState 等）+ `rule_eval_actions.go`（createAlertEvent/updateFiringEvent/resolveAlertEvent）
+- `internal/service/alert_event.go`（541→280 行）：拆出 `alert_event_batch.go`（BatchAcknowledge/BatchClose）+ `alert_event_webhook.go`（ProcessWebhook/processAlert/triggerLarkCardUpdate/addTimeline）
+
+**测试**
+- `internal/service/lark_cards_test.go`：sanitizeLarkMarkdown / formatDuration / larkSeverityTemplate / larkSeverityEmoji / BuildResolvedCard
+- `internal/engine/workerpool_test.go`：NewAlertWorkerPool / Submit / Wait / panic recovery / deadline / concurrent submit
+- `internal/pkg/lark/bot_api_test.go`：LarkError / IsRetryable / doWithRetry / tokenCache
+- `internal/engine/leader_election_test.go`：IsLeader 状态管理 + 并发安全
+
+**前端**
+- `web/src/utils/timeStep.ts`：提取 `computeTimeStep()` 公共函数（从 useQueryEngine/useVariable 重复代码提取）
+- `web/src/composables/useQueryEngine.ts`：`autoStep` 委托给 `computeTimeStep`
+- `web/src/composables/useVariable.ts`：`autoInterval` 委托给 `computeTimeStep`
+- `web/src/composables/useVariable.ts`：补充缺失的 `computeTimeStep` 导入
+
+**迁移文件**: 000059_diagnostic_run_version
+
+---
+
 ## [v4.15.5] — 2026-05-21
 
 ### Full Review Fix — 6 P0 + 23 P1 + 18 P2 修复
