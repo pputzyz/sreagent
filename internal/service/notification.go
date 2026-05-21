@@ -50,7 +50,14 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 	// Resolve datasource_id from the event's alert rule for routing.
 	var dataSourceID *uint
 	if s.ruleRepo != nil && event.RuleID != nil {
-		if rule, err := s.ruleRepo.GetByID(ctx, *event.RuleID); err == nil {
+		rule, err := s.ruleRepo.GetByID(ctx, *event.RuleID)
+		if err != nil {
+			s.logger.Warn("failed to load alert rule for routing, skipping datasource filter",
+				zap.Uint("event_id", event.ID),
+				zap.Uint("rule_id", *event.RuleID),
+				zap.Error(err),
+			)
+		} else {
 			dataSourceID = rule.DataSourceID
 		}
 	}
@@ -71,7 +78,9 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 				zap.Int("matching_rules", len(rules)),
 			)
 			for _, rule := range rules {
-				if err := s.notifyRuleSvc.ProcessEvent(ctx, event, rule.ID); err != nil {
+				// M4: Deep copy event labels before each rule to prevent cross-rule contamination.
+				eventCopy := shallowCopyEvent(event)
+				if err := s.notifyRuleSvc.ProcessEvent(ctx, eventCopy, rule.ID); err != nil {
 					s.logger.Error("failed to process event through notify rule",
 						zap.Uint("event_id", event.ID),
 						zap.Uint("rule_id", rule.ID),
@@ -103,7 +112,8 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 				if sub.NotifyRuleID == 0 {
 					continue
 				}
-				if err := s.notifyRuleSvc.ProcessEvent(ctx, event, sub.NotifyRuleID); err != nil {
+				eventCopy := shallowCopyEvent(event)
+				if err := s.notifyRuleSvc.ProcessEvent(ctx, eventCopy, sub.NotifyRuleID); err != nil {
 					s.logger.Error("failed to process event through subscribed notify rule",
 						zap.Uint("event_id", event.ID),
 						zap.Uint("subscribe_rule_id", sub.ID),
@@ -116,4 +126,23 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 	}
 
 	return nil
+}
+
+// shallowCopyEvent creates a shallow copy of the event with deep-copied labels/annotations.
+// This prevents relabel steps in one notify rule from contaminating subsequent rules.
+func shallowCopyEvent(event *model.AlertEvent) *model.AlertEvent {
+	cp := *event
+	if event.Labels != nil {
+		cp.Labels = make(model.JSONLabels, len(event.Labels))
+		for k, v := range event.Labels {
+			cp.Labels[k] = v
+		}
+	}
+	if event.Annotations != nil {
+		cp.Annotations = make(model.JSONLabels, len(event.Annotations))
+		for k, v := range event.Annotations {
+			cp.Annotations[k] = v
+		}
+	}
+	return &cp
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -208,8 +209,9 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 			continue
 		}
 
-		// Dedup: skip if this event+media was already sent via either pipeline
-		dedupKey := fmt.Sprintf("v2:%d:%d:%s", rule.ID, nc.MediaID, event.Fingerprint)
+		// Dedup: skip if this event+media was already sent via either pipeline.
+		// Include event.Status so firing and resolved are not deduped against each other (M1).
+		dedupKey := fmt.Sprintf("v2:%d:%d:%s:%s", rule.ID, nc.MediaID, event.Fingerprint, event.Status)
 		if !routeDedup.TrySend(dedupKey) {
 			s.logger.Debug("v2 notification deduped",
 				zap.Uint("event_id", event.ID),
@@ -394,7 +396,11 @@ func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string
 		)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Drain body to allow connection reuse (M6).
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		resp.Body.Close()
+	}()
 
 	s.logger.Info("callback fired",
 		zap.String("url", callbackURL),
