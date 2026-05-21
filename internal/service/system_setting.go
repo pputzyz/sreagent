@@ -35,16 +35,19 @@ type AIConfig struct {
 
 // AIProviderConfig describes a single named AI provider configuration.
 type AIProviderConfig struct {
-	Key           string  `json:"key"`       // unique identifier, e.g. "openai-main"
-	Provider      string  `json:"provider"`  // openai, azure, ollama, custom, anthropic
-	APIKey        string  `json:"api_key"`
-	BaseURL       string  `json:"base_url"`
-	Model         string  `json:"model"`
-	Enabled       bool    `json:"enabled"`
-	IsDefault     bool    `json:"is_default"`
-	Temperature   float64 `json:"temperature,omitempty"`
-	MaxTokens     int     `json:"max_tokens,omitempty"`
-	SystemPrompt  string  `json:"system_prompt,omitempty"`
+	Key             string  `json:"key"`       // unique identifier, e.g. "openai-main"
+	Provider        string  `json:"provider"`  // openai, azure, ollama, custom, anthropic
+	APIKey          string  `json:"api_key"`
+	BaseURL         string  `json:"base_url"`
+	Model           string  `json:"model"`
+	Enabled         bool    `json:"enabled"`
+	IsDefault       bool    `json:"is_default"`
+	Temperature     float64 `json:"temperature,omitempty"`
+	MaxTokens       int     `json:"max_tokens,omitempty"`
+	TopP            float64 `json:"top_p,omitempty"`
+	SystemPrompt    string  `json:"system_prompt,omitempty"`
+	RetryMax        int     `json:"retry_max,omitempty"`
+	ContextMaxChars int     `json:"context_max_chars,omitempty"`
 }
 
 // AIProvidersConfig holds the multi-provider AI configuration stored as a single JSON blob.

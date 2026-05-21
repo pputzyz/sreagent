@@ -70,14 +70,29 @@ func (s *AIService) loadProviderConfig(ctx context.Context, providerKey string) 
 	return s.settingSvc.GetProviderConfig(ctx, providerKey)
 }
 
+// truncateResp truncates an API response body for safe inclusion in error messages (M2).
+func truncateResp(body []byte, maxLen int) string {
+	s := string(body)
+	if len(s) > maxLen {
+		return s[:maxLen] + "...(truncated)"
+	}
+	return s
+}
+
 // providerToAIConfig converts an AIProviderConfig to the legacy AIConfig struct.
 func providerToAIConfig(p AIProviderConfig) AIConfig {
 	return AIConfig{
-		Provider: p.Provider,
-		APIKey:   p.APIKey,
-		BaseURL:  p.BaseURL,
-		Model:    p.Model,
-		Enabled:  p.Enabled,
+		Provider:        p.Provider,
+		APIKey:          p.APIKey,
+		BaseURL:         p.BaseURL,
+		Model:           p.Model,
+		Enabled:         p.Enabled,
+		Temperature:     p.Temperature,
+		MaxTokens:       p.MaxTokens,
+		TopP:            p.TopP,
+		SystemPrompt:    p.SystemPrompt,
+		RetryMax:        p.RetryMax,
+		ContextMaxChars: p.ContextMaxChars,
 	}
 }
 
@@ -446,7 +461,7 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 	}
 
 	var completionResp chatCompletionResponse
@@ -645,7 +660,7 @@ func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemP
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 	}
 
 	var completionResp chatCompletionResponse
@@ -729,7 +744,7 @@ func (s *AIService) callLLMAnthropic(ctx context.Context, cfg AIConfig, systemPr
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 	}
 
 	var anthropicResp anthropicResponse
@@ -812,7 +827,7 @@ func (s *AIService) chatAnthropic(ctx context.Context, cfg AIConfig, systemPromp
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 	}
 
 	var anthropicResp anthropicResponse
@@ -852,6 +867,9 @@ func (s *AIService) callLLM(ctx context.Context, cfg AIConfig, prompt string) (s
 // 仅支持 OpenAI 兼容协议；Anthropic 的 tool_use 机制不同，暂不在此方法处理。
 func (s *AIService) callLLMWithTools(ctx context.Context, cfg AIConfig, systemPrompt, userPrompt string, tools []map[string]interface{}) (string, error) {
 	const maxToolRounds = 5
+	// H3: Total timeout for the entire tool-calling loop (90s).
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
 
 	messages := []ChatMessage{
 		{Role: "system", Content: systemPrompt},
@@ -904,7 +922,7 @@ func (s *AIService) callLLMWithTools(ctx context.Context, cfg AIConfig, systemPr
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, string(respBody))
+			return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 		}
 
 		var completionResp chatCompletionResponse
@@ -1069,7 +1087,7 @@ func (s *AIService) callLLMWithToolsCustom(
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return "", records, fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, string(respBody))
+			return "", records, fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 		}
 
 		var completionResp chatCompletionResponse
