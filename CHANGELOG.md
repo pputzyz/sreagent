@@ -4,6 +4,41 @@
 
 ---
 
+## [v4.15.9] — 2026-05-21
+
+### 框架级审查 Round 9 — 引擎 Bug + 安全加固 + 分页统一 + BaseModel 嵌入
+
+**引擎层修复**
+- `evaluator_cache.go`：collectAllEvaluators() 修复 perDS 模式下 GetFiringEvents/GetStatus 遗漏规则
+- `rule_eval.go`：createAlertEvent 失败后检测 EventID==0 防止状态不一致
+- `rule_eval.go`：NoData 解析失败时保留内存状态避免孤立 firing 事件
+- `escalation_executor.go`：SetInterval 校验 d>0
+- `leader_election.go`：Lua 脚本提取为包级变量避免重复创建
+- `suppression.go`：sync.Once 防止重复 Start
+
+**安全加固**
+- `crypto.go`：key 缺失/格式错误时 stderr 告警
+- `safehttp/client.go`：移除 debug 模式 SSRF 绕过，loopback 始终阻断
+- `datasource/auth.go`：Unmarshal 失败记录日志
+- `handler/integration.go`：请求体 1MB 限流
+- `repository/oncall_shift.go`：errors.Is 替代 == 比较
+
+**数据层修复**
+- `repository/label_registry.go`：4 个方法补全 context.Context 参数
+- `repository/diagnostic_workflow.go`：json.Marshal 替代 fmt.Sprintf 防 JSON 注入
+- 13+ 处调用链同步传递 ctx（service → handler）
+
+**Handler 层统一**
+- 7 个分页端点统一使用 SuccessPage() 替代 gin.H{"list":...,"total":...}
+
+**Model 层规范**
+- InspectionTask / DiagnosticWorkflow / AIConversation / KnowledgeDocument / AutoAction 嵌入 BaseModel 替代手动字段
+
+**测试更新**
+- safehttp 测试更新：loopback 在 debug 模式下同样阻断
+
+---
+
 ## [v4.15.8] — 2026-05-21
 
 ### 定时巡检 Agent
