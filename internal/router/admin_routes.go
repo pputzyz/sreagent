@@ -194,4 +194,26 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			changes.DELETE("/:id", manage, h.ChangeEvent.Delete)
 		}
 	}
+
+	// Inspection Tasks (定时巡检 Agent)
+	if h.Inspection != nil {
+		inspTasks := auth.Group("/inspection/tasks")
+		{
+			inspTasks.GET("", h.Inspection.ListTasks)
+			inspTasks.GET("/:id", h.Inspection.GetTask)
+			inspTasks.POST("", manage, h.Inspection.CreateTask)
+			inspTasks.PUT("/:id", manage, h.Inspection.UpdateTask)
+			inspTasks.DELETE("/:id", manage, h.Inspection.DeleteTask)
+			inspTasks.POST("/:id/run", operate, h.Inspection.RunNow)
+		}
+		inspRuns := auth.Group("/inspection/runs")
+		{
+			inspRuns.GET("", h.Inspection.ListRuns)
+			inspRuns.GET("/:id", h.Inspection.GetRun)
+		}
+		inspUtil := auth.Group("/inspection")
+		{
+			inspUtil.POST("/validate-cron", h.Inspection.ValidateCron)
+		}
+	}
 }

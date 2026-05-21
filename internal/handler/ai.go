@@ -364,3 +364,15 @@ func (h *AIHandler) SaveAIGlobal(c *gin.Context) {
 	}
 	Success(c, gin.H{"message": "AI global config saved"})
 }
+
+// ListTools godoc
+// @Summary 列出所有已注册的 AI 工具
+// @Description 返回工具名称、描述、I/O 行为、风险等级等元数据
+// @Tags AI
+// @Produce json
+// @Success 200 {array} service.AITool
+// @Router /ai/tools/registry [get]
+func (h *AIHandler) ListTools(c *gin.Context) {
+	tools := h.aiSvc.ListTools()
+	Success(c, tools)
+}

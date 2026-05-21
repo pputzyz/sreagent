@@ -141,3 +141,90 @@ func formatDuration(d time.Duration) string {
 	hours = hours % 24
 	return fmt.Sprintf("%dd %dh", days, hours)
 }
+
+// BuildInspectionReportCard builds a Lark card for an inspection run result.
+func BuildInspectionReportCard(
+	taskName string,
+	summary string,
+	findings []InspectionFinding,
+	status string,
+	platformURL string,
+) *lark.CardMessage {
+	var template, emoji string
+	if status == "failed" {
+		template = "red"
+		emoji = "❌"
+	} else if len(findings) > 0 {
+		// Has findings — check max severity
+		maxSev := "info"
+		for _, f := range findings {
+			if f.Severity == "critical" {
+				maxSev = "critical"
+				break
+			}
+			if f.Severity == "warning" {
+				maxSev = "warning"
+			}
+		}
+		template = larkSeverityTemplate(maxSev)
+		emoji = larkSeverityEmoji(maxSev)
+	} else {
+		template = "green"
+		emoji = "✅"
+	}
+
+	headerContent := fmt.Sprintf("%s 巡检报告: %s", emoji, sanitizeLarkMarkdown(taskName))
+
+	elements := []interface{}{
+		lark.CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("**状态:** %s\n**结论:** %s", status, sanitizeLarkMarkdown(summary)),
+		},
+	}
+
+	if len(findings) > 0 {
+		elements = append(elements, lark.CardDivider{Tag: "hr"})
+		var sb strings.Builder
+		sb.WriteString("**发现项:**\n")
+		for i, f := range findings {
+			if i >= 10 {
+				sb.WriteString(fmt.Sprintf("\n_...共 %d 项，仅显示前 10 项_", len(findings)))
+				break
+			}
+			sevEmoji := larkSeverityEmoji(f.Severity)
+			sb.WriteString(fmt.Sprintf("%s **[%s]** %s: %s\n",
+				sevEmoji, strings.ToUpper(f.Severity),
+				sanitizeLarkMarkdown(f.Category),
+				sanitizeLarkMarkdown(f.Detail)))
+		}
+		elements = append(elements, lark.CardMarkdown{Tag: "markdown", Content: sb.String()})
+	}
+
+	if platformURL != "" {
+		elements = append(elements,
+			lark.CardDivider{Tag: "hr"},
+			lark.CardAction{
+				Tag: "action",
+				Actions: []interface{}{
+					lark.CardButton{
+						Tag:  "button",
+						Text: lark.CardText{Tag: "plain_text", Content: "查看完整报告"},
+						URL:  platformURL,
+						Type: "primary",
+					},
+				},
+			},
+		)
+	}
+
+	return &lark.CardMessage{
+		MsgType: "interactive",
+		Card: lark.Card{
+			Header: lark.CardHeader{
+				Title:    lark.CardText{Tag: "plain_text", Content: headerContent},
+				Template: template,
+			},
+			Elements: elements,
+		},
+	}
+}

@@ -148,6 +148,8 @@ export default {
     presetRules: '预置规则库',
     security: '安全设置',
     systemSettings: '系统设置',
+    inspection: '定时巡检',
+    inspectionDetail: '巡检报告',
   },
   header: {
     timezone: '时区',

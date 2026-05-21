@@ -56,6 +56,9 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		ai.GET("/global", adminOnly, h.AI.GetAIGlobal)
 		ai.PUT("/global", adminOnly, h.AI.SaveAIGlobal)
 
+		// AI Tools registry
+		ai.GET("/tools/registry", h.AI.ListTools)
+
 		// AI Agent — 自主执行任务
 		if h.Agent != nil {
 			ai.POST("/agent/run", aiRL, h.Agent.RunAgent)

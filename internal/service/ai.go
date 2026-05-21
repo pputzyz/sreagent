@@ -42,6 +42,14 @@ func (s *AIService) SetToolRegistry(registry *AIToolRegistry) {
 	s.toolRegistry = registry
 }
 
+// ListTools 返回所有已注册的 AI 工具元数据（供 API 暴露）
+func (s *AIService) ListTools() []*AITool {
+	if s.toolRegistry == nil {
+		return nil
+	}
+	return s.toolRegistry.List()
+}
+
 // NewAIService creates a new AIService backed by DB-stored configuration.
 func NewAIService(settingSvc *SystemSettingService, logger *zap.Logger) *AIService {
 	return &AIService{
@@ -985,4 +993,138 @@ func (s *AIService) executeTool(ctx context.Context, name string, params map[str
 		return fmt.Sprintf("工具执行失败: %v", err)
 	}
 	return result
+}
+
+// ToolCallRecord 记录一次工具调用的详情
+type ToolCallRecord struct {
+	ToolName string `json:"tool_name"`
+	Params   string `json:"params"`
+	Result   string `json:"result"`
+}
+
+// callLLMWithToolsCustom 与 callLLMWithTools 类似，但接受自定义工具执行器和工具定义，
+// 返回最终文本回答和所有工具调用记录。供 RunUntilDone 等场景使用。
+func (s *AIService) callLLMWithToolsCustom(
+	ctx context.Context,
+	cfg AIConfig,
+	systemPrompt, userPrompt string,
+	tools []map[string]interface{},
+	executor func(ctx context.Context, name string, params map[string]interface{}) (string, error),
+	maxRounds int,
+) (string, []ToolCallRecord, error) {
+	if maxRounds <= 0 {
+		maxRounds = 5
+	}
+
+	messages := []ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPrompt},
+	}
+
+	var records []ToolCallRecord
+
+	for round := 0; round < maxRounds; round++ {
+		reqBody := chatCompletionRequest{
+			Model:    cfg.Model,
+			Messages: messages,
+			Tools:    tools,
+		}
+		if cfg.Temperature > 0 {
+			reqBody.Temperature = &cfg.Temperature
+		}
+		if cfg.MaxTokens > 0 {
+			reqBody.MaxTokens = &cfg.MaxTokens
+		}
+		if cfg.TopP > 0 && cfg.TopP < 1.0 {
+			reqBody.TopP = &cfg.TopP
+		}
+
+		bodyBytes, err := json.Marshal(reqBody)
+		if err != nil {
+			return "", records, fmt.Errorf("failed to marshal request: %w", err)
+		}
+
+		baseURL := strings.TrimRight(cfg.BaseURL, "/")
+		url := baseURL + "/chat/completions"
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return "", records, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		if cfg.APIKey != "" {
+			req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+		}
+
+		resp, err := s.client.Do(req)
+		if err != nil {
+			return "", records, fmt.Errorf("failed to call AI API: %w", err)
+		}
+
+		respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+		resp.Body.Close()
+		if err != nil {
+			return "", records, fmt.Errorf("failed to read AI response: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return "", records, fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, string(respBody))
+		}
+
+		var completionResp chatCompletionResponse
+		if err := json.Unmarshal(respBody, &completionResp); err != nil {
+			return "", records, fmt.Errorf("failed to parse AI response: %w", err)
+		}
+		if completionResp.Error != nil {
+			return "", records, fmt.Errorf("AI API error: %s", completionResp.Error.Message)
+		}
+		if len(completionResp.Choices) == 0 {
+			return "", records, fmt.Errorf("AI API returned no choices")
+		}
+
+		if completionResp.Usage != nil {
+			metrics.IncAITokensUsed(cfg.Provider, "prompt", completionResp.Usage.PromptTokens)
+			metrics.IncAITokensUsed(cfg.Provider, "completion", completionResp.Usage.CompletionTokens)
+		}
+
+		assistantMsg := completionResp.Choices[0].Message
+
+		if len(assistantMsg.ToolCalls) == 0 {
+			return assistantMsg.Content, records, nil
+		}
+
+		messages = append(messages, ChatMessage{
+			Role:      "assistant",
+			Content:   assistantMsg.Content,
+			ToolCalls: assistantMsg.ToolCalls,
+		})
+
+		for _, tc := range assistantMsg.ToolCalls {
+			var params map[string]interface{}
+			if err := json.Unmarshal([]byte(tc.Function.Arguments), &params); err != nil {
+				params = map[string]interface{}{}
+			}
+
+			result, execErr := executor(ctx, tc.Function.Name, params)
+			if execErr != nil {
+				result = fmt.Sprintf("工具执行失败: %v", execErr)
+			}
+
+			records = append(records, ToolCallRecord{
+				ToolName: tc.Function.Name,
+				Params:   tc.Function.Arguments,
+				Result:   truncateString(result, 5000),
+			})
+
+			messages = append(messages, ChatMessage{
+				Role:       "tool",
+				Content:    result,
+				ToolCallID: tc.ID,
+			})
+		}
+	}
+
+	s.logger.Warn("AI 工具调用达到最大轮次", zap.Int("max_rounds", maxRounds))
+	return "工具调用轮次已达上限，请基于已有信息生成报告。", records, nil
 }

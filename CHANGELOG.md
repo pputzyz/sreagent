@@ -4,6 +4,48 @@
 
 ---
 
+## [v4.15.8] — 2026-05-21
+
+### 定时巡检 Agent
+
+- `internal/model/inspection.go`：新增 InspectionTask + InspectionRun 模型
+- `internal/repository/inspection.go`：CRUD + ListEnabledTasks 仓储层
+- `internal/service/inspection_prompt.go`：巡检系统提示词模板（结构化报告输出）
+- `internal/service/inspection_executor.go`：单次巡检执行器，调用 RunUntilDone + 解析 JSON 报告
+- `internal/service/inspection_scheduler.go`：robfig/cron 定时调度 + LeaderChecker 接口避免 import cycle
+- `internal/handler/inspection.go`：Task CRUD + Run 列表/详情 + RunNow 手动触发 + ValidateCron 校验
+- `internal/router/admin_routes.go`：/inspection/tasks, /inspection/runs, /inspection/validate-cron 路由注册
+- `internal/service/lark_cards.go`：BuildInspectionReportCard 飞书巡检报告卡片
+- `internal/pkg/dbmigrate/migrations/000061_inspection_task.{up,down}.sql`：迁移文件
+- `cmd/server/wire.go`：inspectionRepo → InspectionExecutor → InspectionScheduler → InspectionHandler 全链路 DI
+
+### AI Agent 增强
+
+- `internal/service/ai_agent.go`：新增 RunUntilDone 方法（自主工具调用循环，直到 LLM 给出最终回答）
+- `internal/service/ai.go`：新增 callLLMWithToolsCustom 支持自定义工具执行器 + ToolCallRecord
+- `internal/service/ai_tools.go`：新增 ListFiltered + ToOpenAIToolsFiltered 工具白名单过滤
+
+### AI 工具元数据
+
+- `internal/service/ai_tools.go`：AITool 新增 RiskLevel (0=read/1=write/2=destructive) + IO 标注
+- `internal/handler/ai.go`：新增 ListTools 端点暴露工具注册表元数据
+- `internal/router/setting_routes.go`：GET /api/ai/tools/registry 路由
+
+### 前端
+
+- `web/src/api/inspection.ts`：巡检任务 + 运行记录 API 封装
+- `web/src/components/common/CronInput.vue`：Cron 表达式输入组件（预设 + 自定义 + 校验）
+- `web/src/pages/platform/inspections/Index.vue`：巡检任务列表 + 创建/编辑 Modal + 执行记录表格
+- `web/src/pages/platform/inspections/RunDetail.vue`：巡检报告详情页（摘要 + 发现项 + 完整报告）
+- `web/src/router/index.ts`：/platform/inspections 路由
+- `web/src/i18n/en.ts` + `zh-CN.ts`：inspection/inspectionDetail 菜单文案
+
+### 依赖
+
+- `github.com/robfig/cron/v3`：Cron 定时调度
+
+---
+
 ## [v4.15.7] — 2026-05-21
 
 ### Review Round 2 — 22 项全量整改

@@ -477,6 +477,92 @@ func (s *AgentService) shouldContinue(ctx context.Context, task *AgentTask, fail
 	return decision.Continue
 }
 
+// RunResult 是 RunUntilDone 的返回值
+type RunResult struct {
+	ConversationID uint              `json:"conversation_id"`
+	FinalAnswer    string            `json:"final_answer"`
+	ToolCalls      []ToolCallRecord `json:"tool_calls,omitempty"`
+}
+
+// RunUntilDone 执行一轮 Agent 对话：发送 prompt，让 LLM 自主调用工具直到给出最终回答。
+// allowedTools 为空时不限制工具。maxSteps 限制工具调用总次数（默认 15）。
+func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemPrompt, userPrompt string, allowedTools []string, maxSteps int) (*RunResult, error) {
+	if maxSteps <= 0 {
+		maxSteps = 15
+	}
+
+	// 持久化会话
+	var convID uint
+	if s.convRepo != nil {
+		conv := &model.AIConversation{
+			UserID: userID,
+			Title:  truncateString(userPrompt, 100),
+			Status: "active",
+		}
+		if err := s.convRepo.Create(ctx, conv); err != nil {
+			s.logger.Warn("创建 AI 会话失败", zap.Error(err))
+		} else {
+			convID = conv.ID
+		}
+	}
+
+	cfg, err := s.aiSvc.loadConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+	}
+	if !cfg.Enabled {
+		return nil, fmt.Errorf("AI 未启用")
+	}
+
+	// 构建过滤后的工具定义
+	tools := s.toolReg.ToOpenAIToolsFiltered(allowedTools)
+
+	// 构建自定义执行器，只允许白名单内的工具
+	toolList := s.toolReg.ListFiltered(allowedTools)
+	toolMap := make(map[string]*AITool, len(toolList))
+	for _, t := range toolList {
+		toolMap[t.Name] = t
+	}
+
+	executor := func(execCtx context.Context, name string, params map[string]interface{}) (string, error) {
+		tool, ok := toolMap[name]
+		if !ok {
+			return "", fmt.Errorf("工具 %q 不在允许列表中", name)
+		}
+		toolCtx, cancel := context.WithTimeout(execCtx, agentStepTimeout)
+		defer cancel()
+		return tool.Execute(toolCtx, params)
+	}
+
+	finalAnswer, records, err := s.aiSvc.callLLMWithToolsCustom(ctx, cfg, systemPrompt, userPrompt, tools, executor, maxSteps)
+	if err != nil {
+		return nil, err
+	}
+
+	// 持久化工具调用记录
+	if s.convRepo != nil && convID > 0 {
+		for i, rec := range records {
+			call := &model.AIToolCall{
+				ConversationID: convID,
+				StepIndex:      i + 1,
+				ToolName:       rec.ToolName,
+				Parameters:     rec.Params,
+				Result:         rec.Result,
+				Status:         "completed",
+			}
+			if err := s.convRepo.CreateToolCall(ctx, call); err != nil {
+				s.logger.Warn("保存工具调用记录失败", zap.Error(err))
+			}
+		}
+	}
+
+	return &RunResult{
+		ConversationID: convID,
+		FinalAnswer:    finalAnswer,
+		ToolCalls:      records,
+	}, nil
+}
+
 // summarize 让 LLM 汇总所有步骤结果
 func (s *AgentService) summarize(ctx context.Context, task *AgentTask) (string, error) {
 	systemPrompt := "你是一个 SRE 运维助手。请根据以下 Agent 任务的执行结果，生成一份简洁的中文汇总报告。\n" +

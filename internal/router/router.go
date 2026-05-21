@@ -66,6 +66,7 @@ type Handlers struct {
 	Knowledge           *handler.KnowledgeHandler          // 知识库 (Knowledge Base)
 	DiagnosticWorkflow  *handler.DiagnosticWorkflowHandler // 诊断工作流 (AIOps Phase 2)
 	ChangeEvent         *handler.ChangeEventHandler        // 变更事件 (AIOps Phase 2)
+	Inspection          *handler.InspectionHandler         // 定时巡检 Agent
 }
 
 // Setup initializes the Gin router with all routes and middleware.

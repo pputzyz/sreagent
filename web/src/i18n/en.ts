@@ -148,6 +148,8 @@ export default {
     presetRules: 'Preset Rules',
     security: 'Security',
     systemSettings: 'System Settings',
+    inspection: 'Inspection',
+    inspectionDetail: 'Inspection Report',
   },
   header: {
     timezone: 'Timezone',

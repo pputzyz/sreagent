@@ -1,0 +1,202 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/robfig/cron/v3"
+	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/repository"
+)
+
+// LeaderChecker is a minimal interface to avoid import cycle with engine package.
+type LeaderChecker interface {
+	IsLeader() bool
+}
+
+// InspectionScheduler 管理巡检任务的定时调度
+type InspectionScheduler struct {
+	taskRepo  *repository.InspectionRepository
+	executor  *InspectionExecutor
+	leader    LeaderChecker
+	logger    *zap.Logger
+
+	cron    *cron.Cron
+	mu      sync.Mutex
+	entries map[uint]cron.EntryID // taskID → cron entry
+}
+
+// NewInspectionScheduler 创建巡检调度器
+func NewInspectionScheduler(
+	taskRepo *repository.InspectionRepository,
+	executor *InspectionExecutor,
+	leader LeaderChecker,
+	logger *zap.Logger,
+) *InspectionScheduler {
+	return &InspectionScheduler{
+		taskRepo:  taskRepo,
+		executor:  executor,
+		leader:    leader,
+		logger:    logger,
+		cron:      cron.New(cron.WithSeconds()),
+		entries:   make(map[uint]cron.EntryID),
+	}
+}
+
+// Start 从 DB 加载所有启用任务并启动调度器
+func (s *InspectionScheduler) Start(ctx context.Context) error {
+	tasks, err := s.taskRepo.ListEnabledTasks(ctx)
+	if err != nil {
+		return fmt.Errorf("加载巡检任务失败: %w", err)
+	}
+
+	for _, task := range tasks {
+		if err := s.addTask(task); err != nil {
+			s.logger.Error("注册巡检任务失败",
+				zap.Uint("task_id", task.ID),
+				zap.String("task_name", task.Name),
+				zap.Error(err),
+			)
+		}
+	}
+
+	s.cron.Start()
+	s.logger.Info("巡检调度器已启动", zap.Int("tasks", len(tasks)))
+	return nil
+}
+
+// Stop 停止调度器
+func (s *InspectionScheduler) Stop() {
+	ctx := s.cron.Stop()
+	<-ctx.Done()
+	s.logger.Info("巡检调度器已停止")
+}
+
+// AddTask 动态添加一个巡检任务到调度器
+func (s *InspectionScheduler) AddTask(task model.InspectionTask) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 如果已存在，先移除
+	if entryID, ok := s.entries[task.ID]; ok {
+		s.cron.Remove(entryID)
+		delete(s.entries, task.ID)
+	}
+
+	if !task.Enabled {
+		return nil
+	}
+
+	return s.addTask(task)
+}
+
+// RemoveTask 从调度器移除一个巡检任务
+func (s *InspectionScheduler) RemoveTask(taskID uint) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if entryID, ok := s.entries[taskID]; ok {
+		s.cron.Remove(entryID)
+		delete(s.entries, taskID)
+		s.logger.Info("已移除巡检任务", zap.Uint("task_id", taskID))
+	}
+}
+
+// addTask 内部方法，调用方需持有锁
+func (s *InspectionScheduler) addTask(task model.InspectionTask) error {
+	taskCopy := task
+	entryID, err := s.cron.AddFunc(task.CronExpr, func() {
+		s.runWithLeaderCheck(&taskCopy)
+	})
+	if err != nil {
+		return fmt.Errorf("无效的 cron 表达式 %q: %w", task.CronExpr, err)
+	}
+
+	s.entries[task.ID] = entryID
+	s.logger.Info("已注册巡检任务",
+		zap.Uint("task_id", task.ID),
+		zap.String("task_name", task.Name),
+		zap.String("cron", task.CronExpr),
+	)
+	return nil
+}
+
+// runWithLeaderCheck 检查 leader 后执行巡检
+func (s *InspectionScheduler) runWithLeaderCheck(task *model.InspectionTask) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	if s.leader != nil && !s.leader.IsLeader() {
+		s.logger.Debug("非 leader 节点，跳过巡检", zap.Uint("task_id", task.ID))
+		return
+	}
+
+	s.logger.Info("开始执行巡检任务",
+		zap.Uint("task_id", task.ID),
+		zap.String("task_name", task.Name),
+	)
+
+	run, err := s.executor.Run(ctx, task)
+	if err != nil {
+		s.logger.Error("巡检任务执行失败",
+			zap.Uint("task_id", task.ID),
+			zap.Error(err),
+		)
+		return
+	}
+
+	// 发送通知（飞书卡片等）
+	s.notifyResult(task, run)
+}
+
+// OutputChannel 输出渠道配置
+type OutputChannel struct {
+	Type string `json:"type"` // lark_bot, email, webhook
+	BotID string `json:"bot_id,omitempty"`
+	To    []string `json:"to,omitempty"`
+	URL   string `json:"url,omitempty"`
+}
+
+// notifyResult 将巡检结果发送到配置的输出渠道
+func (s *InspectionScheduler) notifyResult(task *model.InspectionTask, run *model.InspectionRun) {
+	var channels []OutputChannel
+	if err := json.Unmarshal([]byte(task.OutputChannels), &channels); err != nil {
+		s.logger.Warn("解析输出渠道配置失败", zap.Uint("task_id", task.ID), zap.Error(err))
+		return
+	}
+
+	for _, ch := range channels {
+		switch ch.Type {
+		case "lark_bot":
+			// TODO: 发送飞书卡片消息（Phase 2 — 与 LarkBotService 集成）
+			s.logger.Info("巡检结果通知（飞书）",
+				zap.Uint("task_id", task.ID),
+				zap.String("bot_id", ch.BotID),
+				zap.String("summary", run.ReportSummary),
+			)
+		case "webhook":
+			s.logger.Info("巡检结果通知（Webhook）",
+				zap.Uint("task_id", task.ID),
+				zap.String("url", ch.URL),
+			)
+		default:
+			s.logger.Warn("未知的输出渠道类型", zap.String("type", ch.Type))
+		}
+	}
+}
+
+// ListEntries 返回当前调度中的任务 ID 列表（调试用）
+func (s *InspectionScheduler) ListEntries() []uint {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ids := make([]uint, 0, len(s.entries))
+	for id := range s.entries {
+		ids = append(ids, id)
+	}
+	return ids
+}

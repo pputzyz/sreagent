@@ -73,6 +73,10 @@ const routes: RouteRecordRaw[] = [
       // ===== AI Agent =====
       { path: 'ai/agent', component: () => import('@/pages/ai/AgentView.vue'), meta: { title: 'menu.aiAgent' } },
 
+      // ===== Inspection (定时巡检) =====
+      { path: 'platform/inspections', component: () => import('@/pages/platform/inspections/Index.vue'), meta: { title: 'menu.inspection', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'platform/inspections/runs/:id', component: () => import('@/pages/platform/inspections/RunDetail.vue'), meta: { title: 'menu.inspectionDetail', requiresRole: ['admin', 'team_lead'] } },
+
       // ===== Legacy Redirects =====
       { path: 'dashboard', redirect: '/oncall/overview' },
       { path: 'channels', redirect: '/oncall/spaces' },

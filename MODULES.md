@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-21 | tag: v4.15.7
-> 共 40 个 model, 56 个 handler, 74 个 service, 40 个 repository, 270+ API 端点
+> 最后更新: 2026-05-21 | tag: v4.15.8
+> 共 42 个 model, 57 个 handler, 78 个 service, 42 个 repository, 280+ API 端点
 
 ---
 
@@ -350,6 +350,32 @@ permissions ──→ team (团队角色查询)
 - **后端**: `service/incident_context.go`（仅 service 层，无独立 handler/model/repository）
 - **依赖**: alert-event, change-event, knowledge-base, incident
 - **状态**: ✅ 完成（Phase 2-3 上下文聚合，service only）
+
+## 定时巡检 Agent (inspection) [v4.15.8]
+
+- **功能**: Cron 定时调度 AI 巡检任务，自主调用工具收集数据，生成结构化巡检报告，飞书卡片通知
+- **后端**:
+  - `model/inspection.go` — InspectionTask + InspectionRun
+  - `repository/inspection.go` — CRUD + ListEnabledTasks
+  - `service/inspection_prompt.go` — 巡检 prompt 模板
+  - `service/inspection_executor.go` — 单次巡检执行器
+  - `service/inspection_scheduler.go` — Cron 调度 + Leader 选举
+  - `handler/inspection.go` — Task CRUD + Run CRUD + RunNow + ValidateCron
+  - `router/admin_routes.go` — /inspection/tasks, /inspection/runs, /inspection/validate-cron
+- **前端**:
+  - `api/inspection.ts` — API 封装
+  - `components/common/CronInput.vue` — Cron 表达式输入组件
+  - `pages/platform/inspections/Index.vue` — 任务列表 + 创建/编辑 Modal
+  - `pages/platform/inspections/RunDetail.vue` — 运行报告详情
+- **迁移**: `000061_inspection_task.{up,down}.sql`
+- **依赖**: ai-agent, ai-tools, leader-election, cron/v3
+- **状态**: ✅ 完成
+
+## AI 工具元数据增强 [v4.15.8]
+
+- **功能**: AITool 新增 RiskLevel (0=read/1=write/2=destructive) + IO 标注 + /api/ai/tools/registry 端点
+- **后端**: `service/ai_tools.go` (AITool 结构体), `handler/ai.go` (ListTools), `router/setting_routes.go`
+- **状态**: ✅ 完成
 
 ## 文档索引
 

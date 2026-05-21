@@ -74,6 +74,9 @@ type Dependencies struct {
 	oidcMu     sync.RWMutex           // protects oidcSvc during reload
 	oidcHdlr   *handler.OIDCHandler   // for SetService on reload
 
+	// Inspection scheduler (for graceful shutdown)
+	InspectionSched *service.InspectionScheduler
+
 	// Shutdown
 	appCtx    context.Context    // cancelled on shutdown
 	appCancel context.CancelFunc // cancels background workers
@@ -166,6 +169,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	diagnosticWorkflowRepo := repository.NewDiagnosticWorkflowRepository(db)
 	changeEventRepo := repository.NewChangeEventRepository(db)
 
+	// Inspection repository
+	inspectionRepo := repository.NewInspectionRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -247,6 +253,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// AIOps Phase 2 services
 	diagnosticWorkflowSvc := service.NewDiagnosticWorkflowService(diagnosticWorkflowRepo, dsSvc, aiSvc, zapLogger)
 	changeEventSvc := service.NewChangeEventService(changeEventRepo, zapLogger)
+
+	// Inspection executor (scheduler created after engine block for Leader access)
+	inspectionExecutor := service.NewInspectionExecutor(inspectionRepo, agentSvc, zapLogger)
 
 	// TODO(AIOps P3): wire IncidentContextService into AgentService when agent gains incident-aware context
 	// incidentContextSvc := service.NewIncidentContextService(incidentRepo, eventRepo, knowledgeSvc, scheduleSvc, bizGroupSvc, zapLogger)
@@ -446,6 +455,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	heartbeatChecker.Start()
 
+	// Inspection scheduler (created after engine block so d.Leader is set)
+	inspectionSched := service.NewInspectionScheduler(inspectionRepo, inspectionExecutor, d.Leader, zapLogger)
+
 	// --------------- AI 工具注册表 ---------------
 	toolRegistry := service.NewAIToolRegistry(zapLogger)
 	toolRegistry.RegisterBuiltinTools(dsSvc, ruleSvc, incidentSvc, auditLogSvc, eventSvc, knowledgeSvc,
@@ -458,6 +470,11 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	)
 	aiSvc.SetToolRegistry(toolRegistry)
 	agentSvc.SetToolRegistry(toolRegistry)
+
+	// Start inspection scheduler (loads enabled tasks from DB)
+	if err := inspectionSched.Start(context.Background()); err != nil {
+		zapLogger.Error("巡检调度器启动失败", zap.Error(err))
+	}
 
 	// --------------- Services (stats) ---------------
 	dashboardStatsSvc := service.NewDashboardStatsService(db, zapLogger)
@@ -522,6 +539,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Knowledge:           handler.NewKnowledgeHandler(knowledgeSvc),
 		DiagnosticWorkflow:  handler.NewDiagnosticWorkflowHandler(diagnosticWorkflowSvc),
 		ChangeEvent:         handler.NewChangeEventHandler(changeEventSvc),
+		Inspection:          handler.NewInspectionHandler(inspectionRepo, inspectionSched, inspectionExecutor),
 	}
 
 	// Inject audit service into handlers that support it
@@ -573,6 +591,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	d.RedisClient = redisClient
 	d.StateStore = stateStore
 	d.Handlers = handlers
+	d.InspectionSched = inspectionSched
 
 	return d, nil
 }
@@ -676,6 +695,11 @@ func (d *Dependencies) Shutdown() {
 
 	// 4. Stop escalation executor
 	d.EscalationExecutor.Stop()
+
+	// 4.5 Stop inspection scheduler
+	if d.InspectionSched != nil {
+		d.InspectionSched.Stop()
+	}
 
 	// 5. Wait for in-flight worker pool tasks to complete
 	d.AlertWorkerPool.Wait()

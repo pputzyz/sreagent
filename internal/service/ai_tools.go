@@ -28,6 +28,7 @@ type AITool struct {
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"` // JSON Schema
 	IO          string                 `json:"io"`         // "read" | "write" | "none" — I/O 行为标注
+	RiskLevel   int8                   `json:"risk_level"` // 0=read-only safe, 1=write, 2=destructive
 	Execute     func(ctx context.Context, params map[string]interface{}) (string, error)
 }
 
@@ -61,6 +62,42 @@ func (r *AIToolRegistry) List() []*AITool {
 	result := make([]*AITool, 0, len(r.tools))
 	for _, t := range r.tools {
 		result = append(result, t)
+	}
+	return result
+}
+
+// ListFiltered 返回指定名称白名单中的工具。allowList 为空时返回全部。
+func (r *AIToolRegistry) ListFiltered(allowList []string) []*AITool {
+	if len(allowList) == 0 {
+		return r.List()
+	}
+	set := make(map[string]struct{}, len(allowList))
+	for _, n := range allowList {
+		set[n] = struct{}{}
+	}
+	result := make([]*AITool, 0, len(allowList))
+	for _, t := range r.tools {
+		if _, ok := set[t.Name]; ok {
+			result = append(result, t)
+		}
+	}
+	return result
+}
+
+// ToOpenAIToolsFiltered 将白名单中的工具转为 OpenAI function calling 格式。allowList 为空时返回全部。
+func (r *AIToolRegistry) ToOpenAIToolsFiltered(allowList []string) []map[string]interface{} {
+	tools := r.ListFiltered(allowList)
+	result := make([]map[string]interface{}, 0, len(tools))
+	for _, t := range tools {
+		tool := map[string]interface{}{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name":        t.Name,
+				"description": t.Description,
+				"parameters":  t.Parameters,
+			},
+		}
+		result = append(result, tool)
 	}
 	return result
 }
