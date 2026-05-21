@@ -109,6 +109,7 @@ func ParseToken(tokenString, secret string) (*Claims, error) {
 // ParseTokenIgnoreExpiry parses a JWT token without enforcing the expiry time.
 // The signature and all other claims are still validated.
 // Used by the refresh endpoint to allow recently-expired tokens to be renewed.
+// M1: Manually validates that IssuedAt is not in the future.
 func ParseTokenIgnoreExpiry(tokenString, secret string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{},
 		func(token *jwt.Token) (interface{}, error) {
@@ -117,7 +118,7 @@ func ParseTokenIgnoreExpiry(tokenString, secret string) (*Claims, error) {
 			}
 			return []byte(secret), nil
 		},
-		jwt.WithoutClaimsValidation(), // skip exp/nbf/iat checks; we validate manually below
+		jwt.WithoutClaimsValidation(), // skip exp/nbf checks; we validate manually below
 	)
 	if err != nil {
 		return nil, err
@@ -126,6 +127,11 @@ func ParseTokenIgnoreExpiry(tokenString, secret string) (*Claims, error) {
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
 		return nil, jwt.ErrSignatureInvalid
+	}
+
+	// M1: Reject tokens with IssuedAt in the future (clock skew tolerance: 5 minutes).
+	if claims.IssuedAt != nil && claims.IssuedAt.After(time.Now().Add(5*time.Minute)) {
+		return nil, fmt.Errorf("token issued_at is in the future")
 	}
 
 	return claims, nil

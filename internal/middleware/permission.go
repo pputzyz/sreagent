@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/pkg/rbac"
 )
 
@@ -108,6 +109,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 		}
 
 		if EnforceMode == "warn" {
+			metrics.IncRBACWarn(perm, c.Request.URL.Path)
 			if permLogger != nil {
 				permLogger.Warn("RBAC warn: permission denied (request allowed)",
 					zap.Uint("user_id", uid),

@@ -94,6 +94,7 @@ func init() {
 	prometheus.MustRegister(heartbeatChecksTotal)
 	prometheus.MustRegister(heartbeatActiveRules)
 	prometheus.MustRegister(engineLastHeartbeatTimestamp)
+	prometheus.MustRegister(rbacWarnCounter)
 }
 
 // IncAlertsEvaluated increments the alert evaluation counter.
@@ -151,4 +152,18 @@ func SetHeartbeatActiveRules(count int) {
 // Call this at the end of each successful evaluation cycle.
 func SetEngineLastHeartbeatTimestamp() {
 	engineLastHeartbeatTimestamp.Set(float64(time.Now().Unix()))
+}
+
+// rbacWarnCounter tracks RBAC warn-mode denials (H3).
+var rbacWarnCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "sreagent_rbac_warn_total",
+		Help: "Total RBAC warn-mode permission denials (request allowed through).",
+	},
+	[]string{"perm", "path"},
+)
+
+// IncRBACWarn increments the RBAC warn counter for a given permission and path.
+func IncRBACWarn(perm, path string) {
+	rbacWarnCounter.WithLabelValues(perm, path).Inc()
 }

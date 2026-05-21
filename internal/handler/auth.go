@@ -79,9 +79,9 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 		return
 	}
 
-	// Validate avatar size: base64 data URLs must not exceed 200 KB.
+	// M7: Validate avatar size unconditionally — base64 data URLs must not exceed 200 KB.
 	// A 200 KB binary file encodes to ~272,000 base64 characters.
-	if len(req.Avatar) >= 5 && req.Avatar[:5] == "data:" && len(req.Avatar) > 272000 {
+	if len(req.Avatar) > 272000 {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "avatar image must not exceed 200 KB"))
 		return
 	}
