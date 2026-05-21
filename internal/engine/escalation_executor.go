@@ -83,7 +83,9 @@ func NewEscalationExecutor(
 
 // SetInterval overrides the default 60-second check interval.
 func (e *EscalationExecutor) SetInterval(d time.Duration) {
-	e.interval = d
+	if d > 0 {
+		e.interval = d
+	}
 }
 
 // sendViaChannel adapts a v1 NotifyChannel to the v2 NotifyMediaService dispatch.

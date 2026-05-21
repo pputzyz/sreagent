@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/gorm"
@@ -19,7 +20,7 @@ func NewLabelRegistryRepository(db *gorm.DB) *LabelRegistryRepository {
 
 // UpsertBatch inserts or updates label registry entries in a single batch.
 // On conflict (datasource_id, label_key, label_value) it increments hit_count and updates last_seen_at.
-func (r *LabelRegistryRepository) UpsertBatch(entries []*model.LabelRegistry) error {
+func (r *LabelRegistryRepository) UpsertBatch(ctx context.Context, entries []*model.LabelRegistry) error {
 	if len(entries) == 0 {
 		return nil
 	}
@@ -31,7 +32,7 @@ func (r *LabelRegistryRepository) UpsertBatch(entries []*model.LabelRegistry) er
 			end = len(entries)
 		}
 		chunk := entries[i:end]
-		err := r.db.Clauses(clause.OnConflict{
+		err := r.db.WithContext(ctx).Clauses(clause.OnConflict{
 			Columns: []clause.Column{
 				{Name: "datasource_id"},
 				{Name: "label_key"},
@@ -51,8 +52,8 @@ func (r *LabelRegistryRepository) UpsertBatch(entries []*model.LabelRegistry) er
 
 // GetValues returns label values for a given key, optionally filtered by datasource IDs.
 // Results are ordered by hit_count descending (most common first), limited to 100.
-func (r *LabelRegistryRepository) GetValues(key string, datasourceIDs []uint) ([]string, error) {
-	query := r.db.Model(&model.LabelRegistry{}).
+func (r *LabelRegistryRepository) GetValues(ctx context.Context, key string, datasourceIDs []uint) ([]string, error) {
+	query := r.db.WithContext(ctx).Model(&model.LabelRegistry{}).
 		Where("label_key = ?", key).
 		Order("hit_count DESC").
 		Limit(100)
@@ -76,8 +77,8 @@ func (r *LabelRegistryRepository) GetValues(key string, datasourceIDs []uint) ([
 
 // GetKeys returns distinct label keys, optionally filtered by datasource IDs.
 // Ordered by total hit_count desc, limited to 100.
-func (r *LabelRegistryRepository) GetKeys(datasourceIDs []uint) ([]string, error) {
-	query := r.db.Model(&model.LabelRegistry{}).
+func (r *LabelRegistryRepository) GetKeys(ctx context.Context, datasourceIDs []uint) ([]string, error) {
+	query := r.db.WithContext(ctx).Model(&model.LabelRegistry{}).
 		Select("label_key, SUM(hit_count) AS total").
 		Group("label_key").
 		Order("total DESC").
@@ -101,7 +102,7 @@ func (r *LabelRegistryRepository) GetKeys(datasourceIDs []uint) ([]string, error
 }
 
 // DeleteByDatasource removes all entries for a given datasource (used when DS is deleted).
-func (r *LabelRegistryRepository) DeleteByDatasource(datasourceID uint) error {
-	return r.db.Where("datasource_id = ?", datasourceID).Delete(&model.LabelRegistry{}).Error
+func (r *LabelRegistryRepository) DeleteByDatasource(ctx context.Context, datasourceID uint) error {
+	return r.db.WithContext(ctx).Where("datasource_id = ?", datasourceID).Delete(&model.LabelRegistry{}).Error
 }
 

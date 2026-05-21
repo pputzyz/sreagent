@@ -10,8 +10,7 @@ import (
 	"github.com/sreagent/sreagent/internal/service"
 )
 
-// Ensure KnowledgeHandler implements the handler pattern used by the project.
-// Using gin.H{"list": ..., "total": ...} for paginated responses.
+// KnowledgeHandler implements the handler pattern used by the project.
 
 // KnowledgeHandler handles knowledge base CRUD + search.
 type KnowledgeHandler struct {
@@ -41,7 +40,7 @@ func (h *KnowledgeHandler) List(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"list": docs, "total": total})
+	SuccessPage(c, docs, total, pq.Page, pq.PageSize)
 }
 
 // Get godoc

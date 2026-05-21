@@ -4,25 +4,22 @@ import "time"
 
 // AutoAction defines an automated remediation action with guardrails.
 type AutoAction struct {
-	ID             uint       `json:"id" gorm:"primaryKey"`
-	Name           string     `json:"name" gorm:"size:255;not null"`
-	Description    string     `json:"description" gorm:"type:text"`
-	ActionType     string     `json:"action_type" gorm:"size:50;not null"`
-	Level          string     `json:"level" gorm:"size:10;default:L1"`
-	TriggerLabels  JSONLabels `json:"trigger_labels" gorm:"type:json"`
-	TriggerSeverity string   `json:"trigger_severity" gorm:"size:20"`
-	ActionConfig   JSONLabels `json:"action_config" gorm:"type:json"`
-	Enabled        bool       `json:"enabled" gorm:"default:false"`
-	DryRun         bool       `json:"dry_run" gorm:"default:true"`
-	ApprovalRequired bool     `json:"approval_required" gorm:"default:true"`
-	Confidence     int        `json:"confidence" gorm:"default:50"`
-	SuccessCount   int        `json:"success_count" gorm:"default:0"`
-	FailureCount   int        `json:"failure_count" gorm:"default:0"`
-	LastRunAt      *time.Time `json:"last_run_at,omitempty"`
-	CreatedBy      *uint      `json:"created_by" gorm:"index"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	BaseModel
+	Name             string     `json:"name" gorm:"size:255;not null"`
+	Description      string     `json:"description" gorm:"type:text"`
+	ActionType       string     `json:"action_type" gorm:"size:50;not null"`
+	Level            string     `json:"level" gorm:"size:10;default:L1"`
+	TriggerLabels    JSONLabels `json:"trigger_labels" gorm:"type:json"`
+	TriggerSeverity  string     `json:"trigger_severity" gorm:"size:20"`
+	ActionConfig     JSONLabels `json:"action_config" gorm:"type:json"`
+	Enabled          bool       `json:"enabled" gorm:"default:false"`
+	DryRun           bool       `json:"dry_run" gorm:"default:true"`
+	ApprovalRequired bool       `json:"approval_required" gorm:"default:true"`
+	Confidence       int        `json:"confidence" gorm:"default:50"`
+	SuccessCount     int        `json:"success_count" gorm:"default:0"`
+	FailureCount     int        `json:"failure_count" gorm:"default:0"`
+	LastRunAt        *time.Time `json:"last_run_at,omitempty"`
+	CreatedBy        *uint      `json:"created_by" gorm:"index"`
 }
 
 func (AutoAction) TableName() string { return "auto_actions" }

@@ -42,7 +42,7 @@ func (h *ChangeEventHandler) List(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"list": events, "total": total})
+	SuccessPage(c, events, total, pq.Page, pq.PageSize)
 }
 
 // Get godoc

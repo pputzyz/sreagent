@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -69,7 +70,7 @@ func (r *OnCallShiftRepository) GetCurrentShift(ctx context.Context, scheduleID 
 		Preload("User").
 		First(&shift).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

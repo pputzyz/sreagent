@@ -10,21 +10,14 @@ import (
 	"net"
 	"net/http"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 // blockedIP returns an error if the IP address should not be reachable
 // from an outbound HTTP request. This prevents SSRF attacks where an
 // attacker tricks the server into making requests to internal services.
 func blockedIP(ip net.IP) error {
-	// Always block loopback (127.0.0.0/8, ::1) in production.
-	// In debug mode, loopback is allowed for local development.
 	if ip.IsLoopback() {
-		if gin.Mode() != gin.DebugMode {
-			return fmt.Errorf("blocked: loopback address %s", ip)
-		}
-		return nil
+		return fmt.Errorf("blocked: loopback address %s", ip)
 	}
 
 	// Block link-local (169.254.0.0/16, fe80::/10) — includes cloud metadata endpoints

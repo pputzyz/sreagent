@@ -43,14 +43,8 @@ func (e *Evaluator) GetFiringEvents() []*AlertState {
 		return out
 	}
 
-	// Snapshot the evaluator list under the read lock, then release it before
-	// iterating per-fingerprint state locks.
-	e.mu.RLock()
-	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
-	for _, re := range e.evaluators {
-		evals = append(evals, re)
-	}
-	e.mu.RUnlock()
+	// Collect all rule evaluators — from both direct map and per-DS buckets.
+	evals := e.collectAllEvaluators()
 
 	var result []*AlertState
 	for _, re := range evals {
@@ -103,15 +97,34 @@ func (e *Evaluator) GetFiringAlertEvents() []model.AlertEvent {
 	return events
 }
 
-// GetStatus returns status of the evaluation engine.
-func (e *Evaluator) GetStatus() EngineStatus {
-	// Snapshot evaluator list to avoid holding e.mu during state iteration.
+// collectAllEvaluators returns all active RuleEvaluator instances from both
+// the direct evaluator map and per-datasource buckets.
+func (e *Evaluator) collectAllEvaluators() []*RuleEvaluator {
+	var evals []*RuleEvaluator
+
+	// Direct evaluators (non-perDS mode or mixed).
 	e.mu.RLock()
-	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
 	for _, re := range e.evaluators {
 		evals = append(evals, re)
 	}
 	e.mu.RUnlock()
+
+	// Per-datasource bucket evaluators.
+	e.perDS.Range(func(_, v any) bool {
+		bucket := v.(*PerDatasourceEvaluator)
+		bucket.rules.Range(func(_, rv any) bool {
+			evals = append(evals, rv.(*RuleEvaluator))
+			return true
+		})
+		return true
+	})
+
+	return evals
+}
+
+// GetStatus returns status of the evaluation engine.
+func (e *Evaluator) GetStatus() EngineStatus {
+	evals := e.collectAllEvaluators()
 
 	activeAlerts := 0
 	for _, re := range evals {
@@ -145,7 +158,7 @@ func (e *Evaluator) GetStatus() EngineStatus {
 
 	return EngineStatus{
 		Running:      running,
-		TotalRules:   len(e.evaluators),
+		TotalRules:   len(evals),
 		ActiveAlerts: activeAlerts,
 		Uptime:       uptime,
 		IsLeader:     isLeader,

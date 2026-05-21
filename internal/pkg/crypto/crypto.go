@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -30,10 +31,16 @@ func loadKey() []byte {
 	keyOnce.Do(func() {
 		keyHex := os.Getenv("SREAGENT_SECRET_KEY")
 		if keyHex == "" {
+			fmt.Fprintf(os.Stderr, "[crypto] WARNING: SREAGENT_SECRET_KEY not set — encryption disabled, sensitive data will be stored in plaintext\n")
 			return
 		}
 		key, err := hex.DecodeString(keyHex)
-		if err != nil || len(key) != 32 {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[crypto] WARNING: SREAGENT_SECRET_KEY is not valid hex — encryption disabled\n")
+			return
+		}
+		if len(key) != 32 {
+			fmt.Fprintf(os.Stderr, "[crypto] WARNING: SREAGENT_SECRET_KEY must be 32 bytes (64 hex chars), got %d bytes — encryption disabled\n", len(key))
 			return
 		}
 		masterKey = key

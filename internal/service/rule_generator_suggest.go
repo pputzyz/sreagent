@@ -43,7 +43,7 @@ func (s *RuleGeneratorService) SuggestLabels(ctx context.Context, datasourceID u
 
 	// Get label keys + values from registry
 	dsIDs := []uint{datasourceID}
-	keys, err := s.labelRegSvc.GetKeys(dsIDs)
+	keys, err := s.labelRegSvc.GetKeys(ctx, dsIDs)
 	if err != nil || len(keys) == 0 {
 		return result, nil
 	}
@@ -56,7 +56,7 @@ func (s *RuleGeneratorService) SuggestLabels(ctx context.Context, datasourceID u
 		limit = len(keys)
 	}
 	for i := 0; i < limit; i++ {
-		vals, vErr := s.labelRegSvc.GetValues(keys[i], dsIDs)
+		vals, vErr := s.labelRegSvc.GetValues(ctx, keys[i], dsIDs)
 		if vErr == nil && len(vals) > 0 {
 			vl := 5
 			if len(vals) < vl {
@@ -121,7 +121,7 @@ func (s *RuleGeneratorService) suggestLabelsHeuristic(result *LabelSuggestionRes
 	for _, key := range keys {
 		for _, cl := range commonLabels {
 			if key == cl {
-				vals, err := s.labelRegSvc.GetValues(key, dsIDs)
+				vals, err := s.labelRegSvc.GetValues(context.Background(), key, dsIDs)
 				if err == nil && len(vals) > 0 {
 					result.SuggestedLabels[key] = LabelValue{
 						Value:      vals[0],

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -196,8 +197,8 @@ func (r *DiagnosticWorkflowRepository) FindMatchingWorkflows(ctx context.Context
 	// Push label matching into SQL via JSON_CONTAINS for each key-value pair.
 	for k, v := range labels {
 		// JSON_CONTAINS checks that trigger_labels contains at least {"key":"value"}.
-		pair := fmt.Sprintf(`{"%s":"%s"}`, k, v)
-		q = q.Where("trigger_labels IS NULL OR JSON_CONTAINS(trigger_labels, ?)", pair)
+		pair, _ := json.Marshal(map[string]string{k: v})
+		q = q.Where("trigger_labels IS NULL OR JSON_CONTAINS(trigger_labels, ?)", string(pair))
 	}
 
 	if err := q.Find(&workflows).Error; err != nil {

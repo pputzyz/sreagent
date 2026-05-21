@@ -58,13 +58,14 @@ func Test_blockedIP_blocks_loopback_production(t *testing.T) {
 	assert.Contains(t, err.Error(), "loopback")
 }
 
-func Test_blockedIP_allows_loopback_debug(t *testing.T) {
+func Test_blockedIP_blocks_loopback_debug(t *testing.T) {
 	gin.SetMode(gin.DebugMode)
 	defer gin.SetMode(gin.TestMode)
 
 	ip := net.ParseIP("127.0.0.1")
 	err := blockedIP(ip)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "loopback")
 }
 
 func Test_blockedIP_blocks_ipv6_ula(t *testing.T) {
@@ -144,7 +145,7 @@ func Test_SafeTransport_allows_public_ip(t *testing.T) {
 	assert.NotNil(t, transport.Transport)
 }
 
-func Test_SafeTransport_allows_localhost_in_debug(t *testing.T) {
+func Test_SafeTransport_blocks_localhost_in_debug(t *testing.T) {
 	gin.SetMode(gin.DebugMode)
 	defer gin.SetMode(gin.TestMode)
 
@@ -154,12 +155,10 @@ func Test_SafeTransport_allows_localhost_in_debug(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSafeClient(5 * time.Second)
-	resp, err := client.Get(server.URL)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	client := NewSafeClient(2 * time.Second)
+	_, err := client.Get(server.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
 }
 
 func Test_SafeTransport_blocks_localhost_in_release(t *testing.T) {

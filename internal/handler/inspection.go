@@ -157,7 +157,7 @@ func (h *InspectionHandler) ListRuns(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"list": runs, "total": total})
+	SuccessPage(c, runs, total, pq.Page, pq.PageSize)
 }
 
 func (h *InspectionHandler) GetRun(c *gin.Context) {

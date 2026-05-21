@@ -92,7 +92,7 @@ func (h *AgentHandler) ListConversations(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"list": convs, "total": total})
+	SuccessPage(c, convs, total, pq.Page, pq.PageSize)
 }
 
 // GetConversation godoc

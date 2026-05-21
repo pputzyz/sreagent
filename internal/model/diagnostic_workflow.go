@@ -4,7 +4,7 @@ import "time"
 
 // DiagnosticWorkflow defines a diagnostic SOP template.
 type DiagnosticWorkflow struct {
-	ID              uint       `json:"id" gorm:"primaryKey"`
+	BaseModel
 	Name            string     `json:"name" gorm:"size:255;not null"`
 	Description     string     `json:"description" gorm:"type:text"`
 	TriggerLabels   JSONLabels `json:"trigger_labels" gorm:"type:json"`
@@ -14,9 +14,6 @@ type DiagnosticWorkflow struct {
 	MaxSteps        int        `json:"max_steps" gorm:"default:10"`
 	RequireApproval bool       `json:"require_approval" gorm:"default:true"`
 	CreatedBy       *uint      `json:"created_by" gorm:"index"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	DeletedAt       *time.Time `json:"deleted_at,omitempty" gorm:"index"`
 }
 
 func (DiagnosticWorkflow) TableName() string { return "diagnostic_workflows" }

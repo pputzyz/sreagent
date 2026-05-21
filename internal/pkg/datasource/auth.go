@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -28,17 +29,23 @@ func applyAuth(req *http.Request, authType, authConfig string) {
 	switch authType {
 	case "basic":
 		var cfg basicAuthConfig
-		if err := json.Unmarshal([]byte(authConfig), &cfg); err == nil {
+		if err := json.Unmarshal([]byte(authConfig), &cfg); err != nil {
+			log.Printf("[datasource/auth] WARNING: failed to parse basic auth config, request will proceed without auth: %v", err)
+		} else {
 			req.SetBasicAuth(cfg.Username, cfg.Password)
 		}
 	case "bearer":
 		var cfg bearerAuthConfig
-		if err := json.Unmarshal([]byte(authConfig), &cfg); err == nil {
+		if err := json.Unmarshal([]byte(authConfig), &cfg); err != nil {
+			log.Printf("[datasource/auth] WARNING: failed to parse bearer auth config, request will proceed without auth: %v", err)
+		} else {
 			req.Header.Set("Authorization", "Bearer "+cfg.Token)
 		}
 	case "api_key":
 		var cfg apiKeyAuthConfig
-		if err := json.Unmarshal([]byte(authConfig), &cfg); err == nil {
+		if err := json.Unmarshal([]byte(authConfig), &cfg); err != nil {
+			log.Printf("[datasource/auth] WARNING: failed to parse api_key auth config, request will proceed without auth: %v", err)
+		} else {
 			headerName := cfg.Header
 			if headerName == "" {
 				headerName = "X-API-Key"

@@ -143,6 +143,12 @@ func (re *RuleEvaluator) evaluate() {
 					// Set status to firing AFTER createAlertEvent succeeds to avoid
 					// phantom firing states in GetFiringEvents when DB write fails.
 					re.createAlertEvent(state, model.EventStatusFiring)
+					if state.EventID == 0 {
+						// DB write failed — state was reverted to "pending" inside createAlertEvent.
+						sl.state = state
+						re.persistState(fp, state)
+						break
+					}
 					state.Status = "firing"
 					state.Revision++
 					sl.state = state
@@ -322,16 +328,22 @@ func (re *RuleEvaluator) evaluate() {
 		noDataFP := fmt.Sprintf("nodata_%d", re.rule.ID)
 		sl := re.lockState(noDataFP)
 		sl.mu.Lock()
+		resolved := true
 		if sl.state != nil {
 			if sl.state.Status == "firing" {
 				sl.state.Status = "resolved"
 				sl.state.ResolvedAt = now
 				sl.state.Revision++
-				re.resolveAlertEvent(sl.state)
+				if err := re.resolveAlertEvent(sl.state); err != nil {
+					// Resolution failed — keep state for retry on next cycle.
+					resolved = false
+				}
 			}
-			sl.state = nil
-			re.deleteState(noDataFP)
-			re.deletePersistedState(noDataFP)
+			if resolved {
+				sl.state = nil
+				re.deleteState(noDataFP)
+				re.deletePersistedState(noDataFP)
+			}
 		}
 		sl.mu.Unlock()
 	}

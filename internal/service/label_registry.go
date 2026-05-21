@@ -68,7 +68,7 @@ func (s *LabelRegistryService) SyncDatasource(ctx context.Context, ds *model.Dat
 			})
 		}
 	}
-	return s.repo.UpsertBatch(entries)
+	return s.repo.UpsertBatch(ctx, entries)
 }
 
 // RecordFromLabels passively records labels from an alert event (works for all datasource types).
@@ -94,7 +94,7 @@ func (s *LabelRegistryService) RecordFromLabels(datasourceID uint, labels map[st
 			HitCount:     1,
 		})
 	}
-	if err := s.repo.UpsertBatch(entries); err != nil {
+	if err := s.repo.UpsertBatch(context.Background(), entries); err != nil {
 		s.logger.Warn("label registry passive record failed", zap.Error(err))
 	}
 }
@@ -139,13 +139,13 @@ func (s *LabelRegistryService) StartSyncWorker(ctx context.Context, interval tim
 }
 
 // GetValues returns autocomplete values for a label key.
-func (s *LabelRegistryService) GetValues(key string, datasourceIDs []uint) ([]string, error) {
-	return s.repo.GetValues(key, datasourceIDs)
+func (s *LabelRegistryService) GetValues(ctx context.Context, key string, datasourceIDs []uint) ([]string, error) {
+	return s.repo.GetValues(ctx, key, datasourceIDs)
 }
 
 // GetKeys returns known label keys (for key autocomplete).
-func (s *LabelRegistryService) GetKeys(datasourceIDs []uint) ([]string, error) {
-	return s.repo.GetKeys(datasourceIDs)
+func (s *LabelRegistryService) GetKeys(ctx context.Context, datasourceIDs []uint) ([]string, error) {
+	return s.repo.GetKeys(ctx, datasourceIDs)
 }
 
 // keyCacheKey builds a deterministic cache key from datasource IDs.
@@ -185,7 +185,7 @@ func (s *LabelRegistryService) GetKeysFallback(datasourceIDs []uint) []string {
 	s.keyCache.RUnlock()
 
 	// Cache miss — query repo
-	keys, err := s.repo.GetKeys(datasourceIDs)
+	keys, err := s.repo.GetKeys(context.Background(), datasourceIDs)
 	if err != nil {
 		s.logger.Warn("GetKeysFallback: repo query failed", zap.Error(err))
 		return []string{}

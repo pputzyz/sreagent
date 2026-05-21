@@ -4,13 +4,10 @@ import "time"
 
 // AIConversation stores an AI Agent conversation session.
 type AIConversation struct {
-	ID        uint       `json:"id" gorm:"primaryKey"`
-	UserID    uint       `json:"user_id" gorm:"index;not null"`
-	Title     string     `json:"title" gorm:"size:255;default:''"`
-	Status    string     `json:"status" gorm:"size:20;default:active"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	BaseModel
+	UserID uint   `json:"user_id" gorm:"index;not null"`
+	Title  string `json:"title" gorm:"size:255;default:''"`
+	Status string `json:"status" gorm:"size:20;default:active"`
 }
 
 func (AIConversation) TableName() string { return "ai_conversations" }

@@ -126,7 +126,7 @@ func (s *RuleGeneratorService) Generate(ctx context.Context, req *RuleGenerateRe
 	}
 
 	// 3. Build system prompt with few-shot examples
-	labelKeys, _ := s.labelRegSvc.GetKeys(nil)
+	labelKeys, _ := s.labelRegSvc.GetKeys(ctx, nil)
 	systemPrompt := s.buildSystemPrompt(labelContext, existingRules, presetMatches) + "\n\n" + fewShotAlertRule(labelKeys)
 
 	// 4. Build user prompt
@@ -371,7 +371,7 @@ func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasource
 	}
 	ch := make(chan keysResult, 1)
 	go func() {
-		k, e := s.labelRegSvc.GetKeys(dsIDs)
+		k, e := s.labelRegSvc.GetKeys(ctx, dsIDs)
 		ch <- keysResult{keys: k, err: e}
 	}()
 
@@ -406,7 +406,7 @@ func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasource
 	for i := 0; i < limit; i++ {
 		sb.WriteString(fmt.Sprintf("  - %s\n", keys[i]))
 		// Also get top values for this key
-		vals, err := s.labelRegSvc.GetValues(keys[i], dsIDs)
+		vals, err := s.labelRegSvc.GetValues(ctx, keys[i], dsIDs)
 		if err == nil && len(vals) > 0 {
 			valLimit := 5
 			if len(vals) < valLimit {

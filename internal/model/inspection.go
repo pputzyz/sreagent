@@ -4,19 +4,16 @@ import "time"
 
 // InspectionTask defines a scheduled inspection job.
 type InspectionTask struct {
-	ID             uint       `json:"id" gorm:"primaryKey"`
-	Name           string     `json:"name" gorm:"size:128;not null"`
-	Description    string     `json:"description" gorm:"type:text;not null"`
-	CronExpr       string     `json:"cron_expr" gorm:"size:64;not null"`
-	TargetType     string     `json:"target_type" gorm:"size:32;not null;default:global"` // global / biz_group
-	TargetIDs      string     `json:"target_ids" gorm:"type:json"`                        // [1,2,3]
-	AllowedTools   string     `json:"allowed_tools" gorm:"type:json"`                     // ["tool_a","tool_b"]
-	OutputChannels string     `json:"output_channels" gorm:"type:json;not null"`          // channel config array
-	Enabled        bool       `json:"enabled" gorm:"default:true"`
-	CreatedBy      uint       `json:"created_by" gorm:"not null"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	BaseModel
+	Name           string `json:"name" gorm:"size:128;not null"`
+	Description    string `json:"description" gorm:"type:text;not null"`
+	CronExpr       string `json:"cron_expr" gorm:"size:64;not null"`
+	TargetType     string `json:"target_type" gorm:"size:32;not null;default:global"` // global / biz_group
+	TargetIDs      string `json:"target_ids" gorm:"type:json"`                        // [1,2,3]
+	AllowedTools   string `json:"allowed_tools" gorm:"type:json"`                     // ["tool_a","tool_b"]
+	OutputChannels string `json:"output_channels" gorm:"type:json;not null"`          // channel config array
+	Enabled        bool   `json:"enabled" gorm:"default:true"`
+	CreatedBy      uint   `json:"created_by" gorm:"not null"`
 }
 
 func (InspectionTask) TableName() string { return "inspection_tasks" }

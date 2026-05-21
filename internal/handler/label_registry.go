@@ -30,7 +30,7 @@ func (h *LabelRegistryHandler) GetValues(c *gin.Context) {
 		return
 	}
 	dsIDs := parseDatasourceIDs(c.Query("datasource_id"))
-	values, err := h.svc.GetValues(key, dsIDs)
+	values, err := h.svc.GetValues(c.Request.Context(), key, dsIDs)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
@@ -42,7 +42,7 @@ func (h *LabelRegistryHandler) GetValues(c *gin.Context) {
 // GET /label-registry/keys?datasource_id=1,2
 func (h *LabelRegistryHandler) GetKeys(c *gin.Context) {
 	dsIDs := parseDatasourceIDs(c.Query("datasource_id"))
-	keys, err := h.svc.GetKeys(dsIDs)
+	keys, err := h.svc.GetKeys(c.Request.Context(), dsIDs)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return

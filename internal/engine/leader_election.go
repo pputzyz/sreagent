@@ -20,6 +20,16 @@ const (
 	renewInterval  = 5 * time.Second // renew at TTL/3
 )
 
+// checkAndExtendScript atomically checks if we hold the lock and extends its TTL.
+var checkAndExtendScript = redis.NewScript(`
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+	redis.call("EXPIRE", KEYS[1], ARGV[2])
+	return 1
+else
+	return 0
+end
+`)
+
 // LeaderElection defines the interface for distributed leader election.
 type LeaderElection interface {
 	// TryAcquire attempts to acquire leadership. Returns true if this instance
@@ -71,15 +81,7 @@ func (l *RedisLeaderElection) TryAcquire(ctx context.Context) bool {
 	}
 
 	// Check if we already hold the lock (e.g. after a restart within TTL) — atomic check-and-extend
-	script := redis.NewScript(`
-		if redis.call("GET", KEYS[1]) == ARGV[1] then
-			redis.call("EXPIRE", KEYS[1], ARGV[2])
-			return 1
-		else
-			return 0
-		end
-	`)
-	result, err := script.Run(ctx, l.rdb, []string{leaderLockKey}, l.value, int(leaderLockTTL.Seconds())).Int()
+	result, err := checkAndExtendScript.Run(ctx, l.rdb, []string{leaderLockKey}, l.value, int(leaderLockTTL.Seconds())).Int()
 	if err != nil {
 		l.logger.Warn("leader election: failed to check-and-extend lock", zap.Error(err))
 		return false

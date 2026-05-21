@@ -36,6 +36,7 @@ type LevelSuppressor struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	logger      *zap.Logger
+	startOnce   sync.Once
 }
 
 // NewLevelSuppressor creates a new LevelSuppressor.
@@ -52,23 +53,25 @@ func (s *LevelSuppressor) SetLogger(logger *zap.Logger) {
 }
 
 // Start launches the background GC goroutine that removes stale entries every hour.
-// Entries whose lastUpdate is older than 24 hours are deleted.
+// Entries whose lastUpdate is older than 24 hours are deleted. Safe to call multiple times.
 func (s *LevelSuppressor) Start() {
-	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.startOnce.Do(func() {
+		s.ctx, s.cancel = context.WithCancel(context.Background())
 
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				s.gc()
-			case <-s.ctx.Done():
-				return
+			for {
+				select {
+				case <-ticker.C:
+					s.gc()
+				case <-s.ctx.Done():
+					return
+				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // Stop terminates the background GC goroutine.

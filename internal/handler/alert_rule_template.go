@@ -32,7 +32,7 @@ func (h *AlertRuleTemplateHandler) List(c *gin.Context) {
 		Error(c, err)
 		return
 	}
-	Success(c, gin.H{"list": list, "total": total})
+	SuccessPage(c, list, total, page, pageSize)
 }
 
 func (h *AlertRuleTemplateHandler) Get(c *gin.Context) {

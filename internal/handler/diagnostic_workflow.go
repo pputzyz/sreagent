@@ -36,7 +36,7 @@ func (h *DiagnosticWorkflowHandler) List(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"list": wfs, "total": total})
+	SuccessPage(c, wfs, total, pq.Page, pq.PageSize)
 }
 
 func (h *DiagnosticWorkflowHandler) Get(c *gin.Context) {
@@ -218,7 +218,7 @@ func (h *DiagnosticWorkflowHandler) ListRuns(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"list": runs, "total": total})
+	SuccessPage(c, runs, total, pq.Page, pq.PageSize)
 }
 
 // MatchWorkflows finds workflows matching given labels.
