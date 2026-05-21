@@ -1,12 +1,14 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
@@ -213,112 +215,54 @@ func computeMetric(durations []float64) MTTRMetric {
 // GetStats returns aggregated dashboard statistics.
 func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 	var stats DashboardStats
-	var wg sync.WaitGroup
-	var mu sync.Mutex
 
-	wg.Add(7)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
-			}
-		}()
-		if err := s.db.Model(&model.DataSource{}).Count(&stats.TotalDatasources).Error; err != nil {
-			s.logger.Error("failed to count datasources", zap.Error(err))
-		}
-	}()
+	g, ctx := errgroup.WithContext(ctx)
 
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
-			}
-		}()
-		if err := s.db.Model(&model.AlertRule{}).Count(&stats.TotalRules).Error; err != nil {
-			s.logger.Error("failed to count alert rules", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
-			}
-		}()
-		if err := s.db.Model(&model.AlertEvent{}).
+	g.Go(func() error {
+		return s.db.WithContext(ctx).Model(&model.DataSource{}).Count(&stats.TotalDatasources).Error
+	})
+	g.Go(func() error {
+		return s.db.WithContext(ctx).Model(&model.AlertRule{}).Count(&stats.TotalRules).Error
+	})
+	g.Go(func() error {
+		return s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 			Where("status IN ?", []string{
 				string(model.EventStatusFiring),
 				string(model.EventStatusAcknowledged),
 			}).
-			Count(&stats.ActiveAlerts).Error; err != nil {
-			s.logger.Error("failed to count active alerts", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
-			}
-		}()
+			Count(&stats.ActiveAlerts).Error
+	})
+	g.Go(func() error {
 		todayStart := time.Now().Truncate(24 * time.Hour)
-		if err := s.db.Model(&model.AlertEvent{}).
+		return s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 			Where("status = ? AND resolved_at >= ?", string(model.EventStatusResolved), todayStart).
-			Count(&stats.ResolvedToday).Error; err != nil {
-			s.logger.Error("failed to count resolved alerts today", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
-			}
-		}()
-		if err := s.db.Model(&model.User{}).Count(&stats.TotalUsers).Error; err != nil {
-			s.logger.Error("failed to count users", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
-			}
-		}()
-		if err := s.db.Model(&model.Team{}).Count(&stats.TotalTeams).Error; err != nil {
-			s.logger.Error("failed to count teams", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
-			}
-		}()
+			Count(&stats.ResolvedToday).Error
+	})
+	g.Go(func() error {
+		return s.db.WithContext(ctx).Model(&model.User{}).Count(&stats.TotalUsers).Error
+	})
+	g.Go(func() error {
+		return s.db.WithContext(ctx).Model(&model.Team{}).Count(&stats.TotalTeams).Error
+	})
+	g.Go(func() error {
 		type sevRow struct {
 			Severity string
 			Cnt      int64
 		}
 		var sevRows []sevRow
-		s.db.Model(&model.AlertEvent{}).
+		if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 			Select("severity, COUNT(*) AS cnt").
 			Where("status IN ?", []string{
 				string(model.EventStatusFiring),
 				string(model.EventStatusAcknowledged),
 			}).
 			Group("severity").
-			Scan(&sevRows)
-		mu.Lock()
+			Scan(&sevRows).Error; err != nil {
+			return err
+		}
 		stats.SeverityBreakdown = map[string]int64{
 			"critical": 0,
 			"warning":  0,
@@ -327,10 +271,13 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 		for _, r := range sevRows {
 			stats.SeverityBreakdown[r.Severity] = r.Cnt
 		}
-		mu.Unlock()
-	}()
+		return nil
+	})
 
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		s.logger.Error("dashboard stats query failed", zap.Error(err))
+		return &stats, err
+	}
 	return &stats, nil
 }
 

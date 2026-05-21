@@ -27,6 +27,7 @@ type AITool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"` // JSON Schema
+	IO          string                 `json:"io"`         // "read" | "write" | "none" — I/O 行为标注
 	Execute     func(ctx context.Context, params map[string]interface{}) (string, error)
 }
 
@@ -96,6 +97,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "query_datasource",
 		Description: "对指定数据源执行 PromQL 范围查询，返回时序数据。用于分析指标趋势、排查性能问题。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -162,6 +164,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "list_alert_rules",
 		Description: "查询告警规则列表，支持按严重等级、状态筛选。用于了解当前告警配置。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -224,6 +227,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "get_incident_detail",
 		Description: "获取指定故障（incident）的详细信息，包括状态、严重等级、负责人、关联告警等。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -249,6 +253,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "get_engine_status",
 		Description: "获取告警引擎的运行状态，包括是否运行中、规则总数、活跃告警数、运行时长等。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type":       "object",
 			"properties": map[string]interface{}{},
@@ -266,6 +271,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "search_audit_logs",
 		Description: "搜索审计日志，支持按操作类型、资源类型、时间范围筛选。用于追踪操作历史和排查问题。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -352,6 +358,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "list_metrics",
 		Description: "列出某数据源的所有指标名（metric names）。可按前缀过滤。用于探索数据源有哪些可用指标。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -420,6 +427,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "list_label_keys",
 		Description: "列出某数据源的所有 label key（标签名）。用于了解数据源的标签维度。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -457,6 +465,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "list_label_values",
 		Description: "列出某数据源中指定 label key 的所有值。用于探索标签值分布，如列出所有 job 名、instance 等。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -515,6 +524,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "query_instant",
 		Description: "对指定数据源执行 PromQL 即时查询（当前时刻的快照值）。适用于查看当前状态、单值指标。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -563,6 +573,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "get_metric_metadata",
 		Description: "获取某指标的元数据（help 文本、类型如 counter/gauge/histogram）。用于理解指标含义。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -614,6 +625,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "search_similar_alerts",
 		Description: "搜索最近的告警事件。可按名称、严重等级、状态过滤。用于查找历史告警记录，辅助根因分析。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -690,6 +702,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 	r.Register(&AITool{
 		Name:        "search_knowledge",
 		Description: "搜索知识库文档（SOP、事故案例、Runbook 等）。支持全文检索，可按来源过滤。用于查找排障手册、历史事故处理方案。",
+		IO:          "read",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

@@ -150,8 +150,11 @@ func (m *AlertGroupManager) flushGroup(key string) {
 		zap.Int("event_count", len(events)),
 	)
 
+	flushCtx, cancel := context.WithTimeout(m.serverCtx, 30*time.Second)
+	defer cancel()
+
 	for _, event := range events {
-		if err := m.routeFunc(m.serverCtx, event); err != nil {
+		if err := m.routeFunc(flushCtx, event); err != nil {
 			m.logger.Error("failed to route grouped alert",
 				zap.String("group_key", key),
 				zap.Uint("event_id", event.ID),
