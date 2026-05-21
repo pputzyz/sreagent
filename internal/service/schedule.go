@@ -59,6 +59,9 @@ func NewScheduleService(
 
 // CreateSchedule creates a new on-call schedule.
 func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule *model.Schedule) error {
+	if err := validateSchedule(schedule); err != nil {
+		return err
+	}
 	if err := s.scheduleRepo.Create(ctx, schedule); err != nil {
 		s.logger.Error("failed to create schedule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -87,6 +90,9 @@ func (s *ScheduleService) ListSchedules(ctx context.Context, teamID uint, page, 
 
 // UpdateSchedule updates an existing schedule.
 func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule *model.Schedule) error {
+	if err := validateSchedule(schedule); err != nil {
+		return err
+	}
 	existing, err := s.scheduleRepo.GetByID(ctx, schedule.ID)
 	if err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
@@ -107,15 +113,27 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule *model.Sc
 	return nil
 }
 
-// DeleteSchedule deletes a schedule and its participants/overrides.
+// DeleteSchedule deletes a schedule and its participants/overrides/shifts.
 func (s *ScheduleService) DeleteSchedule(ctx context.Context, id uint) error {
 	if _, err := s.scheduleRepo.GetByID(ctx, id); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
 	}
 
-	// Clean up participants
-	_ = s.participantRepo.DeleteByScheduleID(ctx, id)
-
+	// M1: Clean up all child records. Order: shifts → overrides → participants → schedule.
+	if s.shiftRepo != nil {
+		if err := s.shiftRepo.DeleteByScheduleID(ctx, id); err != nil {
+			s.logger.Error("failed to delete shifts", zap.Error(err), zap.Uint("schedule_id", id))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+	}
+	if err := s.overrideRepo.DeleteByScheduleID(ctx, id); err != nil {
+		s.logger.Error("failed to delete overrides", zap.Error(err), zap.Uint("schedule_id", id))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if err := s.participantRepo.DeleteByScheduleID(ctx, id); err != nil {
+		s.logger.Error("failed to delete participants", zap.Error(err), zap.Uint("schedule_id", id))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
 	if err := s.scheduleRepo.Delete(ctx, id); err != nil {
 		s.logger.Error("failed to delete schedule", zap.Error(err), zap.Uint("schedule_id", id))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -312,56 +330,79 @@ func (s *ScheduleService) calculateRotationIndex(
 		return 0
 	}
 
-	// Parse handoff time (HH:MM)
-	handoffHour, handoffMin := 9, 0
-	if len(schedule.HandoffTime) >= 5 {
-		fmt.Sscanf(schedule.HandoffTime, "%d:%d", &handoffHour, &handoffMin)
-	}
-
-	// Reference point: the schedule's creation time (beginning of rotation)
-	refTime := schedule.CreatedAt
+	handoffHour, handoffMin, _ := parseHandoffTime(schedule.HandoffTime)
 	loc := now.Location()
-	refTime = refTime.In(loc)
 
-	// Align reference to the first handoff boundary
+	refTime := schedule.CreatedAt.In(loc)
 	ref := time.Date(refTime.Year(), refTime.Month(), refTime.Day(), handoffHour, handoffMin, 0, 0, loc)
 	if ref.After(refTime) {
-		// Move back one period so the ref is at or before creation
 		switch schedule.RotationType {
 		case model.RotationWeekly:
 			ref = ref.AddDate(0, 0, -7)
-		default: // daily or custom
+		default:
 			ref = ref.AddDate(0, 0, -1)
 		}
 	}
 
-	switch schedule.RotationType {
-	case model.RotationDaily:
-		elapsed := now.Sub(ref)
-		periods := int(elapsed.Hours() / 24)
-		return periods % numParticipants
+	periodDays := rotationPeriodDays(schedule)
 
-	case model.RotationWeekly:
-		// Adjust reference to the correct handoff day of the week
-		for ref.Weekday() != time.Weekday(schedule.HandoffDay) {
+	if schedule.RotationType == model.RotationWeekly {
+		// Align reference to the correct handoff day of the week.
+		handoffDay := schedule.HandoffDay % 7
+		for ref.Weekday() != time.Weekday(handoffDay) {
 			ref = ref.AddDate(0, 0, 1)
 		}
 		ref = time.Date(ref.Year(), ref.Month(), ref.Day(), handoffHour, handoffMin, 0, 0, loc)
 		if ref.After(now) {
 			ref = ref.AddDate(0, 0, -7)
 		}
-		elapsed := now.Sub(ref)
-		periods := int(elapsed.Hours() / (24 * 7))
-		return periods % numParticipants
+	}
 
-	case model.RotationCustom:
-		elapsed := now.Sub(ref)
-		periods := int(elapsed.Hours() / 24)
-		return periods % numParticipants
+	return calendarDayIndex(ref, now, periodDays, numParticipants)
+}
 
-	default:
+// calendarDayIndex computes the rotation index using calendar day arithmetic (H1: DST-safe).
+// It counts the number of period boundaries between ref and now in the given timezone.
+func calendarDayIndex(ref, now time.Time, periodDays, numParticipants int) int {
+	if numParticipants == 0 {
 		return 0
 	}
+	// Count calendar days between ref and now by iterating period boundaries.
+	periods := 0
+	cursor := ref
+	for !cursor.After(now) {
+		cursor = cursor.AddDate(0, 0, periodDays)
+		if !cursor.After(now) {
+			periods++
+		}
+	}
+	return periods % numParticipants
+}
+
+// rotationPeriodDays returns the period length in days for the given rotation type.
+func rotationPeriodDays(schedule *model.Schedule) int {
+	switch schedule.RotationType {
+	case model.RotationWeekly:
+		return 7
+	default: // daily, custom
+		return 1
+	}
+}
+
+// parseHandoffTime parses a "HH:MM" string and returns hour, minute, and error.
+// Returns (9, 0, nil) as default if the string is empty or malformed.
+func parseHandoffTime(s string) (hour, min int, err error) {
+	if len(s) < 5 {
+		return 9, 0, nil
+	}
+	n, err := fmt.Sscanf(s, "%d:%d", &hour, &min)
+	if err != nil || n != 2 {
+		return 9, 0, fmt.Errorf("invalid handoff_time %q", s)
+	}
+	if hour < 0 || hour > 23 || min < 0 || min > 59 {
+		return 9, 0, fmt.Errorf("handoff_time out of range: %s", s)
+	}
+	return hour, min, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -540,11 +581,8 @@ func (s *ScheduleService) GenerateRotationShifts(ctx context.Context, scheduleID
 		loc = time.UTC
 	}
 
-	// Parse handoff time
-	handoffHour, handoffMin := 9, 0
-	if len(schedule.HandoffTime) >= 5 {
-		fmt.Sscanf(schedule.HandoffTime, "%d:%d", &handoffHour, &handoffMin)
-	}
+	// Parse handoff time (M3: validated)
+	handoffHour, handoffMin, _ := parseHandoffTime(schedule.HandoffTime)
 
 	now := time.Now().In(loc)
 	// Align start to today's handoff boundary
@@ -653,16 +691,10 @@ func (s *ScheduleService) DeleteEscalationPolicy(ctx context.Context, id uint) e
 		return apperr.WithMessage(apperr.ErrNotFound, "escalation policy not found")
 	}
 
-	// Delete associated steps first
-	steps, err := s.stepRepo.ListByPolicyID(ctx, id)
-	if err != nil {
-		s.logger.Error("failed to list escalation steps for deletion", zap.Error(err), zap.Uint("policy_id", id))
+	// M9: Delete all associated steps in a single query instead of looping.
+	if err := s.stepRepo.DeleteByPolicyID(ctx, id); err != nil {
+		s.logger.Error("failed to delete escalation steps", zap.Error(err), zap.Uint("policy_id", id))
 		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	for _, step := range steps {
-		if err := s.stepRepo.Delete(ctx, step.ID); err != nil {
-			s.logger.Error("failed to delete escalation step", zap.Error(err), zap.Uint("step_id", step.ID), zap.Uint("policy_id", id))
-		}
 	}
 
 	if err := s.policyRepo.Delete(ctx, id); err != nil {
@@ -718,6 +750,25 @@ func (s *ScheduleService) ReplaceEscalationSteps(ctx context.Context, policyID u
 	if err := s.stepRepo.ReplaceByPolicyID(ctx, policyID, steps); err != nil {
 		s.logger.Error("failed to replace escalation steps", zap.Error(err), zap.Uint("policy_id", policyID))
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// validateSchedule validates schedule fields at creation/update time (L1/M3/M4).
+func validateSchedule(schedule *model.Schedule) *apperr.AppError {
+	if schedule.Name == "" {
+		return apperr.WithMessage(apperr.ErrBadRequest, "name is required")
+	}
+	if _, _, err := parseHandoffTime(schedule.HandoffTime); err != nil {
+		return apperr.WithMessage(apperr.ErrBadRequest, err.Error())
+	}
+	if schedule.HandoffDay < 0 || schedule.HandoffDay > 6 {
+		return apperr.WithMessage(apperr.ErrBadRequest, "handoff_day must be between 0 (Sunday) and 6 (Saturday)")
+	}
+	if schedule.Timezone != "" {
+		if _, err := time.LoadLocation(schedule.Timezone); err != nil {
+			return apperr.WithMessage(apperr.ErrBadRequest, "invalid timezone: "+schedule.Timezone)
+		}
 	}
 	return nil
 }

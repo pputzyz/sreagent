@@ -138,6 +138,11 @@ func (r *ScheduleOverrideRepository) Delete(ctx context.Context, id uint) error 
 	return r.db.WithContext(ctx).Delete(&model.ScheduleOverride{}, id).Error
 }
 
+// DeleteByScheduleID deletes all overrides for a given schedule.
+func (r *ScheduleOverrideRepository) DeleteByScheduleID(ctx context.Context, scheduleID uint) error {
+	return r.db.WithContext(ctx).Where("schedule_id = ?", scheduleID).Delete(&model.ScheduleOverride{}).Error
+}
+
 // GetActiveOverride returns the currently active override for a schedule at the given time.
 func (r *ScheduleOverrideRepository) GetActiveOverride(ctx context.Context, scheduleID uint, at time.Time) (*model.ScheduleOverride, error) {
 	var override model.ScheduleOverride

@@ -43,6 +43,11 @@ func (r *OnCallShiftRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.OnCallShift{}, id).Error
 }
 
+// DeleteByScheduleID deletes all shifts for a given schedule.
+func (r *OnCallShiftRepository) DeleteByScheduleID(ctx context.Context, scheduleID uint) error {
+	return r.db.WithContext(ctx).Where("schedule_id = ?", scheduleID).Delete(&model.OnCallShift{}).Error
+}
+
 // ListBySchedule returns all shifts for a schedule that overlap with [start, end).
 func (r *OnCallShiftRepository) ListBySchedule(ctx context.Context, scheduleID uint, start, end time.Time) ([]model.OnCallShift, error) {
 	var list []model.OnCallShift
