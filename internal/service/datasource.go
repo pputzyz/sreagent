@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -28,32 +29,88 @@ func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Log
 }
 
 // decryptAuthConfig decrypts the datasource's AuthConfig if it is encrypted.
-// Returns the plaintext config, or the original value if not encrypted / on error.
+// Returns the plaintext config, or empty string on error (M1: no silent fallback to raw ciphertext).
 func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) string {
 	if ds.AuthConfig == "" {
 		return ""
 	}
+	if !crypto.IsEncrypted(ds.AuthConfig) {
+		return ds.AuthConfig
+	}
 	plain, err := crypto.DecryptString(ds.AuthConfig)
 	if err != nil {
-		s.logger.Error("failed to decrypt datasource auth_config, using raw value",
+		s.logger.Error("failed to decrypt datasource auth_config",
 			zap.Uint("datasource_id", ds.ID),
 			zap.Error(err),
 		)
-		return ds.AuthConfig // fall back to raw value
+		return ""
 	}
 	return plain
 }
 
 // validateEndpoint checks that the endpoint URL does not point to a private/loopback IP (SSRF protection).
+// H1: Also checks DNS resolution, IPv6-mapped addresses, and cloud metadata endpoints.
 func validateEndpoint(endpoint string) error {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return err
 	}
+
+	// Only allow http/https schemes.
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("endpoint scheme must be http or https, got %q", u.Scheme)
+	}
+
 	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("endpoint hostname is empty")
+	}
+
+	// Block known dangerous hostnames.
+	lowerHost := strings.ToLower(host)
+	blockedHosts := []string{"localhost", "metadata.google.internal", "instance-data", "169.254.169.254"}
+	for _, blocked := range blockedHosts {
+		if lowerHost == blocked || strings.HasSuffix(lowerHost, "."+blocked) {
+			return fmt.Errorf("endpoint hostname %q is not allowed", host)
+		}
+	}
+
+	// Check if hostname is a literal IP.
 	ip := net.ParseIP(host)
-	if ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsPrivate()) {
-		return fmt.Errorf("endpoint must not point to private/loopback IP")
+	if ip != nil {
+		return validateIP(ip)
+	}
+
+	// DNS resolution: check all resolved IPs.
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		// DNS failure is not necessarily an SSRF risk — allow it (will fail at connection time).
+		return nil
+	}
+	for _, ip := range ips {
+		if err := validateIP(ip); err != nil {
+			return fmt.Errorf("endpoint hostname %q resolves to blocked IP %s: %w", host, ip, err)
+		}
+	}
+	return nil
+}
+
+// validateIP checks that an IP is not loopback, link-local, private, or IPv4-mapped loopback.
+func validateIP(ip net.IP) error {
+	if ip.IsLoopback() {
+		return fmt.Errorf("loopback IP not allowed")
+	}
+	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return fmt.Errorf("link-local IP not allowed")
+	}
+	if ip.IsPrivate() {
+		return fmt.Errorf("private IP not allowed")
+	}
+	// Check IPv4-mapped IPv6 (e.g., ::ffff:127.0.0.1).
+	if ip4 := ip.To4(); ip4 != nil {
+		if ip4.IsLoopback() || ip4.IsPrivate() || ip4.IsLinkLocalUnicast() {
+			return fmt.Errorf("IPv4-mapped blocked IP not allowed")
+		}
 	}
 	return nil
 }

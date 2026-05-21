@@ -83,7 +83,7 @@ func (qc *QueryClient) RangeQuery(ctx context.Context, endpoint, authType, authC
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 50<<20)) // 50 MB max (M9)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read range query response: %w", err)
 	}
@@ -120,7 +120,7 @@ func (qc *QueryClient) InstantQuery(ctx context.Context, endpoint, authType, aut
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 50<<20)) // 50 MB max (M9)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read instant query response: %w", err)
 	}
@@ -258,7 +258,7 @@ func (qc *QueryClient) ProxyGet(ctx context.Context, endpoint, authType, authCon
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 50<<20)) // 50 MB max (M9)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read proxy response: %w", err)
 	}
