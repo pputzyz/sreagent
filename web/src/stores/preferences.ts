@@ -36,8 +36,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       if (data.data) {
         prefs.value = { ...prefs.value, ...data.data }
       }
-    } catch {
-      // Silently fail — local state stays
+    } catch (e) {
+      console.warn('Failed to update preferences', e)
     }
   }
 

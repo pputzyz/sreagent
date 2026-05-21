@@ -119,7 +119,7 @@ async function handleSaveAsDraft() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning('请先选择数据源')
+    message.warning(t('aiGenerate.selectDatasourceFirst'))
     return
   }
   saving.value = true
@@ -136,7 +136,7 @@ async function handleSaveAsDraft() {
       status: 'draft',
       enabled: false,
     })
-    message.success('已保存为草稿')
+    message.success(t('aiGenerate.savedAsDraft'))
     emit('saved', { draft: true })
     show.value = false
   } catch (err: unknown) {
@@ -151,7 +151,7 @@ async function handleSaveAsActive() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning('请先选择数据源')
+    message.warning(t('aiGenerate.selectDatasourceFirst'))
     return
   }
   saving.value = true
@@ -168,7 +168,7 @@ async function handleSaveAsActive() {
       status: 'active',
       enabled: true,
     })
-    message.success('规则已创建并启用')
+    message.success(t('aiGenerate.ruleCreatedEnabled'))
     emit('saved', { draft: false })
     show.value = false
   } catch (err: unknown) {
@@ -183,7 +183,7 @@ async function handleDryRun() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning('请先选择数据源')
+    message.warning(t('aiGenerate.selectDatasourceFirst'))
     return
   }
   dryRunLoading.value = true
@@ -215,7 +215,7 @@ async function handleLabelPreview() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning('请先选择数据源')
+    message.warning(t('aiGenerate.selectDatasourceFirst'))
     return
   }
   labelLoading.value = true
@@ -364,18 +364,18 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
 
       <!-- Dry-run & Label Preview (rule type only) -->
       <NCollapse v-if="result && ruleType === 'rule'" class="mt-3">
-        <NCollapseItem title="试算（最近 1h）" name="dry-run">
+        <NCollapseItem :title="t('aiGenerate.dryRun')" name="dry-run">
           <NSpace vertical>
             <NButton size="small" :loading="dryRunLoading" @click="handleDryRun">
-              运行试算
+              {{ t('aiGenerate.runDryRun') }}
             </NButton>
             <template v-if="dryRunResult">
               <NSpace>
                 <NTag :type="dryRunResult.would_fire ? 'error' : 'success'" size="small">
-                  {{ dryRunResult.would_fire ? '会触发' : '不会触发' }}
+                  {{ dryRunResult.would_fire ? t('aiGenerate.wouldFire') : t('aiGenerate.wouldNotFire') }}
                 </NTag>
-                <NText>命中 series: {{ dryRunResult.series_count }} 条</NText>
-                <NText>评估耗时: {{ dryRunResult.eval_duration_ms }}ms</NText>
+                <NText>{{ t('aiGenerate.matchedSeries', { count: dryRunResult.series_count }) }}</NText>
+                <NText>{{ t('aiGenerate.evalDuration', { ms: dryRunResult.eval_duration_ms }) }}</NText>
               </NSpace>
               <NDataTable
                 v-if="dryRunResult.sample_series?.length"
@@ -388,19 +388,19 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
           </NSpace>
         </NCollapseItem>
 
-        <NCollapseItem title="标签命中预览" name="labels">
+        <NCollapseItem :title="t('aiGenerate.labelPreview')" name="labels">
           <NSpace vertical>
             <NButton size="small" :loading="labelLoading" @click="handleLabelPreview">
-              查询命中
+              {{ t('aiGenerate.queryMatches') }}
             </NButton>
             <template v-if="labelHits.length">
               <div v-for="hit in labelHits" :key="hit.key" class="label-hit-item">
                 <NTag :type="hit.matched ? 'success' : 'warning'" size="small">
                   {{ hit.matched ? '✓' : '⚠' }} {{ hit.key }}
                 </NTag>
-                <span class="label-hit-detail">规则值: {{ hit.ruleValue }}</span>
+                <span class="label-hit-detail">{{ t('aiGenerate.ruleValue') }}: {{ hit.ruleValue }}</span>
                 <span v-if="hit.registryValues.length" class="label-hit-detail">
-                  已有: {{ hit.registryValues.join(', ') }}
+                  {{ t('aiGenerate.existing') }}: {{ hit.registryValues.join(', ') }}
                 </span>
               </div>
             </template>
@@ -410,14 +410,14 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
 
       <NSpace justify="end" style="margin-top: 16px">
         <NButton :loading="generating" @click="handleRegenerate">
-          重新生成
+          {{ t('aiGenerate.regenerate') }}
         </NButton>
         <template v-if="ruleType === 'rule'">
           <NButton :loading="saving" @click="handleSaveAsDraft">
-            保存为草稿
+            {{ t('aiGenerate.saveAsDraft') }}
           </NButton>
           <NButton type="primary" :loading="saving" @click="handleSaveAsActive">
-            直接启用并保存
+            {{ t('aiGenerate.saveAndEnable') }}
           </NButton>
         </template>
         <template v-else>

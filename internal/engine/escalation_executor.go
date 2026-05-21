@@ -129,7 +129,7 @@ func (e *EscalationExecutor) Start() {
 		for {
 			select {
 			case <-ticker.C:
-				ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 				e.runOnce(ctx)
 				cancel()
 			case <-e.stopCh:
@@ -287,8 +287,8 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 			// Check if enough time has passed since the alert fired.
 			dueAt := event.FiredAt.Add(time.Duration(step.DelayMinutes) * time.Minute)
 			if now.Before(dueAt) {
-				// Not due yet; later steps will be even less due.
-				break
+				// Not due yet; continue to check other steps (delays may not be monotonic).
+				continue
 			}
 
 			// Execute this step.

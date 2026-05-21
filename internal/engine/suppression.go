@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 
@@ -17,12 +16,11 @@ var severityOrder = map[string]int{
 }
 
 // severityRank returns the numeric rank for a severity string.
-// Unknown severities are treated as "info" level (rank 1) and logged once.
+// Unknown severities are treated as "info" level (rank 1).
 func severityRank(sev string) int {
 	if rank, ok := severityOrder[sev]; ok {
 		return rank
 	}
-	log.Printf("[WARN] unknown severity %q, defaulting to info level", sev)
 	return 1
 }
 
@@ -176,6 +174,7 @@ func (s *LevelSuppressor) RemoveRule(ruleID uint) {
 }
 
 // RemoveSeverity removes a severity record (when alert resolves).
+// Removes regardless of severity match to prevent stale entries.
 func (s *LevelSuppressor) RemoveSeverity(ruleID uint, fingerprint string, severity string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -185,24 +184,18 @@ func (s *LevelSuppressor) RemoveSeverity(ruleID uint, fingerprint string, severi
 		return
 	}
 
-	activeSev, ok := fpMap[fingerprint]
-	if !ok {
+	if _, ok := fpMap[fingerprint]; !ok {
 		return
 	}
 
-	// Only remove if the severity matches what's currently active
-	if activeSev == severity {
-		delete(fpMap, fingerprint)
-		// Clean up lastUpdates
-		if luMap, ok := s.lastUpdates[ruleID]; ok {
-			delete(luMap, fingerprint)
-			if len(luMap) == 0 {
-				delete(s.lastUpdates, ruleID)
-			}
+	delete(fpMap, fingerprint)
+	// Clean up lastUpdates
+	if luMap, ok := s.lastUpdates[ruleID]; ok {
+		delete(luMap, fingerprint)
+		if len(luMap) == 0 {
+			delete(s.lastUpdates, ruleID)
 		}
 	}
-
-	// Clean up empty maps
 	if len(fpMap) == 0 {
 		delete(s.activeSeverities, ruleID)
 	}

@@ -41,8 +41,12 @@ func (c *tokenCache) set(token string, ttlSeconds int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.token = token
-	// Refresh 60 seconds before actual expiry.
-	c.expires = time.Now().Add(time.Duration(ttlSeconds-60) * time.Second)
+	// Refresh 60 seconds before actual expiry, clamped to minimum 30s.
+	effective := ttlSeconds - 60
+	if effective < 30 {
+		effective = 30
+	}
+	c.expires = time.Now().Add(time.Duration(effective) * time.Second)
 }
 
 // BotClient wraps Lark Bot API calls (auth, send, patch messages).

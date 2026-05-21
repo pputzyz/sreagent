@@ -22,6 +22,7 @@ const schedules = ref<Schedule[]>([])
 
 // Modal state
 const showModal = ref(false)
+const saving = ref(false)
 const editingId = ref<number | null>(null)
 const form = ref({
   name: '',
@@ -31,9 +32,9 @@ const form = ref({
 })
 
 const targetTypeOptions = [
-  { label: 'User', value: 'user' },
-  { label: 'Team', value: 'team' },
-  { label: 'Schedule', value: 'schedule' },
+  { label: t('escalation.user'), value: 'user' },
+  { label: t('escalation.team'), value: 'team' },
+  { label: t('escalation.schedule'), value: 'schedule' },
 ]
 
 async function fetchPolicies() {
@@ -104,6 +105,7 @@ async function handleSave() {
     message.warning(t('common.required'))
     return
   }
+  saving.value = true
   try {
     const payload = {
       name: form.value.name,
@@ -113,7 +115,7 @@ async function handleSave() {
     }
     if (editingId.value) {
       await escalationApi.update(editingId.value, payload)
-      message.success(t('common.saveSuccess'))
+      message.success(t('common.savedSuccess'))
     } else {
       await escalationApi.create(payload)
       message.success(t('common.createSuccess'))
@@ -122,6 +124,8 @@ async function handleSave() {
     fetchPolicies()
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
+  } finally {
+    saving.value = false
   }
 }
 
@@ -236,7 +240,7 @@ onMounted(() => {
 
         <div v-for="(step, idx) in form.steps" :key="idx" style="border: 1px solid var(--sre-border); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <n-tag size="small">Step {{ step.step_order }}</n-tag>
+            <n-tag size="small">{{ t('escalation.step', { n: step.step_order }) }}</n-tag>
             <n-button size="tiny" type="error" text @click="removeStep(idx)">
               <template #icon><n-icon :component="TrashOutline" /></template>
             </n-button>
@@ -279,7 +283,7 @@ onMounted(() => {
       <template #action>
         <n-space>
           <n-button @click="showModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
+          <n-button type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</n-button>
         </n-space>
       </template>
     </n-modal>

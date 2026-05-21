@@ -85,6 +85,7 @@ function handleLogout() {
             class="rail-icon-btn"
             :class="{ active: activeApp === item.key }"
             :data-app="item.key"
+            :aria-label="item.label"
             @click="emit('switch', item.key)"
           >
             <div class="rail-icon-circle" :class="item.colorClass">
@@ -111,7 +112,7 @@ function handleLogout() {
         v-model:show="showUserMenu"
       >
         <template #trigger>
-          <button class="rail-avatar-btn" :class="{ active: showUserMenu }">
+          <button class="rail-avatar-btn" :class="{ active: showUserMenu }" :aria-label="t('header.userMenu')">
             <UserAvatar
               :src="authStore.user?.avatar || undefined"
               :preset-id="avatarPreset"
@@ -161,6 +162,7 @@ function handleLogout() {
             class="rail-icon-btn"
             :class="{ active: activeApp === 'platform' }"
             data-app="platform"
+            :aria-label="t('rail.platform')"
             @click="emit('switch', 'platform')"
           >
             <div class="rail-icon-circle nav-icon-platform">

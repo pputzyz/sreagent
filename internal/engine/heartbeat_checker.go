@@ -230,9 +230,9 @@ func (h *HeartbeatChecker) fireHeartbeatAlert(ctx context.Context, rule *model.A
 	// Record in timeline
 	h.recordTimeline(ctx, event.ID, "Heartbeat alert fired — ping timeout exceeded")
 
-	// Invoke notification callback
+	// Invoke notification callback asynchronously to avoid blocking the heartbeat loop.
 	if h.onAlert != nil {
-		h.onAlert(ctx, event)
+		go h.onAlert(ctx, event)
 	}
 }
 

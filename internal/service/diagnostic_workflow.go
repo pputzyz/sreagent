@@ -53,17 +53,7 @@ func (s *DiagnosticWorkflowService) Delete(ctx context.Context, id uint) error {
 // --- Steps CRUD ---
 
 func (s *DiagnosticWorkflowService) ReplaceSteps(ctx context.Context, workflowID uint, steps []model.DiagnosticWorkflowStep) error {
-	if err := s.repo.DeleteSteps(ctx, workflowID); err != nil {
-		return err
-	}
-	for i := range steps {
-		steps[i].WorkflowID = workflowID
-		steps[i].StepOrder = i + 1
-		if err := s.repo.CreateStep(ctx, &steps[i]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.repo.ReplaceSteps(ctx, workflowID, steps)
 }
 
 func (s *DiagnosticWorkflowService) ListSteps(ctx context.Context, workflowID uint) ([]model.DiagnosticWorkflowStep, error) {
@@ -92,8 +82,12 @@ func (s *DiagnosticWorkflowService) StartRun(ctx context.Context, workflowID uin
 		return nil, err
 	}
 
-	// Execute steps asynchronously
-	go s.executeRun(context.Background(), run, wf)
+	// Execute steps asynchronously with a 30-minute timeout.
+	runCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	go func() {
+		defer cancel()
+		s.executeRun(runCtx, run, wf)
+	}()
 
 	return run, nil
 }

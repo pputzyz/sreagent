@@ -22,7 +22,7 @@ func NewLarkBotHandler(svc *service.LarkBotService) *LarkBotHandler {
 // EventCallback handles incoming Lark event subscription callbacks.
 // This endpoint receives both URL verification challenges and message events.
 func (h *LarkBotHandler) EventCallback(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20)) // 1 MB max
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read request body"))
 		return

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -38,8 +40,9 @@ type RedisLeaderElection struct {
 	rdb       *redis.Client
 	logger    *zap.Logger
 	value     string // unique instance identifier
-	isLeader  bool
+	isLeader  atomic.Bool
 	cancel    context.CancelFunc
+	startOnce sync.Once
 }
 
 // NewRedisLeaderElection creates a new Redis-based leader election instance.
@@ -62,38 +65,47 @@ func (l *RedisLeaderElection) TryAcquire(ctx context.Context) bool {
 		return false
 	}
 	if ok {
-		l.isLeader = true
+		l.isLeader.Store(true)
 		l.logger.Info("leader election: acquired leadership")
 		return true
 	}
 
-	// Check if we already hold the lock (e.g. after a restart within TTL)
-	val, err := l.rdb.Get(ctx, leaderLockKey).Result()
+	// Check if we already hold the lock (e.g. after a restart within TTL) — atomic check-and-extend
+	script := redis.NewScript(`
+		if redis.call("GET", KEYS[1]) == ARGV[1] then
+			redis.call("EXPIRE", KEYS[1], ARGV[2])
+			return 1
+		else
+			return 0
+		end
+	`)
+	result, err := script.Run(ctx, l.rdb, []string{leaderLockKey}, l.value, int(leaderLockTTL.Seconds())).Int()
 	if err != nil {
+		l.logger.Warn("leader election: failed to check-and-extend lock", zap.Error(err))
 		return false
 	}
-	if val == l.value {
-		// We already hold it — extend TTL
-		l.rdb.Set(ctx, leaderLockKey, l.value, leaderLockTTL)
-		l.isLeader = true
+	if result == 1 {
+		l.isLeader.Store(true)
 		l.logger.Info("leader election: re-acquired existing lock")
 		return true
 	}
 
-	l.logger.Debug("leader election: another instance holds the lock", zap.String("holder", val))
+	l.logger.Debug("leader election: another instance holds the lock")
 	return false
 }
 
 // IsLeader returns whether this instance is the current leader.
 func (l *RedisLeaderElection) IsLeader() bool {
-	return l.isLeader
+	return l.isLeader.Load()
 }
 
 // Start begins the background renewal goroutine.
 // It periodically renews the lock and re-acquires leadership if lost.
 func (l *RedisLeaderElection) Start(ctx context.Context) {
-	ctx, l.cancel = context.WithCancel(ctx)
-	go l.renewLoop(ctx)
+	l.startOnce.Do(func() {
+		ctx, l.cancel = context.WithCancel(ctx)
+		go l.renewLoop(ctx)
+	})
 }
 
 // renewLoop periodically renews the leader lock. If the lock is lost,
@@ -114,7 +126,7 @@ func (l *RedisLeaderElection) renewLoop(ctx context.Context) {
 
 // renew extends the lock TTL if we still hold it, or attempts to re-acquire.
 func (l *RedisLeaderElection) renew(ctx context.Context) {
-	if l.isLeader {
+	if l.isLeader.Load() {
 		// Use a Lua script to atomically check-and-extend
 		script := redis.NewScript(`
 			if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -130,7 +142,7 @@ func (l *RedisLeaderElection) renew(ctx context.Context) {
 			return
 		}
 		if result == 0 {
-			l.isLeader = false
+			l.isLeader.Store(false)
 			l.logger.Warn("leader election: lost leadership, will attempt re-acquisition")
 			// Export metric
 			metrics.SetEngineLeaderStatus(false)
@@ -144,12 +156,12 @@ func (l *RedisLeaderElection) renew(ctx context.Context) {
 		}
 	}
 	// Export metric regardless
-	metrics.SetEngineLeaderStatus(l.isLeader)
+	metrics.SetEngineLeaderStatus(l.isLeader.Load())
 }
 
 // Release releases the leader lock atomically using a Lua script.
 func (l *RedisLeaderElection) Release(ctx context.Context) {
-	if !l.isLeader {
+	if !l.isLeader.Load() {
 		return
 	}
 	script := redis.NewScript(`
@@ -163,7 +175,7 @@ func (l *RedisLeaderElection) Release(ctx context.Context) {
 	if err != nil {
 		l.logger.Warn("leader election: failed to release lock", zap.Error(err))
 	}
-	l.isLeader = false
+	l.isLeader.Store(false)
 	metrics.SetEngineLeaderStatus(false)
 	l.logger.Info("leader election: released leadership")
 }

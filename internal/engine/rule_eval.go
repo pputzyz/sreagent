@@ -72,7 +72,7 @@ func (re *RuleEvaluator) Run() {
 // evaluate performs one evaluation cycle.
 // Uses per-fingerprint locking via sync.Map + stateLock instead of a single global mutex.
 func (re *RuleEvaluator) evaluate() {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(re.ctx, 30*time.Second)
 	defer cancel()
 
 	// 1. Execute query against datasource — dispatch by datasource type
@@ -270,7 +270,12 @@ func (re *RuleEvaluator) evaluate() {
 				if re.suppressor != nil {
 					re.suppressor.RemoveSeverity(re.rule.ID, fp, string(re.rule.Severity))
 				}
-				re.resolveAlertEvent(state)
+				if err := re.resolveAlertEvent(state); err != nil {
+					// resolveAlertEvent already reverted state to "firing" on failure.
+					// Do NOT clear state — the next eval cycle will retry.
+					sl.mu.Unlock()
+					return true
+				}
 				metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "resolved")
 				sl.state = nil
 				re.deleteState(fp)
@@ -362,7 +367,7 @@ func generateFingerprint(labels map[string]string) string {
 
 // createAlertEvent creates a new alert event in the database.
 func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertEventStatus) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(re.ctx, 10*time.Second)
 	defer cancel()
 
 	fp := generateFingerprint(state.Labels)
@@ -421,13 +426,21 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 	}
 
 	if err := re.eventRepo.Create(ctx, event); err != nil {
+		// Check if the event already exists (timeout after commit edge case).
+		existing, queryErr := re.eventRepo.GetByFingerprintAndStatus(ctx, fp, model.EventStatusFiring)
+		if queryErr == nil && existing != nil {
+			re.logger.Warn("alert event already exists after create error, reusing",
+				zap.String("fingerprint", fp),
+				zap.Uint("existing_id", existing.ID),
+			)
+			state.EventID = existing.ID
+			return
+		}
 		re.logger.Error("failed to create alert event, reverting to pending for retry",
 			zap.String("fingerprint", fp),
 			zap.Error(err),
 		)
 		// Revert state so the next eval cycle retries the create.
-		// Leaving state as "firing" with EventID=0 would silently skip
-		// all subsequent updateFiringEvent/resolveAlertEvent calls.
 		state.Status = "pending"
 		state.FiredAt = time.Time{}
 		return
@@ -472,7 +485,7 @@ func (re *RuleEvaluator) updateFiringEvent(state *AlertState) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(re.ctx, 10*time.Second)
 	defer cancel()
 
 	if err := re.eventRepo.IncrFireCount(ctx, state.EventID); err != nil {
@@ -484,12 +497,12 @@ func (re *RuleEvaluator) updateFiringEvent(state *AlertState) {
 }
 
 // resolveAlertEvent resolves an existing alert event.
-func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) {
+func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 	if state.EventID == 0 {
-		return
+		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(re.ctx, 10*time.Second)
 	defer cancel()
 
 	event, err := re.eventRepo.GetByID(ctx, state.EventID)
@@ -498,11 +511,11 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) {
 			zap.Uint("event_id", state.EventID),
 			zap.Error(err),
 		)
-		return
+		return err
 	}
 
 	if event.Status == model.EventStatusClosed || event.Status == model.EventStatusResolved {
-		return
+		return nil
 	}
 
 	now := time.Now()
@@ -518,7 +531,7 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) {
 		// Revert state so the next eval cycle retries the resolve.
 		state.Status = "firing"
 		state.ResolvedAt = time.Time{}
-		return
+		return err
 	}
 
 	re.logger.Info("alert resolved",
@@ -547,6 +560,7 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) {
 			go fn(re.ctx)
 		}
 	}
+	return nil
 }
 
 // parseDuration parses a duration string like "5m", "1h", "30s".

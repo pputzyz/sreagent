@@ -41,8 +41,8 @@ type StateStore interface {
 func toStateEntry(fp string, s *AlertState) *StateEntry {
 	return &StateEntry{
 		Fingerprint:       fp,
-		Labels:            s.Labels,
-		Annotations:       s.Annotations,
+		Labels:            copyStringMap(s.Labels),
+		Annotations:       copyStringMap(s.Annotations),
 		Status:            s.Status,
 		ActiveAt:          s.ActiveAt,
 		FiredAt:           s.FiredAt,
@@ -57,8 +57,8 @@ func toStateEntry(fp string, s *AlertState) *StateEntry {
 // fromStateEntry converts a StateEntry back to an AlertState.
 func fromStateEntry(e *StateEntry) *AlertState {
 	return &AlertState{
-		Labels:            e.Labels,
-		Annotations:       e.Annotations,
+		Labels:            copyStringMap(e.Labels),
+		Annotations:       copyStringMap(e.Annotations),
 		Status:            e.Status,
 		ActiveAt:          e.ActiveAt,
 		FiredAt:           e.FiredAt,
@@ -68,4 +68,15 @@ func fromStateEntry(e *StateEntry) *AlertState {
 		LastSeen:          e.LastSeen,
 		EventID:           e.EventID,
 	}
+}
+
+func copyStringMap(m map[string]string) map[string]string {
+	if m == nil {
+		return nil
+	}
+	cp := make(map[string]string, len(m))
+	for k, v := range m {
+		cp[k] = v
+	}
+	return cp
 }

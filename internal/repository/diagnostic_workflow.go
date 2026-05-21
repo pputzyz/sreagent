@@ -84,6 +84,23 @@ func (r *DiagnosticWorkflowRepository) DeleteSteps(ctx context.Context, workflow
 		Delete(&model.DiagnosticWorkflowStep{}).Error
 }
 
+// ReplaceSteps atomically replaces all steps for a workflow within a single transaction.
+func (r *DiagnosticWorkflowRepository) ReplaceSteps(ctx context.Context, workflowID uint, steps []model.DiagnosticWorkflowStep) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("workflow_id = ?", workflowID).Delete(&model.DiagnosticWorkflowStep{}).Error; err != nil {
+			return err
+		}
+		for i := range steps {
+			steps[i].WorkflowID = workflowID
+			steps[i].StepOrder = i + 1
+			if err := tx.Create(&steps[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // --- Run CRUD ---
 
 func (r *DiagnosticWorkflowRepository) CreateRun(ctx context.Context, run *model.DiagnosticRun) error {

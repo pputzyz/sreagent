@@ -562,6 +562,9 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 	}
 
 	e.mu.Lock()
+	if old, exists := e.evaluators[rule.ID]; exists {
+		old.Stop()
+	}
 	e.evaluators[rule.ID] = re
 	e.mu.Unlock()
 
@@ -640,13 +643,31 @@ func (e *Evaluator) GetFiringEvents() []*AlertState {
 		re.rangeStates(func(_ string, sl *stateLock) bool {
 			sl.mu.Lock()
 			if sl.state != nil && sl.state.Status == "firing" {
-				result = append(result, sl.state)
+				result = append(result, copyAlertState(sl.state))
 			}
 			sl.mu.Unlock()
 			return true
 		})
 	}
 	return result
+}
+
+// copyAlertState deep-copies an AlertState including map fields.
+func copyAlertState(s *AlertState) *AlertState {
+	cp := *s
+	if s.Labels != nil {
+		cp.Labels = make(map[string]string, len(s.Labels))
+		for k, v := range s.Labels {
+			cp.Labels[k] = v
+		}
+	}
+	if s.Annotations != nil {
+		cp.Annotations = make(map[string]string, len(s.Annotations))
+		for k, v := range s.Annotations {
+			cp.Annotations[k] = v
+		}
+	}
+	return &cp
 }
 
 // GetFiringAlertEvents returns firing alerts as []model.AlertEvent,

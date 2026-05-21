@@ -52,7 +52,7 @@ async function save() {
   saving.value = true
   try {
     await smtpSettingsApi.updateConfig({ ...form })
-    message.success(t('common.success'))
+    message.success(t('common.savedSuccess'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {

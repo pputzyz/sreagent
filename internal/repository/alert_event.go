@@ -73,6 +73,18 @@ func (r *AlertEventRepository) GetByFingerprint(ctx context.Context, fingerprint
 	return &event, nil
 }
 
+// GetByFingerprintAndStatus returns the first event matching the given fingerprint and status.
+func (r *AlertEventRepository) GetByFingerprintAndStatus(ctx context.Context, fingerprint string, status model.AlertEventStatus) (*model.AlertEvent, error) {
+	var event model.AlertEvent
+	err := r.db.WithContext(ctx).
+		Where("fingerprint = ? AND status = ? AND deleted_at IS NULL", fingerprint, status).
+		First(&event).Error
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
 // GetLatestByFingerprints returns the latest non-closed event for each fingerprint
 // in a single query. Fingerprints with no active event are omitted from the map.
 func (r *AlertEventRepository) GetLatestByFingerprints(ctx context.Context, fingerprints []string) (map[string]*model.AlertEvent, error) {
@@ -199,6 +211,20 @@ func (r *AlertEventRepository) ListWithFilter(ctx context.Context, filter AlertE
 
 func (r *AlertEventRepository) Update(ctx context.Context, event *model.AlertEvent) error {
 	return r.db.WithContext(ctx).Save(event).Error
+}
+
+// TransitionStatus atomically updates an event only if its current status matches one of fromStatuses.
+// Returns (true, nil) if the transition succeeded, (false, nil) if the status didn't match,
+// or (false, err) on DB errors.
+func (r *AlertEventRepository) TransitionStatus(ctx context.Context, eventID uint, fromStatuses []model.AlertEventStatus, updates map[string]interface{}) (bool, error) {
+	q := r.db.WithContext(ctx).
+		Model(&model.AlertEvent{}).
+		Where("id = ? AND status IN ?", eventID, fromStatuses).
+		Updates(updates)
+	if q.Error != nil {
+		return false, q.Error
+	}
+	return q.RowsAffected > 0, nil
 }
 
 // IncrFireCount atomically increments the fire_count for a firing or acknowledged event.

@@ -6,6 +6,39 @@
 
 ## [v4.15.5] — 2026-05-21
 
+### Full Review Fix — 6 P0 + 23 P1 + 18 P2 修复
+
+**P0 修复**
+- `internal/engine/leader_election.go`：`isLeader` 改为 `atomic.Bool` + `TryAcquire` 改用 Lua 脚本原子操作，消除数据竞争和脑裂风险
+- `internal/service/diagnostic_workflow.go`：`ReplaceSteps` 改用 DB 事务，崩溃不再丢步骤
+- `internal/pkg/lark/bot_api.go`：Token TTL 最小值 clamp 到 30s，防止 `expire<=60` 时缓存风暴
+- `internal/service/lark.go`：`BotClient` 缓存到 `LarkService`，避免每次调用都重新获取 token
+- `web/src/composables/useAppNav.ts`：修复 AI Module Config 菜单路由 404
+
+**P1 修复**
+- `internal/engine/evaluator.go`：`GetFiringEvents` 返回深拷贝，消除数据竞争；`startRuleEvaluator` 先 Stop 旧 evaluator 防 goroutine 泄漏
+- `internal/engine/rule_eval.go`：`resolveAlertEvent` 返回 error，失败时不清除状态防丢告警；`createAlertEvent` 错误时查询已有事件防重复；所有 context 改为 `re.ctx`
+- `internal/engine/escalation_executor.go`：批次超时 55s→5m；步骤排序改用 `continue` 替代 `break`
+- `internal/engine/heartbeat_checker.go`：`onAlert` 回调改为异步，不再阻塞心跳循环
+- `internal/service/alert_event.go`：`context.Background()` 改为 `serverCtx`；`Acknowledge/Resolve/Close` 改用原子 `TransitionStatus`；`BatchAcknowledge/Close` 只为实际更新的事件创建 timeline
+- `internal/service/diagnostic_workflow.go`：`executeRun` goroutine 加 30 分钟超时
+- `internal/handler/larkbot.go`：请求体加 1MB 限制
+- `internal/service/ai.go`：LLM 响应加 10MB 限制（5 处）
+- `internal/service/larkbot.go`：响应体加 1MB 限制；`handleMessageEvent` 消除重复 config 加载
+- `internal/repository/alert_event.go`：新增 `TransitionStatus` / `GetByFingerprintAndStatus` 方法
+- `web/src/components/alert-rule/AIGenerateModal.vue`：17 处硬编码中文改为 i18n
+- `web/src/pages/oncall/EscalationPolicies.vue`：修复 i18n key 错误 + 添加 saving 状态
+- `web/src/pages/alerts/events/Index.vue`：翻页时清除选中状态
+- `web/src/layouts/AppRail.vue`：图标按钮添加 aria-label
+
+**P2 修复**
+- `internal/engine/suppression.go`：移除 `log.Printf`，`RemoveSeverity` 不再要求 severity 精确匹配
+- `internal/engine/state_store.go`：`toStateEntry/fromStateEntry` 深拷贝 map 字段
+- `internal/service/larkbot.go`：`resolveUserID` fallback 时记录警告日志
+- `internal/service/lark.go`：`isWithinBusinessHours` 验证 Sscanf 返回值和范围；错误时返回实际 error
+- `web/src/stores/preferences.ts`：catch 块添加 console.warn
+- `web/src/pages/settings/SMTPConfig.vue`：i18n key 统一为 `common.savedSuccess`
+
 ### Track A — AI 全局配置 + Track B — 飞书 Bot 重设计 + AIOps Phase 2 接入
 
 **后端**

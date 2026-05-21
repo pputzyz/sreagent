@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -21,6 +22,11 @@ type LarkService struct {
 	jwtSecret string
 	// settingSvc provides Lark bot credentials for Bot API calls.
 	settingSvc *SystemSettingService
+	// Cached bot client to avoid fetching a new token on every call.
+	botClientMu      sync.Mutex
+	botClient        *lark.BotClient
+	botClientAppID   string
+	botClientSecret  string
 }
 
 // NewLarkService creates a new LarkService.
@@ -32,6 +38,19 @@ func NewLarkService(logger *zap.Logger, platformBaseURL, jwtSecret string, setti
 		jwtSecret:       jwtSecret,
 		settingSvc:      settingSvc,
 	}
+}
+
+// getBotClient returns a cached BotClient, creating a new one if credentials changed.
+func (s *LarkService) getBotClient(appID, appSecret string) *lark.BotClient {
+	s.botClientMu.Lock()
+	defer s.botClientMu.Unlock()
+	if s.botClient != nil && s.botClientAppID == appID && s.botClientSecret == appSecret {
+		return s.botClient
+	}
+	s.botClient = lark.NewBotClient(appID, appSecret)
+	s.botClientAppID = appID
+	s.botClientSecret = appSecret
+	return s.botClient
 }
 
 // SendAlertNotification prepares and sends an alert notification via Lark webhook.
@@ -157,12 +176,15 @@ func (s *LarkService) SendEnrichedAlertNotificationViaBot(ctx context.Context, e
 	}
 
 	larkCfg, err := s.settingSvc.GetLarkConfig(ctx)
-	if err != nil || larkCfg.AppID == "" || larkCfg.AppSecret == "" {
+	if err != nil {
+		return "", fmt.Errorf("failed to load lark config: %w", err)
+	}
+	if larkCfg.AppID == "" || larkCfg.AppSecret == "" {
 		return "", fmt.Errorf("lark bot credentials not configured")
 	}
 
 	card := s.buildEnrichedCard(event, analysis)
-	botClient := lark.NewBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 
 	msgID, err := botClient.SendMessage(ctx, chatID, card)
 	if err != nil {
@@ -184,11 +206,14 @@ func (s *LarkService) SendTestNotificationViaBot(ctx context.Context, chatID str
 		return fmt.Errorf("settingSvc not configured for Bot API")
 	}
 	larkCfg, err := s.settingSvc.GetLarkConfig(ctx)
-	if err != nil || larkCfg.AppID == "" || larkCfg.AppSecret == "" {
+	if err != nil {
+		return fmt.Errorf("failed to load lark config: %w", err)
+	}
+	if larkCfg.AppID == "" || larkCfg.AppSecret == "" {
 		return fmt.Errorf("lark bot credentials not configured")
 	}
 	card := lark.BuildTestCard()
-	bot := lark.NewBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	bot := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 	if _, err := bot.SendMessage(ctx, chatID, card); err != nil {
 		s.logger.Error("failed to send lark test card via Bot API",
 			zap.String("chat_id", chatID), zap.Error(err))
@@ -210,12 +235,15 @@ func (s *LarkService) SendAlertCardToUser(ctx context.Context, event *model.Aler
 	}
 
 	larkCfg, err := s.settingSvc.GetLarkConfig(ctx)
-	if err != nil || larkCfg.AppID == "" || larkCfg.AppSecret == "" {
+	if err != nil {
+		return "", fmt.Errorf("failed to load lark config: %w", err)
+	}
+	if larkCfg.AppID == "" || larkCfg.AppSecret == "" {
 		return "", fmt.Errorf("lark bot credentials not configured")
 	}
 
 	card := s.buildEnrichedCard(event, analysis)
-	botClient := lark.NewBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 
 	msgID, err := botClient.SendDirectMessage(ctx, receiveIDType, receiveID, card)
 	if err != nil {
@@ -245,12 +273,15 @@ func (s *LarkService) UpdateAlertCard(ctx context.Context, event *model.AlertEve
 	}
 
 	larkCfg, err := s.settingSvc.GetLarkConfig(ctx)
-	if err != nil || larkCfg.AppID == "" || larkCfg.AppSecret == "" {
+	if err != nil {
+		return fmt.Errorf("failed to load lark config: %w", err)
+	}
+	if larkCfg.AppID == "" || larkCfg.AppSecret == "" {
 		return fmt.Errorf("lark bot credentials not configured")
 	}
 
 	card := s.buildEnrichedCard(event, nil)
-	botClient := lark.NewBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 
 	if err := botClient.UpdateMessage(ctx, messageID, card); err != nil {
 		s.logger.Error("failed to update lark card",
@@ -298,7 +329,7 @@ func (s *LarkService) HandleCardLifecycle(ctx context.Context, event *model.Aler
 				)
 				return nil
 			}
-			bot := lark.NewBotClient(larkCfg.AppID, larkCfg.AppSecret)
+			bot := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 			if err := bot.DeleteMessage(ctx, event.LarkMessageID); err != nil {
 				return fmt.Errorf("delete lark card: %w", err)
 			}
@@ -324,8 +355,16 @@ func isWithinBusinessHours(start, end string) bool {
 	currentMinutes := now.Hour()*60 + now.Minute()
 
 	var startH, startM, endH, endM int
-	fmt.Sscanf(start, "%d:%d", &startH, &startM)
-	fmt.Sscanf(end, "%d:%d", &endH, &endM)
+	if n, _ := fmt.Sscanf(start, "%d:%d", &startH, &startM); n != 2 {
+		return true // malformed input, safe default
+	}
+	if n, _ := fmt.Sscanf(end, "%d:%d", &endH, &endM); n != 2 {
+		return true
+	}
+	if startH < 0 || startH > 23 || startM < 0 || startM > 59 || endH < 0 || endH > 23 || endM < 0 || endM > 59 {
+		return true // out of range, safe default
+	}
+
 	startMinutes := startH*60 + startM
 	endMinutes := endH*60 + endM
 

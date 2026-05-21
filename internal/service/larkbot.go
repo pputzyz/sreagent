@@ -47,10 +47,14 @@ func NewLarkBotService(settingSvc *SystemSettingService, eventSvc *AlertEventSer
 func (s *LarkBotService) resolveUserID(ctx context.Context, larkOpenID string) uint {
 	const systemUserID = 1
 	if s.userRepo == nil || larkOpenID == "" {
+		s.logger.Warn("lark user mapping not configured, falling back to system user",
+			zap.String("lark_open_id", larkOpenID))
 		return systemUserID
 	}
 	user, err := s.userRepo.GetByLarkUserID(ctx, larkOpenID)
 	if err != nil {
+		s.logger.Warn("lark user lookup failed, falling back to system user",
+			zap.String("lark_open_id", larkOpenID), zap.Error(err))
 		return systemUserID
 	}
 	return user.ID
@@ -180,7 +184,7 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte) (interfac
 
 	// Handle message events
 	if req.Header != nil && req.Header.EventType == "im.message.receive_v1" {
-		if err := s.handleMessageEvent(ctx, &req); err != nil {
+		if err := s.handleMessageEvent(ctx, &req, cfg); err != nil {
 			s.logger.Error("failed to handle message event", zap.Error(err))
 			return nil, err
 		}
@@ -190,7 +194,7 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte) (interfac
 }
 
 // handleMessageEvent processes a received message event.
-func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventRequest) error {
+func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventRequest, cfg LarkConfig) error {
 	if req.Event == nil || req.Event.Message == nil {
 		return nil
 	}
@@ -217,13 +221,6 @@ func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventR
 		text = strings.ReplaceAll(text, mention.Key, "")
 	}
 	text = strings.TrimSpace(text)
-
-	// Load config to check if commands are enabled
-	cfg, err := s.loadConfig(ctx)
-	if err != nil {
-		s.logger.Warn("failed to load lark config for command handling", zap.Error(err))
-		return nil
-	}
 
 	// If commands are disabled, ignore all messages
 	if !cfg.CommandsEnabled {
@@ -449,7 +446,7 @@ func (s *LarkBotService) SendMessage(ctx context.Context, chatID, content string
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB max
 	if err != nil {
 		return fmt.Errorf("failed to read lark response: %w", err)
 	}

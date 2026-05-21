@@ -35,6 +35,7 @@ type AlertEventService struct {
 	workerPool   AlertWorkerPool
 	dispatchSem  chan struct{} // bounds goroutines when no worker pool is configured
 	logger       *zap.Logger
+	serverCtx    context.Context // server lifecycle context for background goroutines
 }
 
 
@@ -98,6 +99,19 @@ func NewAlertEventService(
 	}
 }
 
+// WithServerContext sets the server lifecycle context for background goroutines.
+func (s *AlertEventService) WithServerContext(ctx context.Context) {
+	s.serverCtx = ctx
+}
+
+// bgCtx returns the server context if set, otherwise context.Background().
+func (s *AlertEventService) bgCtx() context.Context {
+	if s.serverCtx != nil {
+		return s.serverCtx
+	}
+	return context.Background()
+}
+
 func (s *AlertEventService) List(ctx context.Context, status, severity string, page, pageSize int) ([]model.AlertEvent, int64, error) {
 	return s.repo.List(ctx, status, severity, page, pageSize)
 }
@@ -117,28 +131,27 @@ func (s *AlertEventService) GetByID(ctx context.Context, id uint) (*model.AlertE
 
 // Acknowledge marks an alert as acknowledged.
 func (s *AlertEventService) Acknowledge(ctx context.Context, eventID, userID uint) error {
-	event, err := s.repo.GetByID(ctx, eventID)
+	now := time.Now()
+	ok, err := s.repo.TransitionStatus(ctx, eventID, []model.AlertEventStatus{model.EventStatusFiring}, map[string]interface{}{
+		"status":   model.EventStatusAcknowledged,
+		"acked_by": userID,
+		"acked_at": now,
+	})
 	if err != nil {
-		return apperr.ErrEventNotFound
+		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
-
-	if event.Status != model.EventStatusFiring {
+	if !ok {
 		return apperr.WithMessage(apperr.ErrBadRequest, "alert is not in firing state")
 	}
 
-	now := time.Now()
-	event.Status = model.EventStatusAcknowledged
-	event.AckedBy = &userID
-	event.AckedAt = &now
-
-	if err := s.repo.Update(ctx, event); err != nil {
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
+	event, _ := s.repo.GetByID(ctx, eventID)
 
 	// Add timeline entry
 	s.addTimeline(ctx, eventID, model.TimelineActionAcknowledged, &userID, "Alert acknowledged")
 
-	s.triggerLarkCardUpdate(event)
+	if event != nil {
+		s.triggerLarkCardUpdate(event)
+	}
 	return nil
 }
 
@@ -168,47 +181,53 @@ func (s *AlertEventService) Assign(ctx context.Context, eventID, assignTo, opera
 
 // Resolve marks an alert as resolved.
 func (s *AlertEventService) Resolve(ctx context.Context, eventID, userID uint, resolution string) error {
-	event, err := s.repo.GetByID(ctx, eventID)
-	if err != nil {
-		return apperr.ErrEventNotFound
-	}
-
 	now := time.Now()
-	event.Status = model.EventStatusResolved
-	event.ResolvedAt = &now
-	event.Resolution = resolution
-
-	if err := s.repo.Update(ctx, event); err != nil {
+	ok, err := s.repo.TransitionStatus(ctx, eventID,
+		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAcknowledged},
+		map[string]interface{}{
+			"status":      model.EventStatusResolved,
+			"resolved_at": now,
+			"resolution":  resolution,
+		})
+	if err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	if !ok {
+		return apperr.WithMessage(apperr.ErrBadRequest, "alert cannot be resolved from current state")
+	}
 
+	event, _ := s.repo.GetByID(ctx, eventID)
 	s.addTimeline(ctx, eventID, model.TimelineActionResolved, &userID, resolution)
-
-	s.triggerLarkCardUpdate(event)
+	if event != nil {
+		s.triggerLarkCardUpdate(event)
+	}
 	return nil
 }
 
 // Close marks an alert as closed.
 func (s *AlertEventService) Close(ctx context.Context, eventID, userID uint, note string) error {
-	event, err := s.repo.GetByID(ctx, eventID)
-	if err != nil {
-		return apperr.ErrEventNotFound
-	}
-
 	now := time.Now()
-	event.Status = model.EventStatusClosed
-	event.ClosedAt = &now
-
-	if err := s.repo.Update(ctx, event); err != nil {
+	ok, err := s.repo.TransitionStatus(ctx, eventID,
+		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAcknowledged, model.EventStatusResolved},
+		map[string]interface{}{
+			"status":    model.EventStatusClosed,
+			"closed_at": now,
+		})
+	if err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if !ok {
+		return apperr.WithMessage(apperr.ErrBadRequest, "alert cannot be closed from current state")
 	}
 
 	if note == "" {
 		note = "Alert closed"
 	}
+	event, _ := s.repo.GetByID(ctx, eventID)
 	s.addTimeline(ctx, eventID, model.TimelineActionClosed, &userID, note)
-
-	s.triggerLarkCardUpdate(event)
+	if event != nil {
+		s.triggerLarkCardUpdate(event)
+	}
 	return nil
 }
 
@@ -256,18 +275,26 @@ func (s *AlertEventService) BatchAcknowledge(ctx context.Context, eventIDs []uin
 	success = int(affected)
 	failed = len(eventIDs) - success
 
-	// Batch-insert timeline entries for each updated event.
-	entries := make([]model.AlertTimeline, 0, success)
-	for _, id := range eventIDs {
-		entries = append(entries, model.AlertTimeline{
-			EventID:    id,
-			Action:     model.TimelineActionAcknowledged,
-			OperatorID: &userID,
-			Note:       "Alert acknowledged",
-		})
-	}
-	if err2 := s.timelineRepo.BulkCreate(ctx, entries); err2 != nil {
-		s.logger.Error("failed to bulk-insert acknowledge timeline", zap.Error(err2))
+	// Only insert timeline entries for events that were actually updated.
+	// Re-query to find which IDs transitioned to acknowledged.
+	if success > 0 {
+		updatedEvents, qErr := s.repo.GetByIDs(ctx, eventIDs)
+		if qErr == nil {
+			entries := make([]model.AlertTimeline, 0, success)
+			for _, ev := range updatedEvents {
+				if ev.Status == model.EventStatusAcknowledged {
+					entries = append(entries, model.AlertTimeline{
+						EventID:    ev.ID,
+						Action:     model.TimelineActionAcknowledged,
+						OperatorID: &userID,
+						Note:       "Alert acknowledged",
+					})
+				}
+			}
+			if err2 := s.timelineRepo.BulkCreate(ctx, entries); err2 != nil {
+				s.logger.Error("failed to bulk-insert acknowledge timeline", zap.Error(err2))
+			}
+		}
 	}
 
 	return success, failed, nil
@@ -287,18 +314,25 @@ func (s *AlertEventService) BatchClose(ctx context.Context, eventIDs []uint, use
 	success = int(affected)
 	failed = len(eventIDs) - success
 
-	// Batch-insert timeline entries for each updated event.
-	entries := make([]model.AlertTimeline, 0, success)
-	for _, id := range eventIDs {
-		entries = append(entries, model.AlertTimeline{
-			EventID:    id,
-			Action:     model.TimelineActionClosed,
-			OperatorID: &userID,
-			Note:       "Batch close",
-		})
-	}
-	if err2 := s.timelineRepo.BulkCreate(ctx, entries); err2 != nil {
-		s.logger.Error("failed to bulk-insert close timeline", zap.Error(err2))
+	// Only insert timeline entries for events that were actually updated.
+	if success > 0 {
+		updatedEvents, qErr := s.repo.GetByIDs(ctx, eventIDs)
+		if qErr == nil {
+			entries := make([]model.AlertTimeline, 0, success)
+			for _, ev := range updatedEvents {
+				if ev.Status == model.EventStatusClosed {
+					entries = append(entries, model.AlertTimeline{
+						EventID:    ev.ID,
+						Action:     model.TimelineActionClosed,
+						OperatorID: &userID,
+						Note:       "Batch close",
+					})
+				}
+			}
+			if err2 := s.timelineRepo.BulkCreate(ctx, entries); err2 != nil {
+				s.logger.Error("failed to bulk-insert close timeline", zap.Error(err2))
+			}
+		}
 	}
 
 	return success, failed, nil
@@ -428,7 +462,7 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 			}
 		}
 		if s.workerPool != nil {
-			if !s.workerPool.Submit(context.Background(), dispatch) {
+			if !s.workerPool.Submit(s.bgCtx(), dispatch) {
 				s.logger.Warn("worker pool full, notification deferred to next eval cycle",
 					zap.Uint("event_id", eventID),
 				)
@@ -438,7 +472,7 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 			case s.dispatchSem <- struct{}{}:
 				go func() {
 					defer func() { <-s.dispatchSem }()
-					dispatch(context.Background())
+					dispatch(s.bgCtx())
 				}()
 			default:
 				s.logger.Warn("dispatch semaphore full, dropping notification dispatch",
@@ -475,13 +509,13 @@ func (s *AlertEventService) triggerLarkCardUpdate(event *model.AlertEvent) {
 		}
 	}
 	if s.workerPool != nil {
-		s.workerPool.Submit(context.Background(), fn) // best-effort; don't block caller
+		s.workerPool.Submit(s.bgCtx(), fn) // best-effort; don't block caller
 	} else {
 		select {
 		case s.dispatchSem <- struct{}{}:
 			go func() {
 				defer func() { <-s.dispatchSem }()
-				fn(context.Background())
+				fn(s.bgCtx())
 			}()
 		default:
 			s.logger.Warn("dispatch semaphore full, dropping lark card update",

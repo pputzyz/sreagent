@@ -677,7 +677,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         :item-count="total"
         :page-sizes="[20, 50, 100]"
         show-size-picker
-        @update:page="(p: number) => { page = p; fetchList() }"
+        @update:page="(p: number) => { page = p; clearSelection(); fetchList() }"
         @update:page-size="(s: number) => { pageSize = s; page = 1; fetchList() }"
       />
     </div>
