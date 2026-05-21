@@ -189,6 +189,17 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte, signature
 		return map[string]string{"challenge": req.Challenge}, nil
 	}
 
+	// Anti-replay: reject requests with timestamps outside a ±5 minute window.
+	if timestamp != "" {
+		ts, err := strconv.ParseInt(timestamp, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid lark request timestamp")
+		}
+		if diff := time.Now().Unix() - ts; diff < -300 || diff > 300 {
+			return nil, fmt.Errorf("lark request timestamp out of acceptable window")
+		}
+	}
+
 	// Verify HMAC-SHA256 signature (preferred over plaintext token verification).
 	if cfg.EncryptKey != "" && signature != "" {
 		if !verifyLarkSignature(timestamp, nonce, cfg.EncryptKey, body, signature) {

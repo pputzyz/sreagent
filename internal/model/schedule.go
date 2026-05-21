@@ -93,6 +93,19 @@ func (EscalationStep) TableName() string {
 	return "escalation_steps"
 }
 
+// EscalationStepExecution records that an escalation step has been executed for an event.
+// Used for atomic dedup via INSERT IGNORE.
+type EscalationStepExecution struct {
+	ID         uint      `json:"id" gorm:"primaryKey"`
+	EventID    uint      `json:"event_id" gorm:"index;not null"`
+	StepID     uint      `json:"step_id" gorm:"not null"`
+	ExecutedAt time.Time `json:"executed_at" gorm:"not null;default:CURRENT_TIMESTAMP(3)"`
+}
+
+func (EscalationStepExecution) TableName() string {
+	return "escalation_step_executions"
+}
+
 // OnCallShift represents a specific on-call time slot assigned to a person.
 // This is the core of the schedule system - each shift has a clear owner and time range.
 type OnCallShift struct {

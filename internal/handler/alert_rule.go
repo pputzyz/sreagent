@@ -15,6 +15,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/upload"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -257,7 +258,14 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 		}
 	}
 
-	data, err := io.ReadAll(io.LimitReader(file, maxUploadSize+1))
+	// Validate MIME type and file extension.
+	validated, err := upload.ValidateYAMLUpload(header.Filename, file)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "file validation failed: "+err.Error()))
+		return
+	}
+
+	data, err := io.ReadAll(io.LimitReader(validated, maxUploadSize+1))
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read file: "+err.Error()))
 		return

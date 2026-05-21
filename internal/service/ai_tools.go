@@ -13,6 +13,15 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// marshalJSONOrError marshals v to JSON string, returning an error message string on failure.
+func marshalJSONOrError(v interface{}) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf(`{"error":"json marshal failed: %s"}`, err.Error())
+	}
+	return string(data)
+}
+
 // AITool 定义一个可被 AI 调用的工具
 type AITool struct {
 	Name        string                 `json:"name"`
@@ -203,12 +212,11 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				})
 			}
 
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"total": total,
 				"page":  page,
 				"rules": summaries,
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 
@@ -233,8 +241,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				return fmt.Sprintf("获取故障详情失败: %v", err), nil
 			}
 
-			data, _ := json.Marshal(inc)
-			return string(data), nil
+			return marshalJSONOrError(inc), nil
 		},
 	})
 
@@ -251,8 +258,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 			if !ok {
 				return "告警引擎未启用", nil
 			}
-			data, _ := json.Marshal(status)
-			return string(data), nil
+			return marshalJSONOrError(status), nil
 		},
 	})
 
@@ -333,13 +339,12 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				summaries = append(summaries, s)
 			}
 
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"total": total,
 				"page":  page,
 				"days":  days,
 				"logs":  summaries,
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 
@@ -402,13 +407,12 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				metrics = metrics[:limit]
 			}
 
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"total":   len(resp.Data),
 				"filtered": len(metrics),
 				"prefix":  prefix,
 				"metrics": metrics,
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 
@@ -442,11 +446,10 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				return fmt.Sprintf("解析响应失败: %v", err), nil
 			}
 
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"total": len(resp.Data),
 				"keys":  resp.Data,
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 
@@ -499,13 +502,12 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				values = values[:limit]
 			}
 
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"total":      len(resp.Data),
 				"returned":   len(values),
 				"label_key":  labelKey,
 				"values":     values,
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 
@@ -599,13 +601,12 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 			}
 
 			entry := entries[0]
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"metric": metricName,
 				"type":   entry["type"],
 				"help":   entry["help"],
 				"unit":   entry["unit"],
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 
@@ -678,11 +679,10 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				})
 			}
 
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"total":  len(summaries),
 				"events": summaries,
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 
@@ -739,11 +739,10 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				})
 			}
 
-			data, _ := json.Marshal(map[string]interface{}{
+			return marshalJSONOrError(map[string]interface{}{
 				"total": len(summaries),
 				"docs":  summaries,
-			})
-			return string(data), nil
+			}), nil
 		},
 	})
 

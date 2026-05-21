@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -18,7 +19,7 @@ func NewUserPreferenceHandler(svc *service.UserPreferenceService) *UserPreferenc
 func (h *UserPreferenceHandler) Get(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "unauthorized"})
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "unauthorized"))
 		return
 	}
 
@@ -34,7 +35,7 @@ func (h *UserPreferenceHandler) Get(c *gin.Context) {
 func (h *UserPreferenceHandler) Update(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "unauthorized"})
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "unauthorized"))
 		return
 	}
 
@@ -47,7 +48,7 @@ func (h *UserPreferenceHandler) Update(c *gin.Context) {
 		AIChatMode             *string `json:"ai_chat_mode"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

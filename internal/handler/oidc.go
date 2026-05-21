@@ -59,6 +59,11 @@ func (h *OIDCHandler) LoginRedirect(c *gin.Context) {
 // GET /api/v1/auth/oidc/callback?code=...&state=...
 // On success, redirects to the frontend with a token parameter.
 func (h *OIDCHandler) Callback(c *gin.Context) {
+	if h.svc == nil || !h.svc.Enabled() {
+		Error(c, apperr.WithMessage(apperr.ErrForbidden, "OIDC authentication is disabled"))
+		return
+	}
+
 	// Verify state for CSRF protection
 	expectedState, err := c.Cookie("oidc_state")
 	if err != nil || expectedState == "" {
@@ -109,6 +114,11 @@ func (h *OIDCHandler) Callback(c *gin.Context) {
 // Accepts {"code": "...", "state": "..."} and returns {"token": "...", "expires_in": ...}
 // This is useful for SPAs that handle the redirect themselves.
 func (h *OIDCHandler) CallbackJSON(c *gin.Context) {
+	if h.svc == nil || !h.svc.Enabled() {
+		Error(c, apperr.WithMessage(apperr.ErrForbidden, "OIDC authentication is disabled"))
+		return
+	}
+
 	var req struct {
 		Code  string `json:"code" binding:"required"`
 		State string `json:"state"`

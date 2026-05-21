@@ -7,7 +7,7 @@
  *   const severity = ref<string | null>(restore('severity', null))
  *   watch([search, severity], () => save({ search: search.value, severity: severity.value }))
  */
-import { watch, type Ref, type UnwrapRef } from 'vue'
+import { watch, onScopeDispose, type Ref, type UnwrapRef } from 'vue'
 
 const STORAGE_PREFIX = 'sre.filters.'
 
@@ -91,6 +91,9 @@ export function useFilterMemory(pageKey: string, debounceMs = 300) {
       },
       { deep: true },
     )
+
+    // Auto-stop the watcher when the calling scope is disposed.
+    onScopeDispose(stop)
 
     return stop
   }

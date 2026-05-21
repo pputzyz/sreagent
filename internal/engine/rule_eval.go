@@ -38,10 +38,16 @@ func (re *RuleEvaluator) Run() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// GC resolved states every hour to prevent unbounded sync.Map growth.
+	gcTicker := time.NewTicker(1 * time.Hour)
+	defer gcTicker.Stop()
+
 	for {
 		select {
 		case <-ticker.C:
 			re.evaluate()
+		case <-gcTicker.C:
+			re.gcStates()
 		case <-re.stopCh:
 			re.logger.Info("rule evaluator stopped")
 			return
@@ -138,6 +144,7 @@ func (re *RuleEvaluator) evaluate() {
 					// phantom firing states in GetFiringEvents when DB write fails.
 					re.createAlertEvent(state, model.EventStatusFiring)
 					state.Status = "firing"
+					state.Revision++
 					sl.state = state
 					metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "firing")
 					re.persistState(fp, state)
@@ -146,6 +153,7 @@ func (re *RuleEvaluator) evaluate() {
 				// Enter pending state
 				state.Status = "pending"
 				state.ActiveAt = now
+				state.Revision++
 				sl.state = state
 				re.persistState(fp, state)
 			}
@@ -169,6 +177,7 @@ func (re *RuleEvaluator) evaluate() {
 					} else {
 						state.Status = "firing"
 						state.FiredAt = now
+						state.Revision++
 						if re.suppressor != nil {
 							re.suppressor.UpdateSeverity(re.rule.ID, fp, severity)
 						}
@@ -196,6 +205,7 @@ func (re *RuleEvaluator) evaluate() {
 						state.Status = "firing"
 						state.ActiveAt = now
 						state.FiredAt = now
+						state.Revision++
 						if re.suppressor != nil {
 							re.suppressor.UpdateSeverity(re.rule.ID, fp, severity)
 						}
@@ -205,6 +215,7 @@ func (re *RuleEvaluator) evaluate() {
 				} else {
 					state.Status = "pending"
 					state.ActiveAt = now
+					state.Revision++
 					re.persistState(fp, state)
 				}
 			}
@@ -249,6 +260,7 @@ func (re *RuleEvaluator) evaluate() {
 				// Resolve the alert
 				state.Status = "resolved"
 				state.ResolvedAt = now
+				state.Revision++
 				if re.suppressor != nil {
 					re.suppressor.RemoveSeverity(re.rule.ID, fp, string(re.rule.Severity))
 				}
@@ -298,6 +310,7 @@ func (re *RuleEvaluator) evaluate() {
 		} else if sl.state.Status == "pending" && time.Since(sl.state.ActiveAt) >= noDataDuration {
 			sl.state.Status = "firing"
 			sl.state.FiredAt = now
+			sl.state.Revision++
 			re.createAlertEvent(sl.state, model.EventStatusFiring)
 			metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "nodata")
 			re.persistState(noDataFP, sl.state)
@@ -313,6 +326,7 @@ func (re *RuleEvaluator) evaluate() {
 			if sl.state.Status == "firing" {
 				sl.state.Status = "resolved"
 				sl.state.ResolvedAt = now
+				sl.state.Revision++
 				re.resolveAlertEvent(sl.state)
 			}
 			sl.state = nil

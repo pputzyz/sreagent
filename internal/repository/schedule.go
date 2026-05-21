@@ -258,3 +258,43 @@ func (r *EscalationStepRepository) ReplaceByPolicyID(ctx context.Context, policy
 		return nil
 	})
 }
+
+// ---------------------------------------------------------------------------
+// EscalationStepExecutionRepository
+// ---------------------------------------------------------------------------
+
+type EscalationStepExecutionRepository struct {
+	db *gorm.DB
+}
+
+func NewEscalationStepExecutionRepository(db *gorm.DB) *EscalationStepExecutionRepository {
+	return &EscalationStepExecutionRepository{db: db}
+}
+
+// InsertIgnore atomically records a step execution using INSERT IGNORE.
+// Returns true if the row was inserted (i.e., this is the first execution).
+func (r *EscalationStepExecutionRepository) InsertIgnore(ctx context.Context, eventID, stepID uint) (bool, error) {
+	exec := &model.EscalationStepExecution{
+		EventID:    eventID,
+		StepID:     stepID,
+		ExecutedAt: time.Now(),
+	}
+	// INSERT IGNORE: if the unique key (event_id, step_id) already exists, the row is silently ignored.
+	result := r.db.WithContext(ctx).Exec(
+		"INSERT IGNORE INTO escalation_step_executions (event_id, step_id, executed_at) VALUES (?, ?, ?)",
+		exec.EventID, exec.StepID, exec.ExecutedAt,
+	)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
+// HasExecuted checks if a step has already been executed for an event.
+func (r *EscalationStepExecutionRepository) HasExecuted(ctx context.Context, eventID, stepID uint) bool {
+	var count int64
+	r.db.WithContext(ctx).Model(&model.EscalationStepExecution{}).
+		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Count(&count)
+	return count > 0
+}

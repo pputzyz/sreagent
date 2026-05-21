@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/upload"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -28,7 +29,11 @@ func readYAMLInput(c *gin.Context) ([]byte, error) {
 	if header.Size > maxUploadSize {
 		return nil, fmt.Errorf("file too large (max 10MB)")
 	}
-	return io.ReadAll(io.LimitReader(file, maxUploadSize+1))
+	validated, err := upload.ValidateYAMLUpload(header.Filename, file)
+	if err != nil {
+		return nil, fmt.Errorf("file validation failed: %w", err)
+	}
+	return io.ReadAll(io.LimitReader(validated, maxUploadSize+1))
 }
 
 // AlertmanagerImportHandler handles Alertmanager config import requests.

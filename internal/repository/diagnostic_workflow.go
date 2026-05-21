@@ -184,6 +184,7 @@ func (r *DiagnosticWorkflowRepository) ListRunSteps(ctx context.Context, runID u
 }
 
 // FindMatchingWorkflows finds enabled workflows whose trigger_labels match the given labels.
+// Uses MySQL JSON_CONTAINS to push label matching into SQL when labels are provided.
 func (r *DiagnosticWorkflowRepository) FindMatchingWorkflows(ctx context.Context, labels map[string]string, severity string) ([]model.DiagnosticWorkflow, error) {
 	var workflows []model.DiagnosticWorkflow
 	q := r.db.WithContext(ctx).Where("enabled = ?", true)
@@ -192,28 +193,16 @@ func (r *DiagnosticWorkflowRepository) FindMatchingWorkflows(ctx context.Context
 		q = q.Where("trigger_severity = ? OR trigger_severity IS NULL", severity)
 	}
 
+	// Push label matching into SQL via JSON_CONTAINS for each key-value pair.
+	for k, v := range labels {
+		// JSON_CONTAINS checks that trigger_labels contains at least {"key":"value"}.
+		pair := fmt.Sprintf(`{"%s":"%s"}`, k, v)
+		q = q.Where("trigger_labels IS NULL OR JSON_CONTAINS(trigger_labels, ?)", pair)
+	}
+
 	if err := q.Find(&workflows).Error; err != nil {
 		return nil, err
 	}
 
-	// Filter by label match in Go (JSON_CONTAINS is MySQL-specific)
-	var matched []model.DiagnosticWorkflow
-	for _, wf := range workflows {
-		if wf.TriggerLabels == nil || len(wf.TriggerLabels) == 0 {
-			matched = append(matched, wf) // no label filter = matches all
-			continue
-		}
-		allMatch := true
-		for k, v := range wf.TriggerLabels {
-			if lv, ok := labels[k]; !ok || lv != v {
-				allMatch = false
-				break
-			}
-		}
-		if allMatch {
-			matched = append(matched, wf)
-		}
-	}
-
-	return matched, nil
+	return workflows, nil
 }

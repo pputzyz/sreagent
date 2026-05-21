@@ -113,3 +113,31 @@ func (re *RuleEvaluator) deletePersistedState(fp string) {
 		)
 	}
 }
+
+// gcStates removes resolved entries whose ResolvedAt is older than 24 hours.
+// Called periodically by the evaluator's Run loop.
+func (re *RuleEvaluator) gcStates() {
+	threshold := time.Now().Add(-24 * time.Hour)
+	removed := 0
+
+	re.states.Range(func(k, v any) bool {
+		sl := v.(*stateLock)
+		sl.mu.Lock()
+		if sl.state != nil && sl.state.Status == "resolved" && !sl.state.ResolvedAt.IsZero() && sl.state.ResolvedAt.Before(threshold) {
+			fp := k.(string)
+			sl.mu.Unlock()
+			re.deleteState(fp)
+			re.deletePersistedState(fp)
+			removed++
+			return true
+		}
+		sl.mu.Unlock()
+		return true
+	})
+
+	if removed > 0 {
+		re.logger.Debug("state GC completed",
+			zap.Int("removed_entries", removed),
+		)
+	}
+}

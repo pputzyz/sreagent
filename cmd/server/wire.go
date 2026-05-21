@@ -102,6 +102,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	onCallShiftRepo := repository.NewOnCallShiftRepository(db)
 	escalationPolicyRepo := repository.NewEscalationPolicyRepository(db)
 	escalationStepRepo := repository.NewEscalationStepRepository(db)
+	stepExecRepo := repository.NewEscalationStepExecutionRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
 	muteRuleRepo := repository.NewMuteRuleRepository(db)
 	inhibitionRuleRepo := repository.NewInhibitionRuleRepository(db)
@@ -298,6 +299,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	escalationExecutor := engine.NewEscalationExecutor(
 		escalationPolicyRepo,
 		escalationStepRepo,
+		stepExecRepo,
 		eventRepo,
 		timelineRepo,
 		channelRepo,

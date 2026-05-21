@@ -72,6 +72,11 @@ func (s *AgentService) SetToolRegistry(reg *AIToolRegistry) {
 
 // cleanupLoop 每 10 分钟清理超过 1 小时的已完成任务
 func (s *AgentService) cleanupLoop() {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error("cleanupLoop panic recovered", zap.Any("recover", r))
+		}
+	}()
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -134,6 +139,14 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 
 	// Background goroutine: detach from request lifecycle but keep a timeout.
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("agent task panic recovered",
+					zap.String("task_id", task.ID),
+					zap.Any("recover", r),
+				)
+			}
+		}()
 		bgCtx, cancel := context.WithTimeout(context.Background(), agentTotalTimeout)
 		defer cancel()
 		_, _ = s.runTask(bgCtx, task)
@@ -368,7 +381,11 @@ func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *A
 	// 持久化工具调用记录
 	var callID uint
 	if s.convRepo != nil && task.ConversationID > 0 {
-		paramsBytes, _ := json.Marshal(step.Parameters)
+		paramsBytes, err := json.Marshal(step.Parameters)
+		if err != nil {
+			s.logger.Warn("failed to marshal step parameters", zap.Error(err))
+			paramsBytes = []byte("{}")
+		}
 		call := &model.AIToolCall{
 			ConversationID: task.ConversationID,
 			StepIndex:      step.Index,

@@ -23,6 +23,7 @@ import (
 type EscalationExecutor struct {
 	policyRepo           *repository.EscalationPolicyRepository
 	stepRepo             *repository.EscalationStepRepository
+	stepExecRepo         *repository.EscalationStepExecutionRepository
 	eventRepo            *repository.AlertEventRepository
 	ruleRepo             *repository.AlertRuleRepository // optional — used for SLA checks
 	timelineRepo         *repository.AlertTimelineRepository
@@ -45,6 +46,7 @@ type EscalationExecutor struct {
 func NewEscalationExecutor(
 	policyRepo *repository.EscalationPolicyRepository,
 	stepRepo *repository.EscalationStepRepository,
+	stepExecRepo *repository.EscalationStepExecutionRepository,
 	eventRepo *repository.AlertEventRepository,
 	timelineRepo *repository.AlertTimelineRepository,
 	channelRepo *repository.NotifyChannelRepository,
@@ -61,6 +63,7 @@ func NewEscalationExecutor(
 	return &EscalationExecutor{
 		policyRepo:           policyRepo,
 		stepRepo:             stepRepo,
+		stepExecRepo:         stepExecRepo,
 		eventRepo:            eventRepo,
 		ruleRepo:             ruleRepo,
 		timelineRepo:         timelineRepo,
@@ -277,18 +280,34 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 		})
 
 		for _, step := range steps {
-			// Use the stable step ID for dedup — note text may change across versions.
-			stepKey := fmt.Sprintf("step:%d", step.ID)
-			if executedSteps[stepKey] {
-				// Already executed this step for this event.
-				continue
-			}
-
 			// Check if enough time has passed since the alert fired.
 			dueAt := event.FiredAt.Add(time.Duration(step.DelayMinutes) * time.Minute)
 			if now.Before(dueAt) {
 				// Not due yet; continue to check other steps (delays may not be monotonic).
 				continue
+			}
+
+			// Atomic dedup: INSERT IGNORE ensures only one goroutine executes this step.
+			if e.stepExecRepo != nil {
+				inserted, err := e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
+				if err != nil {
+					e.logger.Error("escalation: failed to check step execution",
+						zap.Uint("event_id", event.ID),
+						zap.Uint("step_id", step.ID),
+						zap.Error(err),
+					)
+					continue
+				}
+				if !inserted {
+					// Already executed by another goroutine — skip.
+					continue
+				}
+			} else {
+				// Fallback: timeline-based dedup when stepExecRepo is not configured.
+				stepKey := fmt.Sprintf("step:%d", step.ID)
+				if executedSteps[stepKey] {
+					continue
+				}
 			}
 
 			// Execute this step.

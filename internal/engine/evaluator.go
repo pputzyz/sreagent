@@ -35,6 +35,8 @@ type AlertState struct {
 	LastSeen time.Time
 	// EventID of the firing event in the DB
 	EventID uint
+	// Revision is incremented on every state change for optimistic concurrency.
+	Revision int64
 }
 
 // RuleEvaluator evaluates a single alert rule.

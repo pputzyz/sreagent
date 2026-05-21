@@ -4,6 +4,47 @@
 
 ---
 
+## [v4.15.7] — 2026-05-21
+
+### Review Round 2 — 22 项全量整改
+
+**安全 (PR-A)**
+- `internal/service/larkbot.go`：飞书 Webhook 防重放攻击，±5 分钟时间戳窗口校验
+- `internal/pkg/upload/validator.go`：新增文件上传 MIME + magic number 校验工具，YAML/JSON 内容验证
+- `internal/handler/alert_rule.go`：Import 使用 `ValidateYAMLUpload` 校验上传文件
+- `internal/handler/alertmanager_import.go`：readYAMLInput 使用 `ValidateYAMLUpload` 校验
+- `internal/handler/oidc.go`：Callback/CallbackJSON 入口检查 `Enabled()`，OIDC 未启用返回 403
+
+**引擎 (PR-B)**
+- `internal/engine/rule_eval_state.go`：新增 `gcStates()` 方法，每小时清理 24h 前的 resolved 状态，防止 sync.Map 无限增长
+- `internal/engine/rule_eval.go`：Run 循环新增 gcTicker 触发 gcStates
+- `internal/engine/evaluator.go`：AlertState 新增 `Revision int64` 字段，每次状态变更自增
+- `internal/engine/rule_eval.go`：所有 `state.Status =` 赋值后追加 `state.Revision++`
+- `internal/engine/escalation_executor.go`：新增 `stepExecRepo` 字段，升级步骤使用 INSERT IGNORE 原子去重
+- `internal/repository/schedule.go`：新增 `EscalationStepExecutionRepository`（InsertIgnore/HasExecuted）
+- `internal/model/schedule.go`：新增 `EscalationStepExecution` 模型
+- `internal/pkg/dbmigrate/migrations/000060_escalation_step_exec.{up|down}.sql`：迁移文件
+- `cmd/server/wire.go`：注入 `stepExecRepo` 到 `NewEscalationExecutor`
+
+**错误处理 (PR-C)**
+- `internal/handler/alert_event.go`：CSV 导出 `w.Write()` 和 `w.Flush()` 错误处理
+- `internal/service/ai_tools.go`：新增 `marshalJSONOrError` 辅助函数，替换 10 处 `data, _ := json.Marshal(...)`
+- `internal/service/ai_agent.go`：`paramsBytes` JSON Marshal 错误处理
+- `internal/service/ai_agent.go`：cleanupLoop / StartAgent 后台 goroutine 新增 panic recovery
+- `internal/service/dashboard_stats.go`：GetStats 7 个 goroutine 新增 panic recovery
+
+**诊断工作流 (PR-D)**
+- `internal/repository/diagnostic_workflow.go`：FindMatchingWorkflows 使用 MySQL `JSON_CONTAINS` 替代 Go 层标签匹配
+
+**前端 (PR-E)**
+- `internal/handler/metrics.go`：未授权响应改用 `Error()` 统一封装
+- `internal/handler/user_preference.go`：3 处 `c.JSON` 改用 `Error()` / `apperr` 统一响应
+- `web/src/composables/useFilterMemory.ts`：`bindRefs` 新增 `onScopeDispose(stop)` 自动清理 watcher
+
+**迁移文件**: 000060_escalation_step_exec
+
+---
+
 ## [v4.15.6] — 2026-05-21
 
 ### Review Round 3 — 剩余项全量实现

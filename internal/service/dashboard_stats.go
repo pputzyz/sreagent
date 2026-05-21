@@ -220,6 +220,11 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
+			}
+		}()
 		if err := s.db.Model(&model.DataSource{}).Count(&stats.TotalDatasources).Error; err != nil {
 			s.logger.Error("failed to count datasources", zap.Error(err))
 		}
@@ -227,6 +232,11 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
+			}
+		}()
 		if err := s.db.Model(&model.AlertRule{}).Count(&stats.TotalRules).Error; err != nil {
 			s.logger.Error("failed to count alert rules", zap.Error(err))
 		}
@@ -234,6 +244,11 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
+			}
+		}()
 		if err := s.db.Model(&model.AlertEvent{}).
 			Where("status IN ?", []string{
 				string(model.EventStatusFiring),
@@ -246,6 +261,11 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
+			}
+		}()
 		todayStart := time.Now().Truncate(24 * time.Hour)
 		if err := s.db.Model(&model.AlertEvent{}).
 			Where("status = ? AND resolved_at >= ?", string(model.EventStatusResolved), todayStart).
@@ -256,6 +276,11 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
+			}
+		}()
 		if err := s.db.Model(&model.User{}).Count(&stats.TotalUsers).Error; err != nil {
 			s.logger.Error("failed to count users", zap.Error(err))
 		}
@@ -263,6 +288,11 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
+			}
+		}()
 		if err := s.db.Model(&model.Team{}).Count(&stats.TotalTeams).Error; err != nil {
 			s.logger.Error("failed to count teams", zap.Error(err))
 		}
@@ -270,6 +300,11 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("dashboard goroutine panic", zap.Any("recover", r))
+			}
+		}()
 		type sevRow struct {
 			Severity string
 			Cnt      int64
