@@ -174,7 +174,7 @@ func (s *LevelSuppressor) RemoveRule(ruleID uint) {
 }
 
 // RemoveSeverity removes a severity record (when alert resolves).
-// Removes regardless of severity match to prevent stale entries.
+// Only removes if the current active severity matches the given one.
 func (s *LevelSuppressor) RemoveSeverity(ruleID uint, fingerprint string, severity string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -184,7 +184,8 @@ func (s *LevelSuppressor) RemoveSeverity(ruleID uint, fingerprint string, severi
 		return
 	}
 
-	if _, ok := fpMap[fingerprint]; !ok {
+	activeSev, ok := fpMap[fingerprint]
+	if !ok || activeSev != severity {
 		return
 	}
 
