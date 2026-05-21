@@ -34,6 +34,7 @@ type AlertGroupManager struct {
 	logger    *zap.Logger
 	stopCh    chan struct{}
 	stopped   bool
+	serverCtx context.Context // server lifecycle context for timer callbacks
 }
 
 // NewAlertGroupManager creates a new AlertGroupManager.
@@ -49,7 +50,13 @@ func NewAlertGroupManager(
 		ruleRepo:  ruleRepo,
 		logger:    logger,
 		stopCh:    make(chan struct{}),
+		serverCtx: context.Background(),
 	}
+}
+
+// WithServerContext sets the server lifecycle context for timer-based flushes.
+func (m *AlertGroupManager) WithServerContext(ctx context.Context) {
+	m.serverCtx = ctx
 }
 
 // ProcessEvent is the main entry point. For firing events it buffers them
@@ -62,7 +69,7 @@ func (m *AlertGroupManager) ProcessEvent(ctx context.Context, event *model.Alert
 	}
 
 	// Look up the rule's grouping config.
-	groupWait, groupInterval := m.getGroupTiming(event)
+	groupWait, groupInterval := m.getGroupTiming(ctx, event)
 
 	// If both are zero, grouping is disabled — pass through.
 	if groupWait == 0 && groupInterval == 0 {
@@ -70,7 +77,7 @@ func (m *AlertGroupManager) ProcessEvent(ctx context.Context, event *model.Alert
 	}
 
 	// Derive group key.
-	groupKey := m.getGroupKey(event)
+	groupKey := m.getGroupKey(ctx, event)
 
 	m.mu.Lock()
 	g, exists := m.groups[groupKey]
@@ -143,9 +150,8 @@ func (m *AlertGroupManager) flushGroup(key string) {
 		zap.Int("event_count", len(events)),
 	)
 
-	ctx := context.Background()
 	for _, event := range events {
-		if err := m.routeFunc(ctx, event); err != nil {
+		if err := m.routeFunc(m.serverCtx, event); err != nil {
 			m.logger.Error("failed to route grouped alert",
 				zap.String("group_key", key),
 				zap.Uint("event_id", event.ID),
@@ -157,12 +163,12 @@ func (m *AlertGroupManager) flushGroup(key string) {
 
 // getGroupTiming reads group_wait_seconds and group_interval_seconds from the
 // alert rule associated with the event.
-func (m *AlertGroupManager) getGroupTiming(event *model.AlertEvent) (time.Duration, time.Duration) {
+func (m *AlertGroupManager) getGroupTiming(ctx context.Context, event *model.AlertEvent) (time.Duration, time.Duration) {
 	if event.RuleID == nil || *event.RuleID == 0 {
 		return 0, 0
 	}
 
-	rule, err := m.ruleRepo.GetByID(context.Background(), *event.RuleID)
+	rule, err := m.ruleRepo.GetByID(ctx, *event.RuleID)
 	if err != nil {
 		m.logger.Warn("failed to load rule for group timing, disabling grouping",
 			zap.Uint("rule_id", *event.RuleID),
@@ -178,7 +184,7 @@ func (m *AlertGroupManager) getGroupTiming(event *model.AlertEvent) (time.Durati
 // getGroupKey derives the notification group key for an event.
 // If the rule has a GroupName, the key is "{GroupName}:{RuleID}".
 // Otherwise it's "rule:{RuleID}" (each rule is its own group).
-func (m *AlertGroupManager) getGroupKey(event *model.AlertEvent) string {
+func (m *AlertGroupManager) getGroupKey(ctx context.Context, event *model.AlertEvent) string {
 	ruleID := uint(0)
 	if event.RuleID != nil {
 		ruleID = *event.RuleID
@@ -186,7 +192,7 @@ func (m *AlertGroupManager) getGroupKey(event *model.AlertEvent) string {
 
 	// Try to get GroupName from event labels or load from rule.
 	if ruleID > 0 {
-		rule, err := m.ruleRepo.GetByID(context.Background(), ruleID)
+		rule, err := m.ruleRepo.GetByID(ctx, ruleID)
 		if err == nil && rule.GroupName != "" {
 			return fmt.Sprintf("%s:%d", rule.GroupName, ruleID)
 		}
@@ -223,9 +229,8 @@ func (m *AlertGroupManager) Stop() {
 				zap.String("group_key", key),
 				zap.Int("event_count", len(events)),
 			)
-			ctx := context.Background()
 			for _, event := range events {
-				_ = m.routeFunc(ctx, event)
+				_ = m.routeFunc(m.serverCtx, event)
 			}
 		}
 	}

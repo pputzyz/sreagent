@@ -261,7 +261,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Initialize bounded worker pool for onAlert callbacks.
 	// Prevents goroutine exhaustion during alert storms (e.g. 500+ firing at once).
-	alertWorkerPool := engine.NewAlertWorkerPool(64)
+	alertWorkerPool := engine.NewAlertWorkerPool(64, zapLogger)
 
 	// AlertEventService — all dependencies resolved via constructor (no setters).
 	eventSvc := service.NewAlertEventService(eventRepo, timelineRepo, notifySvc, scheduleSvc, larkSvc, alertWorkerPool, zapLogger)

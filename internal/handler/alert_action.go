@@ -100,7 +100,9 @@ func (h *AlertActionHandler) ActionPage(c *gin.Context) {
 	durationStr := c.Query("duration")
 	duration := 0
 	if durationStr != "" {
-		duration, _ = strconv.Atoi(durationStr)
+		if d, err := strconv.Atoi(durationStr); err == nil && d > 0 {
+			duration = d
+		}
 	}
 
 	c.Header("Content-Type", "text/html; charset=utf-8")

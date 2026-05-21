@@ -39,6 +39,42 @@
 - `web/src/stores/preferences.ts`：catch 块添加 console.warn
 - `web/src/pages/settings/SMTPConfig.vue`：i18n key 统一为 `common.savedSuccess`
 
+### Review Round 2 — 安全加固 + 引擎稳定性 + 错误处理 + UX 改进
+
+**安全 (PR-1)**
+- `internal/service/larkbot.go`：新增 HMAC-SHA256 签名验证，`HandleEvent` 接收 `X-Lark-Signature`/`X-Lark-Request-Timestamp`/`X-Lark-Request-Nonce` 头
+- `internal/handler/larkbot.go`：传递 Lark 签名头到 service 层
+- `internal/service/lark_cards.go`：`sanitizeLarkMarkdown` 转义 `[]()` 等特殊字符，防止标签值注入 markdown 链接/代码块
+- `internal/handler/alert_rule.go`：文件上传加 10MB 大小限制 + `LimitReader` 双重保护
+- `internal/handler/alertmanager_import.go`：同上，文件上传加 10MB 限制
+
+**引擎稳定性 (PR-2)**
+- `internal/engine/evaluator.go`：`GetFiringEvents`/`GetStatus` 先快照 evaluator 列表再释放读锁，减少锁竞争
+- `internal/engine/escalation_executor.go`：`executeStep` 加 30s per-step 超时，单个 webhook 慢调用不再饿死后续步骤
+- `internal/engine/workerpool.go`：`NewAlertWorkerPool` 接收 `*zap.Logger`，panic recovery 记录堆栈而非静默吞没
+- `internal/engine/rule_eval.go`：`state.Status = "firing"` 移到 `createAlertEvent` 成功后，消除 `GetFiringEvents` 幻影状态
+- `internal/engine/heartbeat_checker.go`：新增 `computeMissed` 时钟偏移容忍，负间隔或 >5x interval 时跳过检查
+- `cmd/server/wire.go`：`NewAlertWorkerPool(64, zapLogger)` 适配新签名
+
+**错误与并发 (PR-3)**
+- `internal/handler/alert_action.go`：`strconv.Atoi` 错误不再丢弃，无效 duration 使用默认值
+- `internal/handler/diagnostic_workflow.go`：`ShouldBindJSON` 错误返回 400 而非静默忽略
+- `internal/handler/dashboard.go`：CSV 导出 writeRow 包装函数，写入失败提前终止
+- `internal/handler/alert_event.go`：CSV 导出同上
+- `internal/service/alert_group.go`：`getGroupTiming`/`getGroupKey` 接收 `ctx` 参数；timer 回调使用 `serverCtx`
+- `internal/repository/diagnostic_workflow.go`：`ReplaceSteps` 改用 `CreateInBatches` 减少 N+1 插入
+- `internal/service/system_setting.go`：`UpdateAIModules` 写入后清除 `aiCache`/`providersCache`
+
+**前端 UX (PR-4)**
+- `web/src/api/request.ts`：`errorCodeMap` 从 6 项扩展到 31 项，覆盖所有后端错误码；修复 10400→conflict / 10401→nameTaken 映射错误
+- `web/src/i18n/en.ts` + `zh-CN.ts`：新增 10 个 errorCode i18n 条目
+- `web/src/pages/alerts/events/Detail.vue`：Ack/Resolve/Close/Comment 按钮加 `actionLoading`/`commentLoading` 状态
+- `web/src/pages/alerts/events/Index.vue`：批量 Ack/Close 按钮加 `batchLoading` 状态
+
+**技术债 (PR-5)**
+- `internal/pkg/lark/bot_api.go`：新增 `LarkError` 类型 + `IsRetryable()` 判断（99991663/99991668/99991672/10012/10006）；`doWithRetry` 指数退避包装，所有 API 调用自动重试 3 次
+- `web/src/stores/preferences.ts`：`load()` catch 块添加 `console.warn`
+
 ### Track A — AI 全局配置 + Track B — 飞书 Bot 重设计 + AIOps Phase 2 接入
 
 **后端**

@@ -777,7 +777,17 @@ func (s *SystemSettingService) UpdateAIModules(ctx context.Context, cfg *AIModul
 		"agent_desc":              cfg.Agent.Desc,
 		"agent_provider_key":      cfg.Agent.ProviderKey,
 	}
-	return s.repo.SetGroup(ctx, "ai_modules", kv)
+	if err := s.repo.SetGroup(ctx, "ai_modules", kv); err != nil {
+		return err
+	}
+	// Invalidate AI caches since module config affects provider resolution.
+	s.aiMu.Lock()
+	s.aiCache = cachedConfig[AIConfig]{}
+	s.aiMu.Unlock()
+	s.providersMu.Lock()
+	s.providersCache = cachedConfig[AIProvidersConfig]{}
+	s.providersMu.Unlock()
+	return nil
 }
 
 // ---- AI Global config (Tab 3 in unified settings) -----------------------------

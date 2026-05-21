@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"net/http"
 	"sync"
 	"time"
@@ -20,6 +22,75 @@ const (
 	patchMsgEndpoint  = "/im/v1/messages/%s"
 	deleteMsgEndpoint = "/im/v1/messages/%s"
 )
+
+// LarkError represents an error returned by the Lark API.
+type LarkError struct {
+	Code    int    `json:"code"`
+	Message string `json:"msg"`
+}
+
+func (e *LarkError) Error() string {
+	return fmt.Sprintf("lark api error code=%d msg=%s", e.Code, e.Message)
+}
+
+// IsRetryable returns true if the Lark error is transient and the call can be retried.
+func (e *LarkError) IsRetryable() bool {
+	switch e.Code {
+	case 99991663, // rate limit exceeded
+		99991668, // token expired / needs refresh
+		99991672, // server busy
+		10012,    // frequency limit
+		10006:    // request timeout
+		return true
+	}
+	return false
+}
+
+// larkAPIResult is the common response envelope for Lark API calls.
+type larkAPIResult struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
+
+// doWithRetry executes fn with exponential backoff for retryable Lark errors.
+// Max 3 attempts, base delay 500ms, jittered exponential backoff.
+func doWithRetry(ctx context.Context, fn func() (larkAPIResult, error)) (larkAPIResult, error) {
+	const maxAttempts = 3
+	const baseDelay = 500 * time.Millisecond
+
+	var lastResult larkAPIResult
+	var lastErr error
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		result, err := fn()
+		if err != nil {
+			return result, err // network/parse error, not retryable
+		}
+		if result.Code == 0 {
+			return result, nil
+		}
+
+		lastResult = result
+		lastErr = &LarkError{Code: result.Code, Message: result.Msg}
+		larkErr := lastErr.(*LarkError)
+
+		if !larkErr.IsRetryable() || attempt == maxAttempts-1 {
+			return result, lastErr
+		}
+
+		// Jittered exponential backoff: base * 2^attempt + random jitter
+		delay := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
+		jitter := time.Duration(rand.Int63n(int64(delay / 2)))
+		delay += jitter
+
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	return lastResult, lastErr
+}
 
 // tokenCache caches a tenant_access_token along with its expiry.
 type tokenCache struct {
@@ -77,35 +148,38 @@ func (c *BotClient) getTenantAccessToken(ctx context.Context) (string, error) {
 		"app_secret": c.appSecret,
 	})
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		larkBaseURL+tokenEndpoint, bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("get tenant_access_token: %w", err)
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
-
-	var result struct {
-		Code              int    `json:"code"`
-		Msg               string `json:"msg"`
+	var tokenResult struct {
+		larkAPIResult
 		TenantAccessToken string `json:"tenant_access_token"`
 		Expire            int    `json:"expire"`
 	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return "", fmt.Errorf("parse token response: %w", err)
-	}
-	if result.Code != 0 {
-		return "", fmt.Errorf("lark auth error code=%d msg=%s", result.Code, result.Msg)
+
+	_, err := doWithRetry(ctx, func() (larkAPIResult, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			larkBaseURL+tokenEndpoint, bytes.NewReader(body))
+		if err != nil {
+			return larkAPIResult{}, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return larkAPIResult{}, fmt.Errorf("get tenant_access_token: %w", err)
+		}
+		defer resp.Body.Close()
+		respBody, _ := io.ReadAll(resp.Body)
+
+		if err := json.Unmarshal(respBody, &tokenResult); err != nil {
+			return larkAPIResult{}, fmt.Errorf("parse token response: %w", err)
+		}
+		return tokenResult.larkAPIResult, nil
+	})
+	if err != nil {
+		return "", err
 	}
 
-	c.tokenCache.set(result.TenantAccessToken, result.Expire)
-	return result.TenantAccessToken, nil
+	c.tokenCache.set(tokenResult.TenantAccessToken, tokenResult.Expire)
+	return tokenResult.TenantAccessToken, nil
 }
 
 // SendMessage sends a card message to a Lark group chat via Bot API.
@@ -159,36 +233,39 @@ func (c *BotClient) sendRaw(ctx context.Context, receiveIDType, receiveID, msgTy
 	}
 	body, _ := json.Marshal(payload)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		larkBaseURL+sendMsgEndpoint+"?receive_id_type="+receiveIDType,
-		bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("send bot message: %w", err)
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
-
-	var result struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
+	var sendResult struct {
+		larkAPIResult
 		Data struct {
 			MessageID string `json:"message_id"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return "", fmt.Errorf("parse send response: %w", err)
+
+	_, err = doWithRetry(ctx, func() (larkAPIResult, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			larkBaseURL+sendMsgEndpoint+"?receive_id_type="+receiveIDType,
+			bytes.NewReader(body))
+		if err != nil {
+			return larkAPIResult{}, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return larkAPIResult{}, fmt.Errorf("send bot message: %w", err)
+		}
+		defer resp.Body.Close()
+		respBody, _ := io.ReadAll(resp.Body)
+
+		if err := json.Unmarshal(respBody, &sendResult); err != nil {
+			return larkAPIResult{}, fmt.Errorf("parse send response: %w", err)
+		}
+		return sendResult.larkAPIResult, nil
+	})
+	if err != nil {
+		return "", err
 	}
-	if result.Code != 0 {
-		return "", fmt.Errorf("lark send error code=%d msg=%s", result.Code, result.Msg)
-	}
-	return result.Data.MessageID, nil
+	return sendResult.Data.MessageID, nil
 }
 
 // UpdateMessage patches the content of an existing card message.
@@ -208,33 +285,30 @@ func (c *BotClient) UpdateMessage(ctx context.Context, messageID string, card *C
 		"content":  string(cardJSON),
 	}
 	body, _ := json.Marshal(payload)
-
 	url := larkBaseURL + fmt.Sprintf(patchMsgEndpoint, messageID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("update bot message: %w", err)
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
+	_, err = doWithRetry(ctx, func() (larkAPIResult, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(body))
+		if err != nil {
+			return larkAPIResult{}, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
 
-	var result struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return fmt.Errorf("parse update response: %w", err)
-	}
-	if result.Code != 0 {
-		return fmt.Errorf("lark update error code=%d msg=%s", result.Code, result.Msg)
-	}
-	return nil
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return larkAPIResult{}, fmt.Errorf("update bot message: %w", err)
+		}
+		defer resp.Body.Close()
+		respBody, _ := io.ReadAll(resp.Body)
+
+		var result larkAPIResult
+		if err := json.Unmarshal(respBody, &result); err != nil {
+			return larkAPIResult{}, fmt.Errorf("parse update response: %w", err)
+		}
+		return result, nil
+	})
+	return err
 }
 
 // DeleteMessage deletes a message by ID.
@@ -245,28 +319,26 @@ func (c *BotClient) DeleteMessage(ctx context.Context, messageID string) error {
 	}
 
 	url := larkBaseURL + fmt.Sprintf(deleteMsgEndpoint, messageID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("delete bot message: %w", err)
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
+	_, err = doWithRetry(ctx, func() (larkAPIResult, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+		if err != nil {
+			return larkAPIResult{}, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
 
-	var result struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return fmt.Errorf("parse delete response: %w", err)
-	}
-	if result.Code != 0 {
-		return fmt.Errorf("lark delete error code=%d msg=%s", result.Code, result.Msg)
-	}
-	return nil
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return larkAPIResult{}, fmt.Errorf("delete bot message: %w", err)
+		}
+		defer resp.Body.Close()
+		respBody, _ := io.ReadAll(resp.Body)
+
+		var result larkAPIResult
+		if err := json.Unmarshal(respBody, &result); err != nil {
+			return larkAPIResult{}, fmt.Errorf("parse delete response: %w", err)
+		}
+		return result, nil
+	})
+	return err
 }

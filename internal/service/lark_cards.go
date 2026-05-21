@@ -34,13 +34,13 @@ func BuildResolvedCard(
 		lark.CardDivider{Tag: "hr"},
 	}
 
-	// Labels
+	// Labels — sanitize values to prevent markdown injection.
 	var labelsBuilder strings.Builder
 	for k, v := range labels {
 		if k == "alertname" || k == "severity" {
 			continue
 		}
-		labelsBuilder.WriteString(fmt.Sprintf("**%s:** %s\n", k, v))
+		labelsBuilder.WriteString(fmt.Sprintf("**%s:** %s\n", sanitizeLarkMarkdown(k), sanitizeLarkMarkdown(v)))
 	}
 	labelsText := labelsBuilder.String()
 	if labelsText == "" {
@@ -109,6 +109,19 @@ func larkSeverityEmoji(severity string) string {
 	default:
 		return "⚪"
 	}
+}
+
+// sanitizeLarkMarkdown escapes characters that have special meaning in Lark card markdown,
+// preventing user-controlled label values from injecting links, images, or code blocks.
+func sanitizeLarkMarkdown(s string) string {
+	r := strings.NewReplacer(
+		"[", "\\[",
+		"]", "\\]",
+		"(", "\\(",
+		")", "\\)",
+		"`", "\\`",
+	)
+	return r.Replace(s)
 }
 
 // formatDuration formats a duration into a human-readable string.

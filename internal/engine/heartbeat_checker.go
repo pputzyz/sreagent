@@ -150,7 +150,10 @@ func (h *HeartbeatChecker) checkRule(ctx context.Context, rule *model.AlertRule,
 	fingerprint := heartbeatFingerprint(rule.ID)
 	interval := time.Duration(rule.HeartbeatInterval) * time.Second
 
-	missed := rule.HeartbeatLastAt == nil || now.Sub(*rule.HeartbeatLastAt) > interval
+	missed, skip := h.computeMissed(rule, interval, now)
+	if skip {
+		return
+	}
 
 	// Look up any existing active event for this rule.
 	existingEvent, err := h.eventRepo.GetByFingerprint(ctx, fingerprint)
@@ -168,9 +171,40 @@ func (h *HeartbeatChecker) checkRule(ctx context.Context, rule *model.AlertRule,
 func (h *HeartbeatChecker) checkRuleWithEvent(ctx context.Context, rule *model.AlertRule, existingEvent *model.AlertEvent, now time.Time) {
 	fingerprint := heartbeatFingerprint(rule.ID)
 	interval := time.Duration(rule.HeartbeatInterval) * time.Second
-	missed := rule.HeartbeatLastAt == nil || now.Sub(*rule.HeartbeatLastAt) > interval
+	missed, skip := h.computeMissed(rule, interval, now)
+	if skip {
+		return
+	}
 
 	h.evaluateHeartbeat(ctx, rule, fingerprint, existingEvent, missed, now)
+}
+
+// computeMissed determines whether a heartbeat is missed, with clock-skew tolerance.
+// Returns (missed, skip). skip=true means the check should be skipped due to
+// suspicious clock skew (e.g., NTP jump or VM migration).
+func (h *HeartbeatChecker) computeMissed(rule *model.AlertRule, interval time.Duration, now time.Time) (bool, bool) {
+	if rule.HeartbeatLastAt == nil {
+		return true, false
+	}
+	gap := now.Sub(*rule.HeartbeatLastAt)
+	if gap < 0 {
+		// Clock jumped backward — skip this cycle.
+		h.logger.Warn("heartbeat: clock skew detected (negative gap), skipping check",
+			zap.Uint("rule_id", rule.ID),
+			zap.Duration("gap", gap),
+		)
+		return false, true
+	}
+	if gap > 5*interval {
+		// Gap implausibly large — likely NTP forward jump. Skip to avoid false positives.
+		h.logger.Warn("heartbeat: suspicious clock skew detected (gap >> interval), skipping check",
+			zap.Uint("rule_id", rule.ID),
+			zap.Duration("gap", gap),
+			zap.Duration("interval", interval),
+		)
+		return false, true
+	}
+	return gap > interval, false
 }
 
 // evaluateHeartbeat contains the shared decision logic for heartbeat rules.

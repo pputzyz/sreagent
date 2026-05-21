@@ -90,14 +90,14 @@ func (r *DiagnosticWorkflowRepository) ReplaceSteps(ctx context.Context, workflo
 		if err := tx.Where("workflow_id = ?", workflowID).Delete(&model.DiagnosticWorkflowStep{}).Error; err != nil {
 			return err
 		}
+		if len(steps) == 0 {
+			return nil
+		}
 		for i := range steps {
 			steps[i].WorkflowID = workflowID
 			steps[i].StepOrder = i + 1
-			if err := tx.Create(&steps[i]).Error; err != nil {
-				return err
-			}
 		}
-		return nil
+		return tx.CreateInBatches(&steps, len(steps)).Error
 	})
 }
 

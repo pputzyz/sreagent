@@ -150,28 +150,36 @@ async function refreshAll() {
   await Promise.all([fetchEvent(), fetchTimeline()])
 }
 
+const actionLoading = ref(false)
+
 async function handleAck() {
+  actionLoading.value = true
   try {
     await alertEventApi.acknowledge(eventId)
     message.success(t('alert.alertAcknowledged'))
     refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
+  finally { actionLoading.value = false }
 }
 
 async function handleResolve() {
+  actionLoading.value = true
   try {
     await alertEventApi.resolve(eventId, { resolution: t('alert.manuallyResolved') })
     message.success(t('alert.alertResolved'))
     refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
+  finally { actionLoading.value = false }
 }
 
 async function handleClose() {
+  actionLoading.value = true
   try {
     await alertEventApi.close(eventId)
     message.success(t('alert.alertClosed'))
     refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
+  finally { actionLoading.value = false }
 }
 
 function openSilenceModal() {
@@ -205,14 +213,17 @@ async function handleAssign() {
   finally { assignSaving.value = false }
 }
 
+const commentLoading = ref(false)
 async function handleComment() {
   if (!commentText.value.trim()) return
+  commentLoading.value = true
   try {
     await alertEventApi.comment(eventId, { note: commentText.value })
     commentText.value = ''
     message.success(t('alert.commentAdded'))
     fetchTimeline()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
+  finally { commentLoading.value = false }
 }
 
 // ── Dropdown overflow actions ──
@@ -305,17 +316,17 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
       <div class="evt-action-bar">
         <n-space :size="8" align="center">
           <template v-if="statusKey === 'firing'">
-            <n-button type="primary" size="small" @click="handleAck">{{ t('alert.acknowledge') }}</n-button>
-            <n-button size="small" secondary @click="handleResolve" v-if="canResolve">{{ t('alert.resolve') }}</n-button>
-            <n-button size="small" secondary @click="handleClose" v-if="canClose">{{ t('common.close') }}</n-button>
+            <n-button type="primary" size="small" :loading="actionLoading" @click="handleAck">{{ t('alert.acknowledge') }}</n-button>
+            <n-button size="small" secondary :loading="actionLoading" @click="handleResolve" v-if="canResolve">{{ t('alert.resolve') }}</n-button>
+            <n-button size="small" secondary :loading="actionLoading" @click="handleClose" v-if="canClose">{{ t('common.close') }}</n-button>
           </template>
           <template v-else-if="statusKey === 'acknowledged' || statusKey === 'assigned'">
-            <n-button type="primary" size="small" @click="handleResolve" v-if="canResolve">{{ t('alert.resolve') }}</n-button>
-            <n-button size="small" secondary @click="handleClose" v-if="canClose">{{ t('common.close') }}</n-button>
+            <n-button type="primary" size="small" :loading="actionLoading" @click="handleResolve" v-if="canResolve">{{ t('alert.resolve') }}</n-button>
+            <n-button size="small" secondary :loading="actionLoading" @click="handleClose" v-if="canClose">{{ t('common.close') }}</n-button>
             <n-button size="small" quaternary @click="openAssignModal" v-if="canAssign">{{ t('alert.assign') }}</n-button>
           </template>
           <template v-else-if="statusKey === 'resolved'">
-            <n-button size="small" secondary @click="handleClose" v-if="canClose">{{ t('common.close') }}</n-button>
+            <n-button size="small" secondary :loading="actionLoading" @click="handleClose" v-if="canClose">{{ t('common.close') }}</n-button>
           </template>
 
           <n-button v-if="canSilence" type="warning" size="small" ghost @click="openSilenceModal">
@@ -419,7 +430,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
                   :rows="2"
                 />
                 <div class="evt-comment-actions">
-                  <n-button type="primary" size="small" :disabled="!commentText.trim()" @click="handleComment">
+                  <n-button type="primary" size="small" :loading="commentLoading" :disabled="!commentText.trim()" @click="handleComment">
                     <template #icon><n-icon :component="ChatbubbleOutline" /></template>
                     {{ t('alert.addComment') }}
                   </n-button>

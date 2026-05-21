@@ -2,8 +2,11 @@ package engine
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const defaultAlertTimeout = 30 * time.Second
@@ -16,16 +19,18 @@ const defaultAlertTimeout = 30 * time.Second
 type AlertWorkerPool struct {
 	sem     chan struct{}
 	pending sync.WaitGroup
+	logger  *zap.Logger
 }
 
 // NewAlertWorkerPool creates a bounded pool.  concurrency should typically be
 // 32–128; 0 or negative values default to 64.
-func NewAlertWorkerPool(concurrency int) *AlertWorkerPool {
+func NewAlertWorkerPool(concurrency int, logger *zap.Logger) *AlertWorkerPool {
 	if concurrency <= 0 {
 		concurrency = 64
 	}
 	return &AlertWorkerPool{
-		sem: make(chan struct{}, concurrency),
+		sem:    make(chan struct{}, concurrency),
+		logger: logger,
 	}
 }
 
@@ -54,8 +59,12 @@ func (p *AlertWorkerPool) Submit(ctx context.Context, fn func(context.Context)) 
 		// Recover panics so a buggy callback never takes down the pool.
 		defer func() {
 			if r := recover(); r != nil {
-				// Panic is logged by the caller's own recover block;
-				// we just keep the pool alive.
+				if p.logger != nil {
+					p.logger.Error("panic in worker goroutine",
+						zap.Any("recover", r),
+						zap.ByteString("stack", debug.Stack()),
+					)
+				}
 			}
 		}()
 

@@ -23,8 +23,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       if (data.data) {
         prefs.value = { ...defaultPrefs, ...data.data }
       }
-    } catch {
-      // Use defaults on error
+    } catch (e) {
+      console.warn('Failed to load preferences, using defaults', e)
     } finally {
       loaded.value = true
     }

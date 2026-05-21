@@ -148,15 +148,17 @@ func (re *RuleEvaluator) evaluate() {
 					sl.state = state
 					re.persistState(fp, state)
 				} else {
-					state.Status = "firing"
 					state.ActiveAt = now
 					state.FiredAt = now
-					sl.state = state
 
 					if re.suppressor != nil {
 						re.suppressor.UpdateSeverity(re.rule.ID, fp, severity)
 					}
+					// Set status to firing AFTER createAlertEvent succeeds to avoid
+					// phantom firing states in GetFiringEvents when DB write fails.
 					re.createAlertEvent(state, model.EventStatusFiring)
+					state.Status = "firing"
+					sl.state = state
 					metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "firing")
 					re.persistState(fp, state)
 				}

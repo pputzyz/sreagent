@@ -158,7 +158,10 @@ func (h *DiagnosticWorkflowHandler) StartRun(c *gin.Context) {
 	var req struct {
 		IncidentID *uint `json:"incident_id"`
 	}
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
 
 	uid, _ := c.Get("user_id")
 	userID, _ := uid.(uint)

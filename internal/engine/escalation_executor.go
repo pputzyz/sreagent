@@ -314,6 +314,10 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 
 // executeStep dispatches a notification for a single escalation step.
 func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.AlertEvent, policy *model.EscalationPolicy, step *model.EscalationStep) error {
+	// Per-step timeout: a single slow webhook must not consume the entire escalation budget.
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	// This note is also used as the dedup key in executedStepOrders — keep format in sync.
 	note := fmt.Sprintf("escalation policy '%s' step %d triggered (delay: %dm)",
 		policy.Name, step.StepOrder, step.DelayMinutes)

@@ -3,6 +3,9 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -154,8 +157,9 @@ type LarkMention struct {
 }
 
 // HandleEvent processes a Lark event callback.
+// signature, timestamp, nonce are the X-Lark-Signature headers for HMAC-SHA256 verification.
 // Returns (response body, error).
-func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte) (interface{}, error) {
+func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte, signature, timestamp, nonce string) (interface{}, error) {
 	// Parse the JSON body first — this is a cheap operation and must not be
 	// blocked behind a DB call.  Loading config is only needed for token
 	// verification which happens after parsing.
@@ -177,8 +181,13 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte) (interfac
 		return map[string]string{"challenge": req.Challenge}, nil
 	}
 
-	// Verify event token
-	if cfg.VerificationToken != "" && req.Header != nil && req.Header.Token != cfg.VerificationToken {
+	// Verify HMAC-SHA256 signature (preferred over plaintext token verification).
+	if cfg.EncryptKey != "" && signature != "" {
+		if !verifyLarkSignature(timestamp, nonce, cfg.EncryptKey, body, signature) {
+			return nil, fmt.Errorf("invalid lark event signature")
+		}
+	} else if cfg.VerificationToken != "" && req.Header != nil && req.Header.Token != cfg.VerificationToken {
+		// Fallback: plaintext token verification when no encrypt key configured.
 		return nil, fmt.Errorf("invalid event token")
 	}
 
@@ -191,6 +200,21 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte) (interfac
 	}
 
 	return map[string]string{"status": "ok"}, nil
+}
+
+// verifyLarkSignature verifies the HMAC-SHA256 signature from Lark event callbacks.
+// The signature is computed as: base64(sha256(timestamp + nonce + encryptKey + body)).
+func verifyLarkSignature(timestamp, nonce, encryptKey string, body []byte, expectedSignature string) bool {
+	if timestamp == "" || nonce == "" || encryptKey == "" {
+		return false
+	}
+	hash := sha256.New()
+	hash.Write([]byte(timestamp))
+	hash.Write([]byte(nonce))
+	hash.Write([]byte(encryptKey))
+	hash.Write(body)
+	computed := base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	return hmac.Equal([]byte(computed), []byte(expectedSignature))
 }
 
 // handleMessageEvent processes a received message event.

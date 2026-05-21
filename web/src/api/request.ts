@@ -12,12 +12,44 @@ const request = axios.create({
 
 // Map backend error codes to i18n keys
 const errorCodeMap: Record<number, string> = {
+  // Auth
   10102: 'errorCode.invalidCredentials',
   10101: 'errorCode.sessionExpired',
   10100: 'errorCode.unauthorized',
+  // Permission
   10200: 'errorCode.insufficientPermissions',
+  10201: 'errorCode.noPermission',
+  // Validation
+  10000: 'errorCode.badRequest',
+  10001: 'errorCode.invalidParam',
+  10002: 'errorCode.missingParam',
+  // Resource not found (specific variants share the generic message)
   10300: 'errorCode.resourceNotFound',
-  10400: 'errorCode.nameTaken',
+  10301: 'errorCode.resourceNotFound',
+  10302: 'errorCode.resourceNotFound',
+  10303: 'errorCode.resourceNotFound',
+  10304: 'errorCode.resourceNotFound',
+  10305: 'errorCode.resourceNotFound',
+  10306: 'errorCode.resourceNotFound',
+  10307: 'errorCode.resourceNotFound',
+  10308: 'errorCode.resourceNotFound',
+  10309: 'errorCode.resourceNotFound',
+  10310: 'errorCode.resourceNotFound',
+  10311: 'errorCode.resourceNotFound',
+  10312: 'errorCode.resourceNotFound',
+  10313: 'errorCode.builtinDelete',
+  10314: 'errorCode.templateRenderFailed',
+  10315: 'errorCode.resourceNotFound',
+  10316: 'errorCode.resourceNotFound',
+  // Conflict
+  10400: 'errorCode.conflict',
+  10401: 'errorCode.nameTaken',
+  10402: 'errorCode.invalidTransition',
+  // Server errors
+  50000: 'errorCode.serverError',
+  50001: 'errorCode.serverError',
+  50002: 'errorCode.serverError',
+  50003: 'errorCode.externalAPIError',
 }
 
 function localizeError(code: number, fallback: string): string {

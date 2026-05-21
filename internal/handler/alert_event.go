@@ -413,7 +413,7 @@ func (h *AlertEventHandler) Export(c *gin.Context) {
 	c.Header("Transfer-Encoding", "chunked")
 
 	w := csv.NewWriter(c.Writer)
-	_ = w.Write([]string{
+	w.Write([]string{
 		"ID", "AlertName", "Severity", "Status", "Source",
 		"FiredAt", "AckedAt", "ResolvedAt", "ClosedAt",
 		"Labels", "Annotations", "Resolution", "FireCount",
@@ -437,7 +437,7 @@ func (h *AlertEventHandler) Export(c *gin.Context) {
 	}
 
 	for _, ev := range events {
-		_ = w.Write([]string{
+		w.Write([]string{
 			strconv.FormatUint(uint64(ev.ID), 10),
 			ev.AlertName,
 			string(ev.Severity),

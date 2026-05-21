@@ -19,12 +19,16 @@ func readYAMLInput(c *gin.Context) ([]byte, error) {
 	if err := c.ShouldBindJSON(&body); err == nil && body.YAML != "" {
 		return []byte(body.YAML), nil
 	}
-	file, _, err := c.Request.FormFile("file")
+	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		return nil, fmt.Errorf("provide JSON body with 'yaml' field or upload a file")
 	}
 	defer file.Close()
-	return io.ReadAll(file)
+	const maxUploadSize = 10 << 20 // 10 MB
+	if header.Size > maxUploadSize {
+		return nil, fmt.Errorf("file too large (max 10MB)")
+	}
+	return io.ReadAll(io.LimitReader(file, maxUploadSize+1))
 }
 
 // AlertmanagerImportHandler handles Alertmanager config import requests.

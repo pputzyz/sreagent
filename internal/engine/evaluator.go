@@ -635,11 +635,18 @@ func (e *Evaluator) stopAllEvaluators() {
 // For large rule sets (1000+), consider adding a short-lived cache (5s TTL)
 // or a dedicated firing-events index to reduce lock contention.
 func (e *Evaluator) GetFiringEvents() []*AlertState {
+	// Snapshot the evaluator list under the read lock, then release it before
+	// iterating per-fingerprint state locks. This prevents the evaluator-level
+	// read lock from blocking rule add/remove operations during large iterations.
 	e.mu.RLock()
-	defer e.mu.RUnlock()
+	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
+	for _, re := range e.evaluators {
+		evals = append(evals, re)
+	}
+	e.mu.RUnlock()
 
 	var result []*AlertState
-	for _, re := range e.evaluators {
+	for _, re := range evals {
 		re.rangeStates(func(_ string, sl *stateLock) bool {
 			sl.mu.Lock()
 			if sl.state != nil && sl.state.Status == "firing" {
@@ -688,11 +695,16 @@ func (e *Evaluator) GetFiringAlertEvents() []model.AlertEvent {
 
 // GetStatus returns status of the evaluation engine.
 func (e *Evaluator) GetStatus() EngineStatus {
+	// Snapshot evaluator list to avoid holding e.mu during state iteration.
 	e.mu.RLock()
-	defer e.mu.RUnlock()
+	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
+	for _, re := range e.evaluators {
+		evals = append(evals, re)
+	}
+	e.mu.RUnlock()
 
 	activeAlerts := 0
-	for _, re := range e.evaluators {
+	for _, re := range evals {
 		re.rangeStates(func(_ string, sl *stateLock) bool {
 			sl.mu.Lock()
 			if sl.state != nil && sl.state.Status == "firing" {

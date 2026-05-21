@@ -241,6 +241,12 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 	}
 	defer file.Close()
 
+	const maxUploadSize = 10 << 20 // 10 MB
+	if header.Size > maxUploadSize {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "file too large (max 10MB)"))
+		return
+	}
+
 	datasourceIDStr := c.PostForm("datasource_id")
 	var datasourceID *uint
 	if datasourceIDStr != "" {
@@ -251,7 +257,7 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 		}
 	}
 
-	data, err := io.ReadAll(file)
+	data, err := io.ReadAll(io.LimitReader(file, maxUploadSize+1))
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read file: "+err.Error()))
 		return

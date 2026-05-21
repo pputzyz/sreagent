@@ -232,9 +232,11 @@ async function onSilence(ev: AlertEvent) {
     message.error((err as Error)?.message)
   }
 }
+const batchLoading = ref(false)
 async function batchAck() {
   const ids = Array.from(selected.value)
   if (!ids.length) return
+  batchLoading.value = true
   try {
     await alertEventApi.batchAcknowledge(ids)
     message.success(t('alert.batchAckSuccess'))
@@ -242,11 +244,12 @@ async function batchAck() {
     fetchList()
   } catch (err: unknown) {
     message.error((err as Error)?.message)
-  }
+  } finally { batchLoading.value = false }
 }
 async function batchCloseAction() {
   const ids = Array.from(selected.value)
   if (!ids.length) return
+  batchLoading.value = true
   try {
     await alertEventApi.batchClose(ids)
     message.success(t('alert.batchCloseSuccess'))
@@ -254,7 +257,7 @@ async function batchCloseAction() {
     fetchList()
   } catch (err: unknown) {
     message.error((err as Error)?.message)
-  }
+  } finally { batchLoading.value = false }
 }
 async function batchSilence() {
   const ids = Array.from(selected.value)
@@ -527,10 +530,10 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     <transition name="ae-fade">
       <div v-if="selected.size > 0" class="ae-selection-bar" role="toolbar" :aria-label="t('alert.batchActions')">
         <span class="ae-selection-count tnum">{{ selected.size }} {{ t('alert.selected') }}</span>
-        <NButton size="small" type="primary" @click="batchAck">
+        <NButton size="small" type="primary" :loading="batchLoading" @click="batchAck">
           {{ t('alert.batchAck') }}
         </NButton>
-        <NButton size="small" @click="batchCloseAction">
+        <NButton size="small" :loading="batchLoading" @click="batchCloseAction">
           {{ t('alert.batchClose') }}
         </NButton>
         <NButton size="small" type="warning" ghost @click="batchSilence">

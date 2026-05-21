@@ -153,9 +153,16 @@ func (h *DashboardHandler) ExportReport(c *gin.Context) {
 
 	w := csv.NewWriter(c.Writer)
 
+	writeRow := func(row []string) bool {
+		if err := w.Write(row); err != nil {
+			return false
+		}
+		return true
+	}
+
 	// Section 1: daily summary
-	_ = w.Write([]string{"# Daily Alert Summary"})
-	_ = w.Write([]string{
+	writeRow([]string{"# Daily Alert Summary"})
+	writeRow([]string{
 		"Date", "Total", "Critical", "Warning", "Info",
 		"Resolved", "Avg MTTA (min)", "Avg MTTR (min)",
 	})
@@ -168,7 +175,7 @@ func (h *DashboardHandler) ExportReport(c *gin.Context) {
 	for _, d := range data.Dates {
 		s := data.DayMap[d]
 		total := s.Critical + s.Warning + s.Info
-		_ = w.Write([]string{
+		writeRow([]string{
 			d,
 			strconv.FormatInt(total, 10),
 			strconv.FormatInt(s.Critical, 10),
@@ -181,11 +188,11 @@ func (h *DashboardHandler) ExportReport(c *gin.Context) {
 	}
 
 	// Section 2: top rules
-	_ = w.Write([]string{})
-	_ = w.Write([]string{"# Top Alert Rules"})
-	_ = w.Write([]string{"Rule Name", "Total", "Critical", "Warning", "Info"})
+	writeRow([]string{})
+	writeRow([]string{"# Top Alert Rules"})
+	writeRow([]string{"Rule Name", "Total", "Critical", "Warning", "Info"})
 	for _, r := range data.TopRules {
-		_ = w.Write([]string{
+		writeRow([]string{
 			r.AlertName,
 			strconv.FormatInt(r.Cnt, 10),
 			strconv.FormatInt(r.Critical, 10),

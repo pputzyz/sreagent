@@ -28,7 +28,12 @@ func (h *LarkBotHandler) EventCallback(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.HandleEvent(c.Request.Context(), body)
+	// Extract Lark signature headers for HMAC-SHA256 verification.
+	result, err := h.svc.HandleEvent(c.Request.Context(), body,
+		c.GetHeader("X-Lark-Signature"),
+		c.GetHeader("X-Lark-Request-Timestamp"),
+		c.GetHeader("X-Lark-Request-Nonce"),
+	)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrMissingParam, err.Error()))
 		return
