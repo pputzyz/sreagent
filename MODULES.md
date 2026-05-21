@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-20 | tag: v4.15.0
-> 共 34 个 model, 47 个 handler, 48 个 service, 35 个 repository, 270+ API 端点
+> 最后更新: 2026-05-21 | tag: v4.15.5
+> 共 40 个 model, 56 个 handler, 74 个 service, 40 个 repository, 270+ API 端点
 
 ---
 
@@ -36,6 +36,8 @@ incident ──→ post-mortem (复盘) ──→ ai (AI 生成初稿)
 schedule ──→ user (成员)
 auth ──→ user (用户信息)
 ai ──→ alert-engine (读取告警上下文)
+ai-agent ──→ ai-service + knowledge-base + tool-registry
+diagnostic-workflow ──→ incident-context + change-event + ai-agent
 dashboard ──→ alert-event + incident + channel + team (统计数据)
 user-notification ──→ user (按用户推送)
 permissions ──→ team (团队角色查询)
@@ -81,6 +83,10 @@ permissions ──→ team (团队角色查询)
 | AI 规则生成 | ✅ | ❌ | ❌ | 0% |
 | 状态页面 | ✅ | ❌ | ❌ | 0% |
 | Alertmanager 导入 | ✅ | ❌ | ❌ | 0% |
+| 知识库 | ✅ | ❌ | ❌ | 0% |
+| 诊断工作流 | ✅ | ❌ | ❌ | 0% |
+| 变更事件 | ✅ | ❌ | ❌ | 0% |
+| Incident 上下文 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
 
@@ -226,11 +232,12 @@ permissions ──→ team (团队角色查询)
 
 ## AI 助手 (ai)
 
-- **功能**: LLM 告警分析报告、SOP 建议、连接测试、多供应商配置、规则生成、标签推荐、抑制规则生成、静默规则生成、规则优化（ImproveRule）、Few-shot 提示模板、生成结果缓存
-- **后端**: `service/ai.go`, `handler/ai.go`, `service/alert_context.go`, `service/alert_pipeline.go`, `service/rule_generator.go`, `service/rule_gen_prompts.go`, `service/rule_gen_cache.go`, `handler/ai_rule.go`
+- **功能**: LLM 告警分析报告、SOP 建议、连接测试、多供应商配置、规则生成、标签推荐、抑制规则生成、静默规则生成、规则优化（ImproveRule）、Few-shot 提示模板、生成结果缓存、**会话持久化（ai_conversations + ai_tool_calls）**、工具调用追踪
+- **后端**: `service/ai.go`, `handler/ai.go`, `service/alert_context.go`, `service/alert_pipeline.go`, `service/rule_generator.go`, `service/rule_gen_prompts.go`, `service/rule_gen_cache.go`, `handler/ai_rule.go`, `model/ai_conversation.go`, `repository/ai_conversation.go`
 - **前端**: `web/src/pages/settings/AISettings.vue`, `web/src/composables/useAIModule.ts`, `web/src/pages/alerts/rules/Index.vue`（AI 生成按钮 + 模态框）, `web/src/pages/alerts/mute/Index.vue`（AI 生成屏蔽按钮）
 - **API**: `/api/v1/ai/*` (14 endpoints: config, test, chat, report, sop, modules, providers, test-provider, rules/generate, rules/validate, rules/suggest-labels, rules/generate-inhibition, rules/generate-mute, rules/improve)
-- **状态**: ✅ 完成（含多供应商配置 + 模块级供应商选择 + 规则页 AI 生成入口）
+- **迁移**: 000043_ai_conversations, 000044_ai_tool_calls
+- **状态**: ✅ 完成（含多供应商配置 + 模块级供应商选择 + 规则页 AI 生成入口 + P1.4 会话持久化）
 
 ## 飞书集成 (lark)
 
@@ -311,12 +318,45 @@ permissions ──→ team (团队角色查询)
 
 ---
 
+## 知识库 (knowledge-base) [v4.15.4]
+
+- **功能**: 知识文档管理（SOP/故障案例/Runbook/模板/Markdown），FULLTEXT 全文检索，有用度投票
+- **后端**: `model/knowledge.go`, `handler/knowledge.go`, `service/knowledge_base.go`, `repository/knowledge.go`
+- **API**: `/api/v1/knowledge` (7 endpoints: LIST, GET, POST, PUT, DELETE, POST /search, POST /:id/helpful)
+- **权限**: 列表/搜索/详情已认证即可，创建/更新/删除需管理权限
+- **迁移**: 000054_knowledge_base
+- **状态**: ✅ 完成（P1.3 知识库服务）
+
+## 诊断工作流 (diagnostic-workflow) [v4.15.5]
+
+- **功能**: 诊断工作流编排引擎，支持多步骤诊断流程定义、按告警匹配自动触发、执行记录追踪
+- **后端**: `model/diagnostic_workflow.go`, `handler/diagnostic_workflow.go`, `service/diagnostic_workflow.go`, `repository/diagnostic_workflow.go`
+- **API**: `/api/v1/diagnostic-workflows` (8 endpoints: LIST, GET, POST, PUT, DELETE, PUT /:id/steps, POST /:id/run, POST /match) + `/api/v1/diagnostic-runs` (2 endpoints: LIST, GET)
+- **权限**: 列表/详情已认证即可，创建/更新/删除需管理权限，执行需操作权限
+- **依赖**: incident-context + change-event + ai-agent
+- **状态**: ✅ 完成（Phase 2-3 诊断工作流编排）
+
+## 变更事件 (change-event) [v4.15.5]
+
+- **功能**: 变更事件接入，记录部署/配置/基础设施变更，供诊断工作流关联分析
+- **后端**: `model/change_event.go`, `handler/change_event.go`, `service/change_event.go`, `repository/change_event.go`
+- **API**: `/api/v1/change-events` (4 endpoints: LIST, GET, POST /ingest, DELETE)
+- **权限**: 列表/详情已认证即可，接入/删除需管理权限
+- **状态**: ✅ 完成（Phase 2-3 变更事件接入）
+
+## Incident 上下文聚合 (incident-context) [v4.15.5]
+
+- **功能**: 聚合 Incident 相关上下文（告警、变更、知识库、历史故障），供 AI 分析和诊断工作流使用
+- **后端**: `service/incident_context.go`（仅 service 层，无独立 handler/model/repository）
+- **依赖**: alert-event, change-event, knowledge-base, incident
+- **状态**: ✅ 完成（Phase 2-3 上下文聚合，service only）
+
 ## 文档索引
 
 | 文档 | 内容 |
 |------|------|
 | [CLAUDE.md](CLAUDE.md) | AI 协作规范（代码约定、目录、错误码） |
-| [MODULES.md](MODULES.md) | 本文件：40 个模块清单 + 状态 |
+| [MODULES.md](MODULES.md) | 本文件：44 个模块清单 + 状态 |
 | [CHANGELOG.md](CHANGELOG.md) | 变更日志 |
 | [docs/architecture.md](docs/architecture.md) | 架构设计 + ADR + 引擎状态机 + 通知管道 |
 | [docs/api.md](docs/api.md) | REST API 参考（175+ 端点） |

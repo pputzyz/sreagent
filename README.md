@@ -14,7 +14,8 @@
 - **OnCall 值班**: 排班日历、班次覆盖、超时自动升级
 - **集成中心**: 专属/共享集成，Pipeline 处理，路由规则
 - **飞书深度集成**: 交互卡片、Bot DM 指令、卡片实时更新
-- **AI 辅助**: 告警分析报告、故障复盘初稿、SOP 推荐
+- **AI 辅助**: 多 Provider 支持 (OpenAI/Azure/Ollama/Anthropic/Custom)，AI Agent 自主执行 + 会话持久化，知识库全文检索 (RAG)，诊断工作流编排，告警分析报告、故障复盘初稿、SOP 推荐
+- **AIOps 诊断**: 诊断工作流编排、变更事件关联、AI Agent 自主执行
 - **故障复盘**: Markdown 编辑器 + AI 辅助生成 + 一键发布
 
 ## 快速开始
@@ -74,6 +75,7 @@ AI、飞书 Bot、SMTP 等敏感配置通过 Web UI → 系统设置管理，AES
 | 后端 | Go 1.25, Gin, GORM, Zap, golang-migrate |
 | 前端 | Vue 3, TypeScript, Naive UI, Pinia, Vite |
 | 存储 | MySQL 8.0, Redis 7 |
+| AI | OpenAI / Anthropic Claude / Ollama, Tool Registry, RAG Knowledge Base |
 | 容器 | Docker, Kubernetes |
 
 ## CI/CD
@@ -84,9 +86,9 @@ AI、飞书 Bot、SMTP 等敏感配置通过 Web UI → 系统设置管理，AES
 # 发版流程
 # 1. 更新版本号 (CLAUDE.md, MODULES.md, web/package.json)
 # 2. 提交并打 tag
-git tag v4.10.1
-git push origin v4.10.1
-# 3. Actions 自动构建并推送 :v4.10.1 + :latest
+git tag v4.15.5
+git push origin v4.15.5
+# 3. Actions 自动构建并推送 :v4.15.5 + :latest
 ```
 
 ## 项目结构
@@ -97,7 +99,7 @@ internal/
   model/ handler/ service/ repository/   分层架构
   engine/                告警评估引擎
   middleware/            JWT / CORS / Logger
-  router/                120+ API 端点
+  router/                270+ API 端点
   pkg/                   dbmigrate / datasource / lark / redis / errors
 web/src/                 Vue 3 前端
 deploy/                  Dockerfile + K8s 清单
