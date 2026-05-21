@@ -358,8 +358,22 @@ func (s *SystemSettingService) GetProvidersConfig(ctx context.Context) (AIProvid
 	return cfg, nil
 }
 
+// isMaskedKey returns true if the key looks like a masked value (e.g., "abcd****efgh").
+func isMaskedKey(key string) bool {
+	if len(key) < 8 {
+		return false
+	}
+	// Check for the mask pattern: at least 4 chars + "****" + at least 4 chars.
+	idx := len(key) - 4
+	if idx < 4 {
+		return false
+	}
+	return key[4:idx] == "****"
+}
+
 // SaveProvidersConfig persists the multi-provider AI configuration to DB.
 // API keys within providers are encrypted before storage.
+// H3: Detects masked API keys and preserves the original values from DB.
 func (s *SystemSettingService) SaveProvidersConfig(ctx context.Context, cfg AIProvidersConfig) error {
 	// Validate at least one provider is enabled.
 	hasEnabled := false
@@ -371,6 +385,22 @@ func (s *SystemSettingService) SaveProvidersConfig(ctx context.Context, cfg AIPr
 	}
 	if !hasEnabled {
 		return fmt.Errorf("at least one AI provider must be enabled")
+	}
+
+	// H3: Load existing config to preserve original keys when frontend sends masked values.
+	existing, err := s.GetProvidersConfig(ctx)
+	if err == nil && len(existing.Providers) > 0 {
+		existingMap := make(map[string]string, len(existing.Providers))
+		for _, p := range existing.Providers {
+			existingMap[p.Key] = p.APIKey
+		}
+		for i := range cfg.Providers {
+			if isMaskedKey(cfg.Providers[i].APIKey) {
+				if orig, ok := existingMap[cfg.Providers[i].Key]; ok {
+					cfg.Providers[i].APIKey = orig
+				}
+			}
+		}
 	}
 
 	// Encrypt the entire JSON blob (which contains api_key fields).
@@ -849,7 +879,9 @@ func (s *SystemSettingService) MigrateLegacyAIConfig(ctx context.Context) error 
 	// Check if providers already exist — skip migration.
 	if _, hasProviders := kv["providers"]; hasProviders && kv["providers"] != "" {
 		// Providers already configured, just clean up legacy key.
-		_ = s.repo.Delete(ctx, groupAI, "config")
+		if err := s.repo.Delete(ctx, groupAI, "config"); err != nil {
+			s.logger.Warn("failed to remove legacy ai.config key", zap.Error(err))
+		}
 		s.logger.Info("removed legacy ai.config key (providers already configured)")
 		return nil
 	}
@@ -903,11 +935,15 @@ func (s *SystemSettingService) MigrateLegacyAIConfig(ctx context.Context) error 
 		if globalCfg.ContextMaxChars == 0 {
 			globalCfg.ContextMaxChars = 8000
 		}
-		_ = s.SaveAIGlobalConfig(ctx, globalCfg)
+		if err := s.SaveAIGlobalConfig(ctx, globalCfg); err != nil {
+			s.logger.Warn("failed to save migrated AI global config", zap.Error(err))
+		}
 	}
 
 	// Clean up legacy key.
-	_ = s.repo.Delete(ctx, groupAI, "config")
+	if err := s.repo.Delete(ctx, groupAI, "config"); err != nil {
+		s.logger.Warn("failed to delete legacy ai.config key", zap.Error(err))
+	}
 	s.logger.Info("migrated legacy ai.config to multi-provider format",
 		zap.String("provider", legacy.Provider),
 		zap.String("model", legacy.Model),
