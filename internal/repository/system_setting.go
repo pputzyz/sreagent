@@ -84,3 +84,10 @@ func (r *SystemSettingRepository) SetGroup(ctx context.Context, group string, kv
 		}).
 		Create(&rows).Error
 }
+
+// Delete removes a single setting by group+key.
+func (r *SystemSettingRepository) Delete(ctx context.Context, group, key string) error {
+	return r.db.WithContext(ctx).
+		Where("`group` = ? AND `key` = ?", group, key).
+		Delete(&model.SystemSetting{}).Error
+}

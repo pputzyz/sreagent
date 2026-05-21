@@ -35,18 +35,32 @@ type AIConfig struct {
 
 // AIProviderConfig describes a single named AI provider configuration.
 type AIProviderConfig struct {
-	Key      string `json:"key"`       // unique identifier, e.g. "openai-main"
-	Provider string `json:"provider"`  // openai, azure, ollama, custom, anthropic
-	APIKey   string `json:"api_key"`
-	BaseURL  string `json:"base_url"`
-	Model    string `json:"model"`
-	Enabled  bool   `json:"enabled"`
+	Key           string  `json:"key"`       // unique identifier, e.g. "openai-main"
+	Provider      string  `json:"provider"`  // openai, azure, ollama, custom, anthropic
+	APIKey        string  `json:"api_key"`
+	BaseURL       string  `json:"base_url"`
+	Model         string  `json:"model"`
+	Enabled       bool    `json:"enabled"`
+	IsDefault     bool    `json:"is_default"`
+	Temperature   float64 `json:"temperature,omitempty"`
+	MaxTokens     int     `json:"max_tokens,omitempty"`
+	SystemPrompt  string  `json:"system_prompt,omitempty"`
 }
 
 // AIProvidersConfig holds the multi-provider AI configuration stored as a single JSON blob.
 type AIProvidersConfig struct {
 	DefaultProvider string             `json:"default_provider"`
 	Providers       []AIProviderConfig `json:"providers"`
+}
+
+// AIGlobalConfig holds platform-wide AI settings (Tab 3 in unified AI settings page).
+type AIGlobalConfig struct {
+	RetryMax           int     `json:"retry_max"`              // default 2
+	ContextMaxChars    int     `json:"context_max_chars"`      // default 8000
+	DefaultTemperature float64 `json:"default_temperature"`    // default 0.3
+	DefaultMaxTokens   int     `json:"default_max_tokens"`     // default 1024
+	MonthlyTokenBudget int64   `json:"monthly_token_budget"`   // 0 = unlimited
+	DataMaskingEnabled bool    `json:"data_masking_enabled"`   // default false
 }
 
 // LarkConfig holds Lark/Feishu bot configuration stored in the DB.
@@ -57,6 +71,18 @@ type LarkConfig struct {
 	VerificationToken string `json:"verification_token"`
 	EncryptKey        string `json:"encrypt_key"`
 	BotEnabled        bool   `json:"bot_enabled"`
+
+	// Section 3: message behavior
+	ResolveStrategy         string `json:"resolve_strategy"`           // "update" | "delete" | "none", default "update"
+	UpdateOnStateChange     bool   `json:"update_on_state_change"`     // default true
+	DeleteOnlyInBusinessHours bool `json:"delete_only_in_business_hours"` // default false
+	BusinessHoursStart      string `json:"business_hours_start"`       // "09:00"
+	BusinessHoursEnd        string `json:"business_hours_end"`         // "18:00"
+
+	// Section 4: interaction capabilities
+	CommandsEnabled        bool `json:"commands_enabled"`         // default true
+	NaturalLanguageEnabled bool `json:"natural_language_enabled"` // default false
+	DebugMode              bool `json:"debug_mode"`               // default false
 }
 
 // SecurityConfig holds security-related settings stored in the DB.
@@ -422,6 +448,19 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 	if err != nil {
 		return LarkConfig{}, err
 	}
+	resolveStrategy := kv["resolve_strategy"]
+	if resolveStrategy == "" {
+		resolveStrategy = "update"
+	}
+	bhStart := kv["business_hours_start"]
+	if bhStart == "" {
+		bhStart = "09:00"
+	}
+	bhEnd := kv["business_hours_end"]
+	if bhEnd == "" {
+		bhEnd = "18:00"
+	}
+
 	cfg := LarkConfig{
 		AppID:             kv["app_id"],
 		AppSecret:         s.getDecrypted(groupLark, "app_secret", kv["app_secret"]),
@@ -429,6 +468,15 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 		VerificationToken: s.getDecrypted(groupLark, "verification_token", kv["verification_token"]),
 		EncryptKey:        s.getDecrypted(groupLark, "encrypt_key", kv["encrypt_key"]),
 		BotEnabled:        parseBool(kv["bot_enabled"]),
+
+		ResolveStrategy:         resolveStrategy,
+		UpdateOnStateChange:     parseBoolDef(kv["update_on_state_change"], true),
+		DeleteOnlyInBusinessHours: parseBool(kv["delete_only_in_business_hours"]),
+		BusinessHoursStart:      bhStart,
+		BusinessHoursEnd:        bhEnd,
+		CommandsEnabled:         parseBoolDef(kv["commands_enabled"], true),
+		NaturalLanguageEnabled:  parseBool(kv["natural_language_enabled"]),
+		DebugMode:               parseBool(kv["debug_mode"]),
 	}
 
 	s.larkMu.Lock()
@@ -442,9 +490,17 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 // Empty secret fields are not overwritten (same pattern as AI).
 func (s *SystemSettingService) SaveLarkConfig(ctx context.Context, cfg LarkConfig) error {
 	kv := map[string]string{
-		"app_id":          cfg.AppID,
-		"default_webhook": cfg.DefaultWebhook,
-		"bot_enabled":     strconv.FormatBool(cfg.BotEnabled),
+		"app_id":                    cfg.AppID,
+		"default_webhook":           cfg.DefaultWebhook,
+		"bot_enabled":               strconv.FormatBool(cfg.BotEnabled),
+		"resolve_strategy":          cfg.ResolveStrategy,
+		"update_on_state_change":    strconv.FormatBool(cfg.UpdateOnStateChange),
+		"delete_only_in_business_hours": strconv.FormatBool(cfg.DeleteOnlyInBusinessHours),
+		"business_hours_start":      cfg.BusinessHoursStart,
+		"business_hours_end":        cfg.BusinessHoursEnd,
+		"commands_enabled":          strconv.FormatBool(cfg.CommandsEnabled),
+		"natural_language_enabled":  strconv.FormatBool(cfg.NaturalLanguageEnabled),
+		"debug_mode":                strconv.FormatBool(cfg.DebugMode),
 	}
 
 	encryptField := func(group, key, value string) (string, error) {
@@ -724,6 +780,129 @@ func (s *SystemSettingService) UpdateAIModules(ctx context.Context, cfg *AIModul
 	return s.repo.SetGroup(ctx, "ai_modules", kv)
 }
 
+// ---- AI Global config (Tab 3 in unified settings) -----------------------------
+
+// GetAIGlobalConfig loads platform-wide AI settings from DB.
+func (s *SystemSettingService) GetAIGlobalConfig(ctx context.Context) (AIGlobalConfig, error) {
+	kv, err := s.repo.ListByGroup(ctx, "ai_global")
+	if err != nil {
+		return AIGlobalConfig{}, err
+	}
+	if len(kv) == 0 {
+		return AIGlobalConfig{
+			RetryMax:           2,
+			ContextMaxChars:    8000,
+			DefaultTemperature: 0.3,
+			DefaultMaxTokens:   1024,
+		}, nil
+	}
+	cfg := AIGlobalConfig{
+		RetryMax:           parseIntDef(kv["retry_max"], 2),
+		ContextMaxChars:    parseIntDef(kv["context_max_chars"], 8000),
+		DefaultTemperature: parseFloatDef(kv["default_temperature"], 0.3),
+		DefaultMaxTokens:   parseIntDef(kv["default_max_tokens"], 1024),
+		MonthlyTokenBudget: parseInt64Def(kv["monthly_token_budget"], 0),
+		DataMaskingEnabled: parseBool(kv["data_masking_enabled"]),
+	}
+	return cfg, nil
+}
+
+// SaveAIGlobalConfig persists platform-wide AI settings to DB.
+func (s *SystemSettingService) SaveAIGlobalConfig(ctx context.Context, cfg AIGlobalConfig) error {
+	kv := map[string]string{
+		"retry_max":            strconv.Itoa(cfg.RetryMax),
+		"context_max_chars":    strconv.Itoa(cfg.ContextMaxChars),
+		"default_temperature":  fmt.Sprintf("%.2f", cfg.DefaultTemperature),
+		"default_max_tokens":   strconv.Itoa(cfg.DefaultMaxTokens),
+		"monthly_token_budget": strconv.FormatInt(cfg.MonthlyTokenBudget, 10),
+		"data_masking_enabled": strconv.FormatBool(cfg.DataMaskingEnabled),
+	}
+	return s.repo.SetGroup(ctx, "ai_global", kv)
+}
+
+// MigrateLegacyAIConfig migrates the old single-provider ai.config key into the
+// multi-provider ai.providers format. Idempotent: safe to call on every startup.
+func (s *SystemSettingService) MigrateLegacyAIConfig(ctx context.Context) error {
+	// Check if legacy key exists.
+	kv, err := s.repo.ListByGroup(ctx, groupAI)
+	if err != nil {
+		return err
+	}
+	legacyRaw, hasLegacy := kv["config"]
+	if !hasLegacy || legacyRaw == "" {
+		return nil // nothing to migrate
+	}
+
+	// Check if providers already exist — skip migration.
+	if _, hasProviders := kv["providers"]; hasProviders && kv["providers"] != "" {
+		// Providers already configured, just clean up legacy key.
+		_ = s.repo.Delete(ctx, groupAI, "config")
+		s.logger.Info("removed legacy ai.config key (providers already configured)")
+		return nil
+	}
+
+	// Parse legacy config.
+	decrypted := s.getDecrypted(groupAI, "config", legacyRaw)
+	var legacy AIConfig
+	if err := json.Unmarshal([]byte(decrypted), &legacy); err != nil {
+		s.logger.Warn("failed to parse legacy ai.config, skipping migration", zap.Error(err))
+		return nil
+	}
+
+	if !legacy.Enabled || legacy.Provider == "" {
+		return nil
+	}
+
+	// Convert to provider config.
+	provider := AIProviderConfig{
+		Key:          "default",
+		Provider:     legacy.Provider,
+		APIKey:       legacy.APIKey,
+		BaseURL:      legacy.BaseURL,
+		Model:        legacy.Model,
+		Enabled:      true,
+		IsDefault:    true,
+		Temperature:  legacy.Temperature,
+		MaxTokens:    legacy.MaxTokens,
+		SystemPrompt: legacy.SystemPrompt,
+	}
+
+	providersCfg := AIProvidersConfig{
+		DefaultProvider: "default",
+		Providers:       []AIProviderConfig{provider},
+	}
+
+	if err := s.SaveProvidersConfig(ctx, providersCfg); err != nil {
+		return fmt.Errorf("migrate legacy AI config: %w", err)
+	}
+
+	// Also migrate global settings if present.
+	if legacy.RetryMax > 0 || legacy.ContextMaxChars > 0 {
+		globalCfg := AIGlobalConfig{
+			RetryMax:           legacy.RetryMax,
+			ContextMaxChars:    legacy.ContextMaxChars,
+			DefaultTemperature: legacy.Temperature,
+			DefaultMaxTokens:   legacy.MaxTokens,
+		}
+		if globalCfg.RetryMax == 0 {
+			globalCfg.RetryMax = 2
+		}
+		if globalCfg.ContextMaxChars == 0 {
+			globalCfg.ContextMaxChars = 8000
+		}
+		_ = s.SaveAIGlobalConfig(ctx, globalCfg)
+	}
+
+	// Clean up legacy key.
+	_ = s.repo.Delete(ctx, groupAI, "config")
+	s.logger.Info("migrated legacy ai.config to multi-provider format",
+		zap.String("provider", legacy.Provider),
+		zap.String("model", legacy.Model),
+	)
+
+	return nil
+}
+
 // ---- Security config ----------------------------------------------------------
 
 // GetSecurityConfig loads security settings from cache or DB.
@@ -827,4 +1006,15 @@ func parseFloatDef(v string, def float64) float64 {
 		return def
 	}
 	return f
+}
+
+func parseInt64Def(v string, def int64) int64 {
+	if v == "" {
+		return def
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return def
+	}
+	return n
 }

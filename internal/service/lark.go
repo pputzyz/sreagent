@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -266,6 +267,73 @@ func (s *LarkService) UpdateAlertCard(ctx context.Context, event *model.AlertEve
 		zap.String("new_status", string(event.Status)),
 	)
 	return nil
+}
+
+// HandleCardLifecycle handles card updates or deletions based on the Lark config strategy.
+// Called by AlertEventService.triggerLarkCardUpdate on status changes.
+func (s *LarkService) HandleCardLifecycle(ctx context.Context, event *model.AlertEvent) error {
+	if s.settingSvc == nil || event.LarkMessageID == "" {
+		return nil
+	}
+
+	larkCfg, err := s.settingSvc.GetLarkConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load lark config: %w", err)
+	}
+	if larkCfg.AppID == "" || larkCfg.AppSecret == "" {
+		return nil
+	}
+
+	if !larkCfg.UpdateOnStateChange {
+		return nil
+	}
+
+	// For resolved/closed alerts, check the resolve strategy
+	if event.Status == model.EventStatusResolved || event.Status == model.EventStatusClosed {
+		if larkCfg.ResolveStrategy == "delete" {
+			// Check business hours restriction
+			if larkCfg.DeleteOnlyInBusinessHours && !isWithinBusinessHours(larkCfg.BusinessHoursStart, larkCfg.BusinessHoursEnd) {
+				s.logger.Debug("card lifecycle: skipping delete outside business hours",
+					zap.Uint("event_id", event.ID),
+				)
+				return nil
+			}
+			bot := lark.NewBotClient(larkCfg.AppID, larkCfg.AppSecret)
+			if err := bot.DeleteMessage(ctx, event.LarkMessageID); err != nil {
+				return fmt.Errorf("delete lark card: %w", err)
+			}
+			s.logger.Info("lark card deleted on resolve",
+				zap.Uint("event_id", event.ID),
+				zap.String("message_id", event.LarkMessageID),
+			)
+			return nil
+		}
+	}
+
+	// Default: update the card
+	return s.UpdateAlertCard(ctx, event, event.LarkMessageID)
+}
+
+// isWithinBusinessHours checks if the current time is within the configured business hours.
+func isWithinBusinessHours(start, end string) bool {
+	if start == "" || end == "" {
+		return true
+	}
+
+	now := time.Now()
+	currentMinutes := now.Hour()*60 + now.Minute()
+
+	var startH, startM, endH, endM int
+	fmt.Sscanf(start, "%d:%d", &startH, &startM)
+	fmt.Sscanf(end, "%d:%d", &endH, &endM)
+	startMinutes := startH*60 + startM
+	endMinutes := endH*60 + endM
+
+	if startMinutes <= endMinutes {
+		return currentMinutes >= startMinutes && currentMinutes < endMinutes
+	}
+	// Overnight range (e.g., 22:00-06:00)
+	return currentMinutes >= startMinutes || currentMinutes < endMinutes
 }
 
 // buildEnrichedCard constructs the Lark interactive card for an alert event.

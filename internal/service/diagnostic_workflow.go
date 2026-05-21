@@ -211,10 +211,3 @@ func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model
 		return fmt.Sprintf("步骤类型 %q 暂不支持自动执行", step.StepType), nil
 	}
 }
-
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}

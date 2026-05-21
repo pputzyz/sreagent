@@ -95,6 +95,12 @@ export const aiApi = {
 
   testProvider: (key: string) =>
     request.post<ApiResponse<{ message: string }>>('/ai/test-provider', { key }),
+
+  getGlobal: () =>
+    request.get<ApiResponse<{ retry_max: number; context_max_chars: number; default_temperature: number; default_max_tokens: number; monthly_token_budget: number; data_masking_enabled: boolean }>>('/ai/global'),
+
+  saveGlobal: (data: { retry_max?: number; context_max_chars?: number; default_temperature?: number; default_max_tokens?: number; monthly_token_budget?: number; data_masking_enabled?: boolean }) =>
+    request.put<ApiResponse<null>>('/ai/global', data),
 }
 
 // ===== AI Chat API =====
@@ -188,10 +194,16 @@ export const userNotifyConfigApi = {
 // ===== Lark Bot API =====
 export const larkBotApi = {
   getConfig: () =>
-    request.get<ApiResponse<{ app_id: string; app_secret: string; default_webhook: string; verification_token: string; encrypt_key: string; bot_enabled: boolean }>>('/lark/bot/config'),
+    request.get<ApiResponse<{ app_id: string; app_secret: string; default_webhook: string; verification_token: string; encrypt_key: string; bot_enabled: boolean; resolve_strategy: string; update_on_state_change: boolean; delete_only_in_business_hours: boolean; business_hours_start: string; business_hours_end: string; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean }>>('/lark/bot/config'),
 
-  updateConfig: (data: { app_id?: string; app_secret?: string; default_webhook?: string; verification_token?: string; encrypt_key?: string; bot_enabled?: boolean }) =>
+  updateConfig: (data: { app_id?: string; app_secret?: string; default_webhook?: string; verification_token?: string; encrypt_key?: string; bot_enabled?: boolean; resolve_strategy?: string; update_on_state_change?: boolean; delete_only_in_business_hours?: boolean; business_hours_start?: string; business_hours_end?: string; commands_enabled?: boolean; natural_language_enabled?: boolean; debug_mode?: boolean }) =>
     request.put<ApiResponse<null>>('/lark/bot/config', data),
+
+  testBotAPI: () =>
+    request.post<ApiResponse<{ message: string }>>('/lark/bot/test'),
+
+  getBotStatus: () =>
+    request.get<ApiResponse<{ configured: boolean; app_id: string; webhook_set: boolean; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean }>>('/lark/bot/status'),
 }
 
 // ===== OIDC Settings API =====

@@ -1,6 +1,22 @@
 # SREAgent AI Agent 路线图
 
 > 2026-05-18 | 基于 PagerDuty 路线 + 国内 SRE 实践
+> 最后更新：2026-05-21 (v4.15.5)
+
+### 实施进度
+
+| 阶段 | 状态 | 版本 | 说明 |
+|------|------|------|------|
+| Phase 1.1 Label 语义规范 | ✅ 已完成 | v4.14.x | label_registry + semantic_type |
+| Phase 1.2 Incident 上下文聚合 | ✅ 已完成 | v4.15.5 | IncidentContextService（后端就绪，待 Agent 接入） |
+| Phase 1.3 知识库 RAG | ✅ 已完成 | v4.15.4 | KnowledgeBaseService + FULLTEXT + search_knowledge 工具 |
+| Phase 1.4 Agent 会话持久化 | ✅ 已完成 | v4.15.4 | ai_conversations + ai_tool_calls + DB 持久化 |
+| Phase 2.1 历史事故库向量化 | ⬜ 待开始 | — | 需向量 DB（pgvector/Qdrant） |
+| Phase 2.2 诊断 SOP 编排引擎 | ✅ 后端就绪 | v4.15.5 | DiagnosticWorkflow model/repo/service/handler + API |
+| Phase 2.3 AI 诊断 Agent | ⬜ 待开始 | — | 需前端工作流编辑器 |
+| Phase 3.1 变更事件接入 | ✅ 后端就绪 | v4.15.5 | ChangeEvent model/repo/service/handler + API |
+| Phase 3.2 自动修复 | ⬜ 模型+仓库就绪 | — | AutoAction model/repo 存在，缺 service/handler |
+| Phase 3.3 反馈循环 | ⬜ 待开始 | — | 依赖 Phase 3.2 |
 
 ---
 

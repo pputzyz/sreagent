@@ -18,6 +18,7 @@ const (
 	tokenEndpoint     = "/auth/v3/tenant_access_token/internal"
 	sendMsgEndpoint   = "/im/v1/messages"
 	patchMsgEndpoint  = "/im/v1/messages/%s"
+	deleteMsgEndpoint = "/im/v1/messages/%s"
 )
 
 // tokenCache caches a tenant_access_token along with its expiry.
@@ -228,6 +229,40 @@ func (c *BotClient) UpdateMessage(ctx context.Context, messageID string, card *C
 	}
 	if result.Code != 0 {
 		return fmt.Errorf("lark update error code=%d msg=%s", result.Code, result.Msg)
+	}
+	return nil
+}
+
+// DeleteMessage deletes a message by ID.
+func (c *BotClient) DeleteMessage(ctx context.Context, messageID string) error {
+	token, err := c.getTenantAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+
+	url := larkBaseURL + fmt.Sprintf(deleteMsgEndpoint, messageID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("delete bot message: %w", err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	var result struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return fmt.Errorf("parse delete response: %w", err)
+	}
+	if result.Code != 0 {
+		return fmt.Errorf("lark delete error code=%d msg=%s", result.Code, result.Msg)
 	}
 	return nil
 }

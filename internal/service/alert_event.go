@@ -457,17 +457,17 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 	return nil
 }
 
-// triggerLarkCardUpdate patches the Lark card in the background when the alert
-// was originally sent via Bot API (LarkMessageID is non-empty).  Uses the
-// bounded worker pool when available.
+// triggerLarkCardUpdate patches or deletes the Lark card in the background when
+// the alert was originally sent via Bot API (LarkMessageID is non-empty).
+// Uses the bounded worker pool when available.
 func (s *AlertEventService) triggerLarkCardUpdate(event *model.AlertEvent) {
 	if s.larkSvc == nil || event.LarkMessageID == "" {
 		return
 	}
 	e := event
 	fn := func(ctx context.Context) {
-		if err := s.larkSvc.UpdateAlertCard(ctx, e, e.LarkMessageID); err != nil {
-			s.logger.Warn("failed to update lark card after status change",
+		if err := s.larkSvc.HandleCardLifecycle(ctx, e); err != nil {
+			s.logger.Warn("failed to handle lark card lifecycle after status change",
 				zap.Uint("event_id", e.ID),
 				zap.String("status", string(e.Status)),
 				zap.Error(err),

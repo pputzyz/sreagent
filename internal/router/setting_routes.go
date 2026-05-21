@@ -52,6 +52,10 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		ai.PUT("/providers", adminOnly, h.AI.SaveProviders)
 		ai.POST("/test-provider", adminOnly, h.AI.TestProvider)
 
+		// AI Global — platform-wide AI settings
+		ai.GET("/global", adminOnly, h.AI.GetAIGlobal)
+		ai.PUT("/global", adminOnly, h.AI.SaveAIGlobal)
+
 		// AI Agent — 自主执行任务
 		if h.Agent != nil {
 			ai.POST("/agent/run", aiRL, h.Agent.RunAgent)
@@ -89,6 +93,8 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 	{
 		larkBot.GET("/config", adminOnly, h.LarkBot.GetConfig)
 		larkBot.PUT("/config", adminOnly, h.LarkBot.UpdateConfig)
+		larkBot.POST("/test", adminOnly, h.LarkBot.TestBotAPI)
+		larkBot.GET("/status", adminOnly, h.LarkBot.GetBotStatus)
 	}
 
 	// Status Page services (状态页面)

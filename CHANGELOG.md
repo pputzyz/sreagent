@@ -4,6 +4,38 @@
 
 ---
 
+## [v4.15.5] — 2026-05-21
+
+### Track A — AI 全局配置 + Track B — 飞书 Bot 重设计 + AIOps Phase 2 接入
+
+**后端**
+- `internal/service/system_setting.go`：新增 AI 全局配置（`ai_global` group）：retry_max / context_max_chars / default_temperature / default_max_tokens / monthly_token_budget / data_masking_enabled
+- `internal/handler/ai.go`：新增 `GetAIGlobal` / `SaveAIGlobal` handler
+- `internal/service/lark.go`：新增 `HandleCardLifecycle` — 根据 resolve_strategy（update/delete）处理告警恢复/关闭卡片，支持 business_hours 时间窗口判断
+- `internal/service/lark.go`：新增 `isWithinBusinessHours` 辅助函数，支持跨午夜时间范围
+- `internal/service/lark_cards.go`：新增 `BuildResolvedCard` — 构建恢复卡片（含持续时间、严重等级 emoji）
+- `internal/pkg/lark/bot_api.go`：新增 `DeleteMessage` 方法（HTTP DELETE 删除消息）
+- `internal/service/larkbot.go`：新增 `TestBotAPI` / `GetBotStatus` / `mapNaturalLanguage` 方法
+- `internal/service/larkbot.go`：`handleMessageEvent` 支持 `commands_enabled` 开关 + `natural_language_enabled` 自然语言命令映射
+- `internal/service/alert_event.go`：`triggerLarkCardUpdate` 改为调用 `HandleCardLifecycle`（替代直接 UpdateAlertCard）
+- `cmd/server/wire.go`：接入 AIOps Phase 2 — DiagnosticWorkflowService / ChangeEventService + 对应 Handler
+- `internal/router/router.go`：Handlers 新增 `DiagnosticWorkflow` / `ChangeEvent` 字段
+- `internal/router/admin_routes.go`：注册诊断工作流 CRUD + Run + Match 路由，变更事件 CRUD 路由
+- 新增 API：`GET/PUT /ai/global`、`POST /lark/bot/test`、`GET /lark/bot/status`、`/diagnostic-workflows/*`、`/diagnostic-runs/*`、`/change-events/*`
+
+**前端**
+- `web/src/pages/settings/AISettings.vue`：新增 Global Config Tab（retry_max / context_max_chars / temperature / max_tokens / monthly_token_budget / data_masking）
+- `web/src/pages/settings/LarkBotConfig.vue`：全面重写 — 4 个区块（App Credentials / Behavior / Commands / Debug）
+- `web/src/api/admin.ts`：新增 `aiApi.getGlobal/saveGlobal`、`larkBotApi.testBotAPI/getBotStatus`，扩展 config 响应字段
+- `web/src/types/ai-module.ts`：新增 `AIGlobalConfig` 接口
+- `web/src/i18n/en.ts` + `zh-CN.ts`：新增 ~37 个 i18n key（AI 全局配置 + 飞书 Bot 新功能）
+- `web/src/router/index.ts`：合并重复 AI 路由，LarkBot 路由直指向 LarkBotConfig.vue
+
+**清理**
+- 删除 `web/src/pages/settings/AI.vue`、`AIConfig.vue`、`LarkBot.vue`（空壳 wrapper）
+
+---
+
 ## [v4.15.4] — 2026-05-21
 
 ### P1.3 + P1.4 — 知识库服务 + AI Agent 会话持久化

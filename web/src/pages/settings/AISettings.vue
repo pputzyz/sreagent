@@ -4,15 +4,18 @@ import { useI18n } from 'vue-i18n'
 import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
   NSpace, NTag, NSelect, NInput, NModal, NForm, NFormItem,
-  NPopconfirm, NStatistic, useMessage,
+  NPopconfirm, NStatistic, NTabs, NTabPane, NInputNumber, useMessage,
 } from 'naive-ui'
-import { PulseOutline, SaveOutline, SparklesOutline, AddOutline, TrashOutline, CreateOutline, StarOutline } from '@vicons/ionicons5'
+import { PulseOutline, SaveOutline, SparklesOutline, AddOutline, TrashOutline, CreateOutline, StarOutline, SettingsOutline } from '@vicons/ionicons5'
 import { aiApi, aiModuleApi, alertRuleApi } from '@/api'
-import type { AIModuleConfig, AIProvider, AIProvidersConfig } from '@/types/ai-module'
+import type { AIModuleConfig, AIProvider, AIProvidersConfig, AIGlobalConfig } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
 
 const { t } = useI18n()
 const message = useMessage()
+
+// ─── Active tab ───
+const activeTab = ref('providers')
 
 // ─── Providers config ───
 const providersLoading = ref(false)
@@ -291,9 +294,48 @@ function providerTypeLabel(p: string) {
   return map[p] || p
 }
 
+// ─── Global Config ───
+const globalLoading = ref(false)
+const globalSaving = ref(false)
+const globalConfig = ref<AIGlobalConfig>({
+  retry_max: 3,
+  context_max_chars: 8000,
+  default_temperature: 0.7,
+  default_max_tokens: 2000,
+  monthly_token_budget: 0,
+  data_masking_enabled: true,
+})
+
+async function fetchGlobal() {
+  globalLoading.value = true
+  try {
+    const res = await aiApi.getGlobal()
+    if (res.data.data) {
+      globalConfig.value = res.data.data
+    }
+  } catch {
+    // use defaults
+  } finally {
+    globalLoading.value = false
+  }
+}
+
+async function handleSaveGlobal() {
+  globalSaving.value = true
+  try {
+    await aiApi.saveGlobal(globalConfig.value)
+    message.success(t('aiSettings.globalSaved'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    globalSaving.value = false
+  }
+}
+
 onMounted(() => {
   fetchProviders()
   fetchModules()
+  fetchGlobal()
 })
 </script>
 
@@ -308,33 +350,37 @@ onMounted(() => {
           </h2>
           <p class="sre-config-header-sub">{{ t('aiSettings.subtitle') }}</p>
         </div>
-        <div class="sre-config-header-actions">
-          <n-button size="small" :loading="previewLoading" @click="handlePreviewImpact">
-            <template #icon><n-icon :component="PulseOutline" /></template>
-            {{ t('aiSettings.previewImpact') }}
-          </n-button>
-          <n-button size="small" :loading="testing" @click="handleTestDefault">
-            <template #icon><n-icon :component="PulseOutline" /></template>
-            {{ t('aiSettings.testDefault') }}
-          </n-button>
-          <n-button type="primary" size="small" :loading="saving" @click="handleSave">
-            <template #icon><n-icon :component="SaveOutline" /></template>
-            {{ t('aiSettings.saveModules') }}
-          </n-button>
-        </div>
       </header>
 
-      <!-- Warning: No providers configured -->
-      <n-alert
-        v-if="!providersLoading && !hasProviders"
-        type="warning"
-        :bordered="false"
-        style="margin-bottom: 20px"
-      >
-        {{ t('aiSettings.noProvidersWarning') }}
-      </n-alert>
+      <n-tabs v-model:value="activeTab" type="line" animated>
+        <!-- Tab 1: Providers & Modules -->
+        <n-tab-pane name="providers" :tab="t('aiSettings.providersTitle')">
+          <div class="tab-actions">
+            <n-button size="small" :loading="previewLoading" @click="handlePreviewImpact">
+              <template #icon><n-icon :component="PulseOutline" /></template>
+              {{ t('aiSettings.previewImpact') }}
+            </n-button>
+            <n-button size="small" :loading="testing" @click="handleTestDefault">
+              <template #icon><n-icon :component="PulseOutline" /></template>
+              {{ t('aiSettings.testDefault') }}
+            </n-button>
+            <n-button type="primary" size="small" :loading="saving" @click="handleSave">
+              <template #icon><n-icon :component="SaveOutline" /></template>
+              {{ t('aiSettings.saveModules') }}
+            </n-button>
+          </div>
 
-      <div class="config-sections sre-stagger">
+          <!-- Warning: No providers configured -->
+          <n-alert
+            v-if="!providersLoading && !hasProviders"
+            type="warning"
+            :bordered="false"
+            style="margin-bottom: 20px"
+          >
+            {{ t('aiSettings.noProvidersWarning') }}
+          </n-alert>
+
+          <div class="config-sections sre-stagger">
         <!-- Section 1: Providers Manager -->
         <section class="sre-config-section">
           <div class="section-header-row">
@@ -454,6 +500,52 @@ onMounted(() => {
           </div>
         </section>
       </div>
+        </n-tab-pane>
+
+        <!-- Tab 2: Global Settings -->
+        <n-tab-pane name="global" :tab="t('aiSettings.globalTab')">
+          <div class="global-config-section">
+            <h3 class="sre-config-section-title">
+              <n-icon :component="SettingsOutline" :size="16" style="margin-right: 6px; vertical-align: -2px;" />
+              {{ t('aiSettings.globalTitle') }}
+            </h3>
+            <p class="sre-config-section-desc">{{ t('aiSettings.globalDesc') }}</p>
+
+            <n-spin :show="globalLoading">
+              <n-form label-placement="left" label-width="180" style="max-width: 560px; margin-top: 16px;">
+                <n-form-item :label="t('aiSettings.retryMax')">
+                  <n-input-number v-model:value="globalConfig.retry_max" :min="0" :max="10" style="width: 100%" />
+                </n-form-item>
+                <n-form-item :label="t('aiSettings.contextMaxChars')">
+                  <n-input-number v-model:value="globalConfig.context_max_chars" :min="1000" :max="100000" :step="1000" style="width: 100%" />
+                </n-form-item>
+                <n-form-item :label="t('aiSettings.defaultTemperature')">
+                  <n-input-number v-model:value="globalConfig.default_temperature" :min="0" :max="2" :step="0.1" :precision="1" style="width: 100%" />
+                </n-form-item>
+                <n-form-item :label="t('aiSettings.defaultMaxTokens')">
+                  <n-input-number v-model:value="globalConfig.default_max_tokens" :min="100" :max="32000" :step="100" style="width: 100%" />
+                </n-form-item>
+                <n-form-item :label="t('aiSettings.monthlyTokenBudget')">
+                  <n-input-number v-model:value="globalConfig.monthly_token_budget" :min="0" :step="100000" style="width: 100%" />
+                  <span class="form-hint">{{ t('aiSettings.monthlyTokenBudgetHint') }}</span>
+                </n-form-item>
+                <n-form-item :label="t('aiSettings.dataMasking')">
+                  <div>
+                    <n-switch v-model:value="globalConfig.data_masking_enabled" />
+                    <p class="form-desc">{{ t('aiSettings.dataMaskingDesc') }}</p>
+                  </div>
+                </n-form-item>
+                <n-form-item>
+                  <n-button type="primary" :loading="globalSaving" @click="handleSaveGlobal">
+                    <template #icon><n-icon :component="SaveOutline" /></template>
+                    {{ t('common.save') }}
+                  </n-button>
+                </n-form-item>
+              </n-form>
+            </n-spin>
+          </div>
+        </n-tab-pane>
+      </n-tabs>
 
       <!-- Provider Add/Edit Modal -->
       <n-modal

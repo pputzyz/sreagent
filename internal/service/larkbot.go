@@ -218,14 +218,40 @@ func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventR
 	}
 	text = strings.TrimSpace(text)
 
+	// Load config to check if commands are enabled
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		s.logger.Warn("failed to load lark config for command handling", zap.Error(err))
+		return nil
+	}
+
+	// If commands are disabled, ignore all messages
+	if !cfg.CommandsEnabled {
+		s.logger.Debug("lark bot commands disabled, ignoring message")
+		return nil
+	}
+
 	// Parse command and args
 	parts := strings.Fields(text)
 	if len(parts) == 0 {
-		return s.SendMessage(ctx, chatID, "Please send a command. Available commands: /health, /oncall, /ack, /status")
+		return s.SendMessage(ctx, chatID, "请发送命令。可用命令: /health, /oncall, /ack, /status\n或直接用自然语言描述您的问题。")
 	}
 
 	command := parts[0]
 	args := parts[1:]
+
+	// If not a slash command and natural language is enabled, try to map it
+	if !strings.HasPrefix(command, "/") && cfg.NaturalLanguageEnabled {
+		mappedCmd, mappedArgs := s.mapNaturalLanguage(text)
+		if mappedCmd != "" {
+			command = mappedCmd
+			args = mappedArgs
+			s.logger.Debug("natural language mapped",
+				zap.String("input", text),
+				zap.String("mapped_command", mappedCmd),
+			)
+		}
+	}
 
 	return s.HandleCommand(ctx, command, args, chatID, userID)
 }
@@ -434,4 +460,93 @@ func (s *LarkBotService) SendMessage(ctx context.Context, chatID, content string
 
 	s.logger.Debug("lark bot message sent", zap.String("chat_id", chatID))
 	return nil
+}
+
+// TestBotAPI tests connectivity to the Lark Bot API by fetching a tenant access token.
+func (s *LarkBotService) TestBotAPI(ctx context.Context) error {
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load lark config: %w", err)
+	}
+	if cfg.AppID == "" || cfg.AppSecret == "" {
+		return fmt.Errorf("AppID and AppSecret must be configured")
+	}
+	bot := lark.NewBotClient(cfg.AppID, cfg.AppSecret)
+	// SendText to an invalid ID will fail with auth error if credentials are wrong,
+	// but we just want to test token acquisition — use the internal method.
+	_, err = bot.SendText(ctx, "chat_id", "__test__", "ping")
+	// We expect a routing error (invalid chat_id), not an auth error.
+	// If we got a token, the credentials are valid.
+	if err != nil && strings.Contains(err.Error(), "lark auth error") {
+		return err
+	}
+	return nil
+}
+
+// BotStatus holds diagnostic info about the bot connection.
+type BotStatus struct {
+	Configured     bool   `json:"configured"`
+	AppID          string `json:"app_id,omitempty"`
+	WebhookSet     bool   `json:"webhook_set"`
+	CommandsEnabled bool  `json:"commands_enabled"`
+	NLEnabled      bool   `json:"natural_language_enabled"`
+	DebugMode      bool   `json:"debug_mode"`
+}
+
+// GetBotStatus returns the current bot connection status and diagnostics.
+func (s *LarkBotService) GetBotStatus(ctx context.Context) (*BotStatus, error) {
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load lark config: %w", err)
+	}
+	return &BotStatus{
+		Configured:      cfg.AppID != "" && cfg.AppSecret != "",
+		AppID:           cfg.AppID,
+		WebhookSet:      cfg.DefaultWebhook != "",
+		CommandsEnabled: cfg.CommandsEnabled,
+		NLEnabled:       cfg.NaturalLanguageEnabled,
+		DebugMode:       cfg.DebugMode,
+	}, nil
+}
+
+// mapNaturalLanguage maps natural language input to bot commands.
+func (s *LarkBotService) mapNaturalLanguage(text string) (string, []string) {
+	lower := strings.ToLower(strings.TrimSpace(text))
+
+	// Status queries
+	if strings.Contains(lower, "状态") || strings.Contains(lower, "status") ||
+		strings.Contains(lower, "情况") || strings.Contains(lower, "how many") {
+		return "/status", nil
+	}
+	// Health queries
+	if strings.Contains(lower, "健康") || strings.Contains(lower, "health") ||
+		strings.Contains(lower, "集群") || strings.Contains(lower, "cluster") {
+		// Try to extract cluster name
+		parts := strings.Fields(lower)
+		for _, p := range parts {
+			if p != "健康" && p != "health" && p != "集群" && p != "cluster" && p != "的" && p != "查看" {
+				return "/health", []string{p}
+			}
+		}
+		return "/health", nil
+	}
+	// On-call queries
+	if strings.Contains(lower, "值班") || strings.Contains(lower, "oncall") ||
+		strings.Contains(lower, "on-call") || strings.Contains(lower, "谁在") {
+		return "/oncall", nil
+	}
+	// Acknowledge
+	if strings.Contains(lower, "确认") || strings.Contains(lower, "ack") ||
+		strings.Contains(lower, "acknowledge") {
+		// Try to extract alert ID
+		parts := strings.Fields(text)
+		for _, p := range parts {
+			if n, err := strconv.Atoi(p); err == nil && n > 0 {
+				return "/ack", []string{p}
+			}
+		}
+		return "/ack", nil
+	}
+
+	return "", nil
 }

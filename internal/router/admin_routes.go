@@ -162,4 +162,36 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			kb.POST("/:id/helpful", operate, h.Knowledge.Helpful)
 		}
 	}
+
+	// Diagnostic Workflows (诊断工作流 — AIOps Phase 2)
+	if h.DiagnosticWorkflow != nil {
+		diag := auth.Group("/diagnostic-workflows")
+		{
+			diag.GET("", h.DiagnosticWorkflow.List)
+			diag.GET("/:id", h.DiagnosticWorkflow.Get)
+			diag.POST("", manage, h.DiagnosticWorkflow.Create)
+			diag.PUT("/:id", manage, h.DiagnosticWorkflow.Update)
+			diag.DELETE("/:id", manage, h.DiagnosticWorkflow.Delete)
+			diag.PUT("/:id/steps", manage, h.DiagnosticWorkflow.ReplaceSteps)
+			diag.POST("/:id/run", operate, h.DiagnosticWorkflow.StartRun)
+			diag.POST("/match", operate, h.DiagnosticWorkflow.MatchWorkflows)
+		}
+		// Diagnostic Runs
+		diagRuns := auth.Group("/diagnostic-runs")
+		{
+			diagRuns.GET("", h.DiagnosticWorkflow.ListRuns)
+			diagRuns.GET("/:id", h.DiagnosticWorkflow.GetRun)
+		}
+	}
+
+	// Change Events (变更事件 — AIOps Phase 2)
+	if h.ChangeEvent != nil {
+		changes := auth.Group("/change-events")
+		{
+			changes.GET("", h.ChangeEvent.List)
+			changes.GET("/:id", h.ChangeEvent.Get)
+			changes.POST("", manage, h.ChangeEvent.Ingest)
+			changes.DELETE("/:id", manage, h.ChangeEvent.Delete)
+		}
+	}
 }

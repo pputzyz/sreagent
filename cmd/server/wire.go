@@ -161,6 +161,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Notification center repository
 	userNotificationRepo := repository.NewUserNotificationRepository(db)
 
+	// AIOps Phase 2 repositories
+	diagnosticWorkflowRepo := repository.NewDiagnosticWorkflowRepository(db)
+	changeEventRepo := repository.NewChangeEventRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -238,6 +242,13 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// AI Agent service (Phase 3 — 自主执行能力)
 	agentSvc := service.NewAgentService(aiSvc, aiConvRepo, nil, zapLogger)
+
+	// AIOps Phase 2 services
+	diagnosticWorkflowSvc := service.NewDiagnosticWorkflowService(diagnosticWorkflowRepo, dsSvc, aiSvc, zapLogger)
+	changeEventSvc := service.NewChangeEventService(changeEventRepo, zapLogger)
+
+	// TODO(AIOps P3): wire IncidentContextService into AgentService when agent gains incident-aware context
+	// incidentContextSvc := service.NewIncidentContextService(incidentRepo, eventRepo, knowledgeSvc, scheduleSvc, bizGroupSvc, zapLogger)
 
 	// Alertmanager config import service
 	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, zapLogger)
@@ -470,7 +481,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Team:             handler.NewTeamHandler(teamSvc, zapLogger),
 		Schedule:         handler.NewScheduleHandler(scheduleSvc, zapLogger),
 		Dashboard:        handler.NewDashboardHandler(dashboardStatsSvc),
-		AI:               handler.NewAIHandler(aiSvc, eventSvc, chatHistorySvc),
+		AI:               handler.NewAIHandler(aiSvc, settingSvc, eventSvc, chatHistorySvc),
 		LarkBot:          handler.NewLarkBotHandler(larkBotSvc),
 		Engine:           engineHandler,
 		AlertAction:      handler.NewAlertActionHandler(eventSvc, userRepo, cfg.JWT.Secret, zapLogger),
@@ -507,6 +518,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Permissions:         handler.NewPermissionsHandler(teamSvc),
 		Agent:               handler.NewAgentHandler(agentSvc),
 		Knowledge:           handler.NewKnowledgeHandler(knowledgeSvc),
+		DiagnosticWorkflow:  handler.NewDiagnosticWorkflowHandler(diagnosticWorkflowSvc),
+		ChangeEvent:         handler.NewChangeEventHandler(changeEventSvc),
 	}
 
 	// Inject audit service into handlers that support it

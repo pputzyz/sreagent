@@ -62,3 +62,22 @@ func (h *LarkBotHandler) UpdateConfig(c *gin.Context) {
 	}
 	Success(c, gin.H{"message": "Lark bot configuration updated"})
 }
+
+// TestBotAPI tests connectivity to the Lark Bot API.
+func (h *LarkBotHandler) TestBotAPI(c *gin.Context) {
+	if err := h.svc.TestBotAPI(c.Request.Context()); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "Lark bot API test failed: "+err.Error()))
+		return
+	}
+	Success(c, gin.H{"message": "Lark bot API connection successful"})
+}
+
+// GetBotStatus returns the current bot connection status and diagnostics.
+func (h *LarkBotHandler) GetBotStatus(c *gin.Context) {
+	status, err := h.svc.GetBotStatus(c.Request.Context())
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to get bot status: "+err.Error()))
+		return
+	}
+	Success(c, status)
+}

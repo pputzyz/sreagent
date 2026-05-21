@@ -64,6 +64,8 @@ type Handlers struct {
 	Permissions         *handler.PermissionsHandler        // RBAC permissions (权限查询)
 	Agent               *handler.AgentHandler              // AI Agent (自主执行)
 	Knowledge           *handler.KnowledgeHandler          // 知识库 (Knowledge Base)
+	DiagnosticWorkflow  *handler.DiagnosticWorkflowHandler // 诊断工作流 (AIOps Phase 2)
+	ChangeEvent         *handler.ChangeEventHandler        // 变更事件 (AIOps Phase 2)
 }
 
 // Setup initializes the Gin router with all routes and middleware.

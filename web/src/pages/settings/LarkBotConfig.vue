@@ -1,8 +1,8 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { NButton, NIcon, NSwitch, NInput, NFormItem, NSpin, useMessage } from 'naive-ui'
+import { NButton, NIcon, NSwitch, NInput, NFormItem, NSpin, NSelect, NAlert, NTag, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
+import { PulseOutline, SaveOutline, CheckmarkCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 import { larkBotApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 
@@ -11,8 +11,9 @@ const { t } = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
-const testing = ref(false)
-const lastTestResult = ref<{ success: boolean; message: string; time: string } | null>(null)
+const testingBotAPI = ref(false)
+const botStatusLoading = ref(false)
+const botStatus = ref<{ configured: boolean; app_id: string; webhook_set: boolean; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean } | null>(null)
 
 const form = reactive({
   bot_enabled: false,
@@ -21,7 +22,20 @@ const form = reactive({
   default_webhook: '',
   verification_token: '',
   encrypt_key: '',
+  resolve_strategy: 'update',
+  update_on_state_change: true,
+  delete_only_in_business_hours: false,
+  business_hours_start: '09:00',
+  business_hours_end: '18:00',
+  commands_enabled: true,
+  natural_language_enabled: false,
+  debug_mode: false,
 })
+
+const resolveOptions = [
+  { label: () => t('settings.larkResolveUpdate'), value: 'update' },
+  { label: () => t('settings.larkResolveDelete'), value: 'delete' },
+]
 
 async function fetchConfig() {
   loading.value = true
@@ -35,6 +49,14 @@ async function fetchConfig() {
       form.default_webhook = d.default_webhook || ''
       form.verification_token = d.verification_token || ''
       form.encrypt_key = d.encrypt_key || ''
+      form.resolve_strategy = d.resolve_strategy || 'update'
+      form.update_on_state_change = d.update_on_state_change ?? true
+      form.delete_only_in_business_hours = d.delete_only_in_business_hours ?? false
+      form.business_hours_start = d.business_hours_start || '09:00'
+      form.business_hours_end = d.business_hours_end || '18:00'
+      form.commands_enabled = d.commands_enabled ?? true
+      form.natural_language_enabled = d.natural_language_enabled ?? false
+      form.debug_mode = d.debug_mode ?? false
     }
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
@@ -55,37 +77,34 @@ async function save() {
   }
 }
 
-async function testConnection() {
-  if (!form.default_webhook) {
-    message.warning(t('settings.larkWebhookRequired'))
-    return
-  }
-  testing.value = true
+async function handleTestBotAPI() {
+  testingBotAPI.value = true
   try {
-    // Best-effort test: many backends accept arbitrary webhook ping. Fallback message.
-    const fn = (larkBotApi as Record<string, unknown>).testConnection as (() => Promise<unknown>) || (larkBotApi as Record<string, unknown>).test as (() => Promise<unknown>)
-    if (typeof fn === 'function') {
-      const res = await fn.call(larkBotApi) as { data?: { data?: { success?: boolean; message?: string } } }
-      const ok = !!res?.data?.data?.success
-      lastTestResult.value = {
-        success: ok,
-        message: res?.data?.data?.message || (ok ? t('settings.larkTestCardSent') : t('settings.larkTestFailed')),
-        time: new Date().toLocaleTimeString(),
-      }
-    } else {
-      lastTestResult.value = { success: true, message: t('settings.larkConfigValid'), time: new Date().toLocaleTimeString() }
-    }
-    lastTestResult.value!.success ? message.success(lastTestResult.value!.message) : message.error(lastTestResult.value!.message)
+    const res = await larkBotApi.testBotAPI()
+    message.success(res.data.data?.message || t('settings.larkBotAPIOK'))
   } catch (err: unknown) {
-    const errMsg = getErrorMessage(err)
-    lastTestResult.value = { success: false, message: errMsg, time: new Date().toLocaleTimeString() }
-    message.error(errMsg)
+    message.error(getErrorMessage(err))
   } finally {
-    testing.value = false
+    testingBotAPI.value = false
   }
 }
 
-onMounted(fetchConfig)
+async function fetchBotStatus() {
+  botStatusLoading.value = true
+  try {
+    const res = await larkBotApi.getBotStatus()
+    botStatus.value = res.data.data ?? null
+  } catch {
+    botStatus.value = null
+  } finally {
+    botStatusLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchConfig()
+  fetchBotStatus()
+})
 </script>
 
 <template>
@@ -97,10 +116,6 @@ onMounted(fetchConfig)
           <p class="sre-config-header-sub">{{ t('settings.larkBotSubtitle') }} <code>/lark/event</code></p>
         </div>
         <div class="sre-config-header-actions">
-          <NButton size="small" :loading="testing" @click="testConnection">
-            <template #icon><NIcon :component="PulseOutline" /></template>
-            {{ t('common.test') }}
-          </NButton>
           <NButton type="primary" size="small" :loading="saving" @click="save">
             <template #icon><NIcon :component="SaveOutline" /></template>
             {{ t('common.save') }}
@@ -108,14 +123,8 @@ onMounted(fetchConfig)
         </div>
       </header>
 
-      <div v-if="lastTestResult" class="sre-config-status" :data-tone="lastTestResult.success ? 'success' : 'error'">
-        <span class="sre-dot" :data-severity="lastTestResult.success ? 'success' : 'critical'"></span>
-        <span>{{ lastTestResult.message }}</span>
-        <span class="sre-meta-divider"></span>
-        <span class="tnum">{{ lastTestResult.time }}</span>
-      </div>
-
       <div class="config-sections sre-stagger">
+        <!-- Section 1: App Credentials -->
         <section class="sre-config-section">
           <h3 class="sre-config-section-title">{{ t('settings.larkAppCredentials') }}</h3>
           <p class="sre-config-section-desc">{{ t('settings.larkAppCredentialsDesc') }}</p>
@@ -135,17 +144,114 @@ onMounted(fetchConfig)
             <NFormItem :label="t('settings.larkEncryptKey')">
               <NInput v-model:value="form.encrypt_key" type="password" show-password-on="click" :placeholder="t('settings.larkEncryptKeyPlaceholder')" />
             </NFormItem>
-          </div>
-        </section>
-
-        <section class="sre-config-section">
-          <h3 class="sre-config-section-title">{{ t('settings.larkDefaults') }}</h3>
-          <p class="sre-config-section-desc">{{ t('settings.larkDefaultsDesc') }}</p>
-          <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkDefaultWebhook')" class="full-row">
               <NInput v-model:value="form.default_webhook" :placeholder="t('settings.larkWebhookPlaceholder')" />
             </NFormItem>
           </div>
+        </section>
+
+        <!-- Section 2: Behavior -->
+        <section class="sre-config-section">
+          <h3 class="sre-config-section-title">{{ t('settings.larkBehavior') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkBehaviorDesc') }}</p>
+          <div class="sre-config-form-grid">
+            <NFormItem :label="t('settings.larkResolveStrategy')">
+              <NSelect v-model:value="form.resolve_strategy" :options="resolveOptions" />
+            </NFormItem>
+            <NFormItem :label="t('settings.larkUpdateOnStateChange')">
+              <div>
+                <NSwitch v-model:value="form.update_on_state_change" />
+                <p class="form-desc">{{ t('settings.larkUpdateOnStateChangeDesc') }}</p>
+              </div>
+            </NFormItem>
+            <NFormItem :label="t('settings.larkDeleteBusinessHours')">
+              <div>
+                <NSwitch v-model:value="form.delete_only_in_business_hours" />
+                <p class="form-desc">{{ t('settings.larkDeleteBusinessHoursDesc') }}</p>
+              </div>
+            </NFormItem>
+            <NFormItem v-if="form.delete_only_in_business_hours" :label="t('settings.larkBusinessHoursStart')">
+              <NInput v-model:value="form.business_hours_start" placeholder="09:00" style="width: 120px" />
+            </NFormItem>
+            <NFormItem v-if="form.delete_only_in_business_hours" :label="t('settings.larkBusinessHoursEnd')">
+              <NInput v-model:value="form.business_hours_end" placeholder="18:00" style="width: 120px" />
+            </NFormItem>
+          </div>
+        </section>
+
+        <!-- Section 3: Commands -->
+        <section class="sre-config-section">
+          <h3 class="sre-config-section-title">{{ t('settings.larkCommands') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkCommandsDesc') }}</p>
+          <div class="sre-config-form-grid">
+            <NFormItem :label="t('settings.larkCommandsEnabled')">
+              <div>
+                <NSwitch v-model:value="form.commands_enabled" />
+                <p class="form-desc">{{ t('settings.larkCommandsEnabledDesc') }}</p>
+              </div>
+            </NFormItem>
+            <NFormItem :label="t('settings.larkNLEnabled')">
+              <div>
+                <NSwitch v-model:value="form.natural_language_enabled" />
+                <p class="form-desc">{{ t('settings.larkNLEnabledDesc') }}</p>
+              </div>
+            </NFormItem>
+          </div>
+        </section>
+
+        <!-- Section 4: Debug -->
+        <section class="sre-config-section">
+          <h3 class="sre-config-section-title">{{ t('settings.larkDebug') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkDebugDesc') }}</p>
+
+          <div class="debug-actions">
+            <NButton size="small" :loading="testingBotAPI" @click="handleTestBotAPI">
+              <template #icon><NIcon :component="PulseOutline" /></template>
+              {{ t('settings.larkTestBotAPI') }}
+            </NButton>
+            <NButton size="small" :loading="botStatusLoading" @click="fetchBotStatus">
+              {{ t('settings.larkBotStatus') }}
+            </NButton>
+          </div>
+
+          <NAlert v-if="botStatus" type="info" :bordered="false" style="margin-top: 12px">
+            <div class="bot-status-grid">
+              <div class="bot-status-item">
+                <span class="bot-status-label">Configured</span>
+                <NTag :type="botStatus.configured ? 'success' : 'warning'" size="tiny" :bordered="false">
+                  {{ botStatus.configured ? 'Yes' : 'No' }}
+                </NTag>
+              </div>
+              <div class="bot-status-item">
+                <span class="bot-status-label">App ID</span>
+                <span class="bot-status-value mono">{{ botStatus.app_id || '-' }}</span>
+              </div>
+              <div class="bot-status-item">
+                <span class="bot-status-label">Webhook</span>
+                <NTag :type="botStatus.webhook_set ? 'success' : 'default'" size="tiny" :bordered="false">
+                  {{ botStatus.webhook_set ? 'Set' : 'Not set' }}
+                </NTag>
+              </div>
+              <div class="bot-status-item">
+                <span class="bot-status-label">Commands</span>
+                <NTag :type="botStatus.commands_enabled ? 'success' : 'default'" size="tiny" :bordered="false">
+                  {{ botStatus.commands_enabled ? 'Enabled' : 'Disabled' }}
+                </NTag>
+              </div>
+              <div class="bot-status-item">
+                <span class="bot-status-label">Natural Language</span>
+                <NTag :type="botStatus.natural_language_enabled ? 'success' : 'default'" size="tiny" :bordered="false">
+                  {{ botStatus.natural_language_enabled ? 'Enabled' : 'Disabled' }}
+                </NTag>
+              </div>
+              <div class="bot-status-item">
+                <span class="bot-status-label">Debug Mode</span>
+                <NTag :type="botStatus.debug_mode ? 'warning' : 'default'" size="tiny" :bordered="false">
+                  {{ botStatus.debug_mode ? 'On' : 'Off' }}
+                </NTag>
+              </div>
+            </div>
+          </NAlert>
         </section>
       </div>
     </div>
@@ -153,4 +259,39 @@ onMounted(fetchConfig)
 </template>
 
 <style scoped>
+.debug-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bot-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 16px;
+}
+.bot-status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bot-status-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sre-text-tertiary);
+  white-space: nowrap;
+}
+.bot-status-value {
+  font-size: 13px;
+  color: var(--sre-text-primary);
+}
+.bot-status-value.mono {
+  font-family: var(--sre-font-mono, monospace);
+  font-size: 12px;
+}
+.form-desc {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  margin-top: 4px;
+  line-height: 1.5;
+}
 </style>

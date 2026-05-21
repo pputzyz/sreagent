@@ -13,13 +13,14 @@ import (
 // AIHandler handles AI/LLM-related API endpoints.
 type AIHandler struct {
 	aiSvc          *service.AIService
+	settingSvc     *service.SystemSettingService
 	eventSvc       *service.AlertEventService
 	chatHistorySvc *service.ChatHistoryService
 }
 
 // NewAIHandler creates a new AIHandler.
-func NewAIHandler(aiSvc *service.AIService, eventSvc *service.AlertEventService, chatHistorySvc *service.ChatHistoryService) *AIHandler {
-	return &AIHandler{aiSvc: aiSvc, eventSvc: eventSvc, chatHistorySvc: chatHistorySvc}
+func NewAIHandler(aiSvc *service.AIService, settingSvc *service.SystemSettingService, eventSvc *service.AlertEventService, chatHistorySvc *service.ChatHistoryService) *AIHandler {
+	return &AIHandler{aiSvc: aiSvc, settingSvc: settingSvc, eventSvc: eventSvc, chatHistorySvc: chatHistorySvc}
 }
 
 // systemPrompts maps chat modes to their system prompts.
@@ -338,4 +339,28 @@ func (h *AIHandler) TestProvider(c *gin.Context) {
 		return
 	}
 	Success(c, gin.H{"message": "AI connection successful"})
+}
+
+// GetAIGlobal returns platform-wide AI settings.
+func (h *AIHandler) GetAIGlobal(c *gin.Context) {
+	cfg, err := h.settingSvc.GetAIGlobalConfig(c.Request.Context())
+	if err != nil {
+		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+		return
+	}
+	Success(c, cfg)
+}
+
+// SaveAIGlobal updates platform-wide AI settings.
+func (h *AIHandler) SaveAIGlobal(c *gin.Context) {
+	var req service.AIGlobalConfig
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if err := h.settingSvc.SaveAIGlobalConfig(c.Request.Context(), req); err != nil {
+		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+		return
+	}
+	Success(c, gin.H{"message": "AI global config saved"})
 }

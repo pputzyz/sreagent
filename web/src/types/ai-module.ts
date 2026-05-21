@@ -26,6 +26,15 @@ export interface AIProvidersConfig {
   providers: AIProvider[]
 }
 
+export interface AIGlobalConfig {
+  retry_max: number
+  context_max_chars: number
+  default_temperature: number
+  default_max_tokens: number
+  monthly_token_budget: number
+  data_masking_enabled: boolean
+}
+
 // ===== AI Rule Generation =====
 export interface RuleGenerateRequest {
   description: string
