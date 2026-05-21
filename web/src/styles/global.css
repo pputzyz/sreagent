@@ -1170,12 +1170,10 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 }
 
 .sre-config-section {
-  background: var(--sre-glass-bg);
-  border: 1px solid var(--sre-glass-border);
+  background: var(--sre-bg-elevated);
+  border: 1px solid var(--sre-border);
   border-radius: var(--sre-radius-md);
   padding: 20px 24px;
-  -webkit-backdrop-filter: blur(var(--sre-glass-blur)) saturate(var(--sre-glass-saturate));
-  backdrop-filter: blur(var(--sre-glass-blur)) saturate(var(--sre-glass-saturate));
 }
 .sre-config-section-title {
   font-size: var(--sre-text-body-size);

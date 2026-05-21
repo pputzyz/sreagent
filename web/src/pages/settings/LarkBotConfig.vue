@@ -217,37 +217,37 @@ onMounted(() => {
           <NAlert v-if="botStatus" type="info" :bordered="false" style="margin-top: 12px">
             <div class="bot-status-grid">
               <div class="bot-status-item">
-                <span class="bot-status-label">Configured</span>
+                <span class="bot-status-label">{{ t('settings.larkStatusConfigured') }}</span>
                 <NTag :type="botStatus.configured ? 'success' : 'warning'" size="tiny" :bordered="false">
-                  {{ botStatus.configured ? 'Yes' : 'No' }}
+                  {{ botStatus.configured ? t('common.yes') : t('common.no') }}
                 </NTag>
               </div>
               <div class="bot-status-item">
-                <span class="bot-status-label">App ID</span>
+                <span class="bot-status-label">{{ t('settings.larkStatusAppId') }}</span>
                 <span class="bot-status-value mono">{{ botStatus.app_id || '-' }}</span>
               </div>
               <div class="bot-status-item">
-                <span class="bot-status-label">Webhook</span>
+                <span class="bot-status-label">{{ t('settings.larkStatusWebhook') }}</span>
                 <NTag :type="botStatus.webhook_set ? 'success' : 'default'" size="tiny" :bordered="false">
-                  {{ botStatus.webhook_set ? 'Set' : 'Not set' }}
+                  {{ botStatus.webhook_set ? t('settings.larkStatusSet') : t('settings.larkStatusNotSet') }}
                 </NTag>
               </div>
               <div class="bot-status-item">
-                <span class="bot-status-label">Commands</span>
+                <span class="bot-status-label">{{ t('settings.larkStatusCommands') }}</span>
                 <NTag :type="botStatus.commands_enabled ? 'success' : 'default'" size="tiny" :bordered="false">
-                  {{ botStatus.commands_enabled ? 'Enabled' : 'Disabled' }}
+                  {{ botStatus.commands_enabled ? t('common.enabled') : t('common.disabled') }}
                 </NTag>
               </div>
               <div class="bot-status-item">
-                <span class="bot-status-label">Natural Language</span>
+                <span class="bot-status-label">{{ t('settings.larkStatusNL') }}</span>
                 <NTag :type="botStatus.natural_language_enabled ? 'success' : 'default'" size="tiny" :bordered="false">
-                  {{ botStatus.natural_language_enabled ? 'Enabled' : 'Disabled' }}
+                  {{ botStatus.natural_language_enabled ? t('common.enabled') : t('common.disabled') }}
                 </NTag>
               </div>
               <div class="bot-status-item">
-                <span class="bot-status-label">Debug Mode</span>
+                <span class="bot-status-label">{{ t('settings.larkStatusDebugMode') }}</span>
                 <NTag :type="botStatus.debug_mode ? 'warning' : 'default'" size="tiny" :bordered="false">
-                  {{ botStatus.debug_mode ? 'On' : 'Off' }}
+                  {{ botStatus.debug_mode ? t('common.on') : t('common.off') }}
                 </NTag>
               </div>
             </div>

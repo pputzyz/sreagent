@@ -1488,6 +1488,14 @@ export default {
     larkBotStatus: '机器人状态',
     larkBotAPIOK: 'Bot API 连接成功',
     larkBotAPIFailed: 'Bot API 连接失败',
+    larkStatusConfigured: '已配置',
+    larkStatusAppId: 'App ID',
+    larkStatusWebhook: 'Webhook',
+    larkStatusCommands: '命令',
+    larkStatusNL: '自然语言',
+    larkStatusDebugMode: '调试模式',
+    larkStatusSet: '已设置',
+    larkStatusNotSet: '未设置',
     // SMTP Config page
     smtpTitle: 'SMTP 邮件',
     smtpSubtitle: '升级策略和直接通知使用的出站邮件服务器。',
@@ -2272,7 +2280,7 @@ export default {
   aiSettings: {
     title: 'AI 配置',
     subtitle: '管理 AI 供应商、模块分配和连接测试',
-    previewImpact: '预览影响',
+    previewImpact: '标签校验',
     testDefault: '测试默认',
     saveModules: '保存模块',
     noProvidersWarning: '尚未配置 AI 供应商，请添加供应商以启用 AI 功能。',

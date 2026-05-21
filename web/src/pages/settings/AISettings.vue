@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
   NSpace, NTag, NSelect, NInput, NModal, NForm, NFormItem,
-  NPopconfirm, NStatistic, NTabs, NTabPane, NInputNumber, useMessage,
+  NPopconfirm, NStatistic, NTabs, NTabPane, NInputNumber, NDataTable, useMessage,
 } from 'naive-ui'
 import { PulseOutline, SaveOutline, SparklesOutline, AddOutline, TrashOutline, CreateOutline, StarOutline, SettingsOutline } from '@vicons/ionicons5'
 import { aiApi, aiModuleApi, alertRuleApi } from '@/api'
@@ -19,6 +19,7 @@ const activeTab = ref('providers')
 
 // ─── Providers config ───
 const providersLoading = ref(false)
+const providersSaving = ref(false)
 const providersConfig = ref<AIProvidersConfig | null>(null)
 
 // ─── Module config ───
@@ -95,6 +96,49 @@ const defaultProviderHealthy = computed(() => {
   const def = providersConfig.value?.providers.find((p: AIProvider) => p.key === providersConfig.value?.default_provider)
   return def?.enabled === true
 })
+
+const providerColumns = computed(() => [
+  {
+    title: 'Key',
+    key: 'key',
+    width: 140,
+    render: (row: AIProvider) => h('span', { style: 'font-family: var(--sre-font-mono, monospace); font-size: 13px; font-weight: 600;' }, [
+      row.key,
+      providersConfig.value?.default_provider === row.key
+        ? h(NTag, { type: 'warning', size: 'tiny', bordered: false, style: 'margin-left: 6px;' }, () => t('aiSettings.default'))
+        : null,
+    ]),
+  },
+  {
+    title: t('common.type'),
+    key: 'provider',
+    width: 140,
+    render: (row: AIProvider) => providerTypeLabel(row.provider),
+  },
+  {
+    title: t('aiSettings.model'),
+    key: 'model',
+    width: 160,
+    render: (row: AIProvider) => h('span', { style: 'font-family: var(--sre-font-mono, monospace); font-size: 12px;' }, row.model || '-'),
+  },
+  {
+    title: '',
+    key: 'actions',
+    width: 140,
+    render: (row: AIProvider) => {
+      const idx = providersConfig.value!.providers.indexOf(row)
+      return h('div', { style: 'display: flex; gap: 2px;' }, [
+        h(NButton, { text: true, size: 'small', loading: testingProvider.value === row.key, onClick: () => handleTestProvider(row.key) }, { icon: () => h(NIcon, { component: PulseOutline }) }),
+        h(NButton, { text: true, size: 'small', disabled: providersConfig.value!.default_provider === row.key, onClick: () => setDefaultProvider(row.key) }, { icon: () => h(NIcon, { component: StarOutline }) }),
+        h(NButton, { text: true, size: 'small', onClick: () => openEditProvider(idx) }, { icon: () => h(NIcon, { component: CreateOutline }) }),
+        h(NPopconfirm, { onPositiveClick: () => deleteProvider(idx) }, {
+          trigger: () => h(NButton, { text: true, size: 'small', type: 'error' }, { icon: () => h(NIcon, { component: TrashOutline }) }),
+          default: () => t('aiSettings.deleteProviderConfirm', { key: row.key }),
+        }),
+      ])
+    },
+  },
+])
 
 // ─── Fetch providers ───
 async function fetchProviders() {
@@ -185,33 +229,32 @@ function handleProviderSave() {
   }
 
   showModal.value = false
-  saveProvidersConfig()
 }
 
 function deleteProvider(index: number) {
   if (!providersConfig.value) return
   const key = providersConfig.value.providers[index].key
   providersConfig.value.providers.splice(index, 1)
-  // Clear default if deleted
   if (providersConfig.value.default_provider === key) {
     providersConfig.value.default_provider = providersConfig.value.providers[0]?.key ?? ''
   }
-  saveProvidersConfig()
 }
 
 function setDefaultProvider(key: string) {
   if (!providersConfig.value) return
   providersConfig.value.default_provider = key
-  saveProvidersConfig()
 }
 
-async function saveProvidersConfig() {
+async function handleSaveProviders() {
   if (!providersConfig.value) return
+  providersSaving.value = true
   try {
     await aiApi.saveProviders(providersConfig.value)
     message.success(t('aiSettings.providerSaved'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
+  } finally {
+    providersSaving.value = false
   }
 }
 
@@ -364,6 +407,10 @@ onMounted(() => {
               <template #icon><n-icon :component="PulseOutline" /></template>
               {{ t('aiSettings.testDefault') }}
             </n-button>
+            <n-button type="primary" size="small" :loading="providersSaving" @click="handleSaveProviders">
+              <template #icon><n-icon :component="SaveOutline" /></template>
+              {{ t('aiSettings.providerSaved') }}
+            </n-button>
             <n-button type="primary" size="small" :loading="saving" @click="handleSave">
               <template #icon><n-icon :component="SaveOutline" /></template>
               {{ t('aiSettings.saveModules') }}
@@ -398,59 +445,15 @@ onMounted(() => {
             {{ t('aiSettings.defaultProviderUnhealthy') }}
           </n-alert>
 
-          <div v-if="hasProviders" class="providers-grid">
-            <div
-              v-for="(provider, idx) in providersConfig!.providers"
-              :key="provider.key"
-              class="provider-card"
-              :class="{ 'is-default': providersConfig!.default_provider === provider.key, disabled: !provider.enabled }"
-            >
-              <div class="provider-card-header">
-                <div class="provider-card-title">
-                  <span class="provider-key">{{ provider.key }}</span>
-                  <n-tag v-if="providersConfig!.default_provider === provider.key" type="warning" size="tiny" :bordered="false">
-                    {{ t('aiSettings.default') }}
-                  </n-tag>
-                  <n-tag :type="provider.enabled ? 'success' : 'default'" size="tiny" :bordered="false">
-                    {{ provider.enabled ? t('common.enabled') : t('common.disabled') }}
-                  </n-tag>
-                </div>
-                <div class="provider-card-actions">
-                  <n-button text size="small" @click="handleTestProvider(provider.key)" :loading="testingProvider === provider.key">
-                    <template #icon><n-icon :component="PulseOutline" /></template>
-                  </n-button>
-                  <n-button text size="small" @click="setDefaultProvider(provider.key)" :disabled="providersConfig!.default_provider === provider.key">
-                    <template #icon><n-icon :component="StarOutline" /></template>
-                  </n-button>
-                  <n-button text size="small" @click="openEditProvider(idx)">
-                    <template #icon><n-icon :component="CreateOutline" /></template>
-                  </n-button>
-                  <n-popconfirm @positive-click="deleteProvider(idx)">
-                    <template #trigger>
-                      <n-button text size="small" type="error">
-                        <template #icon><n-icon :component="TrashOutline" /></template>
-                      </n-button>
-                    </template>
-                    {{ t('aiSettings.deleteProviderConfirm', { key: provider.key }) }}
-                  </n-popconfirm>
-                </div>
-              </div>
-              <div class="provider-card-body">
-                <div class="provider-detail">
-                  <span class="provider-detail-label">{{ t('common.type') }}</span>
-                  <span class="provider-detail-value">{{ providerTypeLabel(provider.provider) }}</span>
-                </div>
-                <div class="provider-detail">
-                  <span class="provider-detail-label">{{ t('aiSettings.model') }}</span>
-                  <span class="provider-detail-value mono">{{ provider.model || '-' }}</span>
-                </div>
-                <div class="provider-detail full-row">
-                  <span class="provider-detail-label">{{ t('aiSettings.baseUrl') }}</span>
-                  <span class="provider-detail-value mono">{{ provider.base_url || t('aiSettings.default') }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <n-data-table
+            v-if="hasProviders"
+            :columns="providerColumns"
+            :data="providersConfig!.providers"
+            :row-class-name="(row: AIProvider) => row.enabled ? '' : 'provider-row-disabled'"
+            size="small"
+            :bordered="false"
+            style="margin-bottom: 8px"
+          />
           <div v-else-if="!providersLoading" class="ai-info-empty">
             {{ t('aiSettings.noProvidersEmpty') }}
           </div>
@@ -660,79 +663,9 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-/* Provider Cards */
-.providers-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 16px;
-}
-.provider-card {
-  border: 1px solid var(--sre-border);
-  border-radius: 8px;
-  background: var(--sre-bg-card);
-  transition: opacity 200ms ease, border-color 200ms ease;
-}
-.provider-card.disabled {
-  opacity: 0.6;
-}
-.provider-card.is-default {
-  border-color: var(--sre-warning, #f0a020);
-}
-.provider-card:hover {
-  border-color: var(--sre-primary-ring, var(--sre-border-strong));
-}
-.provider-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px 8px;
-}
-.provider-card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.provider-key {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sre-text-primary);
-  font-family: var(--sre-font-mono, monospace);
-}
-.provider-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.provider-card-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 24px;
-  padding: 4px 16px 12px;
-}
-.provider-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.provider-detail.full-row {
-  grid-column: 1 / -1;
-}
-.provider-detail-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--sre-text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.provider-detail-value {
-  font-size: 13px;
-  color: var(--sre-text-primary);
-  font-weight: 500;
-}
-.provider-detail-value.mono {
-  font-family: var(--sre-font-mono, monospace);
-  font-size: 12px;
+/* Provider Table */
+:deep(.provider-row-disabled) {
+  opacity: 0.55;
 }
 
 /* Module List */

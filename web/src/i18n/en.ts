@@ -1472,6 +1472,14 @@ export default {
     larkBotStatus: 'Bot Status',
     larkBotAPIOK: 'Bot API connection successful',
     larkBotAPIFailed: 'Bot API connection failed',
+    larkStatusConfigured: 'Configured',
+    larkStatusAppId: 'App ID',
+    larkStatusWebhook: 'Webhook',
+    larkStatusCommands: 'Commands',
+    larkStatusNL: 'Natural Language',
+    larkStatusDebugMode: 'Debug Mode',
+    larkStatusSet: 'Set',
+    larkStatusNotSet: 'Not set',
     // SMTP Config page
     smtpTitle: 'SMTP Email',
     smtpSubtitle: 'Outbound email server used by escalation policies and direct notifications.',
@@ -2251,7 +2259,7 @@ export default {
   aiSettings: {
     title: 'AI Configuration',
     subtitle: 'Manage AI providers, module assignments, and connections',
-    previewImpact: 'Preview Impact',
+    previewImpact: 'Label Validation',
     testDefault: 'Test Default',
     saveModules: 'Save Modules',
     noProvidersWarning: 'No AI providers configured. Add a provider below to enable AI features.',
