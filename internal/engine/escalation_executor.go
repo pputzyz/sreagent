@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/metrics"
@@ -145,38 +145,128 @@ func (e *EscalationExecutor) Start() {
 
 // Stop signals the background goroutine to exit.
 func (e *EscalationExecutor) Stop() {
-	e.once.Do(func() {
-		select {
-		case <-e.stopCh:
-		default:
-			close(e.stopCh)
-		}
-	})
+	e.once.Do(func() { close(e.stopCh) })
 }
 
 // runOnce performs a single escalation check pass.
+// Uses cursor pagination to avoid loading all firing events at once.
 func (e *EscalationExecutor) runOnce(ctx context.Context) {
-	// Fetch only firing events — avoids full-table scan of resolved/acknowledged/closed events.
-	const escalationQueryLimit = 10000
-	events, err := e.eventRepo.ListFiringForEscalation(ctx, escalationQueryLimit)
+	const pageSize = 500
+	var afterID uint
+
+	policies, err := e.policyRepo.ListAllEnabled(ctx)
 	if err != nil {
-		e.logger.Error("escalation: failed to list events", zap.Error(err))
+		e.logger.Error("escalation: failed to list enabled policies", zap.Error(err))
 		return
 	}
-	if len(events) == escalationQueryLimit {
-		e.logger.Warn("escalation query hit limit, some records may be missed",
-			zap.Int("limit", escalationQueryLimit))
+
+	// Build teamID → policies map for H1 matching.
+	teamPolicies := make(map[uint][]model.EscalationPolicy)
+	var globalPolicies []model.EscalationPolicy
+	for _, p := range policies {
+		if p.TeamID > 0 {
+			teamPolicies[p.TeamID] = append(teamPolicies[p.TeamID], p)
+		} else {
+			globalPolicies = append(globalPolicies, p)
+		}
 	}
 
-	// Batch-load rules for SLA checks — avoids N+1 queries per event.
-	ruleMap := e.batchLoadRules(ctx, events)
+	// Batch-load all steps for all enabled policies (H3).
+	var allSteps map[uint][]model.EscalationStep
+	if e.stepRepo != nil {
+		policyIDs := make([]uint, 0, len(policies))
+		for _, p := range policies {
+			policyIDs = append(policyIDs, p.ID)
+		}
+		allSteps, err = e.stepRepo.BatchLoadByPolicyIDs(ctx, policyIDs)
+		if err != nil {
+			e.logger.Error("escalation: failed to batch-load steps", zap.Error(err))
+			return
+		}
+	}
 
 	now := time.Now()
-	for i := range events {
-		ev := &events[i]
-		e.escalateEvent(ctx, ev, now)
-		e.checkSLABreach(ctx, ev, ruleMap, now)
+	for {
+		events, err := e.eventRepo.ListFiringForEscalation(ctx, afterID, pageSize)
+		if err != nil {
+			e.logger.Error("escalation: failed to list events", zap.Error(err))
+			return
+		}
+		if len(events) == 0 {
+			break
+		}
+
+		ruleMap := e.batchLoadRules(ctx, events)
+
+		// Group events by team for concurrent processing (H3).
+		type teamBatch struct {
+			teamID uint
+			events []*model.AlertEvent
+		}
+		teamBatches := make(map[uint]*teamBatch)
+		var orphanEvents []*model.AlertEvent // events with no team/rule
+
+		for i := range events {
+			ev := &events[i]
+			var teamID uint
+			if ev.RuleID != nil {
+				if rule, ok := ruleMap[*ev.RuleID]; ok && rule.TeamID != nil {
+					teamID = *rule.TeamID
+				}
+			}
+			if teamID > 0 {
+				tb, ok := teamBatches[teamID]
+				if !ok {
+					tb = &teamBatch{teamID: teamID}
+					teamBatches[teamID] = tb
+				}
+				tb.events = append(tb.events, ev)
+			} else {
+				orphanEvents = append(orphanEvents, ev)
+			}
+		}
+
+		// Process each team's events concurrently with errgroup (H3).
+		var eg errgroup.Group
+		eg.SetLimit(8)
+
+		for _, tb := range teamBatches {
+			batch := tb
+			eg.Go(func() error {
+				matched := append(append([]model.EscalationPolicy{}, globalPolicies...), teamPolicies[batch.teamID]...)
+				for _, ev := range batch.events {
+					rule := e.getRuleFromMap(ruleMap, ev)
+					e.escalateEvent(ctx, ev, matched, allSteps, now)
+					e.checkSLABreach(ctx, ev, ruleMap, now)
+					_ = rule // used by escalateEvent via ruleMap
+				}
+				return nil
+			})
+		}
+
+		// Process orphan events (no team match) with global policies only.
+		eg.Go(func() error {
+			for _, ev := range orphanEvents {
+				e.escalateEvent(ctx, ev, globalPolicies, allSteps, now)
+				e.checkSLABreach(ctx, ev, ruleMap, now)
+			}
+			return nil
+		})
+
+		eg.Wait()
+
+		afterID = events[len(events)-1].ID
+		if len(events) < pageSize {
+			break
+		}
 	}
+}
+
+func (e *EscalationExecutor) getRuleFromMap(ruleMap map[uint]*model.AlertRule, event *model.AlertEvent) *model.AlertRule {
+	if ruleMap == nil || event.RuleID == nil {
+		return nil
+	}
+	return ruleMap[*event.RuleID]
 }
 
 // batchLoadRules collects unique rule IDs from events and loads them in a single query.
@@ -243,7 +333,7 @@ func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.Al
 
 	note := fmt.Sprintf("SLA breach: event not acknowledged within %d minutes (rule: %s)",
 		rule.AckSlaMinutes, rule.Name)
-	e.recordTimeline(ctx, event.ID, note, nil) // nil stepID — SLA breach is not an escalation step
+	_ = e.recordTimeline(ctx, event.ID, note, nil) // nil stepID — SLA breach is not an escalation step
 
 	e.logger.Warn("SLA breach detected",
 		zap.Uint("event_id", event.ID),
@@ -252,39 +342,47 @@ func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.Al
 	)
 }
 
-// escalateEvent evaluates all escalation policies and executes any due steps for the given event.
-func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.AlertEvent, now time.Time) {
-	// Determine which escalation steps have already been executed by inspecting the timeline.
-	executedSteps := e.executedStepOrders(ctx, event.ID)
-
-	// Collect all enabled policies across all teams and find matching steps.
-	// In a full implementation we would match policies to the event's team/labels.
-	// For now we evaluate all enabled policies.
-	policies, err := e.listAllEnabledPolicies(ctx)
-	if err != nil {
-		e.logger.Warn("escalation: failed to list policies", zap.Error(err))
-		return
+// escalateEvent evaluates escalation policies and executes any due steps for the given event.
+// policies is the pre-filtered list (team-matched + global) from runOnce.
+// stepsMap is the batch-loaded steps from runOnce; may be nil (falls back to per-policy query).
+func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.AlertEvent, policies []model.EscalationPolicy, stepsMap map[uint][]model.EscalationStep, now time.Time) {
+	// Fallback: timeline-based dedup when stepExecRepo is not configured (M4 — skip when repo available).
+	var executedSteps map[string]bool
+	if e.stepExecRepo == nil {
+		executedSteps = e.executedStepOrders(ctx, event.ID)
 	}
 
 	for _, policy := range policies {
-		steps, err := e.stepRepo.ListByPolicyID(ctx, policy.ID)
-		if err != nil {
-			e.logger.Warn("escalation: failed to list steps",
-				zap.Uint("policy_id", policy.ID), zap.Error(err))
-			continue
+		steps, ok := stepsMap[policy.ID]
+		if !ok {
+			// Fallback: load individually if not in batch.
+			var err error
+			steps, err = e.stepRepo.ListByPolicyID(ctx, policy.ID)
+			if err != nil {
+				e.logger.Warn("escalation: failed to list steps",
+					zap.Uint("policy_id", policy.ID), zap.Error(err))
+				continue
+			}
 		}
-
-		// Sort by step order to execute in sequence.
-		sort.Slice(steps, func(i, j int) bool {
-			return steps[i].StepOrder < steps[j].StepOrder
-		})
 
 		for _, step := range steps {
 			// Check if enough time has passed since the alert fired.
 			dueAt := event.FiredAt.Add(time.Duration(step.DelayMinutes) * time.Minute)
 			if now.Before(dueAt) {
-				// Not due yet; continue to check other steps (delays may not be monotonic).
 				continue
+			}
+
+			// M5: Recheck event status — may have been resolved/ack'd since we fetched.
+			if e.stepExecRepo != nil {
+				fresh, err := e.eventRepo.GetByID(ctx, event.ID)
+				if err != nil {
+					e.logger.Error("escalation: failed to recheck event status",
+						zap.Uint("event_id", event.ID), zap.Error(err))
+					continue
+				}
+				if fresh.Status != model.EventStatusFiring {
+					return // event no longer firing — skip all remaining steps
+				}
 			}
 
 			// Atomic dedup: INSERT IGNORE ensures only one goroutine executes this step.
@@ -299,8 +397,21 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 					continue
 				}
 				if !inserted {
-					// Already executed by another goroutine — skip.
-					continue
+					// Already executed or in-progress — check if it failed and needs retry (H2).
+					if e.stepExecRepo.HasExecuted(ctx, event.ID, step.ID) {
+						continue // successfully done
+					}
+					// Status is 'pending' or 'failed' — allow retry by deleting the old record.
+					if err := e.stepExecRepo.DeleteByEventAndStep(ctx, event.ID, step.ID); err != nil {
+						e.logger.Error("escalation: failed to delete stale step exec",
+							zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
+						continue
+					}
+					// Re-insert with fresh 'pending' status.
+					inserted, err = e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
+					if err != nil || !inserted {
+						continue
+					}
 				}
 			} else {
 				// Fallback: timeline-based dedup when stepExecRepo is not configured.
@@ -319,12 +430,20 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 					zap.Int("step_order", step.StepOrder),
 					zap.Error(err),
 				)
-				// Record failure in timeline so we don't retry endlessly this cycle.
-				e.recordTimeline(ctx, event.ID, fmt.Sprintf(
+				// H2: Mark as failed so it can be retried next cycle.
+				if e.stepExecRepo != nil {
+					_ = e.stepExecRepo.MarkFailed(ctx, event.ID, step.ID)
+				}
+				// Record failure in timeline.
+				_ = e.recordTimeline(ctx, event.ID, fmt.Sprintf(
 					"escalation step %d (policy %s) failed: %v", step.StepOrder, policy.Name, err,
 				), &step.ID)
 				metrics.IncEscalationSteps(policyIDStr, "failure")
 			} else {
+				// H2: Mark as success.
+				if e.stepExecRepo != nil {
+					_ = e.stepExecRepo.MarkSuccess(ctx, event.ID, step.ID)
+				}
 				metrics.IncEscalationSteps(policyIDStr, "success")
 			}
 		}
@@ -359,7 +478,7 @@ func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.Alert
 	}
 
 	// Record the escalation in the timeline so we don't repeat this step.
-	e.recordTimeline(ctx, event.ID, note, &step.ID)
+	_ = e.recordTimeline(ctx, event.ID, note, &step.ID)
 
 	e.logger.Info("escalation step executed",
 		zap.Uint("event_id", event.ID),
@@ -395,7 +514,7 @@ func (e *EscalationExecutor) executedStepOrders(ctx context.Context, eventID uin
 
 // recordTimeline appends an escalation action to the event timeline.
 // stepID links the record to a specific EscalationStep for reliable dedup; may be nil for non-step events.
-func (e *EscalationExecutor) recordTimeline(ctx context.Context, eventID uint, note string, stepID *uint) {
+func (e *EscalationExecutor) recordTimeline(ctx context.Context, eventID uint, note string, stepID *uint) error {
 	t := &model.AlertTimeline{
 		EventID:          eventID,
 		Action:           model.TimelineActionEscalated,
@@ -405,23 +524,9 @@ func (e *EscalationExecutor) recordTimeline(ctx context.Context, eventID uint, n
 	if err := e.timelineRepo.Create(ctx, t); err != nil {
 		e.logger.Error("escalation: failed to record timeline",
 			zap.Uint("event_id", eventID), zap.Error(err))
+		return err
 	}
-}
-
-// listAllEnabledPolicies returns all enabled EscalationPolicy records.
-// ListByTeamID with teamID=0 skips the team filter and returns all policies.
-func (e *EscalationExecutor) listAllEnabledPolicies(ctx context.Context) ([]model.EscalationPolicy, error) {
-	all, err := e.policyRepo.ListByTeamID(ctx, 0)
-	if err != nil {
-		return nil, err
-	}
-	enabled := all[:0]
-	for _, p := range all {
-		if p.IsEnabled {
-			enabled = append(enabled, p)
-		}
-	}
-	return enabled, nil
+	return nil
 }
 
 // dispatchToTarget routes the escalation to the correct target based on step.TargetType.

@@ -200,6 +200,13 @@ func (r *EscalationPolicyRepository) ListByTeamID(ctx context.Context, teamID ui
 	return list, err
 }
 
+// ListAllEnabled returns all enabled escalation policies.
+func (r *EscalationPolicyRepository) ListAllEnabled(ctx context.Context) ([]model.EscalationPolicy, error) {
+	var list []model.EscalationPolicy
+	err := r.db.WithContext(ctx).Where("is_enabled = ?", true).Order("id DESC").Preload("Team").Find(&list).Error
+	return list, err
+}
+
 func (r *EscalationPolicyRepository) Update(ctx context.Context, policy *model.EscalationPolicy) error {
 	return r.db.WithContext(ctx).Save(policy).Error
 }
@@ -244,6 +251,26 @@ func (r *EscalationStepRepository) DeleteByPolicyID(ctx context.Context, policyI
 		Delete(&model.EscalationStep{}).Error
 }
 
+// BatchLoadByPolicyIDs loads all escalation steps for the given policy IDs in a single query.
+// Returns a map keyed by policyID. If policyIDs is empty, returns nil.
+func (r *EscalationStepRepository) BatchLoadByPolicyIDs(ctx context.Context, policyIDs []uint) (map[uint][]model.EscalationStep, error) {
+	if len(policyIDs) == 0 {
+		return nil, nil
+	}
+	var steps []model.EscalationStep
+	if err := r.db.WithContext(ctx).
+		Where("policy_id IN ?", policyIDs).
+		Order("policy_id ASC, step_order ASC").
+		Find(&steps).Error; err != nil {
+		return nil, err
+	}
+	m := make(map[uint][]model.EscalationStep, len(policyIDs))
+	for _, s := range steps {
+		m[s.PolicyID] = append(m[s.PolicyID], s)
+	}
+	return m, nil
+}
+
 // ReplaceByPolicyID replaces all steps for a policy in a single transaction.
 func (r *EscalationStepRepository) ReplaceByPolicyID(ctx context.Context, policyID uint, steps []model.EscalationStep) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -273,16 +300,18 @@ func NewEscalationStepExecutionRepository(db *gorm.DB) *EscalationStepExecutionR
 
 // InsertIgnore atomically records a step execution using INSERT IGNORE.
 // Returns true if the row was inserted (i.e., this is the first execution).
+// The row is inserted with status='pending'.
 func (r *EscalationStepExecutionRepository) InsertIgnore(ctx context.Context, eventID, stepID uint) (bool, error) {
 	exec := &model.EscalationStepExecution{
 		EventID:    eventID,
 		StepID:     stepID,
+		Status:     "pending",
 		ExecutedAt: time.Now(),
 	}
 	// INSERT IGNORE: if the unique key (event_id, step_id) already exists, the row is silently ignored.
 	result := r.db.WithContext(ctx).Exec(
-		"INSERT IGNORE INTO escalation_step_executions (event_id, step_id, executed_at) VALUES (?, ?, ?)",
-		exec.EventID, exec.StepID, exec.ExecutedAt,
+		"INSERT IGNORE INTO escalation_step_executions (event_id, step_id, status, executed_at) VALUES (?, ?, ?, ?)",
+		exec.EventID, exec.StepID, exec.Status, exec.ExecutedAt,
 	)
 	if result.Error != nil {
 		return false, result.Error
@@ -290,11 +319,35 @@ func (r *EscalationStepExecutionRepository) InsertIgnore(ctx context.Context, ev
 	return result.RowsAffected > 0, nil
 }
 
-// HasExecuted checks if a step has already been executed for an event.
+// HasExecuted checks if a step has already been successfully executed for an event.
+// Only returns true for status='success', allowing failed steps to be retried.
 func (r *EscalationStepExecutionRepository) HasExecuted(ctx context.Context, eventID, stepID uint) bool {
 	var count int64
 	r.db.WithContext(ctx).Model(&model.EscalationStepExecution{}).
-		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Where("event_id = ? AND step_id = ? AND status = ?", eventID, stepID, "success").
 		Count(&count)
 	return count > 0
+}
+
+// MarkSuccess updates a step execution record to status='success'.
+func (r *EscalationStepExecutionRepository) MarkSuccess(ctx context.Context, eventID, stepID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.EscalationStepExecution{}).
+		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Update("status", "success").Error
+}
+
+// MarkFailed updates a step execution record to status='failed'.
+func (r *EscalationStepExecutionRepository) MarkFailed(ctx context.Context, eventID, stepID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.EscalationStepExecution{}).
+		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Update("status", "failed").Error
+}
+
+// DeleteByEventAndStep removes a step execution record so it can be retried on the next cycle.
+func (r *EscalationStepExecutionRepository) DeleteByEventAndStep(ctx context.Context, eventID, stepID uint) error {
+	return r.db.WithContext(ctx).
+		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Delete(&model.EscalationStepExecution{}).Error
 }

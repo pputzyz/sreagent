@@ -47,6 +47,7 @@ type AlertRule struct {
 	// RuleType controls the evaluation strategy. Default is "threshold".
 	RuleType    AlertRuleType `json:"rule_type" gorm:"size:32;not null;default:threshold"`
 	Name         string     `json:"name" gorm:"size:256;not null;index"`
+	TeamID       *uint      `json:"team_id" gorm:"index"` // optional: which team owns this rule
 	DisplayName  string     `json:"display_name" gorm:"size:256"`
 	Description  string     `json:"description" gorm:"type:text"`
 	DataSourceID   *uint          `json:"datasource_id" gorm:"index"`

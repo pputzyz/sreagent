@@ -139,15 +139,15 @@ func (r *AlertEventRepository) List(ctx context.Context, status, severity string
 }
 
 // ListFiringForEscalation returns only firing events (no preloads) ordered by
-// fired_at ASC, capped at `limit`.  This replaces the full-table scan that the
-// escalation executor used to perform via List("", "", 1, 10000).
-func (r *AlertEventRepository) ListFiringForEscalation(ctx context.Context, limit int) ([]model.AlertEvent, error) {
+// id ASC, capped at `limit`. If afterID > 0, only returns events with id > afterID (cursor pagination).
+func (r *AlertEventRepository) ListFiringForEscalation(ctx context.Context, afterID uint, limit int) ([]model.AlertEvent, error) {
 	var list []model.AlertEvent
-	err := r.db.WithContext(ctx).
-		Where("status = ?", model.EventStatusFiring).
-		Order("fired_at ASC").
-		Limit(limit).
-		Find(&list).Error
+	q := r.db.WithContext(ctx).
+		Where("status = ?", model.EventStatusFiring)
+	if afterID > 0 {
+		q = q.Where("id > ?", afterID)
+	}
+	err := q.Order("id ASC").Limit(limit).Find(&list).Error
 	return list, err
 }
 

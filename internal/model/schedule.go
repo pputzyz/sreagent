@@ -99,6 +99,7 @@ type EscalationStepExecution struct {
 	ID         uint      `json:"id" gorm:"primaryKey"`
 	EventID    uint      `json:"event_id" gorm:"index;not null"`
 	StepID     uint      `json:"step_id" gorm:"not null"`
+	Status     string    `json:"status" gorm:"size:20;not null;default:pending"` // pending/success/failed
 	ExecutedAt time.Time `json:"executed_at" gorm:"not null;default:CURRENT_TIMESTAMP(3)"`
 }
 
