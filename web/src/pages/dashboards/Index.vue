@@ -45,8 +45,10 @@ watch(loading, (isLoading) => {
   if (!isLoading) firstLoaded.value = true
 })
 
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 function onSearch() {
-  refresh()
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => refresh(), 300)
 }
 
 async function handleDelete(id: number) {

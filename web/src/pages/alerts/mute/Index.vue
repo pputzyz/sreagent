@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, reactive, computed, onMounted } from 'vue'
 import {
-  useMessage, NButton, NIcon, NSwitch, NDropdown,
+  useMessage, useDialog, NButton, NIcon, NSwitch, NDropdown,
   NRadioGroup, NRadioButton, NInput, NSelect, NSpin, NModal, NForm,
   NFormItem, NGrid, NGi, NDatePicker, NTimePicker, NCheckboxGroup, NCheckbox,
   NSpace, NDivider,
@@ -28,6 +28,7 @@ import {
 } from './utils'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -117,7 +118,15 @@ import { h } from 'vue'
 
 function handleAction(key: string, rule: MuteRule) {
   if (key === 'edit') openEdit(rule)
-  if (key === 'delete') handleDelete(rule.id)
+  if (key === 'delete') {
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: t('common.confirmDeleteMsg'),
+      positiveText: t('common.confirmDelete'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => handleDelete(rule.id),
+    })
+  }
 }
 
 // ---------- inline preview ----------

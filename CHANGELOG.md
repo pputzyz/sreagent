@@ -4,6 +4,42 @@
 
 ---
 
+## [v4.16.0] — 2026-05-22
+
+### 全站 UX 修复 + 主色调更换
+
+**主色调（橙色 → 青色）**
+- `--sre-primary` 系列变量从 `#F97316` 改为 `#0D9488` (teal-600)
+- 涉及 10 个文件：global.css、App.vue、logo.svg、AppShell、Login、AppSidebar、dashboard/Index、UnifiedDashboard、UserAvatar
+
+**搜索防抖**
+- alerts/events、alerts/history、channels、dashboards — 300ms debounce 防止每次按键触发 API
+
+**删除确认**
+- alerts/mute、schedule/ShiftModal、settings/VirtualUsers — `dialog.warning()` 二次确认
+
+**按钮 loading 状态**
+- oncall/MyAlerts per-alert loading、TeamManagement/BizGroupManagement addMember loading
+
+**破坏性操作确认**
+- notification/Center 全部已读确认、UnifiedDashboard 3 个 reset 按钮确认
+
+**假功能修复**
+- StatusPage.vue: `handleNotify` 标注为 demo 功能
+- incidents/Detail.vue: Create 按钮正确初始化空白 post-mortem 编辑器
+- UnifiedDashboard.vue: Deploy Agent card 低透明度 + "coming soon" 状态
+
+**分页 + 取消 + 小修复**
+- notification/Center.vue: 添加 NPagination
+- ai/AgentView.vue: polling 期间显示 Cancel 按钮
+- alerts/history/Index.vue: 添加 useFilterMemory 持久化筛选
+- platform/Profile.vue: email 正则验证
+
+**i18n 新增 key**
+- `confirmMarkAllRead`/`Msg`、`demoNotice`、`confirmDeleteShift`、`confirmResetLayout`/`Links`/`Pinned`
+
+---
+
 ## [v4.15.29] — 2026-05-22
 
 ### 设置页面交互设计重构 — useConfigForm composable

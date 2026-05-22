@@ -5,7 +5,7 @@ import { useMessage, NRadioGroup, NRadioButton, NSelect, NInput, NDatePicker, NB
 import { useI18n } from 'vue-i18n'
 import { alertEventApi, alertRuleApi, alertExportApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertEventFilter } from '@/types'
-import { usePaginatedList } from '@/composables'
+import { usePaginatedList, useFilterMemory } from '@/composables'
 import { formatDuration, relTime } from '@/utils/format'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import { ArchiveOutline, DownloadOutline } from '@vicons/ionicons5'
@@ -55,6 +55,10 @@ const severityFilter = ref<string | null>(null)
 const ruleFilter = ref<number | null>(null)
 const search = ref('')
 
+// Persist filter state to localStorage
+const filterMemory = useFilterMemory('alert-history')
+filterMemory.bindRefs({ range, severityFilter, ruleFilter, search })
+
 const severityOptions = computed(() => [
   { label: t('alert.critical'), value: 'critical' },
   { label: t('alert.warning'), value: 'warning' },
@@ -87,8 +91,13 @@ async function fetchRules() {
   } catch { /* silent */ }
 }
 
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 function onFilterChange() {
   refresh()
+}
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => onFilterChange(), 300)
 }
 
 function onRangeChange(v: string) {
@@ -204,7 +213,7 @@ onMounted(() => {
           clearable
           size="small"
           class="hist-filter-search"
-          @update:value="onFilterChange"
+          @update:value="onSearchInput"
         />
       </div>
     </div>

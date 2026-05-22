@@ -205,9 +205,9 @@ watch([() => form.value.username, () => form.value.password], () => {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 50% 50% at 15% 20%, rgba(249,115,22,0.12), transparent 60%),
-    radial-gradient(ellipse 50% 50% at 80% 15%, rgba(251,146,60,0.10), transparent 55%),
-    radial-gradient(ellipse 45% 45% at 25% 80%, rgba(245,158,11,0.10), transparent 55%),
+    radial-gradient(ellipse 50% 50% at 15% 20%, rgba(13,148,136,0.12), transparent 60%),
+    radial-gradient(ellipse 50% 50% at 80% 15%, rgba(20,184,166,0.10), transparent 55%),
+    radial-gradient(ellipse 45% 45% at 25% 80%, rgba(6,182,212,0.10), transparent 55%),
     radial-gradient(ellipse 45% 50% at 75% 70%, rgba(139,92,246,0.08), transparent 55%);
   animation: blob-drift 20s ease-in-out infinite alternate;
 }
@@ -262,7 +262,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   right: 0;
   height: 3px;
   border-radius: 16px 16px 0 0;
-  background: linear-gradient(135deg, #F97316, #FB923C, #F59E0B);
+  background: linear-gradient(135deg, #0D9488, #14B8A6, #06B6D4);
 }
 
 @keyframes card-in {
@@ -290,13 +290,13 @@ watch([() => form.value.username, () => form.value.password], () => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.3));
+  filter: drop-shadow(0 0 12px rgba(13, 148, 136, 0.3));
   animation: brand-logo-breathe 4s ease-in-out infinite;
 }
 
 @keyframes brand-logo-breathe {
-  0%, 100% { filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.2)); }
-  50% { filter: drop-shadow(0 0 18px rgba(249, 115, 22, 0.45)); }
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(13, 148, 136, 0.2)); }
+  50% { filter: drop-shadow(0 0 18px rgba(13, 148, 136, 0.45)); }
 }
 
 .brand-name {
@@ -381,7 +381,7 @@ watch([() => form.value.username, () => form.value.password], () => {
   font-weight: 600;
   letter-spacing: 0.2px;
   margin-top: 4px;
-  background: linear-gradient(135deg, #F97316, #FB923C) !important;
+  background: linear-gradient(135deg, #0D9488, #14B8A6) !important;
   border: none !important;
   transition:
     box-shadow var(--sre-duration-base) var(--sre-ease-out),
@@ -390,7 +390,7 @@ watch([() => form.value.username, () => form.value.password], () => {
 }
 .submit-btn:hover {
   box-shadow: var(--sre-shadow-md);
-  background: linear-gradient(135deg, #EA580C, #F97316) !important;
+  background: linear-gradient(135deg, #0F766E, #0D9488) !important;
 }
 .submit-btn:active {
   transform: scale(0.97);
@@ -475,14 +475,14 @@ watch([() => form.value.username, () => form.value.password], () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--sre-warning, #F97316);
-  box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+  background: var(--sre-warning, #F59E0B);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
   animation: status-pulse 2s ease-in-out infinite;
 }
 
 @keyframes status-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
-  50%      { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
 }
 
 /* ===== Light mode adjustments ===== */

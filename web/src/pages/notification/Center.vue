@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, useDialog, NButton, NIcon, NRadioGroup, NRadioButton, NSpin, NEmpty, NTag } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon, NRadioGroup, NRadioButton, NSpin, NEmpty, NTag, NPagination } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { CheckmarkDoneOutline, TrashOutline, NotificationsOutline } from '@vicons/ionicons5'
 import { notificationCenterApi } from '@/api'
@@ -47,14 +47,22 @@ async function handleMarkRead(item: UserNotification) {
   }
 }
 
-async function handleMarkAllRead() {
-  try {
-    await notificationCenterApi.markAllRead()
-    message.success(t('notification.markAllReadSuccess'))
-    fetchList()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  }
+function handleMarkAllRead() {
+  dialog.info({
+    title: t('notification.confirmMarkAllRead'),
+    content: t('notification.confirmMarkAllReadMsg'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await notificationCenterApi.markAllRead()
+        message.success(t('notification.markAllReadSuccess'))
+        fetchList()
+      } catch (err: unknown) {
+        message.error(getErrorMessage(err))
+      }
+    },
+  })
 }
 
 function handleDelete(id: number) {
@@ -134,6 +142,15 @@ onMounted(fetchList)
           </div>
         </div>
       </div>
+      <div v-if="total > pageSize" class="notif-pagination">
+        <NPagination
+          v-model:page="page"
+          :page-count="Math.ceil(total / pageSize)"
+          :page-slot="7"
+          size="small"
+          @update:page="fetchList"
+        />
+      </div>
     </NSpin>
   </div>
 </template>
@@ -154,4 +171,5 @@ onMounted(fetchList)
 .notif-content { font-size: 12px; color: var(--sre-text-secondary); }
 .notif-meta { font-size: 11px; color: var(--sre-text-tertiary); }
 .notif-actions { flex-shrink: 0; }
+.notif-pagination { display: flex; justify-content: center; padding: 16px 0 8px; }
 </style>

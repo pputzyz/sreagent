@@ -728,7 +728,7 @@ onMounted(refresh)
   border-color: var(--sre-primary);
   background: var(--sre-primary-soft);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.12);
+  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12);
 }
 
 .action-icon {

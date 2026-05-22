@@ -94,6 +94,7 @@ const membersTeamName = ref('')
 const teamMembers = shallowRef<User[]>([])
 const selectedMemberUserId = ref<number | null>(null)
 const membersLoading = ref(false)
+const addMemberLoading = ref(false)
 const allUsers = ref<User[]>([])
 
 const allUserOptions = computed(() =>
@@ -142,6 +143,7 @@ async function handleAddMember() {
     message.warning(t('settings.memberExists'))
     return
   }
+  addMemberLoading.value = true
   try {
     await teamApi.addMember(membersTeamId.value, selectedMemberUserId.value)
     message.success(t('settings.memberAdded'))
@@ -150,6 +152,8 @@ async function handleAddMember() {
     fetchList()
   } catch (err: unknown) {
     message.error((err as Error).message)
+  } finally {
+    addMemberLoading.value = false
   }
 }
 
@@ -348,7 +352,7 @@ onMounted(() => { fetchList(); fetchAllUsers() })
           filterable
           style="flex: 1"
         />
-        <NButton type="primary" @click="handleAddMember" :disabled="!selectedMemberUserId">
+        <NButton type="primary" :loading="addMemberLoading" @click="handleAddMember" :disabled="!selectedMemberUserId">
           {{ t('common.add') }}
         </NButton>
       </div>

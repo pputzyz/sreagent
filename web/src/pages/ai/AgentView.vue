@@ -182,14 +182,23 @@ onUnmounted(() => {
           @keydown="handleKeydown"
         />
         <n-button
+          v-if="!isPolling"
           type="primary"
           size="large"
           :loading="loading"
-          :disabled="!query.trim() || isPolling"
+          :disabled="!query.trim()"
           @click="handleRun"
         >
           <template #icon><n-icon :component="PlayOutline" /></template>
           {{ t('agent.run') }}
+        </n-button>
+        <n-button
+          v-else
+          type="error"
+          size="large"
+          @click="stopPolling"
+        >
+          {{ t('common.cancel') }}
         </n-button>
       </div>
     </n-card>

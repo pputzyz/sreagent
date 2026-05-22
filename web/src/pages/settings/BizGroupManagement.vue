@@ -99,6 +99,7 @@ const expanded = ref<Set<string | number>>(new Set())
 const showAddMemberModal = ref(false)
 const selectedMemberUserId = ref<number | null>(null)
 const selectedMemberRole = ref<string>('member')
+const addMemberLoading = ref(false)
 
 const memberRoleOptions = [
   { label: t('settings.admin'), value: 'admin' },
@@ -235,6 +236,7 @@ function openAddMember() {
 
 async function handleAddMember() {
   if (!selected.value || !selectedMemberUserId.value) return
+  addMemberLoading.value = true
   try {
     await bizGroupApi.addMember(selected.value.id, {
       user_id: selectedMemberUserId.value,
@@ -245,6 +247,8 @@ async function handleAddMember() {
     fetchMembers(selected.value.id)
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
+  } finally {
+    addMemberLoading.value = false
   }
 }
 
@@ -535,7 +539,7 @@ onMounted(fetchList)
       <template #action>
         <NSpace justify="end">
           <NButton @click="showAddMemberModal = false">{{ t('common.cancel') }}</NButton>
-          <NButton type="primary" :disabled="!selectedMemberUserId" @click="handleAddMember">
+          <NButton type="primary" :loading="addMemberLoading" :disabled="!selectedMemberUserId" @click="handleAddMember">
             {{ t('common.add') }}
           </NButton>
         </NSpace>

@@ -841,6 +841,8 @@ export default {
     read: 'Read',
     markAllRead: 'Mark All Read',
     markAllReadSuccess: 'All marked as read',
+    confirmMarkAllRead: 'Mark All as Read',
+    confirmMarkAllReadMsg: 'Are you sure you want to mark all notifications as read?',
     noNotifications: 'No notifications',
   },
   mute: {
@@ -1195,6 +1197,7 @@ export default {
     shiftCreated: 'Shift created',
     shiftUpdated: 'Shift updated',
     shiftDeleted: 'Shift deleted',
+    confirmDeleteShift: 'Are you sure you want to delete this shift?',
     severityFilter: 'Severity Filter',
     allSeverities: 'All Severities',
     note: 'Note',
@@ -2163,6 +2166,7 @@ export default {
     notifySuccess: 'Subscribed! You will be notified of status changes.',
     subscribe: 'Subscribe',
     subscribeHint: 'Enter your email to get notified when service status changes',
+    demoNotice: 'Demo feature: subscription notification is not yet connected to the backend API',
     lastUpdated: 'Last Updated',
     uptime: 'Uptime',
     manageServices: 'Manage Services',
@@ -2312,6 +2316,9 @@ export default {
     addPin: 'Add',
     resetLinks: 'Reset links',
     resetPinned: 'Reset pinned',
+    confirmResetLayout: 'Are you sure you want to reset the layout? All widgets will return to default positions.',
+    confirmResetLinks: 'Are you sure you want to reset quick links?',
+    confirmResetPinned: 'Are you sure you want to reset pinned items?',
   },
 
   // ── Preset Rules ──

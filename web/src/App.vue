@@ -13,12 +13,12 @@ const savedTheme = localStorage.getItem('sre-theme')
 const isDark = ref(savedTheme ? savedTheme === 'dark' : false)
 const theme = computed(() => isDark.value ? darkTheme : null)
 
-// --- v6.0 "Warm Orange" brand tokens ---
+// --- v6.0 brand tokens (teal) ---
 const common = {
-  primaryColor:        '#F97316',
-  primaryColorHover:   '#FB923C',
-  primaryColorPressed: '#EA580C',
-  primaryColorSuppl:   '#FB923C',
+  primaryColor:        '#0D9488',
+  primaryColorHover:   '#14B8A6',
+  primaryColorPressed: '#0F766E',
+  primaryColorSuppl:   '#14B8A6',
   errorColor:          '#ef4444',
   errorColorHover:     '#f87171',
   errorColorPressed:   '#dc2626',
@@ -90,13 +90,13 @@ const darkOverrides: GlobalThemeOverrides = {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(148,163,184,0.06)',
-    itemColorActive:        'rgba(249,115,22,0.12)',
-    itemColorActiveHover:   'rgba(249,115,22,0.16)',
+    itemColorActive:        'rgba(13,148,136,0.12)',
+    itemColorActiveHover:   'rgba(13,148,136,0.16)',
     itemTextColor:          '#cbd5e1',
     itemTextColorHover:     '#f1f5f9',
-    itemTextColorActive:    '#F97316',
-    itemIconColorActive:    '#F97316',
-    itemIconColorActiveHover:'#F97316',
+    itemTextColorActive:    '#0D9488',
+    itemIconColorActive:    '#0D9488',
+    itemIconColorActiveHover:'#0D9488',
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -106,13 +106,13 @@ const darkOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#F97316',
+    railColorActive: '#0D9488',
   },
   Slider: {
-    fillColor: '#F97316',
+    fillColor: '#0D9488',
   },
   Progress: {
-    fillColor: '#F97316',
+    fillColor: '#0D9488',
   },
   Popover: {
     color: '#0f172a',
@@ -173,13 +173,13 @@ const lightOverrides: GlobalThemeOverrides = {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(0,0,0,0.03)',
-    itemColorActive:        'rgba(249,115,22,0.10)',
-    itemColorActiveHover:   'rgba(249,115,22,0.14)',
+    itemColorActive:        'rgba(13,148,136,0.10)',
+    itemColorActiveHover:   'rgba(13,148,136,0.14)',
     itemTextColor:          '#6b7280',
     itemTextColorHover:     '#111827',
-    itemTextColorActive:    '#F97316',
-    itemIconColorActive:    '#F97316',
-    itemIconColorActiveHover:'#F97316',
+    itemTextColorActive:    '#0D9488',
+    itemIconColorActive:    '#0D9488',
+    itemIconColorActiveHover:'#0D9488',
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -189,13 +189,13 @@ const lightOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#F97316',
+    railColorActive: '#0D9488',
   },
   Slider: {
-    fillColor: '#F97316',
+    fillColor: '#0D9488',
   },
   Progress: {
-    fillColor: '#F97316',
+    fillColor: '#0D9488',
   },
   Select: {
     peers: {

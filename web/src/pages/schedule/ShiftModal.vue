@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { scheduleApi } from '@/api'
 import type { OnCallShift, User } from '@/types'
@@ -16,6 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const show = ref(false)
@@ -114,6 +115,16 @@ async function handleSave() {
   }
 }
 
+function confirmDelete() {
+  dialog.warning({
+    title: t('common.confirmDelete'),
+    content: t('schedule.confirmDeleteShift'),
+    positiveText: t('common.confirmDelete'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: () => handleDelete(),
+  })
+}
+
 async function handleDelete() {
   if (!props.scheduleId || !editingId.value) return
   try {
@@ -166,7 +177,7 @@ defineExpose({ openCreate, openEdit })
     </n-form>
     <template #action>
       <n-space justify="end">
-        <n-button v-if="editingId" type="error" quaternary @click="handleDelete">
+        <n-button v-if="editingId" type="error" quaternary @click="confirmDelete">
           {{ t('common.delete') }}
         </n-button>
         <n-button @click="show = false">{{ t('common.cancel') }}</n-button>

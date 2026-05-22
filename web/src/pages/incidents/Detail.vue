@@ -141,6 +141,19 @@ async function loadPostMortem() {
   } catch { postMortem.value = null } finally { pmLoading.value = false }
 }
 
+function initPostMortem() {
+  postMortem.value = {
+    id: 0,
+    incident_id: incidentId.value,
+    title: '',
+    content: '',
+    status: 'draft',
+    published_at: null,
+    created_at: '',
+    updated_at: '',
+  }
+}
+
 async function savePostMortem() {
   if (!postMortem.value) return
   pmSaving.value = true
@@ -520,7 +533,7 @@ onMounted(async () => {
                 </div>
                 <div v-else class="empty-state pm-empty">
                   <p class="pm-empty-text">{{ t('postMortem.noPostMortem') }}</p>
-                  <n-button type="primary" size="small" @click="loadPostMortem">
+                  <n-button type="primary" size="small" @click="initPostMortem">
                     {{ t('common.create') }}
                   </n-button>
                 </div>

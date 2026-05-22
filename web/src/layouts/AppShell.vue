@@ -272,7 +272,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   height:var(--sre-topbar-h); padding:0 16px; flex-shrink:0;
   background:var(--sre-bg-card);
   border-bottom:1px solid var(--sre-border);
-  box-shadow: 0 1px 0 0 rgba(249, 115, 22, 0.06);
+  box-shadow: 0 1px 0 0 rgba(13, 148, 136, 0.06);
   z-index:var(--sre-z-sticky);
 }
 
@@ -396,17 +396,17 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   padding: 12px 20px;
   border-radius: 28px;
   border: none;
-  background: linear-gradient(135deg, #F97316, #FB923C);
+  background: linear-gradient(135deg, #0D9488, #14B8A6);
   color: white;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.3);
   transition: transform 200ms var(--sre-ease-out), box-shadow 200ms var(--sre-ease-out);
   font-size: 14px;
   font-weight: 600;
 }
 .float-ai-btn:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 24px rgba(249, 115, 22, 0.4);
+  box-shadow: 0 6px 24px rgba(13, 148, 136, 0.4);
 }
 .float-ai-btn:active {
   transform: scale(0.97);

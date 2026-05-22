@@ -77,7 +77,7 @@ function handleNotify() {
   setTimeout(() => {
     submitting.value = false
     email.value = ''
-    message.success(t('statusPageModule.notifySuccess'))
+    message.info(t('statusPageModule.demoNotice'))
   }, 800)
 }
 
@@ -263,6 +263,9 @@ async function handleDelete(id: number) {
           {{ t('statusPageModule.subscribe') }}
         </NButton>
       </div>
+      <p class="text-caption text-tertiary" style="margin-top: 12px; font-size: 11px;">
+        {{ t('statusPageModule.demoNotice') }}
+      </p>
     </div>
 
     <!-- Manage Services Modal -->

@@ -15,6 +15,7 @@ const { t } = useI18n()
 const filter = ref<string>('firing')
 const alerts = ref<AlertEvent[]>([])
 const loading = ref(false)
+const actionLoading = ref<Record<number, boolean>>({})
 const loadError = ref(false)
 
 const emptyTitle = computed(() => {
@@ -59,22 +60,28 @@ async function refresh() {
 }
 
 async function handleAck(alert: AlertEvent) {
+  actionLoading.value[alert.id] = true
   try {
     await alertEventApi.acknowledge(alert.id)
     message.success(t('myAlerts.ackedSuccess'))
     await refresh()
   } catch (err: unknown) {
     message.error(getErrorMessage(err) || t('myAlerts.ackError'))
+  } finally {
+    actionLoading.value[alert.id] = false
   }
 }
 
 async function handleResolve(alert: AlertEvent) {
+  actionLoading.value[alert.id] = true
   try {
     await alertEventApi.resolve(alert.id)
     message.success(t('myAlerts.resolvedSuccess'))
     await refresh()
   } catch (err: unknown) {
     message.error(getErrorMessage(err) || t('myAlerts.resolveError'))
+  } finally {
+    actionLoading.value[alert.id] = false
   }
 }
 
@@ -179,10 +186,10 @@ onMounted(refresh)
 
             <template #footer>
               <n-space>
-                <n-button size="small" type="primary" @click="handleAck(alert)" v-if="alert.status === 'firing' || alert.status === 'assigned'">
+                <n-button size="small" type="primary" :loading="actionLoading[alert.id]" @click="handleAck(alert)" v-if="alert.status === 'firing' || alert.status === 'assigned'">
                   {{ t('myAlerts.ack') }}
                 </n-button>
-                <n-button size="small" @click="handleResolve(alert)" v-if="alert.status !== 'resolved' && alert.status !== 'closed'">
+                <n-button size="small" :loading="actionLoading[alert.id]" @click="handleResolve(alert)" v-if="alert.status !== 'resolved' && alert.status !== 'closed'">
                   {{ t('myAlerts.resolve') }}
                 </n-button>
                 <n-button size="small" tertiary @click="goDetail(alert)">

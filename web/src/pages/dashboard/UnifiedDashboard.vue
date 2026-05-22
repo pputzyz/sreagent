@@ -6,7 +6,7 @@
  */
 import { ref, reactive, computed, onMounted, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NIcon, NSpin, NPopover, NButton, NInput } from 'naive-ui'
+import { useMessage, useDialog, NIcon, NSpin, NPopover, NButton, NInput } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { engineApi, incidentApi, dashboardApi, alertGroupsApi, scheduleApi, aiAgentApi, aiModuleApi } from '@/api'
@@ -24,6 +24,7 @@ import {
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -128,8 +129,16 @@ function moveWidget(id: string, dir: -1 | 1) {
 }
 
 function resetWidgets() {
-  widgets.value = DEFAULT_ORDER.map((id, i) => ({ ...WIDGET_REGISTRY[id], enabled: true, order: i }))
-  saveWidgets()
+  dialog.warning({
+    title: t('common.confirm'),
+    content: t('homepage.confirmResetLayout'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: () => {
+      widgets.value = DEFAULT_ORDER.map((id, i) => ({ ...WIDGET_REGISTRY[id], enabled: true, order: i }))
+      saveWidgets()
+    },
+  })
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -153,7 +162,7 @@ const ALL_QUICK_LINKS: Omit<QuickLink, 'enabled'>[] = [
   { id: 'dashboards', label: '', route: '/alert/dashboards',      icon: StatsChartOutline,      color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
   { id: 'notify',     label: '', route: '/alert/notify/policies', icon: NotificationsOutline,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
   { id: 'suppression',label: '', route: '/alert/suppression',     icon: ShieldCheckmarkOutline, color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
-  { id: 'datasources',label: '', route: '/alert/datasources',     icon: PulseOutline,           color: '#F97316', bg: 'rgba(249,115,22,0.08)' },
+  { id: 'datasources',label: '', route: '/alert/datasources',     icon: PulseOutline,           color: '#0D9488', bg: 'rgba(13,148,136,0.08)' },
   { id: 'incidents',  label: '', route: '/oncall/incidents',      icon: BugOutline,             color: '#EC4899', bg: 'rgba(236,72,153,0.08)' },
   { id: 'spaces',     label: '', route: '/oncall/spaces',         icon: RocketOutline,          color: '#14B8A6', bg: 'rgba(20,184,166,0.08)' },
   { id: 'members',    label: '', route: '/platform/org/members',  icon: PeopleOutline,          color: '#6366F1', bg: 'rgba(99,102,241,0.08)' },
@@ -213,8 +222,16 @@ function toggleQuickLink(id: string) {
 }
 
 function resetQuickLinks() {
-  quickLinks.value = ALL_QUICK_LINKS.map(link => ({ ...link, enabled: true }))
-  saveQuickLinks()
+  dialog.warning({
+    title: t('common.confirm'),
+    content: t('homepage.confirmResetLinks'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: () => {
+      quickLinks.value = ALL_QUICK_LINKS.map(link => ({ ...link, enabled: true }))
+      saveQuickLinks()
+    },
+  })
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -228,7 +245,7 @@ interface PinnedItem {
   color: string
 }
 
-const PIN_COLORS = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6', '#EC4899', '#F97316', '#06B6D4']
+const PIN_COLORS = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6', '#EC4899', '#0D9488', '#06B6D4']
 
 function loadPinned(): PinnedItem[] {
   try {
@@ -282,11 +299,19 @@ function saveEditPin() {
 }
 
 function resetPinned() {
-  pinnedItems.value = [
-    { id: 'p1', title: 'Prometheus', url: '/alert/explore', color: '#3B82F6' },
-    { id: 'p2', title: 'Grafana', url: '/alert/dashboards', color: '#F59E0B' },
-  ]
-  savePinned()
+  dialog.warning({
+    title: t('common.confirm'),
+    content: t('homepage.confirmResetPinned'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: () => {
+      pinnedItems.value = [
+        { id: 'p1', title: 'Prometheus', url: '/alert/explore', color: '#3B82F6' },
+        { id: 'p2', title: 'Grafana', url: '/alert/dashboards', color: '#F59E0B' },
+      ]
+      savePinned()
+    },
+  })
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -627,7 +652,7 @@ onMounted(load)
                   class="mod-card"
                   role="button"
                   tabindex="0"
-                  :class="{ 'mod-card--clickable': !!mod.route }"
+                  :class="{ 'mod-card--clickable': !!mod.route, 'mod-card--coming': mod.status === 'coming' }"
                   @click="mod.route && router.push(mod.route)"
                   @keydown.enter="mod.route && router.push(mod.route)"
                 >
@@ -891,6 +916,7 @@ onMounted(load)
 }
 .mod-card--clickable { cursor: pointer; }
 .mod-card--clickable:hover { border-color: var(--sre-border-strong); box-shadow: var(--sre-shadow-sm); }
+.mod-card--coming { opacity: 0.55; }
 .mod-icon {
   width: 36px; height: 36px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;

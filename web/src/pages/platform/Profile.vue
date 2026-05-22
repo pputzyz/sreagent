@@ -126,6 +126,10 @@ onMounted(async () => {
 })
 
 async function handleSave() {
+  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    message.error(t('profile.invalidEmail'))
+    return
+  }
   saving.value = true
   try {
     await authApi.updateMe({

@@ -2,6 +2,7 @@
 import { computed, reactive, ref, shallowRef, onMounted, h } from 'vue'
 import {
   useMessage,
+  useDialog,
   NButton,
   NIcon,
   NInput,
@@ -29,6 +30,7 @@ import {
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -119,7 +121,13 @@ function rowMenuOptions() {
 
 function handleMenu(key: string, u: User) {
   if (key === 'delete') {
-    if (confirm(t('settings.deleteVirtualConfirm'))) handleDelete(u.id)
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: t('settings.deleteVirtualConfirm'),
+      positiveText: t('common.confirmDelete'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => handleDelete(u.id),
+    })
   }
 }
 

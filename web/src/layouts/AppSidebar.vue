@@ -164,7 +164,7 @@ function handleMenuUpdate(key: string) {
 }
 
 .sidebar-nav :deep(.n-menu-item:hover) {
-  background: var(--sidebar-accent-soft, rgba(249, 115, 22, 0.06));
+  background: var(--sidebar-accent-soft, rgba(13, 148, 136, 0.06));
 }
 
 .sidebar-nav :deep(.n-menu-item .n-menu-item-content__label) {
@@ -182,7 +182,7 @@ function handleMenuUpdate(key: string) {
 }
 
 .sidebar-nav :deep(.n-menu-item--selected) {
-  background: var(--sidebar-accent-soft, rgba(249, 115, 22, 0.08)) !important;
+  background: var(--sidebar-accent-soft, rgba(13, 148, 136, 0.08)) !important;
 }
 
 .sidebar-nav :deep(.n-menu-item-content--selected .n-menu-item-content__icon) {

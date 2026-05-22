@@ -22,6 +22,11 @@ const message = useMessage()
 const router = useRouter()
 
 const searchQuery = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => fetchList(), 300)
+}
 const statusFilter = ref<'' | 'active' | 'disabled'>('')
 const sortBy = ref<'recent' | 'created' | 'name' | 'incidents'>('recent')
 const viewMode = ref<'card' | 'list'>('card')
@@ -220,7 +225,7 @@ onMounted(fetchList)
         :placeholder="t('common.search')"
         clearable
         class="filter-search"
-        @update:value="fetchList"
+        @update:value="onSearchInput"
       >
         <template #prefix><n-icon :component="SearchOutline" /></template>
       </n-input>

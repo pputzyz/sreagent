@@ -22,7 +22,7 @@ const colorPalettes = [
   { bg: '#F59E0B', fg: '#FFF' },
   { bg: '#10B981', fg: '#FFF' },
   { bg: '#EC4899', fg: '#FFF' },
-  { bg: '#F97316', fg: '#FFF' },
+  { bg: '#0D9488', fg: '#FFF' },
   { bg: '#06B6D4', fg: '#FFF' },
 ]
 

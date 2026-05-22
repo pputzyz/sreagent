@@ -191,8 +191,13 @@ function statusFilterArray(): string[] | undefined {
 }
 
 // ===== Refilter =====
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 function refilter() {
   refresh()
+}
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => refilter(), 300)
 }
 
 // ===== Actions =====
@@ -485,7 +490,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           clearable
           :placeholder="t('alert.alertNameSearch')"
           class="ae-filter-search"
-          @update:value="refilter"
+          @update:value="onSearchInput"
         />
         <NSelect
           v-model:value="severityFilter"

@@ -850,6 +850,8 @@ export default {
     read: '已读',
     markAllRead: '全部已读',
     markAllReadSuccess: '已全部标记为已读',
+    confirmMarkAllRead: '全部标记为已读',
+    confirmMarkAllReadMsg: '确定将所有未读通知标记为已读吗？',
     noNotifications: '暂无通知',
   },
   mute: {
@@ -1204,6 +1206,7 @@ export default {
     shiftCreated: '班次已创建',
     shiftUpdated: '班次已更新',
     shiftDeleted: '班次已删除',
+    confirmDeleteShift: '确定要删除该班次吗？',
     severityFilter: '告警级别过滤',
     allSeverities: '全部级别',
     note: '备注',
@@ -1623,6 +1626,7 @@ export default {
     notifySuccess: '订阅成功，状态变更时将通知您。',
     subscribe: '订阅通知',
     subscribeHint: '输入邮箱，服务状态变更时将第一时间通知您',
+    demoNotice: '演示功能：订阅通知功能尚未对接后端 API',
     lastUpdated: '最近更新',
     uptime: '可用性',
     manageServices: '管理服务',
@@ -2333,6 +2337,9 @@ export default {
     addPin: '添加',
     resetLinks: '重置入口',
     resetPinned: '重置便签',
+    confirmResetLayout: '确定要重置布局吗？所有小组件将恢复默认位置。',
+    confirmResetLinks: '确定要重置快捷入口吗？',
+    confirmResetPinned: '确定要重置置顶便签吗？',
   },
 
   // ── Preset Rules ──

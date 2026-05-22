@@ -5,11 +5,11 @@
    ============================================================ */
 
 :root {
-  /* --- Brand (warm orange) --- */
-  --sre-primary:        #F97316;
-  --sre-primary-hover:  #FB923C;
-  --sre-primary-soft:   rgba(249, 115, 22, 0.08);
-  --sre-primary-ring:   rgba(249, 115, 22, 0.20);
+  /* --- Brand (teal) --- */
+  --sre-primary:        #0D9488;
+  --sre-primary-hover:  #14B8A6;
+  --sre-primary-soft:   rgba(13, 148, 136, 0.08);
+  --sre-primary-ring:   rgba(13, 148, 136, 0.20);
 
   --sre-accent:         #F59E0B;
   --sre-accent-soft:    rgba(245, 158, 11, 0.08);
@@ -20,8 +20,8 @@
   --sre-brand-platform: #8B5CF6;
 
   /* --- Warm primary palette --- */
-  --sre-coral:          #FB923C;
-  --sre-coral-soft:     rgba(251, 146, 60, 0.10);
+  --sre-coral:          #06B6D4;
+  --sre-coral-soft:     rgba(6, 182, 212, 0.10);
   --sre-sky:            #0EA5E9;
   --sre-sky-soft:       rgba(14, 165, 233, 0.10);
   --sre-lavender:       #8B5CF6;
@@ -249,7 +249,7 @@ body.dark-theme {
   --sre-shadow-md:  0 8px 24px -6px rgba(0, 0, 0, 0.40), 0 0 0 1px rgba(148, 163, 184, 0.05);
   --sre-shadow-lg:  0 18px 40px -12px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(148, 163, 184, 0.06);
   --sre-shadow-xl:  0 32px 64px -16px rgba(0, 0, 0, 0.55);
-  --sre-shadow-glow: 0 0 20px -4px rgba(249, 115, 22, 0.20);
+  --sre-shadow-glow: 0 0 20px -4px rgba(13, 148, 136, 0.20);
 
   --sre-ripple-color: rgba(148, 163, 184, 0.12);
 }
