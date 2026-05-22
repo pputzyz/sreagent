@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { NButton, NIcon, NSwitch, NInput, NFormItem, NSpin, NSelect, NAlert, NTag, useMessage } from 'naive-ui'
+import { NButton, NIcon, NSwitch, NInput, NFormItem, NSpin, NSelect, NAlert, NTag, NSpace, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline, CheckmarkCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 import { larkBotApi } from '@/api'
@@ -115,19 +115,21 @@ onMounted(() => {
           <h2 class="sre-config-header-title">{{ t('settings.larkBotTitle') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.larkBotSubtitle') }} <code>/lark/event</code></p>
         </div>
-        <div class="sre-config-header-actions">
-          <NButton type="primary" size="small" :loading="saving" @click="save">
-            <template #icon><NIcon :component="SaveOutline" /></template>
-            {{ t('common.save') }}
-          </NButton>
-        </div>
       </header>
 
       <div class="config-sections sre-stagger">
         <!-- Section 1: App Credentials -->
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">{{ t('settings.larkAppCredentials') }}</h3>
-          <p class="sre-config-section-desc">{{ t('settings.larkAppCredentialsDesc') }}</p>
+          <div class="section-header-row">
+            <div>
+              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.larkAppCredentials') }}</h3>
+              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkAppCredentialsDesc') }}</p>
+            </div>
+            <NButton type="primary" size="small" :loading="saving" @click="save">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkBotEnabled')" class="full-row">
               <NSwitch v-model:value="form.bot_enabled" />
@@ -152,8 +154,16 @@ onMounted(() => {
 
         <!-- Section 2: Behavior -->
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">{{ t('settings.larkBehavior') }}</h3>
-          <p class="sre-config-section-desc">{{ t('settings.larkBehaviorDesc') }}</p>
+          <div class="section-header-row">
+            <div>
+              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.larkBehavior') }}</h3>
+              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkBehaviorDesc') }}</p>
+            </div>
+            <NButton type="primary" size="small" :loading="saving" @click="save">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkResolveStrategy')">
               <NSelect v-model:value="form.resolve_strategy" :options="resolveOptions" />
@@ -181,8 +191,16 @@ onMounted(() => {
 
         <!-- Section 3: Commands -->
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">{{ t('settings.larkCommands') }}</h3>
-          <p class="sre-config-section-desc">{{ t('settings.larkCommandsDesc') }}</p>
+          <div class="section-header-row">
+            <div>
+              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.larkCommands') }}</h3>
+              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkCommandsDesc') }}</p>
+            </div>
+            <NButton type="primary" size="small" :loading="saving" @click="save">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkCommandsEnabled')">
               <div>
@@ -201,17 +219,20 @@ onMounted(() => {
 
         <!-- Section 4: Debug -->
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">{{ t('settings.larkDebug') }}</h3>
-          <p class="sre-config-section-desc">{{ t('settings.larkDebugDesc') }}</p>
-
-          <div class="debug-actions">
-            <NButton size="small" :loading="testingBotAPI" @click="handleTestBotAPI">
-              <template #icon><NIcon :component="PulseOutline" /></template>
-              {{ t('settings.larkTestBotAPI') }}
-            </NButton>
-            <NButton size="small" :loading="botStatusLoading" @click="fetchBotStatus">
-              {{ t('settings.larkBotStatus') }}
-            </NButton>
+          <div class="section-header-row">
+            <div>
+              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.larkDebug') }}</h3>
+              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkDebugDesc') }}</p>
+            </div>
+            <NSpace :size="8">
+              <NButton size="small" quaternary :loading="testingBotAPI" @click="handleTestBotAPI">
+                <template #icon><NIcon :component="PulseOutline" /></template>
+                {{ t('settings.larkTestBotAPI') }}
+              </NButton>
+              <NButton size="small" quaternary :loading="botStatusLoading" @click="fetchBotStatus">
+                {{ t('settings.larkBotStatus') }}
+              </NButton>
+            </NSpace>
           </div>
 
           <div v-if="botStatus" class="bot-status-list">
@@ -257,10 +278,12 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.debug-actions {
+.section-header-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 .bot-status-list {
   display: flex;

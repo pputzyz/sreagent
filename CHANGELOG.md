@@ -4,6 +4,17 @@
 
 ---
 
+## [v4.15.27] — 2026-05-22
+
+### LarkBotConfig 按钮布局重构
+
+- 移除页面全局保存按钮，每个 section header 右上角独立放置保存按钮
+- App Credentials / Behavior / Commands 三个 section 各自带保存按钮
+- Debug section 测试按钮降级为 quaternary，与 section header 对齐
+- 所有 section 标题改为 `section-header-row` 布局（标题+描述左侧，操作按钮右侧）
+
+---
+
 ## [v4.15.26] — 2026-05-22
 
 ### AI 配置页简化
