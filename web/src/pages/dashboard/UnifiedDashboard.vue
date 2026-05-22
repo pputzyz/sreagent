@@ -9,7 +9,7 @@ import { useRouter } from 'vue-router'
 import { useMessage, NIcon, NSpin, NPopover, NButton, NInput } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { engineApi, incidentApi, dashboardApi, alertGroupsApi, scheduleApi } from '@/api'
+import { engineApi, incidentApi, dashboardApi, alertGroupsApi, scheduleApi, aiAgentApi, aiModuleApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 import type { Incident, AlertGroupItem, Schedule } from '@/types'
 import {
@@ -303,6 +303,8 @@ const firingAlerts = ref<AlertGroupItem[]>([])
 const totalRules = ref(0)
 const activeAlerts = ref(0)
 const oncallUsers = ref<{ scheduleName: string; userName: string }[]>([])
+const aiAgentEnabled = ref(false)
+const agentConversationCount = ref(0)
 
 const userName = computed(() => authStore.user?.username || authStore.user?.email || 'SRE')
 
@@ -351,9 +353,13 @@ const modules = computed(() => [
     label: t('homepage.aiAgent'),
     desc: t('homepage.aiDesc'),
     icon: SparklesOutline,
-    status: 'coming',
-    statusText: t('homepage.comingSoon'),
-    route: null,
+    status: aiAgentEnabled.value ? 'ok' : 'coming',
+    statusText: aiAgentEnabled.value
+      ? (agentConversationCount.value > 0
+        ? t('homepage.aiConversations', { count: agentConversationCount.value })
+        : t('homepage.aiAvailable'))
+      : t('homepage.aiDisabled'),
+    route: '/ai/agent',
     color: '#8B5CF6',
     bgColor: 'rgba(139,92,246,0.08)',
   },
@@ -422,12 +428,14 @@ function uptimeDays(): number {
 async function load() {
   loading.value = true
   try {
-    const [engineRes, statsRes, incRes, alertRes, schedRes] = await Promise.allSettled([
+    const [engineRes, statsRes, incRes, alertRes, schedRes, aiModRes, agentConvRes] = await Promise.allSettled([
       engineApi.getStatus(),
       dashboardApi.getStats(),
       incidentApi.list({ status: 'active', page_size: 5 }),
       alertGroupsApi.list({ status: 'firing' }),
       scheduleApi.list({ page: 1, page_size: 20 }),
+      aiModuleApi.getModules(),
+      aiAgentApi.listConversations(1, 1),
     ])
     if (engineRes.status === 'fulfilled') {
       const d = engineRes.value.data.data
@@ -465,6 +473,12 @@ async function load() {
         .filter((r): r is PromiseFulfilledResult<{ scheduleName: string; userName: string } | null> => r.status === 'fulfilled')
         .map(r => r.value)
         .filter((v): v is { scheduleName: string; userName: string } => v !== null)
+    }
+    if (aiModRes.status === 'fulfilled') {
+      aiAgentEnabled.value = !!aiModRes.value.data.data?.agent?.enabled
+    }
+    if (agentConvRes.status === 'fulfilled') {
+      agentConversationCount.value = agentConvRes.value.data.data?.total || 0
     }
   } catch (e: unknown) {
     message.error(getErrorMessage(e) || t('homepage.loadFailed'))

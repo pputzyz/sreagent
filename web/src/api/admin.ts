@@ -143,6 +143,9 @@ export const aiAgentApi = {
 
   getTask: (id: string) =>
     request.get<ApiResponse<AgentTask>>(`/ai/agent/tasks/${id}`),
+
+  listConversations: (page = 1, pageSize = 1) =>
+    request.get<ApiResponse<{ list: unknown[]; total: number }>>('/ai/agent/conversations', { params: { page, page_size: pageSize } }),
 }
 
 // ===== Auth API =====
