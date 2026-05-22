@@ -218,7 +218,7 @@ export function useAppNav() {
               { label: t('menu.notifyChannels'),  key: '/oncall/config/notify-rules', icon: NotificationsOutline },
               { label: t('menu.routingRules'),     key: '/oncall/config/routing-rules', icon: GitBranchOutline },
               { label: t('menu.bizGroups'),        key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
-              { label: t('menu.subscriptions'),    key: '/oncall/config/subscribe-rules', icon: MailOutline },
+              { label: t('menu.subscribeRules'),   key: '/oncall/config/subscribe-rules', icon: MailOutline },
               { label: t('menu.escalationPolicies'), key: '/oncall/config/escalation-policies', icon: SwapVerticalOutline },
             ],
           },
@@ -240,6 +240,7 @@ export function useAppNav() {
               { label: t('menu.activeAlerts'),     key: '/alert/events', icon: FlashOutline },
               { label: t('menu.alertHistory'),     key: '/alert/history', icon: TimeOutline },
               { label: t('menu.muteRules'),        key: '/alert/suppression', icon: VolumeMuteOutline },
+              { label: t('menu.inhibitionRules'),  key: '/alert/suppression/inhibition', icon: VolumeMuteOutline },
             ],
           },
           {
@@ -285,6 +286,9 @@ export function useAppNav() {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
                 items.push({ label: t('menu.audit'), key: '/platform/audit', icon: EyeOutline })
+              }
+              if (authStore.canManage) {
+                items.push({ label: t('menu.inspection'), key: '/platform/inspections', icon: SearchOutline })
               }
               return items
             })(),

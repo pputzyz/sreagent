@@ -65,6 +65,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/settings/smtp', component: () => import('@/pages/settings/SMTP.vue'), meta: { title: 'menu.smtp', requiresRole: ['admin'] } },
       { path: 'platform/settings/lark', component: () => import('@/pages/settings/LarkBotConfig.vue'), meta: { title: 'menu.larkBot', requiresRole: ['admin'] } },
       { path: 'platform/settings/ai', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiConfig', requiresRole: ['admin'] } },
+      { path: 'platform/settings/ai/modules', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiModuleConfig', requiresRole: ['admin'], defaultTab: 'modules' } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
 
       // ===== Notification Center =====

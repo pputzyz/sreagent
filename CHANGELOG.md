@@ -4,6 +4,17 @@
 
 ---
 
+## [v4.15.22] — 2026-05-22
+
+### 前端路由与导航修复
+
+- 修复 `/platform/settings/ai/modules` 白屏：添加路由 + AISettings 读取 `route.meta.defaultTab` 自动切 tab
+- Alert 侧边栏补充「抑制规则」入口（`/alert/suppression/inhibition`）
+- Platform 侧边栏补充「定时巡检」入口（`/platform/inspections`）
+- 修复 `/oncall/config/subscribe-rules` 标签不一致（sidebar `menu.subscriptions` → `menu.subscribeRules`）
+
+---
+
 ## [v4.15.21] — 2026-05-22
 
 ### Dashboard NULL 扫描修复

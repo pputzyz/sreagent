@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
   NSpace, NTag, NSelect, NInput, NModal, NForm, NFormItem,
@@ -13,9 +14,10 @@ import { getErrorMessage } from '@/utils/format'
 
 const { t } = useI18n()
 const message = useMessage()
+const route = useRoute()
 
 // ─── Active tab ───
-const activeTab = ref('providers')
+const activeTab = ref((route.meta.defaultTab as string) || 'providers')
 
 // ─── Providers config ───
 const providersLoading = ref(false)
