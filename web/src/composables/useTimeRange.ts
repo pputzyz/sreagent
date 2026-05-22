@@ -18,7 +18,10 @@ export function useRelativeTimeOptions(): RelativeTimeOption[] {
   ]
 }
 
-// Keep static export for backward compatibility (non-reactive contexts)
+/**
+ * @deprecated Hardcoded English labels — use `useRelativeTimeOptions()` composable
+ * for i18n-aware reactive options. Kept only for non-reactive / non-i18n contexts.
+ */
 export const relativeTimeOptions: RelativeTimeOption[] = [
   { label: 'Last 5 minutes', value: '5m', ms: 5 * 60 * 1000 },
   { label: 'Last 15 minutes', value: '15m', ms: 15 * 60 * 1000 },
@@ -32,6 +35,10 @@ export const relativeTimeOptions: RelativeTimeOption[] = [
   { label: 'Last 30 days', value: '30d', ms: 30 * 24 * 60 * 60 * 1000 },
 ]
 
+/**
+ * @deprecated Hardcoded English labels — use `useTimeRange()` composable
+ * for i18n-aware auto-refresh options. Kept only for non-reactive / non-i18n contexts.
+ */
 export const autoRefreshOptions: AutoRefreshOption[] = [
   { label: 'Off', value: null },
   { label: '5s', value: 5000 },
@@ -47,7 +54,7 @@ function computeRange(ms: number): TimeRange {
 }
 
 export function useTimeRange(defaultDuration = '1h') {
-  const defaultOpt = relativeTimeOptions.find(o => o.value === defaultDuration) || relativeTimeOptions[3]
+  const defaultOpt = relativeTimeOptions.find(o => o.value === defaultDuration) || relativeTimeOptions.find(o => o.value === '1h')!
   const timeRange = ref<TimeRange>(computeRange(defaultOpt.ms))
   const isRelative = ref(true)
   const relativeDuration = ref(defaultDuration)

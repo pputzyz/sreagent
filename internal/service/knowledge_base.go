@@ -35,7 +35,9 @@ func (s *KnowledgeBaseService) GetByID(ctx context.Context, id uint) (*model.Kno
 	if err != nil {
 		return nil, err
 	}
-	_ = s.repo.IncrementViewCount(ctx, id)
+	if err := s.repo.IncrementViewCount(ctx, id); err != nil {
+		s.logger.Debug("failed to increment view count", zap.Uint("id", id), zap.Error(err))
+	}
 	return doc, nil
 }
 

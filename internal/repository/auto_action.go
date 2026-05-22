@@ -63,13 +63,16 @@ func (r *AutoActionRepository) Delete(ctx context.Context, id uint) error {
 }
 
 // FindMatching finds enabled auto actions whose trigger_labels match the given labels.
+// NOTE: AutoAction table is small (<100 rows typical, not yet runtime-wired). Full-scan
+// + in-memory filter is acceptable. A LIMIT guard prevents unbounded scans.
 func (r *AutoActionRepository) FindMatching(ctx context.Context, labels map[string]string, severity string) ([]model.AutoAction, error) {
+	const maxScanRows = 1000
 	var actions []model.AutoAction
 	q := r.db.WithContext(ctx).Where("enabled = ?", true)
 	if severity != "" {
 		q = q.Where("trigger_severity = ? OR trigger_severity IS NULL", severity)
 	}
-	if err := q.Find(&actions).Error; err != nil {
+	if err := q.Limit(maxScanRows).Find(&actions).Error; err != nil {
 		return nil, err
 	}
 

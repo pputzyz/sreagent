@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * Data Query Page — unified metrics + logs query interface (refactored).
  *
@@ -24,6 +24,7 @@ import {
   AlertCircleOutline, AddOutline,
 } from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
+import { formatTime } from '@/utils/format'
 import PromQLEditor from '@/components/query/PromQLEditor.vue'
 import LogsQLEditor from '@/components/query/LogsQLEditor.vue'
 import type { DataSource, DataSourceType, QueryResponse, LogEntry } from '@/types'
@@ -258,6 +259,8 @@ function typeBadge(tp: DataSourceType): string {
   return m[tp] || tp
 }
 const _dsColorCache: Record<string, string> = {}
+let _themeObserver: MutationObserver | null = null
+
 function typeColor(tp: DataSourceType): string {
   if (_dsColorCache[tp]) return _dsColorCache[tp]
   const tokenMap: Record<string, string> = {
@@ -272,6 +275,14 @@ function typeColor(tp: DataSourceType): string {
     _dsColorCache[tp] = '#64748b'
   }
   return _dsColorCache[tp]
+}
+
+function setupThemeObserver() {
+  if (typeof document === 'undefined') return
+  _themeObserver = new MutationObserver(() => {
+    for (const key in _dsColorCache) delete _dsColorCache[key]
+  })
+  _themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] })
 }
 
 // --- actions ---
@@ -475,7 +486,7 @@ function formatLabelsStr(lbs: Record<string, unknown> | undefined): string {
 }
 function fmtTs(ts: string | number | undefined): string {
   if (!ts) return '-'
-  try { return new Date(ts).toLocaleString() } catch { return String(ts) }
+  return formatTime(String(ts))
 }
 
 // --- CSV export ---
@@ -490,7 +501,7 @@ function csvEscape(v: unknown): string {
 
 function downloadCsv(rows: string[][], filename: string) {
   const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -561,10 +572,12 @@ onMounted(() => {
   loadDs()
   loadECharts()
   loadHistory()
+  setupThemeObserver()
 })
 
 onUnmounted(() => {
   stopAutoTimer()
+  _themeObserver?.disconnect()
 })
 </script>
 

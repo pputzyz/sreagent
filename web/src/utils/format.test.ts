@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { formatDuration, kvArrayToRecord, recordToKVArray, getErrorMessage } from './format'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { formatTime, relTime, formatDuration, kvArrayToRecord, recordToKVArray, getErrorMessage } from './format'
 
 describe('formatDuration', () => {
   it('returns 0s for 0', () => {
@@ -85,5 +85,100 @@ describe('getErrorMessage', () => {
 
   it('converts number to string', () => {
     expect(getErrorMessage(42)).toBe('42')
+  })
+})
+
+describe('formatTime', () => {
+  it('returns "-" for null', () => {
+    expect(formatTime(null)).toBe('-')
+  })
+
+  it('returns "-" for undefined', () => {
+    expect(formatTime(undefined)).toBe('-')
+  })
+
+  it('returns "-" for empty string', () => {
+    expect(formatTime('')).toBe('-')
+  })
+
+  it('returns "-" for invalid date string', () => {
+    expect(formatTime('not-a-date')).toBe('-')
+  })
+
+  it('formats a valid ISO date string', () => {
+    const result = formatTime('2024-06-15T10:30:00Z')
+    // Should contain date components — exact format depends on locale
+    expect(result).not.toBe('-')
+    expect(result.length).toBeGreaterThan(5)
+  })
+
+  it('formats a valid date with time components', () => {
+    const result = formatTime('2024-01-01T00:00:00Z')
+    expect(result).not.toBe('-')
+  })
+})
+
+describe('relTime', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-15T12:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('returns "—" for null', () => {
+    expect(relTime(null)).toBe('—')
+  })
+
+  it('returns "—" for undefined', () => {
+    expect(relTime(undefined)).toBe('—')
+  })
+
+  it('returns "—" for empty string', () => {
+    expect(relTime('')).toBe('—')
+  })
+
+  it('shows seconds ago for recent timestamps', () => {
+    const ts = new Date('2024-06-15T11:59:30Z').toISOString() // 30s ago
+    const result = relTime(ts)
+    expect(result).toContain('30')
+    expect(result).toContain('s')
+  })
+
+  it('shows minutes ago', () => {
+    const ts = new Date('2024-06-15T11:55:00Z').toISOString() // 5m ago
+    const result = relTime(ts)
+    expect(result).toContain('5')
+    expect(result).toContain('m')
+  })
+
+  it('shows hours ago', () => {
+    const ts = new Date('2024-06-15T09:00:00Z').toISOString() // 3h ago
+    const result = relTime(ts)
+    expect(result).toContain('3')
+    expect(result).toContain('h')
+  })
+
+  it('shows days ago', () => {
+    const ts = new Date('2024-06-13T12:00:00Z').toISOString() // 2d ago
+    const result = relTime(ts)
+    expect(result).toContain('2')
+    expect(result).toContain('d')
+  })
+
+  it('uses t function when provided', () => {
+    const t = vi.fn((key: string, params?: Record<string, unknown>) => `${key}:${JSON.stringify(params)}`)
+    const ts = new Date('2024-06-15T11:59:30Z').toISOString() // 30s ago
+    relTime(ts, t)
+    expect(t).toHaveBeenCalledWith('alert.secsAgo', expect.objectContaining({ n: expect.any(Number) }))
+  })
+
+  it('returns 0s ago for very recent timestamps', () => {
+    const ts = new Date('2024-06-15T12:00:00Z').toISOString() // now
+    const result = relTime(ts)
+    expect(result).toContain('0')
+    expect(result).toContain('s')
   })
 })

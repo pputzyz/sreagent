@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, h, type Ref } from 'vue'
 import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { subscribeRuleApi, notifyRuleApi, userApi, teamApi } from '@/api'
@@ -11,25 +11,23 @@ import { AddOutline, SearchOutline, NotificationsOutline } from '@vicons/ionicon
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
+import { recordToMatchers, matchersToRecord } from '@/utils/label-matcher'
 
 const message = useMessage()
 const { t } = useI18n()
 
-function recordToMatchers(record: Record<string, string> | undefined): LabelMatcher[] {
-  return Object.entries(record || {}).map(([key, raw]) => {
-    for (const op of ['!=', '=~', '!~'] as const) {
-      if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
-    }
-    return { key, op: '=' as const, value: raw }
-  })
-}
-
-function matchersToRecord(matchers: LabelMatcher[]): Record<string, string> {
-  return Object.fromEntries((matchers || []).map(m => {
-    const v = m.op === '=' ? m.value : `${m.op}${m.value}`
-    return [m.key, v]
-  }))
+interface SubscribeForm {
+  name: string
+  description: string
+  match_labels: LabelMatcher[]
+  severities: string[]
+  notify_rule_id: number | null
+  subscriber_type: 'user' | 'team'
+  user_id: number | null
+  team_id: number | null
+  is_enabled: boolean
 }
 
 const crud = useCrudPage<SubscribeRule>({
@@ -40,7 +38,7 @@ const crud = useCrudPage<SubscribeRule>({
     subscriber_type: 'user' as 'user' | 'team',
     user_id: null as number | null, team_id: null as number | null,
     is_enabled: true,
-  } as any),
+  } as unknown as Partial<SubscribeRule>),
   i18nKeys: {
     created: 'subscribe.created',
     updated: 'subscribe.updated',
@@ -57,9 +55,9 @@ const crud = useCrudPage<SubscribeRule>({
     subscriber_type: row.team_id ? 'team' : 'user',
     user_id: row.user_id, team_id: row.team_id,
     is_enabled: row.is_enabled,
-  } as any),
+  } as unknown as Partial<SubscribeRule>),
   formToPayload: (form) => {
-    const f = form as Record<string, any>
+    const f = form as unknown as SubscribeForm
     return {
       name: form.name, description: form.description,
       match_labels: matchersToRecord(f.match_labels),
@@ -91,7 +89,7 @@ const {
   handleSave,
   confirmDelete,
 } = crud
-const form = crud.form as any
+const form = crud.form as unknown as Ref<SubscribeForm>
 
 const notifyRules = shallowRef<NotifyRule[]>([])
 const users = shallowRef<User[]>([])
@@ -195,7 +193,7 @@ onMounted(() => { fetchList(); fetchRefData() })
       <span class="count tnum">{{ filtered.length }} / {{ subscriptions.length }}</span>
     </div>
 
-    <div v-if="loading" class="loading">{{ t('common.loading') }}...</div>
+    <LoadingSkeleton v-if="loading" :rows="4" variant="row" />
 
     <EmptyState
       v-else-if="filtered.length === 0"
@@ -216,7 +214,7 @@ onMounted(() => { fetchList(); fetchRefData() })
             <span class="sub-kind">{{ getSubscriberLabel(s).type === 'team' ? t('subscribe.team') : t('subscribe.user') }}</span>
           </span>
           <div class="row-actions">
-            <n-switch :value="s.is_enabled" size="small" :aria-label="s.name" @update:value="(v: boolean) => toggleEnabled(s, v)" />
+            <n-switch :value="s.is_enabled" size="small" :aria-label="s.is_enabled ? t('common.disable') : t('common.enable')" @update:value="(v: boolean) => toggleEnabled(s, v)" />
             <component :is="RowMenu(s)" />
           </div>
         </div>

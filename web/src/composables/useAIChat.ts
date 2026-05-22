@@ -68,6 +68,7 @@ export function useAIChat() {
       messages.value = resp.data.data || []
     } catch (err) {
       console.error('Failed to load AI chat history:', err)
+      error.value = getErrorMessage(err as Error) || t('ai.sendFailed')
     }
   }
 
@@ -77,16 +78,17 @@ export function useAIChat() {
       messages.value = []
     } catch (err) {
       console.error('Failed to clear AI chat history:', err)
+      error.value = getErrorMessage(err as Error) || t('ai.sendFailed')
     }
   }
 
-  function switchMode(newMode: ChatMode) {
+  async function switchMode(newMode: ChatMode) {
     if (mode.value === newMode) return
     mode.value = newMode
     messages.value = []
     lastFailedInput.value = null
     error.value = null
-    loadHistory()
+    await loadHistory()
   }
 
   return { messages, loading, mode, error, lastFailedInput, sendMessage, retryLast, loadHistory, clearHistory, switchMode }

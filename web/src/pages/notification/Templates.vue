@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, h, type Ref } from 'vue'
 import { useMessage, useDialog, NIcon, NButton, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { messageTemplateApi } from '@/api'
@@ -18,13 +18,20 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
 
+interface TemplateForm {
+  name: string
+  description: string
+  type: 'text' | 'html' | 'markdown' | 'lark_card'
+  content: string
+}
+
 const crud = useCrudPage<MessageTemplate>({
   api: messageTemplateApi as unknown as CrudApiModule<MessageTemplate>,
   defaultForm: () => ({
     name: '', description: '',
     type: 'text' as 'text' | 'html' | 'markdown' | 'lark_card',
     content: '',
-  } as any),
+  } as unknown as Partial<MessageTemplate>),
   i18nKeys: {
     created: 'template.created',
     updated: 'template.updated',
@@ -36,13 +43,15 @@ const crud = useCrudPage<MessageTemplate>({
   rowToForm: (row) => ({
     name: row.name, description: row.description,
     type: row.type, content: row.content || '',
-  } as any),
+  } as unknown as Partial<MessageTemplate>),
   formToPayload: (form) => ({
     name: form.name, description: form.description,
     type: form.type, content: form.content,
   }),
   validate: (form) => {
     if (!form.name?.trim()) return t('template.nameRequired')
+    const f = form as unknown as TemplateForm
+    if (!f.content?.trim()) return t('template.contentRequired')
     return null
   },
   pageSize: 100,
@@ -62,7 +71,7 @@ const {
   handleSave,
   confirmDelete,
 } = crud
-const form = crud.form as any
+const form = crud.form as Ref<TemplateForm>
 
 const typeFilter = ref<string>('')
 
@@ -127,7 +136,7 @@ async function handlePreviewFromForm() {
   previewResult.value = ''
   showPreviewModal.value = true
   try {
-    const { data } = await messageTemplateApi.preview({ content: form.content, type: form.type })
+    const { data } = await messageTemplateApi.preview({ content: form.value.content, type: form.value.type })
     previewResult.value = data.data.rendered
   } catch (err: unknown) {
     previewResult.value = ''

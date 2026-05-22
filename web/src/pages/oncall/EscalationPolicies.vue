@@ -2,7 +2,7 @@
 import { ref, onMounted, h } from 'vue'
 import {
   useMessage, useDialog, NButton, NDataTable, NIcon, NSpace, NPopconfirm,
-  NModal, NForm, NFormItem, NInput, NSelect, NInputNumber, NTag,
+  NModal, NForm, NFormItem, NInput, NSelect, NInputNumber, NTag, NEmpty,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { escalationApi, teamApi, userApi, scheduleApi } from '@/api'
@@ -106,6 +106,13 @@ async function handleSave() {
     message.warning(t('common.required'))
     return
   }
+  for (let i = 0; i < form.value.steps.length; i++) {
+    const step = form.value.steps[i]
+    if (!step.target_id || step.target_id === 0) {
+      message.warning(t('escalation.stepTargetRequired', { n: i + 1 }))
+      return
+    }
+  }
   saving.value = true
   try {
     const payload = {
@@ -154,8 +161,8 @@ function getTargetName(type: string, id: number): string {
     return u ? (u.display_name || u.username) : `#${id}`
   }
   if (type === 'team') {
-    const t = teams.value.find(t => t.id === id)
-    return t ? t.name : `#${id}`
+    const team = teams.value.find(t => t.id === id)
+    return team ? team.name : `#${id}`
   }
   if (type === 'schedule') {
     const s = schedules.value.find(s => s.id === id)
@@ -210,7 +217,11 @@ onMounted(() => {
       :bordered="false"
       size="small"
       striped
-    />
+    >
+      <template #empty>
+        <n-empty :description="t('escalation.noPolicies') || t('common.noData')" />
+      </template>
+    </n-data-table>
 
     <!-- Create/Edit Modal -->
     <n-modal
@@ -236,16 +247,16 @@ onMounted(() => {
           />
         </n-form-item>
 
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-          <span style="font-weight: 600;">{{ t('escalation.steps') }}</span>
+        <div class="steps-header">
+          <span class="steps-title">{{ t('escalation.steps') }}</span>
           <n-button size="tiny" secondary @click="addStep">
             <template #icon><n-icon :component="AddOutline" /></template>
             {{ t('escalation.addStep') }}
           </n-button>
         </div>
 
-        <div v-for="(step, idx) in form.steps" :key="idx" style="border: 1px solid var(--sre-border); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <div v-for="(step, idx) in form.steps" :key="idx" class="step-card">
+          <div class="step-card-header">
             <n-tag size="small">{{ t('escalation.step', { n: step.step_order }) }}</n-tag>
             <n-button size="tiny" type="error" text @click="removeStep(idx)">
               <template #icon><n-icon :component="TrashOutline" /></template>
@@ -275,13 +286,13 @@ onMounted(() => {
             />
           </n-form-item>
           <n-form-item :label="t('escalation.delay')" label-placement="left" label-width="100">
-            <n-input-number v-model:value="step.delay_minutes" :min="0" :max="1440" style="width: 120px;">
+            <n-input-number v-model:value="step.delay_minutes" :min="0" :max="1440" class="step-delay-input">
               <template #suffix>{{ t('common.minutes') }}</template>
             </n-input-number>
           </n-form-item>
         </div>
 
-        <div v-if="form.steps.length === 0" style="text-align: center; color: var(--sre-text-tertiary); padding: 16px;">
+        <div v-if="form.steps.length === 0" class="steps-empty">
           {{ t('escalation.noSteps') }}
         </div>
       </n-form>
@@ -295,3 +306,35 @@ onMounted(() => {
     </n-modal>
   </div>
 </template>
+
+<style scoped>
+.steps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.steps-title {
+  font-weight: 600;
+}
+.step-card {
+  border: 1px solid var(--sre-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.step-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.step-delay-input {
+  width: 120px;
+}
+.steps-empty {
+  text-align: center;
+  color: var(--sre-text-tertiary);
+  padding: 16px;
+}
+</style>

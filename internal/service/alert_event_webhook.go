@@ -15,15 +15,22 @@ import (
 )
 
 // ProcessWebhook processes an incoming AlertManager webhook payload.
+// It collects all errors and returns them if every alert fails.
 func (s *AlertEventService) ProcessWebhook(ctx context.Context, payload *model.AlertManagerPayload) error {
+	var errs []error
 	for _, alert := range payload.Alerts {
 		if err := s.processAlert(ctx, &alert, payload); err != nil {
 			s.logger.Error("failed to process alert",
 				zap.String("fingerprint", alert.Fingerprint),
 				zap.Error(err),
 			)
+			errs = append(errs, err)
 			// Continue processing remaining alerts
 		}
+	}
+	// Return error only if ALL alerts failed
+	if len(errs) > 0 && len(errs) == len(payload.Alerts) {
+		return fmt.Errorf("all %d webhook alerts failed: %w", len(errs), errors.Join(errs...))
 	}
 	return nil
 }

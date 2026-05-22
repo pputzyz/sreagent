@@ -54,6 +54,7 @@ type RuleEvaluator struct {
 	ctx         context.Context // cancelled when evaluator stops
 	stopCh      chan struct{}
 	logger      *zap.Logger
+	fallbackSem chan struct{} // semaphore for onAlert when workerPool is nil (cap=16)
 
 	// Reliability: consecutive query error tracking
 	consecutiveErrors int
@@ -160,6 +161,7 @@ func newRuleEvaluatorFromDeps(rule *model.AlertRule, ds *model.DataSource, deps 
 		ctx:         deps.ctx,
 		stopCh:      make(chan struct{}),
 		logger:      deps.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
+		fallbackSem: make(chan struct{}, 16),
 	}
 }
 
@@ -398,12 +400,17 @@ func (e *Evaluator) Stop() {
 		e.cancel()
 	}
 
+	// Collect evaluator references under lock, then stop them after releasing the lock.
 	e.mu.Lock()
-	defer e.mu.Unlock()
+	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
+	for _, re := range e.evaluators {
+		evals = append(evals, re)
+	}
+	e.evaluators = make(map[uint]*RuleEvaluator) // clear map
+	e.mu.Unlock()
 
-	for ruleID, re := range e.evaluators {
+	for _, re := range evals {
 		re.Stop()
-		delete(e.evaluators, ruleID)
 	}
 
 	// Clean up per-datasource buckets
@@ -591,6 +598,7 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 		ctx:         e.ctx,
 		stopCh:      make(chan struct{}),
 		logger:      e.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
+		fallbackSem: make(chan struct{}, 16),
 	}
 
 	e.mu.Lock()

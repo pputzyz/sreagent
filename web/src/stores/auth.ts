@@ -21,10 +21,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Standard username/password login */
   async function login(username: string, password: string) {
-    const { data } = await authApi.login({ username, password })
-    token.value = data.data.token
-    localStorage.setItem('token', data.data.token)
-    await fetchProfile()
+    try {
+      const { data } = await authApi.login({ username, password })
+      token.value = data.data.token
+      localStorage.setItem('token', data.data.token)
+      await fetchProfile()
+    } catch (err) {
+      console.warn('[auth] Login failed:', err)
+      throw err
+    }
   }
 
   /** Accept a token from OIDC callback redirect */

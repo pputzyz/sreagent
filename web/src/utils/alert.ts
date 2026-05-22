@@ -151,11 +151,28 @@ export function getTimelineType(action: string): 'error' | 'warning' | 'info' | 
   }
 }
 
-// ===== Row highlight CSS (to be imported by pages using :deep or global) =====
+// ===== Row highlight CSS (global injection via <style> tag) =====
+
+const ROW_HIGHLIGHT_ID = 'sre-row-highlight-styles'
 
 /**
- * Shared row highlight styles. Pages should add these to their <style> block or
- * use the global CSS classes defined in global.css.
+ * Inject shared row-highlight CSS classes into the document head once.
+ * Safe to call multiple times — only injects once.
+ */
+export function injectRowHighlightCSS(): void {
+  if (typeof document === 'undefined') return
+  if (document.getElementById(ROW_HIGHLIGHT_ID)) return
+  const style = document.createElement('style')
+  style.id = ROW_HIGHLIGHT_ID
+  style.textContent = `
+.row-critical { background-color: rgba(239, 68, 68, 0.04); }
+.row-warning  { background-color: rgba(245, 158, 11, 0.04); }
+`
+  document.head.appendChild(style)
+}
+
+/**
+ * @deprecated Use `injectRowHighlightCSS()` instead for global CSS injection.
  */
 export const ROW_HIGHLIGHT_CSS = `
 .row-critical { background-color: rgba(239, 68, 68, 0.04); }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, defineComponent, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, defineComponent, h, type Ref } from 'vue'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { bizGroupApi } from '@/api'
@@ -22,6 +22,7 @@ import KVEditor from '@/components/common/KVEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
+import { recordToMatchers, matchersToRecord } from '@/utils/label-matcher'
 
 interface TreeNode {
   id: number | string
@@ -36,20 +37,11 @@ const props = defineProps<{ allUsers: User[] }>()
 const message = useMessage()
 const { t } = useI18n()
 
-function recordToMatchers(record: Record<string, string> | undefined): LabelMatcher[] {
-  return Object.entries(record || {}).map(([key, raw]) => {
-    for (const op of ['!=', '=~', '!~'] as const) {
-      if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
-    }
-    return { key, op: '=' as const, value: raw }
-  })
-}
-
-function matchersToRecord(matchers: LabelMatcher[]): Record<string, string> {
-  return Object.fromEntries((matchers || []).map(m => {
-    const v = m.op === '=' ? m.value : `${m.op}${m.value}`
-    return [m.key, v]
-  }))
+interface BizGroupForm {
+  name: string
+  description: string
+  labels: { key: string; value: string }[]
+  match_labels: LabelMatcher[]
 }
 
 const crud = useCrudPage<BizGroup>({
@@ -58,7 +50,7 @@ const crud = useCrudPage<BizGroup>({
     name: '', description: '',
     labels: [] as { key: string; value: string }[],
     match_labels: [] as LabelMatcher[],
-  } as any),
+  } as unknown as Partial<BizGroup>),
   i18nKeys: {
     created: 'bizGroup.createSuccess',
     updated: 'bizGroup.updated',
@@ -71,9 +63,9 @@ const crud = useCrudPage<BizGroup>({
     name: row.name, description: row.description,
     labels: Object.entries(row.labels || {}).map(([key, value]) => ({ key, value })),
     match_labels: recordToMatchers(row.match_labels),
-  } as any),
+  } as unknown as Partial<BizGroup>),
   formToPayload: (form) => {
-    const f = form as Record<string, any>
+    const f = form as unknown as BizGroupForm
     return {
       name: form.name, description: form.description,
       labels: kvArrayToRecord(f.labels || []),
@@ -98,7 +90,7 @@ const {
   openCreate,
   handleSave,
 } = crud
-const form = crud.form as any
+const form = crud.form as unknown as Ref<BizGroupForm>
 
 const selected = ref<BizGroup | null>(null)
 const members = ref<User[]>([])

@@ -54,7 +54,7 @@ const {
   refresh,
 } = useCrudPage<PresetRule>({
   api: presetCrudApi,
-  defaultForm: () => ({} as any),
+  defaultForm: () => ({} as unknown as Partial<PresetRule>),
   i18nKeys: {},
   pageSize: 20,
 })

@@ -16,7 +16,8 @@ export function usePermissions() {
     try {
       const { data } = await permissionsApi.getMy()
       permissions.value = data.data
-    } catch {
+    } catch (err) {
+      console.warn('[usePermissions] Failed to load permissions:', err)
       permissions.value = null
     } finally {
       loaded.value = true

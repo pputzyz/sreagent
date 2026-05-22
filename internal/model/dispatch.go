@@ -111,7 +111,7 @@ type DispatchLog struct {
 	DispatchPolicyID uint   `json:"dispatch_policy_id" gorm:"index"`
 	Status           string `json:"status" gorm:"size:32"` // pending | sent | skipped | failed
 	Attempt          int    `json:"attempt" gorm:"default:1"`
-	NextAttemptAt    *int64 `json:"next_attempt_at"` // unix timestamp
+	NextAttemptAt    *int64 `json:"next_attempt_at"` // unix timestamp; ideally *time.Time but kept as *int64 for backward compat
 	Note             string `json:"note" gorm:"type:text"`
 }
 

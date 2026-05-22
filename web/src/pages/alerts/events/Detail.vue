@@ -25,6 +25,11 @@ const router = useRouter()
 const message = useMessage()
 const { t } = useI18n()
 
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else router.push('/alert/events')
+}
+
 const event = shallowRef<AlertEvent | null>(null)
 const timeline = ref<AlertTimeline[]>([])
 const commentText = ref('')
@@ -282,7 +287,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
     <!-- ═══ HEADER ═══ -->
     <header class="evt-header sre-stagger">
       <div class="evt-header-top">
-        <n-button quaternary circle size="small" @click="router.back()">
+        <n-button quaternary circle size="small" @click="goBack">
           <template #icon><n-icon :component="ArrowBackOutline" /></template>
         </n-button>
         <div class="evt-header-title-block">

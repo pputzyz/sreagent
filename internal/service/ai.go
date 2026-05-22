@@ -497,6 +497,8 @@ func (s *AIService) callLLMJSON(ctx context.Context, cfg AIConfig, systemPrompt,
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
+			// Exponential backoff: 1s, 2s, 3s, ...
+			time.Sleep(time.Duration(attempt) * time.Second)
 			s.logger.Info("retrying LLM JSON call",
 				zap.Int("attempt", attempt+1),
 				zap.Error(lastErr),

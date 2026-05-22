@@ -84,7 +84,7 @@ func (s *DiagnosticWorkflowService) StartRun(ctx context.Context, workflowID uin
 	}
 
 	// Execute steps asynchronously with a 30-minute timeout.
-	runCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	runCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	go func() {
 		defer cancel()
 		defer func() {

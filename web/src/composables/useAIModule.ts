@@ -19,7 +19,8 @@ export function useAIModule() {
       const res = await aiModuleApi.getModules()
       modules.value = res.data.data
       globalEnabled.value = true
-    } catch {
+    } catch (err) {
+      console.warn('[useAIModule] Failed to load AI modules:', err)
       globalEnabled.value = false
     }
   }
@@ -28,7 +29,8 @@ export function useAIModule() {
     try {
       const res = await aiApi.getProviders()
       providers.value = res.data.data
-    } catch {
+    } catch (err) {
+      console.warn('[useAIModule] Failed to load AI providers:', err)
       providers.value = null
     }
   }

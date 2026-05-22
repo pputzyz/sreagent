@@ -24,7 +24,9 @@ dev: ## Run with hot reload (requires air: go install github.com/air-verse/air@l
 test: ## Run tests
 	$(GO) test ./... -v -cover
 
-lint: ## Run linter (requires golangci-lint)
+GOLANGCI_LINT_VERSION := v2.1.0
+
+lint: ## Run linter (requires golangci-lint $(GOLANGCI_LINT_VERSION))
 	golangci-lint run ./...
 
 fmt: ## Format Go code

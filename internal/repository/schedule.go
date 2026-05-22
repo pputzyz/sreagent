@@ -95,6 +95,9 @@ func (r *ScheduleParticipantRepository) DeleteByScheduleID(ctx context.Context, 
 		Delete(&model.ScheduleParticipant{}).Error
 }
 
+// UpdatePositions updates participant positions in a single transaction.
+// NOTE: Schedule participants per schedule are typically <20, so per-row UPDATE
+// is acceptable. If the dataset grows, consider CASE WHEN batch update.
 func (r *ScheduleParticipantRepository) UpdatePositions(ctx context.Context, participants []model.ScheduleParticipant) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, p := range participants {
@@ -277,13 +280,14 @@ func (r *EscalationStepRepository) BatchLoadByPolicyIDs(ctx context.Context, pol
 }
 
 // ReplaceByPolicyID replaces all steps for a policy in a single transaction.
+// Uses CreateInBatches to avoid N individual INSERT statements.
 func (r *EscalationStepRepository) ReplaceByPolicyID(ctx context.Context, policyID uint, steps []model.EscalationStep) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("policy_id = ?", policyID).Delete(&model.EscalationStep{}).Error; err != nil {
 			return err
 		}
-		for i := range steps {
-			if err := tx.Create(&steps[i]).Error; err != nil {
+		if len(steps) > 0 {
+			if err := tx.CreateInBatches(&steps, len(steps)).Error; err != nil {
 				return err
 			}
 		}

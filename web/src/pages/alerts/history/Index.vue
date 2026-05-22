@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { alertEventApi, alertRuleApi, alertExportApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertEventFilter } from '@/types'
 import { usePaginatedList } from '@/composables'
+import { formatDuration, relTime } from '@/utils/format'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import { ArchiveOutline, DownloadOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -127,25 +128,15 @@ function goDetail(ev: AlertEvent) {
   router.push(`/alert/events/${ev.id}`)
 }
 
-function duration(start?: string, end?: string): string {
+function eventDuration(start?: string, end?: string): string {
   if (!start) return '—'
   const a = new Date(start).getTime()
   const b = end ? new Date(end).getTime() : Date.now()
-  const s = Math.max(0, Math.floor((b - a) / 1000))
-  if (s < 60) return `${s}s`
-  if (s < 3600) return `${Math.floor(s / 60)}m`
-  if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
-  return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`
+  return formatDuration(Math.max(0, Math.floor((b - a) / 1000)))
 }
 
-function relTime(iso?: string): string {
-  if (!iso) return '—'
-  const diff = Date.now() - new Date(iso).getTime()
-  const s = Math.floor(diff / 1000)
-  if (s < 60) return t('common.secsAgo', { n: s })
-  if (s < 3600) return t('common.minsAgo', { n: Math.floor(s / 60) })
-  if (s < 86400) return t('common.hoursAgo', { n: Math.floor(s / 3600) })
-  return t('common.daysAgo', { n: Math.floor(s / 86400) })
+function relTimeLabel(iso?: string): string {
+  return relTime(iso, t)
 }
 
 onMounted(() => {
@@ -255,9 +246,9 @@ onMounted(() => {
             <div class="hist-footer">
               <span class="tnum">{{ t('alert.firedCount', { n: ev.fire_count || 0 }) }}</span>
               <span class="sre-meta-divider"></span>
-              <span class="tnum">{{ t('alert.duration') }} {{ duration(ev.fired_at, ev.resolved_at || ev.closed_at || undefined) }}</span>
+              <span class="tnum">{{ t('alert.duration') }} {{ eventDuration(ev.fired_at, ev.resolved_at || ev.closed_at || undefined) }}</span>
               <span class="sre-meta-divider"></span>
-              <span class="tnum">{{ t('alert.recoveredFor', { n: relTime(ev.resolved_at || ev.closed_at || undefined) }) }}</span>
+              <span class="tnum">{{ t('alert.recoveredFor', { n: relTimeLabel(ev.resolved_at || ev.closed_at || undefined) }) }}</span>
             </div>
           </div>
           <div class="hist-status">

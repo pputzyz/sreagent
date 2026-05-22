@@ -333,10 +333,11 @@ func (p *AlertV2Pipeline) upsertAlert(
 		Fingerprint:   event.Fingerprint,
 	}
 	if err := p.alertRepo.CreateEvent(ctx, ev); err != nil {
-		p.logger.Warn("alert_v2_pipeline: failed to create event record",
+		p.logger.Error("alert_v2_pipeline: failed to create event record",
 			zap.Uint("alert_id", existing.ID),
 			zap.Error(err),
 		)
+		return nil, fmt.Errorf("failed to create event record: %w", err)
 	}
 
 	return existing, nil

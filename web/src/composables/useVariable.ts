@@ -64,23 +64,39 @@ export function useVariable(
       // Apply sort
       if (state.config.sort === 'asc') opts.sort()
       else if (state.config.sort === 'desc') opts.sort().reverse()
-      else if (state.config.sort === 'numerical-asc') opts.sort((a, b) => Number(a) - Number(b))
-      else if (state.config.sort === 'numerical-desc') opts.sort((a, b) => Number(b) - Number(a))
+      else if (state.config.sort === 'numerical-asc') opts.sort((a, b) => {
+        const na = Number(a), nb = Number(b)
+        if (isNaN(na) && isNaN(nb)) return 0
+        if (isNaN(na)) return 1
+        if (isNaN(nb)) return -1
+        return na - nb
+      })
+      else if (state.config.sort === 'numerical-desc') opts.sort((a, b) => {
+        const na = Number(a), nb = Number(b)
+        if (isNaN(na) && isNaN(nb)) return 0
+        if (isNaN(na)) return 1
+        if (isNaN(nb)) return -1
+        return nb - na
+      })
 
       state.options = opts
       if (opts.length > 0 && !opts.includes(state.value)) {
         state.value = opts[0]
       }
-    } catch {
+    } catch (err) {
+      console.warn('[useVariable] Failed to resolve query variable:', state.config.name, err)
       // keep existing options
     } finally {
       state.loading = false
     }
   }
 
-  // Resolve all variables
+  // Resolve all variables (with concurrency guard)
+  let resolveSeq = 0
   async function resolveAll() {
+    const seq = ++resolveSeq
     for (const [, state] of states.value) {
+      if (seq !== resolveSeq) return // superseded by a newer call
       if (state.config.type === 'query') {
         await resolveQueryVariable(state)
       }

@@ -397,15 +397,21 @@ function handleExportCSV() {
   document.body.removeChild(a)
 }
 
-// ===== Auto-refresh =====
+// ===== Auto-refresh (防重入锁：前一次请求未完成时跳过本轮) =====
 let timer: ReturnType<typeof setInterval> | null = null
+let refreshLock = false
 function applyAutoRefresh() {
   if (timer) {
     clearInterval(timer)
     timer = null
   }
+  refreshLock = false
   if (refreshInterval.value > 0) {
-    timer = setInterval(fetchList, refreshInterval.value * 1000)
+    timer = setInterval(() => {
+      if (refreshLock) return
+      refreshLock = true
+      fetchList().finally(() => { refreshLock = false })
+    }, refreshInterval.value * 1000)
   }
   localStorage.setItem(REFRESH_KEY, String(refreshInterval.value))
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -71,6 +72,7 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 				zap.Uint("event_id", event.ID),
 				zap.Error(err),
 			)
+			return fmt.Errorf("failed to find matching notify rules: %w", err)
 		} else if len(rules) > 0 {
 			s.logger.Info("routing alert through notify rules",
 				zap.Uint("event_id", event.ID),

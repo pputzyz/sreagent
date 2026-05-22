@@ -25,7 +25,8 @@ func (c *notifyRuleCache) Get() ([]model.NotifyRule, bool) {
 	if c.rules == nil || time.Since(c.cachedAt) > c.ttl {
 		return nil, false
 	}
-	// Return a copy to prevent callers from mutating cached data
+	// Return a shallow copy of the slice. Pointer/slice fields (MatchLabels, DataSource)
+	// still reference the original data — callers MUST treat the returned slice as read-only.
 	out := make([]model.NotifyRule, len(c.rules))
 	copy(out, c.rules)
 	return out, true

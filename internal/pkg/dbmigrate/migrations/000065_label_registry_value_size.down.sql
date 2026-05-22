@@ -1,0 +1,1 @@
+ALTER TABLE label_registry MODIFY COLUMN label_value VARCHAR(512) NOT NULL;

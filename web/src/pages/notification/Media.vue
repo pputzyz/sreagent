@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h, type Component } from 'vue'
+import { ref, computed, onMounted, h, type Ref, type Component } from 'vue'
 import { useMessage, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyMediaApi } from '@/api'
@@ -25,6 +25,27 @@ const { t } = useI18n()
 
 type MediaType = 'lark_webhook' | 'email' | 'http' | 'script'
 
+interface MediaForm {
+  name: string
+  description: string
+  type: MediaType
+  is_enabled: boolean
+  config: string
+  variables: string
+  webhook_url: string
+  smtp_host: string
+  smtp_port: number
+  username: string
+  password: string
+  from: string
+  method: string
+  url: string
+  headers: { key: string; value: string }[]
+  body: string
+  path: string
+  args: string
+}
+
 function parseConfig(configStr: string): Record<string, unknown> {
   try { return JSON.parse(configStr || '{}') } catch { return {} }
 }
@@ -40,7 +61,7 @@ function buildConfigString(f: Record<string, unknown>): string {
       }, null, 2)
     case 'http': {
       const hdrs: Record<string, string> = {}
-      for (const h of (f.headers as { key: string; value: string }[] || [])) { if (h.key?.trim()) hdrs[h.key.trim()] = h.value }
+      for (const hdr of (f.headers as { key: string; value: string }[] || [])) { if (hdr.key?.trim()) hdrs[hdr.key.trim()] = hdr.value }
       return JSON.stringify({ method: f.method, url: f.url, headers: hdrs, body: f.body }, null, 2)
     }
     case 'script':
@@ -59,7 +80,7 @@ const crud = useCrudPage<NotifyMedia>({
     username: '', password: '', from: '',
     method: 'POST', url: '', headers: [] as { key: string; value: string }[],
     body: '', path: '', args: '',
-  } as any),
+  } as unknown as Partial<NotifyMedia>),
   i18nKeys: {
     created: 'media.created',
     updated: 'media.updated',
@@ -79,7 +100,7 @@ const crud = useCrudPage<NotifyMedia>({
       method: (cfg.method as string) || 'POST', url: (cfg.url as string) || '',
       headers: Object.entries((cfg.headers as Record<string, string>) || {}).map(([key, value]) => ({ key, value: String(value) })),
       body: (cfg.body as string) || '', path: (cfg.path as string) || '', args: (cfg.args as string) || '',
-    } as any
+    } as unknown as Partial<NotifyMedia>
   },
   formToPayload: (form) => {
     const f = form as Record<string, unknown>
@@ -110,8 +131,7 @@ const {
   handleSave,
   confirmDelete,
 } = crud
-// Cast form to any so template can access extra config fields (webhook_url, smtp_host, etc.)
-const form = crud.form as any
+const form = crud.form as Ref<MediaForm>
 
 const testingId = ref<number | null>(null)
 const typeFilter = ref<string>('')

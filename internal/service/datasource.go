@@ -93,15 +93,18 @@ func validateEndpoint(endpoint string) error {
 		return validateIP(ip)
 	}
 
-	// DNS resolution: check all resolved IPs.
-	ips, err := net.LookupIP(host)
+	// DNS resolution with timeout: check all resolved IPs.
+	resolver := &net.Resolver{}
+	resolveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	addrs, err := resolver.LookupIPAddr(resolveCtx, host)
 	if err != nil {
 		// DNS failure is not necessarily an SSRF risk — allow it (will fail at connection time).
 		return nil
 	}
-	for _, ip := range ips {
-		if err := validateIP(ip); err != nil {
-			return fmt.Errorf("endpoint hostname %q resolves to blocked IP %s: %w", host, ip, err)
+	for _, addr := range addrs {
+		if err := validateIP(addr.IP); err != nil {
+			return fmt.Errorf("endpoint hostname %q resolves to blocked IP %s: %w", host, addr.IP, err)
 		}
 	}
 	return nil

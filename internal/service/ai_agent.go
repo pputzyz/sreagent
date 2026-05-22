@@ -50,16 +50,22 @@ type AgentService struct {
 	// 内存任务存储（用于快速轮询，DB 用于持久化）
 	mu    sync.RWMutex
 	tasks map[string]*AgentTask
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewAgentService 创建 Agent 服务
 func NewAgentService(aiSvc *AIService, convRepo *repository.AIConversationRepository, toolReg *AIToolRegistry, logger *zap.Logger) *AgentService {
+	ctx, cancel := context.WithCancel(context.Background())
 	s := &AgentService{
 		aiSvc:    aiSvc,
 		toolReg:  toolReg,
 		convRepo: convRepo,
 		logger:   logger,
 		tasks:    make(map[string]*AgentTask),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 	// 定期清理过期任务，防止 OOM
 	go s.cleanupLoop()
@@ -73,22 +79,29 @@ func (s *AgentService) SetToolRegistry(reg *AIToolRegistry) {
 
 // cleanupLoop 每 10 分钟清理超过 1 小时的已完成任务
 func (s *AgentService) cleanupLoop() {
-	defer func() {
-		if r := recover(); r != nil {
-			s.logger.Error("cleanupLoop panic recovered", zap.Any("recover", r))
-		}
-	}()
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		s.mu.Lock()
-		cutoff := time.Now().Add(-1 * time.Hour)
-		for id, t := range s.tasks {
-			if t.CompletedAt != nil && t.CompletedAt.Before(cutoff) {
-				delete(s.tasks, id)
-			}
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						s.logger.Error("cleanupLoop panic recovered", zap.Any("recover", r))
+					}
+				}()
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				cutoff := time.Now().Add(-1 * time.Hour)
+				for id, t := range s.tasks {
+					if t.CompletedAt != nil && t.CompletedAt.Before(cutoff) {
+						delete(s.tasks, id)
+					}
+				}
+			}()
 		}
-		s.mu.Unlock()
 	}
 }
 

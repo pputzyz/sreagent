@@ -1,1 +1,1 @@
-DROP TABLE inhibition_rules
+DROP TABLE IF EXISTS inhibition_rules

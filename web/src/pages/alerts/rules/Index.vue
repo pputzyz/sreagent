@@ -377,8 +377,10 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+const ruleListRef = ref<HTMLElement | null>(null)
+
 function scrollToSelected() {
-  const el = document.querySelector('.rule-row[data-selected="true"]')
+  const el = ruleListRef.value?.querySelector('.rule-row[data-selected="true"]')
   if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 }
 
@@ -517,6 +519,7 @@ onUnmounted(() => {
         <!-- Rule list -->
         <div
           v-else
+          ref="ruleListRef"
           class="rule-list"
           :class="{ 'sre-stagger': isFirstLoad }"
         >
@@ -566,7 +569,7 @@ onUnmounted(() => {
               </div>
             </div>
             <div class="rc-toggle" @click.stop>
-              <n-switch :value="rule.status === 'active'" size="small" :disabled="rule.status === 'draft'" :aria-label="rule.name" @update:value="toggleEnabled(rule)" />
+              <n-switch :value="rule.status === 'active'" size="small" :disabled="rule.status === 'draft'" :aria-label="rule.status === 'active' ? t('common.disable') : t('common.enable')" @update:value="toggleEnabled(rule)" />
             </div>
             <div class="rc-actions" @click.stop>
               <n-dropdown :options="rowActions(rule)" trigger="click" @select="(k: string) => onRowAction(k, rule)">

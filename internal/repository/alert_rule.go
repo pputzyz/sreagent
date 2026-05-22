@@ -59,7 +59,7 @@ func (r *AlertRuleRepository) List(ctx context.Context, severity, status, groupN
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Preload("DataSource").Offset(offset).Limit(pageSize).Order("id DESC").Find(&list).Error; err != nil {
+	if err := query.Offset(offset).Limit(pageSize).Order("id DESC").Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 

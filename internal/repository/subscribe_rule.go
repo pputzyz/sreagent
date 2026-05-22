@@ -65,11 +65,15 @@ func (r *SubscribeRuleRepository) Delete(ctx context.Context, id uint) error {
 
 // FindMatchingSubscriptions returns all enabled subscribe rules whose match_labels
 // are a subset of the given event labels, and whose severity filter matches.
+// NOTE: SubscribeRule table is typically small (<500 rows). Full-scan + in-memory
+// filter is acceptable. A LIMIT guard prevents unbounded scans.
 func (r *SubscribeRuleRepository) FindMatchingSubscriptions(ctx context.Context, labels map[string]string, severity string) ([]model.SubscribeRule, error) {
+	const maxScanRows = 5000
 	var allRules []model.SubscribeRule
 	err := r.db.WithContext(ctx).
 		Where("is_enabled = ?", true).
 		Order("id ASC").
+		Limit(maxScanRows).
 		Find(&allRules).Error
 	if err != nil {
 		return nil, err

@@ -38,6 +38,7 @@ export function useQueryEngine(timeRange: Ref<TimeRange>) {
   const { t } = useI18n()
   const targets = ref<QueryTarget[]>([createDefaultTarget()])
   const globalLoading = ref(false)
+  let runningCount = 0
 
   function addTarget() {
     const last = targets.value[targets.value.length - 1]
@@ -84,7 +85,8 @@ export function useQueryEngine(timeRange: Ref<TimeRange>) {
           step,
         })
         const data = res.data.data
-        target.resultType = data.result_type as 'vector' | 'matrix'
+        const rt = data.result_type
+        target.resultType = (rt === 'vector' || rt === 'matrix') ? rt : null
         target.series = data.series || []
       } else {
         const res = await datasourceApi.query(target.datasourceId, {
@@ -92,7 +94,8 @@ export function useQueryEngine(timeRange: Ref<TimeRange>) {
           time: tr.end / 1000,
         })
         const data = res.data.data
-        target.resultType = data.result_type as 'vector' | 'matrix'
+        const rt = data.result_type
+        target.resultType = (rt === 'vector' || rt === 'matrix') ? rt : null
         target.series = data.series || []
       }
 
@@ -104,10 +107,18 @@ export function useQueryEngine(timeRange: Ref<TimeRange>) {
   }
 
   async function executeAll() {
+    runningCount++
     globalLoading.value = true
-    const enabledTargets = targets.value.filter(t => t.enabled && t.datasourceId && t.expression.trim())
-    await Promise.allSettled(enabledTargets.map(executeQuery))
-    globalLoading.value = false
+    try {
+      const enabledTargets = targets.value.filter(t => t.enabled && t.datasourceId && t.expression.trim())
+      await Promise.allSettled(enabledTargets.map(executeQuery))
+    } finally {
+      runningCount--
+      if (runningCount <= 0) {
+        runningCount = 0
+        globalLoading.value = false
+      }
+    }
   }
 
   return {

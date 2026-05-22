@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, h, type Ref } from 'vue'
 import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyRuleApi } from '@/api'
@@ -10,28 +10,26 @@ import type { CrudApiModule } from '@/composables/useCrudPage'
 import { AddOutline, SearchOutline, FilterOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
+import { recordToMatchers, matchersToRecord } from '@/utils/label-matcher'
+
+interface RuleForm {
+  name: string
+  description: string
+  severities: string[]
+  match_labels: LabelMatcher[]
+  pipeline: string
+  notify_configs: string
+  repeat_interval: number
+  callback_url: string
+  is_enabled: boolean
+}
 
 const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
-
-function recordToMatchers(record: Record<string, string> | undefined): LabelMatcher[] {
-  return Object.entries(record || {}).map(([key, raw]) => {
-    for (const op of ['!=', '=~', '!~'] as const) {
-      if (raw.startsWith(op)) return { key, op, value: raw.slice(op.length) }
-    }
-    return { key, op: '=' as const, value: raw }
-  })
-}
-
-function matchersToRecord(matchers: LabelMatcher[]): Record<string, string> {
-  return Object.fromEntries((matchers || []).map(m => {
-    const v = m.op === '=' ? m.value : `${m.op}${m.value}`
-    return [m.key, v]
-  }))
-}
 
 const crud = useCrudPage<NotifyRule>({
   api: notifyRuleApi as unknown as CrudApiModule<NotifyRule>,
@@ -40,7 +38,7 @@ const crud = useCrudPage<NotifyRule>({
     match_labels: [] as LabelMatcher[],
     pipeline: '[]', notify_configs: '[]',
     repeat_interval: 3600, callback_url: '', is_enabled: true,
-  } as any),
+  } as unknown as Partial<NotifyRule>),
   i18nKeys: {
     created: 'notifyRule.created',
     updated: 'notifyRule.updated',
@@ -58,9 +56,9 @@ const crud = useCrudPage<NotifyRule>({
     repeat_interval: row.repeat_interval,
     callback_url: row.callback_url || '',
     is_enabled: row.is_enabled,
-  } as any),
+  } as unknown as Partial<NotifyRule>),
   formToPayload: (form) => {
-    const f = form as Record<string, any>
+    const f = form as unknown as RuleForm
     return {
       name: form.name, description: form.description,
       severities: (f.severities || []).join(','),
@@ -74,7 +72,7 @@ const crud = useCrudPage<NotifyRule>({
   },
   validate: (form) => {
     if (!form.name?.trim()) return t('notifyRule.nameRequired')
-    const f = form as Record<string, any>
+    const f = form as unknown as RuleForm
     try { JSON.parse(f.pipeline) } catch { return t('notifyRule.pipeline') + ': ' + t('notifyRule.invalidJson') }
     try { JSON.parse(f.notify_configs) } catch { return t('notifyRule.notifyConfigs') + ': ' + t('notifyRule.invalidJson') }
     return null
@@ -96,7 +94,7 @@ const {
   handleSave,
   confirmDelete,
 } = crud
-const form = crud.form as any
+const form = crud.form as unknown as Ref<RuleForm>
 
 const severityOptions = computed(() => [
   { label: t('alert.critical'), value: 'critical' },
@@ -178,7 +176,7 @@ onMounted(fetchList)
       <span class="count tnum">{{ filtered.length }} / {{ rules.length }}</span>
     </div>
 
-    <div v-if="loading" class="loading">{{ t('common.loading') }}...</div>
+    <LoadingSkeleton v-if="loading" :rows="4" variant="row" />
 
     <EmptyState
       v-else-if="filtered.length === 0"
@@ -199,7 +197,7 @@ onMounted(fetchList)
               class="sev-chip" :data-sev="severityDot(s)">{{ t('severity.' + s) }}</span>
           </div>
           <div class="row-actions">
-            <n-switch :value="r.is_enabled" size="small" :aria-label="r.name" @update:value="(v: boolean) => toggleEnabled(r, v)" />
+            <n-switch :value="r.is_enabled" size="small" :aria-label="r.is_enabled ? t('common.disable') : t('common.enable')" @update:value="(v: boolean) => toggleEnabled(r, v)" />
             <component :is="RowMenu(r)" />
           </div>
         </div>

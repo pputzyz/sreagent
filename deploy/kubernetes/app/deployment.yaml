@@ -73,6 +73,22 @@ spec:
               mountPath: /app/logs
 
           # 只注入启动必需的敏感配置（AI/Lark 已移至 DB，不再需要 Secret 注入）
+          #
+          # 密码配置说明：
+          #   创建 Kubernetes Secret（将 <value> 替换为实际值）：
+          #     kubectl create secret generic sreagent-secret -n sreagent \
+          #       --from-literal=db-password='<MySQL密码>' \
+          #       --from-literal=redis-password='<Redis密码>' \
+          #       --from-literal=jwt-secret='<JWT密钥>' \
+          #       --from-literal=secret-key='<AES-256-GCM主密钥(64位hex)>'
+          #
+          #   如无密码可留空：
+          #     kubectl create secret generic sreagent-secret -n sreagent \
+          #       --from-literal=db-password='' \
+          #       --from-literal=redis-password='' \
+          #       --from-literal=jwt-secret='<至少设置JWT密钥>' \
+          #       --from-literal=secret-key='<AES-256-GCM主密钥>'
+          #
           env:
             - name: SREAGENT_DATABASE_HOST
               value: "mysql-svc"

@@ -8,7 +8,7 @@
 
 ### 全量代码审查（8 个专业视角 Agent 逐行审查）
 
-8 个不同岗位视角的 Agent 对全仓库进行逐行代码审查：安全工程师（handler）、可靠性工程师（service）、数据工程师（repo/model）、引擎工程师（engine）、前端架构师（Vue 组件）、前端工程师（composable/store/utils）、DevOps（部署/配置）、产品经理（用户体验）。共发现 183 个问题（5 CRITICAL / 39 HIGH / 84 MEDIUM / 55 LOW），本次修复全部 CRITICAL + HIGH + 关键 MEDIUM。
+8 个不同岗位视角的 Agent 对全仓库进行逐行代码审查：安全工程师（handler）、可靠性工程师（service）、数据工程师（repo/model）、引擎工程师（engine）、前端架构师（Vue 组件）、前端工程师（composable/store/utils）、DevOps（部署/配置）、产品经理（用户体验）。共发现 183 个问题（5 CRITICAL / 39 HIGH / 84 MEDIUM / 55 LOW），全部修复。
 
 ### CRITICAL 修复（5 项）
 
@@ -70,9 +70,120 @@
 - `notification.go`：FindMatchingRules 失败返回错误
 - `alert_v2_pipeline.go`：Create 失败返回 error
 
-### 迁移文件
+### Service/Engine/Data 层 MEDIUM+LOW 批量修复（23 项）
 
-- `000064_add_composite_indexes.up.sql` / `000064_add_composite_indexes.down.sql`
+**Service 层 MEDIUM（5 项）**
+- `ai.go:498`：LLM JSON 调用重试添加指数退避（`time.Sleep(attempt * time.Second)`）
+- `datasource.go:97`：`net.LookupIP` 改为带 5s 超时的 `net.Resolver`，防止 DNS 阻塞
+- `notification.go:69`：`FindMatchingRules` 错误返回给调用方而非仅记录日志
+- `alert_event_webhook.go:24`：`ProcessWebhook` 收集所有错误，全部失败时返回 error
+- `alert_v2_pipeline.go:335`：`CreateEvent` 失败返回 error 而非仅 Warn 日志
+
+**Service 层 LOW（4 项）**
+- `diagnostic_workflow.go:87`：使用调用方 ctx 替代 `context.Background()` 作为超时父 context
+- `ai_agent.go:75`：`cleanupLoop` goroutine 添加 `ctx.Done()` 退出机制 + context 字段
+- `ai_agent.go:83`：panic recovery 移到 for 循环内部每次迭代
+- `knowledge_base.go:38`：`IncrementViewCount` 错误添加 debug 日志
+
+**Engine 层 MEDIUM（2 项）**
+- `rule_eval_actions.go:121`：workerPool 为 nil 时使用 buffered channel（cap=16）限制并发
+- `evaluator.go:185`：perDSEval 模式已有独立分支，确认跳过 legacy evaluators map
+
+**Engine 层 LOW（5 项）**
+- `evaluator.go:401`：Stop() 先收集 evaluator 引用到局部 slice，释放锁后再逐个 Stop()
+- `rule_eval_state.go:126`：gcStates 在持锁期间将 `sl.state = nil`，避免竞态窗口
+- `rule_eval.go:364`：`generateFingerprint` 使用 `sync.Pool` 复用 `strings.Builder`
+- `escalation_executor.go:246`：预计算 `teamID→合并策略` map，避免每次分配新 slice
+- `escalation_executor.go:251`：删除 `_ = rule` 死代码
+
+**Data 层 MEDIUM（3 项）**
+- `repository/alert_event.go`：List 和 ListWithFilter 去掉 `Preload("AckedByUser").Preload("AssignedUser")`
+- `repository/alert_rule.go:62`：List 去掉 `Preload("DataSource")`
+- `repository/notify_rule.go:22`：Get() 注释明确 shallow copy 语义，调用方只读
+
+**Data 层 LOW（3 项）**
+- `model/inspection.go:22`：InspectionRun 添加 `UpdatedAt` 字段（`autoUpdateTime`）
+- `model/dispatch.go:114`：NextAttemptAt 添加注释说明保持 *int64 的向后兼容原因
+- `model/alert_rule.go:82`：Status `default:active` 已确认生效
+
+**迁移文件**
+- `000065_label_registry_value_size.up.sql` / `000065_label_registry_value_size.down.sql`：label_value VARCHAR(512) → VARCHAR(2048) 与 model size:2048 对齐
+
+### 数据层 N+1 性能修复（7 项）
+
+- `repository/team.go`：GetByLabels 添加 LIMIT 1000 防护
+- `repository/notification.go`：ListByLabels 添加 LIMIT 1000 防护
+- `repository/subscribe_rule.go`：FindMatchingSubscriptions 添加 LIMIT 5000 防护
+- `repository/auto_action.go`：FindMatching 添加 LIMIT 1000 防护
+- `repository/schedule.go`：ReplaceByPolicyID 改用 `CreateInBatches` 批量插入
+- `repository/schedule.go`：UpdatePositions 保留当前实现（参与者 <20），添加 NOTE 注释
+- 迁移 `000008` down.sql：添加 `IF EXISTS`
+
+### Composable/Store/Utils MEDIUM+LOW 修复（20 项）
+
+**MEDIUM（8 项）**
+- `useTimeRange.ts`：静态导出标记 `@deprecated`，回退值语义化
+- `useAIModule.ts`：catch 块添加 `console.warn`
+- `useAIChat.ts`：`switchMode` 中 `await loadHistory()` + catch 设置 `error.value`
+- `useQueryEngine.ts`：`executeAll` 引用计数并发保护 + `result_type` 运行时校验
+- `useVariable.ts`：`resolveAll` 序列号保护 + `resolveQueryVariable` catch 添加 warn
+- `stores/preferences.ts`：`update()` 添加 try-catch + 新增 `reset()` 函数
+
+**LOW（12 项）**
+- `useCommandPalette.ts`：类型谓词 filter + `unregisterAction()` 函数
+- `useAppNav.ts`：route watch 单例化 + `aiModuleConfig` 独立路由 key
+- `useVariable.ts`：numerical sort NaN 检查
+- `usePermissions.ts`：catch 添加 `console.warn`
+- `stores/auth.ts`：`login()` 添加 try-catch
+- `utils/alert.ts`：`injectRowHighlightCSS()` 全局注入替代重复字符串
+- `utils/timeStep.ts`：负值/零值保护
+
+### Vue 页面 MEDIUM+LOW 修复（21 项）
+
+**MEDIUM（9 项）**
+- 10 个页面 `as any` 替换为具名 Form 接口 + `as unknown as Ref<XForm>`
+- 3 处 switch aria-label 改为描述操作
+- `alerts/rules/Index.vue`：`scrollToSelected` 改用 template ref
+- `notification/Rules.vue` + `Subscribe.vue`：提取 `recordToMatchers`/`matchersToRecord` 到 `utils/label-matcher.ts`
+- `notification/Templates.vue`：模板内容添加必填验证
+- `notification/Center.vue`："全部已读"按钮添加 loading 状态
+- `alerts/events/Detail.vue` + `incidents/Detail.vue`：`router.back()` 添加降级
+
+**LOW（12 项）**
+- `oncall/MyAlerts.vue`：script/template 顺序 + severity/status i18n + relTime 复用 + 空状态引导按钮
+- `alerts/history/Index.vue`：复用 `formatDuration`/`relTime`
+- `explore/Index.vue`：复用 `formatTime` + BOM 显式写法 + 主题切换清除颜色缓存
+- `oncall/EscalationPolicies.vue`：变量名 `t` → `team` + 空状态 + 内联样式提取 scoped CSS
+- `dashboard/Index.vue`：P0/P1/P2 标签 i18n 化
+- `notification/Media.vue`：`h` 变量名改为 `hdr`
+- `notification/Rules.vue` + `Subscribe.vue`：loading 改用 LoadingSkeleton
+
+### DevOps + 产品 UX 修复（12 项）
+
+**DevOps（4 项）**
+- `Makefile` + `.github/workflows/docker-build.yml`：golangci-lint 版本统一为 `v2.1.0`
+- `Dockerfile`：添加 HEALTHCHECK 指令
+- `deploy/kubernetes/app/deployment.yaml`：添加 Secret 创建说明注释
+
+**产品 UX（8 项）**
+- `oncall/EscalationPolicies.vue`：步骤级验证（target_id ≠ 0）
+- `oncall/MyAlerts.vue`：补全 resolved/closed i18n 映射 + `getErrorMessage` 具体错误
+- `ai/AgentView.vue`：轮询防重入锁
+- `alerts/events/Index.vue`：自动刷新防重入锁
+- i18n：新增 `escalation.stepTargetRequired`、`myAlerts.emptyResolved/Closed` 等 key
+
+### i18n + 测试覆盖（7 项）
+
+**i18n（2 项）**
+- `zh-CN.ts` + `en.ts`：新增 `severity.p0Short~p4Short` 短标签
+- `dashboard/Index.vue`：P0/P1/P2 标签改用 `t('severity.pXShort')`
+
+**测试（5 项）**
+- 新建 `valueFormatter.test.ts`：15 个用例（formatBytes/Duration/percent 边界）
+- 新建 `timeStep.test.ts`：10 个用例（阶梯边界 + 0/负值）
+- 新建 `usePaginatedList.test.ts`：13 个用例（分页/竞态/total 兜底）
+- 补充 `format.test.ts`：+12 个用例（formatTime/relTime）
+- vitest 总计：6 文件 96 用例全部通过
 
 ---
 

@@ -113,9 +113,12 @@ func (r *TeamRepository) ListMembers(ctx context.Context, teamID uint) ([]model.
 }
 
 // GetByLabels finds teams whose labels are a subset match of the provided labels.
+// NOTE: Teams table is small (<100 rows typical), so full-scan + in-memory filter is acceptable.
+// A LIMIT guard prevents unbounded scans if the table unexpectedly grows.
 func (r *TeamRepository) GetByLabels(ctx context.Context, labels map[string]string) ([]model.Team, error) {
+	const maxScanRows = 1000
 	var allTeams []model.Team
-	err := r.db.WithContext(ctx).Find(&allTeams).Error
+	err := r.db.WithContext(ctx).Limit(maxScanRows).Find(&allTeams).Error
 	if err != nil {
 		return nil, err
 	}

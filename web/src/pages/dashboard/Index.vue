@@ -223,14 +223,14 @@ onMounted(refresh)
         </div>
         <!-- stacked bar -->
         <div class="sev-bar">
-          <div class="sev-seg" :style="{ flex: sevPct('critical') }" :title="`P0: ${stats.severity_breakdown?.critical ?? 0}`"></div>
-          <div class="sev-seg sev-seg--w" :style="{ flex: sevPct('warning') }" :title="`P1: ${stats.severity_breakdown?.warning ?? 0}`"></div>
-          <div class="sev-seg sev-seg--i" :style="{ flex: sevPct('info') }" :title="`P2: ${stats.severity_breakdown?.info ?? 0}`"></div>
+          <div class="sev-seg" :style="{ flex: sevPct('critical') }" :title="`${t('severity.p0Short')}: ${stats.severity_breakdown?.critical ?? 0}`"></div>
+          <div class="sev-seg sev-seg--w" :style="{ flex: sevPct('warning') }" :title="`${t('severity.p1Short')}: ${stats.severity_breakdown?.warning ?? 0}`"></div>
+          <div class="sev-seg sev-seg--i" :style="{ flex: sevPct('info') }" :title="`${t('severity.p2Short')}: ${stats.severity_breakdown?.info ?? 0}`"></div>
         </div>
         <div class="sev-grid">
-          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-critical)"></span><span class="sev-label">P0</span><span class="sev-count" style="color: var(--sre-critical)">{{ stats.severity_breakdown?.critical ?? 0 }}</span></div>
-          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-warning)"></span><span class="sev-label">P1</span><span class="sev-count" style="color: var(--sre-warning)">{{ stats.severity_breakdown?.warning ?? 0 }}</span></div>
-          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-info)"></span><span class="sev-label">P2</span><span class="sev-count" style="color: var(--sre-info)">{{ stats.severity_breakdown?.info ?? 0 }}</span></div>
+          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-critical)"></span><span class="sev-label">{{ t('severity.p0Short') }}</span><span class="sev-count" style="color: var(--sre-critical)">{{ stats.severity_breakdown?.critical ?? 0 }}</span></div>
+          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-warning)"></span><span class="sev-label">{{ t('severity.p1Short') }}</span><span class="sev-count" style="color: var(--sre-warning)">{{ stats.severity_breakdown?.warning ?? 0 }}</span></div>
+          <div class="sev-item"><span class="sev-dot" style="background: var(--sre-info)"></span><span class="sev-label">{{ t('severity.p2Short') }}</span><span class="sev-count" style="color: var(--sre-info)">{{ stats.severity_breakdown?.info ?? 0 }}</span></div>
         </div>
       </div>
 

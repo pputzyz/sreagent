@@ -64,8 +64,8 @@ export function useCommandPalette() {
       const ids: string[] = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
       return ids
         .map(id => navigateItems.value.find(i => i.id === id))
-        .filter(Boolean)
-        .map(i => ({ ...i!, group: 'recent' as const }))
+        .filter((i): i is PaletteItem => !!i)
+        .map(i => ({ ...i, group: 'recent' as const }))
     } catch { return [] }
   }
 
@@ -140,6 +140,10 @@ export function useCommandPalette() {
     registeredActions.value.push({ ...item, group: 'action' })
   }
 
+  function unregisterAction(id: string) {
+    registeredActions.value = registeredActions.value.filter(a => a.id !== id)
+  }
+
   return {
     visible,
     query,
@@ -149,5 +153,6 @@ export function useCommandPalette() {
     filteredItems,
     runItem,
     registerAction,
+    unregisterAction,
   }
 }

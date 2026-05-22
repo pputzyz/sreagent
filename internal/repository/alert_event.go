@@ -127,8 +127,6 @@ func (r *AlertEventRepository) List(ctx context.Context, status, severity string
 
 	offset := (page - 1) * pageSize
 	if err := query.
-		Preload("AckedByUser").
-		Preload("AssignedUser").
 		Offset(offset).Limit(pageSize).
 		Order("fired_at DESC").
 		Find(&list).Error; err != nil {
@@ -198,8 +196,6 @@ func (r *AlertEventRepository) ListWithFilter(ctx context.Context, filter AlertE
 
 	offset := (page - 1) * pageSize
 	if err := query.
-		Preload("AckedByUser").
-		Preload("AssignedUser").
 		Offset(offset).Limit(pageSize).
 		Order("fired_at DESC").
 		Find(&list).Error; err != nil {

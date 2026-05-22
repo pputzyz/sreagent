@@ -92,7 +92,7 @@ onMounted(fetchList)
           <template #icon><NIcon :component="NotificationsOutline" /></template>
           {{ t('common.refresh') }}
         </NButton>
-        <NButton size="small" @click="handleMarkAllRead">
+        <NButton size="small" :loading="loading" @click="handleMarkAllRead">
           <template #icon><NIcon :component="CheckmarkDoneOutline" /></template>
           {{ t('notification.markAllRead') }}
         </NButton>

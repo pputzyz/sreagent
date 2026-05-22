@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, h, type Ref } from 'vue'
 import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, NDrawer, NDrawerContent, NDataTable, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
@@ -31,6 +31,22 @@ interface DSCard extends DataSource {
 const message = useMessage()
 const { t } = useI18n()
 
+interface DataSourceForm {
+  name: string
+  type: DataSourceType
+  endpoint: string
+  description: string
+  auth_type: string
+  auth_username: string
+  auth_password: string
+  auth_token: string
+  auth_key_header: string
+  auth_key_value: string
+  labels: { key: string; value: string }[]
+  health_check_interval: number
+  is_enabled: boolean
+}
+
 const crud = useCrudPage<DataSource>({
   api: datasourceApi as unknown as CrudApiModule<DataSource>,
   defaultForm: () => ({
@@ -40,7 +56,7 @@ const crud = useCrudPage<DataSource>({
     auth_token: '', auth_key_header: '', auth_key_value: '',
     labels: [] as { key: string; value: string }[],
     health_check_interval: 60, is_enabled: true,
-  } as any),
+  } as unknown as Partial<DataSource>),
   i18nKeys: {
     created: 'datasource.created',
     updated: 'datasource.updated',
@@ -58,9 +74,9 @@ const crud = useCrudPage<DataSource>({
     labels: Object.entries(row.labels || {}).map(([key, value]) => ({ key, value })),
     health_check_interval: row.health_check_interval || 60,
     is_enabled: row.is_enabled,
-  } as any),
+  } as unknown as Partial<DataSource>),
   formToPayload: (form) => {
-    const f = form as Record<string, any>
+    const f = form as unknown as DataSourceForm
     let auth_config = ''
     if (f.auth_type === 'basic' && (f.auth_username || f.auth_password)) {
       auth_config = JSON.stringify({ username: f.auth_username, password: f.auth_password })
@@ -100,7 +116,7 @@ const {
   handleSave,
   confirmDelete,
 } = crud
-const form = crud.form as any
+const form = crud.form as unknown as Ref<DataSourceForm>
 // Cast items to DSCard[] so template can access _testing, _latencyMs, _lastCheckAt
 const datasources = rawDatasources as unknown as Ref<DSCard[]>
 

@@ -140,7 +140,7 @@ const filteredChannels = computed(() => {
 
 const matchLabelsKV = computed({
   get: () => form.value.match_labels as unknown as KVItem[],
-  set: (v: KVItem[]) => { (form.value as any).match_labels = v },
+  set: (v: KVItem[]) => { (form.value as Record<string, unknown>).match_labels = v },
 })
 
 function severityBadges(severitiesStr: string) {

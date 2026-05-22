@@ -111,6 +111,7 @@ export interface MenuSection {
 // ===== Singleton reactive state =====
 
 const activeApp: Ref<AppKey> = ref('oncall')
+let _routeWatcherInstalled = false
 
 // ===== Route → App mapping =====
 
@@ -297,7 +298,7 @@ export function useAppNav() {
                   { label: t('menu.smtp'),      key: '/platform/settings/smtp', icon: MailOutline },
                   { label: t('menu.larkBot'),    key: '/platform/settings/lark', icon: ChatbubbleEllipsesOutline },
                   { label: t('menu.aiConfig'),   key: '/platform/settings/ai', icon: HardwareChipOutline },
-                  { label: t('menu.aiModuleConfig'), key: '/platform/settings/ai', icon: SparklesOutline },
+                  { label: t('menu.aiModuleConfig'), key: '/platform/settings/ai/modules', icon: SparklesOutline },
                   { label: t('menu.aiAgent'),    key: '/ai/agent', icon: SparklesOutline },
                   { label: t('menu.security'),   key: '/platform/settings/security', icon: ShieldOutline },
                 )
@@ -336,11 +337,14 @@ export function useAppNav() {
     return item?.label || ''
   })
 
-  // ---------- Watch route changes ----------
+  // ---------- Watch route changes (module-level guard to avoid duplicate watchers) ----------
 
-  watch(() => route.path, (p) => {
-    activeApp.value = resolveAppFromPath(p)
-  }, { immediate: true })
+  if (!_routeWatcherInstalled) {
+    _routeWatcherInstalled = true
+    watch(() => route.path, (p) => {
+      activeApp.value = resolveAppFromPath(p)
+    }, { immediate: true })
+  }
 
   // ---------- Return ----------
 

@@ -81,7 +81,7 @@ const {
 // Computed for KVEditor binding (form stores labels as KV array via rowToForm/formToPayload)
 const labelsKV = computed({
   get: () => form.value.labels as unknown as { key: string; value: string }[],
-  set: (v: { key: string; value: string }[]) => { (form.value as any).labels = v },
+  set: (v: { key: string; value: string }[]) => { (form.value as Record<string, unknown>).labels = v },
 })
 
 const firstLoad = ref(true)

@@ -25,6 +25,7 @@ type InspectionRun struct {
 	Status           string     `json:"status" gorm:"size:20;not null;default:running"` // running/success/failed
 	StartedAt        time.Time  `json:"started_at" gorm:"not null"`
 	FinishedAt       *time.Time `json:"finished_at,omitempty"`
+	UpdatedAt        time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 	ReportMarkdown   string     `json:"report_markdown" gorm:"type:longtext"`
 	ReportSummary    string     `json:"report_summary" gorm:"size:500"`
 	FindingsJSON     string     `json:"findings_json" gorm:"type:json"` // [{severity,category,object,detail}]

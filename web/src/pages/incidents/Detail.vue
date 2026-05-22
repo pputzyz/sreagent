@@ -28,6 +28,11 @@ const message = useMessage()
 const route = useRoute()
 const router = useRouter()
 
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else router.push('/incident')
+}
+
 const incidentId = computed(() => Number(route.params.id))
 const incident = shallowRef<Incident | null>(null)
 const timeline = shallowRef<IncidentTimeline[]>([])
@@ -177,7 +182,7 @@ const moreActionOptions = computed(() => {
   if (incident.value && incident.value.status !== 'closed') {
     opts.splice(1, 0, { label: t('incident.snooze'), key: 'snooze', icon: () => h(NIcon, { component: TimeOutline }) })
   }
-  return opts as any[]
+  return opts
 })
 
 function handleMoreAction(key: string) {
@@ -198,8 +203,8 @@ const dispatchLogColumns = [
     key: 'status',
     width: 80,
     render: (row: DispatchLog) => {
-      const typeMap: Record<string, string> = { sent: 'success', pending: 'warning', skipped: 'default', failed: 'error' }
-      return h(NTag, { type: (typeMap[row.status] || 'default') as any, size: 'small', bordered: false }, () => row.status)
+      const typeMap: Record<string, 'success' | 'warning' | 'default' | 'error'> = { sent: 'success', pending: 'warning', skipped: 'default', failed: 'error' }
+      return h(NTag, { type: typeMap[row.status] || 'default', size: 'small', bordered: false }, () => row.status)
     },
   },
   { title: t('incident.dispatchPolicy'), key: 'dispatch_policy_id', width: 80 },
@@ -267,7 +272,7 @@ onMounted(async () => {
     <header class="detail-header">
       <div class="header-top">
         <div class="header-left">
-          <n-button quaternary circle size="small" @click="router.back()">
+          <n-button quaternary circle size="small" @click="goBack">
             <template #icon><n-icon :component="ArrowBackOutline" /></template>
           </n-button>
           <span v-if="incident" class="incident-id tnum">#{{ incident.id }}</span>

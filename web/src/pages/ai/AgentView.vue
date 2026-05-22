@@ -52,14 +52,17 @@ async function handleRun() {
   }
 }
 
-// 轮询任务状态
+// 轮询任务状态（防重入锁：前一次请求未完成时跳过本轮）
+let pollingLock = false
 function startPolling() {
   stopPolling()
+  pollingLock = false
   pollingTimer.value = setInterval(async () => {
-    if (!task.value) {
-      stopPolling()
+    if (pollingLock || !task.value) {
+      if (!task.value) stopPolling()
       return
     }
+    pollingLock = true
     try {
       const res = await aiAgentApi.getTask(task.value.id)
       const updated = res.data.data
@@ -71,6 +74,8 @@ function startPolling() {
       }
     } catch {
       // 轮询失败不停止，继续尝试
+    } finally {
+      pollingLock = false
     }
   }, 2000)
 }

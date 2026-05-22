@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -360,6 +361,13 @@ func (re *RuleEvaluator) evaluate() {
 	}
 }
 
+// fpBuilderPool reuses strings.Builder allocations for fingerprint generation.
+var fpBuilderPool = sync.Pool{
+	New: func() interface{} {
+		return &strings.Builder{}
+	},
+}
+
 // generateFingerprint creates a unique fingerprint from label set.
 func generateFingerprint(labels map[string]string) string {
 	keys := make([]string, 0, len(labels))
@@ -372,7 +380,8 @@ func generateFingerprint(labels map[string]string) string {
 	}
 	sort.Strings(keys)
 
-	var b strings.Builder
+	b := fpBuilderPool.Get().(*strings.Builder)
+	b.Reset()
 	for _, k := range keys {
 		b.WriteString(k)
 		b.WriteByte('=')
@@ -381,6 +390,7 @@ func generateFingerprint(labels map[string]string) string {
 	}
 
 	hash := md5.Sum([]byte(b.String()))
+	fpBuilderPool.Put(b)
 	return fmt.Sprintf("%x", hash)
 }
 

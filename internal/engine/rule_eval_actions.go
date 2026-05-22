@@ -118,7 +118,18 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 				)
 			}
 		} else {
-			go fn(re.ctx)
+			// Use fallback semaphore to limit concurrency when no worker pool is configured
+			select {
+			case re.fallbackSem <- struct{}{}:
+				go func() {
+					defer func() { <-re.fallbackSem }()
+					fn(re.ctx)
+				}()
+			default:
+				re.logger.Warn("fallback semaphore full, onAlert deferred to next eval cycle",
+					zap.Uint("event_id", ev.ID),
+				)
+			}
 		}
 	}
 }

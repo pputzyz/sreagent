@@ -240,15 +240,22 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 		var eg errgroup.Group
 		eg.SetLimit(8)
 
+		// Precompute merged policies per team to avoid repeated slice allocations.
+		teamMergedPolicies := make(map[uint][]model.EscalationPolicy, len(teamBatches))
+		for teamID := range teamBatches {
+			merged := make([]model.EscalationPolicy, 0, len(globalPolicies)+len(teamPolicies[teamID]))
+			merged = append(merged, globalPolicies...)
+			merged = append(merged, teamPolicies[teamID]...)
+			teamMergedPolicies[teamID] = merged
+		}
+
 		for _, tb := range teamBatches {
 			batch := tb
 			eg.Go(func() error {
-				matched := append(append([]model.EscalationPolicy{}, globalPolicies...), teamPolicies[batch.teamID]...)
+				matched := teamMergedPolicies[batch.teamID]
 				for _, ev := range batch.events {
-					rule := e.getRuleFromMap(ruleMap, ev)
 					e.escalateEvent(ctx, ev, matched, allSteps, now)
 					e.checkSLABreach(ctx, ev, ruleMap, now)
-					_ = rule // used by escalateEvent via ruleMap
 				}
 				return nil
 			})

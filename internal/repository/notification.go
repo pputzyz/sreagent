@@ -30,10 +30,14 @@ func (r *NotifyChannelRepository) GetByID(ctx context.Context, id uint) (*model.
 
 // ListByLabels returns all enabled channels whose labels are a subset match
 // of the provided labels (channel labels must all be present in the given labels).
+// NOTE: NotifyChannel table is small (<100 rows typical), so full-scan + in-memory filter is acceptable.
+// A LIMIT guard prevents unbounded scans if the table unexpectedly grows.
 func (r *NotifyChannelRepository) ListByLabels(ctx context.Context, labels map[string]string) ([]model.NotifyChannel, error) {
+	const maxScanRows = 1000
 	var allChannels []model.NotifyChannel
 	err := r.db.WithContext(ctx).
 		Where("is_enabled = ?", true).
+		Limit(maxScanRows).
 		Find(&allChannels).Error
 	if err != nil {
 		return nil, err

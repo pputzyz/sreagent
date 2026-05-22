@@ -31,10 +31,19 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   async function update(patch: Partial<UserPreferences>) {
-    const { data } = await authApi.updatePreferences(patch)
-    if (data.data) {
-      prefs.value = { ...prefs.value, ...data.data }
+    try {
+      const { data } = await authApi.updatePreferences(patch)
+      if (data.data) {
+        prefs.value = { ...prefs.value, ...data.data }
+      }
+    } catch (e) {
+      console.warn('Failed to update preferences', e)
     }
+  }
+
+  function reset() {
+    prefs.value = { ...defaultPrefs }
+    loaded.value = false
   }
 
   // Apply theme to document
@@ -63,6 +72,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     loaded,
     load,
     update,
+    reset,
     applyTheme,
     applyLanguage,
   }
