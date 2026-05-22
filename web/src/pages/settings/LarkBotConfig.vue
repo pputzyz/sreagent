@@ -115,21 +115,19 @@ onMounted(() => {
           <h2 class="sre-config-header-title">{{ t('settings.larkBotTitle') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.larkBotSubtitle') }} <code>/lark/event</code></p>
         </div>
+        <div class="sre-config-header-actions">
+          <NButton type="primary" size="small" :loading="saving" @click="save">
+            <template #icon><NIcon :component="SaveOutline" /></template>
+            {{ t('common.save') }}
+          </NButton>
+        </div>
       </header>
 
       <div class="config-sections sre-stagger">
         <!-- Section 1: App Credentials -->
         <section class="sre-config-section">
-          <div class="section-header-row">
-            <div>
-              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.larkAppCredentials') }}</h3>
-              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkAppCredentialsDesc') }}</p>
-            </div>
-            <NButton type="primary" size="small" :loading="saving" @click="save">
-              <template #icon><NIcon :component="SaveOutline" /></template>
-              {{ t('common.save') }}
-            </NButton>
-          </div>
+          <h3 class="sre-config-section-title">{{ t('settings.larkAppCredentials') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkAppCredentialsDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkBotEnabled')" class="full-row">
               <NSwitch v-model:value="form.bot_enabled" />
@@ -154,16 +152,8 @@ onMounted(() => {
 
         <!-- Section 2: Behavior -->
         <section class="sre-config-section">
-          <div class="section-header-row">
-            <div>
-              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.larkBehavior') }}</h3>
-              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkBehaviorDesc') }}</p>
-            </div>
-            <NButton type="primary" size="small" :loading="saving" @click="save">
-              <template #icon><NIcon :component="SaveOutline" /></template>
-              {{ t('common.save') }}
-            </NButton>
-          </div>
+          <h3 class="sre-config-section-title">{{ t('settings.larkBehavior') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkBehaviorDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkResolveStrategy')">
               <NSelect v-model:value="form.resolve_strategy" :options="resolveOptions" />
@@ -191,16 +181,8 @@ onMounted(() => {
 
         <!-- Section 3: Commands -->
         <section class="sre-config-section">
-          <div class="section-header-row">
-            <div>
-              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.larkCommands') }}</h3>
-              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkCommandsDesc') }}</p>
-            </div>
-            <NButton type="primary" size="small" :loading="saving" @click="save">
-              <template #icon><NIcon :component="SaveOutline" /></template>
-              {{ t('common.save') }}
-            </NButton>
-          </div>
+          <h3 class="sre-config-section-title">{{ t('settings.larkCommands') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkCommandsDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.larkCommandsEnabled')">
               <div>

@@ -65,7 +65,6 @@ onMounted(fetchConfig)
 
       <section class="sre-config-section">
         <h3 class="sre-config-section-title">{{ t('settings.jwtExpireTime') }}</h3>
-        <p class="sre-config-section-desc">{{ t('settings.jwtExpireHint') }}</p>
         <div class="security-form-row">
           <NForm label-placement="top" class="security-form">
             <NFormItem :label="t('settings.jwtExpireTime')">

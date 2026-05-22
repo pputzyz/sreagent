@@ -292,7 +292,7 @@ onMounted(fetchList)
 .page-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--sre-text-tertiary);
+  color: var(--sre-text-secondary);
 }
 
 .filter-bar {

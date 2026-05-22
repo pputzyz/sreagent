@@ -412,14 +412,14 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
 .user-name { color: var(--sre-text-primary); }
 .user-username {
   font-size: 12px;
-  color: var(--sre-text-tertiary);
+  color: var(--sre-text-secondary);
   font-family: var(--sre-font-mono);
   font-weight: 400;
 }
 .user-meta, .user-footer {
   display: flex; align-items: center;
   font-size: 12px;
-  color: var(--sre-text-tertiary);
+  color: var(--sre-text-secondary);
   gap: 6px;
 }
 .user-role-chip {

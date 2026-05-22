@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { NButton, NIcon, NSwitch, NInput, NInputNumber, NFormItem, NSpin, useMessage } from 'naive-ui'
+import { NButton, NIcon, NSwitch, NInput, NInputNumber, NFormItem, NSpin, NSpace, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { smtpSettingsApi } from '@/api'
@@ -96,10 +96,6 @@ onMounted(fetchConfig)
           <p class="sre-config-header-sub">{{ t('settings.smtpSubtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">
-          <NButton size="small" :loading="testing" :disabled="!testTo" @click="testConnection">
-            <template #icon><NIcon :component="PulseOutline" /></template>
-            {{ t('smtp.sendTest') }}
-          </NButton>
           <NButton type="primary" size="small" :loading="saving" @click="save">
             <template #icon><NIcon :component="SaveOutline" /></template>
             {{ t('common.save') }}
@@ -164,7 +160,13 @@ onMounted(fetchConfig)
           <p class="sre-config-section-desc">{{ t('settings.smtpTestDeliveryDesc') }}</p>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('smtp.testRecipient')" class="full-row">
-              <NInput v-model:value="testTo" :placeholder="t('smtp.testRecipientPlaceholder')" />
+              <NSpace :size="8">
+                <NInput v-model:value="testTo" :placeholder="t('smtp.testRecipientPlaceholder')" style="flex: 1" />
+                <NButton type="primary" size="small" :loading="testing" :disabled="!testTo" @click="testConnection">
+                  <template #icon><NIcon :component="PulseOutline" /></template>
+                  {{ t('smtp.sendTest') }}
+                </NButton>
+              </NSpace>
             </NFormItem>
           </div>
         </section>

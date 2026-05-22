@@ -135,7 +135,7 @@ onMounted(fetchConfig)
           <p class="sre-config-header-sub">{{ t('settings.oidcSubtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">
-          <NButton size="small" :loading="testing" @click="testConnection">
+          <NButton size="small" quaternary :loading="testing" @click="testConnection">
             <template #icon><NIcon :component="PulseOutline" /></template>
             {{ t('common.test') }}
           </NButton>

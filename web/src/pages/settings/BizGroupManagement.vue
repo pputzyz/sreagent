@@ -672,7 +672,7 @@ onMounted(fetchList)
   color: var(--sre-text-muted);
 }
 .bg-empty-title { margin: 0; font-size: 14px; font-weight: 500; }
-.bg-empty-sub { margin: 0; font-size: 12px; opacity: 0.7; }
+.bg-empty-sub { margin: 0; font-size: 12px; color: var(--sre-text-secondary); }
 
 .bg-card {
   background: var(--sre-bg-card);
@@ -823,7 +823,7 @@ onMounted(fetchList)
   color: var(--sre-text-muted);
 }
 
-.bg-hint { font-size: 11px; opacity: 0.5; }
+.bg-hint { font-size: 11px; color: var(--sre-text-tertiary); }
 
 /* Responsive */
 @media (max-width: 900px) {

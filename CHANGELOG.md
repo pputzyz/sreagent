@@ -4,6 +4,28 @@
 
 ---
 
+## [v4.15.28] — 2026-05-22
+
+### 全站 UI/UX 审计修复
+
+**按钮布局**
+- LarkBotConfig：3 个重复 save 按钮改回 header 单个全局保存
+- SMTPConfig：测试按钮从 header 移到测试邮件输入行（空间关联）
+- OIDCConfig：测试按钮降级为 quaternary，与保存按钮视觉区分
+- AISettings Global tab：补充 section 标题，与其他 tab 一致
+
+**冗余文本**
+- SecurityConfig：删除重复的 `jwtExpireHint`（页面副标题和 section 描述重复）
+
+**对比度修复（tertiary → secondary）**
+- AISettings：`.module-desc`、`.module-provider-label`
+- UserManagement：`.user-username`、`.user-meta`、`.user-footer`
+- VirtualUsers：`.vuser-meta`
+- AuditLog：`.page-subtitle`
+- BizGroupManagement：`.bg-empty-sub`（移除 opacity 叠加）、`.bg-hint`（移除 opacity 0.5）
+
+---
+
 ## [v4.15.27] — 2026-05-22
 
 ### LarkBotConfig 按钮布局重构

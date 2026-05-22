@@ -285,7 +285,7 @@ onMounted(fetchList)
 .vuser-meta {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px;
-  color: var(--sre-text-tertiary);
+  color: var(--sre-text-secondary);
   flex-wrap: wrap;
   min-width: 0;
 }

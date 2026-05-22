@@ -507,7 +507,8 @@ onMounted(() => {
         <!-- Tab 3: Global Settings -->
         <n-tab-pane name="global" :tab="t('aiSettings.globalTab')">
           <div class="global-config-section">
-            <p class="sre-config-section-desc" style="margin-bottom: 16px">{{ t('aiSettings.globalDesc') }}</p>
+            <h3 class="sre-config-section-title">{{ t('aiSettings.globalTab') }}</h3>
+            <p class="sre-config-section-desc">{{ t('aiSettings.globalDesc') }}</p>
 
             <n-spin :show="globalLoading">
               <n-form label-placement="left" label-width="180" style="max-width: 560px; margin-top: 16px;">
@@ -695,7 +696,7 @@ onMounted(() => {
 }
 .module-desc {
   font-size: 12px;
-  color: var(--sre-text-tertiary);
+  color: var(--sre-text-secondary);
   line-height: 1.5;
 }
 .module-provider-row {
@@ -706,7 +707,7 @@ onMounted(() => {
 }
 .module-provider-label {
   font-size: 12px;
-  color: var(--sre-text-tertiary);
+  color: var(--sre-text-secondary);
   font-weight: 500;
   white-space: nowrap;
 }
