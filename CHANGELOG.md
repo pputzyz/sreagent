@@ -4,6 +4,31 @@
 
 ---
 
+## [v4.15.12] — 2026-05-22
+
+### 前端测试框架 + Service 接口抽象 + 数据源审计日志
+
+**前端测试**
+- 安装 vitest + @vue/test-utils + jsdom
+- `vite.config.ts` 添加 test 配置（jsdom 环境）
+- `utils/format.test.ts`：formatDuration、kvArrayToRecord、recordToKVArray、getErrorMessage 测试
+- `utils/severity.test.ts`：severityType 测试
+- `composables/useFilterMemory.test.ts`：restore/save/clear/隔离 测试
+- `package.json`：添加 test/test:watch 脚本
+
+**Service 接口抽象**
+- `service/alert_rule.go`：新增 `AlertRuleOperator` 接口，编译期断言 `*AlertRuleService` 实现
+- `service/datasource.go`：新增 `DataSourceQuerier` 接口，编译期断言 `*DataSourceService` 实现
+- `service/ai_tools.go`：RegisterBuiltinTools 参数改为接口类型
+- `service/rule_generator.go`：dsSvc/ruleSvc 字段改为接口类型
+- `service/diagnostic_workflow.go`：dsSvc 字段改为接口类型
+
+**数据源审计日志**
+- `handler/datasource.go`：新增 auditSvc 字段 + SetAuditService，Create/Update/Delete 后记录审计日志
+- `cmd/server/wire.go`：注入 DataSource.SetAuditService
+
+---
+
 ## [v4.15.11] — 2026-05-22
 
 ### Round 10 多视角审查 — 安全 + 健壮性 + CI + i18n + 服务端过滤

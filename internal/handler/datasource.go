@@ -29,8 +29,9 @@ func validateEndpointScheme(endpoint string) error {
 }
 
 type DataSourceHandler struct {
-	svc *service.DataSourceService
-	log *zap.Logger
+	svc      *service.DataSourceService
+	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
 func NewDataSourceHandler(svc *service.DataSourceService, logger ...*zap.Logger) *DataSourceHandler {
@@ -39,6 +40,11 @@ func NewDataSourceHandler(svc *service.DataSourceService, logger ...*zap.Logger)
 		l = logger[0]
 	}
 	return &DataSourceHandler{svc: svc, log: l}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *DataSourceHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // CreateDataSourceRequest is the request body for creating/updating a datasource.
@@ -87,6 +93,15 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 	if err := h.svc.Create(c.Request.Context(), ds); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceDatasource, ResourceID: &ds.ID, ResourceName: ds.Name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, ds)
@@ -167,6 +182,15 @@ func (h *DataSourceHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceDatasource, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, ds)
 }
 
@@ -186,6 +210,15 @@ func (h *DataSourceHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceDatasource, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

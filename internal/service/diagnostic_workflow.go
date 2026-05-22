@@ -14,14 +14,14 @@ import (
 // DiagnosticWorkflowService manages diagnostic workflow templates and executions.
 type DiagnosticWorkflowService struct {
 	repo    *repository.DiagnosticWorkflowRepository
-	dsSvc   *DataSourceService
+	dsSvc   DataSourceQuerier
 	aiSvc   *AIService
 	logger  *zap.Logger
 }
 
 func NewDiagnosticWorkflowService(
 	repo *repository.DiagnosticWorkflowRepository,
-	dsSvc *DataSourceService,
+	dsSvc DataSourceQuerier,
 	aiSvc *AIService,
 	logger *zap.Logger,
 ) *DiagnosticWorkflowService {

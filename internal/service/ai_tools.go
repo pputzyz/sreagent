@@ -122,8 +122,8 @@ func (r *AIToolRegistry) ToOpenAITools() []map[string]interface{} {
 // RegisterBuiltinTools 注册所有内置工具（需要外部服务依赖）
 // getEngineStatus 返回引擎状态的 JSON 序列化结果，为 nil 表示引擎未启用
 func (r *AIToolRegistry) RegisterBuiltinTools(
-	dsSvc *DataSourceService,
-	ruleSvc *AlertRuleService,
+	dsSvc DataSourceQuerier,
+	ruleSvc AlertRuleOperator,
 	incidentSvc *IncidentService,
 	auditLogSvc *AuditLogService,
 	eventSvc *AlertEventService,

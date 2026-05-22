@@ -18,8 +18,8 @@ import (
 type RuleGeneratorService struct {
 	aiSvc       *AIService
 	labelRegSvc *LabelRegistryService
-	dsSvc       *DataSourceService
-	ruleSvc     *AlertRuleService
+	dsSvc       DataSourceQuerier
+	ruleSvc     AlertRuleOperator
 	presetRepo  *repository.PresetRuleRepository
 	dsRepo      *repository.DataSourceRepository
 	cache       *RuleGenCache
@@ -30,8 +30,8 @@ type RuleGeneratorService struct {
 func NewRuleGeneratorService(
 	aiSvc *AIService,
 	labelRegSvc *LabelRegistryService,
-	dsSvc *DataSourceService,
-	ruleSvc *AlertRuleService,
+	dsSvc DataSourceQuerier,
+	ruleSvc AlertRuleOperator,
 	presetRepo *repository.PresetRuleRepository,
 	dsRepo *repository.DataSourceRepository,
 	logger *zap.Logger,

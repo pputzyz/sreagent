@@ -19,6 +19,18 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// DataSourceQuerier is the interface consumed by cross-cutting services
+// (ai_tools, diagnostic_workflow, rule_generator_dryrun) for datasource queries.
+type DataSourceQuerier interface {
+	QueryDatasource(ctx context.Context, dsID uint, expression string, queryTime time.Time) (*QueryResponse, error)
+	QueryRange(ctx context.Context, dsID uint, expression string, start, end time.Time, step string) (*QueryResponse, error)
+	QueryLogs(ctx context.Context, dsID uint, params LogQueryParams) (*LogQueryResponse, error)
+	ProxyToDatasource(ctx context.Context, dsID uint, path string, params map[string]string) ([]byte, error)
+}
+
+// Compile-time check: *DataSourceService satisfies DataSourceQuerier.
+var _ DataSourceQuerier = (*DataSourceService)(nil)
+
 type DataSourceService struct {
 	repo   *repository.DataSourceRepository
 	logger *zap.Logger

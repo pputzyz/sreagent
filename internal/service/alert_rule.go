@@ -16,6 +16,21 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// AlertRuleOperator is the interface consumed by cross-cutting services
+// (ai_tools, rule_generator, heartbeat handler) to decouple from the concrete type.
+type AlertRuleOperator interface {
+	Create(ctx context.Context, rule *model.AlertRule, source string) error
+	GetByID(ctx context.Context, id uint) (*model.AlertRule, error)
+	List(ctx context.Context, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error)
+	Update(ctx context.Context, rule *model.AlertRule) error
+	Delete(ctx context.Context, id uint) error
+	UpdateStatus(ctx context.Context, id uint, status model.AlertRuleStatus) error
+	RecordHeartbeatPing(ctx context.Context, token string) error
+}
+
+// Compile-time check: *AlertRuleService satisfies AlertRuleOperator.
+var _ AlertRuleOperator = (*AlertRuleService)(nil)
+
 // generateSecureToken generates a cryptographically secure random token
 // encoded as a URL-safe base64 string (n bytes of entropy).
 func generateSecureToken(n int) string {
