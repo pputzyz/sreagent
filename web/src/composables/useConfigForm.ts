@@ -29,6 +29,8 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
 
   // Snapshot of the last saved/loaded state for dirty detection
   let lastSaved: T | null = null
+  // Skip auto-save during initial load (Object.assign triggers watchers)
+  let skipAutoSave = false
 
   // ─── Dirty detection ───
   function snapshot(): string {
@@ -43,12 +45,15 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
   // ─── Load ───
   async function load() {
     loading.value = true
+    skipAutoSave = true
     try {
       const data = await options.load()
       Object.assign(form, data)
       lastSaved = JSON.parse(JSON.stringify(data))
     } finally {
       loading.value = false
+      // Allow watcher callbacks to flush before re-enabling auto-save
+      setTimeout(() => { skipAutoSave = false }, 0)
     }
   }
 
@@ -96,8 +101,10 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
   function triggerAutoSave() {
+    if (skipAutoSave) return
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(async () => {
+      if (skipAutoSave) return
       await save()
     }, options.debounceMs ?? 400)
   }
