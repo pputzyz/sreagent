@@ -326,12 +326,14 @@ func (r *EscalationStepExecutionRepository) InsertIgnore(ctx context.Context, ev
 
 // HasExecuted checks if a step has already been successfully executed for an event.
 // Only returns true for status='success', allowing failed steps to be retried.
-func (r *EscalationStepExecutionRepository) HasExecuted(ctx context.Context, eventID, stepID uint) bool {
+func (r *EscalationStepExecutionRepository) HasExecuted(ctx context.Context, eventID, stepID uint) (bool, error) {
 	var count int64
-	r.db.WithContext(ctx).Model(&model.EscalationStepExecution{}).
+	if err := r.db.WithContext(ctx).Model(&model.EscalationStepExecution{}).
 		Where("event_id = ? AND step_id = ? AND status = ?", eventID, stepID, "success").
-		Count(&count)
-	return count > 0
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // MarkSuccess updates a step execution record to status='success'.

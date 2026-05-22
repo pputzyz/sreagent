@@ -2516,4 +2516,22 @@ export default {
     equalLabelsPlaceholder: 'alertname,namespace',
     aiGenerateFailed: 'AI 生成失败',
   },
+
+  // ── Cron Input ──
+  cronInput: {
+    selectPreset: '选择预设或自定义',
+    placeholder: '秒 分 时 日 月 周 (例: 0 0 9 * * 1-5)',
+    nextRunTime: '最近触发时间',
+    invalidExpr: '无效的 cron 表达式',
+    validateFailed: '校验失败',
+    presets: {
+      daily9am: '每天 9:00',
+      daily9am18pm: '每天 9:00 和 18:00',
+      hourly: '每小时',
+      every6h: '每 6 小时',
+      monday9am: '每周一 9:00',
+      weekdays9am: '工作日 9:00',
+      monthly1st9am: '每月 1 号 9:00',
+    },
+  },
 }

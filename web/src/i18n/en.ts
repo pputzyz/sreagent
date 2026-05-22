@@ -2495,4 +2495,22 @@ export default {
     equalLabelsPlaceholder: 'alertname,namespace',
     aiGenerateFailed: 'AI generation failed',
   },
+
+  // ── Cron Input ──
+  cronInput: {
+    selectPreset: 'Select preset or custom',
+    placeholder: 'sec min hour day month weekday (e.g. 0 0 9 * * 1-5)',
+    nextRunTime: 'Next run time',
+    invalidExpr: 'Invalid cron expression',
+    validateFailed: 'Validation failed',
+    presets: {
+      daily9am: 'Daily at 9:00',
+      daily9am18pm: 'Daily at 9:00 and 18:00',
+      hourly: 'Every hour',
+      every6h: 'Every 6 hours',
+      monday9am: 'Monday at 9:00',
+      weekdays9am: 'Weekdays at 9:00',
+      monthly1st9am: '1st of month at 9:00',
+    },
+  },
 }

@@ -4,6 +4,35 @@
 
 ---
 
+## [v4.15.13] — 2026-05-22
+
+### 全项目多视角深度审查修复
+
+**Critical 修复**
+- `cmd/server/wire.go`：Leader election 使用 `redisClient` 替代 `d.RedisClient`（赋值前检查导致永远不激活）
+- `internal/handler/inspection.go`：异步执行使用 `context.Background()` 替代请求 context（避免请求结束后 context 被取消）
+- `internal/engine/heartbeat_checker.go`：拆分 `sync.Once` 为 `startOnce`/`stopOnce`，防止 Start/Stop 互相干扰
+- `internal/handler/datasource.go`：Create 时尊重 `req.IsEnabled` 字段（原先硬编码 `true`）
+- `internal/pkg/crypto/crypto.go`：DecryptString 遇到 `enc:` 前缀但无 key 时返回错误（原先静默返回原始值）
+
+**High 修复**
+- `internal/handler/auth.go`：GetProfile/UpdateMe/BindLark/ChangeMyPassword 使用 `GetCurrentUserIDOK` 检查认证状态
+- `internal/repository/schedule.go`：`HasExecuted` 返回 `(bool, error)` 不再吞没 DB 错误
+- `internal/engine/escalation_executor.go`：适配 HasExecuted 新签名，错误时记录日志并跳过
+- `internal/model/change_event.go`：嵌入 `BaseModel`，移除冗余 ID/CreatedAt/DeletedAt 字段
+
+**前端修复**
+- `web/src/utils/format.ts`：`relTime()` i18n key 从 `common.secsAgo` 修正为 `events.secsAgo`
+- `web/src/components/common/CronInput.vue`：全部硬编码中文改为 i18n（`cronInput.*` 命名空间）
+- `web/src/composables/useVariable.ts`：`replaceVariables` 对变量名做 regex 转义，防止注入
+- `web/src/composables/usePermissions.ts`：`loadPermissions` 失败时也设置 `loaded = true`
+- `web/src/stores/preferences.ts`：`update` 失败时向上抛出错误（不再静默吞没）
+
+**CI 修复**
+- `.github/workflows/docker-build.yml`：Node 版本从 24 改为 20（与 Dockerfile 一致，24 非 LTS）
+
+---
+
 ## [v4.15.12] — 2026-05-22
 
 ### 前端测试框架 + Service 接口抽象 + 数据源审计日志

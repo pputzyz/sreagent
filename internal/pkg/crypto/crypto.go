@@ -83,8 +83,11 @@ func EncryptString(plaintext string) (string, error) {
 // Values not starting with EncPrefix are returned as-is (backward compatible with plaintext).
 func DecryptString(value string) (string, error) {
 	key := loadKey()
-	if len(key) == 0 || !strings.HasPrefix(value, EncPrefix) {
+	if !strings.HasPrefix(value, EncPrefix) {
 		return value, nil
+	}
+	if len(key) == 0 {
+		return "", fmt.Errorf("cannot decrypt: SREAGENT_SECRET_KEY is not configured")
 	}
 
 	data, err := base64.StdEncoding.DecodeString(value[len(EncPrefix):])

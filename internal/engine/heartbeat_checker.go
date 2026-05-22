@@ -28,9 +28,10 @@ type HeartbeatChecker struct {
 	leader       LeaderElection // optional; nil = always run
 	logger       *zap.Logger
 
-	interval time.Duration
-	stopCh   chan struct{}
-	once     sync.Once
+	interval  time.Duration
+	stopCh    chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
 }
 
 // NewHeartbeatChecker creates a HeartbeatChecker that runs every checkInterval.
@@ -66,30 +67,32 @@ func (h *HeartbeatChecker) SetLeaderElection(le LeaderElection) {
 
 // Start runs the heartbeat check loop in a background goroutine.
 func (h *HeartbeatChecker) Start() {
-	go func() {
-		ticker := time.NewTicker(h.interval)
-		defer ticker.Stop()
-		h.logger.Info("heartbeat checker started", zap.Duration("interval", h.interval))
-		for {
-			select {
-			case <-ticker.C:
-				if h.leader != nil && !h.leader.IsLeader() {
-					continue
+	h.startOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(h.interval)
+			defer ticker.Stop()
+			h.logger.Info("heartbeat checker started", zap.Duration("interval", h.interval))
+			for {
+				select {
+				case <-ticker.C:
+					if h.leader != nil && !h.leader.IsLeader() {
+						continue
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+					h.runOnce(ctx)
+					cancel()
+				case <-h.stopCh:
+					h.logger.Info("heartbeat checker stopped")
+					return
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
-				h.runOnce(ctx)
-				cancel()
-			case <-h.stopCh:
-				h.logger.Info("heartbeat checker stopped")
-				return
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // Stop signals the background goroutine to exit.
 func (h *HeartbeatChecker) Stop() {
-	h.once.Do(func() {
+	h.stopOnce.Do(func() {
 		select {
 		case <-h.stopCh:
 		default:

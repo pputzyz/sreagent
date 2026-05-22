@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -197,9 +198,9 @@ func (h *InspectionHandler) RunNow(c *gin.Context) {
 		return
 	}
 
-	// 异步执行，立即返回
+	// 异步执行，立即返回（使用 Background context 避免请求结束后 context 被取消）
 	go func() {
-		_, _ = h.execSvc.Run(c.Request.Context(), task)
+		_, _ = h.execSvc.Run(context.Background(), task)
 	}()
 
 	Success(c, gin.H{"message": "巡检任务已提交后台执行", "task_id": task.ID})

@@ -105,11 +105,15 @@ func TestEscalation_StepExecRepo_InsertIgnore_ThenMarkSuccess(t *testing.T) {
 	assert.False(t, inserted, "duplicate insert should be ignored")
 
 	// HasExecuted should be false (status=pending).
-	assert.False(t, repo.HasExecuted(ctx, 100, 1))
+	executed, err := repo.HasExecuted(ctx, 100, 1)
+	require.NoError(t, err)
+	assert.False(t, executed)
 
 	// MarkSuccess.
 	require.NoError(t, repo.MarkSuccess(ctx, 100, 1))
-	assert.True(t, repo.HasExecuted(ctx, 100, 1))
+	executed, err = repo.HasExecuted(ctx, 100, 1)
+	require.NoError(t, err)
+	assert.True(t, executed)
 }
 
 func TestEscalation_StepExecRepo_MarkFailed_Retry(t *testing.T) {
@@ -124,7 +128,9 @@ func TestEscalation_StepExecRepo_MarkFailed_Retry(t *testing.T) {
 
 	// Mark as failed.
 	require.NoError(t, repo.MarkFailed(ctx, 200, 2))
-	assert.False(t, repo.HasExecuted(ctx, 200, 2), "failed should not count as executed")
+	executed, err := repo.HasExecuted(ctx, 200, 2)
+	require.NoError(t, err)
+	assert.False(t, executed, "failed should not count as executed")
 
 	// Delete and re-insert (retry path).
 	require.NoError(t, repo.DeleteByEventAndStep(ctx, 200, 2))
@@ -134,7 +140,9 @@ func TestEscalation_StepExecRepo_MarkFailed_Retry(t *testing.T) {
 
 	// Now mark success.
 	require.NoError(t, repo.MarkSuccess(ctx, 200, 2))
-	assert.True(t, repo.HasExecuted(ctx, 200, 2))
+	executed, err = repo.HasExecuted(ctx, 200, 2)
+	require.NoError(t, err)
+	assert.True(t, executed)
 }
 
 func TestEscalation_StepExecRepo_ConcurrentInsertIgnore(t *testing.T) {

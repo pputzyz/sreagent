@@ -84,13 +84,19 @@ export function useVariable(
     }
   }
 
+  // Escape special regex characters in a string
+  function escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
   // Replace $var and [[var]] in a string
   function replaceVariables(input: string): string {
     let result = input
     for (const [name, state] of states.value) {
-      result = result.replace(new RegExp(`\\$${name}\\b`, 'g'), state.value)
-      result = result.replace(new RegExp(`\\$\\{${name}\\}`, 'g'), state.value)
-      result = result.replace(new RegExp(`\\[\\[${name}\\]\\]`, 'g'), state.value)
+      const escaped = escapeRegex(name)
+      result = result.replace(new RegExp(`\\$${escaped}\\b`, 'g'), state.value)
+      result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), state.value)
+      result = result.replace(new RegExp(`\\[\\[${escaped}\\]\\]`, 'g'), state.value)
     }
     // Built-in time variables
     result = result.replace(/\$__from/g, String(Math.floor(timeRange.value.start / 1000)))

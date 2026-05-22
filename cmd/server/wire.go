@@ -441,8 +441,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		evaluator.SetOnAlert(onAlertFn)
 
 		// Leader election: only one instance evaluates rules at a time
-		if d.RedisClient != nil {
-			leader := engine.NewRedisLeaderElection(d.RedisClient.Raw(), zapLogger)
+		if redisClient != nil {
+			leader := engine.NewRedisLeaderElection(redisClient.Raw(), zapLogger)
 			evaluator.SetLeaderElection(leader)
 			heartbeatChecker.SetLeaderElection(leader)
 			d.Leader = leader

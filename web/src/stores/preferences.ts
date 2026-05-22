@@ -31,13 +31,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   async function update(patch: Partial<UserPreferences>) {
-    try {
-      const { data } = await authApi.updatePreferences(patch)
-      if (data.data) {
-        prefs.value = { ...prefs.value, ...data.data }
-      }
-    } catch (e) {
-      console.warn('Failed to update preferences', e)
+    const { data } = await authApi.updatePreferences(patch)
+    if (data.data) {
+      prefs.value = { ...prefs.value, ...data.data }
     }
   }
 

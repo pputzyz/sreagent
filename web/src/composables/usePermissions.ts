@@ -10,9 +10,10 @@ export function usePermissions() {
     try {
       const { data } = await permissionsApi.getMy()
       permissions.value = data.data
-      loaded.value = true
     } catch {
       permissions.value = null
+    } finally {
+      loaded.value = true
     }
   }
 

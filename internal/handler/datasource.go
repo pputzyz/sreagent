@@ -87,7 +87,7 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 		AuthType:            req.AuthType,
 		AuthConfig:          req.AuthConfig,
 		HealthCheckInterval: req.HealthCheckInterval,
-		IsEnabled:           true,
+		IsEnabled:           req.IsEnabled == nil || *req.IsEnabled, // default true
 	}
 
 	if err := h.svc.Create(c.Request.Context(), ds); err != nil {

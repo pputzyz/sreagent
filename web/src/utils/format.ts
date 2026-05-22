@@ -51,13 +51,13 @@ export function relTime(ts?: string | null, t?: (key: string, params?: Record<st
   if (!ts) return '—'
   const diff = Math.max(0, Date.now() - new Date(ts).getTime())
   const s = Math.floor(diff / 1000)
-  if (s < 60) return t ? t('common.secsAgo', { n: s }) : `${s}s ago`
+  if (s < 60) return t ? t('events.secsAgo', { n: s }) : `${s}s ago`
   const m = Math.floor(diff / 60000)
-  if (m < 60) return t ? t('common.minsAgo', { n: m }) : `${m}m ago`
+  if (m < 60) return t ? t('events.minsAgo', { n: m }) : `${m}m ago`
   const h = Math.floor(m / 60)
-  if (h < 24) return t ? t('common.hoursAgo', { n: h }) : `${h}h ago`
+  if (h < 24) return t ? t('events.hoursAgo', { n: h }) : `${h}h ago`
   const d = Math.floor(h / 24)
-  return t ? t('common.daysAgo', { n: d }) : `${d}d ago`
+  return t ? t('events.daysAgo', { n: d }) : `${d}d ago`
 }
 
 /**

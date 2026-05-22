@@ -51,7 +51,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {
-	userID := GetCurrentUserID(c)
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 	user, err := h.svc.GetProfile(c.Request.Context(), userID)
 	if err != nil {
 		Error(c, err)
@@ -66,7 +70,11 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, "user service not available"))
 		return
 	}
-	userID := GetCurrentUserID(c)
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 
 	var req struct {
 		DisplayName string `json:"display_name"`
@@ -123,7 +131,11 @@ func (h *AuthHandler) BindLark(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, "user service not available"))
 		return
 	}
-	userID := GetCurrentUserID(c)
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 
 	var req struct {
 		LarkOpenID string `json:"lark_open_id"`
@@ -146,7 +158,11 @@ func (h *AuthHandler) ChangeMyPassword(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, "user service not available"))
 		return
 	}
-	userID := GetCurrentUserID(c)
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 
 	var req struct {
 		OldPassword string `json:"old_password" binding:"required"`

@@ -403,7 +403,13 @@ func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.Ale
 				}
 				if !inserted {
 					// Already executed or in-progress — check if it failed and needs retry (H2).
-					if e.stepExecRepo.HasExecuted(ctx, event.ID, step.ID) {
+					executed, err := e.stepExecRepo.HasExecuted(ctx, event.ID, step.ID)
+					if err != nil {
+						e.logger.Error("escalation: failed to check step execution status",
+							zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
+						continue
+					}
+					if executed {
 						continue // successfully done
 					}
 					// Status is 'pending' or 'failed' — allow retry by deleting the old record.
