@@ -70,7 +70,7 @@ func (s *RuleGeneratorService) SuggestLabels(ctx context.Context, datasourceID u
 
 	// Check AI availability — fall back to heuristic if disabled
 	if err := s.checkAIEnabled(ctx); err != nil {
-		return s.suggestLabelsHeuristic(result, keys, dsIDs), nil
+		return s.suggestLabelsHeuristic(ctx, result, keys, dsIDs), nil
 	}
 
 	// Call LLM to dynamically recommend labels
@@ -101,7 +101,7 @@ func (s *RuleGeneratorService) SuggestLabels(ctx context.Context, datasourceID u
 	}
 	if err := s.aiSvc.callLLMJSON(ctx, s.mustLoadConfig(ctx), systemPrompt, "PromQL: "+expression, &llmResult); err != nil {
 		s.logger.Warn("LLM label suggestion failed, falling back to heuristic", zap.Error(err))
-		return s.suggestLabelsHeuristic(result, keys, dsIDs), nil
+		return s.suggestLabelsHeuristic(ctx, result, keys, dsIDs), nil
 	}
 
 	for k, v := range llmResult.SuggestedLabels {
@@ -116,12 +116,12 @@ func (s *RuleGeneratorService) SuggestLabels(ctx context.Context, datasourceID u
 }
 
 // suggestLabelsHeuristic provides a fallback when LLM is unavailable.
-func (s *RuleGeneratorService) suggestLabelsHeuristic(result *LabelSuggestionResult, keys []string, dsIDs []uint) *LabelSuggestionResult {
+func (s *RuleGeneratorService) suggestLabelsHeuristic(ctx context.Context, result *LabelSuggestionResult, keys []string, dsIDs []uint) *LabelSuggestionResult {
 	commonLabels := []string{"instance", "job", "env", "service", "namespace", "cluster", "pod", "container"}
 	for _, key := range keys {
 		for _, cl := range commonLabels {
 			if key == cl {
-				vals, err := s.labelRegSvc.GetValues(context.Background(), key, dsIDs)
+				vals, err := s.labelRegSvc.GetValues(ctx, key, dsIDs)
 				if err == nil && len(vals) > 0 {
 					result.SuggestedLabels[key] = LabelValue{
 						Value:      vals[0],

@@ -127,22 +127,24 @@ func mapChannelTypeToMediaType(ct model.NotifyChannelType) model.NotifyMediaType
 
 // Start runs the escalation check loop in a background goroutine.
 func (e *EscalationExecutor) Start() {
-	go func() {
-		ticker := time.NewTicker(e.interval)
-		defer ticker.Stop()
-		e.logger.Info("escalation executor started", zap.Duration("interval", e.interval))
-		for {
-			select {
-			case <-ticker.C:
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-				e.runOnce(ctx)
-				cancel()
-			case <-e.stopCh:
-				e.logger.Info("escalation executor stopped")
-				return
+	e.once.Do(func() {
+		go func() {
+			ticker := time.NewTicker(e.interval)
+			defer ticker.Stop()
+			e.logger.Info("escalation executor started", zap.Duration("interval", e.interval))
+			for {
+				select {
+				case <-ticker.C:
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					e.runOnce(ctx)
+					cancel()
+				case <-e.stopCh:
+					e.logger.Info("escalation executor stopped")
+					return
+				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // Stop signals the background goroutine to exit.

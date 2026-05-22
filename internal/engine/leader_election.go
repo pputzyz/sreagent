@@ -129,16 +129,7 @@ func (l *RedisLeaderElection) renewLoop(ctx context.Context) {
 // renew extends the lock TTL if we still hold it, or attempts to re-acquire.
 func (l *RedisLeaderElection) renew(ctx context.Context) {
 	if l.isLeader.Load() {
-		// Use a Lua script to atomically check-and-extend
-		script := redis.NewScript(`
-			if redis.call("GET", KEYS[1]) == ARGV[1] then
-				redis.call("EXPIRE", KEYS[1], ARGV[2])
-				return 1
-			else
-				return 0
-			end
-		`)
-		result, err := script.Run(ctx, l.rdb, []string{leaderLockKey}, l.value, int(leaderLockTTL.Seconds())).Int()
+		result, err := checkAndExtendScript.Run(ctx, l.rdb, []string{leaderLockKey}, l.value, int(leaderLockTTL.Seconds())).Int()
 		if err != nil {
 			l.logger.Warn("leader election: failed to renew lock", zap.Error(err))
 			return

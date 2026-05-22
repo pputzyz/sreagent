@@ -44,7 +44,7 @@ func (h *InspectionHandler) ListTasks(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"list": tasks, "total": len(tasks)})
+	SuccessPage(c, tasks, int64(len(tasks)), 1, len(tasks))
 }
 
 func (h *InspectionHandler) GetTask(c *gin.Context) {

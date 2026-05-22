@@ -2,6 +2,7 @@ package handler
 
 import (
 	"io"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -178,7 +179,7 @@ func (h *IntegrationHandler) Receive(c *gin.Context) {
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20)) // 1 MB max
+	body, err := io.ReadAll(http.MaxBytesReader(nil, c.Request.Body, 1<<20)) // 1 MB max
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read request body"))
 		return

@@ -147,7 +147,8 @@ func (re *RuleEvaluator) evaluate() {
 						// DB write failed — state was reverted to "pending" inside createAlertEvent.
 						sl.state = state
 						re.persistState(fp, state)
-						break
+						sl.mu.Unlock()
+						continue
 					}
 					state.Status = "firing"
 					state.Revision++
