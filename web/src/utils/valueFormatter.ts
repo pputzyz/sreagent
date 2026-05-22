@@ -44,6 +44,7 @@ function formatBytes(bytes: number, decimals: number): string {
   const abs = Math.abs(bytes)
   const sign = bytes < 0 ? '-' : ''
   const i = Math.floor(Math.log(abs) / Math.log(1024))
+  if (i < 0) return sign + abs.toFixed(decimals) + ' B'
   const idx = Math.min(i, byteUnits.length - 1)
   return sign + (abs / Math.pow(1024, idx)).toFixed(decimals) + ' ' + byteUnits[idx]
 }

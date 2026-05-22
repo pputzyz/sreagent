@@ -130,6 +130,11 @@ func mapChannelTypeToMediaType(ct model.NotifyChannelType) model.NotifyMediaType
 func (e *EscalationExecutor) Start() {
 	e.startOnce.Do(func() {
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					e.logger.Error("escalation executor goroutine panic recovered", zap.Any("recover", r))
+				}
+			}()
 			ticker := time.NewTicker(e.interval)
 			defer ticker.Stop()
 			e.logger.Info("escalation executor started", zap.Duration("interval", e.interval))

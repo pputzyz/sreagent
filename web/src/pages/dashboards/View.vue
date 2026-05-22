@@ -200,7 +200,7 @@ async function fetchDatasources() {
   try {
     const res = await datasourceApi.list({ page: 1, page_size: 100 })
     datasources.value = (res.data.data.list || []).filter((ds: DataSource) => ds.is_enabled)
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[Dashboard] Failed to fetch datasources:', e) }
 }
 
 async function fetchDashboard() {
@@ -216,7 +216,7 @@ async function fetchDashboard() {
         if (!config.value.panels) config.value.panels = []
         if (!config.value.layout) config.value.layout = { cols: 24, rowHeight: 100 }
         variableConfig.value = config.value.variables || []
-      } catch { /* ignore */ }
+      } catch (e) { console.warn('[Dashboard] Failed to parse config JSON:', e) }
     }
   } catch (err: unknown) {
     message.error(getErrorMessage(err) || t('common.loadFailed'))

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, NButton, NIcon, NRadioGroup, NRadioButton, NSpin, NEmpty, NTag } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon, NRadioGroup, NRadioButton, NSpin, NEmpty, NTag } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { CheckmarkDoneOutline, TrashOutline, NotificationsOutline } from '@vicons/ionicons5'
 import { notificationCenterApi } from '@/api'
@@ -11,6 +11,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 const router = useRouter()
 
 const loading = ref(false)
@@ -56,14 +57,22 @@ async function handleMarkAllRead() {
   }
 }
 
-async function handleDelete(id: number) {
-  try {
-    await notificationCenterApi.delete(id)
-    items.value = items.value.filter(i => i.id !== id)
-    total.value--
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  }
+function handleDelete(id: number) {
+  dialog.warning({
+    title: t('common.confirmDelete'),
+    content: t('common.confirmDeleteMsg'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await notificationCenterApi.delete(id)
+        items.value = items.value.filter(i => i.id !== id)
+        total.value--
+      } catch (err: unknown) {
+        message.error(getErrorMessage(err))
+      }
+    },
+  })
 }
 
 function typeColor(type: string): 'error' | 'warning' | 'info' | 'default' {

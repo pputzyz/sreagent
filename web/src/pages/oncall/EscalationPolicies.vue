@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
 import {
-  useMessage, NButton, NDataTable, NIcon, NSpace, NPopconfirm,
+  useMessage, useDialog, NButton, NDataTable, NIcon, NSpace, NPopconfirm,
   NModal, NForm, NFormItem, NInput, NSelect, NInputNumber, NTag,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -12,6 +12,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -129,14 +130,22 @@ async function handleSave() {
   }
 }
 
-async function handleDelete(id: number) {
-  try {
-    await escalationApi.delete(id)
-    message.success(t('common.deleteSuccess'))
-    fetchPolicies()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  }
+function handleDelete(id: number) {
+  dialog.warning({
+    title: t('common.confirmDelete'),
+    content: t('common.confirmDeleteMsg'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await escalationApi.delete(id)
+        message.success(t('common.deleteSuccess'))
+        fetchPolicies()
+      } catch (err: unknown) {
+        message.error(getErrorMessage(err))
+      }
+    },
+  })
 }
 
 function getTargetName(type: string, id: number): string {
@@ -172,10 +181,7 @@ const columns = [
     render: (row: EscalationPolicy) =>
       h(NSpace, { size: 'small' }, () => [
         h(NButton, { size: 'tiny', secondary: true, onClick: () => openEdit(row) }, () => t('common.edit')),
-        h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
-          trigger: () => h(NButton, { size: 'tiny', type: 'error', secondary: true }, () => t('common.delete')),
-          default: () => t('common.confirmDelete'),
-        }),
+        h(NButton, { size: 'tiny', type: 'error', secondary: true, onClick: () => handleDelete(row.id) }, () => t('common.delete')),
       ]),
   },
 ]

@@ -65,7 +65,7 @@ func (r *AlertEventRepository) GetByIDs(ctx context.Context, ids []uint) ([]mode
 func (r *AlertEventRepository) GetByFingerprint(ctx context.Context, fingerprint string) (*model.AlertEvent, error) {
 	var event model.AlertEvent
 	err := r.db.WithContext(ctx).
-		Where("fingerprint = ? AND status != ? AND deleted_at IS NULL", fingerprint, model.EventStatusClosed).
+		Where("fingerprint = ? AND status != ?", fingerprint, model.EventStatusClosed).
 		First(&event).Error
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (r *AlertEventRepository) GetByFingerprint(ctx context.Context, fingerprint
 func (r *AlertEventRepository) GetByFingerprintAndStatus(ctx context.Context, fingerprint string, status model.AlertEventStatus) (*model.AlertEvent, error) {
 	var event model.AlertEvent
 	err := r.db.WithContext(ctx).
-		Where("fingerprint = ? AND status = ? AND deleted_at IS NULL", fingerprint, status).
+		Where("fingerprint = ? AND status = ?", fingerprint, status).
 		First(&event).Error
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (r *AlertEventRepository) GetLatestByFingerprints(ctx context.Context, fing
 	}
 	var events []model.AlertEvent
 	err := r.db.WithContext(ctx).
-		Where("fingerprint IN ? AND status != ? AND deleted_at IS NULL", fingerprints, model.EventStatusClosed).
+		Where("fingerprint IN ? AND status != ?", fingerprints, model.EventStatusClosed).
 		Find(&events).Error
 	if err != nil {
 		return nil, err

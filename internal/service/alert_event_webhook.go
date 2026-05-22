@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"go.uber.org/zap"
@@ -132,6 +133,11 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 			case s.dispatchSem <- struct{}{}:
 				go func() {
 					defer func() { <-s.dispatchSem }()
+					defer func() {
+						if r := recover(); r != nil {
+							s.logger.Error("notification dispatch panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+						}
+					}()
 					dispatch(s.bgCtx())
 				}()
 			default:
@@ -175,6 +181,11 @@ func (s *AlertEventService) triggerLarkCardUpdate(event *model.AlertEvent) {
 		case s.dispatchSem <- struct{}{}:
 			go func() {
 				defer func() { <-s.dispatchSem }()
+				defer func() {
+					if r := recover(); r != nil {
+						s.logger.Error("lark card update panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+					}
+				}()
 				fn(s.bgCtx())
 			}()
 		default:

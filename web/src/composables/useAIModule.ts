@@ -6,6 +6,13 @@ const modules = ref<AIModuleConfig | null>(null)
 const globalEnabled = ref(false)
 const providers = ref<AIProvidersConfig | null>(null)
 
+/** Reset module-level singleton state (call on logout) */
+export function resetAIModule() {
+  modules.value = null
+  globalEnabled.value = false
+  providers.value = null
+}
+
 export function useAIModule() {
   async function loadModules() {
     try {

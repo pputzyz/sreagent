@@ -11,7 +11,9 @@ set -e
 DB_HOST="${SREAGENT_DATABASE_HOST:-127.0.0.1}"
 DB_PORT="${SREAGENT_DATABASE_PORT:-3306}"
 DB_USER="${SREAGENT_DATABASE_USERNAME:-sreagent}"
-DB_PASS="${SREAGENT_DATABASE_PASSWORD:-sreagent}"
+# SREAGENT_DATABASE_PASSWORD must be provided via environment variable.
+# Do NOT hardcode passwords in this file or use weak defaults.
+DB_PASS="${SREAGENT_DATABASE_PASSWORD:?SREAGENT_DATABASE_PASSWORD is not set. Provide it via environment variable.}"
 DB_NAME="${SREAGENT_DATABASE_DATABASE:-sreagent}"
 
 echo "============================================"

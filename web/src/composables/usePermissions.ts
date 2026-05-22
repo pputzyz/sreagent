@@ -5,6 +5,12 @@ import type { MyPermissions, TeamRole } from '@/api/center'
 const permissions = ref<MyPermissions | null>(null)
 const loaded = ref(false)
 
+/** Reset module-level singleton state (call on logout) */
+export function resetPermissions() {
+  permissions.value = null
+  loaded.value = false
+}
+
 export function usePermissions() {
   async function loadPermissions() {
     try {

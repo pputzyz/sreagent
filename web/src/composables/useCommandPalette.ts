@@ -17,6 +17,13 @@ const query = ref('')
 // Registry: actions registered by external composables/components
 const registeredActions = ref<PaletteItem[]>([])
 
+/** Reset module-level singleton state (call on logout) */
+export function resetCommandPalette() {
+  registeredActions.value = []
+  query.value = ''
+  visible.value = false
+}
+
 export function useCommandPalette() {
   const router = useRouter()
   const { t } = useI18n()

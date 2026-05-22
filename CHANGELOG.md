@@ -4,6 +4,78 @@
 
 ---
 
+## [v4.15.17] — 2026-05-22
+
+### 全量代码审查（8 个专业视角 Agent 逐行审查）
+
+8 个不同岗位视角的 Agent 对全仓库进行逐行代码审查：安全工程师（handler）、可靠性工程师（service）、数据工程师（repo/model）、引擎工程师（engine）、前端架构师（Vue 组件）、前端工程师（composable/store/utils）、DevOps（部署/配置）、产品经理（用户体验）。共发现 183 个问题（5 CRITICAL / 39 HIGH / 84 MEDIUM / 55 LOW），本次修复全部 CRITICAL + HIGH + 关键 MEDIUM。
+
+### CRITICAL 修复（5 项）
+
+**部署安全**
+- `Dockerfile`：容器改为非 root 用户运行（`addgroup/adduser` + `USER sreagent`）
+- `entrypoint.sh`：移除弱默认密码，未设置环境变量时直接报错退出
+- `cmd/server/main.go`：admin 密码必须通过 `SREAGENT_ADMIN_PASSWORD` 环境变量提供
+
+**引擎可靠性**
+- `engine/heartbeat_checker.go`：onAlert 使用独立 context，避免 runOnce 返回后 ctx 被 cancel 导致心跳告警通知丢失
+
+**加密安全**
+- `service/alert_rule.go`：`crypto_rand.Read` 错误检查，失败时 panic（心跳令牌不可预测性保障）
+
+### HIGH 修复（39 项）
+
+**安全加固（handler 层）**
+- `handler/smtp_settings.go`：SMTP 邮件头注入防护，拒绝 `\r\n` 输入
+- `handler/alert_event.go`：权限绕过修复，非 admin 不能覆盖 `user_id` 查询参数
+- `handler/ai_agent.go` + `service/ai_agent.go`：越权访问修复，资源所有权校验
+
+**Service 层可靠性（11 项）**
+- 6 处 goroutine 添加 panic recovery（webhook、v2 管道、诊断工作流、去重清理、自动关闭）
+- `diagnostic_workflow.go`：7 处静默丢弃 DB 错误改为日志记录
+- `ai_agent.go`：task 执行失败更新状态 + tool call 记录错误日志
+
+**Engine 层可靠性（6 项）**
+- `evaluator.go`：Stop() 添加 WaitGroup 等待 goroutine 退出
+- `evaluator.go`：Start() 添加 sync.Once 防止重复启动
+- `evaluator.go`：len(e.evaluators) 数据竞争修复
+- 4 处 engine goroutine 添加 panic recovery（rule_eval、evaluator sync loop、heartbeat、escalation）
+
+**数据层（14 项）**
+- `repository/alert_rule.go`：新增 `UpdateVersion` 乐观锁方法
+- `model/alert_rule.go` + `model/alert_event.go` + `model/user.go`：4 个枚举类型添加 `IsValid()` 验证函数
+- `model/alert_rule.go`：`default:enabled` 改为 `default:active` 与枚举常量一致
+- `repository/alert_event.go`：3 处冗余 `deleted_at IS NULL` 移除
+- 迁移 `000064_add_composite_indexes`：添加 incidents 和 alert_events 复合索引
+- 新增 `ErrVersionConflict`（code 10403, HTTP 409）
+
+**前端 Vue 组件（6 项）**
+- `oncall/MyAlerts.vue`：7 处 `any` 类型替换为 `AlertEvent` + PageHeader 组件替换
+- `notification/Center.vue`：删除通知添加二次确认
+- `oncall/EscalationPolicies.vue`：删除升级策略确认逻辑统一到函数内部
+- 5 处空 catch 块添加 `console.warn`
+- `notification/Subscribe.vue`：内联空状态替换为 EmptyState 组件
+
+**前端 Composable/Store/Utils（5 项）**
+- `composables/useVariable.ts`：ReDoS 防护，catch 块输出警告
+- `composables/usePaginatedList.ts`：竞态修复（requestId 计数器）+ total 兜底
+- 4 个 composable 新增 `reset()` 函数（CommandPalette、AIModule、AIChat、Permissions）
+- `stores/auth.ts`：logout() 调用各模块 reset() 清空状态
+- `utils/valueFormatter.ts`：formatBytes 边界 bug 修复（i < 0）
+
+### MEDIUM 修复（部分关键项）
+
+- `incident_aggregator.go`：DB 错误与"无数据"区分（区分 RecordNotFound）
+- `ai.go`：LLM 重试添加指数退避
+- `notification.go`：FindMatchingRules 失败返回错误
+- `alert_v2_pipeline.go`：Create 失败返回 error
+
+### 迁移文件
+
+- `000064_add_composite_indexes.up.sql` / `000064_add_composite_indexes.down.sql`
+
+---
+
 ## [v4.15.16] — 2026-05-22
 
 ### golangci-lint 12 项修复

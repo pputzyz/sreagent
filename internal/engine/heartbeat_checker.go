@@ -69,6 +69,11 @@ func (h *HeartbeatChecker) SetLeaderElection(le LeaderElection) {
 func (h *HeartbeatChecker) Start() {
 	h.startOnce.Do(func() {
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					h.logger.Error("heartbeat checker goroutine panic recovered", zap.Any("recover", r))
+				}
+			}()
 			ticker := time.NewTicker(h.interval)
 			defer ticker.Stop()
 			h.logger.Info("heartbeat checker started", zap.Duration("interval", h.interval))
@@ -268,8 +273,21 @@ func (h *HeartbeatChecker) fireHeartbeatAlert(ctx context.Context, rule *model.A
 	h.recordTimeline(ctx, event.ID, "Heartbeat alert fired — ping timeout exceeded")
 
 	// Invoke notification callback asynchronously to avoid blocking the heartbeat loop.
+	// Use an independent context because the caller's ctx is cancelled after runOnce returns.
 	if h.onAlert != nil {
-		go h.onAlert(ctx, event)
+		notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		go func() {
+			defer notifyCancel()
+			defer func() {
+				if r := recover(); r != nil {
+					h.logger.Error("heartbeat: onAlert panic recovered",
+						zap.Any("recover", r),
+						zap.Uint("event_id", event.ID),
+					)
+				}
+			}()
+			h.onAlert(notifyCtx, event)
+		}()
 	}
 }
 

@@ -56,7 +56,10 @@ export function useVariable(
         try {
           const re = new RegExp(state.config.regex)
           opts = opts.filter(o => re.test(o))
-        } catch { /* ignore invalid regex */ }
+        } catch (e) {
+          console.warn('[useVariable] invalid regex, skipping filter:', state.config.regex, e)
+          // Return unfiltered opts on regex failure
+        }
       }
       // Apply sort
       if (state.config.sort === 'asc') opts.sort()

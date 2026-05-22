@@ -35,7 +35,11 @@ export function usePaginatedList<T, P = Record<string, unknown>>(
   const page = ref(1)
   const pageSize = ref(options.pageSize ?? 20)
 
+  // Incrementing request ID to discard stale responses on rapid page changes
+  let requestId = 0
+
   async function fetchList() {
+    const id = ++requestId
     loading.value = true
     try {
       const extra = options.extraParams ? options.extraParams() : {}
@@ -45,16 +49,18 @@ export function usePaginatedList<T, P = Record<string, unknown>>(
         page_size: pageSize.value,
       } as P & { page: number; page_size: number }
       const { data } = await options.apiFn(params)
+      if (id !== requestId) return // stale response, discard
       items.value = data.data.list || []
-      total.value = data.data.total
+      total.value = data.data.total ?? 0
     } catch (err: unknown) {
+      if (id !== requestId) return // stale response, discard
       if (options.onError) {
         options.onError(err)
       } else {
         console.error('usePaginatedList fetch error:', err)
       }
     } finally {
-      loading.value = false
+      if (id === requestId) loading.value = false
     }
   }
 

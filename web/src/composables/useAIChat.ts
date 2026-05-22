@@ -6,6 +6,13 @@ import type { ChatMessage } from '@/types'
 
 export type ChatMode = 'alert' | 'general'
 
+/** Reset module-level singleton state (call on logout) */
+export function resetAIChat() {
+  // Note: useAIChat uses instance-level state (inside the composable function),
+  // so there are no module-level singletons to reset here.
+  // This is a no-op export for consistent API surface.
+}
+
 export function useAIChat() {
   const { t } = useI18n()
   const messages = ref<ChatMessage[]>([])

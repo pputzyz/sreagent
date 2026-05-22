@@ -18,6 +18,16 @@ import (
 
 // Run is the main loop for a single rule evaluator.
 func (re *RuleEvaluator) Run() {
+	defer func() {
+		if r := recover(); r != nil {
+			re.logger.Error("rule evaluator Run() panic recovered",
+				zap.Any("recover", r),
+				zap.Uint("rule_id", re.rule.ID),
+				zap.String("rule_name", re.rule.Name),
+			)
+		}
+	}()
+
 	// Parse evaluation interval from rule (default 60s)
 	interval := time.Duration(re.rule.EvalInterval) * time.Second
 	if interval <= 0 {

@@ -14,6 +14,16 @@ const (
 	EventStatusClosed       AlertEventStatus = "closed"
 )
 
+// IsValid returns true if the status is a recognized value.
+func (s AlertEventStatus) IsValid() bool {
+	switch s {
+	case EventStatusFiring, EventStatusAcknowledged, EventStatusAssigned,
+		EventStatusSilenced, EventStatusResolved, EventStatusClosed:
+		return true
+	}
+	return false
+}
+
 // AlertEvent represents an instance of an alert firing.
 type AlertEvent struct {
 	BaseModel

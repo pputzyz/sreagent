@@ -194,7 +194,9 @@ type Evaluator struct {
 	syncInterval time.Duration
 	perDS        sync.Map           // map[uint]*PerDatasourceEvaluator, key is datasourceID
 	perDSEval    bool               // feature flag: per-datasource bucket evaluation
-	leader       LeaderElection     // optional; nil = single-instance mode (no election)
+	leader     LeaderElection // optional; nil = single-instance mode (no election)
+	startOnce  sync.Once
+	wg         sync.WaitGroup
 
 	// Firing events TTL cache — reduces lock contention for high-frequency callers.
 	firingCache    []*AlertState
@@ -319,47 +321,56 @@ func (e *Evaluator) SetWorkerPool(p AlertWorkerPoolSubmiter) {
 // 2. Start a goroutine for each rule
 // 3. Periodically sync rules from DB (detect new/deleted/changed rules)
 func (e *Evaluator) Start() {
-	e.ctx, e.cancel = context.WithCancel(context.Background())
-	e.startedAt = time.Now()
-	e.logger.Info("starting alert evaluator")
+	e.startOnce.Do(func() {
+		e.ctx, e.cancel = context.WithCancel(context.Background())
+		e.startedAt = time.Now()
+		e.logger.Info("starting alert evaluator")
 
-	// Start level suppressor GC
-	e.suppressor.SetLogger(e.logger)
-	e.suppressor.Start()
+		// Start level suppressor GC
+		e.suppressor.SetLogger(e.logger)
+		e.suppressor.Start()
 
-	// Leader election: try to acquire and start renewal
-	if e.leader != nil {
-		acquired := e.leader.TryAcquire(e.ctx)
-		e.leader.Start(e.ctx)
-		if !acquired {
-			e.logger.Info("evaluator waiting for leadership (standby mode)")
+		// Leader election: try to acquire and start renewal
+		if e.leader != nil {
+			acquired := e.leader.TryAcquire(e.ctx)
+			e.leader.Start(e.ctx)
+			if !acquired {
+				e.logger.Info("evaluator waiting for leadership (standby mode)")
+			} else {
+				e.syncRules()
+			}
 		} else {
+			// Single-instance mode — no election needed
 			e.syncRules()
 		}
-	} else {
-		// Single-instance mode — no election needed
-		e.syncRules()
-	}
 
-	// Periodic sync loop
-	go func() {
-		ticker := time.NewTicker(e.syncInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if e.leader != nil && !e.leader.IsLeader() {
-					// Not leader — stop any running evaluators and skip sync
-					e.stopAllEvaluators()
-					continue
+		// Periodic sync loop
+		e.wg.Add(1)
+		go func() {
+			defer e.wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					e.logger.Error("evaluator sync loop panic recovered", zap.Any("recover", r))
 				}
-				e.syncRules()
-			case <-e.stopCh:
-				return
+			}()
+			ticker := time.NewTicker(e.syncInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					if e.leader != nil && !e.leader.IsLeader() {
+						// Not leader — stop any running evaluators and skip sync
+						e.stopAllEvaluators()
+						continue
+					}
+					e.syncRules()
+				case <-e.stopCh:
+					return
+				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // Stop gracefully stops all evaluators.
@@ -400,6 +411,9 @@ func (e *Evaluator) Stop() {
 		v.(*PerDatasourceEvaluator).Stop()
 		return true
 	})
+
+	// Wait for background goroutines (e.g. sync loop) to exit
+	e.wg.Wait()
 
 	e.logger.Info("alert evaluator stopped")
 }
@@ -471,19 +485,27 @@ func (e *Evaluator) syncRules() {
 				toStop = append(toStop, ruleID)
 			}
 		}
+		evaluatorCount := len(e.evaluators)
 		e.mu.RUnlock()
 
 		for _, ruleID := range toStop {
 			e.logger.Info("stopping evaluator for removed/disabled rule", zap.Uint("rule_id", ruleID))
 			e.stopRuleEvaluator(ruleID)
 		}
+
+		e.invalidateFiringCache()
+
+		e.logger.Debug("rule sync completed",
+			zap.Int("active_rules", len(rules)),
+			zap.Int("evaluators", evaluatorCount),
+		)
+		return
 	}
 
 	e.invalidateFiringCache()
 
 	e.logger.Debug("rule sync completed",
 		zap.Int("active_rules", len(rules)),
-		zap.Int("evaluators", len(e.evaluators)),
 	)
 }
 

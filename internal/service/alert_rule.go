@@ -35,7 +35,9 @@ var _ AlertRuleOperator = (*AlertRuleService)(nil)
 // encoded as a URL-safe base64 string (n bytes of entropy).
 func generateSecureToken(n int) string {
 	b := make([]byte, n)
-	_, _ = crypto_rand.Read(b)
+	if _, err := crypto_rand.Read(b); err != nil {
+		panic("crypto/rand unavailable: " + err.Error())
+	}
 	return base64.URLEncoding.EncodeToString(b)
 }
 
@@ -207,11 +209,18 @@ func (s *AlertRuleService) Update(ctx context.Context, rule *model.AlertRule) er
 	existing.HeartbeatToken = rule.HeartbeatToken
 	existing.HeartbeatInterval = rule.HeartbeatInterval
 	existing.AckSlaMinutes = rule.AckSlaMinutes
+
+	oldVersion := existing.Version
 	existing.Version++
 
-	if err := s.repo.Update(ctx, existing); err != nil {
+	ok, err := s.repo.UpdateVersion(ctx, existing, oldVersion)
+	if err != nil {
 		s.logger.Error("failed to update alert rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if !ok {
+		s.logger.Warn("version conflict on alert rule update", zap.Uint("rule_id", existing.ID), zap.Int("expected_version", oldVersion))
+		return apperr.ErrVersionConflict
 	}
 
 	s.recordHistory(ctx, existing, "updated")
@@ -260,10 +269,16 @@ func (s *AlertRuleService) UpdateStatus(ctx context.Context, id uint, status mod
 		return apperr.ErrRuleNotFound
 	}
 
+	oldVersion := rule.Version
 	rule.Status = status
 	rule.Version++
-	if err := s.repo.Update(ctx, rule); err != nil {
+
+	ok, err := s.repo.UpdateVersion(ctx, rule, oldVersion)
+	if err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if !ok {
+		return apperr.ErrVersionConflict
 	}
 
 	s.recordHistory(ctx, rule, "updated")

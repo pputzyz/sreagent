@@ -10,6 +10,7 @@ import type { CrudApiModule } from '@/composables/useCrudPage'
 import { AddOutline, SearchOutline, NotificationsOutline } from '@vicons/ionicons5'
 import LabelMatcherEditor from '@/components/common/LabelMatcherEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import type { LabelMatcher } from '@/components/common/LabelMatcherEditor.vue'
 
 const message = useMessage()
@@ -196,11 +197,13 @@ onMounted(() => { fetchList(); fetchRefData() })
 
     <div v-if="loading" class="loading">{{ t('common.loading') }}...</div>
 
-    <div v-else-if="filtered.length === 0" class="empty">
-      <n-icon :component="NotificationsOutline" size="36" />
-      <div class="empty-text">{{ t('subscribe.noData') }}</div>
-      <n-button type="primary" size="small" @click="openCreate">{{ t('subscribe.create') }}</n-button>
-    </div>
+    <EmptyState
+      v-else-if="filtered.length === 0"
+      :icon="NotificationsOutline"
+      :title="t('subscribe.noData')"
+      :primary-text="t('subscribe.create')"
+      @primary="openCreate"
+    />
 
     <ul v-else class="row-list sre-stagger">
       <li v-for="s in filtered" :key="s.id" class="sre-notify-card sre-lift">

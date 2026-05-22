@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -120,6 +121,11 @@ func (p *AlertV2Pipeline) WrapOnAlert(
 		case p.dispatchSem <- struct{}{}:
 			go func() {
 				defer func() { <-p.dispatchSem }()
+				defer func() {
+					if r := recover(); r != nil {
+						p.logger.Error("alert_v2_pipeline: panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+					}
+				}()
 				pipeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 				defer cancel()
 				if err := p.process(pipeCtx, event); err != nil {

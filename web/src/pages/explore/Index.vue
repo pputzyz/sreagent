@@ -280,7 +280,7 @@ async function loadDs() {
     const res = await datasourceApi.list({ page: 1, page_size: 100 })
     const list = res.data?.data?.list
     datasources.value = (Array.isArray(list) ? list : []).filter((d: DataSource) => d.is_enabled)
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[Explore] Failed to load datasources:', e) }
 }
 
 async function run() {

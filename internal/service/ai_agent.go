@@ -18,6 +18,7 @@ import (
 // AgentTask 表示一个 Agent 任务
 type AgentTask struct {
 	ID             string      `json:"id"`
+	UserID         uint        `json:"user_id"`
 	ConversationID uint        `json:"conversation_id,omitempty"`
 	Query          string      `json:"query"`
 	Status         string      `json:"status"` // planning, executing, completed, failed
@@ -113,6 +114,7 @@ type planStep struct {
 func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string) (*AgentTask, error) {
 	task := &AgentTask{
 		ID:        uuid.New().String(),
+		UserID:    userID,
 		Query:     query,
 		Status:    "planning",
 		Steps:     nil,
@@ -149,7 +151,18 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 		}()
 		bgCtx, cancel := context.WithTimeout(context.Background(), agentTotalTimeout)
 		defer cancel()
-		_, _ = s.runTask(bgCtx, task)
+		if _, err := s.runTask(bgCtx, task); err != nil {
+			s.logger.Error("agent task failed",
+				zap.String("task_id", task.ID),
+				zap.Error(err),
+			)
+			s.mu.Lock()
+			task.Status = "failed"
+			task.Error = err.Error()
+			now := time.Now()
+			task.CompletedAt = &now
+			s.mu.Unlock()
+		}
 	}()
 
 	s.logger.Info("Agent 任务已启动", zap.String("id", task.ID), zap.String("query", query))
@@ -160,6 +173,7 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 func (s *AgentService) RunAgent(ctx context.Context, userID uint, query string) (*AgentTask, error) {
 	task := &AgentTask{
 		ID:        uuid.New().String(),
+		UserID:    userID,
 		Query:     query,
 		Status:    "planning",
 		Steps:     nil,
@@ -408,12 +422,14 @@ func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *A
 	if err != nil {
 		// 更新调用记录状态
 		if callID > 0 {
-			_ = s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
+			if updateErr := s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
 				ID:       callID,
 				Status:   "failed",
 				Error:    err.Error(),
 				DurationMs: step.Duration,
-			})
+			}); updateErr != nil {
+				s.logger.Error("failed to update tool call status to failed", zap.Uint("call_id", callID), zap.Error(updateErr))
+			}
 		}
 		return fmt.Errorf("工具 %q 执行失败: %w", step.Tool, err)
 	}
@@ -421,12 +437,14 @@ func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *A
 
 	// 更新调用记录
 	if callID > 0 {
-		_ = s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
+		if updateErr := s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
 			ID:         callID,
 			Result:     truncateString(result, 5000),
 			Status:     "completed",
 			DurationMs: step.Duration,
-		})
+		}); updateErr != nil {
+			s.logger.Error("failed to update tool call status to completed", zap.Uint("call_id", callID), zap.Error(updateErr))
+		}
 	}
 	return nil
 }

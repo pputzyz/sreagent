@@ -118,6 +118,50 @@ func (r *AlertRuleRepository) Update(ctx context.Context, rule *model.AlertRule)
 	return r.db.WithContext(ctx).Save(rule).Error
 }
 
+// UpdateVersion performs an optimistic-lock update: the row is only updated when
+// the current version in the database equals oldVersion. On success the version
+// column is atomically incremented by 1. Returns (true, nil) if the update
+// succeeded, (false, nil) if the version didn't match (conflict), or (false, err)
+// on DB errors.
+func (r *AlertRuleRepository) UpdateVersion(ctx context.Context, rule *model.AlertRule, oldVersion int) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Model(rule).
+		Where("id = ? AND version = ?", rule.ID, oldVersion).
+		Updates(map[string]interface{}{
+			"name":                  rule.Name,
+			"display_name":          rule.DisplayName,
+			"description":           rule.Description,
+			"datasource_id":         rule.DataSourceID,
+			"datasource_type":       rule.DatasourceType,
+			"expression":            rule.Expression,
+			"for_duration":          rule.ForDuration,
+			"severity":              rule.Severity,
+			"labels":                rule.Labels,
+			"annotations":           rule.Annotations,
+			"group_name":            rule.GroupName,
+			"category":              rule.Category,
+			"group_wait_seconds":    rule.GroupWaitSeconds,
+			"group_interval_seconds": rule.GroupIntervalSeconds,
+			"updated_by":            rule.UpdatedBy,
+			"eval_interval":         rule.EvalInterval,
+			"recovery_hold":         rule.RecoveryHold,
+			"nodata_enabled":        rule.NoDataEnabled,
+			"nodata_duration":       rule.NoDataDuration,
+			"suppress_enabled":      rule.SuppressEnabled,
+			"biz_group_id":          rule.BizGroupID,
+			"rule_type":             rule.RuleType,
+			"heartbeat_token":       rule.HeartbeatToken,
+			"heartbeat_interval":    rule.HeartbeatInterval,
+			"ack_sla_minutes":       rule.AckSlaMinutes,
+			"status":                rule.Status,
+			"version":               gorm.Expr("version + 1"),
+		})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
 func (r *AlertRuleRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.AlertRule{}, id).Error
 }

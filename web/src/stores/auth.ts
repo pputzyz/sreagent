@@ -2,6 +2,10 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
+import { resetCommandPalette } from '@/composables/useCommandPalette'
+import { resetAIModule } from '@/composables/useAIModule'
+import { resetAIChat } from '@/composables/useAIChat'
+import { resetPermissions } from '@/composables/usePermissions'
 import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -54,6 +58,11 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('user_role')
+    // Reset module-level singleton state in composables
+    resetCommandPalette()
+    resetAIModule()
+    resetAIChat()
+    resetPermissions()
   }
 
   return {

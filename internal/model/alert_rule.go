@@ -21,6 +21,16 @@ const (
 	SeverityP4 AlertSeverity = "p4"
 )
 
+// IsValid returns true if the severity is a recognized value.
+func (s AlertSeverity) IsValid() bool {
+	switch s {
+	case SeverityCritical, SeverityWarning, SeverityInfo,
+		SeverityP0, SeverityP1, SeverityP2, SeverityP3, SeverityP4:
+		return true
+	}
+	return false
+}
+
 // AlertRuleStatus defines the status of an alert rule.
 // - draft: AI-generated rule, not yet activated by the user.
 // - active: actively evaluating.
@@ -32,6 +42,15 @@ const (
 	RuleStatusActive   AlertRuleStatus = "active"
 	RuleStatusDisabled AlertRuleStatus = "disabled"
 )
+
+// IsValid returns true if the status is a recognized value.
+func (s AlertRuleStatus) IsValid() bool {
+	switch s {
+	case RuleStatusDraft, RuleStatusActive, RuleStatusDisabled:
+		return true
+	}
+	return false
+}
 
 // AlertRuleType identifies the evaluation strategy for a rule.
 type AlertRuleType string
@@ -60,7 +79,7 @@ type AlertRule struct {
 	Severity    AlertSeverity   `json:"severity" gorm:"size:32;not null;index"`
 	Labels      JSONLabels      `json:"labels" gorm:"type:json"`
 	Annotations JSONLabels      `json:"annotations" gorm:"type:json"` // summary, description templates
-	Status      AlertRuleStatus `json:"status" gorm:"size:32;default:enabled;index"`
+	Status      AlertRuleStatus `json:"status" gorm:"size:32;default:active;index"`
 	// Grouping
 	GroupName string `json:"group_name" gorm:"size:128;index"`
 	Category  string `json:"category" gorm:"size:64;index;default:''"`

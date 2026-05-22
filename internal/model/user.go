@@ -11,6 +11,15 @@ const (
 	RoleGlobalViewer Role = "global_viewer" // can view all alerts but not manage
 )
 
+// IsValid returns true if the role is a recognized value.
+func (r Role) IsValid() bool {
+	switch r {
+	case RoleAdmin, RoleTeamLead, RoleMember, RoleViewer, RoleGlobalViewer:
+		return true
+	}
+	return false
+}
+
 // UserType distinguishes human users from non-human entities.
 type UserType string
 

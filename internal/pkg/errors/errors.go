@@ -90,6 +90,7 @@ var (
 	ErrConflict          = &AppError{Code: 10400, Message: "resource already exists"}
 	ErrDuplicateName     = &AppError{Code: 10401, Message: "name already taken"}
 	ErrInvalidTransition = &AppError{Code: 10402, Message: "invalid state transition"}
+	ErrVersionConflict   = &AppError{Code: 10403, Message: "version conflict, resource was modified by another request"}
 
 	// 50000+: Internal errors
 	ErrInternal    = &AppError{Code: 50000, Message: "internal server error"}

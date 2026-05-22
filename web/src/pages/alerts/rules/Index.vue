@@ -174,7 +174,7 @@ async function fetchCategories() {
   try {
     const { data } = await alertRuleApi.listCategories()
     categories.value = data.data || []
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[AlertRules] Failed to fetch categories:', e) }
 }
 
 function handleCategoryChange(cat: string) {
@@ -186,7 +186,7 @@ async function fetchDatasources() {
   try {
     const { data } = await datasourceApi.list({ page: 1, page_size: 100 })
     datasources.value = data.data.list || []
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[AlertRules] Failed to fetch datasources:', e) }
 }
 
 // ─── Batch operations ───

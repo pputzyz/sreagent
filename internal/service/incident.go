@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"go.uber.org/zap"
@@ -471,6 +472,11 @@ func (s *IncidentService) CloseExpiredIncidents(ctx context.Context) {
 // timed-out incidents. It stops when ctx is cancelled.
 func (s *IncidentService) StartAutoCloseWorker(ctx context.Context) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("incident auto-close worker panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+			}
+		}()
 		ticker := time.NewTicker(incidentAutoCloseInterval)
 		defer ticker.Stop()
 		s.logger.Info("incident auto-close worker started",

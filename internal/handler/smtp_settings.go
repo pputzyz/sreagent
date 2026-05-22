@@ -4,12 +4,45 @@ import (
 	"fmt"
 	"net/smtp"
 	"strings"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/service"
 )
+
+// containsNewline returns true if s contains CR or LF characters,
+// which could be used for email header injection.
+func containsNewline(s string) bool {
+	return strings.ContainsAny(s, "\r\n")
+}
+
+// stripNewlines removes all CR and LF characters from s.
+func stripNewlines(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\r' || r == '\n' {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// sanitizeStringFields removes non-printable control characters (except common whitespace)
+// and strips \r\n to prevent header injection when the value is used in email headers.
+func sanitizeEmailField(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r == '\r' || r == '\n' {
+			continue // strip CR/LF
+		}
+		if unicode.IsControl(r) && r != '\t' {
+			continue // strip other control chars except tab
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
 
 // SMTPSettingsHandler manages global SMTP configuration.
 type SMTPSettingsHandler struct {
@@ -42,6 +75,17 @@ func (h *SMTPSettingsHandler) UpdateConfig(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	// Prevent email header injection: reject fields containing \r\n
+	if containsNewline(req.From) || containsNewline(req.SMTPHost) || containsNewline(req.Username) {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "SMTP fields must not contain newline characters"))
+		return
+	}
+	// Sanitize fields to strip any remaining control characters
+	req.From = sanitizeEmailField(req.From)
+	req.SMTPHost = sanitizeEmailField(req.SMTPHost)
+	req.Username = sanitizeEmailField(req.Username)
+
 	if req.Password == "********" {
 		req.Password = ""
 	}
@@ -62,6 +106,13 @@ func (h *SMTPSettingsHandler) TestConnection(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+
+	// Prevent email header injection via the "To" field
+	if containsNewline(req.To) {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "recipient address must not contain newline characters"))
+		return
+	}
+	req.To = sanitizeEmailField(req.To)
 
 	cfg, err := h.svc.GetSMTPConfig(c.Request.Context())
 	if err != nil {

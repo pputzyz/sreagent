@@ -245,13 +245,10 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 		return
 	}
 
+	// SREAGENT_ADMIN_PASSWORD is mandatory — no weak fallback passwords allowed.
 	defaultPwd := os.Getenv("SREAGENT_ADMIN_PASSWORD")
 	if defaultPwd == "" {
-		if os.Getenv("GIN_MODE") == "release" {
-			logger.Fatal("SREAGENT_ADMIN_PASSWORD must be set in release mode")
-		}
-		defaultPwd = "admin123"
-		logger.Warn("SREAGENT_ADMIN_PASSWORD not set, using default password — change it immediately after first login")
+		logger.Fatal("SREAGENT_ADMIN_PASSWORD environment variable must be set")
 	}
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(defaultPwd), bcrypt.DefaultCost)
 	if err != nil {

@@ -1,8 +1,11 @@
 package service
 
 import (
+	"runtime/debug"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // notifDedup is a lightweight in-memory dedup cache that prevents the same
@@ -26,6 +29,11 @@ func newNotifDedup() *notifDedup {
 
 // cleanup periodically removes expired entries to bound memory usage.
 func (d *notifDedup) cleanup() {
+	defer func() {
+		if r := recover(); r != nil {
+			zap.L().Error("notifDedup cleanup panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+		}
+	}()
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {

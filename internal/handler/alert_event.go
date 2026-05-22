@@ -46,14 +46,21 @@ func (h *AlertEventHandler) List(c *gin.Context) {
 		PageSize: pq.PageSize,
 	}
 
-	// user_id param overrides current user (admin use); default to current user
-	if uidStr := c.Query("user_id"); uidStr != "" {
-		if uid, err := strconv.ParseUint(uidStr, 10, 64); err == nil {
-			filter.UserID = uint(uid)
+	// user_id param overrides current user (admin use); default to current user.
+	// Non-admin users can only query their own data — silently ignore user_id param.
+	currentUserID := GetCurrentUserID(c)
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == "admin"
+
+	if isAdmin {
+		if uidStr := c.Query("user_id"); uidStr != "" {
+			if uid, err := strconv.ParseUint(uidStr, 10, 64); err == nil {
+				filter.UserID = uint(uid)
+			}
 		}
 	}
 	if filter.UserID == 0 {
-		filter.UserID = GetCurrentUserID(c)
+		filter.UserID = currentUserID
 	}
 
 	list, total, err := h.svc.ListWithFilter(c.Request.Context(), filter)
@@ -383,10 +390,20 @@ func (h *AlertEventHandler) Export(c *gin.Context) {
 		Page:     1,
 		PageSize: 10000, // cap at 10k rows
 	}
-	if uidStr := c.Query("user_id"); uidStr != "" {
-		if uid, err := strconv.ParseUint(uidStr, 10, 64); err == nil {
-			filter.UserID = uint(uid)
+	// user_id param: only admins can export other users' data
+	currentUserID := GetCurrentUserID(c)
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == "admin"
+
+	if isAdmin {
+		if uidStr := c.Query("user_id"); uidStr != "" {
+			if uid, err := strconv.ParseUint(uidStr, 10, 64); err == nil {
+				filter.UserID = uint(uid)
+			}
 		}
+	}
+	if filter.UserID == 0 {
+		filter.UserID = currentUserID
 	}
 	filter.ViewMode = c.DefaultQuery("view_mode", "all")
 

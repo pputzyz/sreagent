@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -70,6 +71,15 @@ func (h *AgentHandler) GetAgentTask(c *gin.Context) {
 		return
 	}
 
+	// Ownership check: only the task creator or admin can view the task
+	currentUserID := GetCurrentUserID(c)
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == string(model.RoleAdmin)
+	if task.UserID != currentUserID && !isAdmin {
+		Error(c, apperr.WithMessage(apperr.ErrForbidden, "无权访问该任务"))
+		return
+	}
+
 	Success(c, task)
 }
 
@@ -115,6 +125,15 @@ func (h *AgentHandler) GetConversation(c *gin.Context) {
 		return
 	}
 
+	// Ownership check: only the conversation creator or admin can view it
+	currentUserID := GetCurrentUserID(c)
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == string(model.RoleAdmin)
+	if conv.UserID != currentUserID && !isAdmin {
+		Error(c, apperr.ErrForbidden)
+		return
+	}
+
 	Success(c, conv)
 }
 
@@ -129,6 +148,21 @@ func (h *AgentHandler) DeleteConversation(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
+		return
+	}
+
+	// Ownership check: fetch conversation first to verify ownership
+	conv, err := h.agentSvc.GetConversation(c.Request.Context(), uint(id))
+	if err != nil {
+		Error(c, apperr.ErrNotFound)
+		return
+	}
+
+	currentUserID := GetCurrentUserID(c)
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == string(model.RoleAdmin)
+	if conv.UserID != currentUserID && !isAdmin {
+		Error(c, apperr.ErrForbidden)
 		return
 	}
 
@@ -151,6 +185,21 @@ func (h *AgentHandler) ListToolCalls(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
+		return
+	}
+
+	// Ownership check: verify the conversation belongs to the current user
+	conv, err := h.agentSvc.GetConversation(c.Request.Context(), uint(id))
+	if err != nil {
+		Error(c, apperr.ErrNotFound)
+		return
+	}
+
+	currentUserID := GetCurrentUserID(c)
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == string(model.RoleAdmin)
+	if conv.UserID != currentUserID && !isAdmin {
+		Error(c, apperr.ErrForbidden)
 		return
 	}
 

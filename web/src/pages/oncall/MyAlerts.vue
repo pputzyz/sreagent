@@ -1,7 +1,7 @@
 <template>
   <div class="my-alerts-page">
-    <n-page-header :title="t('myAlerts.title')" :subtitle="t('myAlerts.subtitle')">
-      <template #extra>
+    <PageHeader :title="t('myAlerts.title')" :subtitle="t('myAlerts.subtitle')">
+      <template #actions>
         <n-space>
           <n-radio-group v-model:value="filter" size="small">
             <n-radio-button value="firing">{{ t('myAlerts.pending') }}</n-radio-button>
@@ -12,7 +12,7 @@
           <n-button @click="refresh" :loading="loading">{{ t('myAlerts.refresh') }}</n-button>
         </n-space>
       </template>
-    </n-page-header>
+    </PageHeader>
 
     <n-divider />
 
@@ -43,7 +43,7 @@
 
           <n-thing
             :title="alert.alert_name"
-            :description="alert.summary || ''"
+            :description="alert.annotations?.summary || alert.annotations?.description || ''"
           >
             <template #header-extra>
               <n-text depth="3">{{ formatTime(alert.fired_at) }}</n-text>
@@ -82,13 +82,15 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { alertEventApi } from '@/api/alert'
+import type { AlertEvent, AlertEventFilter } from '@/types'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const router = useRouter()
 const message = useMessage()
 const { t } = useI18n()
 
 const filter = ref<string>('firing')
-const alerts = ref<any[]>([])
+const alerts = ref<AlertEvent[]>([])
 const loading = ref(false)
 const loadError = ref(false)
 
@@ -116,9 +118,9 @@ async function refresh() {
   loading.value = true
   loadError.value = false
   try {
-    const params: any = { view_mode: 'mine', page_size: 100 }
+    const params: AlertEventFilter = { view_mode: 'mine', page: 1, page_size: 100 }
     if (filter.value !== 'all') {
-      params.status = filter.value
+      params.status = [filter.value]
     }
     const r = await alertEventApi.list(params)
     alerts.value = r.data?.data?.list || []
@@ -129,7 +131,7 @@ async function refresh() {
   }
 }
 
-async function handleAck(alert: any) {
+async function handleAck(alert: AlertEvent) {
   try {
     await alertEventApi.acknowledge(alert.id)
     message.success(t('myAlerts.ackedSuccess'))
@@ -139,7 +141,7 @@ async function handleAck(alert: any) {
   }
 }
 
-async function handleResolve(alert: any) {
+async function handleResolve(alert: AlertEvent) {
   try {
     await alertEventApi.resolve(alert.id)
     message.success(t('myAlerts.resolvedSuccess'))
@@ -149,16 +151,18 @@ async function handleResolve(alert: any) {
   }
 }
 
-function goDetail(alert: any) {
+function goDetail(alert: AlertEvent) {
   router.push(`/alert/events/${alert.id}`)
 }
 
 function severityType(sev: string) {
-  return ({ critical: 'error', warning: 'warning', info: 'info' } as any)[sev] || 'default'
+  const map: Record<string, 'error' | 'warning' | 'info' | 'default'> = { critical: 'error', warning: 'warning', info: 'info' }
+  return map[sev] || 'default'
 }
 
 function statusType(status: string) {
-  return ({ firing: 'error', assigned: 'warning', acknowledged: 'info', resolved: 'success', closed: 'default' } as any)[status] || 'default'
+  const map: Record<string, 'error' | 'warning' | 'info' | 'default'> = { firing: 'error', assigned: 'warning', acknowledged: 'info', resolved: 'default', closed: 'default' }
+  return map[status] || 'default'
 }
 
 function formatTime(timeStr: string) {

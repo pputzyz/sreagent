@@ -50,6 +50,12 @@ COPY deploy/docker/entrypoint.sh                    ./entrypoint.sh
 RUN mkdir -p logs \
     && chmod +x ./sreagent ./entrypoint.sh
 
+# Run as non-root user for security
+RUN addgroup -S sreagent && adduser -S sreagent -G sreagent \
+    && chown -R sreagent:sreagent /app
+
+USER sreagent
+
 EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint.sh"]

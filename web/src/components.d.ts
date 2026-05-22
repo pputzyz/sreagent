@@ -50,7 +50,6 @@ declare module 'vue' {
     NListItem: typeof import('naive-ui')['NListItem']
     NModal: typeof import('naive-ui')['NModal']
     NotificationBell: typeof import('./components/common/NotificationBell.vue')['default']
-    NPageHeader: typeof import('naive-ui')['NPageHeader']
     NPagination: typeof import('naive-ui')['NPagination']
     NPopconfirm: typeof import('naive-ui')['NPopconfirm']
     NRadio: typeof import('naive-ui')['NRadio']

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"go.uber.org/zap"
@@ -86,6 +87,11 @@ func (s *DiagnosticWorkflowService) StartRun(ctx context.Context, workflowID uin
 	runCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	go func() {
 		defer cancel()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("diagnostic workflow panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+			}
+		}()
 		s.executeRun(runCtx, run, wf)
 	}()
 
@@ -118,13 +124,17 @@ func (s *DiagnosticWorkflowService) executeRun(ctx context.Context, run *model.D
 		run.ResultSummary = fmt.Sprintf("加载步骤失败: %v", err)
 		now := time.Now()
 		run.CompletedAt = &now
-		_ = s.repo.UpdateRun(ctx, run)
+		if updateErr := s.repo.UpdateRun(ctx, run); updateErr != nil {
+			s.logger.Error("failed to update run status to failed", zap.Uint("run_id", run.ID), zap.Error(updateErr))
+		}
 		return
 	}
 
 	for i, step := range steps {
 		run.CurrentStep = i + 1
-		_ = s.repo.UpdateRun(ctx, run)
+		if err := s.repo.UpdateRun(ctx, run); err != nil {
+			s.logger.Error("failed to update run current step", zap.Uint("run_id", run.ID), zap.Error(err))
+		}
 
 		runStep := &model.DiagnosticRunStep{
 			RunID:      run.ID,
@@ -136,7 +146,9 @@ func (s *DiagnosticWorkflowService) executeRun(ctx context.Context, run *model.D
 		}
 		stepStart := time.Now()
 		runStep.StartedAt = &stepStart
-		_ = s.repo.CreateRunStep(ctx, runStep)
+		if err := s.repo.CreateRunStep(ctx, runStep); err != nil {
+			s.logger.Error("failed to create run step", zap.Uint("run_id", run.ID), zap.String("step_name", step.Name), zap.Error(err))
+		}
 
 		result, execErr := s.executeStep(ctx, &step)
 		stepEnd := time.Now()
@@ -146,14 +158,18 @@ func (s *DiagnosticWorkflowService) executeRun(ctx context.Context, run *model.D
 		if execErr != nil {
 			runStep.Status = "failed"
 			runStep.Error = execErr.Error()
-			_ = s.repo.UpdateRunStep(ctx, runStep)
+			if err := s.repo.UpdateRunStep(ctx, runStep); err != nil {
+				s.logger.Error("failed to update run step to failed", zap.Uint("run_id", run.ID), zap.String("step_name", step.Name), zap.Error(err))
+			}
 
 			if step.OnFailure == "abort" {
 				run.Status = "failed"
 				run.ResultSummary = fmt.Sprintf("步骤 %q 失败，已中止: %v", step.Name, execErr)
 				now := time.Now()
 				run.CompletedAt = &now
-				_ = s.repo.UpdateRun(ctx, run)
+				if err := s.repo.UpdateRun(ctx, run); err != nil {
+					s.logger.Error("failed to update run status to failed on abort", zap.Uint("run_id", run.ID), zap.Error(err))
+				}
 				return
 			}
 			// continue on failure
@@ -162,14 +178,18 @@ func (s *DiagnosticWorkflowService) executeRun(ctx context.Context, run *model.D
 
 		runStep.Result = truncateString(result, 5000)
 		runStep.Status = "completed"
-		_ = s.repo.UpdateRunStep(ctx, runStep)
+		if err := s.repo.UpdateRunStep(ctx, runStep); err != nil {
+			s.logger.Error("failed to update run step to completed", zap.Uint("run_id", run.ID), zap.String("step_name", step.Name), zap.Error(err))
+		}
 	}
 
 	run.Status = "completed"
 	run.ResultSummary = fmt.Sprintf("诊断完成，共 %d 步", len(steps))
 	now := time.Now()
 	run.CompletedAt = &now
-	_ = s.repo.UpdateRun(ctx, run)
+	if err := s.repo.UpdateRun(ctx, run); err != nil {
+		s.logger.Error("failed to update run status to completed", zap.Uint("run_id", run.ID), zap.Error(err))
+	}
 
 	s.logger.Info("诊断工作流执行完成", zap.Uint("run_id", run.ID), zap.Uint("wf_id", wf.ID))
 }
