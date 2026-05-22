@@ -398,28 +398,19 @@ onMounted(() => {
       </header>
 
       <n-tabs v-model:value="activeTab" type="line" animated>
-        <!-- Tab 1: Providers & Modules -->
+        <!-- Tab 1: Providers -->
         <n-tab-pane name="providers" :tab="t('aiSettings.providersTitle')">
           <div class="tab-actions">
-            <n-button size="small" :loading="previewLoading" @click="handlePreviewImpact">
-              <template #icon><n-icon :component="PulseOutline" /></template>
-              {{ t('aiSettings.previewImpact') }}
-            </n-button>
             <n-button size="small" :loading="testing" @click="handleTestDefault">
               <template #icon><n-icon :component="PulseOutline" /></template>
               {{ t('aiSettings.testDefault') }}
             </n-button>
             <n-button type="primary" size="small" :loading="providersSaving" @click="handleSaveProviders">
               <template #icon><n-icon :component="SaveOutline" /></template>
-              {{ t('aiSettings.providerSaved') }}
-            </n-button>
-            <n-button type="primary" size="small" :loading="saving" @click="handleSave">
-              <template #icon><n-icon :component="SaveOutline" /></template>
-              {{ t('aiSettings.saveModules') }}
+              {{ t('common.save') }}
             </n-button>
           </div>
 
-          <!-- Warning: No providers configured -->
           <n-alert
             v-if="!providersLoading && !hasProviders"
             type="warning"
@@ -429,85 +420,93 @@ onMounted(() => {
             {{ t('aiSettings.noProvidersWarning') }}
           </n-alert>
 
-          <div class="config-sections sre-stagger">
-        <!-- Section 1: Providers Manager -->
-        <section class="sre-config-section">
-          <div class="section-header-row">
-            <div>
-              <h3 class="sre-config-section-title">{{ t('aiSettings.providersTitle') }}</h3>
-              <p class="sre-config-section-desc">{{ t('aiSettings.providersDesc') }}</p>
+          <section class="sre-config-section">
+            <div class="section-header-row">
+              <div>
+                <h3 class="sre-config-section-title">{{ t('aiSettings.providersTitle') }}</h3>
+                <p class="sre-config-section-desc">{{ t('aiSettings.providersDesc') }}</p>
+              </div>
+              <n-button size="small" @click="openAddProvider">
+                <template #icon><n-icon :component="AddOutline" /></template>
+                {{ t('aiSettings.addProvider') }}
+              </n-button>
             </div>
-            <n-button size="small" @click="openAddProvider">
-              <template #icon><n-icon :component="AddOutline" /></template>
-              {{ t('aiSettings.addProvider') }}
+
+            <n-alert v-if="hasProviders && !defaultProviderHealthy" type="error" class="mb-4">
+              {{ t('aiSettings.defaultProviderUnhealthy') }}
+            </n-alert>
+
+            <n-data-table
+              v-if="hasProviders"
+              :columns="providerColumns"
+              :data="providersConfig!.providers"
+              :row-class-name="(row: AIProvider) => row.enabled ? '' : 'provider-row-disabled'"
+              size="small"
+              :bordered="false"
+              style="margin-bottom: 8px"
+            />
+            <div v-else-if="!providersLoading" class="ai-info-empty">
+              {{ t('aiSettings.noProvidersEmpty') }}
+            </div>
+          </section>
+        </n-tab-pane>
+
+        <!-- Tab 2: Modules -->
+        <n-tab-pane name="modules" :tab="t('aiSettings.moduleConfigTitle')">
+          <div class="tab-actions">
+            <n-button size="small" :loading="previewLoading" @click="handlePreviewImpact">
+              <template #icon><n-icon :component="PulseOutline" /></template>
+              {{ t('aiSettings.previewImpact') }}
+            </n-button>
+            <n-button type="primary" size="small" :loading="saving" @click="handleSave">
+              <template #icon><n-icon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
             </n-button>
           </div>
 
-          <n-alert v-if="hasProviders && !defaultProviderHealthy" type="error" class="mb-4">
-            {{ t('aiSettings.defaultProviderUnhealthy') }}
-          </n-alert>
+          <section class="sre-config-section">
+            <h3 class="sre-config-section-title">{{ t('aiSettings.moduleConfigTitle') }}</h3>
+            <p class="sre-config-section-desc">{{ t('aiSettings.moduleConfigDesc') }}</p>
 
-          <n-data-table
-            v-if="hasProviders"
-            :columns="providerColumns"
-            :data="providersConfig!.providers"
-            :row-class-name="(row: AIProvider) => row.enabled ? '' : 'provider-row-disabled'"
-            size="small"
-            :bordered="false"
-            style="margin-bottom: 8px"
-          />
-          <div v-else-if="!providersLoading" class="ai-info-empty">
-            {{ t('aiSettings.noProvidersEmpty') }}
-          </div>
-        </section>
-
-        <n-divider />
-
-        <!-- Section 2: Module Toggles -->
-        <section class="sre-config-section">
-          <h3 class="sre-config-section-title">{{ t('aiSettings.moduleConfigTitle') }}</h3>
-          <p class="sre-config-section-desc">{{ t('aiSettings.moduleConfigDesc') }}</p>
-
-          <div v-if="modules" class="module-list">
-            <div
-              v-for="key in moduleKeys"
-              :key="key"
-              class="module-item"
-              :class="{ disabled: !modules[key].enabled }"
-            >
-              <div class="module-info">
-                <div class="module-name">
-                  {{ moduleLabels[key].name }}
-                  <n-tag v-if="modules[key].enabled" type="success" size="tiny" :bordered="false">{{ t('common.enabled') }}</n-tag>
-                  <n-tag v-else size="tiny" :bordered="false">{{ t('common.disabled') }}</n-tag>
+            <div v-if="modules" class="module-list">
+              <div
+                v-for="key in moduleKeys"
+                :key="key"
+                class="module-item"
+                :class="{ disabled: !modules[key].enabled }"
+              >
+                <div class="module-info">
+                  <div class="module-name">
+                    {{ moduleLabels[key].name }}
+                    <n-tag v-if="modules[key].enabled" type="success" size="tiny" :bordered="false">{{ t('common.enabled') }}</n-tag>
+                    <n-tag v-else size="tiny" :bordered="false">{{ t('common.disabled') }}</n-tag>
+                  </div>
+                  <div class="module-desc">{{ moduleLabels[key].description }}</div>
+                  <div class="module-provider-row" v-if="hasProviders">
+                    <span class="module-provider-label">{{ t('aiSettings.providerLabel') }}</span>
+                    <n-select
+                      :value="modules[key].provider_key || ''"
+                      :options="[{ label: t('aiSettings.default'), value: '' }, ...providerSelectOptions]"
+                      size="tiny"
+                      style="width: 240px"
+                      :placeholder="t('aiSettings.default')"
+                      @update:value="(val: string) => setModuleProvider(key, val)"
+                    />
+                  </div>
                 </div>
-                <div class="module-desc">{{ moduleLabels[key].description }}</div>
-                <div class="module-provider-row" v-if="hasProviders">
-                  <span class="module-provider-label">{{ t('aiSettings.providerLabel') }}</span>
-                  <n-select
-                    :value="modules[key].provider_key || ''"
-                    :options="[{ label: t('aiSettings.default'), value: '' }, ...providerSelectOptions]"
-                    size="tiny"
-                    style="width: 240px"
-                    :placeholder="t('aiSettings.default')"
-                    @update:value="(val: string) => setModuleProvider(key, val)"
-                  />
-                </div>
+                <n-switch
+                  :value="modules[key].enabled"
+                  @update:value="(val: boolean) => toggleModule(key, val)"
+                />
               </div>
-              <n-switch
-                :value="modules[key].enabled"
-                @update:value="(val: boolean) => toggleModule(key, val)"
-              />
             </div>
-          </div>
-          <div v-else-if="!moduleLoading" class="ai-info-empty">
-            {{ t('aiSettings.loadModuleFailed') }}
-          </div>
-        </section>
-      </div>
+            <div v-else-if="!moduleLoading" class="ai-info-empty">
+              {{ t('aiSettings.loadModuleFailed') }}
+            </div>
+          </section>
         </n-tab-pane>
 
-        <!-- Tab 2: Global Settings -->
+        <!-- Tab 3: Global Settings -->
         <n-tab-pane name="global" :tab="t('aiSettings.globalTab')">
           <div class="global-config-section">
             <h3 class="sre-config-section-title">
