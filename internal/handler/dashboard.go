@@ -21,7 +21,7 @@ func NewDashboardHandler(statsSvc *service.DashboardStatsService) *DashboardHand
 
 // GetStats returns aggregated dashboard statistics.
 func (h *DashboardHandler) GetStats(c *gin.Context) {
-	stats, err := h.statsSvc.GetStats()
+	stats, err := h.statsSvc.GetStats(c.Request.Context())
 	if err != nil {
 		Error(c, err)
 		return
@@ -39,7 +39,7 @@ func (h *DashboardHandler) GetMTTRStats(c *gin.Context) {
 		}
 	}
 
-	stats, err := h.statsSvc.GetMTTRStats(hours)
+	stats, err := h.statsSvc.GetMTTRStats(c.Request.Context(), hours)
 	if err != nil {
 		Error(c, err)
 		return
@@ -52,7 +52,7 @@ func (h *DashboardHandler) GetMTTRStats(c *gin.Context) {
 func (h *DashboardHandler) GetMTTRTrend(c *gin.Context) {
 	days := parseDays(c, 30, 365)
 
-	result, err := h.statsSvc.GetMTTRTrend(days)
+	result, err := h.statsSvc.GetMTTRTrend(c.Request.Context(), days)
 	if err != nil {
 		Error(c, err)
 		return
@@ -65,7 +65,7 @@ func (h *DashboardHandler) GetMTTRTrend(c *gin.Context) {
 func (h *DashboardHandler) GetAlertTrend(c *gin.Context) {
 	days := parseDays(c, 30, 365)
 
-	result, err := h.statsSvc.GetAlertTrend(days)
+	result, err := h.statsSvc.GetAlertTrend(c.Request.Context(), days)
 	if err != nil {
 		Error(c, err)
 		return
@@ -89,7 +89,7 @@ func (h *DashboardHandler) GetTopRules(c *gin.Context) {
 		}
 	}
 
-	result, err := h.statsSvc.GetTopRules(days, limit)
+	result, err := h.statsSvc.GetTopRules(c.Request.Context(), days, limit)
 	if err != nil {
 		Error(c, err)
 		return
@@ -107,7 +107,7 @@ func (h *DashboardHandler) GetSeverityHistory(c *gin.Context) {
 		}
 	}
 
-	result, err := h.statsSvc.GetSeverityHistory(days)
+	result, err := h.statsSvc.GetSeverityHistory(c.Request.Context(), days)
 	if err != nil {
 		Error(c, err)
 		return
@@ -140,7 +140,7 @@ func (h *DashboardHandler) ExportReport(c *gin.Context) {
 		startDate = endDate.AddDate(0, 0, -365)
 	}
 
-	data, err := h.statsSvc.ExportReport(startDate, endDate)
+	data, err := h.statsSvc.ExportReport(c.Request.Context(), startDate, endDate)
 	if err != nil {
 		Error(c, err)
 		return
@@ -213,7 +213,7 @@ func (h *DashboardHandler) ChannelStats(c *gin.Context) {
 		}
 	}
 
-	rows, err := h.statsSvc.ChannelStats(days)
+	rows, err := h.statsSvc.ChannelStats(c.Request.Context(), days)
 	if err != nil {
 		Error(c, err)
 		return
@@ -231,7 +231,7 @@ func (h *DashboardHandler) TeamStats(c *gin.Context) {
 		}
 	}
 
-	rows, err := h.statsSvc.TeamStats(days)
+	rows, err := h.statsSvc.TeamStats(c.Request.Context(), days)
 	if err != nil {
 		Error(c, err)
 		return
@@ -249,7 +249,7 @@ func (h *DashboardHandler) IncidentTrend(c *gin.Context) {
 		}
 	}
 
-	result, err := h.statsSvc.IncidentTrend(days)
+	result, err := h.statsSvc.IncidentTrend(c.Request.Context(), days)
 	if err != nil {
 		Error(c, err)
 		return
@@ -260,7 +260,7 @@ func (h *DashboardHandler) IncidentTrend(c *gin.Context) {
 // IncidentStats returns overall v2 incident statistics.
 // GET /api/v1/dashboard/incident-stats
 func (h *DashboardHandler) IncidentStats(c *gin.Context) {
-	stats, err := h.statsSvc.IncidentStats()
+	stats, err := h.statsSvc.IncidentStats(c.Request.Context())
 	if err != nil {
 		Error(c, err)
 		return

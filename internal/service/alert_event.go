@@ -142,7 +142,11 @@ func (s *AlertEventService) Acknowledge(ctx context.Context, eventID, userID uin
 		return apperr.WithMessage(apperr.ErrBadRequest, "alert is not in firing state")
 	}
 
-	event, _ := s.repo.GetByID(ctx, eventID)
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		s.logger.Warn("failed to fetch event for Lark update after acknowledge",
+			zap.Uint("event_id", eventID), zap.Error(err))
+	}
 
 	// Add timeline entry
 	s.addTimeline(ctx, eventID, model.TimelineActionAcknowledged, &userID, "Alert acknowledged")
@@ -194,7 +198,11 @@ func (s *AlertEventService) Resolve(ctx context.Context, eventID, userID uint, r
 		return apperr.WithMessage(apperr.ErrBadRequest, "alert cannot be resolved from current state")
 	}
 
-	event, _ := s.repo.GetByID(ctx, eventID)
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		s.logger.Warn("failed to fetch event for Lark update after resolve",
+			zap.Uint("event_id", eventID), zap.Error(err))
+	}
 	s.addTimeline(ctx, eventID, model.TimelineActionResolved, &userID, resolution)
 	if event != nil {
 		s.triggerLarkCardUpdate(event)
@@ -221,7 +229,11 @@ func (s *AlertEventService) Close(ctx context.Context, eventID, userID uint, not
 	if note == "" {
 		note = "Alert closed"
 	}
-	event, _ := s.repo.GetByID(ctx, eventID)
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		s.logger.Warn("failed to fetch event for Lark update after close",
+			zap.Uint("event_id", eventID), zap.Error(err))
+	}
 	s.addTimeline(ctx, eventID, model.TimelineActionClosed, &userID, note)
 	if event != nil {
 		s.triggerLarkCardUpdate(event)

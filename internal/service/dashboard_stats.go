@@ -222,10 +222,10 @@ func computeMetric(durations []float64) MTTRMetric {
 // ──────────────────────── Service methods ─────────────────────────
 
 // GetStats returns aggregated dashboard statistics.
-func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
+func (s *DashboardStatsService) GetStats(ctx context.Context) (*DashboardStats, error) {
 	var stats DashboardStats
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -292,7 +292,7 @@ func (s *DashboardStatsService) GetStats() (*DashboardStats, error) {
 
 // GetMTTRStats returns MTTA and MTTR over a configurable window including
 // percentiles and severity breakdown.
-func (s *DashboardStatsService) GetMTTRStats(hours int) (*MTTRStats, error) {
+func (s *DashboardStatsService) GetMTTRStats(ctx context.Context, hours int) (*MTTRStats, error) {
 	if hours <= 0 {
 		hours = 24
 	}
@@ -304,8 +304,11 @@ func (s *DashboardStatsService) GetMTTRStats(hours int) (*MTTRStats, error) {
 		RespSeconds *float64
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	var rows []row
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`severity,
 			CASE WHEN acked_at    IS NOT NULL THEN TIMESTAMPDIFF(SECOND, fired_at, acked_at)    END AS ack_seconds,
 			CASE WHEN resolved_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, fired_at, resolved_at) END AS resp_seconds`).
@@ -368,11 +371,14 @@ func (s *DashboardStatsService) GetMTTRStats(hours int) (*MTTRStats, error) {
 
 // GetMTTRTrend returns day-by-day MTTA/MTTR means so operators can see
 // whether response times are improving or regressing over time.
-func (s *DashboardStatsService) GetMTTRTrend(days int) ([]MTTRTrendPoint, error) {
+func (s *DashboardStatsService) GetMTTRTrend(ctx context.Context, days int) ([]MTTRTrendPoint, error) {
 	if days <= 0 || days > 365 {
 		days = 30
 	}
 	since := time.Now().AddDate(0, 0, -days)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
 	type ackRow struct {
 		Date   string
@@ -381,7 +387,7 @@ func (s *DashboardStatsService) GetMTTRTrend(days int) ([]MTTRTrendPoint, error)
 	}
 
 	var mttaRows []ackRow
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`DATE(fired_at) AS date,
 			AVG(TIMESTAMPDIFF(SECOND, fired_at, acked_at)) AS avg_sec,
 			COUNT(acked_at) AS cnt`).
@@ -391,7 +397,7 @@ func (s *DashboardStatsService) GetMTTRTrend(days int) ([]MTTRTrendPoint, error)
 		Scan(&mttaRows)
 
 	var mttrRows []ackRow
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`DATE(fired_at) AS date,
 			AVG(TIMESTAMPDIFF(SECOND, fired_at, resolved_at)) AS avg_sec,
 			COUNT(resolved_at) AS cnt`).
@@ -434,11 +440,14 @@ func (s *DashboardStatsService) GetMTTRTrend(days int) ([]MTTRTrendPoint, error)
 }
 
 // GetAlertTrend returns daily fired/resolved counts for trend charts.
-func (s *DashboardStatsService) GetAlertTrend(days int) ([]AlertTrendPoint, error) {
+func (s *DashboardStatsService) GetAlertTrend(ctx context.Context, days int) ([]AlertTrendPoint, error) {
 	if days <= 0 || days > 365 {
 		days = 30
 	}
 	since := time.Now().AddDate(0, 0, -days)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
 	type dateCount struct {
 		Date string
@@ -446,13 +455,13 @@ func (s *DashboardStatsService) GetAlertTrend(days int) ([]AlertTrendPoint, erro
 	}
 
 	var firedRows []dateCount
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, COUNT(*) AS cnt").
 		Where("fired_at >= ? AND deleted_at IS NULL", since).
 		Group("DATE(fired_at)").Order("date").Scan(&firedRows)
 
 	var resolvedRows []dateCount
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(resolved_at) AS date, COUNT(*) AS cnt").
 		Where("resolved_at >= ? AND resolved_at IS NOT NULL AND deleted_at IS NULL", since).
 		Group("DATE(resolved_at)").Order("date").Scan(&resolvedRows)
@@ -472,7 +481,7 @@ func (s *DashboardStatsService) GetAlertTrend(days int) ([]AlertTrendPoint, erro
 }
 
 // GetTopRules returns the most frequently firing alert rules.
-func (s *DashboardStatsService) GetTopRules(days, limit int) ([]TopRuleItem, error) {
+func (s *DashboardStatsService) GetTopRules(ctx context.Context, days, limit int) ([]TopRuleItem, error) {
 	if days <= 0 {
 		days = 30
 	}
@@ -481,8 +490,11 @@ func (s *DashboardStatsService) GetTopRules(days, limit int) ([]TopRuleItem, err
 	}
 	since := time.Now().AddDate(0, 0, -days)
 
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	var items []TopRuleItem
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("rule_id, alert_name, COUNT(*) AS count").
 		Where("fired_at >= ? AND deleted_at IS NULL", since).
 		Group("rule_id, alert_name").
@@ -493,11 +505,14 @@ func (s *DashboardStatsService) GetTopRules(days, limit int) ([]TopRuleItem, err
 }
 
 // GetSeverityHistory returns daily alert counts broken down by severity.
-func (s *DashboardStatsService) GetSeverityHistory(days int) ([]SeverityHistoryPoint, error) {
+func (s *DashboardStatsService) GetSeverityHistory(ctx context.Context, days int) ([]SeverityHistoryPoint, error) {
 	if days <= 0 {
 		days = 30
 	}
 	since := time.Now().AddDate(0, 0, -days)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
 	type row struct {
 		Date     string
@@ -505,7 +520,7 @@ func (s *DashboardStatsService) GetSeverityHistory(days int) ([]SeverityHistoryP
 		Cnt      int64
 	}
 	var rows []row
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, severity, COUNT(*) AS cnt").
 		Where("fired_at >= ? AND deleted_at IS NULL", since).
 		Group("DATE(fired_at), severity").
@@ -535,11 +550,14 @@ func (s *DashboardStatsService) GetSeverityHistory(days int) ([]SeverityHistoryP
 
 // ExportReport gathers all data needed to produce the CSV export.
 // The caller is responsible for writing CSV rows.
-func (s *DashboardStatsService) ExportReport(startDate, endDate time.Time) (*ExportData, error) {
+func (s *DashboardStatsService) ExportReport(ctx context.Context, startDate, endDate time.Time) (*ExportData, error) {
 	const dateFmt = "2006-01-02"
 
 	startTS := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.Local)
 	endTS := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
 	// Per-day fired counts by severity
 	type sevDayRow struct {
@@ -548,7 +566,7 @@ func (s *DashboardStatsService) ExportReport(startDate, endDate time.Time) (*Exp
 		Cnt      int64
 	}
 	var sevRows []sevDayRow
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, severity, COUNT(*) AS cnt").
 		Where("fired_at BETWEEN ? AND ? AND deleted_at IS NULL", startTS, endTS).
 		Group("DATE(fired_at), severity").
@@ -561,7 +579,7 @@ func (s *DashboardStatsService) ExportReport(startDate, endDate time.Time) (*Exp
 		Cnt  int64
 	}
 	var resolvedRows []dayCount
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(resolved_at) AS date, COUNT(*) AS cnt").
 		Where("resolved_at BETWEEN ? AND ? AND deleted_at IS NULL", startTS, endTS).
 		Group("DATE(resolved_at)").
@@ -573,11 +591,11 @@ func (s *DashboardStatsService) ExportReport(startDate, endDate time.Time) (*Exp
 		AvgSec *float64
 	}
 	var mttaRows, mttrRows []ttaRow
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, AVG(TIMESTAMPDIFF(SECOND, fired_at, acked_at)) AS avg_sec").
 		Where("fired_at BETWEEN ? AND ? AND acked_at IS NOT NULL AND deleted_at IS NULL", startTS, endTS).
 		Group("DATE(fired_at)").Scan(&mttaRows)
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, AVG(TIMESTAMPDIFF(SECOND, fired_at, resolved_at)) AS avg_sec").
 		Where("fired_at BETWEEN ? AND ? AND resolved_at IS NOT NULL AND deleted_at IS NULL", startTS, endTS).
 		Group("DATE(fired_at)").Scan(&mttrRows)
@@ -591,7 +609,7 @@ func (s *DashboardStatsService) ExportReport(startDate, endDate time.Time) (*Exp
 		Info      int64
 	}
 	var topRows []topRuleRow
-	s.db.Model(&model.AlertEvent{}).
+	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`alert_name,
 			COUNT(*) AS cnt,
 			SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) AS critical,
@@ -660,14 +678,17 @@ func (s *DashboardStatsService) ExportReport(startDate, endDate time.Time) (*Exp
 }
 
 // ChannelStats returns incident statistics grouped by channel.
-func (s *DashboardStatsService) ChannelStats(days int) ([]ChannelStatsRow, error) {
+func (s *DashboardStatsService) ChannelStats(ctx context.Context, days int) ([]ChannelStatsRow, error) {
 	if days <= 0 {
 		days = 30
 	}
 	since := time.Now().AddDate(0, 0, -days)
 
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	var rows []ChannelStatsRow
-	err := s.db.Table("incidents").
+	err := s.db.WithContext(ctx).Table("incidents").
 		Select(`incidents.channel_id,
 			channels.name AS channel_name,
 			COUNT(*) AS total,
@@ -688,14 +709,17 @@ func (s *DashboardStatsService) ChannelStats(days int) ([]ChannelStatsRow, error
 }
 
 // TeamStats returns incident statistics grouped by team.
-func (s *DashboardStatsService) TeamStats(days int) ([]TeamStatsRow, error) {
+func (s *DashboardStatsService) TeamStats(ctx context.Context, days int) ([]TeamStatsRow, error) {
 	if days <= 0 {
 		days = 30
 	}
 	since := time.Now().AddDate(0, 0, -days)
 
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	var rows []TeamStatsRow
-	err := s.db.Table("incidents").
+	err := s.db.WithContext(ctx).Table("incidents").
 		Select(`channels.team_id,
 			teams.name AS team_name,
 			COUNT(*) AS total,
@@ -718,10 +742,13 @@ func (s *DashboardStatsService) TeamStats(days int) ([]TeamStatsRow, error) {
 }
 
 // IncidentTrend returns daily incident counts for the last N days.
-func (s *DashboardStatsService) IncidentTrend(days int) ([]IncidentTrendPoint, error) {
+func (s *DashboardStatsService) IncidentTrend(ctx context.Context, days int) ([]IncidentTrendPoint, error) {
 	if days <= 0 {
 		days = 30
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
 	type row struct {
 		Day    string
@@ -730,7 +757,7 @@ func (s *DashboardStatsService) IncidentTrend(days int) ([]IncidentTrendPoint, e
 	}
 
 	var rows []row
-	err := s.db.Table("incidents").
+	err := s.db.WithContext(ctx).Table("incidents").
 		Select("DATE(triggered_at) AS day, status, COUNT(*) AS count").
 		Where("deleted_at IS NULL AND triggered_at >= ?", time.Now().AddDate(0, 0, -days)).
 		Group("DATE(triggered_at), status").
@@ -762,42 +789,45 @@ func (s *DashboardStatsService) IncidentTrend(days int) ([]IncidentTrendPoint, e
 }
 
 // IncidentStats returns overall incident statistics.
-func (s *DashboardStatsService) IncidentStats() (*IncidentStatsResult, error) {
+func (s *DashboardStatsService) IncidentStats(ctx context.Context) (*IncidentStatsResult, error) {
 	var stats IncidentStatsResult
 	todayStart := time.Now().Truncate(24 * time.Hour)
 
-	g, _ := errgroup.WithContext(context.Background())
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() (err error) {
 		defer recoverPanic(s.logger, "IncidentStats.TotalIncidents", &err)
-		return s.db.Model(&model.Incident{}).Count(&stats.TotalIncidents).Error
+		return s.db.WithContext(ctx).Model(&model.Incident{}).Count(&stats.TotalIncidents).Error
 	})
 	g.Go(func() (err error) {
 		defer recoverPanic(s.logger, "IncidentStats.ActiveIncidents", &err)
-		return s.db.Model(&model.Incident{}).Where("status IN ?", []string{"triggered", "processing"}).Count(&stats.ActiveIncidents).Error
+		return s.db.WithContext(ctx).Model(&model.Incident{}).Where("status IN ?", []string{"triggered", "processing"}).Count(&stats.ActiveIncidents).Error
 	})
 	g.Go(func() (err error) {
 		defer recoverPanic(s.logger, "IncidentStats.ClosedToday", &err)
-		return s.db.Model(&model.Incident{}).Where("status = 'closed' AND closed_at >= ?", todayStart).Count(&stats.ClosedToday).Error
+		return s.db.WithContext(ctx).Model(&model.Incident{}).Where("status = 'closed' AND closed_at >= ?", todayStart).Count(&stats.ClosedToday).Error
 	})
 	g.Go(func() (err error) {
 		defer recoverPanic(s.logger, "IncidentStats.CriticalActive", &err)
-		return s.db.Model(&model.Incident{}).Where("status IN ? AND severity = 'critical'", []string{"triggered", "processing"}).Count(&stats.CriticalActive).Error
+		return s.db.WithContext(ctx).Model(&model.Incident{}).Where("status IN ? AND severity = 'critical'", []string{"triggered", "processing"}).Count(&stats.CriticalActive).Error
 	})
 	g.Go(func() (err error) {
 		defer recoverPanic(s.logger, "IncidentStats.AvgMTTR", &err)
-		return s.db.Table("incidents").
+		return s.db.WithContext(ctx).Table("incidents").
 			Where("closed_at IS NOT NULL AND deleted_at IS NULL").
 			Select("AVG(TIMESTAMPDIFF(SECOND, triggered_at, closed_at))").
 			Scan(&stats.AvgMTTRSeconds).Error
 	})
 	g.Go(func() (err error) {
 		defer recoverPanic(s.logger, "IncidentStats.TotalPostMortems", &err)
-		return s.db.Model(&model.PostMortem{}).Count(&stats.TotalPostMortems).Error
+		return s.db.WithContext(ctx).Model(&model.PostMortem{}).Count(&stats.TotalPostMortems).Error
 	})
 	g.Go(func() (err error) {
 		defer recoverPanic(s.logger, "IncidentStats.PublishedPostMortems", &err)
-		return s.db.Model(&model.PostMortem{}).Where("status = 'published'").Count(&stats.PublishedPostMortems).Error
+		return s.db.WithContext(ctx).Model(&model.PostMortem{}).Where("status = 'published'").Count(&stats.PublishedPostMortems).Error
 	})
 
 	if err := g.Wait(); err != nil {

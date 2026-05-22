@@ -54,11 +54,14 @@ func IsEncrypted(value string) bool {
 }
 
 // EncryptString encrypts a plaintext string using AES-256-GCM.
-// Returns "enc:<base64(nonce+ciphertext)>" or the original value if no key is configured.
+// Returns "enc:<base64(nonce+ciphertext)>".
 func EncryptString(plaintext string) (string, error) {
 	key := loadKey()
-	if len(key) == 0 || plaintext == "" {
-		return plaintext, nil
+	if plaintext == "" {
+		return "", nil
+	}
+	if len(key) == 0 {
+		return "", fmt.Errorf("cannot encrypt: SREAGENT_SECRET_KEY is not configured")
 	}
 
 	block, err := aes.NewCipher(key)

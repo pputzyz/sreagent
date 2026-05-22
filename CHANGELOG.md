@@ -4,6 +4,25 @@
 
 ---
 
+## [v4.15.15] — 2026-05-22
+
+### 审查遗漏修复（核对后补充）
+
+**安全修复**
+- `internal/pkg/crypto/crypto.go`：EncryptString 无 key 时返回错误（原先静默返回明文）
+
+**错误处理**
+- `internal/service/alert_event.go`：Acknowledge/Resolve/Close 三处 GetByID 错误不再吞没，改为 warn 日志
+
+**前端修复**
+- `web/src/utils/format.ts`：relTime() i18n key 从 `events.secsAgo` 修正为 `alert.secsAgo`
+
+**Context 传播**
+- `internal/service/dashboard_stats.go`：11 个方法新增 `ctx context.Context` 参数，使用请求级 context
+- `internal/handler/dashboard.go`：11 处调用传递 `c.Request.Context()`
+
+---
+
 ## [v4.15.14] — 2026-05-22
 
 ### Round 10 Medium 级别问题全量修复（6 agent 并行）
