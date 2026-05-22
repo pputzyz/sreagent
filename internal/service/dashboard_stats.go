@@ -664,10 +664,7 @@ func (s *DashboardStatsService) ExportReport(ctx context.Context, startDate, end
 	// Convert top rules
 	exportTop := make([]ExportTopRule, 0, len(topRows))
 	for _, r := range topRows {
-		exportTop = append(exportTop, ExportTopRule{
-			AlertName: r.AlertName, Cnt: r.Cnt,
-			Critical: r.Critical, Warning: r.Warning, Info: r.Info,
-		})
+		exportTop = append(exportTop, ExportTopRule(r))
 	}
 
 	return &ExportData{

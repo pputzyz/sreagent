@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
@@ -130,17 +128,4 @@ func (h *ExclusionRuleHandler) Delete(c *gin.Context) {
 		return
 	}
 	Success(c, nil)
-}
-
-// helper: parse string channel id from path (for sub-resource routes)
-func parseChannelID(c *gin.Context) (uint, error) {
-	s := c.Param("channel_id")
-	if s == "" {
-		s = c.Param("id")
-	}
-	v, err := strconv.ParseUint(s, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return uint(v), nil
 }

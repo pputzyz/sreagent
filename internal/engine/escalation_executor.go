@@ -258,7 +258,7 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 			return nil
 		})
 
-		eg.Wait()
+		_ = eg.Wait() // errors already logged inside goroutines
 
 		afterID = events[len(events)-1].ID
 		if len(events) < pageSize {

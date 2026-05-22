@@ -19,17 +19,6 @@ type AllowedType struct {
 	MIMEPrefix string   // e.g. "text/yaml", "application/x-yaml", "text/plain"
 }
 
-var yamlTypes = []AllowedType{
-	{[]string{".yaml", ".yml"}, "text/"},
-	{[]string{".yaml", ".yml"}, "application/x-yaml"},
-	{[]string{".yaml", ".yml"}, "application/yaml"},
-}
-
-var jsonTypes = []AllowedType{
-	{[]string{".json"}, "application/json"},
-	{[]string{".json"}, "text/"},
-}
-
 // ValidateUpload checks that an uploaded file's extension and detected MIME type
 // are in the allowed set. It reads up to maxSniffBytes from r and returns the
 // consumed bytes wrapped in a new reader for downstream consumption.

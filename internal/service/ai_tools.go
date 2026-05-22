@@ -169,7 +169,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 			end := time.Now()
 			start := end.Add(-duration)
 
-			step := "60s"
+			var step string
 			if duration <= 30*time.Minute {
 				step = "15s"
 			} else if duration <= 2*time.Hour {

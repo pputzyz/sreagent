@@ -87,11 +87,7 @@ func (r *NotifyRecordRepository) GetLastSentRecord(ctx context.Context, channelI
 // severityMatches checks if the given severity is contained in the comma-separated severities string.
 func severityMatches(severities, severity string) bool {
 	// Parse the comma-separated list
-	var list []string
-	// Handle as simple comma-separated string
-	for _, s := range splitCSV(severities) {
-		list = append(list, s)
-	}
+	list := splitCSV(severities)
 	for _, s := range list {
 		if s == severity {
 			return true

@@ -39,7 +39,7 @@ func main() {
 
 	// Initialize logger
 	zapLogger := initLogger(cfg.Log)
-	defer zapLogger.Sync()
+	defer func() { _ = zapLogger.Sync() }()
 
 	zapLogger.Info("starting SREAgent server",
 		zap.String("host", cfg.Server.Host),

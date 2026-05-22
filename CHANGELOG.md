@@ -4,6 +4,30 @@
 
 ---
 
+## [v4.15.16] — 2026-05-22
+
+### golangci-lint 12 项修复
+
+**unused (5项)**
+- `upload/validator.go`：移除未使用的 `yamlTypes`、`jsonTypes` 变量
+- `engine/evaluator_test.go`：移除未使用的 `dbFromTest` 函数 + gorm 导入
+- `service/ai.go`：移除未使用的 `callLLMWithTools`、`executeTool` 方法
+- `handler/exclusion_rule.go`：移除未使用的 `parseChannelID` 函数 + strconv 导入
+
+**errcheck (2项)**
+- `cmd/server/main.go`：`zapLogger.Sync()` 错误处理
+- `engine/escalation_executor.go`：`eg.Wait()` 错误处理
+
+**gosimple (3项)**
+- `repository/auto_action.go`：移除冗余 `nil` 检查
+- `repository/notification.go`：循环替换为 `append`
+- `service/dashboard_stats.go`：结构体字面量替换为类型转换
+
+**ineffassign (1项)**
+- `service/ai_tools.go`：`step` 变量初始赋值改为 `var` 声明
+
+---
+
 ## [v4.15.15] — 2026-05-22
 
 ### 审查遗漏修复（核对后补充）

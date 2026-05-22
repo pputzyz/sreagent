@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/testutil"
@@ -443,9 +442,3 @@ var _ AlertWorkerPoolSubmiter = (*mockWorkerPool)(nil)
 // ---------------------------------------------------------------------------
 // DB helper (reused by integration tests)
 // ---------------------------------------------------------------------------
-
-// dbFromTest returns a test DB or skips. Used by integration tests that need a DB.
-func dbFromTest(t *testing.T) *gorm.DB {
-	t.Helper()
-	return testutil.TestDB(t)
-}

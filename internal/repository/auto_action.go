@@ -75,7 +75,7 @@ func (r *AutoActionRepository) FindMatching(ctx context.Context, labels map[stri
 
 	var matched []model.AutoAction
 	for _, a := range actions {
-		if a.TriggerLabels == nil || len(a.TriggerLabels) == 0 {
+		if len(a.TriggerLabels) == 0 {
 			matched = append(matched, a)
 			continue
 		}
