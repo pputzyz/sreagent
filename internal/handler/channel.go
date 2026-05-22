@@ -10,11 +10,17 @@ import (
 
 // ChannelHandler handles HTTP requests for collaboration channels (协作空间).
 type ChannelHandler struct {
-	svc *service.ChannelService
+	svc      *service.ChannelService
+	auditSvc *service.AuditLogService
 }
 
 func NewChannelHandler(svc *service.ChannelService) *ChannelHandler {
 	return &ChannelHandler{svc: svc}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *ChannelHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // --- Request structs ---
@@ -86,6 +92,15 @@ func (h *ChannelHandler) Create(c *gin.Context) {
 	if err := h.svc.Create(c.Request.Context(), ch); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceChannel, ResourceID: &ch.ID, ResourceName: ch.Name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, ch)
@@ -181,6 +196,15 @@ func (h *ChannelHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceChannel, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, ch)
 }
 
@@ -196,6 +220,15 @@ func (h *ChannelHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceChannel, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

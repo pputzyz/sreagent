@@ -1,4 +1,4 @@
-CREATE TABLE label_registry (
+CREATE TABLE IF NOT EXISTS label_registry (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     datasource_id INT UNSIGNED NOT NULL,
     label_key VARCHAR(128) NOT NULL,

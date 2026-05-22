@@ -16,8 +16,9 @@ import (
 )
 
 type ScheduleHandler struct {
-	svc *service.ScheduleService
-	log *zap.Logger
+	svc      *service.ScheduleService
+	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
 func NewScheduleHandler(svc *service.ScheduleService, logger ...*zap.Logger) *ScheduleHandler {
@@ -26,6 +27,11 @@ func NewScheduleHandler(svc *service.ScheduleService, logger ...*zap.Logger) *Sc
 		l = logger[0]
 	}
 	return &ScheduleHandler{svc: svc, log: l}
+}
+
+// SetAuditService injects the audit log service.
+func (h *ScheduleHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +160,15 @@ func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceSchedule, ResourceID: &schedule.ID, ResourceName: schedule.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, schedule)
 }
 
@@ -235,6 +250,15 @@ func (h *ScheduleHandler) UpdateSchedule(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceSchedule, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, schedule)
 }
 
@@ -254,6 +278,15 @@ func (h *ScheduleHandler) DeleteSchedule(c *gin.Context) {
 	if err := h.svc.DeleteSchedule(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceSchedule, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)
@@ -437,6 +470,15 @@ func (h *ScheduleHandler) CreateEscalationPolicy(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceEscalationPolicy, ResourceID: &policy.ID, ResourceName: policy.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, policy)
 }
 
@@ -518,6 +560,15 @@ func (h *ScheduleHandler) UpdateEscalationPolicy(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceEscalationPolicy, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, policy)
 }
 
@@ -537,6 +588,15 @@ func (h *ScheduleHandler) DeleteEscalationPolicy(c *gin.Context) {
 	if err := h.svc.DeleteEscalationPolicy(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceEscalationPolicy, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

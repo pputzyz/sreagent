@@ -11,8 +11,9 @@ import (
 
 // BizGroupHandler handles HTTP requests for business groups.
 type BizGroupHandler struct {
-	svc *service.BizGroupService
-	log *zap.Logger
+	svc      *service.BizGroupService
+	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
 // NewBizGroupHandler creates a new BizGroupHandler.
@@ -22,6 +23,11 @@ func NewBizGroupHandler(svc *service.BizGroupService, logger ...*zap.Logger) *Bi
 		l = logger[0]
 	}
 	return &BizGroupHandler{svc: svc, log: l}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *BizGroupHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // CreateBizGroupRequest is the request body for creating a business group.
@@ -69,6 +75,15 @@ func (h *BizGroupHandler) Create(c *gin.Context) {
 	if err := h.svc.Create(c.Request.Context(), group); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceBizGroup, ResourceID: &group.ID, ResourceName: group.Name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, group)
@@ -148,6 +163,15 @@ func (h *BizGroupHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceBizGroup, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, group)
 }
 
@@ -167,6 +191,15 @@ func (h *BizGroupHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceBizGroup, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

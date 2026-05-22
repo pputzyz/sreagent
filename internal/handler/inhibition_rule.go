@@ -11,8 +11,9 @@ import (
 
 // InhibitionRuleHandler handles inhibition rule API requests.
 type InhibitionRuleHandler struct {
-	svc *service.InhibitionRuleService
-	log *zap.Logger
+	svc      *service.InhibitionRuleService
+	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
 // NewInhibitionRuleHandler creates a new InhibitionRuleHandler.
@@ -22,6 +23,11 @@ func NewInhibitionRuleHandler(svc *service.InhibitionRuleService, logger ...*zap
 		l = logger[0]
 	}
 	return &InhibitionRuleHandler{svc: svc, log: l}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *InhibitionRuleHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // InhibitionRuleRequest is the request body for create/update.
@@ -66,6 +72,16 @@ func (h *InhibitionRuleHandler) Create(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceInhibitionRule, ResourceID: &rule.ID, ResourceName: rule.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, rule)
 }
 
@@ -132,6 +148,16 @@ func (h *InhibitionRuleHandler) Update(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceInhibitionRule, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, rule)
 }
 
@@ -152,5 +178,15 @@ func (h *InhibitionRuleHandler) Delete(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceInhibitionRule, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, nil)
 }

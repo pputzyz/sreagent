@@ -49,4 +49,11 @@ const (
 	AuditResourceMuteRule      = "mute_rule"
 	AuditResourceSystemSetting = "system_setting"
 	AuditResourceUserPassword  = "user_password"
+	AuditResourceBizGroup       = "biz_group"
+	AuditResourceChannel        = "channel"
+	AuditResourceRoutingRule    = "routing_rule"
+	AuditResourceInhibitionRule = "inhibition_rule"
+	AuditResourceNotifyMedia    = "notify_media"
+	AuditResourceSchedule         = "schedule"
+	AuditResourceEscalationPolicy = "escalation_policy"
 )

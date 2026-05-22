@@ -15,6 +15,7 @@ import (
 type MuteRuleHandler struct {
 	svc      *service.MuteRuleService
 	eventSvc *service.AlertEventService
+	auditSvc *service.AuditLogService
 	log      *zap.Logger
 }
 
@@ -25,6 +26,11 @@ func NewMuteRuleHandler(svc *service.MuteRuleService, eventSvc *service.AlertEve
 		l = logger[0]
 	}
 	return &MuteRuleHandler{svc: svc, eventSvc: eventSvc, log: l}
+}
+
+// SetAuditService injects the audit log service.
+func (h *MuteRuleHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // CreateMuteRuleRequest is the request body for creating a mute rule.
@@ -81,6 +87,14 @@ func (h *MuteRuleHandler) Create(c *gin.Context) {
 	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &userID, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceMuteRule, ResourceID: &rule.ID, ResourceName: rule.Name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, rule)
@@ -162,6 +176,15 @@ func (h *MuteRuleHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceMuteRule, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, rule)
 }
 
@@ -181,6 +204,15 @@ func (h *MuteRuleHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceMuteRule, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

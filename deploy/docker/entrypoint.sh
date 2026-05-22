@@ -21,12 +21,13 @@ echo "============================================"
 # --- 确保数据库存在（首次部署时建库）---
 CREATE_SQL="CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-if mysql -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASS}" -e "${CREATE_SQL}" 2>/dev/null; then
+# 使用 MYSQL_PWD 环境变量传递密码，避免命令行参数暴露在 /proc/cmdline
+if MYSQL_PWD="${DB_PASS}" mysql -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -e "${CREATE_SQL}" 2>/dev/null; then
   echo "[entrypoint] Database '${DB_NAME}' is ready."
 else
   ROOT_PASS="${MYSQL_ROOT_PASSWORD:-}"
   if [ -n "${ROOT_PASS}" ]; then
-    mysql -h"${DB_HOST}" -P"${DB_PORT}" -uroot -p"${ROOT_PASS}" \
+    MYSQL_PWD="${ROOT_PASS}" mysql -h"${DB_HOST}" -P"${DB_PORT}" -uroot \
       -e "${CREATE_SQL}" 2>/dev/null \
       && echo "[entrypoint] Database '${DB_NAME}' created via root." \
       || echo "[entrypoint] WARNING: Could not create database, assuming it already exists."

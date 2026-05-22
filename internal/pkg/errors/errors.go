@@ -36,6 +36,8 @@ func (e *AppError) HTTPStatus() int {
 		return http.StatusNotFound
 	case e.Code >= 10400 && e.Code < 10500:
 		return http.StatusConflict
+	case e.Code >= 40000 && e.Code < 40100:
+		return http.StatusUnauthorized
 	default:
 		return http.StatusInternalServerError
 	}
@@ -46,10 +48,14 @@ var (
 	// 10000-10099: Validation errors
 	ErrBadRequest   = &AppError{Code: 10000, Message: "bad request"}
 	ErrInvalidParam = &AppError{Code: 10001, Message: "invalid parameter"}
-	ErrMissingParam = &AppError{Code: 10002, Message: "missing required parameter"}
+	ErrMissingParam = &AppError{Code: 10000, Message: "missing required parameter"}
+	ErrBusiness     = &AppError{Code: 10002, Message: "business error"}
 
 	// 10100-10199: Authentication errors
 	ErrUnauthorized = &AppError{Code: 10100, Message: "unauthorized"}
+
+	// 40001: Canonical unauthorized (CLAUDE.md spec)
+	ErrUnauth = &AppError{Code: 40001, Message: "unauthorized"}
 	ErrInvalidToken = &AppError{Code: 10101, Message: "invalid or expired token"}
 	ErrInvalidCreds = &AppError{Code: 10102, Message: "invalid credentials"}
 

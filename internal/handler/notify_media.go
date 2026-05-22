@@ -11,8 +11,9 @@ import (
 
 // NotifyMediaHandler handles HTTP requests for notify medias.
 type NotifyMediaHandler struct {
-	svc *service.NotifyMediaService
-	log *zap.Logger
+	svc      *service.NotifyMediaService
+	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
 // NewNotifyMediaHandler creates a new NotifyMediaHandler.
@@ -22,6 +23,11 @@ func NewNotifyMediaHandler(svc *service.NotifyMediaService, logger ...*zap.Logge
 		l = logger[0]
 	}
 	return &NotifyMediaHandler{svc: svc, log: l}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *NotifyMediaHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // CreateNotifyMediaRequest is the request body for creating a notify media.
@@ -75,6 +81,15 @@ func (h *NotifyMediaHandler) Create(c *gin.Context) {
 	if err := h.svc.Create(c.Request.Context(), media); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceNotifyMedia, ResourceID: &media.ID, ResourceName: media.Name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, media)
@@ -150,6 +165,15 @@ func (h *NotifyMediaHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceNotifyMedia, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, media)
 }
 
@@ -169,6 +193,15 @@ func (h *NotifyMediaHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceNotifyMedia, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

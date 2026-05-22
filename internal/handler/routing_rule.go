@@ -8,15 +8,22 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
+	"github.com/sreagent/sreagent/internal/service"
 )
 
 // RoutingRuleHandler manages routing rules for shared integrations.
 type RoutingRuleHandler struct {
-	repo *repository.RoutingRuleRepository
+	repo     *repository.RoutingRuleRepository
+	auditSvc *service.AuditLogService
 }
 
 func NewRoutingRuleHandler(repo *repository.RoutingRuleRepository) *RoutingRuleHandler {
 	return &RoutingRuleHandler{repo: repo}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *RoutingRuleHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 type createRoutingRuleReq struct {
@@ -73,6 +80,16 @@ func (h *RoutingRuleHandler) Create(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceRoutingRule, ResourceID: &rule.ID,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, rule)
 }
 
@@ -108,6 +125,17 @@ func (h *RoutingRuleHandler) Update(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		rid := uint(id)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceRoutingRule, ResourceID: &rid,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, rule)
 }
 
@@ -123,5 +151,16 @@ func (h *RoutingRuleHandler) Delete(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		rid := uint(id)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceRoutingRule, ResourceID: &rid,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, nil)
 }

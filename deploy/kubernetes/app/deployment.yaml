@@ -9,7 +9,6 @@ metadata:
   namespace: sreagent
   labels:
     app: sreagent
-    version: v1.6.0
 spec:
   # 单副本（告警引擎状态机）；若要多副本需在引擎层加分布式锁
   replicas: 1
@@ -25,7 +24,7 @@ spec:
     metadata:
       labels:
         app: sreagent
-        version: v1.6.0
+        version: {{ .Values.image.tag | default "latest" | quote }}
       annotations:
         # To trigger rolling restart on ConfigMap change, update this annotation manually:
         # kubectl annotate deployment sreagent --overwrite checksum/config=$(sha256sum configmap.yaml | cut -d' ' -f1)
@@ -59,7 +58,7 @@ spec:
       containers:
         - name: sreagent
           # ⚠ 必须替换：填入实际镜像地址，例如: johndoe/sreagent:latest 或 johndoe/sreagent:v1.0.5
-          image: PLEASE_REPLACE/sreagent:latest
+          image: "{{ .Values.image.repository | default "PLEASE_REPLACE/sreagent" }}:{{ .Values.image.tag | default "latest" }}"
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

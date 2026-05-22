@@ -11,8 +11,9 @@ import (
 
 // NotifyRuleHandler handles HTTP requests for notify rules.
 type NotifyRuleHandler struct {
-	svc *service.NotifyRuleService
-	log *zap.Logger
+	svc      *service.NotifyRuleService
+	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
 // NewNotifyRuleHandler creates a new NotifyRuleHandler.
@@ -22,6 +23,11 @@ func NewNotifyRuleHandler(svc *service.NotifyRuleService, logger ...*zap.Logger)
 		l = logger[0]
 	}
 	return &NotifyRuleHandler{svc: svc, log: l}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *NotifyRuleHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // CreateNotifyRuleRequest is the request body for creating a notify rule.
@@ -85,6 +91,15 @@ func (h *NotifyRuleHandler) Create(c *gin.Context) {
 	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: model.AuditResourceNotifyRule, ResourceID: &rule.ID, ResourceName: rule.Name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, rule)
@@ -163,6 +178,15 @@ func (h *NotifyRuleHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: model.AuditResourceNotifyRule, ResourceID: &id, ResourceName: req.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, rule)
 }
 
@@ -182,6 +206,15 @@ func (h *NotifyRuleHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: model.AuditResourceNotifyRule, ResourceID: &id,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

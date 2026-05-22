@@ -4,6 +4,36 @@
 
 ---
 
+## [v4.15.14] — 2026-05-22
+
+### Round 10 Medium 级别问题全量修复（6 agent 并行）
+
+**安全加固**
+- `deploy/kubernetes/app/secret.yaml`：真实密码替换为 `CHANGE_ME` 占位符
+- `deploy/kubernetes/mysql/secret.yaml`：真实密码替换为 `CHANGE_ME` 占位符
+- `deploy/docker/entrypoint.sh`：DB 密码改用 `MYSQL_PWD` 环境变量传递，避免暴露在 `/proc/cmdline`
+- `deploy/kubernetes/app/deployment.yaml`：移除硬编码版本号，改用 Helm values
+
+**审计日志扩展（9 个 handler）**
+- `model/audit_log.go`：新增 Schedule/EscalationPolicy/MuteRule/InhibitionRule/NotifyMedia/BizGroup/Channel/RoutingRule 资源类型常量
+- `handler/schedule.go`：新增 auditSvc + 6 个写操作审计（Schedule + EscalationPolicy）
+- `handler/mute_rule.go`：新增 auditSvc + 3 个写操作审计
+- `handler/inhibition_rule.go`：新增 auditSvc + 3 个写操作审计
+- `handler/notify_rule.go`：新增 auditSvc + 3 个写操作审计
+- `handler/notify_media.go`：新增 auditSvc + 3 个写操作审计
+- `handler/biz_group.go`：新增 auditSvc + 3 个写操作审计
+- `handler/channel.go`：新增 auditSvc + 3 个写操作审计
+- `handler/routing_rule.go`：新增 auditSvc + 3 个写操作审计
+- `cmd/server/wire.go`：注入所有新增 handler 的 SetAuditService
+
+**迁移文件健壮性**
+- 21 个 `.up.sql` 文件添加 `IF NOT EXISTS`（CREATE TABLE + CREATE INDEX）
+
+**错误码对齐**
+- `internal/pkg/errors/errors.go`：新增 `ErrBusiness`(10002) 和 `ErrUnauth`(40001)，与 CLAUDE.md 文档一致
+
+---
+
 ## [v4.15.13] — 2026-05-22
 
 ### 全项目多视角深度审查修复
