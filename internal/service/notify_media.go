@@ -336,7 +336,7 @@ func (s *NotifyMediaService) sendEmail(ctx context.Context, media *model.NotifyM
 		if err != nil {
 			return fmt.Errorf("failed to create SMTP client: %w", err)
 		}
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 		if auth != nil {
 			if err := client.Auth(auth); err != nil {
 				return fmt.Errorf("SMTP auth failed: %w", err)

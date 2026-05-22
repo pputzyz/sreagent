@@ -24,7 +24,7 @@ func readYAMLInput(c *gin.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("provide JSON body with 'yaml' field or upload a file")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	const maxUploadSize = 10 << 20 // 10 MB
 	if header.Size > maxUploadSize {
 		return nil, fmt.Errorf("file too large (max 10MB)")

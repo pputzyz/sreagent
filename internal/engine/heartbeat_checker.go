@@ -320,6 +320,6 @@ func (h *HeartbeatChecker) recordTimeline(ctx context.Context, eventID uint, not
 // heartbeatFingerprint produces a stable fingerprint for a heartbeat rule's alert event.
 func heartbeatFingerprint(ruleID uint) string {
 	h := md5.New()
-	fmt.Fprintf(h, "heartbeat:rule:%d", ruleID)
+	_, _ = fmt.Fprintf(h, "heartbeat:rule:%d", ruleID)
 	return fmt.Sprintf("%x", h.Sum(nil))
 }

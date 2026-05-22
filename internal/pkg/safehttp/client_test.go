@@ -187,7 +187,7 @@ func Test_safeDialContext_blocks_private(t *testing.T) {
 	// Try to dial a private IP
 	conn, err := transport.DialContext(context.Background(), "tcp", "10.0.0.1:80")
 	if conn != nil {
-		conn.Close()
+		_ = conn.Close()
 	}
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "SSRF protection")
@@ -203,7 +203,7 @@ func Test_safeDialContext_blocks_metadata(t *testing.T) {
 	// Try to dial the metadata endpoint
 	conn, err := transport.DialContext(context.Background(), "tcp", "169.254.169.254:80")
 	if conn != nil {
-		conn.Close()
+		_ = conn.Close()
 	}
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "SSRF protection")

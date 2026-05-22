@@ -88,7 +88,7 @@ func httpGet(ctx context.Context, url, authType, authConfig string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -106,7 +106,7 @@ func httpGetBody(ctx context.Context, url, authType, authConfig string) ([]byte,
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	return body, resp.StatusCode, nil
 }

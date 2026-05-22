@@ -249,7 +249,7 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "file upload required: "+err.Error()))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	const maxUploadSize = 10 << 20 // 10 MB
 	if header.Size > maxUploadSize {

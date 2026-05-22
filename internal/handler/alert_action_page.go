@@ -22,7 +22,7 @@ func renderActionPage(event *model.AlertEvent, token, preAction string, preDurat
 		if k == "alertname" || k == "severity" {
 			continue
 		}
-		labelsHTML.WriteString(fmt.Sprintf(`<span class="label">%s: %s</span>`, html.EscapeString(k), html.EscapeString(v)))
+		fmt.Fprintf(&labelsHTML, `<span class="label">%s: %s</span>`, html.EscapeString(k), html.EscapeString(v))
 	}
 	if labelsHTML.Len() == 0 {
 		labelsHTML.WriteString(`<span class="label">无额外标签</span>`)
