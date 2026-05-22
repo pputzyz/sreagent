@@ -722,9 +722,9 @@ func (s *DashboardStatsService) TeamStats(ctx context.Context, days int) ([]Team
 			COUNT(*) AS total,
 			SUM(CASE WHEN incidents.status='closed' THEN 1 ELSE 0 END) AS closed,
 			SUM(CASE WHEN incidents.severity='critical' THEN 1 ELSE 0 END) AS critical,
-			AVG(CASE WHEN incidents.closed_at IS NOT NULL
+			COALESCE(AVG(CASE WHEN incidents.closed_at IS NOT NULL
 				THEN TIMESTAMPDIFF(SECOND, incidents.triggered_at, incidents.closed_at)
-				ELSE NULL END) AS avg_mttr`).
+				ELSE NULL END), 0) AS avg_mttr`).
 		Joins("LEFT JOIN channels ON channels.id = incidents.channel_id AND channels.deleted_at IS NULL").
 		Joins("LEFT JOIN teams ON teams.id = channels.team_id AND teams.deleted_at IS NULL").
 		Where("incidents.deleted_at IS NULL AND incidents.triggered_at >= ?", since).
@@ -815,7 +815,7 @@ func (s *DashboardStatsService) IncidentStats(ctx context.Context) (*IncidentSta
 		defer recoverPanic(s.logger, "IncidentStats.AvgMTTR", &err)
 		return s.db.WithContext(ctx).Table("incidents").
 			Where("closed_at IS NOT NULL AND deleted_at IS NULL").
-			Select("AVG(TIMESTAMPDIFF(SECOND, triggered_at, closed_at))").
+			Select("COALESCE(AVG(TIMESTAMPDIFF(SECOND, triggered_at, closed_at)), 0)").
 			Scan(&stats.AvgMTTRSeconds).Error
 	})
 	g.Go(func() (err error) {

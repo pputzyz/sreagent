@@ -4,6 +4,17 @@
 
 ---
 
+## [v4.15.21] — 2026-05-22
+
+### Dashboard NULL 扫描修复
+
+- 修复 `/api/v1/dashboard/incident-stats` 返回 500 错误：`AVG()` 无匹配行时返回 NULL，Go `sql.Scan` 无法将 NULL 转为 `float64`
+- `IncidentStats.AvgMTTRSeconds` 查询添加 `COALESCE(..., 0)`
+- `TeamStats.AvgMTTR` 查询添加 `COALESCE(..., 0)`
+- 同步更新 `web/package.json` 版本号（之前遗漏）
+
+---
+
 ## [v4.15.20] — 2026-05-22
 
 ### inspection_tasks 软删除修复
