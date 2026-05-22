@@ -166,7 +166,7 @@ func (c *BotClient) getTenantAccessToken(ctx context.Context) (string, error) {
 		if err != nil {
 			return larkAPIResult{}, fmt.Errorf("get tenant_access_token: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		respBody, _ := io.ReadAll(resp.Body)
 
 		if err := json.Unmarshal(respBody, &tokenResult); err != nil {
@@ -254,7 +254,7 @@ func (c *BotClient) sendRaw(ctx context.Context, receiveIDType, receiveID, msgTy
 		if err != nil {
 			return larkAPIResult{}, fmt.Errorf("send bot message: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		respBody, _ := io.ReadAll(resp.Body)
 
 		if err := json.Unmarshal(respBody, &sendResult); err != nil {
@@ -299,7 +299,7 @@ func (c *BotClient) UpdateMessage(ctx context.Context, messageID string, card *C
 		if err != nil {
 			return larkAPIResult{}, fmt.Errorf("update bot message: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		respBody, _ := io.ReadAll(resp.Body)
 
 		var result larkAPIResult
@@ -331,7 +331,7 @@ func (c *BotClient) DeleteMessage(ctx context.Context, messageID string) error {
 		if err != nil {
 			return larkAPIResult{}, fmt.Errorf("delete bot message: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		respBody, _ := io.ReadAll(resp.Body)
 
 		var result larkAPIResult

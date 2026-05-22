@@ -62,9 +62,9 @@ func (s *RuleGeneratorService) SuggestLabels(ctx context.Context, datasourceID u
 			if len(vals) < vl {
 				vl = len(vals)
 			}
-			sb.WriteString(fmt.Sprintf("  %s: %s\n", keys[i], strings.Join(vals[:vl], ", ")))
+			fmt.Fprintf(&sb, "  %s: %s\n", keys[i], strings.Join(vals[:vl], ", "))
 		} else {
-			sb.WriteString(fmt.Sprintf("  %s: (no values)\n", keys[i]))
+			fmt.Fprintf(&sb, "  %s: (no values)\n", keys[i])
 		}
 	}
 

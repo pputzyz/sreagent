@@ -4,6 +4,26 @@
 
 ---
 
+## [v4.15.18] — 2026-05-22
+
+### golangci-lint v2 全量修复（一次性通过）
+
+全量扫描修复所有 golangci-lint v2 规则违规，确保 CI 一次性通过。
+
+**errcheck（15 项）**
+- `defer resp.Body.Close()` → `defer func() { _ = resp.Body.Close() }()` — 涉及 zabbix.go、ai.go、larkbot.go、notify_media.go、lark/client.go、lark/bot_api.go
+- `defer f.Close()` → `defer func() { _ = f.Close() }()` — scripts/check-modules.go
+
+**QF1012（~40 项）**
+- `sb.WriteString(fmt.Sprintf(...))` → `fmt.Fprintf(&sb, ...)` — 涉及 alert_context.go、incident_context.go、lark_cards.go、lark/client.go、notify_media.go、rule_generator.go、rule_generator_suggest.go
+- `h.Write([]byte(fmt.Sprintf(...)))` → `fmt.Fprintf(h, ...)` — rule_gen_cache.go
+
+**unused（2 项）**
+- 移除未使用函数 `getRuleFromMap`（escalation_executor.go）
+- 移除未使用函数 `stripNewlines`（smtp_settings.go）
+
+---
+
 ## [v4.15.17] — 2026-05-22
 
 ### 全量代码审查（8 个专业视角 Agent 逐行审查）

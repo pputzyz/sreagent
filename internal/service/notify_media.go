@@ -253,7 +253,7 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 	if err != nil {
 		return fmt.Errorf("http request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -309,9 +309,9 @@ func (s *NotifyMediaService) sendEmail(ctx context.Context, media *model.NotifyM
 
 	// Build a minimal RFC-2822 message with UTF-8 content
 	var msg bytes.Buffer
-	msg.WriteString(fmt.Sprintf("From: %s\r\n", from))
-	msg.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(cfg.To, ", ")))
-	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", mime.QEncoding.Encode("utf-8", subject)))
+	fmt.Fprintf(&msg, "From: %s\r\n", from)
+	fmt.Fprintf(&msg, "To: %s\r\n", strings.Join(cfg.To, ", "))
+	fmt.Fprintf(&msg, "Subject: %s\r\n", mime.QEncoding.Encode("utf-8", subject))
 	msg.WriteString("MIME-Version: 1.0\r\n")
 	msg.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
 	msg.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
@@ -430,7 +430,7 @@ func (s *NotifyMediaService) doHTTPPost(ctx context.Context, url, contentType st
 	if err != nil {
 		return fmt.Errorf("http post failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)

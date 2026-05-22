@@ -52,7 +52,7 @@ func (c *Client) SendWebhook(ctx context.Context, webhookURL string, message int
 	if err != nil {
 		return nil, fmt.Errorf("failed to send webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -174,7 +174,7 @@ func BuildAlertCard(
 		if k == "alertname" || k == "severity" {
 			continue
 		}
-		labelsBuilder.WriteString(fmt.Sprintf("**%s:** %s\n", k, v))
+		fmt.Fprintf(&labelsBuilder, "**%s:** %s\n", k, v)
 	}
 	labelsText := labelsBuilder.String()
 	if labelsText == "" {
@@ -184,7 +184,7 @@ func BuildAlertCard(
 	// Build annotations text
 	var annotationsBuilder strings.Builder
 	for k, v := range annotations {
-		annotationsBuilder.WriteString(fmt.Sprintf("**%s:** %s\n", k, v))
+		fmt.Fprintf(&annotationsBuilder, "**%s:** %s\n", k, v)
 	}
 	annotationsText := annotationsBuilder.String()
 	if annotationsText == "" {
@@ -294,7 +294,7 @@ func BuildEnrichedAlertCard(
 		if k == "alertname" || k == "severity" {
 			continue
 		}
-		labelsBuilder.WriteString(fmt.Sprintf("%s: %s\n", k, v))
+		fmt.Fprintf(&labelsBuilder, "%s: %s\n", k, v)
 	}
 	labelsText := labelsBuilder.String()
 	if labelsText == "" {
@@ -311,7 +311,7 @@ func BuildEnrichedAlertCard(
 	// Annotations/description section
 	var annotationsBuilder strings.Builder
 	for k, v := range annotations {
-		annotationsBuilder.WriteString(fmt.Sprintf("**%s:** %s\n", k, v))
+		fmt.Fprintf(&annotationsBuilder, "**%s:** %s\n", k, v)
 	}
 	annotationsText := annotationsBuilder.String()
 	if annotationsText == "" {
@@ -330,25 +330,25 @@ func BuildEnrichedAlertCard(
 		aiContent.WriteString("🤖 **AI 分析**\n\n")
 
 		if analysis.Summary != "" {
-			aiContent.WriteString(fmt.Sprintf("**摘要:** %s\n\n", analysis.Summary))
+			fmt.Fprintf(&aiContent, "**摘要:** %s\n\n", analysis.Summary)
 		}
 
 		if len(analysis.ProbableCauses) > 0 {
 			aiContent.WriteString("**可能原因:**\n")
 			for i, cause := range analysis.ProbableCauses {
-				aiContent.WriteString(fmt.Sprintf("%d. %s\n", i+1, cause))
+				fmt.Fprintf(&aiContent, "%d. %s\n", i+1, cause)
 			}
 			aiContent.WriteString("\n")
 		}
 
 		if analysis.Impact != "" {
-			aiContent.WriteString(fmt.Sprintf("**影响范围:** %s\n\n", analysis.Impact))
+			fmt.Fprintf(&aiContent, "**影响范围:** %s\n\n", analysis.Impact)
 		}
 
 		if len(analysis.RecommendedSteps) > 0 {
 			aiContent.WriteString("**建议操作:**\n")
 			for i, step := range analysis.RecommendedSteps {
-				aiContent.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
+				fmt.Fprintf(&aiContent, "%d. %s\n", i+1, step)
 			}
 		}
 

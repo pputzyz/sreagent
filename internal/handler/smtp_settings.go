@@ -18,16 +18,6 @@ func containsNewline(s string) bool {
 	return strings.ContainsAny(s, "\r\n")
 }
 
-// stripNewlines removes all CR and LF characters from s.
-func stripNewlines(s string) string {
-	return strings.Map(func(r rune) rune {
-		if r == '\r' || r == '\n' {
-			return -1
-		}
-		return r
-	}, s)
-}
-
 // sanitizeStringFields removes non-printable control characters (except common whitespace)
 // and strips \r\n to prevent header injection when the value is used in email headers.
 func sanitizeEmailField(s string) string {

@@ -137,9 +137,9 @@ func formatQueryResults(results []datasource.QueryResult) string {
 			metricName = "(unnamed)"
 		}
 		if len(labelParts) > 0 {
-			sb.WriteString(fmt.Sprintf("%s{%s}:\n", metricName, strings.Join(labelParts, ", ")))
+			fmt.Fprintf(&sb, "%s{%s}:\n", metricName, strings.Join(labelParts, ", "))
 		} else {
-			sb.WriteString(fmt.Sprintf("%s:\n", metricName))
+			fmt.Fprintf(&sb, "%s:\n", metricName)
 		}
 
 		// Show up to the last 10 data points
@@ -148,7 +148,7 @@ func formatQueryResults(results []datasource.QueryResult) string {
 			values = values[len(values)-10:]
 		}
 		for _, dp := range values {
-			sb.WriteString(fmt.Sprintf("  %s  %.4g\n", dp.Timestamp.Format("15:04:05"), dp.Value))
+			fmt.Fprintf(&sb, "  %s  %.4g\n", dp.Timestamp.Format("15:04:05"), dp.Value)
 		}
 	}
 	return sb.String()
@@ -158,21 +158,21 @@ func formatQueryResults(results []datasource.QueryResult) string {
 func formatBasicContext(alertCtx *AlertContext) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("告警名称: %s\n", alertCtx.AlertName))
-	sb.WriteString(fmt.Sprintf("告警级别: %s\n", alertCtx.Severity))
-	sb.WriteString(fmt.Sprintf("触发时间: %s\n", alertCtx.FiredAt.Format("2006-01-02 15:04:05")))
+	fmt.Fprintf(&sb, "告警名称: %s\n", alertCtx.AlertName)
+	fmt.Fprintf(&sb, "告警级别: %s\n", alertCtx.Severity)
+	fmt.Fprintf(&sb, "触发时间: %s\n", alertCtx.FiredAt.Format("2006-01-02 15:04:05"))
 
 	if len(alertCtx.Labels) > 0 {
 		sb.WriteString("\n标签:\n")
 		for k, v := range alertCtx.Labels {
-			sb.WriteString(fmt.Sprintf("  %s: %s\n", k, v))
+			fmt.Fprintf(&sb, "  %s: %s\n", k, v)
 		}
 	}
 
 	if len(alertCtx.Annotations) > 0 {
 		sb.WriteString("\n描述信息:\n")
 		for k, v := range alertCtx.Annotations {
-			sb.WriteString(fmt.Sprintf("  %s: %s\n", k, v))
+			fmt.Fprintf(&sb, "  %s: %s\n", k, v)
 		}
 	}
 

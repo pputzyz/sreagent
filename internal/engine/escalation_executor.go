@@ -279,13 +279,6 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 	}
 }
 
-func (e *EscalationExecutor) getRuleFromMap(ruleMap map[uint]*model.AlertRule, event *model.AlertEvent) *model.AlertRule {
-	if ruleMap == nil || event.RuleID == nil {
-		return nil
-	}
-	return ruleMap[*event.RuleID]
-}
-
 // batchLoadRules collects unique rule IDs from events and loads them in a single query.
 // Returns nil if ruleRepo is not configured or on error.
 func (e *EscalationExecutor) batchLoadRules(ctx context.Context, events []model.AlertEvent) map[uint]*model.AlertRule {

@@ -83,7 +83,7 @@ func (c *ZabbixChecker) CheckHealth(ctx context.Context, endpoint, authType, aut
 		return HealthResult{Healthy: false, LatencyMs: latency,
 			Message: fmt.Sprintf("API unreachable: %v", err)}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 
@@ -148,7 +148,7 @@ func zabbixAPIToken(ctx context.Context, apiURL, username, password string) (str
 	if err != nil {
 		return "", fmt.Errorf("login request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -227,7 +227,7 @@ func ZabbixInstantQuery(ctx context.Context, endpoint, authType, authConfig, exp
 	if err != nil {
 		return nil, fmt.Errorf("item.get request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -404,7 +404,7 @@ func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasource
 		limit = len(keys)
 	}
 	for i := 0; i < limit; i++ {
-		sb.WriteString(fmt.Sprintf("  - %s\n", keys[i]))
+		fmt.Fprintf(&sb, "  - %s\n", keys[i])
 		// Also get top values for this key
 		vals, err := s.labelRegSvc.GetValues(ctx, keys[i], dsIDs)
 		if err == nil && len(vals) > 0 {
@@ -412,7 +412,7 @@ func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasource
 			if len(vals) < valLimit {
 				valLimit = len(vals)
 			}
-			sb.WriteString(fmt.Sprintf("    常用值: %s\n", strings.Join(vals[:valLimit], ", ")))
+			fmt.Fprintf(&sb, "    常用值: %s\n", strings.Join(vals[:valLimit], ", "))
 		}
 	}
 
@@ -439,7 +439,7 @@ func (s *RuleGeneratorService) buildExistingRulesContext(ctx context.Context) (s
 		limit = len(rules)
 	}
 	for i := 0; i < limit; i++ {
-		sb.WriteString(fmt.Sprintf("  - %s: %s\n", rules[i].Name, rules[i].Expression))
+		fmt.Fprintf(&sb, "  - %s: %s\n", rules[i].Name, rules[i].Expression)
 	}
 
 	return sb.String(), nil
@@ -460,7 +460,7 @@ func (s *RuleGeneratorService) buildPresetMatches(ctx context.Context, descripti
 			continue
 		}
 		for _, p := range presets {
-			allMatches = append(allMatches, fmt.Sprintf("  - %s: %s (severity: %s)", p.Name, p.Expression, p.Severity))
+			allMatches = append(allMatches, fmt.Sprintf("  - %s: %s (severity: %s)", p.Name, p.Expression, p.Severity)) //nolint:govet // not a format string
 		}
 	}
 

@@ -44,7 +44,7 @@ func cacheKey(description string, dsID *uint, ruleType string) string {
 	h := sha256.New()
 	h.Write([]byte(description))
 	if dsID != nil {
-		h.Write([]byte(fmt.Sprintf(":%d", *dsID)))
+		fmt.Fprintf(h, ":%d", *dsID)
 	}
 	h.Write([]byte(":" + ruleType))
 	return hex.EncodeToString(h.Sum(nil))

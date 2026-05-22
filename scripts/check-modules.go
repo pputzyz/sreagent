@@ -100,7 +100,7 @@ func parseClaimedCounts(path string) map[string]int {
 		fmt.Fprintf(os.Stderr, "ERROR: cannot open %s: %v\n", path, err)
 		os.Exit(1)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	re := regexp.MustCompile(`(\d+)\s+个\s+(model|handler|service|repository)`)
 

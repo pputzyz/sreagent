@@ -453,7 +453,7 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 	if err != nil {
 		return "", fmt.Errorf("failed to call AI API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB max
 	if err != nil {
@@ -654,7 +654,7 @@ func (s *AIService) callLLMWithSystem(ctx context.Context, cfg AIConfig, systemP
 	if err != nil {
 		return "", fmt.Errorf("failed to call AI API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB max
 	if err != nil {
@@ -738,7 +738,7 @@ func (s *AIService) callLLMAnthropic(ctx context.Context, cfg AIConfig, systemPr
 	if err != nil {
 		return "", fmt.Errorf("failed to call Anthropic API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB max
 	if err != nil {
@@ -821,7 +821,7 @@ func (s *AIService) chatAnthropic(ctx context.Context, cfg AIConfig, systemPromp
 	if err != nil {
 		return "", fmt.Errorf("failed to call Anthropic API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB max
 	if err != nil {

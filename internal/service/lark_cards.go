@@ -40,7 +40,7 @@ func BuildResolvedCard(
 		if k == "alertname" || k == "severity" {
 			continue
 		}
-		labelsBuilder.WriteString(fmt.Sprintf("**%s:** %s\n", sanitizeLarkMarkdown(k), sanitizeLarkMarkdown(v)))
+		fmt.Fprintf(&labelsBuilder, "**%s:** %s\n", sanitizeLarkMarkdown(k), sanitizeLarkMarkdown(v))
 	}
 	labelsText := labelsBuilder.String()
 	if labelsText == "" {
@@ -188,14 +188,14 @@ func BuildInspectionReportCard(
 		sb.WriteString("**发现项:**\n")
 		for i, f := range findings {
 			if i >= 10 {
-				sb.WriteString(fmt.Sprintf("\n_...共 %d 项，仅显示前 10 项_", len(findings)))
+				fmt.Fprintf(&sb, "\n_...共 %d 项，仅显示前 10 项_", len(findings))
 				break
 			}
 			sevEmoji := larkSeverityEmoji(f.Severity)
-			sb.WriteString(fmt.Sprintf("%s **[%s]** %s: %s\n",
+			fmt.Fprintf(&sb, "%s **[%s]** %s: %s\n",
 				sevEmoji, strings.ToUpper(f.Severity),
 				sanitizeLarkMarkdown(f.Category),
-				sanitizeLarkMarkdown(f.Detail)))
+				sanitizeLarkMarkdown(f.Detail))
 		}
 		elements = append(elements, lark.CardMarkdown{Tag: "markdown", Content: sb.String()})
 	}

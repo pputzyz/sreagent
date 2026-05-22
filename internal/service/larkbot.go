@@ -489,7 +489,7 @@ func (s *LarkBotService) SendMessage(ctx context.Context, chatID, content string
 	if err != nil {
 		return fmt.Errorf("failed to send lark message: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB max
 	if err != nil {

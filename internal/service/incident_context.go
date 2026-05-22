@@ -111,10 +111,10 @@ func (ictx *IncidentContext) FormatForPrompt() string {
 
 	// Incident info
 	if ictx.Incident != nil {
-		sb.WriteString(fmt.Sprintf("**事故:** %s (ID: %d)\n", ictx.Incident.Title, ictx.Incident.ID))
-		sb.WriteString(fmt.Sprintf("**状态:** %s | **严重等级:** %s\n", ictx.Incident.Status, ictx.Incident.Severity))
+			fmt.Fprintf(&sb, "**事故:** %s (ID: %d)\n", ictx.Incident.Title, ictx.Incident.ID)
+		fmt.Fprintf(&sb, "**状态:** %s | **严重等级:** %s\n", ictx.Incident.Status, ictx.Incident.Severity)
 		if ictx.Incident.Description != "" {
-			sb.WriteString(fmt.Sprintf("**描述:** %s\n", ictx.Incident.Description))
+			fmt.Fprintf(&sb, "**描述:** %s\n", ictx.Incident.Description)
 		}
 		sb.WriteString("\n")
 	}
@@ -123,30 +123,30 @@ func (ictx *IncidentContext) FormatForPrompt() string {
 	if len(ictx.Labels) > 0 {
 		sb.WriteString("**标签:**\n")
 		for k, v := range ictx.Labels {
-			sb.WriteString(fmt.Sprintf("- %s: %s\n", k, v))
+			fmt.Fprintf(&sb, "- %s: %s\n", k, v)
 		}
 		sb.WriteString("\n")
 	}
 
 	// Related alerts
 	if len(ictx.RelatedAlerts) > 0 {
-		sb.WriteString(fmt.Sprintf("**相关告警 (%d 条):**\n", len(ictx.RelatedAlerts)))
+		fmt.Fprintf(&sb, "**相关告警 (%d 条):**\n", len(ictx.RelatedAlerts))
 		for i, a := range ictx.RelatedAlerts {
 			if i >= 10 {
-				sb.WriteString(fmt.Sprintf("... 还有 %d 条\n", len(ictx.RelatedAlerts)-10))
+				fmt.Fprintf(&sb, "... 还有 %d 条\n", len(ictx.RelatedAlerts)-10)
 				break
 			}
-			sb.WriteString(fmt.Sprintf("- [%s] %s (%s) — %s\n", a.Severity, a.AlertName, a.Status, a.FiredAt.Format("01-02 15:04")))
+			fmt.Fprintf(&sb, "- [%s] %s (%s) — %s\n", a.Severity, a.AlertName, a.Status, a.FiredAt.Format("01-02 15:04"))
 		}
 		sb.WriteString("\n")
 	}
 
 	// Team / On-call
 	if ictx.TeamName != "" {
-		sb.WriteString(fmt.Sprintf("**负责团队:** %s\n", ictx.TeamName))
+		fmt.Fprintf(&sb, "**负责团队:** %s\n", ictx.TeamName)
 	}
 	if ictx.OnCallPerson != "" {
-		sb.WriteString(fmt.Sprintf("**当前值班人:** %s\n", ictx.OnCallPerson))
+		fmt.Fprintf(&sb, "**当前值班人:** %s\n", ictx.OnCallPerson)
 	}
 
 	// Knowledge results
@@ -156,9 +156,9 @@ func (ictx *IncidentContext) FormatForPrompt() string {
 			if i >= 3 {
 				break
 			}
-			sb.WriteString(fmt.Sprintf("- [%s] %s\n", doc.Source, doc.Title))
+			fmt.Fprintf(&sb, "- [%s] %s\n", doc.Source, doc.Title)
 			if doc.Summary != "" {
-				sb.WriteString(fmt.Sprintf("  摘要: %s\n", doc.Summary))
+				fmt.Fprintf(&sb, "  摘要: %s\n", doc.Summary)
 			}
 		}
 		sb.WriteString("\n")
@@ -166,7 +166,7 @@ func (ictx *IncidentContext) FormatForPrompt() string {
 
 	// Runbook
 	if ictx.Runbook != "" {
-		sb.WriteString(fmt.Sprintf("**处理手册:** %s\n\n", ictx.Runbook))
+		fmt.Fprintf(&sb, "**处理手册:** %s\n\n", ictx.Runbook)
 	}
 
 	return sb.String()
