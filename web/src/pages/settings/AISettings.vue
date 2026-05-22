@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
 import {
   NButton, NIcon, NSwitch, NAlert, NCard, NDivider, NSpin,
   NSpace, NTag, NSelect, NInput, NModal, NForm, NFormItem,
@@ -14,10 +13,9 @@ import { getErrorMessage } from '@/utils/format'
 
 const { t } = useI18n()
 const message = useMessage()
-const route = useRoute()
 
 // ─── Active tab ───
-const activeTab = ref((route.meta.defaultTab as string) || 'providers')
+const activeTab = ref('providers')
 
 // ─── Providers config ───
 const providersLoading = ref(false)
@@ -395,29 +393,38 @@ onMounted(() => {
           </h2>
           <p class="sre-config-header-sub">{{ t('aiSettings.subtitle') }}</p>
         </div>
+        <div class="sre-config-header-actions">
+          <n-button v-if="activeTab === 'providers'" type="primary" size="small" :loading="providersSaving" @click="handleSaveProviders">
+            <template #icon><n-icon :component="SaveOutline" /></template>
+            {{ t('common.save') }}
+          </n-button>
+          <n-button v-else-if="activeTab === 'modules'" type="primary" size="small" :loading="saving" @click="handleSave">
+            <template #icon><n-icon :component="SaveOutline" /></template>
+            {{ t('common.save') }}
+          </n-button>
+          <n-button v-else-if="activeTab === 'global'" type="primary" size="small" :loading="globalSaving" @click="handleSaveGlobal">
+            <template #icon><n-icon :component="SaveOutline" /></template>
+            {{ t('common.save') }}
+          </n-button>
+        </div>
       </header>
 
       <n-tabs v-model:value="activeTab" type="line" animated>
         <!-- Tab 1: Providers -->
         <n-tab-pane name="providers" :tab="t('aiSettings.providersTitle')">
-          <div class="tab-actions">
-            <n-button size="small" :loading="testing" @click="handleTestDefault">
-              <template #icon><n-icon :component="PulseOutline" /></template>
-              {{ t('aiSettings.testDefault') }}
-            </n-button>
-            <n-button type="primary" size="small" :loading="providersSaving" @click="handleSaveProviders">
-              <template #icon><n-icon :component="SaveOutline" /></template>
-              {{ t('common.save') }}
-            </n-button>
-          </div>
-
           <section class="sre-config-section">
             <div class="section-header-row">
               <p class="sre-config-section-desc" style="margin: 0">{{ t('aiSettings.providersDesc') }}</p>
-              <n-button size="small" @click="openAddProvider">
-                <template #icon><n-icon :component="AddOutline" /></template>
-                {{ t('aiSettings.addProvider') }}
-              </n-button>
+              <n-space :size="8">
+                <n-button size="small" quaternary :loading="testing" @click="handleTestDefault">
+                  <template #icon><n-icon :component="PulseOutline" /></template>
+                  {{ t('aiSettings.testDefault') }}
+                </n-button>
+                <n-button size="small" @click="openAddProvider">
+                  <template #icon><n-icon :component="AddOutline" /></template>
+                  {{ t('aiSettings.addProvider') }}
+                </n-button>
+              </n-space>
             </div>
 
             <n-alert v-if="hasProviders && !defaultProviderHealthy" type="error" class="mb-4">
@@ -445,23 +452,18 @@ onMounted(() => {
 
         <!-- Tab 2: Modules -->
         <n-tab-pane name="modules" :tab="t('aiSettings.moduleConfigTitle')">
-          <div class="tab-actions">
-            <n-button size="small" :loading="previewLoading" @click="handlePreviewImpact">
-              <template #icon><n-icon :component="PulseOutline" /></template>
-              {{ t('aiSettings.previewImpact') }}
-            </n-button>
-            <n-button type="primary" size="small" :loading="saving" @click="handleSave">
-              <template #icon><n-icon :component="SaveOutline" /></template>
-              {{ t('common.save') }}
-            </n-button>
-          </div>
-
           <section class="sre-config-section">
             <div class="section-header-row">
               <p class="sre-config-section-desc" style="margin: 0">{{ t('aiSettings.moduleConfigDesc') }}</p>
-              <n-tag v-if="providersConfig?.default_provider" size="small" :bordered="false" type="info">
-                {{ t('aiSettings.default') }}: {{ providersConfig.default_provider }}
-              </n-tag>
+              <n-space :size="8">
+                <n-tag v-if="providersConfig?.default_provider" size="small" :bordered="false" type="info">
+                  {{ t('aiSettings.default') }}: {{ providersConfig.default_provider }}
+                </n-tag>
+                <n-button size="small" quaternary :loading="previewLoading" @click="handlePreviewImpact">
+                  <template #icon><n-icon :component="PulseOutline" /></template>
+                  {{ t('aiSettings.previewImpact') }}
+                </n-button>
+              </n-space>
             </div>
 
             <div v-if="modules" class="module-list">
@@ -530,12 +532,6 @@ onMounted(() => {
                     <n-switch v-model:value="globalConfig.data_masking_enabled" />
                     <p class="form-desc">{{ t('aiSettings.dataMaskingDesc') }}</p>
                   </div>
-                </n-form-item>
-                <n-form-item>
-                  <n-button type="primary" :loading="globalSaving" @click="handleSaveGlobal">
-                    <template #icon><n-icon :component="SaveOutline" /></template>
-                    {{ t('common.save') }}
-                  </n-button>
                 </n-form-item>
               </n-form>
             </n-spin>

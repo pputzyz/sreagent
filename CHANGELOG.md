@@ -4,6 +4,18 @@
 
 ---
 
+## [v4.15.26] — 2026-05-22
+
+### AI 配置页简化
+
+- 侧边栏移除冗余菜单 `AI 模块配置`，只保留 `AI 配置`（页面内 tab 切换）
+- 移除路由 `/platform/settings/ai/modules`，AISettings.vue 不再读取 `route.meta.defaultTab`
+- 仪表盘快捷链接修正：路由改为 `/platform/settings/ai`，标签改为 `menu.aiConfig`
+- 按钮布局重构：保存按钮统一到页面 header（根据当前 tab 切换），测试/预览按钮降级为 section 内 quaternary 辅助按钮
+- Global tab 移除重复的保存按钮（header 已有）
+
+---
+
 ## [v4.15.25] — 2026-05-22
 
 ### UI/UX 修复

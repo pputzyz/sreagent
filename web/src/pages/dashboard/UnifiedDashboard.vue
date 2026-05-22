@@ -158,7 +158,7 @@ const ALL_QUICK_LINKS: Omit<QuickLink, 'enabled'>[] = [
   { id: 'spaces',     label: '', route: '/oncall/spaces',         icon: RocketOutline,          color: '#14B8A6', bg: 'rgba(20,184,166,0.08)' },
   { id: 'members',    label: '', route: '/platform/org/members',  icon: PeopleOutline,          color: '#6366F1', bg: 'rgba(99,102,241,0.08)' },
   { id: 'presets',    label: '', route: '/alert/presets',         icon: LibraryOutline,          color: '#0EA5E9', bg: 'rgba(14,165,233,0.08)' },
-  { id: 'aiSettings', label: '', route: '/platform/settings/ai-settings', icon: SparklesOutline, color: '#D946EF', bg: 'rgba(217,70,239,0.08)' },
+  { id: 'aiSettings', label: '', route: '/platform/settings/ai', icon: SparklesOutline, color: '#D946EF', bg: 'rgba(217,70,239,0.08)' },
 ]
 
 function loadQuickLinks(): QuickLink[] {
@@ -196,7 +196,7 @@ const quickLinkLabels = computed(() => ({
   spaces: t('menu.channels'),
   members: t('menu.members'),
   presets: t('menu.presetRules'),
-  aiSettings: t('menu.aiModuleConfig'),
+  aiSettings: t('menu.aiConfig'),
 }))
 
 watch(quickLinkLabels, (labels) => {
