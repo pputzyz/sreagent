@@ -4,6 +4,19 @@
 
 ---
 
+## [v4.15.10] — 2026-05-21
+
+### Round 9 审查补漏
+
+- `rule_eval.go`：break→continue+Unlock 修复 createAlertEvent 失败时 mutex 泄漏（死锁风险）
+- `leader_election.go`：renew() 使用包级 checkAndExtendScript 替代内联 Lua
+- `escalation_executor.go`：Start() 用 sync.Once 防止重复启动
+- `handler/integration.go`：io.LimitReader→http.MaxBytesReader 超限返回 413
+- `rule_generator_suggest.go`：suggestLabelsHeuristic 传播 ctx 替代 context.Background()
+- `handler/inspection.go`：ListTasks 统一使用 SuccessPage() 响应格式
+
+---
+
 ## [v4.15.9] — 2026-05-21
 
 ### 框架级审查 Round 9 — 引擎 Bug + 安全加固 + 分页统一 + BaseModel 嵌入
