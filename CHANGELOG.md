@@ -4,6 +4,19 @@
 
 ---
 
+## [v4.15.25] — 2026-05-22
+
+### UI/UX 修复
+
+- `AISettings.vue` Providers tab：移除冗余 section 标题，合并重复空状态（NAlert + empty div → 单一 alert）
+- `AISettings.vue` Modules tab：移除冗余 section 标题，添加默认供应商摘要 badge
+- `AISettings.vue` Global tab：移除冗余 section 标题，保留描述文案
+- `AISettings.vue`：补充 `.form-desc` CSS 定义，颜色从 tertiary 改为 secondary 提升可读性
+- `LarkBotConfig.vue` Debug 区域：从 grid 布局改为 list 布局，标签从 tiny 改为 small，AppId 用 `<code>` 展示
+- `LarkBotConfig.vue`：`.form-desc` 和 `.bot-status-label` 颜色从 tertiary 改为 secondary
+
+---
+
 ## [v4.15.24] — 2026-05-22
 
 ### 页面组件修复

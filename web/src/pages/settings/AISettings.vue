@@ -411,21 +411,9 @@ onMounted(() => {
             </n-button>
           </div>
 
-          <n-alert
-            v-if="!providersLoading && !hasProviders"
-            type="warning"
-            :bordered="false"
-            style="margin-bottom: 20px"
-          >
-            {{ t('aiSettings.noProvidersWarning') }}
-          </n-alert>
-
           <section class="sre-config-section">
             <div class="section-header-row">
-              <div>
-                <h3 class="sre-config-section-title">{{ t('aiSettings.providersTitle') }}</h3>
-                <p class="sre-config-section-desc">{{ t('aiSettings.providersDesc') }}</p>
-              </div>
+              <p class="sre-config-section-desc" style="margin: 0">{{ t('aiSettings.providersDesc') }}</p>
               <n-button size="small" @click="openAddProvider">
                 <template #icon><n-icon :component="AddOutline" /></template>
                 {{ t('aiSettings.addProvider') }}
@@ -445,9 +433,13 @@ onMounted(() => {
               :bordered="false"
               style="margin-bottom: 8px"
             />
-            <div v-else-if="!providersLoading" class="ai-info-empty">
-              {{ t('aiSettings.noProvidersEmpty') }}
-            </div>
+            <n-alert
+              v-else-if="!providersLoading"
+              type="warning"
+              :bordered="false"
+            >
+              {{ t('aiSettings.noProvidersWarning') }}
+            </n-alert>
           </section>
         </n-tab-pane>
 
@@ -465,8 +457,12 @@ onMounted(() => {
           </div>
 
           <section class="sre-config-section">
-            <h3 class="sre-config-section-title">{{ t('aiSettings.moduleConfigTitle') }}</h3>
-            <p class="sre-config-section-desc">{{ t('aiSettings.moduleConfigDesc') }}</p>
+            <div class="section-header-row">
+              <p class="sre-config-section-desc" style="margin: 0">{{ t('aiSettings.moduleConfigDesc') }}</p>
+              <n-tag v-if="providersConfig?.default_provider" size="small" :bordered="false" type="info">
+                {{ t('aiSettings.default') }}: {{ providersConfig.default_provider }}
+              </n-tag>
+            </div>
 
             <div v-if="modules" class="module-list">
               <div
@@ -509,11 +505,7 @@ onMounted(() => {
         <!-- Tab 3: Global Settings -->
         <n-tab-pane name="global" :tab="t('aiSettings.globalTab')">
           <div class="global-config-section">
-            <h3 class="sre-config-section-title">
-              <n-icon :component="SettingsOutline" :size="16" style="margin-right: 6px; vertical-align: -2px;" />
-              {{ t('aiSettings.globalTitle') }}
-            </h3>
-            <p class="sre-config-section-desc">{{ t('aiSettings.globalDesc') }}</p>
+            <p class="sre-config-section-desc" style="margin-bottom: 16px">{{ t('aiSettings.globalDesc') }}</p>
 
             <n-spin :show="globalLoading">
               <n-form label-placement="left" label-width="180" style="max-width: 560px; margin-top: 16px;">
@@ -767,5 +759,11 @@ onMounted(() => {
 }
 .mb-4 {
   margin-bottom: 16px;
+}
+.form-desc {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  margin-top: 4px;
+  line-height: 1.5;
 }
 </style>
