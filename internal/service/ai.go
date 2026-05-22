@@ -931,7 +931,7 @@ func (s *AIService) callLLMWithToolsCustom(
 		}
 
 		respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return "", records, fmt.Errorf("failed to read AI response: %w", err)
 		}

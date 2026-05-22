@@ -399,7 +399,7 @@ func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string
 	defer func() {
 		// Drain body to allow connection reuse (M6).
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}()
 
 	s.logger.Info("callback fired",
