@@ -3,6 +3,9 @@ package model
 import "time"
 
 // AutoAction defines an automated remediation action with guardrails.
+// NOTE: Model and repository exist but are not yet wired into the runtime.
+// Handler, service, and routes are pending implementation.
+// See docs/ai-agent-roadmap.md for the planned auto-remediation feature.
 type AutoAction struct {
 	BaseModel
 	Name             string     `json:"name" gorm:"size:255;not null"`

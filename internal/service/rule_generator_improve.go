@@ -39,7 +39,7 @@ func (s *RuleGeneratorService) CheckConflicts(ctx context.Context, expression st
 	}
 
 	// 2. Jaccard similarity — find existing rules with overlapping expressions
-	rules, _, err := s.ruleSvc.List(ctx, "", "", "", "", 1, 200)
+	rules, _, err := s.ruleSvc.List(ctx, "", "", "", "", "", nil, 1, 200)
 	if err == nil {
 		newTokens := tokenizeExpression(expression)
 		for _, r := range rules {

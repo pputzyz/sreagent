@@ -4,6 +4,37 @@
 
 ---
 
+## [v4.15.11] — 2026-05-22
+
+### Round 10 多视角审查 — 安全 + 健壮性 + CI + i18n + 服务端过滤
+
+**安全加固**
+- `handler/datasource.go`：数据源 endpoint URL scheme 白名单校验（仅 http/https），阻断 SSRF
+- `stores/auth.ts`：401 检测从字符串匹配改为 HTTP status code 检查，避免误判
+
+**引擎层修复**
+- `engine/escalation_executor.go`：Start/Stop 拆分为独立 sync.Once，修复 Stop() 永远是 no-op 的 bug
+
+**健壮性**
+- `service/dashboard_stats.go`：WaitGroup+裸 goroutine → errgroup+panic 恢复，错误可传播
+- `model/auto_action.go`：AutoAction 标注为未接入状态（模型保留，待后续实现）
+
+**CI/CD**
+- `.github/workflows/docker-build.yml`：添加 PR 触发 + main 分支 push 触发 + `-race` 标志 + golangci-lint
+
+**服务端过滤**
+- `repository/alert_rule.go`：List() 新增 keyword/datasourceID 参数，支持 LIKE 搜索和精确匹配
+- `service/alert_rule.go`：List() 透传新参数
+- `handler/alert_rule.go`：List() 读取 keyword/datasource_id query params
+- `web/pages/alerts/rules/Index.vue`：移除客户端 filteredRules computed，改为 extraParams 服务端过滤
+
+**i18n**
+- `i18n/zh-CN.ts` + `i18n/en.ts`：新增 inspection 命名空间（55 个键）
+- `pages/platform/inspections/Index.vue`：全部中文硬编码替换为 t() 调用
+- `pages/platform/inspections/RunDetail.vue`：全部中文硬编码替换为 t() 调用 + 修复缺失的 h 导入
+
+---
+
 ## [v4.15.10] — 2026-05-21
 
 ### Round 9 审查补漏

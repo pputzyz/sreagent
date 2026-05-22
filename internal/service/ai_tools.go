@@ -227,7 +227,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				page = 1
 			}
 
-			rules, total, err := ruleSvc.List(ctx, severity, status, "", "", page, 20)
+			rules, total, err := ruleSvc.List(ctx, severity, status, "", "", "", nil, page, 20)
 			if err != nil {
 				return fmt.Sprintf("查询失败: %v", err), nil
 			}

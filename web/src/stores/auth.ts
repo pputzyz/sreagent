@@ -38,9 +38,11 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user_role', data.data.role)
       }
     } catch (err: unknown) {
-      // Only logout on 401 (invalid/expired token), not on network/5xx errors
-      const msg = getErrorMessage(err)
-      if (msg.includes('401')) {
+      // Only logout on 401 (invalid/expired token), not on network/5xx errors.
+      // The request interceptor already attempted token refresh; if it still
+      // failed with 401 the original axios error is propagated.
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 401) {
         logout()
       }
       // For network errors, keep the session — the user may reconnect

@@ -52,6 +52,10 @@ const {
   extraParams: () => {
     const params: Record<string, unknown> = {}
     if (activeCategory.value) params.category = activeCategory.value
+    if (searchKeyword.value.trim()) params.keyword = searchKeyword.value.trim()
+    if (filterDatasource.value != null) params.datasource_id = filterDatasource.value
+    if (filterSeverity.value) params.severity = filterSeverity.value
+    if (filterStatus.value) params.status = filterStatus.value
     return params
   },
   onError: (err: unknown) => {
@@ -68,6 +72,17 @@ const filterStatus = ref<string | null>(null)
 // Persist filter state to localStorage
 const filterMemory = useFilterMemory('alert-rules')
 filterMemory.bindRefs({ searchKeyword, filterDatasource, filterSeverity, filterStatus })
+
+// Re-fetch when filters change (debounced for text, immediate for selects)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchKeyword, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; fetchList() }, 300)
+})
+watch([filterDatasource, filterSeverity, filterStatus], () => {
+  page.value = 1
+  fetchList()
+})
 
 // ─── Batch selection ───
 const selectedKeys = ref<number[]>([])
@@ -125,28 +140,6 @@ const statusFilterOptions = computed(() => [
 const datasourceOptions = computed(() =>
   datasources.value.map(ds => ({ label: `${ds.name} (${ds.type})`, value: ds.id })),
 )
-
-const filteredRules = computed(() => {
-  let arr = rules.value
-  if (searchKeyword.value.trim()) {
-    const kw = searchKeyword.value.trim().toLowerCase()
-    arr = arr.filter(r =>
-      r.name?.toLowerCase().includes(kw) ||
-      r.display_name?.toLowerCase().includes(kw) ||
-      r.expression?.toLowerCase().includes(kw),
-    )
-  }
-  if (filterDatasource.value != null) {
-    arr = arr.filter(r => r.datasource_id === filterDatasource.value)
-  }
-  if (filterSeverity.value) {
-    arr = arr.filter(r => r.severity === filterSeverity.value)
-  }
-  if (filterStatus.value) {
-    arr = arr.filter(r => r.status === filterStatus.value)
-  }
-  return arr
-})
 
 const allCount = computed(() => total.value)
 
@@ -257,12 +250,12 @@ function isSelected(id: number) {
 }
 
 const allSelected = computed(() =>
-  filteredRules.value.length > 0 && filteredRules.value.every(r => selectedKeys.value.includes(r.id)),
+  rules.value.length > 0 && rules.value.every(r => selectedKeys.value.includes(r.id)),
 )
 
 function toggleSelectAll(checked: boolean) {
   if (checked) {
-    selectedKeys.value = filteredRules.value.map(r => r.id)
+    selectedKeys.value = rules.value.map(r => r.id)
   } else {
     selectedKeys.value = []
   }
@@ -367,7 +360,7 @@ const selectedIndex = ref(-1)
 function handleKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
-  const list = filteredRules.value
+  const list = rules.value
   if (!list.length) return
 
   if (e.key === 'j' || e.key === 'ArrowDown') {
@@ -507,11 +500,11 @@ onUnmounted(() => {
         />
 
         <!-- Loading skeleton -->
-        <LoadingSkeleton v-if="loading && filteredRules.length === 0" :rows="6" variant="row" />
+        <LoadingSkeleton v-if="loading && rules.length === 0" :rows="6" variant="row" />
 
         <!-- Empty state -->
         <EmptyState
-          v-else-if="!loading && filteredRules.length === 0"
+          v-else-if="!loading && rules.length === 0"
           :icon="DocumentTextOutline"
           :title="t('alert.noRules')"
           :description="t('alert.rulesSubtitle')"
@@ -528,7 +521,7 @@ onUnmounted(() => {
           :class="{ 'sre-stagger': isFirstLoad }"
         >
           <div
-            v-for="(rule, idx) in filteredRules"
+            v-for="(rule, idx) in rules"
             :key="rule.id"
             class="sre-row-card rule-row"
             :data-severity="severitySlot(rule.severity)"
@@ -586,7 +579,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="filteredRules.length > 0" class="pagination-wrap">
+        <div v-if="rules.length > 0" class="pagination-wrap">
           <span class="kbd-hint">
             <kbd>j</kbd>/<kbd>k</kbd> {{ t('alert.kbdNav') }} · <kbd>Enter</kbd> {{ t('alert.kbdOpen') }}
           </span>

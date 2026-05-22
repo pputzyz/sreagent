@@ -142,8 +142,8 @@ func (s *AlertRuleService) GetByID(ctx context.Context, id uint) (*model.AlertRu
 	return rule, nil
 }
 
-func (s *AlertRuleService) List(ctx context.Context, severity, status, groupName, category string, page, pageSize int) ([]model.AlertRule, int64, error) {
-	return s.repo.List(ctx, severity, status, groupName, category, page, pageSize)
+func (s *AlertRuleService) List(ctx context.Context, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error) {
+	return s.repo.List(ctx, severity, status, groupName, category, keyword, datasourceID, page, pageSize)
 }
 
 // ListCategories returns all distinct non-empty category values.
@@ -385,7 +385,7 @@ func (s *AlertRuleService) PreviewLabelValidation(ctx context.Context, limit int
 	}
 
 	// List all alert rules (use large page to get everything)
-	rules, _, err := s.repo.List(ctx, "", "", "", "", 1, 10000)
+	rules, _, err := s.repo.List(ctx, "", "", "", "", "", nil, 1, 10000)
 	if err != nil {
 		s.logger.Error("failed to list alert rules for label validation preview", zap.Error(err))
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)

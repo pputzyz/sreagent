@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -13,6 +12,16 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 )
+
+// recoverPanic captures panics in goroutines and converts them to errors.
+func recoverPanic(logger *zap.Logger, label string, err *error) {
+	if r := recover(); r != nil {
+		logger.Error("panic recovered in dashboard goroutine",
+			zap.String("metric", label),
+			zap.Any("panic", r))
+		*err = fmt.Errorf("panic in %s: %v", label, r)
+	}
+}
 
 // DashboardStatsService provides aggregated statistics for the dashboard.
 // Unlike other services it takes *gorm.DB directly because it performs
@@ -756,43 +765,44 @@ func (s *DashboardStatsService) IncidentTrend(days int) ([]IncidentTrendPoint, e
 func (s *DashboardStatsService) IncidentStats() (*IncidentStatsResult, error) {
 	var stats IncidentStatsResult
 	todayStart := time.Now().Truncate(24 * time.Hour)
-	var wg sync.WaitGroup
 
-	wg.Add(7)
+	g, _ := errgroup.WithContext(context.Background())
 
-	go func() {
-		defer wg.Done()
-		s.db.Model(&model.Incident{}).Count(&stats.TotalIncidents)
-	}()
-	go func() {
-		defer wg.Done()
-		s.db.Model(&model.Incident{}).Where("status IN ?", []string{"triggered", "processing"}).Count(&stats.ActiveIncidents)
-	}()
-	go func() {
-		defer wg.Done()
-		s.db.Model(&model.Incident{}).Where("status = 'closed' AND closed_at >= ?", todayStart).Count(&stats.ClosedToday)
-	}()
-	go func() {
-		defer wg.Done()
-		s.db.Model(&model.Incident{}).Where("status IN ? AND severity = 'critical'", []string{"triggered", "processing"}).Count(&stats.CriticalActive)
-	}()
-	go func() {
-		defer wg.Done()
-		s.db.Table("incidents").
+	g.Go(func() (err error) {
+		defer recoverPanic(s.logger, "IncidentStats.TotalIncidents", &err)
+		return s.db.Model(&model.Incident{}).Count(&stats.TotalIncidents).Error
+	})
+	g.Go(func() (err error) {
+		defer recoverPanic(s.logger, "IncidentStats.ActiveIncidents", &err)
+		return s.db.Model(&model.Incident{}).Where("status IN ?", []string{"triggered", "processing"}).Count(&stats.ActiveIncidents).Error
+	})
+	g.Go(func() (err error) {
+		defer recoverPanic(s.logger, "IncidentStats.ClosedToday", &err)
+		return s.db.Model(&model.Incident{}).Where("status = 'closed' AND closed_at >= ?", todayStart).Count(&stats.ClosedToday).Error
+	})
+	g.Go(func() (err error) {
+		defer recoverPanic(s.logger, "IncidentStats.CriticalActive", &err)
+		return s.db.Model(&model.Incident{}).Where("status IN ? AND severity = 'critical'", []string{"triggered", "processing"}).Count(&stats.CriticalActive).Error
+	})
+	g.Go(func() (err error) {
+		defer recoverPanic(s.logger, "IncidentStats.AvgMTTR", &err)
+		return s.db.Table("incidents").
 			Where("closed_at IS NOT NULL AND deleted_at IS NULL").
 			Select("AVG(TIMESTAMPDIFF(SECOND, triggered_at, closed_at))").
-			Scan(&stats.AvgMTTRSeconds)
-	}()
-	go func() {
-		defer wg.Done()
-		s.db.Model(&model.PostMortem{}).Count(&stats.TotalPostMortems)
-	}()
-	go func() {
-		defer wg.Done()
-		s.db.Model(&model.PostMortem{}).Where("status = 'published'").Count(&stats.PublishedPostMortems)
-	}()
+			Scan(&stats.AvgMTTRSeconds).Error
+	})
+	g.Go(func() (err error) {
+		defer recoverPanic(s.logger, "IncidentStats.TotalPostMortems", &err)
+		return s.db.Model(&model.PostMortem{}).Count(&stats.TotalPostMortems).Error
+	})
+	g.Go(func() (err error) {
+		defer recoverPanic(s.logger, "IncidentStats.PublishedPostMortems", &err)
+		return s.db.Model(&model.PostMortem{}).Where("status = 'published'").Count(&stats.PublishedPostMortems).Error
+	})
 
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
 	return &stats, nil
 }
 

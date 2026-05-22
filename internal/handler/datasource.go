@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +14,19 @@ import (
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
+
+// validateEndpointScheme ensures the endpoint URL uses only http or https.
+func validateEndpointScheme(endpoint string) error {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid endpoint URL: %w", err)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("endpoint URL scheme must be http or https, got %q", scheme)
+	}
+	return nil
+}
 
 type DataSourceHandler struct {
 	svc *service.DataSourceService
@@ -43,6 +58,10 @@ type CreateDataSourceRequest struct {
 func (h *DataSourceHandler) Create(c *gin.Context) {
 	var req CreateDataSourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if err := validateEndpointScheme(req.Endpoint); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
@@ -114,6 +133,10 @@ func (h *DataSourceHandler) Update(c *gin.Context) {
 
 	var req CreateDataSourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if err := validateEndpointScheme(req.Endpoint); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}

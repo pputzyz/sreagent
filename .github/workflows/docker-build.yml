@@ -1,10 +1,15 @@
 name: Build & Push Docker Image
 
-# 仅在推送 v* tag 时触发：test + typecheck + 构建镜像
+# PR / main push 跑 test + lint + typecheck；v* tag 额外构建镜像
 on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -28,7 +33,13 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test ./... -timeout 120s
+        run: go test -race ./... -timeout 120s
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
 
   # ──────────────────────────────────────────────────────────
   # Job 2: 前端 TypeScript 类型检查

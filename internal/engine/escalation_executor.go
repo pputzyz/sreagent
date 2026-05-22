@@ -37,9 +37,10 @@ type EscalationExecutor struct {
 	settingSvc           *service.SystemSettingService // optional — enables personal email via global SMTP
 	logger               *zap.Logger
 
-	interval time.Duration
-	stopCh   chan struct{}
-	once     sync.Once
+	interval  time.Duration
+	stopCh    chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
 }
 
 // NewEscalationExecutor creates a new EscalationExecutor.
@@ -127,7 +128,7 @@ func mapChannelTypeToMediaType(ct model.NotifyChannelType) model.NotifyMediaType
 
 // Start runs the escalation check loop in a background goroutine.
 func (e *EscalationExecutor) Start() {
-	e.once.Do(func() {
+	e.startOnce.Do(func() {
 		go func() {
 			ticker := time.NewTicker(e.interval)
 			defer ticker.Stop()
@@ -149,7 +150,7 @@ func (e *EscalationExecutor) Start() {
 
 // Stop signals the background goroutine to exit.
 func (e *EscalationExecutor) Stop() {
-	e.once.Do(func() { close(e.stopCh) })
+	e.stopOnce.Do(func() { close(e.stopCh) })
 }
 
 // runOnce performs a single escalation check pass.

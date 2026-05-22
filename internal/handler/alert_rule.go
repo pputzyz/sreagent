@@ -135,8 +135,17 @@ func (h *AlertRuleHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	groupName := c.Query("group_name")
 	category := c.Query("category")
+	keyword := c.Query("keyword")
 
-	list, total, err := h.svc.List(c.Request.Context(), severity, status, groupName, category, pq.Page, pq.PageSize)
+	var datasourceID *uint
+	if dsStr := c.Query("datasource_id"); dsStr != "" {
+		if id, err := strconv.ParseUint(dsStr, 10, 64); err == nil {
+			uid := uint(id)
+			datasourceID = &uid
+		}
+	}
+
+	list, total, err := h.svc.List(c.Request.Context(), severity, status, groupName, category, keyword, datasourceID, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, err)
 		return
@@ -395,7 +404,7 @@ func (h *AlertRuleHandler) Export(c *gin.Context) {
 	format := c.Query("format")
 
 	// Fetch all rules (using a large page size to get all)
-	list, _, err := h.svc.List(c.Request.Context(), "", "", groupName, category, 1, 10000)
+	list, _, err := h.svc.List(c.Request.Context(), "", "", groupName, category, "", nil, 1, 10000)
 	if err != nil {
 		Error(c, err)
 		return

@@ -131,13 +131,13 @@ func Test_List_filter_by_status(t *testing.T) {
 	require.NoError(t, svc.Create(context.Background(), r1, "manual"))
 	require.NoError(t, svc.Create(context.Background(), r2, "ai"))
 
-	enabledRules, total, err := svc.List(context.Background(), "", "enabled", "", "", 1, 10)
+	enabledRules, total, err := svc.List(context.Background(), "", "enabled", "", "", "", nil, 1, 10)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	require.Len(t, enabledRules, 1)
 	assert.Equal(t, "enabled-rule", enabledRules[0].Name)
 
-	draftRules, total, err := svc.List(context.Background(), "", "draft", "", "", 1, 10)
+	draftRules, total, err := svc.List(context.Background(), "", "draft", "", "", "", nil, 1, 10)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	require.Len(t, draftRules, 1)

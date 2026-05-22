@@ -29,7 +29,7 @@ func (r *AlertRuleRepository) GetByID(ctx context.Context, id uint) (*model.Aler
 	return &rule, nil
 }
 
-func (r *AlertRuleRepository) List(ctx context.Context, severity, status, groupName, category string, page, pageSize int) ([]model.AlertRule, int64, error) {
+func (r *AlertRuleRepository) List(ctx context.Context, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error) {
 	var list []model.AlertRule
 	var total int64
 
@@ -45,6 +45,13 @@ func (r *AlertRuleRepository) List(ctx context.Context, severity, status, groupN
 	}
 	if category != "" {
 		query = query.Where("category = ?", category)
+	}
+	if keyword != "" {
+		kw := "%" + keyword + "%"
+		query = query.Where("name LIKE ? OR display_name LIKE ? OR expression LIKE ?", kw, kw, kw)
+	}
+	if datasourceID != nil {
+		query = query.Where("datasource_id = ?", *datasourceID)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

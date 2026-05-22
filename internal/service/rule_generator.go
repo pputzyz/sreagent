@@ -427,7 +427,7 @@ func (s *RuleGeneratorService) buildFallbackLabelContext(datasourceID *uint) str
 
 // buildExistingRulesContext builds a context string from existing rules.
 func (s *RuleGeneratorService) buildExistingRulesContext(ctx context.Context) (string, error) {
-	rules, _, err := s.ruleSvc.List(ctx, "", "", "", "", 1, 100)
+	rules, _, err := s.ruleSvc.List(ctx, "", "", "", "", "", nil, 1, 100)
 	if err != nil {
 		return "", err
 	}
