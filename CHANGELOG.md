@@ -4,6 +4,15 @@
 
 ---
 
+## [v4.15.20] — 2026-05-22
+
+### inspection_tasks 软删除修复
+
+- 新增迁移 000066：`inspection_tasks` 表添加 `deleted_at` 列（GORM 软删除所需）
+- 修复巡检调度器启动时报 `Unknown column 'inspection_tasks.deleted_at'` 错误
+
+---
+
 ## [v4.15.19] — 2026-05-22
 
 ### MySQL 迁移语法修复
