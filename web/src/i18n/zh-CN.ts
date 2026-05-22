@@ -1037,6 +1037,7 @@ export default {
     builtinCannotDelete: '内置模板不可删除',
     noData: '尚未配置消息模板',
     nameRequired: '名称为必填项',
+    contentRequired: '模板内容为必填项',
     availableVariables: '可用变量',
     previewFailed: '预览失败',
     inDevelopment: '功能开发中',

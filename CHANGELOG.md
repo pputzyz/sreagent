@@ -4,6 +4,15 @@
 
 ---
 
+## [v4.15.24] — 2026-05-22
+
+### 页面组件修复
+
+- `TeamManagement.vue`：移除 required prop `allUsers`，改为组件内自行获取用户列表，修复路由加载时白屏崩溃
+- `Templates.vue`：补充缺失 i18n key `template.contentRequired`
+
+---
+
 ## [v4.15.23] — 2026-05-22
 
 ### i18n 修复 + AI 设置页重构

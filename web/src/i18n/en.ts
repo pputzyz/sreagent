@@ -1028,6 +1028,7 @@ export default {
     builtinCannotDelete: 'Built-in templates cannot be deleted',
     noData: 'No message templates configured',
     nameRequired: 'Name is required',
+    contentRequired: 'Template content is required',
     availableVariables: 'Available Variables',
     previewFailed: 'Preview failed',
     inDevelopment: 'Under Development',

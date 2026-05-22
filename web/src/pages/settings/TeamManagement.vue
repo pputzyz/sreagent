@@ -17,7 +17,7 @@ import {
   NSelect,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { teamApi } from '@/api'
+import { teamApi, userApi } from '@/api'
 import type { User, Team } from '@/types'
 import { useCrudPage } from '@/composables/useCrudPage'
 import type { CrudApiModule } from '@/composables/useCrudPage'
@@ -25,8 +25,6 @@ import { kvArrayToRecord } from '@/utils/format'
 import { AddOutline, EllipsisHorizontal, SearchOutline } from '@vicons/ionicons5'
 import KVEditor from '@/components/common/KVEditor.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-
-const props = defineProps<{ allUsers: User[] }>()
 
 const message = useMessage()
 const { t } = useI18n()
@@ -96,9 +94,10 @@ const membersTeamName = ref('')
 const teamMembers = shallowRef<User[]>([])
 const selectedMemberUserId = ref<number | null>(null)
 const membersLoading = ref(false)
+const allUsers = ref<User[]>([])
 
 const allUserOptions = computed(() =>
-  props.allUsers.map(u => ({ label: u.display_name || u.username, value: u.id }))
+  allUsers.value.map(u => ({ label: u.display_name || u.username, value: u.id }))
 )
 
 const filtered = computed(() => {
@@ -184,7 +183,14 @@ function handleCardMenu(key: string, tm: Team, evt?: MouseEvent) {
 
 const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
 
-onMounted(fetchList)
+async function fetchAllUsers() {
+  try {
+    const res = await userApi.list({ page_size: 1000, is_active: true })
+    allUsers.value = res.data.data?.list || []
+  } catch { /* ignore */ }
+}
+
+onMounted(() => { fetchList(); fetchAllUsers() })
 </script>
 
 <template>
