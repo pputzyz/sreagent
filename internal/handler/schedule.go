@@ -811,8 +811,8 @@ func (h *ScheduleHandler) ExportICal(c *gin.Context) {
 	buf.WriteString("PRODID:-//SREAgent//OnCall Schedule//EN\r\n")
 	buf.WriteString("CALSCALE:GREGORIAN\r\n")
 	buf.WriteString("METHOD:PUBLISH\r\n")
-	buf.WriteString(fmt.Sprintf("X-WR-CALNAME:%s\r\n", icalEscape(schedule.Name)))
-	buf.WriteString(fmt.Sprintf("X-WR-TIMEZONE:%s\r\n", schedule.Timezone))
+	fmt.Fprintf(&buf, "X-WR-CALNAME:%s\r\n", icalEscape(schedule.Name))
+	fmt.Fprintf(&buf, "X-WR-TIMEZONE:%s\r\n", schedule.Timezone)
 
 	for _, shift := range shifts {
 		userName := shift.User.DisplayName
@@ -832,12 +832,12 @@ func (h *ScheduleHandler) ExportICal(c *gin.Context) {
 		}
 
 		buf.WriteString("BEGIN:VEVENT\r\n")
-		buf.WriteString(fmt.Sprintf("UID:%s\r\n", uid))
-		buf.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", dtStamp))
-		buf.WriteString(fmt.Sprintf("DTSTART:%s\r\n", dtStart))
-		buf.WriteString(fmt.Sprintf("DTEND:%s\r\n", dtEnd))
-		buf.WriteString(fmt.Sprintf("SUMMARY:%s\r\n", icalEscape(summary)))
-		buf.WriteString(fmt.Sprintf("DESCRIPTION:%s\r\n", description))
+		fmt.Fprintf(&buf, "UID:%s\r\n", uid)
+		fmt.Fprintf(&buf, "DTSTAMP:%s\r\n", dtStamp)
+		fmt.Fprintf(&buf, "DTSTART:%s\r\n", dtStart)
+		fmt.Fprintf(&buf, "DTEND:%s\r\n", dtEnd)
+		fmt.Fprintf(&buf, "SUMMARY:%s\r\n", icalEscape(summary))
+		fmt.Fprintf(&buf, "DESCRIPTION:%s\r\n", description)
 		buf.WriteString("END:VEVENT\r\n")
 	}
 

@@ -746,7 +746,7 @@ func (s *AIService) callLLMAnthropic(ctx context.Context, cfg AIConfig, systemPr
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
+		return "", fmt.Errorf("anthropic API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 	}
 
 	var anthropicResp anthropicResponse
@@ -755,11 +755,11 @@ func (s *AIService) callLLMAnthropic(ctx context.Context, cfg AIConfig, systemPr
 	}
 
 	if anthropicResp.Error != nil {
-		return "", fmt.Errorf("Anthropic API error: %s", anthropicResp.Error.Message)
+		return "", fmt.Errorf("anthropic API error: %s", anthropicResp.Error.Message)
 	}
 
 	if len(anthropicResp.Content) == 0 {
-		return "", fmt.Errorf("Anthropic API returned empty content")
+		return "", fmt.Errorf("anthropic API returned empty content")
 	}
 
 	// 记录 token 用量指标
@@ -829,7 +829,7 @@ func (s *AIService) chatAnthropic(ctx context.Context, cfg AIConfig, systemPromp
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
+		return "", fmt.Errorf("anthropic API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
 	}
 
 	var anthropicResp anthropicResponse
@@ -838,11 +838,11 @@ func (s *AIService) chatAnthropic(ctx context.Context, cfg AIConfig, systemPromp
 	}
 
 	if anthropicResp.Error != nil {
-		return "", fmt.Errorf("Anthropic API error: %s", anthropicResp.Error.Message)
+		return "", fmt.Errorf("anthropic API error: %s", anthropicResp.Error.Message)
 	}
 
 	if len(anthropicResp.Content) == 0 {
-		return "", fmt.Errorf("Anthropic API returned empty content")
+		return "", fmt.Errorf("anthropic API returned empty content")
 	}
 
 	// 记录 token 用量指标

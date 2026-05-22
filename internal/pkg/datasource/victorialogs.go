@@ -52,7 +52,7 @@ func (c *VictoriaLogsChecker) CheckHealth(ctx context.Context, endpoint, authTyp
 		return HealthResult{Healthy: false, LatencyMs: latency,
 			Message: fmt.Sprintf("query API unreachable: %v", err)}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// VictoriaLogs returns 200 OK even with 0 results; any non-200 is a problem.
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -95,7 +95,7 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 	if err != nil {
 		return nil, fmt.Errorf("logsql query request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -213,7 +213,7 @@ func QueryLogs(ctx context.Context, endpoint, authType, authConfig string, param
 	if err != nil {
 		return nil, fmt.Errorf("log query request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

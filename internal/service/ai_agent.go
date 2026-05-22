@@ -602,9 +602,10 @@ func (s *AgentService) summarize(ctx context.Context, task *AgentTask) (string, 
 	var stepResults []string
 	for _, step := range task.Steps {
 		status := "[完成]"
-		if step.Status == "failed" {
+		switch step.Status {
+		case "failed":
 			status = "[失败]"
-		} else if step.Status == "pending" {
+		case "pending":
 			status = "[跳过]"
 		}
 		stepResults = append(stepResults, fmt.Sprintf("%s 步骤 %d: %s\n   工具: %s\n   结果: %s",
