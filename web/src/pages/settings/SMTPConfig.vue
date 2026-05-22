@@ -14,7 +14,6 @@ const { t } = useI18n()
 const { form, loading, saving, isDirty, save, load } = useConfigForm({
   load: () => smtpSettingsApi.getConfig().then(r => r.data.data),
   save: (f) => smtpSettingsApi.updateConfig({ ...f }),
-  autoSaveKeys: ['enabled', 'smtp_tls'],
 })
 
 const testing = ref(false)

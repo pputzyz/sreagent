@@ -34,7 +34,6 @@ const { form, loading, saving, testing, isDirty, save, load, saveAndTest } = use
       else message.error(msg)
     }
   },
-  autoSaveKeys: ['enabled', 'auto_provision'],
 })
 
 const defaultRoleOptions = computed(() => [

@@ -17,7 +17,6 @@ const { form, loading, saving, testing, save, load, saveAndTest } = useConfigFor
   test: () => larkBotApi.testBotAPI().then(res => {
     message.success(res.data.data?.message || t('settings.larkBotAPIOK'))
   }),
-  autoSaveKeys: ['bot_enabled', 'update_on_state_change', 'delete_only_in_business_hours', 'commands_enabled', 'natural_language_enabled', 'debug_mode'],
 })
 
 const botStatusLoading = ref(false)

@@ -27,10 +27,9 @@ const providersConfig = ref<AIProvidersConfig | null>(null)
 const modulesForm = useConfigForm<AIModuleConfig>({
   load: () => aiModuleApi.getModules().then(r => r.data.data as AIModuleConfig),
   save: (f) => aiModuleApi.updateModules(f),
-  autoSaveKeys: ['platform', 'chat', 'rule_gen', 'analysis', 'agent'],
 })
 
-// ─── Global config (via useConfigForm — switch auto-save) ───
+// ─── Global config (via useConfigForm) ───
 const globalForm = useConfigForm<AIGlobalConfig>({
   load: () => aiApi.getGlobal().then(r => r.data.data ?? {
     retry_max: 3,
@@ -41,7 +40,6 @@ const globalForm = useConfigForm<AIGlobalConfig>({
     data_masking_enabled: true,
   } as AIGlobalConfig),
   save: (f) => aiApi.saveGlobal(f),
-  autoSaveKeys: ['data_masking_enabled'],
 })
 
 // ─── Shared testing state ───
