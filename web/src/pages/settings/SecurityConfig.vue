@@ -7,7 +7,7 @@ import { useConfigForm } from '@/composables'
 
 const { t } = useI18n()
 
-const { form, loading, save } = useConfigForm({
+const { form, loading, save, load } = useConfigForm({
   load: () => securitySettingsApi.getConfig().then(r => r.data.data),
   save: (f) => securitySettingsApi.updateConfig({ jwt_expire_seconds: f.jwt_expire_seconds }),
   autoSaveKeys: ['jwt_expire_seconds'],

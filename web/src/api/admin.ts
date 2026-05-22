@@ -223,6 +223,8 @@ export const oidcSettingsApi = {
       role_mapping: string
       default_role: string
       auto_provision: boolean
+      username_claim?: string
+      email_claim?: string
     }>>('/settings/oidc'),
 
   updateConfig: (data: {
@@ -245,7 +247,7 @@ export const smtpSettingsApi = {
   getConfig: () =>
     request.get<ApiResponse<{
       smtp_host: string; smtp_port: number; smtp_tls: boolean
-      username: string; password: string; from: string; enabled: boolean
+      username: string; password: string; from: string; from_name?: string; enabled: boolean
     }>>('/settings/smtp'),
 
   updateConfig: (data: {

@@ -8,7 +8,7 @@ import {
 } from 'naive-ui'
 import { PulseOutline, SaveOutline, SparklesOutline, AddOutline, TrashOutline, CreateOutline, StarOutline, SettingsOutline } from '@vicons/ionicons5'
 import { aiApi, aiModuleApi, alertRuleApi } from '@/api'
-import type { AIModuleConfig, AIProvider, AIProvidersConfig, AIGlobalConfig } from '@/types/ai-module'
+import type { AIModuleConfig, AIModule, AIProvider, AIProvidersConfig, AIGlobalConfig } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
 import { useConfigForm } from '@/composables'
 
@@ -24,14 +24,14 @@ const providersSaving = ref(false)
 const providersConfig = ref<AIProvidersConfig | null>(null)
 
 // ─── Modules config (via useConfigForm — switches auto-save) ───
-const modulesForm = useConfigForm({
-  load: () => aiModuleApi.getModules().then(r => r.data.data),
-  save: (f) => aiModuleApi.updateModules(f as AIModuleConfig),
+const modulesForm = useConfigForm<AIModuleConfig>({
+  load: () => aiModuleApi.getModules().then(r => r.data.data as AIModuleConfig),
+  save: (f) => aiModuleApi.updateModules(f),
   autoSaveKeys: ['platform', 'chat', 'rule_gen', 'analysis', 'agent'],
 })
 
 // ─── Global config (via useConfigForm — switch auto-save) ───
-const globalForm = useConfigForm({
+const globalForm = useConfigForm<AIGlobalConfig>({
   load: () => aiApi.getGlobal().then(r => r.data.data ?? {
     retry_max: 3,
     context_max_chars: 8000,
@@ -39,8 +39,8 @@ const globalForm = useConfigForm({
     default_max_tokens: 2000,
     monthly_token_budget: 0,
     data_masking_enabled: true,
-  }),
-  save: (f) => aiApi.saveGlobal(f as AIGlobalConfig),
+  } as AIGlobalConfig),
+  save: (f) => aiApi.saveGlobal(f),
   autoSaveKeys: ['data_masking_enabled'],
 })
 
@@ -262,14 +262,20 @@ async function handleSaveProviders() {
 }
 
 // ─── Module config helpers ───
+function getModule(key: keyof AIModuleConfig): AIModule | undefined {
+  return (modulesForm.form as unknown as AIModuleConfig)[key]
+}
+
 function toggleModule(key: keyof AIModuleConfig, val: boolean) {
-  if (!modulesForm.form[key]) return
-  modulesForm.form[key].enabled = val
+  const mod = getModule(key)
+  if (!mod) return
+  mod.enabled = val
 }
 
 function setModuleProvider(key: keyof AIModuleConfig, providerKey: string) {
-  if (!modulesForm.form[key]) return
-  modulesForm.form[key].provider_key = providerKey
+  const mod = getModule(key)
+  if (!mod) return
+  mod.provider_key = providerKey
 }
 
 // ─── Label validation preview ───
@@ -422,19 +428,19 @@ onMounted(() => {
                 v-for="key in moduleKeys"
                 :key="key"
                 class="module-item"
-                :class="{ disabled: !modulesForm.form[key]?.enabled }"
+                :class="{ disabled: !getModule(key)?.enabled }"
               >
                 <div class="module-info">
                   <div class="module-name">
                     {{ moduleLabels[key].name }}
-                    <n-tag v-if="modulesForm.form[key]?.enabled" type="success" size="tiny" :bordered="false">{{ t('common.enabled') }}</n-tag>
+                    <n-tag v-if="getModule(key)?.enabled" type="success" size="tiny" :bordered="false">{{ t('common.enabled') }}</n-tag>
                     <n-tag v-else size="tiny" :bordered="false">{{ t('common.disabled') }}</n-tag>
                   </div>
                   <div class="module-desc">{{ moduleLabels[key].description }}</div>
                   <div class="module-provider-row" v-if="hasProviders">
                     <span class="module-provider-label">{{ t('aiSettings.providerLabel') }}</span>
                     <n-select
-                      :value="modulesForm.form[key]?.provider_key || ''"
+                      :value="getModule(key)?.provider_key || ''"
                       :options="[{ label: t('aiSettings.default'), value: '' }, ...providerSelectOptions]"
                       size="tiny"
                       style="width: 240px"
@@ -444,7 +450,7 @@ onMounted(() => {
                   </div>
                 </div>
                 <n-switch
-                  :value="modulesForm.form[key]?.enabled"
+                  :value="getModule(key)?.enabled"
                   @update:value="(val: boolean) => toggleModule(key, val)"
                 />
               </div>

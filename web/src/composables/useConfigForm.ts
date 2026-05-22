@@ -3,11 +3,11 @@ import { onBeforeRouteLeave, type LocationQuery } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 
-interface UseConfigFormOptions<T extends Record<string, unknown>> {
+interface UseConfigFormOptions<T> {
   /** Load config from API — should return the config object */
   load: () => Promise<T>
   /** Save config to API — receives the full form object */
-  save: (form: T) => Promise<void>
+  save: (form: T) => Promise<void> | Promise<unknown>
   /** Optional: test connection — runs AFTER save if form is dirty */
   test?: () => Promise<void>
   /** Keys that trigger auto-save on change (typically switch/toggle fields) */
@@ -16,7 +16,7 @@ interface UseConfigFormOptions<T extends Record<string, unknown>> {
   debounceMs?: number
 }
 
-export function useConfigForm<T extends Record<string, unknown>>(options: UseConfigFormOptions<T>) {
+export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>) {
   const message = useMessage()
   const { t } = useI18n()
 
@@ -106,7 +106,7 @@ export function useConfigForm<T extends Record<string, unknown>>(options: UseCon
   if (options.autoSaveKeys?.length) {
     for (const key of options.autoSaveKeys) {
       watch(
-        () => form[key],
+        () => (form as Record<string, unknown>)[key as string],
         () => { triggerAutoSave() },
       )
     }

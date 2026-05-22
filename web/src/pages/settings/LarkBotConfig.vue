@@ -11,7 +11,7 @@ import { useConfigForm } from '@/composables'
 const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, saving, load, saveAndTest } = useConfigForm({
+const { form, loading, saving, testing, save, load, saveAndTest } = useConfigForm({
   load: () => larkBotApi.getConfig().then(r => r.data.data),
   save: (f) => larkBotApi.updateConfig({ ...f }),
   test: () => larkBotApi.testBotAPI().then(res => {
