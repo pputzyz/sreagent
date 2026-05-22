@@ -38,6 +38,7 @@ export default {
     noPreview: '暂无预览',
     retry: '重试',
     savedSuccess: '保存成功',
+    unsavedChanges: '有未保存的改动，确定离开？',
     seconds: '秒',
     minutes: '分钟',
     loadFailed: '加载失败，请稍后重试',

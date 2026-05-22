@@ -10,6 +10,7 @@ import { PulseOutline, SaveOutline, SparklesOutline, AddOutline, TrashOutline, C
 import { aiApi, aiModuleApi, alertRuleApi } from '@/api'
 import type { AIModuleConfig, AIProvider, AIProvidersConfig, AIGlobalConfig } from '@/types/ai-module'
 import { getErrorMessage } from '@/utils/format'
+import { useConfigForm } from '@/composables'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -17,17 +18,35 @@ const message = useMessage()
 // ─── Active tab ───
 const activeTab = ref('providers')
 
-// ─── Providers config ───
+// ─── Providers config (manual — complex CRUD, not a simple form) ───
 const providersLoading = ref(false)
 const providersSaving = ref(false)
 const providersConfig = ref<AIProvidersConfig | null>(null)
 
-// ─── Module config ───
-const moduleLoading = ref(false)
-const saving = ref(false)
+// ─── Modules config (via useConfigForm — switches auto-save) ───
+const modulesForm = useConfigForm({
+  load: () => aiModuleApi.getModules().then(r => r.data.data),
+  save: (f) => aiModuleApi.updateModules(f as AIModuleConfig),
+  autoSaveKeys: ['platform', 'chat', 'rule_gen', 'analysis', 'agent'],
+})
+
+// ─── Global config (via useConfigForm — switch auto-save) ───
+const globalForm = useConfigForm({
+  load: () => aiApi.getGlobal().then(r => r.data.data ?? {
+    retry_max: 3,
+    context_max_chars: 8000,
+    default_temperature: 0.7,
+    default_max_tokens: 2000,
+    monthly_token_budget: 0,
+    data_masking_enabled: true,
+  }),
+  save: (f) => aiApi.saveGlobal(f as AIGlobalConfig),
+  autoSaveKeys: ['data_masking_enabled'],
+})
+
+// ─── Shared testing state ───
 const testing = ref(false)
 const testingProvider = ref<string | null>(null)
-const modules = ref<AIModuleConfig | null>(null)
 
 // ─── Label validation preview ───
 const previewLoading = ref(false)
@@ -153,19 +172,6 @@ async function fetchProviders() {
   }
 }
 
-// ─── Fetch module config ───
-async function fetchModules() {
-  moduleLoading.value = true
-  try {
-    const res = await aiModuleApi.getModules()
-    modules.value = res.data.data
-  } catch {
-    modules.value = null
-  } finally {
-    moduleLoading.value = false
-  }
-}
-
 // ─── Provider CRUD ───
 function openAddProvider() {
   editingIndex.value = -1
@@ -213,16 +219,13 @@ function handleProviderSave() {
   }
 
   if (editingIndex.value >= 0) {
-    // Edit existing
     providersConfig.value.providers[editingIndex.value] = entry
   } else {
-    // Check duplicate key
     if (providersConfig.value.providers.some(p => p.key === entry.key)) {
       message.error(t('aiSettings.providerKeyDuplicate'))
       return
     }
     providersConfig.value.providers.push(entry)
-    // If first provider, set as default
     if (providersConfig.value.providers.length === 1) {
       providersConfig.value.default_provider = entry.key
     }
@@ -258,29 +261,15 @@ async function handleSaveProviders() {
   }
 }
 
-// ─── Module config ───
+// ─── Module config helpers ───
 function toggleModule(key: keyof AIModuleConfig, val: boolean) {
-  if (!modules.value) return
-  modules.value[key].enabled = val
+  if (!modulesForm.form[key]) return
+  modulesForm.form[key].enabled = val
 }
 
 function setModuleProvider(key: keyof AIModuleConfig, providerKey: string) {
-  if (!modules.value) return
-  modules.value[key].provider_key = providerKey
-}
-
-// ─── Save modules ───
-async function handleSave() {
-  if (!modules.value) return
-  saving.value = true
-  try {
-    await aiModuleApi.updateModules(modules.value)
-    message.success(t('aiSettings.moduleSaved'))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
+  if (!modulesForm.form[key]) return
+  modulesForm.form[key].provider_key = providerKey
 }
 
 // ─── Label validation preview ───
@@ -337,53 +326,15 @@ function providerTypeLabel(p: string) {
   return map[p] || p
 }
 
-// ─── Global Config ───
-const globalLoading = ref(false)
-const globalSaving = ref(false)
-const globalConfig = ref<AIGlobalConfig>({
-  retry_max: 3,
-  context_max_chars: 8000,
-  default_temperature: 0.7,
-  default_max_tokens: 2000,
-  monthly_token_budget: 0,
-  data_masking_enabled: true,
-})
-
-async function fetchGlobal() {
-  globalLoading.value = true
-  try {
-    const res = await aiApi.getGlobal()
-    if (res.data.data) {
-      globalConfig.value = res.data.data
-    }
-  } catch {
-    // use defaults
-  } finally {
-    globalLoading.value = false
-  }
-}
-
-async function handleSaveGlobal() {
-  globalSaving.value = true
-  try {
-    await aiApi.saveGlobal(globalConfig.value)
-    message.success(t('aiSettings.globalSaved'))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    globalSaving.value = false
-  }
-}
-
 onMounted(() => {
   fetchProviders()
-  fetchModules()
-  fetchGlobal()
+  modulesForm.load()
+  globalForm.load()
 })
 </script>
 
 <template>
-  <NSpin :show="providersLoading && moduleLoading">
+  <NSpin :show="providersLoading && modulesForm.loading.value">
     <div class="sre-config-page ai-settings-page">
       <header class="sre-config-header">
         <div>
@@ -398,11 +349,11 @@ onMounted(() => {
             <template #icon><n-icon :component="SaveOutline" /></template>
             {{ t('common.save') }}
           </n-button>
-          <n-button v-else-if="activeTab === 'modules'" type="primary" size="small" :loading="saving" @click="handleSave">
+          <n-button v-else-if="activeTab === 'modules'" type="primary" size="small" :loading="modulesForm.saving.value" @click="modulesForm.save">
             <template #icon><n-icon :component="SaveOutline" /></template>
             {{ t('common.save') }}
           </n-button>
-          <n-button v-else-if="activeTab === 'global'" type="primary" size="small" :loading="globalSaving" @click="handleSaveGlobal">
+          <n-button v-else-if="activeTab === 'global'" type="primary" size="small" :loading="globalForm.saving.value" @click="globalForm.save">
             <template #icon><n-icon :component="SaveOutline" /></template>
             {{ t('common.save') }}
           </n-button>
@@ -466,24 +417,24 @@ onMounted(() => {
               </n-space>
             </div>
 
-            <div v-if="modules" class="module-list">
+            <div v-if="modulesForm.form.platform" class="module-list">
               <div
                 v-for="key in moduleKeys"
                 :key="key"
                 class="module-item"
-                :class="{ disabled: !modules[key].enabled }"
+                :class="{ disabled: !modulesForm.form[key]?.enabled }"
               >
                 <div class="module-info">
                   <div class="module-name">
                     {{ moduleLabels[key].name }}
-                    <n-tag v-if="modules[key].enabled" type="success" size="tiny" :bordered="false">{{ t('common.enabled') }}</n-tag>
+                    <n-tag v-if="modulesForm.form[key]?.enabled" type="success" size="tiny" :bordered="false">{{ t('common.enabled') }}</n-tag>
                     <n-tag v-else size="tiny" :bordered="false">{{ t('common.disabled') }}</n-tag>
                   </div>
                   <div class="module-desc">{{ moduleLabels[key].description }}</div>
                   <div class="module-provider-row" v-if="hasProviders">
                     <span class="module-provider-label">{{ t('aiSettings.providerLabel') }}</span>
                     <n-select
-                      :value="modules[key].provider_key || ''"
+                      :value="modulesForm.form[key]?.provider_key || ''"
                       :options="[{ label: t('aiSettings.default'), value: '' }, ...providerSelectOptions]"
                       size="tiny"
                       style="width: 240px"
@@ -493,12 +444,12 @@ onMounted(() => {
                   </div>
                 </div>
                 <n-switch
-                  :value="modules[key].enabled"
+                  :value="modulesForm.form[key]?.enabled"
                   @update:value="(val: boolean) => toggleModule(key, val)"
                 />
               </div>
             </div>
-            <div v-else-if="!moduleLoading" class="ai-info-empty">
+            <div v-else-if="!modulesForm.loading.value" class="ai-info-empty">
               {{ t('aiSettings.loadModuleFailed') }}
             </div>
           </section>
@@ -510,27 +461,27 @@ onMounted(() => {
             <h3 class="sre-config-section-title">{{ t('aiSettings.globalTab') }}</h3>
             <p class="sre-config-section-desc">{{ t('aiSettings.globalDesc') }}</p>
 
-            <n-spin :show="globalLoading">
+            <n-spin :show="globalForm.loading.value">
               <n-form label-placement="left" label-width="180" style="max-width: 560px; margin-top: 16px;">
                 <n-form-item :label="t('aiSettings.retryMax')">
-                  <n-input-number v-model:value="globalConfig.retry_max" :min="0" :max="10" style="width: 100%" />
+                  <n-input-number v-model:value="globalForm.form.retry_max" :min="0" :max="10" style="width: 100%" />
                 </n-form-item>
                 <n-form-item :label="t('aiSettings.contextMaxChars')">
-                  <n-input-number v-model:value="globalConfig.context_max_chars" :min="1000" :max="100000" :step="1000" style="width: 100%" />
+                  <n-input-number v-model:value="globalForm.form.context_max_chars" :min="1000" :max="100000" :step="1000" style="width: 100%" />
                 </n-form-item>
                 <n-form-item :label="t('aiSettings.defaultTemperature')">
-                  <n-input-number v-model:value="globalConfig.default_temperature" :min="0" :max="2" :step="0.1" :precision="1" style="width: 100%" />
+                  <n-input-number v-model:value="globalForm.form.default_temperature" :min="0" :max="2" :step="0.1" :precision="1" style="width: 100%" />
                 </n-form-item>
                 <n-form-item :label="t('aiSettings.defaultMaxTokens')">
-                  <n-input-number v-model:value="globalConfig.default_max_tokens" :min="100" :max="32000" :step="100" style="width: 100%" />
+                  <n-input-number v-model:value="globalForm.form.default_max_tokens" :min="100" :max="32000" :step="100" style="width: 100%" />
                 </n-form-item>
                 <n-form-item :label="t('aiSettings.monthlyTokenBudget')">
-                  <n-input-number v-model:value="globalConfig.monthly_token_budget" :min="0" :step="100000" style="width: 100%" />
+                  <n-input-number v-model:value="globalForm.form.monthly_token_budget" :min="0" :step="100000" style="width: 100%" />
                   <span class="form-hint">{{ t('aiSettings.monthlyTokenBudgetHint') }}</span>
                 </n-form-item>
                 <n-form-item :label="t('aiSettings.dataMasking')">
                   <div>
-                    <n-switch v-model:value="globalConfig.data_masking_enabled" />
+                    <n-switch v-model:value="globalForm.form.data_masking_enabled" />
                     <p class="form-desc">{{ t('aiSettings.dataMaskingDesc') }}</p>
                   </div>
                 </n-form-item>

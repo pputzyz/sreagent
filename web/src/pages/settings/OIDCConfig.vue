@@ -1,32 +1,40 @@
-﻿<script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { NButton, NIcon, NSwitch, NSelect, NInput, NFormItem, NSpin, useMessage } from 'naive-ui'
+<script setup lang="ts">
+import { computed, onMounted } from 'vue'
+import { NButton, NIcon, NSwitch, NSelect, NInput, NFormItem, NSpin } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { oidcSettingsApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
+import { useConfigForm } from '@/composables'
 
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const saving = ref(false)
-const testing = ref(false)
-const lastTestResult = ref<{ success: boolean; message: string; time: string } | null>(null)
-
-const form = reactive({
-  enabled: false,
-  issuer_url: '',
-  client_id: '',
-  client_secret: '',
-  redirect_url: '',
-  scopes: 'openid,profile,email',
-  role_claim: 'realm_access.roles',
-  role_mapping: '',
-  default_role: 'viewer',
-  auto_provision: true,
-  username_claim: 'preferred_username',
-  email_claim: 'email',
+const { form, loading, saving, testing, isDirty, save, load, saveAndTest } = useConfigForm({
+  load: () => oidcSettingsApi.getConfig().then(r => r.data.data),
+  save: (f) => oidcSettingsApi.updateConfig({ ...f }),
+  test: async () => {
+    if (!form.issuer_url) {
+      message.warning(t('settings.oidcIssuerUrlRequired'))
+      return
+    }
+    const fn = (oidcSettingsApi as Record<string, unknown>).testConnection as ((url: string) => Promise<unknown>) || (oidcSettingsApi as Record<string, unknown>).discover as ((url: string) => Promise<unknown>)
+    if (typeof fn === 'function') {
+      const res = await fn.call(oidcSettingsApi, form.issuer_url) as { data?: { data?: { success?: boolean; message?: string } } }
+      const ok = !!res?.data?.data?.success
+      const msg = res?.data?.data?.message || (ok ? t('settings.oidcDiscoveryFetched') : t('settings.oidcDiscoveryFailed'))
+      if (ok) message.success(msg)
+      else message.error(msg)
+    } else {
+      const url = form.issuer_url.replace(/\/$/, '') + '/.well-known/openid-configuration'
+      const r = await fetch(url, { method: 'GET' })
+      const msg = r.ok ? `${t('settings.oidcDiscoveryOk')} (${r.status})` : `${t('settings.oidcDiscoveryFailed')} (${r.status})`
+      if (r.ok) message.success(msg)
+      else message.error(msg)
+    }
+  },
+  autoSaveKeys: ['enabled', 'auto_provision'],
 })
 
 const defaultRoleOptions = computed(() => [
@@ -36,7 +44,6 @@ const defaultRoleOptions = computed(() => [
   { label: t('settings.viewerName'), value: 'viewer' },
 ])
 
-// Inline validation
 const urlPattern = /^https:\/\/.+/i
 const issuerError = computed(() => {
   if (!form.issuer_url) return ''
@@ -51,79 +58,7 @@ const roleMappingError = computed(() => {
 })
 const canSave = computed(() => !issuerError.value && !roleMappingError.value)
 
-async function fetchConfig() {
-  loading.value = true
-  try {
-    const res = await oidcSettingsApi.getConfig()
-    if (res.data.data) {
-      const d = res.data.data
-      form.enabled = d.enabled
-      form.issuer_url = d.issuer_url || ''
-      form.client_id = d.client_id || ''
-      form.client_secret = d.client_secret || ''
-      form.redirect_url = d.redirect_url || ''
-      form.scopes = d.scopes || 'openid,profile,email'
-      form.role_claim = d.role_claim || 'realm_access.roles'
-      form.role_mapping = d.role_mapping || ''
-      form.default_role = d.default_role || 'viewer'
-      form.auto_provision = d.auto_provision
-      form.username_claim = (d as Record<string, unknown>).username_claim as string || 'preferred_username'
-      form.email_claim = (d as Record<string, unknown>).email_claim as string || 'email'
-    }
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function save() {
-  saving.value = true
-  try {
-    await oidcSettingsApi.updateConfig({ ...form })
-    message.success(t('common.savedSuccess'))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function testConnection() {
-  if (!form.issuer_url) {
-    message.warning(t('settings.oidcIssuerUrlRequired'))
-    return
-  }
-  testing.value = true
-  try {
-    const fn = (oidcSettingsApi as Record<string, unknown>).testConnection as ((url: string) => Promise<unknown>) || (oidcSettingsApi as Record<string, unknown>).discover as ((url: string) => Promise<unknown>)
-    if (typeof fn === 'function') {
-      const res = await fn.call(oidcSettingsApi, form.issuer_url) as { data?: { data?: { success?: boolean; message?: string } } }
-      const ok = !!res?.data?.data?.success
-      lastTestResult.value = {
-        success: ok,
-        message: res?.data?.data?.message || (ok ? t('settings.oidcDiscoveryFetched') : t('settings.oidcDiscoveryFailed')),
-        time: new Date().toLocaleTimeString(),
-      }
-    } else {
-      const url = form.issuer_url.replace(/\/$/, '') + '/.well-known/openid-configuration'
-      const r = await fetch(url, { method: 'GET' })
-      lastTestResult.value = {
-        success: r.ok,
-        message: r.ok ? `${t('settings.oidcDiscoveryOk')} (${r.status})` : `${t('settings.oidcDiscoveryFailed')} (${r.status})`,
-        time: new Date().toLocaleTimeString(),
-      }
-    }
-    lastTestResult.value!.success ? message.success(lastTestResult.value!.message) : message.error(lastTestResult.value!.message)
-  } catch (err: unknown) {
-    lastTestResult.value = { success: false, message: getErrorMessage(err), time: new Date().toLocaleTimeString() }
-    message.error(getErrorMessage(err))
-  } finally {
-    testing.value = false
-  }
-}
-
-onMounted(fetchConfig)
+onMounted(() => load())
 </script>
 
 <template>
@@ -135,7 +70,7 @@ onMounted(fetchConfig)
           <p class="sre-config-header-sub">{{ t('settings.oidcSubtitle') }}</p>
         </div>
         <div class="sre-config-header-actions">
-          <NButton size="small" quaternary :loading="testing" @click="testConnection">
+          <NButton size="small" quaternary :loading="testing" @click="saveAndTest">
             <template #icon><NIcon :component="PulseOutline" /></template>
             {{ t('common.test') }}
           </NButton>
@@ -145,13 +80,6 @@ onMounted(fetchConfig)
           </NButton>
         </div>
       </header>
-
-      <div v-if="lastTestResult" class="sre-config-status" :data-tone="lastTestResult.success ? 'success' : 'error'">
-        <span class="sre-dot" :data-severity="lastTestResult.success ? 'success' : 'critical'"></span>
-        <span>{{ lastTestResult.message }}</span>
-        <span class="sre-meta-divider"></span>
-        <span class="tnum">{{ lastTestResult.time }}</span>
-      </div>
 
       <div class="config-sections sre-stagger">
         <section class="sre-config-section">

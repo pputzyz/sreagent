@@ -1,93 +1,32 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { NButton, NIcon, NSwitch, NInput, NFormItem, NSpin, NSelect, NAlert, NTag, NSpace, useMessage } from 'naive-ui'
+import { ref, onMounted } from 'vue'
+import { NButton, NIcon, NSwitch, NInput, NFormItem, NSpin, NSelect, NTag, NSpace } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { PulseOutline, SaveOutline, CheckmarkCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
+import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { larkBotApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
+import { useConfigForm } from '@/composables'
 
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const saving = ref(false)
-const testingBotAPI = ref(false)
+const { form, loading, saving, load, saveAndTest } = useConfigForm({
+  load: () => larkBotApi.getConfig().then(r => r.data.data),
+  save: (f) => larkBotApi.updateConfig({ ...f }),
+  test: () => larkBotApi.testBotAPI().then(res => {
+    message.success(res.data.data?.message || t('settings.larkBotAPIOK'))
+  }),
+  autoSaveKeys: ['bot_enabled', 'update_on_state_change', 'delete_only_in_business_hours', 'commands_enabled', 'natural_language_enabled', 'debug_mode'],
+})
+
 const botStatusLoading = ref(false)
 const botStatus = ref<{ configured: boolean; app_id: string; webhook_set: boolean; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean } | null>(null)
-
-const form = reactive({
-  bot_enabled: false,
-  app_id: '',
-  app_secret: '',
-  default_webhook: '',
-  verification_token: '',
-  encrypt_key: '',
-  resolve_strategy: 'update',
-  update_on_state_change: true,
-  delete_only_in_business_hours: false,
-  business_hours_start: '09:00',
-  business_hours_end: '18:00',
-  commands_enabled: true,
-  natural_language_enabled: false,
-  debug_mode: false,
-})
 
 const resolveOptions = [
   { label: () => t('settings.larkResolveUpdate'), value: 'update' },
   { label: () => t('settings.larkResolveDelete'), value: 'delete' },
 ]
-
-async function fetchConfig() {
-  loading.value = true
-  try {
-    const res = await larkBotApi.getConfig()
-    if (res.data.data) {
-      const d = res.data.data
-      form.bot_enabled = d.bot_enabled
-      form.app_id = d.app_id || ''
-      form.app_secret = d.app_secret || ''
-      form.default_webhook = d.default_webhook || ''
-      form.verification_token = d.verification_token || ''
-      form.encrypt_key = d.encrypt_key || ''
-      form.resolve_strategy = d.resolve_strategy || 'update'
-      form.update_on_state_change = d.update_on_state_change ?? true
-      form.delete_only_in_business_hours = d.delete_only_in_business_hours ?? false
-      form.business_hours_start = d.business_hours_start || '09:00'
-      form.business_hours_end = d.business_hours_end || '18:00'
-      form.commands_enabled = d.commands_enabled ?? true
-      form.natural_language_enabled = d.natural_language_enabled ?? false
-      form.debug_mode = d.debug_mode ?? false
-    }
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function save() {
-  saving.value = true
-  try {
-    await larkBotApi.updateConfig({ ...form })
-    message.success(t('common.savedSuccess'))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleTestBotAPI() {
-  testingBotAPI.value = true
-  try {
-    const res = await larkBotApi.testBotAPI()
-    message.success(res.data.data?.message || t('settings.larkBotAPIOK'))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    testingBotAPI.value = false
-  }
-}
 
 async function fetchBotStatus() {
   botStatusLoading.value = true
@@ -102,7 +41,7 @@ async function fetchBotStatus() {
 }
 
 onMounted(() => {
-  fetchConfig()
+  load()
   fetchBotStatus()
 })
 </script>
@@ -207,7 +146,7 @@ onMounted(() => {
               <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.larkDebugDesc') }}</p>
             </div>
             <NSpace :size="8">
-              <NButton size="small" quaternary :loading="testingBotAPI" @click="handleTestBotAPI">
+              <NButton size="small" quaternary :loading="testing" @click="saveAndTest">
                 <template #icon><NIcon :component="PulseOutline" /></template>
                 {{ t('settings.larkTestBotAPI') }}
               </NButton>

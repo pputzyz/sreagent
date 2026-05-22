@@ -1,69 +1,34 @@
-﻿<script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { NButton, NIcon, NSwitch, NInput, NInputNumber, NFormItem, NSpin, NSpace, useMessage } from 'naive-ui'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { NButton, NIcon, NSwitch, NInput, NInputNumber, NFormItem, NSpin, NSpace } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
 import { smtpSettingsApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
+import { useConfigForm } from '@/composables'
 
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(false)
-const saving = ref(false)
+const { form, loading, saving, isDirty, save, load } = useConfigForm({
+  load: () => smtpSettingsApi.getConfig().then(r => r.data.data),
+  save: (f) => smtpSettingsApi.updateConfig({ ...f }),
+  autoSaveKeys: ['enabled', 'smtp_tls'],
+})
+
 const testing = ref(false)
 const testTo = ref('')
 const lastTestResult = ref<{ success: boolean; message: string; time: string } | null>(null)
-
-const form = reactive({
-  enabled: false,
-  smtp_host: '',
-  smtp_port: 587,
-  smtp_tls: true,
-  username: '',
-  password: '',
-  from: '',
-  from_name: '',
-})
-
-async function fetchConfig() {
-  loading.value = true
-  try {
-    const res = await smtpSettingsApi.getConfig()
-    if (res.data.data) {
-      const d = res.data.data
-      form.enabled = d.enabled
-      form.smtp_host = d.smtp_host || ''
-      form.smtp_port = d.smtp_port || 587
-      form.smtp_tls = d.smtp_tls ?? true
-      form.username = d.username || ''
-      form.password = d.password || ''
-      form.from = d.from || ''
-      form.from_name = (d as Record<string, unknown>).from_name as string || ''
-    }
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function save() {
-  saving.value = true
-  try {
-    await smtpSettingsApi.updateConfig({ ...form })
-    message.success(t('common.savedSuccess'))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
 
 async function testConnection() {
   if (!testTo.value) {
     message.warning(t('smtp.enterTestEmail'))
     return
+  }
+  if (isDirty.value) {
+    const ok = await save()
+    if (!ok) return
   }
   testing.value = true
   try {
@@ -84,7 +49,7 @@ function handlePasswordFocus() {
   if (form.password === '********') form.password = ''
 }
 
-onMounted(fetchConfig)
+onMounted(() => load())
 </script>
 
 <template>

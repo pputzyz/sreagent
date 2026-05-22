@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { NButton, NSpin, NForm, NFormItem, NSelect, NText } from 'naive-ui'
-import { useMessage } from 'naive-ui'
+import { computed, onMounted } from 'vue'
+import { NSpin, NForm, NFormItem, NSelect } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { securitySettingsApi } from '@/api'
-import { getErrorMessage } from '@/utils/format'
+import { useConfigForm } from '@/composables'
 
-const message = useMessage()
 const { t } = useI18n()
-const loading = ref(false)
-const saving = ref(false)
 
-const jwtExpireSeconds = ref(86400)
+const { form, loading, save } = useConfigForm({
+  load: () => securitySettingsApi.getConfig().then(r => r.data.data),
+  save: (f) => securitySettingsApi.updateConfig({ jwt_expire_seconds: f.jwt_expire_seconds }),
+  autoSaveKeys: ['jwt_expire_seconds'],
+})
 
 const expireOptions = computed(() => [
   { label: t('settings.jwtExpire1h'), value: 3600 },
@@ -21,31 +21,7 @@ const expireOptions = computed(() => [
   { label: t('settings.jwtExpire7d'), value: 604800 },
 ])
 
-async function fetchConfig() {
-  loading.value = true
-  try {
-    const { data } = await securitySettingsApi.getConfig()
-    jwtExpireSeconds.value = data.data.jwt_expire_seconds
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleSave() {
-  saving.value = true
-  try {
-    await securitySettingsApi.updateConfig({ jwt_expire_seconds: jwtExpireSeconds.value })
-    message.success(t('common.savedSuccess'))
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
-
-onMounted(fetchConfig)
+onMounted(() => load())
 </script>
 
 <template>
@@ -56,11 +32,6 @@ onMounted(fetchConfig)
           <h2 class="sre-config-header-title">{{ t('settings.securityConfig') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.jwtExpireHint') }}</p>
         </div>
-        <div class="sre-config-header-actions">
-          <NButton type="primary" size="small" :loading="saving" @click="handleSave">
-            {{ t('common.save') }}
-          </NButton>
-        </div>
       </header>
 
       <section class="sre-config-section">
@@ -69,7 +40,7 @@ onMounted(fetchConfig)
           <NForm label-placement="top" class="security-form">
             <NFormItem :label="t('settings.jwtExpireTime')">
               <NSelect
-                v-model:value="jwtExpireSeconds"
+                v-model:value="form.jwt_expire_seconds"
                 :options="expireOptions"
                 class="security-select"
               />

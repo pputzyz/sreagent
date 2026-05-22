@@ -4,6 +4,29 @@
 
 ---
 
+## [v4.15.29] — 2026-05-22
+
+### 设置页面交互设计重构 — useConfigForm composable
+
+**新增 composable**
+- `web/src/composables/useConfigForm.ts` — 统一表单管理：脏状态检测、开关自动保存（debounced 400ms）、保存并测试、路由离开拦截
+- i18n：`common.unsavedChanges` 中英文
+
+**页面迁移（5 个设置页面）**
+- SecurityConfig：NSelect 变更自动保存，移除 header 保存按钮
+- SMTPConfig：`enabled`/`smtp_tls` 开关自动保存；测试按钮先保存再测试
+- LarkBotConfig：6 个开关自动保存；Bot API 测试先保存再测试；Bot Status 独立查询
+- OIDCConfig：`enabled`/`auto_provision` 开关自动保存；OIDC 测试先保存再测试
+- AISettings：Modules tab 5 个模块开关自动保存；Global tab `data_masking_enabled` 开关自动保存；Providers tab 保持手动 CRUD
+
+**交互改进**
+- 开关拨动 → 400ms 后自动 PUT 保存 → toast 反馈
+- 测试按钮 → 自动先保存脏数据 → 再调用测试 API
+- 导航离开时如有未保存改动 → 原生 confirm 对话框
+- 文本字段修改 → header 保存按钮仍然可用（批量保存）
+
+---
+
 ## [v4.15.28] — 2026-05-22
 
 ### 全站 UI/UX 审计修复

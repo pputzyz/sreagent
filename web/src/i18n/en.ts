@@ -38,6 +38,7 @@ export default {
     noPreview: 'No preview available',
     retry: 'Retry',
     savedSuccess: 'Saved successfully',
+    unsavedChanges: 'You have unsaved changes. Leave anyway?',
     seconds: 'sec',
     minutes: 'min',
     loadFailed: 'Failed to load — please retry',
