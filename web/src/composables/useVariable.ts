@@ -4,11 +4,19 @@ import { computeTimeStep } from '@/utils/timeStep'
 import type { VariableConfig } from '@/types/dashboard'
 import type { TimeRange } from '@/types/query'
 
+const ALL_SENTINEL = '__all'
+
 export interface VariableState {
   config: VariableConfig
-  value: string
+  value: string | string[]
   options: string[]
   loading: boolean
+}
+
+export interface AdhocFilter {
+  key: string
+  op: string
+  value: string
 }
 
 export function useVariable(
@@ -16,29 +24,49 @@ export function useVariable(
   timeRange: Ref<TimeRange>,
 ) {
   const states = ref<Map<string, VariableState>>(new Map())
+  const adhocFilters = ref<Map<string, AdhocFilter[]>>(new Map())
 
   // Initialize states from config
   function initStates() {
     const newStates = new Map<string, VariableState>()
     for (const v of variables.value) {
       const existing = states.value.get(v.name)
+      let defaultVal: string | string[] = existing?.value ?? v.defaultValue ?? ''
+      // For multi-select, ensure value is an array
+      if (v.multi && !Array.isArray(defaultVal)) {
+        defaultVal = defaultVal ? [defaultVal] : []
+      }
       newStates.set(v.name, {
         config: v,
-        value: existing?.value ?? v.defaultValue ?? '',
+        value: defaultVal,
         options: existing?.options ?? v.options ?? [],
         loading: false,
       })
+      // Init adhoc filters map
+      if (v.type === 'adhoc' && !adhocFilters.value.has(v.name)) {
+        adhocFilters.value.set(v.name, [])
+      }
     }
     states.value = newStates
   }
 
+  // Build the effective options list (with includeAll prepended)
+  function buildOptions(rawOptions: string[], config: VariableConfig): string[] {
+    if (config.includeAll) {
+      return [ALL_SENTINEL, ...rawOptions]
+    }
+    return rawOptions
+  }
+
   // Resolve a query-type variable
-  async function resolveQueryVariable(state: VariableState) {
+  async function resolveQueryVariable(state: VariableState, preResolve?: (s: string) => string) {
     if (!state.config.query || !state.config.datasourceId) return
     state.loading = true
     try {
+      // Pre-process the query through variable replacement (for chained deps)
+      const query = preResolve ? preResolve(state.config.query) : state.config.query
       const res = await datasourceApi.query(state.config.datasourceId, {
-        expression: state.config.query,
+        expression: query,
       })
       const data = res.data.data
       let opts: string[] = []
@@ -58,47 +86,127 @@ export function useVariable(
           opts = opts.filter(o => re.test(o))
         } catch (e) {
           console.warn('[useVariable] invalid regex, skipping filter:', state.config.regex, e)
-          // Return unfiltered opts on regex failure
         }
       }
       // Apply sort
-      if (state.config.sort === 'asc') opts.sort()
-      else if (state.config.sort === 'desc') opts.sort().reverse()
-      else if (state.config.sort === 'numerical-asc') opts.sort((a, b) => {
-        const na = Number(a), nb = Number(b)
-        if (isNaN(na) && isNaN(nb)) return 0
-        if (isNaN(na)) return 1
-        if (isNaN(nb)) return -1
-        return na - nb
-      })
-      else if (state.config.sort === 'numerical-desc') opts.sort((a, b) => {
-        const na = Number(a), nb = Number(b)
-        if (isNaN(na) && isNaN(nb)) return 0
-        if (isNaN(na)) return 1
-        if (isNaN(nb)) return -1
-        return nb - na
-      })
+      applySort(opts, state.config.sort)
 
-      state.options = opts
-      if (opts.length > 0 && !opts.includes(state.value)) {
-        state.value = opts[0]
+      state.options = buildOptions(opts, state.config)
+      // Auto-select if current value not in options
+      if (state.config.multi) {
+        const current = Array.isArray(state.value) ? state.value : [state.value]
+        const valid = current.filter(v => state.options.includes(v))
+        if (valid.length === 0 && state.options.length > 0) {
+          state.value = state.options[0] === ALL_SENTINEL ? [ALL_SENTINEL] : [state.options[0]]
+        }
+      } else {
+        if (opts.length > 0 && !state.options.includes(state.value as string)) {
+          state.value = state.options[0]
+        }
       }
     } catch (err) {
       console.warn('[useVariable] Failed to resolve query variable:', state.config.name, err)
-      // keep existing options
     } finally {
       state.loading = false
     }
   }
 
-  // Resolve all variables (with concurrency guard)
+  // Resolve datasource-type variable
+  async function resolveDatasourceVariable(state: VariableState) {
+    state.loading = true
+    try {
+      const res = await datasourceApi.list({ page: 1, page_size: 200 })
+      let names = (res.data.data.list || [])
+        .filter((ds: { is_enabled: boolean }) => ds.is_enabled)
+        .map((ds: { name: string }) => ds.name)
+
+      // Apply regex filter
+      if (state.config.regex) {
+        try {
+          const re = new RegExp(state.config.regex)
+          names = names.filter(n => re.test(n))
+        } catch (e) {
+          console.warn('[useVariable] invalid regex for datasource var:', state.config.regex, e)
+        }
+      }
+
+      state.options = buildOptions(names, state.config)
+      if (names.length > 0 && !state.options.includes(state.value as string)) {
+        state.value = state.options[0]
+      }
+    } catch (err) {
+      console.warn('[useVariable] Failed to resolve datasource variable:', state.config.name, err)
+    } finally {
+      state.loading = false
+    }
+  }
+
+  // Resolve interval-type variable
+  function resolveIntervalVariable(state: VariableState) {
+    const defaults = ['1m', '5m', '10m', '30m', '1h']
+    const opts = state.config.options?.length ? state.config.options : defaults
+    state.options = buildOptions(opts, state.config)
+    if (!state.options.includes(state.value as string)) {
+      state.value = opts[0]
+    }
+  }
+
+  // Resolve constant-type variable
+  function resolveConstantVariable(state: VariableState) {
+    const val = state.config.defaultValue || ''
+    state.options = [val]
+    state.value = val
+  }
+
+  // Apply sort to an options array
+  function applySort(opts: string[], sort?: string) {
+    if (sort === 'asc') opts.sort()
+    else if (sort === 'desc') opts.sort().reverse()
+    else if (sort === 'numerical-asc') opts.sort((a, b) => {
+      const na = Number(a), nb = Number(b)
+      if (isNaN(na) && isNaN(nb)) return 0
+      if (isNaN(na)) return 1
+      if (isNaN(nb)) return -1
+      return na - nb
+    })
+    else if (sort === 'numerical-desc') opts.sort((a, b) => {
+      const na = Number(a), nb = Number(b)
+      if (isNaN(na) && isNaN(nb)) return 0
+      if (isNaN(na)) return 1
+      if (isNaN(nb)) return -1
+      return nb - na
+    })
+  }
+
+  // Resolve all variables sequentially (for chained dependency support)
   let resolveSeq = 0
   async function resolveAll() {
     const seq = ++resolveSeq
+    // Build a preResolve function that uses current states
+    function preResolve(s: string): string {
+      return replaceInString(s, states.value)
+    }
+
     for (const [, state] of states.value) {
       if (seq !== resolveSeq) return // superseded by a newer call
-      if (state.config.type === 'query') {
-        await resolveQueryVariable(state)
+
+      switch (state.config.type) {
+        case 'query':
+          await resolveQueryVariable(state, preResolve)
+          break
+        case 'datasource':
+          await resolveDatasourceVariable(state)
+          break
+        case 'interval':
+          resolveIntervalVariable(state)
+          break
+        case 'constant':
+          resolveConstantVariable(state)
+          break
+        case 'adhoc':
+          // adhoc doesn't resolve options
+          break
+        // custom / textbox: keep existing options
       }
     }
   }
@@ -108,15 +216,49 @@ export function useVariable(
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
+  // Core replacement logic on a raw string with a given states map
+  function replaceInString(input: string, stateMap: Map<string, VariableState>): string {
+    let result = input
+    for (const [name, state] of stateMap) {
+      const escaped = escapeRegex(name)
+      const replacement = resolveValueForReplacement(state)
+      result = result.replace(new RegExp(`\\$${escaped}\\b`, 'g'), replacement)
+      result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), replacement)
+      result = result.replace(new RegExp(`\\[\\[${escaped}\\]\\]`, 'g'), replacement)
+    }
+    return result
+  }
+
+  // Resolve the replacement value for a variable state
+  function resolveValueForReplacement(state: VariableState): string {
+    // Adhoc variables are injected via a separate mechanism
+    if (state.config.type === 'adhoc') return ''
+
+    const val = state.value
+
+    // Multi-select
+    if (state.config.multi && Array.isArray(val)) {
+      // Check if __all is selected
+      if (val.includes(ALL_SENTINEL)) {
+        return state.config.allValue || '.*'
+      }
+      // PromQL regex syntax: val1|val2|val3
+      if (val.length === 0) return ''
+      if (val.length === 1) return escapeRegex(val[0])
+      return val.map(v => escapeRegex(v)).join('|')
+    }
+
+    // Single value with __all
+    if (val === ALL_SENTINEL) {
+      return state.config.allValue || '.*'
+    }
+
+    return Array.isArray(val) ? val.join('|') : val
+  }
+
   // Replace $var and [[var]] in a string
   function replaceVariables(input: string): string {
-    let result = input
-    for (const [name, state] of states.value) {
-      const escaped = escapeRegex(name)
-      result = result.replace(new RegExp(`\\$${escaped}\\b`, 'g'), state.value)
-      result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), state.value)
-      result = result.replace(new RegExp(`\\[\\[${escaped}\\]\\]`, 'g'), state.value)
-    }
+    let result = replaceInString(input, states.value)
     // Built-in time variables
     result = result.replace(/\$__from/g, String(Math.floor(timeRange.value.start / 1000)))
     result = result.replace(/\$__to/g, String(Math.floor(timeRange.value.end / 1000)))
@@ -124,9 +266,30 @@ export function useVariable(
     return result
   }
 
-  function setValue(name: string, value: string) {
+  function setValue(name: string, value: string | string[]) {
     const state = states.value.get(name)
     if (state) state.value = value
+  }
+
+  function setMultiValue(name: string, values: string[]) {
+    const state = states.value.get(name)
+    if (state && state.config.multi) {
+      state.value = values
+    }
+  }
+
+  function addAdhocFilter(name: string, filter: AdhocFilter) {
+    const filters = adhocFilters.value.get(name) || []
+    filters.push(filter)
+    adhocFilters.value.set(name, [...filters])
+  }
+
+  function removeAdhocFilter(name: string, index: number) {
+    const filters = adhocFilters.value.get(name)
+    if (filters) {
+      filters.splice(index, 1)
+      adhocFilters.value.set(name, [...filters])
+    }
   }
 
   watch(variables, initStates, { immediate: true, deep: true })
@@ -135,7 +298,17 @@ export function useVariable(
     Array.from(states.value.values())
   )
 
-  return { states, variableList, resolveAll, replaceVariables, setValue }
+  return {
+    states,
+    variableList,
+    adhocFilters,
+    resolveAll,
+    replaceVariables,
+    setValue,
+    setMultiValue,
+    addAdhocFilter,
+    removeAdhocFilter,
+  }
 }
 
 function autoInterval(tr: TimeRange): string {

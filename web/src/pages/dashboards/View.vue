@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, nextTick, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NSpace, NInput, NSelect, useMessage, NModal, NPopconfirm, NSpin } from 'naive-ui'
+import { NButton, NSpace, NInput, NSelect, useMessage, NModal, NPopconfirm, NSpin, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2Api, datasourceApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
@@ -16,7 +16,9 @@ import QueryPanel from '@/components/query/QueryPanel.vue'
 import QueryResultChart from '@/components/query/QueryResultChart.vue'
 import PanelCard from '@/components/query/PanelCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import { ArrowBackOutline, AddOutline } from '@vicons/ionicons5'
+import PanelEditor from '@/components/dashboard/PanelEditor.vue'
+import { ArrowBackOutline, AddOutline, SettingsOutline, CreateOutline, CopyOutline, ExpandOutline, EllipsisHorizontalOutline, DownloadOutline, TrashOutline } from '@vicons/ionicons5'
+import VariableEditor from '@/components/dashboard/VariableEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -159,7 +161,22 @@ const {
 } = useQueryEngine(timeRange)
 
 const variableConfig = ref<VariableConfig[]>(config.value.variables || [])
-const { variableList, replaceVariables, setValue, resolveAll } = useVariable(variableConfig, timeRange)
+const {
+  variableList,
+  replaceVariables,
+  setValue,
+  setMultiValue,
+  resolveAll,
+  adhocFilters,
+  addAdhocFilter,
+  removeAdhocFilter,
+} = useVariable(variableConfig, timeRange)
+
+// Variable editor drawer
+const showVariableEditor = ref(false)
+const newAdhocKey = ref('')
+const newAdhocOp = ref('=')
+const newAdhocValue = ref('')
 
 // --- Panel management ---
 const panelToDelete = ref<PanelConfig | null>(null)
@@ -194,6 +211,62 @@ function updatePanelTitle(id: string, title: string) {
   const p = config.value.panels.find(p => p.id === id)
   if (p) p.title = title
 }
+
+// --- Panel editor ---
+const editingPanel = ref<PanelConfig | null>(null)
+const showPanelEditor = ref(false)
+
+function editPanel(id: string) {
+  const p = config.value.panels.find(p => p.id === id)
+  if (p) {
+    editingPanel.value = p
+    showPanelEditor.value = true
+  }
+}
+
+function duplicatePanel(panel: PanelConfig) {
+  const clone: PanelConfig = JSON.parse(JSON.stringify(panel))
+  clone.id = `panel-${Date.now()}`
+  clone.title = `${panel.title} (copy)`
+  clone.gridPos = { ...panel.gridPos, y: panel.gridPos.y + panel.gridPos.h }
+  config.value.panels.push(clone)
+  message.success('Panel duplicated')
+}
+
+function onPanelSave(updated: PanelConfig) {
+  const idx = config.value.panels.findIndex(p => p.id === updated.id)
+  if (idx >= 0) {
+    config.value.panels[idx] = updated
+  }
+  showPanelEditor.value = false
+  editingPanel.value = null
+}
+
+// --- Row panel collapse/expand ---
+function toggleRowCollapse(panel: PanelConfig) {
+  if (panel.type !== 'row') return
+  if (!panel.options) panel.options = {}
+  panel.options.collapsed = !panel.options.collapsed
+}
+
+function isRowCollapsed(panel: PanelConfig): boolean {
+  return panel.type === 'row' && panel.options?.collapsed === true
+}
+
+const visiblePanels = computed(() => {
+  const collapsedRowY = new Set<number>()
+  for (const p of config.value.panels) {
+    if (p.type === 'row' && p.options?.collapsed) {
+      collapsedRowY.add(p.gridPos.y)
+    }
+  }
+  if (collapsedRowY.size === 0) return config.value.panels
+  return config.value.panels.filter(p => {
+    if (p.type === 'row') return true
+    // Hide panels whose gridPos.y is below a collapsed row (same visual section)
+    return !Array.from(collapsedRowY).some(rowY => p.gridPos.y > rowY && p.gridPos.y < rowY + 100)
+  })
+})
 
 // --- Data ---
 async function fetchDatasources() {
@@ -252,6 +325,73 @@ async function handleSave() {
   }
 }
 
+// --- More actions ---
+const moreActionOptions = computed(() => [
+  { label: t('dashboardV2.clone'), key: 'clone', icon: () => h(CopyOutline) },
+  { label: t('dashboardV2.export'), key: 'export', icon: () => h(DownloadOutline) },
+  { type: 'divider', key: 'd1' },
+  { label: t('common.delete'), key: 'delete', icon: () => h(TrashOutline) },
+])
+
+async function handleMoreAction(key: string | number) {
+  if (key === 'clone') {
+    await handleClone()
+  } else if (key === 'export') {
+    handleExport()
+  } else if (key === 'delete') {
+    handleDeleteDashboard()
+  }
+}
+
+async function handleClone() {
+  if (!dashboard.value) return
+  try {
+    const panels = config.value.panels.map(p => ({
+      ...p,
+      id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    }))
+    const cfg = { ...config.value, panels }
+    await dashboardV2Api.create({
+      name: `${dashboard.value.name} (copy)`,
+      description: dashboard.value.description,
+      tags: dashboard.value.tags,
+      config: JSON.stringify(cfg),
+      is_public: dashboard.value.is_public,
+    })
+    message.success(t('dashboardV2.cloneSuccess'))
+    router.push('/alert/dashboards')
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.loadFailed'))
+  }
+}
+
+function handleExport() {
+  if (!dashboard.value) return
+  const exportData = {
+    ...dashboard.value,
+    config: config.value,
+  }
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${dashboard.value.name}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  message.success(t('dashboardV2.exportSuccess'))
+}
+
+async function handleDeleteDashboard() {
+  if (!dashboard.value) return
+  try {
+    await dashboardV2Api.delete(dashboard.value.id)
+    message.success(t('dashboardV2.deleted'))
+    router.push('/alert/dashboards')
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.deleteFailed'))
+  }
+}
+
 function handleExecuteSingle(id: string) {
   const target = targets.value.find(t => t.id === id)
   if (target) executeQuery(target)
@@ -300,6 +440,16 @@ onMounted(() => {
         <NButton type="primary" size="small" :loading="saving" @click="handleSave">
           {{ t('dashboardV2.save') }}
         </NButton>
+        <NDropdown
+          v-if="!isNew"
+          :options="moreActionOptions"
+          trigger="click"
+          @select="handleMoreAction"
+        >
+          <NButton quaternary size="small">
+            <template #icon><EllipsisHorizontalOutline /></template>
+          </NButton>
+        </NDropdown>
       </div>
     </div>
 
@@ -309,56 +459,152 @@ onMounted(() => {
     <template v-else>
       <!-- Variable bar -->
       <div v-if="variableList.length > 0" class="variable-bar">
-        <div v-for="v in variableList" :key="v.config.name" class="var-item">
-          <label>{{ v.config.label || v.config.name }}</label>
-          <NSelect
-            v-if="v.config.type === 'query' || v.config.type === 'custom'"
-            :value="v.value"
-            :options="v.options.map(o => ({ label: o, value: o }))"
-            :loading="v.loading"
-            size="small"
-            class="var-select"
-            @update:value="(val: string) => setValue(v.config.name, val)"
-          />
-          <NInput
-            v-else-if="v.config.type === 'textbox'"
-            :value="v.value"
-            size="small"
-            class="var-select"
-            @update:value="(val: string) => setValue(v.config.name, val)"
-          />
-          <span v-else class="var-value">{{ v.value }}</span>
+        <div class="variable-bar-items">
+          <div v-for="v in variableList" :key="v.config.name" class="var-item">
+            <label>{{ v.config.label || v.config.name }}</label>
+
+            <!-- Multi-select mode -->
+            <NSelect
+              v-if="v.config.multi"
+              :value="Array.isArray(v.value) ? v.value : v.value ? [v.value] : []"
+              :options="v.options.map(o => ({ label: o === '__all' ? 'All' : o, value: o }))"
+              :loading="v.loading"
+              multiple
+              size="small"
+              class="var-select"
+              @update:value="(vals: string[]) => setMultiValue(v.config.name, vals)"
+            />
+
+            <!-- Query / Custom / Interval / Datasource single-select -->
+            <NSelect
+              v-else-if="v.config.type === 'query' || v.config.type === 'custom' || v.config.type === 'interval' || v.config.type === 'datasource'"
+              :value="v.value as string"
+              :options="v.options.map(o => ({ label: o === '__all' ? 'All' : o, value: o }))"
+              :loading="v.loading"
+              size="small"
+              class="var-select"
+              @update:value="(val: string) => setValue(v.config.name, val)"
+            />
+
+            <!-- Textbox -->
+            <NInput
+              v-else-if="v.config.type === 'textbox'"
+              :value="v.value as string"
+              size="small"
+              class="var-select"
+              @update:value="(val: string) => setValue(v.config.name, val)"
+            />
+
+            <!-- Adhoc: show filters + add button -->
+            <div v-else-if="v.config.type === 'adhoc'" class="adhoc-filters">
+              <NSpace :size="4">
+                <NButton
+                  v-for="(f, fi) in (adhocFilters.get(v.config.name) || [])"
+                  :key="fi"
+                  size="tiny"
+                  secondary
+                  type="info"
+                  @click="removeAdhocFilter(v.config.name, fi)"
+                >
+                  {{ f.key }} {{ f.op }} {{ f.value }} &times;
+                </NButton>
+                <NPopconfirm @positive-click="addAdhocFilter(v.config.name, { key: newAdhocKey, op: newAdhocOp, value: newAdhocValue }); newAdhocKey = ''; newAdhocValue = ''">
+                  <template #trigger>
+                    <NButton size="tiny" dashed>
+                      <template #icon><AddOutline /></template>
+                      Filter
+                    </NButton>
+                  </template>
+                  <div style="display: flex; flex-direction: column; gap: 6px; min-width: 240px;">
+                    <NInput v-model:value="newAdhocKey" size="small" placeholder="Label key" />
+                    <NSelect v-model:value="newAdhocOp" size="small" :options="['=', '!=', '=~', '!~'].map(o => ({ label: o, value: o }))" />
+                    <NInput v-model:value="newAdhocValue" size="small" placeholder="Value" />
+                  </div>
+                </NPopconfirm>
+              </NSpace>
+            </div>
+
+            <!-- Constant / fallback -->
+            <span v-else class="var-value">{{ Array.isArray(v.value) ? v.value.join(', ') : v.value }}</span>
+          </div>
         </div>
+        <NButton quaternary size="small" class="var-manage-btn" @click="showVariableEditor = true">
+          <template #icon><SettingsOutline /></template>
+        </NButton>
       </div>
 
       <!-- PANEL GRID -->
       <div v-if="hasPanels" ref="gridEl" class="panel-grid" @mousemove="onGridResize">
-        <div
-          v-for="panel in config.panels"
-          :key="panel.id"
-          class="panel-grid-item"
-          :class="{ 'panel-dragging': dragState?.panelId === panel.id && dragState?.mode === 'move', 'panel-resizing': dragState?.panelId === panel.id && dragState?.mode === 'resize' }"
-          :style="{
-            gridColumn: `${(panel.gridPos?.x || 0) + 1} / span ${panel.gridPos?.w || 24}`,
-            gridRow: `${(panel.gridPos?.y || 0) + 1} / span ${panel.gridPos?.h || 6}`,
-          }"
-        >
-          <div class="panel-toolbar panel-drag-handle" @mousedown="(e: MouseEvent) => startDrag(e, panel)">
-            <NInput
-              :value="panel.title"
-              size="tiny"
-              class="panel-title-input"
-              @update:value="(v: string) => updatePanelTitle(panel.id, v)"
-            />
-            <NSpace :size="4">
-              <NButton quaternary size="tiny" @click="removePanel(panel.id)">&times;</NButton>
-            </NSpace>
+        <template v-for="panel in visiblePanels" :key="panel.id">
+          <!-- Row panel -->
+          <div
+            v-if="panel.type === 'row'"
+            class="panel-grid-item panel-row-item"
+            :style="{
+              gridColumn: `1 / span ${GRID_COLS}`,
+              gridRow: `${(panel.gridPos?.y || 0) + 1} / span 1`,
+            }"
+          >
+            <div class="panel-row-toolbar" @mousedown="(e: MouseEvent) => startDrag(e, panel)">
+              <NButton quaternary size="tiny" @click.stop="toggleRowCollapse(panel)">
+                <template #icon><ExpandOutline style="transition: transform 0.2s" :style="{ transform: isRowCollapsed(panel) ? 'rotate(-90deg)' : 'rotate(0deg)' }" /></template>
+              </NButton>
+              <span class="panel-row-title">{{ panel.title }}</span>
+              <NSpace :size="4" @mousedown.stop>
+                <NButton quaternary size="tiny" @click="editPanel(panel.id)">
+                  <template #icon><CreateOutline /></template>
+                </NButton>
+                <NButton quaternary size="tiny" @click="duplicatePanel(panel)">
+                  <template #icon><CopyOutline /></template>
+                </NButton>
+                <NPopconfirm @positive-click="removePanel(panel.id)">
+                  <template #trigger>
+                    <NButton quaternary size="tiny" type="error">&times;</NButton>
+                  </template>
+                  Delete this row?
+                </NPopconfirm>
+              </NSpace>
+            </div>
           </div>
-          <PanelCard :panel="panel" :time-range="timeRange" />
-          <div class="panel-drag-handle-resize" @mousedown="(e: MouseEvent) => startResize(e, panel)">
-            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 10 L10 0 M4 10 L10 4 M8 10 L10 8" stroke="currentColor" fill="none" opacity="0.4"/></svg>
+
+          <!-- Normal panel -->
+          <div
+            v-else
+            class="panel-grid-item"
+            :class="{ 'panel-dragging': dragState?.panelId === panel.id && dragState?.mode === 'move', 'panel-resizing': dragState?.panelId === panel.id && dragState?.mode === 'resize' }"
+            :style="{
+              gridColumn: `${(panel.gridPos?.x || 0) + 1} / span ${panel.gridPos?.w || 24}`,
+              gridRow: `${(panel.gridPos?.y || 0) + 1} / span ${panel.gridPos?.h || 6}`,
+            }"
+          >
+            <div class="panel-toolbar panel-drag-handle" @mousedown="(e: MouseEvent) => startDrag(e, panel)">
+              <NInput
+                :value="panel.title"
+                size="tiny"
+                class="panel-title-input"
+                @update:value="(v: string) => updatePanelTitle(panel.id, v)"
+              />
+              <NSpace :size="4" @mousedown.stop>
+                <NButton quaternary size="tiny" @click="editPanel(panel.id)">
+                  <template #icon><CreateOutline /></template>
+                </NButton>
+                <NButton quaternary size="tiny" @click="duplicatePanel(panel)">
+                  <template #icon><CopyOutline /></template>
+                </NButton>
+                <NPopconfirm @positive-click="removePanel(panel.id)">
+                  <template #trigger>
+                    <NButton quaternary size="tiny" type="error">&times;</NButton>
+                  </template>
+                  Delete this panel?
+                </NPopconfirm>
+              </NSpace>
+            </div>
+            <PanelCard :panel="panel" :time-range="timeRange" />
+            <div class="panel-drag-handle-resize" @mousedown="(e: MouseEvent) => startResize(e, panel)">
+              <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 10 L10 0 M4 10 L10 4 M8 10 L10 8" stroke="currentColor" fill="none" opacity="0.4"/></svg>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
 
       <!-- Empty state -->
@@ -398,6 +644,27 @@ onMounted(() => {
         </div>
       </details>
     </template>
+
+    <!-- Variable Editor Drawer -->
+    <VariableEditor
+      :show="showVariableEditor"
+      :variables="variableConfig"
+      :datasources="datasources"
+      @update:variables="(v: VariableConfig[]) => { variableConfig = v; config.variables = v }"
+      @close="showVariableEditor = false"
+    />
+
+    <!-- Panel Editor Drawer -->
+    <PanelEditor
+      v-if="editingPanel"
+      v-model:show="showPanelEditor"
+      :panel="editingPanel"
+      :datasources="datasources"
+      :time-range="timeRange"
+      :variable-options="variableList.map(v => ({ label: v.config.label || v.config.name, value: v.config.name }))"
+      @save="onPanelSave"
+      @cancel="editingPanel = null"
+    />
   </div>
 </template>
 
@@ -436,13 +703,22 @@ onMounted(() => {
 /* Variable bar */
 .variable-bar {
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
   padding: 12px;
   background: var(--sre-bg-card);
   border: var(--sre-hairline);
   border-radius: var(--sre-radius-md);
+}
+.variable-bar-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex: 1;
+}
+.var-manage-btn {
+  flex-shrink: 0;
 }
 .var-item {
   display: flex;
@@ -460,6 +736,11 @@ onMounted(() => {
   background: var(--sre-bg-sunken);
   border-radius: var(--sre-radius-xs);
   color: var(--sre-text-primary);
+}
+.adhoc-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Panel grid */
@@ -519,6 +800,29 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 4px;
   padding: 0 2px;
+}
+.panel-row-item {
+  min-height: auto;
+}
+.panel-row-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--sre-bg-sunken);
+  border: 1px solid var(--sre-border);
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none;
+}
+.panel-row-toolbar:active {
+  cursor: grabbing;
+}
+.panel-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  flex: 1;
 }
 
 /* Empty dashboard */

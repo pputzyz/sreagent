@@ -4,6 +4,52 @@
 
 ---
 
+## [v4.31.0] — 2026-05-26
+
+### Dashboard 增强 — Nightingale 功能移植 #5
+
+**面板编辑器**: 完整编辑器（NDrawer），支持 General/Queries/Visualization 三个 Tab，每种面板类型有独立配置选项，实时预览。
+
+**可视化增强**:
+- 面积填充（fillOpacity）、堆叠（stacking）、线条宽度
+- 阈值线（markLine，虚线 + 标签）
+- 图例位置控制（bottom/right/hidden）
+- 单位格式化（bytes/seconds/percent/short 等）
+- drawStyle 切换（line/bars/points）
+- Stat 面板增强：colorMode/graphMode/textMode
+- Text 面板：基础 Markdown 渲染
+- Row 面板：可折叠分组
+
+**变量系统增强**:
+- 新增 interval/datasource/constant/adhoc 类型实现
+- 多选支持（multi）+ includeAll 选项
+- 变量链式依赖（按声明顺序依次 resolve）
+- 变量编辑器 UI（NDrawer，可视化管理变量）
+- adhoc 过滤器编辑 UI
+
+**Annotations 标注**:
+- 后端：`annotations` 表 CRUD + 时间范围查询 + 批量创建（迁移：000071）
+- API：`/api/v1/annotations`（5 endpoints）
+- 前端：图表上叠加标注标记
+
+**Dashboard 功能**:
+- 克隆：一键复制 Dashboard
+- 导入/导出：JSON 文件导入导出
+
+**后端（Go + Gin + GORM）**:
+- 数据模型：`annotations` 表（迁移：000071_annotations）
+- Repository/Service/Handler：完整 CRUD + 批量创建
+- 路由注册：5 个 API 端点
+
+**前端（Vue 3 + Naive UI）**:
+- 7 个新组件：PanelEditor, PanelEditorGeneral, PanelEditorQuery, PanelEditorVisualization, PanelEditorThresholds, PanelEditorValueMapping, PanelPreview
+- 2 个新组件：VariableEditor, VariableEditorItem
+- PanelCard 增强：面积/堆叠/阈值线/单位/图例/text/row
+- View.vue 增强：面板编辑/复制/删除/折叠 + 变量管理 + 克隆/导入导出
+- i18n：中文 + English 完整翻译
+
+---
+
 ## [v4.30.0] — 2026-05-26
 
 ### 通知渠道扩展 — Nightingale 功能移植 #4

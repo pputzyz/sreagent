@@ -515,6 +515,16 @@ export default {
     incidentTrend: '故障趋势',
     days: '天',
     public: '公开',
+    // 克隆 / 导入 / 导出
+    clone: '克隆',
+    export: '导出',
+    import: '导入',
+    cloneSuccess: '仪表盘已克隆',
+    importSuccess: '仪表盘已导入',
+    exportSuccess: '仪表盘已导出',
+    importError: '导入失败，请检查文件格式',
+    invalidFile: '无效的仪表盘文件',
+    moreActions: '更多操作',
   },
   alert: {
     // Rules

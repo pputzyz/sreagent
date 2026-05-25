@@ -75,6 +75,13 @@ declare module 'vue' {
     NThing: typeof import('naive-ui')['NThing']
     PageHeader: typeof import('./components/common/PageHeader.vue')['default']
     PanelCard: typeof import('./components/query/PanelCard.vue')['default']
+    PanelEditor: typeof import('./components/dashboard/PanelEditor.vue')['default']
+    PanelEditorGeneral: typeof import('./components/dashboard/PanelEditorGeneral.vue')['default']
+    PanelEditorQuery: typeof import('./components/dashboard/PanelEditorQuery.vue')['default']
+    PanelEditorThresholds: typeof import('./components/dashboard/PanelEditorThresholds.vue')['default']
+    PanelEditorValueMapping: typeof import('./components/dashboard/PanelEditorValueMapping.vue')['default']
+    PanelEditorVisualization: typeof import('./components/dashboard/PanelEditorVisualization.vue')['default']
+    PanelPreview: typeof import('./components/dashboard/PanelPreview.vue')['default']
     PromQLEditor: typeof import('./components/query/PromQLEditor.vue')['default']
     QueryPanel: typeof import('./components/query/QueryPanel.vue')['default']
     QueryPanelContent: typeof import('./components/query/QueryPanelContent.vue')['default']
@@ -90,6 +97,8 @@ declare module 'vue' {
     SnoozeModal: typeof import('./components/incident/SnoozeModal.vue')['default']
     TimeRangePicker: typeof import('./components/time/TimeRangePicker.vue')['default']
     UserAvatar: typeof import('./components/common/UserAvatar.vue')['default']
+    VariableEditor: typeof import('./components/dashboard/VariableEditor.vue')['default']
+    VariableEditorItem: typeof import('./components/dashboard/VariableEditorItem.vue')['default']
     ViewSelect: typeof import('./components/query/ViewSelect.vue')['default']
   }
 }

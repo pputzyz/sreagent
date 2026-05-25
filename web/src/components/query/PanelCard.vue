@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch, h, shallowRef } from 'vue'
 import { NDataTable, NEmpty, NSpin as NSpinComponent } from 'naive-ui'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, BarChart, PieChart, GaugeChart } from 'echarts/charts'
+import { LineChart, BarChart, PieChart, GaugeChart, ScatterChart } from 'echarts/charts'
 import { TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { datasourceApi } from '@/api'
@@ -13,7 +13,7 @@ import type { QueryResponse } from '@/types'
 
 const { t } = useI18n()
 
-use([CanvasRenderer, LineChart, BarChart, PieChart, GaugeChart, TooltipComponent, LegendComponent, GridComponent])
+use([CanvasRenderer, LineChart, BarChart, PieChart, GaugeChart, ScatterChart, TooltipComponent, LegendComponent, GridComponent])
 
 const props = defineProps<{
   panel: PanelConfig
@@ -85,6 +85,10 @@ interface ChartSeriesItem {
   symbol?: string
   barMaxWidth?: number
   data: [string, number][]
+  areaStyle?: { opacity: number }
+  stack?: string
+  lineStyle?: { width: number }
+  markLine?: { silent: boolean; data: unknown[] }
 }
 
 const statValue = computed(() => {
@@ -113,18 +117,44 @@ const statSeriesName = computed(() => {
   return series.value[0].labels?.__panel_name || series.value[0].labels?.__name__ || 'value'
 })
 
+const unitLabel = computed(() => props.panel.options?.unit ?? '')
+const decimalsVal = computed(() => props.panel.options?.decimals)
+
+function formatValue(val: number): string {
+  const d = decimalsVal.value
+  const formatted = d != null ? val.toFixed(d) : String(val)
+  return unitLabel.value ? `${formatted} ${unitLabel.value}` : formatted
+}
+
 const chartOption = computed(() => {
   if (!series.value.length) return null
 
+  const opts = props.panel.options
   const xData: string[] = []
   const seriesList: ChartSeriesItem[] = []
   const seen = new Map<string, boolean>()
+  const drawStyle = opts?.drawStyle ?? 'line'
+  const fillOpacity = opts?.fillOpacity ?? 0
+  const stacking = opts?.stacking ?? 'none'
+  const lineWidth = opts?.lineWidth ?? 1
 
   for (const s of series.value) {
     const name = s.labels?.__panel_name || s.labels?.__name__ || 'value'
     if (!seen.has(name)) {
       seen.set(name, true)
-      seriesList.push({ name, type: 'line', smooth: true, symbol: 'none', data: [] as [string, number][] })
+      const seriesType = drawStyle === 'bars' ? 'bar' : 'line'
+      const item: ChartSeriesItem = {
+        name,
+        type: seriesType,
+        smooth: drawStyle === 'line',
+        symbol: drawStyle === 'points' ? 'circle' : 'none',
+        barMaxWidth: drawStyle === 'bars' ? 40 : undefined,
+        data: [] as [string, number][],
+        areaStyle: (fillOpacity > 0 && drawStyle !== 'bars') ? { opacity: fillOpacity / 100 } : undefined,
+        stack: stacking === 'normal' ? 'total' : undefined,
+        lineStyle: drawStyle !== 'bars' ? { width: lineWidth } : undefined,
+      }
+      seriesList.push(item)
     }
     const target = seriesList.find(sl => sl.name === name)
     if (target) {
@@ -134,6 +164,48 @@ const chartOption = computed(() => {
       }
     }
   }
+
+  // Threshold markLines
+  const thresholds = opts?.thresholds
+  const markLineData: { yAxis: number; lineStyle: { type: string; color: string }; label: { formatter: string } }[] = []
+  if (thresholds?.length) {
+    for (const th of thresholds) {
+      markLineData.push({
+        yAxis: th.value,
+        lineStyle: { type: 'dashed', color: th.color },
+        label: { formatter: String(th.value) },
+      })
+    }
+  }
+
+  // Legend position
+  const legendPos = opts?.legendPosition ?? 'bottom'
+  const showLegend = opts?.showLegend !== false
+  let legendConfig: Record<string, unknown>
+  if (!showLegend || legendPos === 'hidden') {
+    legendConfig = { show: false }
+  } else if (legendPos === 'right') {
+    legendConfig = { type: 'scroll', right: 0, top: 0, orient: 'vertical', textStyle: { fontSize: 11 } }
+  } else {
+    legendConfig = { type: 'scroll', bottom: 0, textStyle: { fontSize: 11 } }
+  }
+
+  // Apply markLine to first series if thresholds exist
+  if (markLineData.length && seriesList.length > 0) {
+    seriesList[0].markLine = { silent: true, data: markLineData }
+  }
+
+  // Tooltip with unit
+  const tooltipFormatter = unitLabel.value
+    ? { trigger: 'axis' as const, formatter: (params: { seriesName: string; value: [string, number] }[]) => {
+        if (!Array.isArray(params)) return ''
+        let html = `<div style="font-size:12px">${params[0]?.value?.[0] ?? ''}</div>`
+        for (const p of params) {
+          html += `<div>${p.seriesName}: <b>${formatValue(p.value?.[1] ?? 0)}</b></div>`
+        }
+        return html
+      }}
+    : { trigger: 'axis' as const }
 
   if (resultType.value === 'matrix') {
     const allTimes = new Set<string>()
@@ -146,21 +218,27 @@ const chartOption = computed(() => {
       sl.data = sorted.map(t => [t, timeMap.get(t) ?? 0] as [string, number])
     }
     return {
-      tooltip: { trigger: 'axis' as const },
-      legend: { type: 'scroll' as const, bottom: 0, textStyle: { fontSize: 11 } },
-      grid: { left: 50, right: 16, top: 12, bottom: 40 },
+      tooltip: tooltipFormatter,
+      legend: legendConfig,
+      grid: { left: 50, right: legendPos === 'right' && showLegend ? 80 : 16, top: 12, bottom: legendPos === 'bottom' && showLegend ? 40 : 30 },
       xAxis: { type: 'category' as const, data: sorted },
-      yAxis: { type: 'value' as const },
+      yAxis: {
+        type: 'value' as const,
+        axisLabel: unitLabel.value ? { formatter: (val: number) => formatValue(val) } : undefined,
+      },
       series: seriesList,
     }
   }
 
   return {
-    tooltip: { trigger: 'axis' as const },
+    tooltip: tooltipFormatter,
     legend: { show: false },
     grid: { left: 50, right: 16, top: 12, bottom: 30 },
     xAxis: { type: 'category' as const, data: xData },
-    yAxis: { type: 'value' as const },
+    yAxis: {
+      type: 'value' as const,
+      axisLabel: unitLabel.value ? { formatter: (val: number) => formatValue(val) } : undefined,
+    },
     series: seriesList,
   }
 })
@@ -258,6 +336,28 @@ const tableColumns = computed(() => {
   return cols
 })
 
+function renderMarkdown(md: string): string {
+  let html = md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  // headings
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>')
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>')
+  // bold and italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
+  // links
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
+  // unordered lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+  // line breaks
+  html = html.replace(/\n/g, '<br>')
+  return html
+}
+
 let timeout: ReturnType<typeof setTimeout>
 watch(() => [props.timeRange, props.panel.targets], () => {
   clearTimeout(timeout)
@@ -324,6 +424,18 @@ onMounted(fetchData)
           striped
         />
       </template>
+
+      <!-- Text -->
+      <template v-else-if="panel.type === 'text'">
+        <div class="text-panel" v-html="renderMarkdown(panel.options?.content ?? '')" />
+      </template>
+
+      <!-- Row -->
+      <template v-else-if="panel.type === 'row'">
+        <div class="row-panel">
+          <span class="row-title">{{ panel.title }}</span>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -388,5 +500,34 @@ onMounted(fetchData)
   font-size: 12px;
   color: var(--sre-text-tertiary);
   margin-top: 4px;
+}
+.text-panel {
+  font-size: 13px;
+  color: var(--sre-text-primary);
+  line-height: 1.6;
+  overflow-y: auto;
+  height: 100%;
+}
+.text-panel :deep(h1) { font-size: 20px; font-weight: 700; margin: 8px 0 4px; }
+.text-panel :deep(h2) { font-size: 16px; font-weight: 600; margin: 6px 0 3px; }
+.text-panel :deep(h3) { font-size: 14px; font-weight: 600; margin: 4px 0 2px; }
+.text-panel :deep(strong) { font-weight: 700; }
+.text-panel :deep(em) { font-style: italic; }
+.text-panel :deep(a) { color: var(--sre-primary); text-decoration: underline; }
+.text-panel :deep(ul) { padding-left: 20px; margin: 4px 0; }
+.text-panel :deep(li) { margin: 2px 0; }
+.row-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--sre-bg-sunken);
+  border-radius: 4px;
+  height: 100%;
+}
+.row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
 }
 </style>

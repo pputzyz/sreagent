@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NInput, NSpace, NPopconfirm, NPagination } from 'naive-ui'
+import { NButton, NInput, NSpace, NPopconfirm, NPagination, NDropdown } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2Api } from '@/api'
@@ -10,7 +10,8 @@ import { usePaginatedList } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { AddOutline, BarChartOutline, ChevronForwardOutline } from '@vicons/ionicons5'
+import { AddOutline, BarChartOutline, ChevronForwardOutline, DownloadOutline, CopyOutline, CloudUploadOutline, EllipsisHorizontalOutline } from '@vicons/ionicons5'
+import type { DashboardConfig } from '@/types/dashboard'
 import { relTime } from '@/utils/format'
 
 const router = useRouter()
@@ -65,6 +66,110 @@ function handleEdit(id: number) {
   router.push('/alert/dashboards/' + id)
 }
 
+// --- Clone ---
+async function handleClone(dash: DashboardV2) {
+  try {
+    // Frontend clone: fetch detail, regenerate panel IDs, create new
+    const res = await dashboardV2Api.get(dash.id)
+    const original = res.data.data
+    let cfg: DashboardConfig = { panels: [], layout: { cols: 24, rowHeight: 100 }, variables: [] }
+    try {
+      cfg = JSON.parse(original.config)
+      if (cfg.panels) {
+        cfg.panels = cfg.panels.map(p => ({
+          ...p,
+          id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        }))
+      }
+    } catch { /* keep default config */ }
+    await dashboardV2Api.create({
+      name: `${original.name} (copy)`,
+      description: original.description,
+      tags: original.tags,
+      config: JSON.stringify(cfg),
+      is_public: original.is_public,
+    })
+    message.success(t('dashboardV2.cloneSuccess'))
+    fetchList()
+  } catch (err: unknown) {
+    message.error((err as Error)?.message || t('common.loadFailed'))
+  }
+}
+
+// --- Export ---
+function handleExport(dash: DashboardV2) {
+  const blob = new Blob([JSON.stringify(dash, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${dash.name}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  message.success(t('dashboardV2.exportSuccess'))
+}
+
+// --- Import ---
+const importInput = ref<HTMLInputElement | null>(null)
+
+function triggerImport() {
+  importInput.value?.click()
+}
+
+function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = async () => {
+    try {
+      const raw = JSON.parse(reader.result as string)
+      // Validate required fields
+      if (!raw.name || !raw.config) {
+        message.error(t('dashboardV2.invalidFile'))
+        return
+      }
+      // Parse and regenerate panel IDs to avoid conflicts
+      let cfg: DashboardConfig = { panels: [], layout: { cols: 24, rowHeight: 100 }, variables: [] }
+      try {
+        cfg = typeof raw.config === 'string' ? JSON.parse(raw.config) : raw.config
+        if (cfg.panels) {
+          cfg.panels = cfg.panels.map(p => ({
+            ...p,
+            id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          }))
+        }
+      } catch { /* keep default config */ }
+      await dashboardV2Api.create({
+        name: raw.name,
+        description: raw.description || '',
+        tags: raw.tags || {},
+        config: JSON.stringify(cfg),
+        is_public: raw.is_public || false,
+      })
+      message.success(t('dashboardV2.importSuccess'))
+      fetchList()
+    } catch {
+      message.error(t('dashboardV2.importError'))
+    }
+  }
+  reader.readAsText(file)
+  // Reset input so same file can be re-imported
+  input.value = ''
+}
+
+// --- Row action menu ---
+function getRowMenuOptions() {
+  return [
+    { label: t('dashboardV2.clone'), key: 'clone', icon: () => h(CopyOutline) },
+    { label: t('dashboardV2.export'), key: 'export', icon: () => h(DownloadOutline) },
+  ]
+}
+
+function handleRowMenuSelect(key: string | number, dash: DashboardV2) {
+  if (key === 'clone') handleClone(dash)
+  else if (key === 'export') handleExport(dash)
+}
+
 onMounted(fetchList)
 </script>
 
@@ -79,6 +184,13 @@ onMounted(fetchList)
           class="search-input"
           @update:value="onSearch"
         />
+        <NButton quaternary @click="triggerImport">
+          <template #icon>
+            <CloudUploadOutline />
+          </template>
+          {{ t('dashboardV2.import') }}
+        </NButton>
+        <input ref="importInput" type="file" accept=".json" style="display:none" @change="onImportFile" />
         <NButton type="primary" @click="router.push('/alert/dashboards/new')">
           <template #icon>
             <AddOutline />
@@ -128,6 +240,15 @@ onMounted(fetchList)
               <NButton quaternary size="tiny" @click="handleEdit(dash.id)">
                 {{ t('common.edit') }}
               </NButton>
+              <NDropdown
+                :options="getRowMenuOptions()"
+                trigger="click"
+                @select="(key: string | number) => handleRowMenuSelect(key, dash)"
+              >
+                <NButton quaternary size="tiny">
+                  <template #icon><EllipsisHorizontalOutline /></template>
+                </NButton>
+              </NDropdown>
               <NPopconfirm @positive-click="handleDelete(dash.id)">
                 <template #trigger>
                   <NButton quaternary size="tiny" type="error">

@@ -515,6 +515,16 @@ export default {
     incidentTrend: 'Incident Trend',
     days: 'days',
     public: 'Public',
+    // Clone / Import / Export
+    clone: 'Clone',
+    export: 'Export',
+    import: 'Import',
+    cloneSuccess: 'Dashboard cloned',
+    importSuccess: 'Dashboard imported',
+    exportSuccess: 'Dashboard exported',
+    importError: 'Import failed, please check file format',
+    invalidFile: 'Invalid dashboard file',
+    moreActions: 'More Actions',
   },
   alert: {
     rules: 'Alert Rules',

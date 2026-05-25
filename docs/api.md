@@ -1261,6 +1261,27 @@ CI/CD 变更事件接入，用于告警关联分析。
 | `config` | string (JSON) | 否 | 面板布局和变量配置 |
 | `is_public` | bool | 否 | 是否公开 |
 
+### Annotations（标注）
+
+| 方法 | 路由 | 访问级别 | 说明 |
+|------|------|----------|------|
+| GET | `/annotations` | 已认证 | 查询（`?dashboard_id=X&from=T1&to=T2`） |
+| POST | `/annotations` | 管理权限 | 创建 |
+| PUT | `/annotations/:id` | 管理权限 | 更新 |
+| DELETE | `/annotations/:id` | 管理权限 | 删除 |
+| POST | `/annotations/batch` | 管理权限 | 批量创建 |
+
+**创建请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `dashboard_id` | uint | 是 | 仪表盘 ID |
+| `time` | datetime | 是 | 标注时间 |
+| `end_time` | datetime | 否 | 结束时间（范围标注） |
+| `text` | string | 是 | 标注文本 |
+| `tags` | map[string]string | 否 | 标签 |
+| `source` | string | 否 | 来源：user/alert/system |
+
 ---
 
 ## 26. Event Pipeline（可编程告警处理链）
@@ -2062,6 +2083,6 @@ file: alertmanager.yml
 | 公开（无需认证） | 13 | 健康检查、登录、OIDC、Webhook、集成接收、飞书回调、操作页面、Prometheus 指标 |
 | 只读（已认证） | 62 | 所有 GET/列表端点（含宠物/状态页面/预设规则） |
 | 操作权限（member 及以上） | 22 | 告警操作、故障操作、订阅规则、复盘编辑 |
-| 管理权限（team_lead 及以上） | 68 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入、Event Pipeline |
+| 管理权限（team_lead 及以上） | 72 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入、Event Pipeline、Annotations |
 | 仅管理员 | 16 | 用户 CRUD、系统设置、AI/飞书配置、标签同步、状态页面 CRUD、Pipeline 执行清理 |
-| **合计** | **~183** | |
+| **合计** | **~191** | |

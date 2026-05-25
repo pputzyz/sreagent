@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.30.0
-> 共 44 个 model, 58 个 handler, 79 个 service, 44 个 repository, 290+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-26 | tag: v4.31.0
+> 共 45 个 model, 59 个 handler, 80 个 service, 45 个 repository, 295+ API 端点, 17 种通知渠道
 
 ---
 
@@ -181,13 +181,14 @@ permissions ──→ team (团队角色查询)
 
 ## 仪表盘 V2 (dashboards)
 
-- **功能**: 面板仪表盘、变量模板系统、PromQL 查询 + ECharts 时序图
-- **后端**: `model/dashboard.go`, `handler/dashboard_v2.go`, `service/dashboard.go`, `repository/dashboard.go`
-- **前端**: `web/src/pages/dashboards/Index.vue`, `web/src/pages/dashboards/View.vue`, `web/src/components/query/`, `web/src/components/time/`
-- **API**: `/api/v1/dashboards` (5 endpoints: CRUD)
+- **功能**: 面板仪表盘、8 种面板类型、面板编辑器、可视化增强（面积填充/堆叠/阈值线/单位格式化）、变量系统增强（query/custom/interval/datasource/constant/adhoc + 多选/includeAll/链式依赖）、变量编辑器 UI、Annotations 标注、Dashboard 克隆/导入导出
+- **后端**: `model/dashboard.go`, `model/annotation.go`, `handler/dashboard_v2.go`, `handler/annotation.go`, `service/dashboard.go`, `service/annotation.go`, `repository/dashboard.go`, `repository/annotation.go`
+- **前端**: `web/src/pages/dashboards/Index.vue`, `web/src/pages/dashboards/View.vue`, `web/src/components/dashboard/` (PanelEditor, VariableEditor, etc.), `web/src/components/query/PanelCard.vue`, `web/src/composables/useVariable.ts`
+- **API**: `/api/v1/dashboards` (5 endpoints: CRUD), `/api/v1/annotations` (5 endpoints: CRUD + batch)
+- **面板类型**: timeseries, stat, gauge, bar, pie, table, text, row
 - **依赖**: datasource (查询数据)
-- **状态**: ✅ 完成
-- **迁移**: 000016_dashboards
+- **状态**: ✅ 完成（v4.31.0 大幅增强）
+- **迁移**: 000016_dashboards, 000071_annotations
 
 ## 值班排班 (schedule)
 

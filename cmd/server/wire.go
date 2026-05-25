@@ -185,6 +185,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	eventPipelineRepo := repository.NewEventPipelineRepository(db)
 	eventPipelineExecRepo := repository.NewEventPipelineExecutionRepository(db)
 
+	// Annotation repository
+	annotationRepo := repository.NewAnnotationRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -272,6 +275,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Recording rule service
 	recordingRuleSvc := service.NewRecordingRuleService(recordingRuleRepo, zapLogger)
+
+	// Annotation service
+	annotationSvc := service.NewAnnotationService(annotationRepo, zapLogger)
 
 	// Builtin metric services
 	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
@@ -572,6 +578,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		RecordingRule:       handler.NewRecordingRuleHandler(recordingRuleSvc, zapLogger),
 		BuiltinMetric:       handler.NewBuiltinMetricHandler(builtinMetricSvc, metricFilterSvc, zapLogger),
 		EventPipeline:       handler.NewEventPipelineHandler(eventPipelineRepo, eventPipelineExecRepo, pipelineEngine, eventSvc, zapLogger),
+		Annotation:          handler.NewAnnotationHandler(annotationSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it
@@ -587,6 +594,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.BizGroup.SetAuditService(auditLogSvc)
 	handlers.ChannelV2.SetAuditService(auditLogSvc)
 	handlers.RoutingRule.SetAuditService(auditLogSvc)
+	handlers.Annotation.SetAuditService(auditLogSvc)
 
 	// Wire permission-denied audit callback into the RBAC middleware.
 	middleware.SetPermLogger(zapLogger)
