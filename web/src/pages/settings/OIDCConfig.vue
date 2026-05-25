@@ -11,7 +11,7 @@ import { useConfigForm } from '@/composables'
 const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, testing, load, saveAndTest } = useConfigForm({
+const { form, loading, testing, load, saveAndTest, markSaved } = useConfigForm({
   load: () => oidcSettingsApi.getConfig().then(r => r.data.data),
   save: (f) => oidcSettingsApi.updateConfig({ ...f }),
   test: async () => {
@@ -71,6 +71,7 @@ async function saveProvider() {
   savingProvider.value = true
   try {
     await oidcSettingsApi.updateConfig({ ...form })
+    markSaved()
     message.success(t('common.savedSuccess'))
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingProvider.value = false }
 }
@@ -80,6 +81,7 @@ async function saveClaims() {
   savingClaims.value = true
   try {
     await oidcSettingsApi.updateConfig({ ...form })
+    markSaved()
     message.success(t('common.savedSuccess'))
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingClaims.value = false }
 }
@@ -88,6 +90,7 @@ async function saveBehavior() {
   savingBehavior.value = true
   try {
     await oidcSettingsApi.updateConfig({ ...form })
+    markSaved()
     message.success(t('common.savedSuccess'))
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingBehavior.value = false }
 }

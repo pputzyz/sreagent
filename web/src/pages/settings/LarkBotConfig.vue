@@ -11,7 +11,7 @@ import { useConfigForm } from '@/composables'
 const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, testing, load, saveAndTest } = useConfigForm({
+const { form, loading, testing, load, saveAndTest, markSaved } = useConfigForm({
   load: () => larkBotApi.getConfig().then(r => r.data.data),
   save: (f) => larkBotApi.updateConfig({ ...f }),
   test: () => larkBotApi.testBotAPI().then(res => {
@@ -49,6 +49,7 @@ async function saveSection(section: 'credentials' | 'behavior' | 'commands') {
   savingRef.value = true
   try {
     await larkBotApi.updateConfig({ ...form })
+    markSaved()
     message.success(t('common.savedSuccess'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err))

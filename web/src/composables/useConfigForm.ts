@@ -140,6 +140,12 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
     confirmedLeave = true
   }
 
+  /** Update the dirty snapshot to the current form state (call after per-card save) */
+  function markSaved() {
+    lastSaved = JSON.parse(JSON.stringify(form))
+    confirmedLeave = true
+  }
+
   return {
     form,
     loading,
@@ -151,5 +157,6 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
     saveAndTest,
     reset,
     confirmLeave,
+    markSaved,
   }
 }

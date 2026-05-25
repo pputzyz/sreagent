@@ -11,7 +11,7 @@ import { useConfigForm } from '@/composables'
 const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, isDirty, save, load } = useConfigForm({
+const { form, loading, isDirty, save, load, markSaved } = useConfigForm({
   load: () => smtpSettingsApi.getConfig().then(r => r.data.data),
   save: (f) => smtpSettingsApi.updateConfig({ ...f }),
 })
@@ -35,6 +35,7 @@ async function saveServer() {
   savingServer.value = true
   try {
     await smtpSettingsApi.updateConfig({ ...form })
+    markSaved()
     message.success(t('common.savedSuccess'))
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingServer.value = false }
 }
@@ -47,6 +48,7 @@ async function saveSender() {
   savingSender.value = true
   try {
     await smtpSettingsApi.updateConfig({ ...form })
+    markSaved()
     message.success(t('common.savedSuccess'))
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingSender.value = false }
 }
