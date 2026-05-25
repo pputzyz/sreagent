@@ -202,9 +202,12 @@ onMounted(() => { loadECharts() })
 }
 .histogram-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
+  height: 19px;
+  margin-top: 4px;
+  padding: 0 8px;
+  overflow: hidden;
   font-size: 12px;
   color: var(--sre-text-secondary);
 }

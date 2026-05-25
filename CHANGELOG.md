@@ -4,6 +4,27 @@
 
 ---
 
+## [v4.21.0] — 2026-05-25
+
+### Explore 页面修复 — 对齐 Nightingale V9 关键交互和样式
+
+**QueryPanelContent.vue 修复**:
+- 新增数据源选择器 NSelect（面板顶部，tabs 左侧），支持 metrics/logs 自动过滤对应数据源类型
+- Panel 容器对齐 Nightingale：`bg-sunken` 背景、`max-h-650px`、flex column 布局
+- Card Tabs 对齐 Nightingale PromGraphCpt style.less：active tab `border-top: 2px solid`、content border + bottom-radius
+- Graph Controls 从垂直堆叠改为 `flex-wrap: wrap` 单行排列（Nightingale Space wrap 模式）
+- FullscreenButton 正确绑定 `logResultsRef`，仅全屏日志结果区域
+- areaStyle opacity 从 0.3 调整为 0.5（对齐 Nightingale）
+- 移除冗余的 "select datasource" 空状态提示（已有 NSelect）
+
+**LogViewSettings.vue 修复**:
+- LogViewOptions 接口新增 `showLabels: boolean`，模板新增 "Show Labels" toggle 开关
+
+**LogHistogram.vue 修复**:
+- Histogram header 对齐 Nightingale：`h-[19px]` 紧凑高度、`justify-between`、`px-2`
+
+---
+
 ## [v4.20.0] — 2026-05-25
 
 ### Explore 页面深度增强 — 对齐 Nightingale V9 核心交互

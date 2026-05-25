@@ -6,6 +6,7 @@ import { SettingsOutline } from '@vicons/ionicons5'
 export interface LogViewOptions {
   lineBreak: boolean
   showTime: boolean
+  showLabels: boolean
   showLineNum: boolean
   jsonExpandLevel: number
 }
@@ -30,6 +31,11 @@ const lineBreak = computed({
 const showTime = computed({
   get: () => props.options.showTime,
   set: (v) => update({ showTime: v }),
+})
+
+const showLabels = computed({
+  get: () => props.options.showLabels,
+  set: (v) => update({ showLabels: v }),
 })
 
 const showLineNum = computed({
@@ -64,6 +70,11 @@ const jsonExpandLevel = computed({
       <div class="setting-row">
         <span class="setting-label">Show Time</span>
         <n-switch v-model:value="showTime" size="small" />
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Show Labels</span>
+        <n-switch v-model:value="showLabels" size="small" />
       </div>
 
       <n-divider style="margin: 4px 0;" />

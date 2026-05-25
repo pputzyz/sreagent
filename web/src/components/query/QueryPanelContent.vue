@@ -212,6 +212,15 @@ const selectedDs = computed(() => props.datasources.find(d => d.id === selectedD
 const metricDatasources = computed(() => props.datasources.filter(d => d.supports_query && d.type !== 'victorialogs'))
 const logDatasources = computed(() => props.datasources.filter(d => d.type === 'victorialogs'))
 const isLogs = computed(() => activeTab.value === 'logs')
+
+// Datasource selector options (filtered by active tab)
+const datasourceOptions = computed(() => {
+  const list = isLogs.value ? logDatasources.value : metricDatasources.value
+  return list.map(d => ({ label: `${d.name} (${typeBadge(d.type)})`, value: d.id }))
+})
+
+// Ref for fullscreen target
+const logResultsRef = ref<HTMLElement | null>(null)
 const isMetricLimited = computed(() => {
   if (!metricData.value?.series) return false
   return metricData.value.series.length >= metricLimit.value
@@ -260,11 +269,16 @@ function logRowClassName(row: LogEntry) {
   return ''
 }
 
-// --- Resolve step ---
+// --- Resolve step (Nightingale: maxDataPoints/minStep affect step calculation) ---
 function resolveStep(): string {
   if (localStepValue.value !== 'auto') return localStepValue.value
-  const diff = props.timeEnd - props.timeStart
-  return diff <= 3600 ? '15s' : diff <= 21600 ? '1m' : diff <= 86400 ? '5m' : '15m'
+  const start = graphTimeStart.value
+  const end = graphTimeEnd.value
+  const duration = end - start
+  const maxPts = chartSettings.value.maxDataPoints || 240
+  const computedStep = Math.ceil(duration / maxPts)
+  const minStep = chartSettings.value.minStep || 15
+  return `${Math.max(computedStep, minStep)}s`
 }
 
 // --- Actions ---
@@ -382,7 +396,7 @@ const chartOption = computed(() => {
     const data: [number, number][] = []
     for (const v of s.values || []) data.push([Number(v.ts) * 1000, v.value != null ? Number(v.value) : 0])
     const seriesItem: EChartsSeries = { name, type: 'line', data, smooth: true, showSymbol: false, connectNulls: true }
-    if (isArea) seriesItem.areaStyle = { opacity: 0.3 }
+    if (isArea) seriesItem.areaStyle = { opacity: 0.5 }
     seriesList.push(seriesItem)
   }
   const tertiaryColor = typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-tertiary').trim() || '#64748b' : '#64748b'
@@ -540,18 +554,27 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 <template>
   <div class="panel-content">
-    <!-- Panel header: close + tabs -->
+    <!-- Panel header: datasource + tabs + close (Nightingale: Row gutter=8) -->
     <div class="panel-top-row">
-      <NTabs v-model:value="activeTab" type="line" size="small" class="panel-tabs-inline">
-        <NTabPane name="metrics" :tab="t('query.metricsTab')" />
-        <NTabPane name="logs" :tab="t('query.logsTab')" />
-      </NTabs>
+      <div class="panel-top-left">
+        <NSelect
+          v-model:value="selectedDsId"
+          :options="datasourceOptions"
+          :placeholder="t('query.selectDatasource')"
+          filterable
+          size="small"
+          class="ds-select"
+        />
+        <NTabs v-model:value="activeTab" type="line" size="small" class="panel-tabs-inline">
+          <NTabPane name="metrics" :tab="t('query.metricsTab')" />
+          <NTabPane name="logs" :tab="t('query.logsTab')" />
+        </NTabs>
+      </div>
       <NButton v-if="canClose" size="tiny" quaternary @click="emit('remove', panelId)">
         <template #icon><NIcon><CloseCircleOutline /></NIcon></template>
       </NButton>
     </div>
 
-    <!-- Datasource selector + controls row (Nightingale: Row gutter=8 pattern) -->
     <div v-if="isLogs && !logDatasources.length" class="query-empty-inline">
       {{ t('query.noLogDatasources') }}
     </div>
@@ -604,9 +627,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
       <span class="shortcut-hint">{{ t('query.shortcutHint') }}</span>
     </div>
 
-    <div v-if="selectedDsId == null && !(isLogs && !logDatasources.length)" class="query-empty-inline">
-      {{ isLogs ? t('query.selectLogDatasource') : t('query.selectDatasource') }}
-    </div>
+    <div v-if="selectedDsId == null" class="query-empty-inline" />
 
     <!-- Error -->
     <div v-if="errorMsg" class="error-card">
@@ -695,7 +716,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
     <!-- ============================================ -->
     <!-- Log Results (Nightingale logExplorer pattern) -->
     <!-- ============================================ -->
-    <div v-if="!loading && isLogs && logEntries.length" class="log-results">
+    <div v-if="!loading && isLogs && logEntries.length" ref="logResultsRef" class="log-results">
       <!-- Histogram (Nightingale: 120px, always on top) -->
       <LogHistogram v-if="showHistogram" :buckets="histogramBuckets" :loading="histogramLoading" class="log-histogram-container" @bar-click="onHistogramBarClick" @brush-select="onHistogramBrushSelect" />
 
@@ -707,7 +728,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
             <NButton :type="logMode === 'table' ? 'primary' : 'default'" :secondary="logMode !== 'table'" @click="logMode = 'table'">{{ t('query.logTableMode') }}</NButton>
           </NButtonGroup>
           <LogViewSettings v-model:options="logOptions" />
-          <FullscreenButton />
+          <FullscreenButton :target-ref="logResultsRef" />
           <NButton size="small" quaternary @click="showHistogram = !showHistogram">
             {{ showHistogram ? t('query.hideHistogram') : t('query.showHistogram') }}
           </NButton>
@@ -804,30 +825,39 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 </template>
 
 <style scoped>
-/* Nightingale panel pattern: card with border-radius */
+/* Nightingale panel: bg-fc-100, border, rounded-lg, p-4, max-h-650 */
 .panel-content {
-  background: var(--sre-bg-card);
+  background: var(--sre-bg-sunken, #f8fafc);
   border: 1px solid var(--sre-border);
   border-radius: 8px;
   padding: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  max-height: 650px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* Panel top row: tabs + close (Nightingale: inline header) */
+/* Panel top row: ds select + tabs + close (Nightingale: Row gutter=8) */
 .panel-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
+.panel-top-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.ds-select { width: 260px; flex-shrink: 0; }
 .panel-tabs-inline { flex: 1; min-width: 0; }
 .panel-tabs-inline :deep(.n-tabs-tab) { padding: 4px 12px; }
-
-/* Datasource selector */
-.ds-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.ds-info { display: flex; align-items: center; gap: 8px; }
-.ds-endpoint { font-size: 12px; color: var(--sre-text-tertiary); }
-.ds-select { max-width: 420px; flex: 1; }
 
 /* Editor row (Nightingale: PromQL input + Execute button side-by-side) */
 .editor-row {
@@ -865,27 +895,46 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 /* Metrics Results (Nightingale: card-style tabs container) */
 .metrics-results {
-  border: 1px solid var(--sre-border);
-  border-radius: 8px;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
+}
+
+/* Card tabs: Nightingale PromGraphCpt style.less pattern */
+.metric-card-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.metric-card-tabs :deep(.n-tabs-nav) {
+  border-left: 1px solid var(--sre-border);
+  border-top-left-radius: 6px;
 }
 .metric-card-tabs :deep(.n-tabs-tab) {
   border: 1px solid var(--sre-border);
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
+  border-left: none;
   padding: 6px 16px;
   font-size: 13px;
+  color: var(--sre-text-tertiary);
 }
 .metric-card-tabs :deep(.n-tabs-tab--active) {
   border-top: 2px solid var(--sre-primary);
-  background: var(--sre-bg-card);
+  border-bottom-color: var(--sre-bg-card, #fff);
+  background: var(--sre-bg-card, #fff);
+  color: var(--sre-text-primary);
 }
 .metric-card-tabs :deep(.n-tabs-tab-pad) {
   display: none;
 }
 .metric-card-tabs :deep(.n-tabs-content) {
+  border: 1px solid var(--sre-border);
+  border-top: none;
   padding: 16px;
-  background: var(--sre-bg-card);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 .card-tabs-suffix {
   display: flex;
@@ -897,8 +946,9 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 /* Graph controls row (Nightingale Graph.tsx: Space wrap pattern) */
 .graph-controls-row {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--sre-border);
   margin-bottom: 12px;
