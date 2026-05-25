@@ -56,7 +56,6 @@ const { t } = useI18n()
 const message = useMessage()
 
 // --- Panel-local state ---
-type QueryMode = 'instant' | 'range'
 type ResultMode = 'chart' | 'table'
 type QueryTab = 'metrics' | 'logs'
 
@@ -68,9 +67,8 @@ const logEntries = ref<LogEntry[]>([])
 const metricData = ref<QueryResponse | null>(null)
 const logTotal = ref(0)
 const logTruncated = ref(false)
-const resultMode = ref<ResultMode>('chart')
+const resultMode = ref<ResultMode>('table')
 const activeTab = ref<QueryTab>('metrics')
-const queryMode = ref<QueryMode>('range')
 
 // Log histogram
 interface HistogramBucket { timestamp: string; count: number }
@@ -307,14 +305,6 @@ async function run() {
       if (showHistogram.value) {
         fetchHistogram()
       }
-    } else if (queryMode.value === 'instant') {
-      const res = await datasourceApi.query(selectedDsId.value, {
-        expression: expression.value,
-        time: graphTimeEnd.value,
-      })
-      const data = res.data?.data
-      if (data?.series && data.series.length > metricLimit.value) data.series = data.series.slice(0, metricLimit.value)
-      metricData.value = data
     } else {
       const res = await datasourceApi.rangeQuery(selectedDsId.value, {
         expression: expression.value,
@@ -606,27 +596,6 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
       </div>
     </div>
 
-    <!-- Pre-query controls (instant/range, step, limit) -->
-    <div v-if="selectedDsId != null" class="pre-query-controls">
-      <NSpace :size="8" align="center">
-        <template v-if="!isLogs">
-          <NButtonGroup size="small">
-            <NButton :type="queryMode === 'instant' ? 'primary' : 'default'" :secondary="queryMode !== 'instant'" @click="queryMode = 'instant'">{{ t('query.instant') }}</NButton>
-            <NButton :type="queryMode === 'range' ? 'primary' : 'default'" :secondary="queryMode !== 'range'" @click="queryMode = 'range'">{{ t('query.range') }}</NButton>
-          </NButtonGroup>
-          <span class="field-label">{{ t('query.step') }}</span>
-          <NSelect v-model:value="localStepValue" :options="stepOptions" size="small" class="control-select-sm" />
-          <span class="field-label">{{ t('query.limit') }}</span>
-          <NSelect v-model:value="metricLimit" :options="metricLimitOptions" size="small" class="control-select-sm" />
-        </template>
-        <template v-else>
-          <span class="field-label">{{ t('query.limit') }}</span>
-          <NSelect v-model:value="logLimit" :options="logLimitOptions" size="small" class="control-select-sm" />
-        </template>
-      </NSpace>
-      <span class="shortcut-hint">{{ t('query.shortcutHint') }}</span>
-    </div>
-
     <div v-if="selectedDsId == null" class="query-empty-inline" />
 
     <!-- Error -->
@@ -664,8 +633,18 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
           </div>
         </template>
 
-        <!-- Table Tab -->
+        <!-- Table Tab (Nightingale: controls + list) -->
         <NTabPane name="table" tab="Table">
+          <div class="table-controls">
+            <NSpace :size="8" align="center">
+              <span class="field-label">{{ t('query.limit') }}</span>
+              <NSelect v-model:value="metricLimit" :options="metricLimitOptions" size="small" class="control-select-sm" />
+              <NButton v-if="canExport" size="small" quaternary @click="exportCsv">
+                <template #icon><NIcon :size="14"><DownloadOutline /></NIcon></template>
+                {{ t('query.exportCsv') }}
+              </NButton>
+            </NSpace>
+          </div>
           <NDataTable
             :columns="metricColumns"
             :data="metricTableData"
@@ -727,6 +706,8 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
             <NButton :type="logMode === 'origin' ? 'primary' : 'default'" :secondary="logMode !== 'origin'" @click="logMode = 'origin'">{{ t('query.rawMode') }}</NButton>
             <NButton :type="logMode === 'table' ? 'primary' : 'default'" :secondary="logMode !== 'table'" @click="logMode = 'table'">{{ t('query.logTableMode') }}</NButton>
           </NButtonGroup>
+          <span class="field-label">{{ t('query.limit') }}</span>
+          <NSelect v-model:value="logLimit" :options="logLimitOptions" size="small" class="control-select-sm" />
           <LogViewSettings v-model:options="logOptions" />
           <FullscreenButton :target-ref="logResultsRef" />
           <NButton size="small" quaternary @click="showHistogram = !showHistogram">
@@ -873,17 +854,13 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   gap: 4px;
 }
 
-/* Pre-query controls (instant/range, step, limit) */
-.pre-query-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+/* Table controls (Nightingale: limit + export inside tab) */
+.table-controls {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sre-border);
   margin-bottom: 12px;
-  flex-wrap: wrap;
 }
 .field-label { font-size: 12px; color: var(--sre-text-tertiary); }
-.shortcut-hint { font-size: 11px; color: var(--sre-text-tertiary); white-space: nowrap; }
 .control-select-sm { width: 100px; }
 
 .query-empty-inline { padding: 16px 4px; color: var(--sre-text-tertiary); font-size: 13px; }

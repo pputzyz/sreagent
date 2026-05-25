@@ -4,6 +4,25 @@
 
 ---
 
+## [v4.22.0] — 2026-05-25
+
+### Explore 页面架构重构 — 对齐 Nightingale PromGraphCpt 控件布局
+
+**QueryPanelContent.vue 重构**:
+- 移除 instant/range 切换按钮（Nightingale 无此控件，Table 固定 instant、Graph 固定 range）
+- 移除 `pre-query-controls` 区域（step/limit 控件不再放在 card tabs 外部）
+- metrics 查询统一使用 range query（`/api/v1/query_range`），与 Nightingale Graph 行为一致
+- 默认 resultMode 从 'chart' 改为 'table'（对齐 Nightingale 默认 Table tab）
+- Table tab 内部添加 limit 控制和 Export CSV 按钮（对齐 Nightingale Table.tsx controls）
+- Log controls 行内添加 limit 控制（对齐 Nightingale logExplorer 模式）
+
+**告警规则页面修复**:
+- `RuleFormModal.vue` 新增 `initialExpr` prop，创建模式下可预填 expression
+- `alerts/rules/Index.vue` 读取 URL query 参数 `expr`，自动打开创建弹窗并预填 PromQL 表达式
+- 从 Explore 的 "Add to Alert Rule" 跳转现在能正确传递表达式
+
+---
+
 ## [v4.21.1] — 2026-05-25
 
 ### Explore 页面布局修复 — 移除溢出裁剪，修复卡片样式

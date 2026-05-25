@@ -16,6 +16,7 @@ const props = defineProps<{
   rule: AlertRule | null
   datasources: DataSource[]
   duplicateFrom?: AlertRule | null
+  initialExpr?: string
 }>()
 
 const emit = defineEmits<{
@@ -277,7 +278,7 @@ function initForm() {
   } else {
     editingId.value = null
     modalTitle.value = t('alert.createRule')
-    Object.assign(form, { ...defaultForm, labels: [], annotations: [] })
+    Object.assign(form, { ...defaultForm, labels: [], annotations: [], expression: props.initialExpr || '' })
   }
   queryResult.value = null
   appliedTemplateId.value = null

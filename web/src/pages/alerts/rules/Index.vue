@@ -2,7 +2,7 @@
 import { h, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch, NModal, NForm, NFormItem, NSpace, NSpin, NAlert, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { alertRuleApi, datasourceApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
 import type { RuleGenerateResult, MuteRuleGenerateResult } from '@/types/ai-module'
@@ -32,6 +32,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const { hasPerm } = usePermissions()
 
 // ─── List state ───
@@ -97,6 +98,7 @@ const categoryCounts = ref<Record<string, number>>({})
 const showFormModal = ref(false)
 const currentRule = ref<AlertRule | null>(null)
 const duplicateFrom = ref<AlertRule | null>(null)
+const initialExpr = ref('')
 const showImportModal = ref(false)
 
 // ─── AI Rule Generation ───
@@ -390,6 +392,14 @@ onMounted(() => {
   fetchCategories()
   loadModules()
   window.addEventListener('keydown', handleKeydown)
+  // Pre-fill expression from explore page
+  const exprParam = route.query.expr
+  if (exprParam && typeof exprParam === 'string') {
+    initialExpr.value = decodeURIComponent(exprParam)
+    currentRule.value = null
+    duplicateFrom.value = null
+    showFormModal.value = true
+  }
 })
 
 onUnmounted(() => {
@@ -602,8 +612,9 @@ onUnmounted(() => {
       :show="showFormModal"
       :rule="currentRule"
       :duplicate-from="duplicateFrom"
+      :initial-expr="initialExpr"
       :datasources="datasources"
-      @close="showFormModal = false"
+      @close="showFormModal = false; initialExpr = ''"
       @saved="onFormSaved"
     />
 
