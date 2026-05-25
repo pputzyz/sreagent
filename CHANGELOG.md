@@ -4,6 +4,26 @@
 
 ---
 
+## [v4.24.1] — 2026-05-25
+
+### Explore 页面交互 Bug 修复
+
+**PromQL/LogsQL 编辑器修复**:
+- 编辑器容器 `overflow: hidden` 导致 CodeMirror 编辑器未撑满宽度，移除并添加 `width: 100%`
+- 鼠标在编辑器区域显示默认箭头而非文本光标，添加 `cursor: text` 到编辑器各层级
+- CodeMirror `.cm-editor`、`.cm-content`、`.cm-line` 均设置 `cursor: text`
+
+**图表 Tooltip 修复**:
+- `trigger: 'item'` 配合 `showSymbol: false` 导致线条过细难以触发 hover，改为 `trigger: 'axis'`
+- axisPointer 改为 `type: 'cross'` + 虚线样式，对齐 Nightingale 图表交互体验
+- 移除 `sharedTooltip` 条件判断，统一使用 axis 模式（显示所有 series 在当前时间点的值）
+
+**图表容器优化**:
+- 图表高度从 300px 提升至 400px，提供更好的数据可视化空间
+- chart-container 添加 `position: relative` 确保 tooltip 定位正确
+
+---
+
 ## [v4.24.0] — 2026-05-25
 
 ### Explore 图表交互重构 — 自定义图例 + 增强 Tooltip + 导航修复

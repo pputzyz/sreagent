@@ -101,6 +101,8 @@ watch(() => props.datasourceId, () => {
   border-radius: 6px;
   overflow: hidden;
   min-height: 42px;
+  width: 100%;
+  cursor: text;
 }
 .logsql-editor:focus-within {
   border-color: var(--sre-primary);
@@ -113,8 +115,14 @@ watch(() => props.datasourceId, () => {
 .logsql-editor :deep(.cm-editor) {
   min-height: 42px;
   font-size: 13px;
+  width: 100%;
+  cursor: text;
 }
 .logsql-editor :deep(.cm-content) {
   padding: 8px 12px;
+  cursor: text;
+}
+.logsql-editor :deep(.cm-line) {
+  cursor: text;
 }
 </style>

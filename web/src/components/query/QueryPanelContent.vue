@@ -451,9 +451,9 @@ const chartOption = computed(() => {
   return {
     backgroundColor: 'transparent',
     tooltip: {
-      trigger: chartSettings.value.sharedTooltip ? 'axis' : 'item',
+      trigger: 'axis',
       confine: true,
-      ...(chartSettings.value.sharedTooltip ? { axisPointer: { type: 'cross' } } : {}),
+      axisPointer: { type: 'cross', lineStyle: { type: 'dashed', opacity: 0.4 } },
       formatter: (params: { seriesName: string; value: [number, number]; marker: string; seriesIndex: number } | Array<{ seriesName: string; value: [number, number]; marker: string; seriesIndex: number }>) => {
         const items = Array.isArray(params) ? params : [params]
         if (!items.length || !items[0].value) return ''
@@ -941,7 +941,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 .editor-input-wrap {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  width: 100%;
 }
 .editor-actions {
   flex-shrink: 0;
@@ -1015,9 +1015,9 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 .query-stats { font-size: 11px; color: var(--sre-text-tertiary); font-family: var(--sre-font-mono, monospace); }
 .tag-ml { margin-left: 4px; }
 
-.chart-container { min-height: 300px; display: flex; align-items: center; justify-content: center; }
+.chart-container { min-height: 400px; display: flex; align-items: center; justify-content: center; position: relative; }
 .chart-fallback { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--sre-text-tertiary); font-size: 13px; }
-.chart-full { width: 100%; height: 300px; }
+.chart-full { width: 100%; height: 400px; }
 
 /* Custom HTML Legend (Nightingale: flex-wrap, scrollable, click-to-isolate) */
 .custom-legend-container {

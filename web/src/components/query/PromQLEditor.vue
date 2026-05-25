@@ -112,6 +112,8 @@ watch(() => props.datasourceId, () => {
   border-radius: 6px;
   overflow: hidden;
   min-height: 42px;
+  width: 100%;
+  cursor: text;
 }
 .promql-editor:focus-within {
   border-color: var(--sre-primary);
@@ -124,8 +126,14 @@ watch(() => props.datasourceId, () => {
 .promql-editor :deep(.cm-editor) {
   min-height: 42px;
   font-size: 13px;
+  width: 100%;
+  cursor: text;
 }
 .promql-editor :deep(.cm-content) {
   padding: 8px 12px;
+  cursor: text;
+}
+.promql-editor :deep(.cm-line) {
+  cursor: text;
 }
 </style>
