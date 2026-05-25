@@ -4,6 +4,48 @@
 
 ---
 
+## [v4.29.0] — 2026-05-25
+
+### Event Pipeline 模块 — Nightingale 功能移植 #3
+
+**新增模块：事件管道（Event Pipeline）**:
+- 可编程告警处理链：在通知前对事件进行 relabel、callback、AI 摘要、条件丢弃等处理
+- 线性执行引擎：按顺序执行处理器列表，支持事件丢弃终止
+- 处理器注册表：可扩展的处理器接口，内置 4 种处理器
+
+**后端（Go + Gin + GORM）**:
+- 数据模型：`event_pipelines` + `event_pipeline_executions` 表（迁移：000069、000070）
+- Repository：完整 CRUD + 分页查询 + 执行记录管理
+- 处理器接口：`Processor` 接口 + 注册表模式
+- 内置处理器：
+  - `relabel` — Prometheus 风格标签重写（replace/keep/drop/labelmap/hashmod）
+  - `callback` — HTTP POST 回调外部系统（fire-and-forget）
+  - `event_drop` — Go template 条件丢弃
+  - `ai_summary` — AI 分析告警写入 annotations
+- 执行引擎：线性执行 + 执行记录 + 耗时统计
+- Handler：11 个 API 端点
+  - `GET /api/v1/event-pipelines` — 列表
+  - `GET /api/v1/event-pipelines/:id` — 详情
+  - `POST /api/v1/event-pipelines` — 创建
+  - `PUT /api/v1/event-pipelines/:id` — 更新
+  - `DELETE /api/v1/event-pipelines/:id` — 删除
+  - `GET /api/v1/event-pipelines/:id/executions` — 执行历史
+  - `POST /api/v1/event-pipelines/:id/tryrun` — 测试运行
+  - `GET /api/v1/event-pipelines/processor-types` — 处理器类型列表
+  - `GET /api/v1/event-pipeline-executions/:id` — 执行详情
+  - `POST /api/v1/event-pipeline-executions/clean` — 清理旧记录
+- 与通知管道集成：NotifyRule 支持 PipelineID 引用可复用管道
+
+**前端（Vue 3 + Naive UI）**:
+- 列表页：`/alert/event-pipelines` — 筛选 + 分页 + 操作
+- 创建/编辑抽屉：名称、描述、启用/禁用、标签过滤器、处理器配置
+- 处理器配置：支持添加/删除/排序，每种类型有独立配置表单
+- 执行历史抽屉：查看执行记录和节点结果
+- 测试运行：一键测试管道效果
+- i18n：中文 + English 完整翻译
+
+---
+
 ## [v4.28.0] — 2026-05-25
 
 ### Metrics Builtin 模块 — Nightingale 功能移植 #2

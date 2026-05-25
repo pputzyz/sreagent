@@ -80,3 +80,7 @@ export type { BuiltinMetric, MetricFilter, TranslationEntry } from './builtin-me
 // ===== Notification Center & Permissions =====
 export { notificationCenterApi, permissionsApi } from './center'
 export type { UserNotification, MyPermissions, TeamRole } from './center'
+
+// ===== Event Pipeline =====
+export { eventPipelineApi } from './event-pipeline'
+export type { EventPipeline, EventPipelineExecution, ProcessorConfig, TagFilter, NodeResult } from './event-pipeline'

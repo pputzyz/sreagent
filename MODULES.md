@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-25 | tag: v4.23.0
-> 共 42 个 model, 57 个 handler, 78 个 service, 42 个 repository, 280+ API 端点
+> 最后更新: 2026-05-25 | tag: v4.29.0
+> 共 44 个 model, 58 个 handler, 79 个 service, 44 个 repository, 290+ API 端点
 
 ---
 
@@ -19,6 +19,7 @@ webhook ──────────→ alert-engine ←──── alert-rul
                        │        └──→ dispatch (标签增强)
                        │
                        ├──→ notification ←── notify-rule, notify-media, message-template, subscribe-rule
+                       │        ├──→ event-pipeline (可编程告警处理链)
                        │        └──→ lark, alert-channel (分发渠道)
                        │
                        └──→ escalation ──→ schedule (查找值班人)
@@ -87,6 +88,9 @@ permissions ──→ team (团队角色查询)
 | 诊断工作流 | ✅ | ❌ | ❌ | 0% |
 | 变更事件 | ✅ | ❌ | ❌ | 0% |
 | Incident 上下文 | ✅ | ❌ | ❌ | 0% |
+| 事件管道 | ✅ | ❌ | ❌ | 0% |
+| 录制规则 | ✅ | ❌ | ❌ | 0% |
+| 内置指标 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
 
@@ -132,6 +136,16 @@ permissions ──→ team (团队角色查询)
 - **API**: `/api/v1/notify-rules`, `/api/v1/notify-media`, `/api/v1/message-templates`, `/api/v1/subscribe-rules` (~25 endpoints)
 - **状态**: ✅ 完成（v4.11.0 移除 v1 NotifyPolicy 管道，统一为 v2）
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
+
+## 事件管道 (event-pipeline)
+
+- **功能**: 可编程告警处理链，支持 relabel/callback/event_drop/ai_summary 处理器，线性执行引擎，执行记录追踪
+- **后端**: `model/event_pipeline.go`, `repository/event_pipeline.go`, `handler/event_pipeline.go`, `engine/pipeline/` (processor.go, engine.go, processors/)
+- **前端**: `web/src/pages/alerts/event-pipelines/Index.vue`, `web/src/api/event-pipeline.ts`
+- **API**: `/api/v1/event-pipelines` (8 endpoints: LIST, GET, CREATE, UPDATE, DELETE, executions, tryrun, processor-types), `/api/v1/event-pipeline-executions` (2 endpoints: GET, clean)
+- **迁移**: 000069_event_pipeline_v2, 000070_notify_rule_pipeline_id
+- **依赖**: notification (NotifyRule 引用 PipelineID), ai (ai_summary 处理器)
+- **状态**: ✅ 核心完成（v4.29.0，线性执行引擎，DAG 可视化编辑器留后续版本）
 
 ## 静默规则 (mute-rule)
 

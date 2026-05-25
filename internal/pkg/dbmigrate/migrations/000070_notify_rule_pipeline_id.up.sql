@@ -1,0 +1,1 @@
+ALTER TABLE notify_rules ADD COLUMN pipeline_id BIGINT UNSIGNED DEFAULT NULL AFTER pipeline;

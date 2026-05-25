@@ -13,6 +13,8 @@ import (
 
 	"github.com/sreagent/sreagent/internal/config"
 	"github.com/sreagent/sreagent/internal/engine"
+	ppipeline "github.com/sreagent/sreagent/internal/engine/pipeline"
+	pprocessors "github.com/sreagent/sreagent/internal/engine/pipeline/processors"
 	"github.com/sreagent/sreagent/internal/handler"
 	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
@@ -179,6 +181,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	builtinMetricRepo := repository.NewBuiltinMetricRepository(db)
 	metricFilterRepo := repository.NewMetricFilterRepository(db)
 
+	// Event pipeline repositories
+	eventPipelineRepo := repository.NewEventPipelineRepository(db)
+	eventPipelineExecRepo := repository.NewEventPipelineExecutionRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -270,6 +276,15 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Builtin metric services
 	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
 	metricFilterSvc := service.NewMetricFilterService(metricFilterRepo, zapLogger)
+
+	// Event pipeline engine
+	pipelineEngine := ppipeline.NewEngine(eventPipelineRepo, eventPipelineExecRepo, zapLogger)
+
+	// Wire AI pipeline into event pipeline processors
+	pprocessors.SetAIPipeline(alertPipeline)
+
+	// Wire pipeline engine into notify rule service (for PipelineID references)
+	notifyRuleSvc.SetPipelineEngine(pipelineEngine, eventPipelineRepo)
 
 	// TODO(AIOps P3): wire IncidentContextService into AgentService when agent gains incident-aware context
 	// incidentContextSvc := service.NewIncidentContextService(incidentRepo, eventRepo, knowledgeSvc, scheduleSvc, bizGroupSvc, zapLogger)
@@ -556,6 +571,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Inspection:          handler.NewInspectionHandler(inspectionRepo, inspectionSched, inspectionExecutor),
 		RecordingRule:       handler.NewRecordingRuleHandler(recordingRuleSvc, zapLogger),
 		BuiltinMetric:       handler.NewBuiltinMetricHandler(builtinMetricSvc, metricFilterSvc, zapLogger),
+		EventPipeline:       handler.NewEventPipelineHandler(eventPipelineRepo, eventPipelineExecRepo, pipelineEngine, eventSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it

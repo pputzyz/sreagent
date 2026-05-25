@@ -38,6 +38,7 @@ type CreateNotifyRuleRequest struct {
 	Severities     string           `json:"severities"`
 	MatchLabels    model.JSONLabels `json:"match_labels"`
 	Pipeline       string           `json:"pipeline"`
+	PipelineID     *uint            `json:"pipeline_id"`
 	NotifyConfigs  string           `json:"notify_configs"`
 	RepeatInterval int              `json:"repeat_interval"`
 	CallbackURL    string           `json:"callback_url"`
@@ -51,6 +52,7 @@ type UpdateNotifyRuleRequest struct {
 	Severities     string           `json:"severities"`
 	MatchLabels    model.JSONLabels `json:"match_labels"`
 	Pipeline       string           `json:"pipeline"`
+	PipelineID     *uint            `json:"pipeline_id"`
 	NotifyConfigs  string           `json:"notify_configs"`
 	RepeatInterval int              `json:"repeat_interval"`
 	CallbackURL    string           `json:"callback_url"`
@@ -82,6 +84,7 @@ func (h *NotifyRuleHandler) Create(c *gin.Context) {
 		Severities:     req.Severities,
 		MatchLabels:    req.MatchLabels,
 		Pipeline:       req.Pipeline,
+		PipelineID:     req.PipelineID,
 		NotifyConfigs:  req.NotifyConfigs,
 		RepeatInterval: req.RepeatInterval,
 		CallbackURL:    req.CallbackURL,
@@ -167,6 +170,7 @@ func (h *NotifyRuleHandler) Update(c *gin.Context) {
 		Severities:     req.Severities,
 		MatchLabels:    req.MatchLabels,
 		Pipeline:       req.Pipeline,
+		PipelineID:     req.PipelineID,
 		NotifyConfigs:  req.NotifyConfigs,
 		RepeatInterval: req.RepeatInterval,
 		CallbackURL:    req.CallbackURL,

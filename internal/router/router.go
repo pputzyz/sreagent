@@ -69,6 +69,7 @@ type Handlers struct {
 	Inspection          *handler.InspectionHandler         // 定时巡检 Agent
 	RecordingRule       *handler.RecordingRuleHandler      // 录制规则 (Recording Rules)
 	BuiltinMetric       *handler.BuiltinMetricHandler      // 内置指标目录 (Metrics Builtin)
+	EventPipeline       *handler.EventPipelineHandler      // 事件管道 (Event Pipeline)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -180,6 +181,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerAdminRoutes(auth, adminOnly, manage, operate)
 			handlers.registerRecordingRuleRoutes(auth, adminOnly, manage)
 			handlers.registerBuiltinMetricRoutes(auth, adminOnly, manage)
+			handlers.registerEventPipelineRoutes(auth, adminOnly, manage)
 		}
 	}
 

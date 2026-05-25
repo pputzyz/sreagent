@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	ppipeline "github.com/sreagent/sreagent/internal/engine/pipeline"
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/pkg/safehttp"
@@ -19,14 +20,22 @@ import (
 
 // NotifyRuleService provides CRUD and event processing for notify rules.
 type NotifyRuleService struct {
-	ruleRepo     *repository.NotifyRuleRepository
-	mediaRepo    *repository.NotifyMediaRepository
-	templateRepo *repository.MessageTemplateRepository
-	recordRepo   *repository.NotifyRecordRepository
-	mediaSvc     *NotifyMediaService
-	templateSvc  *MessageTemplateService
-	pipeline     *AlertPipeline
-	logger       *zap.Logger
+	ruleRepo       *repository.NotifyRuleRepository
+	mediaRepo      *repository.NotifyMediaRepository
+	templateRepo   *repository.MessageTemplateRepository
+	recordRepo     *repository.NotifyRecordRepository
+	mediaSvc       *NotifyMediaService
+	templateSvc    *MessageTemplateService
+	pipeline       *AlertPipeline
+	pipelineEngine *ppipeline.Engine
+	pipelineRepo   *repository.EventPipelineRepository
+	logger         *zap.Logger
+}
+
+// SetPipelineEngine injects the event pipeline engine and repository.
+func (s *NotifyRuleService) SetPipelineEngine(engine *ppipeline.Engine, repo *repository.EventPipelineRepository) {
+	s.pipelineEngine = engine
+	s.pipelineRepo = repo
 }
 
 // NewNotifyRuleService creates a new NotifyRuleService.
@@ -100,6 +109,7 @@ func (s *NotifyRuleService) Update(ctx context.Context, rule *model.NotifyRule) 
 	existing.Severities = rule.Severities
 	existing.MatchLabels = rule.MatchLabels
 	existing.Pipeline = rule.Pipeline
+	existing.PipelineID = rule.PipelineID
 	existing.NotifyConfigs = rule.NotifyConfigs
 	existing.RepeatInterval = rule.RepeatInterval
 	existing.CallbackURL = rule.CallbackURL
@@ -169,7 +179,33 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 
 	// 2. Run the event pipeline (relabel, AI summary, etc.)
 	var analysis *AlertAnalysis
-	if rule.Pipeline != "" {
+
+	// Priority: PipelineID (reusable pipeline) > inline Pipeline > default AI pipeline
+	if rule.PipelineID != nil && *rule.PipelineID > 0 && s.pipelineEngine != nil && s.pipelineRepo != nil {
+		pipelineObj, err := s.pipelineRepo.GetByID(ctx, *rule.PipelineID)
+		if err != nil {
+			s.logger.Warn("failed to load event pipeline, falling back to inline",
+				zap.Uint("pipeline_id", *rule.PipelineID),
+				zap.Error(err),
+			)
+		} else if !pipelineObj.Disabled {
+			processedEvent, exec, execErr := s.pipelineEngine.Execute(ctx, pipelineObj, event, rule.Name)
+			if execErr != nil {
+				s.logger.Error("pipeline execution failed",
+					zap.String("exec_id", exec.ID),
+					zap.Error(execErr),
+				)
+			}
+			if processedEvent == nil {
+				s.logger.Info("event dropped by pipeline",
+					zap.Uint("event_id", event.ID),
+					zap.String("pipeline", pipelineObj.Name),
+				)
+				return nil // event dropped, skip notification
+			}
+			*event = *processedEvent
+		}
+	} else if rule.Pipeline != "" {
 		analysis = s.runPipeline(ctx, event, rule.Pipeline)
 	} else if s.pipeline != nil {
 		// Default: run the standard AI pipeline

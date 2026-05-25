@@ -18,6 +18,8 @@ type NotifyRule struct {
 	// Event Pipeline config (JSON array of processor configs)
 	// e.g., [{"type":"relabel","config":{...}}, {"type":"ai_summary","config":{"only_critical":true}}]
 	Pipeline string `json:"pipeline" gorm:"type:text"`
+	// PipelineID references a reusable EventPipeline by ID (takes precedence over inline Pipeline)
+	PipelineID *uint `json:"pipeline_id" gorm:"index"`
 	// Notification configs - which media to use for which severity
 	// JSON: [{"severity":"critical","media_id":1,"template_id":1,"user_ids":[1,2],"team_ids":[1]},...]
 	NotifyConfigs string `json:"notify_configs" gorm:"type:text"`

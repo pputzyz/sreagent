@@ -1269,7 +1269,7 @@ CI/CD 变更事件接入，用于告警关联分析。
 
 **访问级别：** 已认证
 
-查询参数：`?page=1&page_size=20&search=xxx`
+查询参数：`?page=1&page_size=20&query=xxx&disabled=false`
 
 ### GET `/event-pipelines/:id` — 详情
 
@@ -1287,21 +1287,23 @@ CI/CD 变更事件接入，用于告警关联分析。
 | `description` | string | 否 | 描述 |
 | `disabled` | bool | 否 | 是否禁用 |
 | `filter_enable` | bool | 否 | 是否启用前置标签过滤 |
-| `label_filters` | []LabelFilter | 否 | 前置过滤条件 |
-| `nodes` | []PipelineNode | 否 | DAG 节点列表 |
-| `connections` | map | 否 | DAG 连接关系 |
+| `label_filters` | []TagFilter | 否 | 前置过滤条件 |
+| `processors` | []ProcessorConfig | 否 | 处理器配置列表（按顺序执行） |
 
-**PipelineNode 结构：**
+**ProcessorConfig 结构：**
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | string | 节点 ID |
-| `name` | string | 节点名称 |
-| `type` | string | 处理器类型：`if`, `relabel`, `event_drop`, `callback`, `ai_summary` |
+| `typ` | string | 处理器类型：`relabel`, `callback`, `event_drop`, `ai_summary` |
 | `config` | object | 处理器专属配置 |
-| `disabled` | bool | 是否禁用 |
-| `continue_on_fail` | bool | 失败是否继续 |
-| `retry_on_fail` | bool | 失败是否重试 |
+
+**relabel 配置：** `source_labels`, `separator`, `regex`, `target_label`, `replacement`, `action` (replace/keep/drop/labelmap/hashmod)
+
+**callback 配置：** `url`, `method`, `headers`, `timeout`, `skip_ssl_verify`
+
+**event_drop 配置：** `condition` (Go template，结果为 "true" 则丢弃)
+
+**ai_summary 配置：** `only_critical` (bool)
 
 ### PUT `/event-pipelines/:id` — 更新
 
@@ -1311,22 +1313,31 @@ CI/CD 变更事件接入，用于告警关联分析。
 
 **访问级别：** 管理权限
 
-### POST `/event-pipelines/tryrun` — 试运行
+### POST `/event-pipelines/:id/tryrun` — 测试运行
 
 **访问级别：** 管理权限
 
-**请求体：**
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `pipeline_id` | uint | 是 | Pipeline ID |
-| `event` | AlertEvent | 是 | 模拟告警事件 |
+使用最近一条 firing 告警事件测试管道效果。
 
 ### GET `/event-pipelines/:id/executions` — 执行记录
 
 **访问级别：** 已认证
 
 查询参数：`?page=1&page_size=20`
+
+### GET `/event-pipelines/processor-types` — 处理器类型列表
+
+**访问级别：** 已认证
+
+### GET `/event-pipeline-executions/:id` — 执行详情
+
+**访问级别：** 已认证
+
+### POST `/event-pipeline-executions/clean` — 清理旧记录
+
+**访问级别：** 仅管理员
+
+查询参数：`?days=30`（清理 N 天前的记录）
 
 ---
 
@@ -2051,6 +2062,6 @@ file: alertmanager.yml
 | 公开（无需认证） | 13 | 健康检查、登录、OIDC、Webhook、集成接收、飞书回调、操作页面、Prometheus 指标 |
 | 只读（已认证） | 62 | 所有 GET/列表端点（含宠物/状态页面/预设规则） |
 | 操作权限（member 及以上） | 22 | 告警操作、故障操作、订阅规则、复盘编辑 |
-| 管理权限（team_lead 及以上） | 65 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入 |
-| 仅管理员 | 15 | 用户 CRUD、系统设置、AI/飞书配置、标签同步、状态页面 CRUD |
-| **合计** | **~177** | |
+| 管理权限（team_lead 及以上） | 68 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入、Event Pipeline |
+| 仅管理员 | 16 | 用户 CRUD、系统设置、AI/飞书配置、标签同步、状态页面 CRUD、Pipeline 执行清理 |
+| **合计** | **~183** | |
