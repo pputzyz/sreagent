@@ -102,3 +102,59 @@ func NewSafeClient(timeout time.Duration) *http.Client {
 		Timeout:   timeout,
 	}
 }
+
+// NewInternalClient creates an HTTP client suitable for reaching internal
+// infrastructure (datasources, metrics stores) that live on private networks.
+// It skips the private-address block while still blocking loopback, link-local,
+// and cloud-metadata endpoints.
+func NewInternalClient(timeout time.Duration) *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+	return &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
+	}
+}
+
+// safeDialContextInternal is like safeDialContext but allows private RFC1918
+// addresses — only loopback, link-local, and unspecified are blocked.
+func safeDialContextInternal(transport *http.Transport) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	originalDialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid address %q: %w", addr, err)
+		}
+
+		resolver := &net.Resolver{}
+		ips, err := resolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve %q: %w", host, err)
+		}
+
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("no addresses found for %q", host)
+		}
+
+		for _, ipAddr := range ips {
+			ip := ipAddr.IP
+			if ip.IsLoopback() {
+				return nil, fmt.Errorf("SSRF protection: blocked: loopback address %s", ip)
+			}
+			if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+				return nil, fmt.Errorf("SSRF protection: blocked: link-local address %s", ip)
+			}
+			if ip.IsUnspecified() {
+				return nil, fmt.Errorf("SSRF protection: blocked: unspecified address %s", ip)
+			}
+			// Private addresses (10/8, 172.16/12, 192.168/16) are allowed —
+			// datasources run on internal infrastructure.
+		}
+
+		return originalDialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
+	}
+}

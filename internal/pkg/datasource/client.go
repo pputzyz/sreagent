@@ -27,8 +27,10 @@ type HealthChecker interface {
 	CheckHealth(ctx context.Context, endpoint, authType, authConfig string) HealthResult
 }
 
-// httpClient is a shared HTTP client with SSRF protection and reasonable timeouts.
-var httpClient = safehttp.NewSafeClient(10 * time.Second)
+// httpClient is a shared HTTP client for datasource connections.
+// Uses NewInternalClient to allow private RFC1918 addresses (datasources
+// are admin-configured and typically run on internal networks).
+var httpClient = safehttp.NewInternalClient(10 * time.Second)
 
 // NewChecker creates the appropriate health checker for a datasource type.
 func NewChecker(dsType string) (HealthChecker, error) {

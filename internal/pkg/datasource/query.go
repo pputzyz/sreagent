@@ -32,10 +32,11 @@ type QueryClient struct {
 	httpClient *http.Client
 }
 
-// NewQueryClient creates a new QueryClient with SSRF protection and sensible defaults.
+// NewQueryClient creates a new QueryClient for datasource queries.
+// Uses NewInternalClient to allow private addresses (datasources are internal).
 func NewQueryClient() *QueryClient {
 	return &QueryClient{
-		httpClient: safehttp.NewSafeClient(30 * time.Second),
+		httpClient: safehttp.NewInternalClient(30 * time.Second),
 	}
 }
 
