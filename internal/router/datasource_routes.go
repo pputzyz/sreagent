@@ -20,6 +20,7 @@ func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, ma
 		ds.POST("/:id/query", manage, h.DataSource.Query)
 		ds.POST("/:id/query-range", manage, h.DataSource.RangeQuery)
 		ds.POST("/:id/log-query", manage, h.DataSource.LogQuery)
+		ds.POST("/:id/log-histogram", manage, h.DataSource.LogHistogram)
 		ds.GET("/:id/labels/keys", h.DataSource.LabelKeys)
 		ds.GET("/:id/labels/values", h.DataSource.LabelValues)
 		ds.GET("/:id/metrics", h.DataSource.MetricNames)

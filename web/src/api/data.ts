@@ -50,6 +50,9 @@ export const datasourceApi = {
 
   logQuery: (id: number, data: { expression: string; start: number; end: number; limit?: number }) =>
     request.post<ApiResponse<{ entries: LogEntry[]; total: number; truncated: boolean }>>(`/datasources/${id}/log-query`, data),
+
+  logHistogram: (id: number, data: { expression: string; start: number; end: number; step?: string }) =>
+    request.post<ApiResponse<{ buckets: Array<{ timestamp: string; count: number }>; total: number }>>(`/datasources/${id}/log-histogram`, data),
 }
 
 // ===== Dashboard API =====

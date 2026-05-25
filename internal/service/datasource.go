@@ -446,6 +446,55 @@ func (s *DataSourceService) QueryLogs(ctx context.Context, dsID uint, params Log
 	}, nil
 }
 
+// LogHistogramParams holds parameters for a log histogram query.
+type LogHistogramParams struct {
+	Expression string
+	Start      time.Time
+	End        time.Time
+	Step       string
+}
+
+// LogHistogramBucket represents a single time bucket in the histogram.
+type LogHistogramBucket struct {
+	Timestamp time.Time `json:"timestamp"`
+	Count     int64     `json:"count"`
+}
+
+// LogHistogramResponse holds the result of a log histogram query.
+type LogHistogramResponse struct {
+	Buckets []LogHistogramBucket `json:"buckets"`
+	Total   int64                `json:"total"`
+}
+
+// QueryLogHistogram fetches log hit counts over time buckets.
+func (s *DataSourceService) QueryLogHistogram(ctx context.Context, dsID uint, params LogHistogramParams) (*LogHistogramResponse, error) {
+	ds, err := s.repo.GetByID(ctx, dsID)
+	if err != nil {
+		return nil, apperr.ErrDSNotFound
+	}
+
+	if ds.Type != model.DSTypeVictoriaLogs {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log histogram only supported for victorialogs datasources")
+	}
+
+	authConfig := s.decryptAuthConfig(ds)
+	result, err := datasource.QueryLogHistogram(ctx, ds.Endpoint, ds.AuthType, authConfig, params.Expression, params.Start, params.End, params.Step)
+	if err != nil {
+		s.logger.Error("log histogram query failed",
+			zap.String("datasource", ds.Name),
+			zap.String("expression", params.Expression),
+			zap.Error(err),
+		)
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
+
+	buckets := make([]LogHistogramBucket, len(result.Buckets))
+	for i, b := range result.Buckets {
+		buckets[i] = LogHistogramBucket{Timestamp: b.Timestamp, Count: b.Count}
+	}
+	return &LogHistogramResponse{Buckets: buckets, Total: result.Total}, nil
+}
+
 // ProxyToDatasource proxies an HTTP GET request to the target datasource's API.
 // Used for label/metric queries to support PromQL autocompletion.
 func (s *DataSourceService) ProxyToDatasource(ctx context.Context, dsID uint, path string, params map[string]string) ([]byte, error) {

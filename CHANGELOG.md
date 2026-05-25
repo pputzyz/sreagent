@@ -4,6 +4,45 @@
 
 ---
 
+## [v4.17.0] — 2026-05-25
+
+### 数据查询页面全面改造（借鉴 Nightingale V9）
+
+**日志直方图（LogHistogram）**
+- 新增 `/datasources/:id/log-histogram` 后端 API，调用 VictoriaLogs `/select/logsql/hits` 接口
+- 新增 `LogHistogram.vue` 前端组件：ECharts 柱状图，点击柱子可缩放时间范围
+- 支持自动计算 step（1m/5m/1h/1d 按时间跨度）
+
+**日志查看器增强（借鉴 Nightingale LogsViewer + Loki LogRow）**
+- 日志级别着色：左侧彩色边框（debug=灰, info=青, warn=黄, error=红, fatal=深红）
+- 行展开详情：点击行展开显示所有字段，支持点击复制
+- 字段标签：日志标签以 NTag 形式展示，点击复制 `key=value`
+- 错误/警告行背景色微调
+- 级别图例显示
+
+**URL Querystring 同步（借鉴 Nightingale Explorer）**
+- 数据源 ID、表达式、Tab、查询模式、时间范围全部同步到 URL
+- 支持分享链接直接打开查询结果
+- 页面加载时从 URL 恢复查询状态
+
+**查询统计信息（借鉴 Nightingale PromGraph QueryStatsView）**
+- 查询完成后显示执行时间（ms）
+- 指标查询额外显示 step 信息
+
+**后端变更**
+- `internal/pkg/datasource/victorialogs.go`: 新增 `QueryLogHistogram` + `LogHistogramBucket` + `LogHistogramResponse`
+- `internal/service/datasource.go`: 新增 `QueryLogHistogram` 方法
+- `internal/handler/datasource.go`: 新增 `LogHistogram` handler
+- `internal/router/datasource_routes.go`: 注册 `POST /:id/log-histogram` 路由
+
+**前端变更**
+- `web/src/components/query/LogHistogram.vue`: 新增直方图组件
+- `web/src/pages/explore/Index.vue`: 全面改造日志查看体验
+- `web/src/api/data.ts`: 新增 `logHistogram` API 方法
+- `web/src/i18n/en.ts` + `zh-CN.ts`: 新增 i18n key
+
+---
+
 ## [v4.16.0] — 2026-05-22
 
 ### 全站 UX 修复 + 主色调更换

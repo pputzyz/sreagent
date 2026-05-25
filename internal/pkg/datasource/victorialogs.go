@@ -281,3 +281,124 @@ func QueryLogs(ctx context.Context, endpoint, authType, authConfig string, param
 		Truncated: len(entries) >= params.Limit,
 	}, nil
 }
+
+// LogHistogramBucket represents a single time bucket in the histogram.
+type LogHistogramBucket struct {
+	Timestamp time.Time `json:"timestamp"`
+	Count     int64     `json:"count"`
+}
+
+// LogHistogramResponse holds the parsed histogram data.
+type LogHistogramResponse struct {
+	Buckets []LogHistogramBucket `json:"buckets"`
+	Total   int64                `json:"total"`
+}
+
+// QueryLogHistogram fetches log hit counts over time buckets using the
+// VictoriaLogs /select/logsql/hits endpoint with a step parameter.
+func QueryLogHistogram(ctx context.Context, endpoint, authType, authConfig, expression string, start, end time.Time, step string) (*LogHistogramResponse, error) {
+	apiURL := strings.TrimRight(endpoint, "/") + "/select/logsql/hits"
+
+	form := url.Values{}
+	form.Set("query", expression)
+	form.Set("start", start.Format(time.RFC3339))
+	form.Set("end", end.Format(time.RFC3339))
+	if step != "" {
+		form.Set("step", step)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create histogram request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	applyAuth(req, authType, authConfig)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("histogram request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("histogram returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read histogram response: %w", err)
+	}
+
+	// Try format: JSON with "timestamps" and "values" arrays
+	var hitsResp struct {
+		Timestamps []int64 `json:"timestamps"`
+		Values     []int64 `json:"values"`
+	}
+	if err := json.Unmarshal(body, &hitsResp); err == nil && len(hitsResp.Timestamps) > 0 {
+		buckets := make([]LogHistogramBucket, 0, len(hitsResp.Timestamps))
+		var total int64
+		for i, ts := range hitsResp.Timestamps {
+			var count int64
+			if i < len(hitsResp.Values) {
+				count = hitsResp.Values[i]
+			}
+			buckets = append(buckets, LogHistogramBucket{Timestamp: time.Unix(ts, 0), Count: count})
+			total += count
+		}
+		return &LogHistogramResponse{Buckets: buckets, Total: total}, nil
+	}
+
+	// Try format: array of {timestamp, count} objects
+	var altResp []struct {
+		Timestamp int64 `json:"timestamp"`
+		Count     int64 `json:"count"`
+	}
+	if err := json.Unmarshal(body, &altResp); err == nil && len(altResp) > 0 {
+		buckets := make([]LogHistogramBucket, len(altResp))
+		var total int64
+		for i, b := range altResp {
+			buckets[i] = LogHistogramBucket{Timestamp: time.Unix(b.Timestamp, 0), Count: b.Count}
+			total += b.Count
+		}
+		return &LogHistogramResponse{Buckets: buckets, Total: total}, nil
+	}
+
+	// Try NDJSON format (one JSON object per line)
+	scanner := bufio.NewScanner(strings.NewReader(string(body)))
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	var buckets []LogHistogramBucket
+	var total int64
+	for scanner.Scan() {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+		var entry map[string]interface{}
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		var ts time.Time
+		var count int64
+		if v, ok := entry["_time"]; ok {
+			switch t := v.(type) {
+			case string:
+				ts, _ = time.Parse(time.RFC3339Nano, t)
+			case float64:
+				ts = time.Unix(0, int64(t))
+			}
+		}
+		if v, ok := entry["_count"]; ok {
+			if c, ok := v.(float64); ok {
+				count = int64(c)
+			}
+		}
+		buckets = append(buckets, LogHistogramBucket{Timestamp: ts, Count: count})
+		total += count
+	}
+	if len(buckets) > 0 {
+		return &LogHistogramResponse{Buckets: buckets, Total: total}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported histogram response format: %s", string(body))
+}

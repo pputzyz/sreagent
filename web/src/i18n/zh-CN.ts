@@ -421,6 +421,11 @@ export default {
     labelDetails: '标签详情',
     timestamp: '时间戳',
     panel: '面板',
+    showHistogram: '显示直方图',
+    hideHistogram: '隐藏直方图',
+    noHistogramData: '暂无直方图数据',
+    logFields: '日志字段',
+    copiedField: '已复制',
   },
   dashboardV2: {
     title: '仪表盘',

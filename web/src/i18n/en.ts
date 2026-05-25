@@ -421,6 +421,11 @@ export default {
     labelDetails: 'Label Details',
     timestamp: 'Timestamp',
     panel: 'Panel',
+    showHistogram: 'Show Histogram',
+    hideHistogram: 'Hide Histogram',
+    noHistogramData: 'No histogram data',
+    logFields: 'Log Fields',
+    copiedField: 'Copied',
   },
   dashboardV2: {
     title: 'Dashboards',

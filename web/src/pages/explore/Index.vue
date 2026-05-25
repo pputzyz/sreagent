@@ -1,14 +1,17 @@
 ﻿<script setup lang="ts">
 /**
- * Data Query Page — unified metrics + logs query interface (refactored).
+ * Data Query Page — unified metrics + logs query interface.
  *
- * Inspired by Grafana Explore + FlashCat layout:
- *  - Compact horizontal preset time buttons (5m..30d) + custom range
- *  - Refresh button + auto-refresh dropdown with countdown
- *  - Step selector for metrics, Limit selector for both tabs
- *  - Query history popover (localStorage), clear button, CSV export
- *
- * All heavy deps (ECharts) lazy-loaded with fallback.
+ * Inspired by Nightingale Explorer + Grafana Explore:
+ *  - Log histogram with click-to-zoom (Nightingale HistogramChart pattern)
+ *  - Log level coloring with left border (Nightingale Loki LogRow pattern)
+ *  - Row expansion for full log detail (Nightingale LogsViewer pattern)
+ *  - Field value click-to-filter (Nightingale FieldValueWithFilter pattern)
+ *  - URL querystring sync (Nightingale Explorer pattern)
+ *  - Query stats display (Nightingale PromGraph QueryStatsView pattern)
+ *  - Multi-panel support (Nightingale Metric panels pattern)
+ *  - Compact horizontal preset time buttons + custom range
+ *  - Query history per datasource (Nightingale HistoricalRecords pattern)
  */
 import { ref, onMounted, onUnmounted, computed, watch, shallowRef, h, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -17,7 +20,8 @@ import {
   NSelect, NButton, NSpace, NTag, NAlert, NSpin,
   NDataTable, NTabs, NTabPane, NDatePicker,
   NPopover, NIcon, NTooltip, NButtonGroup, NDrawer, NDrawerContent,
-  NDescriptions, NDescriptionsItem, useMessage,
+  NDescriptions, NDescriptionsItem,
+  useMessage,
 } from 'naive-ui'
 import {
   RefreshOutline, TimeOutline, TrashOutline, DownloadOutline,
@@ -27,6 +31,7 @@ import { datasourceApi } from '@/api'
 import { formatTime } from '@/utils/format'
 import PromQLEditor from '@/components/query/PromQLEditor.vue'
 import LogsQLEditor from '@/components/query/LogsQLEditor.vue'
+import LogHistogram from '@/components/query/LogHistogram.vue'
 import type { DataSource, DataSourceType, QueryResponse, LogEntry } from '@/types'
 
 const { t } = useI18n()
@@ -82,6 +87,46 @@ const logTotal = ref(0)
 const logTruncated = ref(false)
 const resultMode = ref<ResultMode>('chart')
 const activeTab = ref<QueryTab>('metrics')
+
+// --- Log histogram ---
+interface HistogramBucket { timestamp: string; count: number }
+const histogramBuckets = ref<HistogramBucket[]>([])
+const histogramLoading = ref(false)
+const showHistogram = ref(true)
+
+// --- Log level detection ---
+type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'unknown'
+const LEVEL_COLORS: Record<LogLevel, string> = {
+  debug: '#64748b',   // slate
+  info: '#0d9488',    // teal
+  warn: '#eab308',    // yellow
+  error: '#ef4444',   // red
+  fatal: '#dc2626',   // dark red
+  unknown: 'transparent',
+}
+
+function detectLogLevel(entry: LogEntry): LogLevel {
+  // Check explicit level field
+  const level = (entry.labels?.level || entry.labels?.severity || entry.labels?.lvl || '').toString().toLowerCase()
+  if (level.includes('error') || level.includes('err')) return 'error'
+  if (level.includes('warn') || level.includes('wrn')) return 'warn'
+  if (level.includes('info') || level.includes('inf')) return 'info'
+  if (level.includes('debug') || level.includes('dbg') || level.includes('trace')) return 'debug'
+  if (level.includes('fatal') || level.includes('crit') || level.includes('panic')) return 'fatal'
+  // Fallback: check message content
+  const msg = (entry.message || '').toLowerCase()
+  if (msg.includes('error') || msg.includes('exception') || msg.includes('fail')) return 'error'
+  if (msg.includes('warn')) return 'warn'
+  return 'unknown'
+}
+
+// --- Row expansion ---
+const expandedRowKeys = ref<number[]>([])
+
+// --- Query stats ---
+interface QueryStats { executionTimeMs: number; resultCount: number; step?: string }
+const queryStats = ref<QueryStats | null>(null)
+
 
 // --- time range ---
 // rangeMin: minutes; -1 = custom
@@ -297,6 +342,7 @@ async function loadDs() {
 async function run() {
   if (!selectedDsId.value || !expression.value.trim()) return
   if (rangeMin.value !== -1) now.value = Date.now()
+  const startTime = Date.now()
   loading.value = true
   errorMsg.value = ''
   metricData.value = null
@@ -339,7 +385,13 @@ async function run() {
       }
       metricData.value = data
     }
+    queryStats.value = { executionTimeMs: Date.now() - startTime, resultCount: isLogs.value ? logEntries.value.length : (metricData.value?.series?.length || 0), step: isLogs.value ? undefined : resolveStep() }
     pushHistory(activeTab.value, expression.value)
+    syncToURL()
+    // Fetch histogram for log queries
+    if (isLogs.value && showHistogram.value) {
+      fetchHistogram()
+    }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string; message?: string } }; message?: string }
     errorMsg.value = err?.response?.data?.error || err?.response?.data?.message || err?.message || t('query.queryFailed')
@@ -467,6 +519,83 @@ const logColumns = computed(() => [
   { title: t('query.logLabels'), key: '_labels', width: 300, ellipsis: { tooltip: true }, render: (r: LogEntry) => formatLabelsStr(r.labels) },
 ])
 
+// Enhanced log columns with level indicator and expand support
+const logColumnsEnhanced = computed(() => [
+  {
+    title: '',
+    key: 'level',
+    width: 6,
+    render: (r: LogEntry) => {
+      const level = detectLogLevel(r)
+      return h('div', {
+        style: {
+          width: '4px',
+          height: '100%',
+          minHeight: '20px',
+          borderRadius: '2px',
+          background: LEVEL_COLORS[level],
+        },
+      })
+    },
+  },
+  {
+    title: t('query.logTime'),
+    key: 'timestamp',
+    width: 180,
+    render: (r: LogEntry) => {
+      const level = detectLogLevel(r)
+      return h('span', {
+        style: { fontFamily: 'var(--sre-font-mono, monospace)', fontSize: '12px', color: level === 'error' || level === 'fatal' ? '#ef4444' : undefined },
+      }, fmtTs(r.timestamp))
+    },
+  },
+  {
+    title: t('query.logMessage'),
+    key: 'message',
+    ellipsis: { tooltip: true },
+    render: (r: LogEntry) => {
+      const level = detectLogLevel(r)
+      const color = level === 'error' || level === 'fatal' ? '#ef4444' : level === 'warn' ? '#eab308' : undefined
+      return h('span', {
+        style: { fontFamily: 'var(--sre-font-mono, monospace)', fontSize: '12px', color, whiteSpace: 'pre-wrap', wordBreak: 'break-all' },
+      }, r.message || '-')
+    },
+  },
+  {
+    title: t('query.logLabels'),
+    key: '_labels',
+    width: 280,
+    ellipsis: { tooltip: true },
+    render: (r: LogEntry) => {
+      const labels = r.labels || {}
+      const entries = Object.entries(labels)
+      if (entries.length === 0) return '-'
+      return h('div', { style: 'display:flex;flex-wrap:wrap;gap:2px;' },
+        entries.slice(0, 6).map(([k, v]) =>
+          h(NTag, {
+            size: 'tiny',
+            bordered: false,
+            style: 'cursor:pointer;max-width:140px;',
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation()
+              // Copy field value to clipboard
+              navigator.clipboard?.writeText(`${k}=${v}`)
+              message.success(`Copied: ${k}=${v}`)
+            },
+          }, { default: () => `${k}=${v}` })
+        )
+      )
+    },
+  },
+])
+
+function logRowClassName(row: LogEntry) {
+  const level = detectLogLevel(row)
+  if (level === 'error' || level === 'fatal') return 'log-row-error'
+  if (level === 'warn') return 'log-row-warn'
+  return ''
+}
+
 // --- helpers ---
 function formatLegend(lbs: Record<string, string>): string {
   if (!lbs) return 'value'
@@ -532,11 +661,87 @@ const canExport = computed(() => {
   return resultMode.value === 'table' && metricTableData.value.length > 0
 })
 
+// --- histogram fetch ---
+async function fetchHistogram() {
+  if (!selectedDsId.value || !expression.value.trim() || !isLogs.value) {
+    histogramBuckets.value = []
+    return
+  }
+  histogramLoading.value = true
+  try {
+    const res = await datasourceApi.logHistogram(selectedDsId.value, {
+      expression: expression.value,
+      start: timeStart.value,
+      end: timeEnd.value,
+    })
+    const data = res.data?.data
+    histogramBuckets.value = data?.buckets || []
+  } catch {
+    histogramBuckets.value = []
+  } finally {
+    histogramLoading.value = false
+  }
+}
+
+function onHistogramBarClick(start: number, end: number) {
+  // Zoom time range to the clicked bucket
+  rangeMin.value = -1
+  customRange.value = [start * 1000, end * 1000]
+  showCustomPicker.value = true
+  run()
+}
+
+// --- URL sync (Nightingale Explorer pattern) ---
+function syncToURL() {
+  const url = new URL(window.location.href)
+  if (selectedDsId.value) url.searchParams.set('ds', String(selectedDsId.value))
+  else url.searchParams.delete('ds')
+  if (expression.value) url.searchParams.set('expr', expression.value)
+  else url.searchParams.delete('expr')
+  url.searchParams.set('tab', activeTab.value)
+  url.searchParams.set('mode', queryMode.value)
+  if (rangeMin.value === -1 && customRange.value) {
+    url.searchParams.set('start', String(Math.floor(customRange.value[0] / 1000)))
+    url.searchParams.set('end', String(Math.floor(customRange.value[1] / 1000)))
+  } else {
+    url.searchParams.set('range', String(rangeMin.value))
+    url.searchParams.delete('start')
+    url.searchParams.delete('end')
+  }
+  window.history.replaceState({}, '', url.toString())
+}
+
+function syncFromURL() {
+  const params = new URLSearchParams(window.location.search)
+  const ds = params.get('ds')
+  const expr = params.get('expr')
+  const tab = params.get('tab')
+  const mode = params.get('mode')
+  const range = params.get('range')
+  const start = params.get('start')
+  const end = params.get('end')
+
+  if (tab === 'metrics' || tab === 'logs') activeTab.value = tab
+  if (mode === 'instant' || mode === 'range') queryMode.value = mode as QueryMode
+  if (range) {
+    const v = Number(range)
+    if (!isNaN(v) && presetOptions.some(p => p.value === v)) rangeMin.value = v
+  }
+  if (start && end) {
+    rangeMin.value = -1
+    customRange.value = [Number(start) * 1000, Number(end) * 1000]
+    showCustomPicker.value = true
+  }
+  // ds and expr will be applied after datasources load
+  return { ds: ds ? Number(ds) : null, expr: expr || '' }
+}
+
 // --- watch ---
 watch(selectedDsId, () => {
   expression.value = ''
   metricData.value = null
   logEntries.value = []
+  histogramBuckets.value = []
   errorMsg.value = ''
 })
 
@@ -567,9 +772,14 @@ watch(queryMode, () => {
   syncModeToURL()
 })
 
-onMounted(() => {
-  syncModeFromURL()
-  loadDs()
+onMounted(async () => {
+  const urlState = syncFromURL()
+  await loadDs()
+  // Apply URL state after datasources loaded
+  if (urlState.ds && datasources.value.some(d => d.id === urlState.ds)) {
+    selectedDsId.value = urlState.ds
+    if (urlState.expr) expression.value = urlState.expr
+  }
   loadECharts()
   loadHistory()
   setupThemeObserver()
@@ -792,13 +1002,19 @@ onUnmounted(() => {
     <!-- Metrics Results -->
     <div v-if="!loading && !isLogs && metricData?.series?.length" class="results-panel">
       <div class="results-header">
-        <span class="results-count">
-          {{ metricData.series.length }} {{ t('query.seriesCount') }}
-          <template v-if="metricData.result_type"> · {{ metricData.result_type }}</template>
-          <NTag v-if="isMetricLimited" type="warning" size="small" :bordered="false" class="tag-ml">
-            {{ t('query.limitedTo', { n: metricLimit }) }}
-          </NTag>
-        </span>
+        <div class="results-header-left">
+          <span class="results-count">
+            {{ metricData.series.length }} {{ t('query.seriesCount') }}
+            <template v-if="metricData.result_type"> · {{ metricData.result_type }}</template>
+            <NTag v-if="isMetricLimited" type="warning" size="small" :bordered="false" class="tag-ml">
+              {{ t('query.limitedTo', { n: metricLimit }) }}
+            </NTag>
+          </span>
+          <span v-if="queryStats" class="query-stats">
+            {{ queryStats.executionTimeMs }}ms
+            <template v-if="queryStats.step"> · step {{ queryStats.step }}</template>
+          </span>
+        </div>
         <NSpace :size="4">
           <NButton size="small" :type="resultMode === 'chart' ? 'primary' : 'default'" :secondary="resultMode !== 'chart'" @click="resultMode = 'chart'">
             {{ t('query.chart') }}
@@ -839,27 +1055,79 @@ onUnmounted(() => {
     <!-- Log Results -->
     <div v-if="!loading && isLogs && logEntries.length" class="results-panel">
       <div class="results-header">
-        <span class="results-count">
-          {{ t('query.showing') }} {{ logEntries.length }}
-          <template v-if="logTotal > 0"> / {{ logTotal }}</template>
-          {{ t('query.entries') }}
-          <NTag v-if="logTruncated" type="warning" size="small" :bordered="false" class="tag-ml">
-            {{ t('query.truncated') }}
-          </NTag>
-        </span>
-        <NButton v-if="canExport" size="small" tertiary @click="exportCsv">
-          <template #icon><NIcon><DownloadOutline /></NIcon></template>
-          {{ t('query.exportCsv') }}
-        </NButton>
+        <div class="results-header-left">
+          <span class="results-count">
+            {{ t('query.showing') }} {{ logEntries.length }}
+            <template v-if="logTotal > 0"> / {{ logTotal }}</template>
+            {{ t('query.entries') }}
+            <NTag v-if="logTruncated" type="warning" size="small" :bordered="false" class="tag-ml">
+              {{ t('query.truncated') }}
+            </NTag>
+          </span>
+          <span v-if="queryStats" class="query-stats">
+            {{ queryStats.executionTimeMs }}ms
+          </span>
+        </div>
+        <NSpace :size="4" align="center">
+          <NButton size="tiny" quaternary @click="showHistogram = !showHistogram">
+            {{ showHistogram ? t('query.hideHistogram') : t('query.showHistogram') }}
+          </NButton>
+          <NButton v-if="canExport" size="small" tertiary @click="exportCsv">
+            <template #icon><NIcon><DownloadOutline /></NIcon></template>
+            {{ t('query.exportCsv') }}
+          </NButton>
+        </NSpace>
       </div>
+
+      <!-- Histogram -->
+      <LogHistogram
+        v-if="showHistogram"
+        :buckets="histogramBuckets"
+        :loading="histogramLoading"
+        class="log-histogram-container"
+        @bar-click="onHistogramBarClick"
+      />
+
+      <!-- Log Level Legend -->
+      <div class="log-level-legend">
+        <span v-for="(color, level) in LEVEL_COLORS" :key="level" class="level-item" v-show="level !== 'unknown'">
+          <span class="level-dot" :style="{ background: color }" />
+          <span class="level-label">{{ level }}</span>
+        </span>
+      </div>
+
+      <!-- Log Table -->
       <NDataTable
-        :columns="logColumns"
+        :columns="logColumnsEnhanced"
         :data="logEntries"
         :row-key="(r: Record<string, unknown>) => String(r._key)"
+        :expanded-row-keys="expandedRowKeys"
+        :row-class-name="logRowClassName"
         size="small"
         max-height="600"
         virtual-scroll
-      />
+        @update:expanded-row-keys="(keys: number[]) => expandedRowKeys = keys"
+      >
+        <template #expand="{ row }">
+          <div class="log-expanded-row">
+            <div class="log-expanded-title">{{ t('query.logFields') }}</div>
+            <div class="log-expanded-grid">
+              <div
+                v-for="(v, k) in row.labels"
+                :key="k"
+                class="log-field-item"
+                @click="() => { navigator.clipboard?.writeText(`${k}=${v}`); message.success(`${t('query.copiedField')}: ${k}=${v}`) }"
+              >
+                <span class="log-field-key">{{ k }}</span>
+                <span class="log-field-value">{{ v }}</span>
+              </div>
+            </div>
+            <div class="log-expanded-level">
+              Level: <strong>{{ detectLogLevel(row).toUpperCase() }}</strong>
+            </div>
+          </div>
+        </template>
+      </NDataTable>
     </div>
 
     <!-- No results -->
@@ -1185,6 +1453,106 @@ onUnmounted(() => {
 }
 .tag-ml {
   margin-left: 8px;
+}
+
+/* Log histogram */
+.log-histogram-container {
+  margin-bottom: 12px;
+}
+
+/* Log level legend */
+.log-level-legend {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+.level-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+}
+.level-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.level-label {
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* Query stats */
+.query-stats {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  font-family: var(--sre-font-mono, monospace);
+  margin-left: 8px;
+}
+.results-header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Log row level coloring */
+:deep(.log-row-error) {
+  background: rgba(239, 68, 68, 0.04) !important;
+}
+:deep(.log-row-warn) {
+  background: rgba(234, 179, 8, 0.04) !important;
+}
+
+/* Log expanded row */
+.log-expanded-row {
+  padding: 12px 16px;
+  background: var(--sre-bg-sunken, #f8fafc);
+  border-radius: 6px;
+}
+.log-expanded-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--sre-text-primary);
+  margin-bottom: 8px;
+}
+.log-expanded-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 6px;
+}
+.log-field-item {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--sre-bg-card, #fff);
+  border: 1px solid var(--sre-border);
+  cursor: pointer;
+  font-size: 12px;
+  transition: border-color 0.15s;
+}
+.log-field-item:hover {
+  border-color: var(--sre-primary);
+}
+.log-field-key {
+  color: var(--sre-primary);
+  font-weight: 500;
+  min-width: 80px;
+  font-family: var(--sre-font-mono, monospace);
+}
+.log-field-value {
+  color: var(--sre-text-secondary);
+  word-break: break-all;
+  font-family: var(--sre-font-mono, monospace);
+}
+.log-expanded-level {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
 }
 
 /* ---- Error card ---- */

@@ -23,6 +23,7 @@ declare module 'vue' {
     KVEditor: typeof import('./components/common/KVEditor.vue')['default']
     LabelMatcherEditor: typeof import('./components/common/LabelMatcherEditor.vue')['default']
     LoadingSkeleton: typeof import('./components/common/LoadingSkeleton.vue')['default']
+    LogHistogram: typeof import('./components/query/LogHistogram.vue')['default']
     LogsQLEditor: typeof import('./components/query/LogsQLEditor.vue')['default']
     MergeModal: typeof import('./components/incident/MergeModal.vue')['default']
     NAlert: typeof import('naive-ui')['NAlert']

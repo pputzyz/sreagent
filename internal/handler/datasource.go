@@ -399,6 +399,57 @@ func (h *DataSourceHandler) LogQuery(c *gin.Context) {
 	Success(c, result)
 }
 
+// LogHistogram returns log hit counts over time buckets for histogram visualization.
+// POST /api/v1/datasources/:id/log-histogram
+func (h *DataSourceHandler) LogHistogram(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req struct {
+		Expression string  `json:"expression" binding:"required"`
+		Start      float64 `json:"start" binding:"required"`
+		End        float64 `json:"end" binding:"required"`
+		Step       string  `json:"step"` // e.g. "1m", "5m", "1h"
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	// Auto-calculate step if not provided
+	if req.Step == "" {
+		diff := req.End - req.Start
+		switch {
+		case diff <= 3600:
+			req.Step = "1m"
+		case diff <= 86400:
+			req.Step = "5m"
+		case diff <= 604800:
+			req.Step = "1h"
+		default:
+			req.Step = "1d"
+		}
+	}
+
+	start := time.Unix(int64(req.Start), 0)
+	end := time.Unix(int64(req.End), 0)
+
+	result, err := h.svc.QueryLogHistogram(c.Request.Context(), id, service.LogHistogramParams{
+		Expression: req.Expression,
+		Start:      start,
+		End:        end,
+		Step:       req.Step,
+	})
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	Success(c, result)
+}
+
 // MetricNames returns metric names from the target datasource (for PromQL autocompletion).
 // GET /api/v1/datasources/:id/metrics?search=http&limit=100
 func (h *DataSourceHandler) MetricNames(c *gin.Context) {
