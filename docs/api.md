@@ -602,7 +602,7 @@ Authorization: Bearer <token>
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `name` | string | 是 | 名称 |
-| `type` | string | 是 | 类型：lark_webhook、email、http、script |
+| `type` | string | 是 | 类型：lark_webhook、email、http、script、dingtalk_webhook、wecom_webhook、slack_webhook、discord_webhook、telegram_bot、feishu_webhook、feishu_card、feishu_app、wecom_app、flashduty、pagerduty、tencent_sms、aliyun_sms |
 | `description` | string | 否 | 描述 |
 | `is_enabled` | bool | 否 | 是否启用 |
 | `config` | string (JSON) | 是 | 类型专属配置 |

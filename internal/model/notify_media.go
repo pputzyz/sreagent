@@ -8,6 +8,29 @@ const (
 	MediaTypeEmail       NotifyMediaType = "email"
 	MediaTypeHTTP        NotifyMediaType = "http"
 	MediaTypeScript      NotifyMediaType = "script"
+
+	// --- IM Webhook ---
+	MediaTypeDingTalkWebhook NotifyMediaType = "dingtalk_webhook"
+	MediaTypeWeComWebhook    NotifyMediaType = "wecom_webhook"
+	MediaTypeSlackWebhook    NotifyMediaType = "slack_webhook"
+	MediaTypeDiscordWebhook  NotifyMediaType = "discord_webhook"
+	MediaTypeTelegramBot     NotifyMediaType = "telegram_bot"
+
+	// --- Feishu variants ---
+	MediaTypeFeishuWebhook NotifyMediaType = "feishu_webhook"
+	MediaTypeFeishuCard    NotifyMediaType = "feishu_card"
+
+	// --- Enterprise App ---
+	MediaTypeFeishuApp NotifyMediaType = "feishu_app"
+	MediaTypeWeComApp  NotifyMediaType = "wecom_app"
+
+	// --- Incident Management ---
+	MediaTypeFlashDuty NotifyMediaType = "flashduty"
+	MediaTypePagerDuty NotifyMediaType = "pagerduty"
+
+	// --- SMS ---
+	MediaTypeTencentSMS NotifyMediaType = "tencent_sms"
+	MediaTypeAliyunSMS  NotifyMediaType = "aliyun_sms"
 )
 
 // NotifyMedia represents a configurable notification backend (e.g., Lark webhook,

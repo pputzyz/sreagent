@@ -295,7 +295,11 @@ export interface NotifyRule {
 export interface NotifyMedia {
   id: number
   name: string
-  type: 'lark_webhook' | 'email' | 'http' | 'script'
+  type:
+    | 'lark_webhook' | 'email' | 'http' | 'script'
+    | 'dingtalk_webhook' | 'wecom_webhook' | 'slack_webhook' | 'discord_webhook'
+    | 'telegram_bot' | 'feishu_webhook' | 'feishu_card' | 'feishu_app'
+    | 'wecom_app' | 'flashduty' | 'pagerduty' | 'tencent_sms' | 'aliyun_sms'
   description: string
   is_enabled: boolean
   config: string

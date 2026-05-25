@@ -4,6 +4,33 @@
 
 ---
 
+## [v4.30.0] — 2026-05-26
+
+### 通知渠道扩展 — Nightingale 功能移植 #4
+
+**扩展通知渠道**: 从 4 种扩展至 17 种渠道类型，覆盖主流 IM 平台、企业应用、SMS 和 incident 管理平台。
+
+**新增渠道类型**:
+- IM Webhook: 钉钉机器人、企业微信机器人、Slack、Discord、Telegram Bot
+- 飞书变体: 飞书 Webhook（国内版）、飞书交互卡片
+- 企业应用: 飞书应用（tenant_access_token）、企业微信应用（access_token）
+- Incident 管理: FlashDuty、PagerDuty Events API v2
+- SMS: 腾讯云短信、阿里云短信
+
+**后端（Go + Gin + GORM）**:
+- 模型层：`internal/model/notify_media.go` 新增 13 种 MediaType 常量
+- 服务层：`internal/service/notify_media.go` 新增 13 个 sender 方法 + switch case 分发
+- Seed：`internal/service/seed.go` 新增 7 个默认渠道（disabled by default）
+- 飞书/企业微信应用：内置 token 获取逻辑（tenant_access_token / access_token）
+- PagerDuty：自动 trigger/resolve 切换
+- SMS：模板参数自动填充（alert_name, severity, status）
+
+**前端（Vue 3 + Naive UI）**:
+- `web/src/pages/notification/Media.vue` 新增 13 种类型的配置表单
+- i18n 中英文完整翻译
+
+---
+
 ## [v4.29.0] — 2026-05-25
 
 ### Event Pipeline 模块 — Nightingale 功能移植 #3

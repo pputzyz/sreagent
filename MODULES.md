@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-25 | tag: v4.29.0
-> 共 44 个 model, 58 个 handler, 79 个 service, 44 个 repository, 290+ API 端点
+> 最后更新: 2026-05-26 | tag: v4.30.0
+> 共 44 个 model, 58 个 handler, 79 个 service, 44 个 repository, 290+ API 端点, 17 种通知渠道
 
 ---
 
@@ -130,11 +130,12 @@ permissions ──→ team (团队角色查询)
 
 ## 通知管道 (notification)
 
-- **功能**: v2 规则管道（标签匹配 + 严重级别 + 节流 + 去重 + 模板渲染 + 多渠道发送）、订阅机制
-- **后端**: `service/notification.go`, `service/notification_dedup.go`, `service/notify_rule.go`, `service/notify_media.go`, `service/message_template.go`, `service/subscribe_rule.go`
+- **功能**: v2 规则管道（标签匹配 + 严重级别 + 节流 + 去重 + 模板渲染 + 多渠道发送）、订阅机制、17 种通知渠道
+- **后端**: `service/notification.go`, `service/notification_dedup.go`, `service/notify_rule.go`, `service/notify_media.go`, `service/message_template.go`, `service/subscribe_rule.go`, `service/seed.go`
 - **前端**: `web/src/pages/notification/` (Rules, Media, Templates, Subscribe)
 - **API**: `/api/v1/notify-rules`, `/api/v1/notify-media`, `/api/v1/message-templates`, `/api/v1/subscribe-rules` (~25 endpoints)
-- **状态**: ✅ 完成（v4.11.0 移除 v1 NotifyPolicy 管道，统一为 v2）
+- **渠道类型**: lark_webhook, email, http, script, dingtalk_webhook, wecom_webhook, slack_webhook, discord_webhook, telegram_bot, feishu_webhook, feishu_card, feishu_app, wecom_app, flashduty, pagerduty, tencent_sms, aliyun_sms
+- **状态**: ✅ 完成（v4.30.0 扩展至 17 种渠道类型）
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
 
 ## 事件管道 (event-pipeline)

@@ -16,6 +16,17 @@ import {
   TerminalOutline,
   FlashOutline,
 } from '@vicons/ionicons5'
+import {
+  MessageCircle,
+  Hash,
+  Send,
+  CreditCard,
+  Smartphone,
+  Zap,
+  BellRing,
+  MessageSquareText,
+  AppWindow,
+} from 'lucide-vue-next'
 import KVEditor from '@/components/common/KVEditor.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -23,7 +34,11 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 const message = useMessage()
 const { t } = useI18n()
 
-type MediaType = 'lark_webhook' | 'email' | 'http' | 'script'
+type MediaType =
+  | 'lark_webhook' | 'email' | 'http' | 'script'
+  | 'dingtalk_webhook' | 'wecom_webhook' | 'slack_webhook' | 'discord_webhook'
+  | 'telegram_bot' | 'feishu_webhook' | 'feishu_card' | 'feishu_app'
+  | 'wecom_app' | 'flashduty' | 'pagerduty' | 'tencent_sms' | 'aliyun_sms'
 
 interface MediaForm {
   name: string
@@ -44,6 +59,33 @@ interface MediaForm {
   body: string
   path: string
   args: string
+  // telegram_bot
+  bot_token: string
+  chat_id: string
+  // feishu_app / wecom_app
+  app_id: string
+  app_secret: string
+  receive_id: string
+  receive_id_type: string
+  corp_id: string
+  corp_secret: string
+  agent_id: string
+  to_user: string
+  // flashduty
+  integration_url: string
+  // pagerduty
+  routing_key: string
+  // tencent_sms
+  secret_id: string
+  secret_key: string
+  sdk_app_id: string
+  template_id: string
+  sign_name: string
+  phone_numbers: string
+  // aliyun_sms
+  access_key_id: string
+  access_key_secret: string
+  template_code: string
 }
 
 function parseConfig(configStr: string): Record<string, unknown> {
@@ -53,6 +95,12 @@ function parseConfig(configStr: string): Record<string, unknown> {
 function buildConfigString(f: Record<string, unknown>): string {
   switch (f.type) {
     case 'lark_webhook':
+    case 'dingtalk_webhook':
+    case 'wecom_webhook':
+    case 'slack_webhook':
+    case 'discord_webhook':
+    case 'feishu_webhook':
+    case 'feishu_card':
       return JSON.stringify({ webhook_url: f.webhook_url }, null, 2)
     case 'email':
       return JSON.stringify({
@@ -66,6 +114,34 @@ function buildConfigString(f: Record<string, unknown>): string {
     }
     case 'script':
       return JSON.stringify({ path: f.path, args: f.args }, null, 2)
+    case 'telegram_bot':
+      return JSON.stringify({ bot_token: f.bot_token, chat_id: f.chat_id }, null, 2)
+    case 'feishu_app':
+      return JSON.stringify({
+        app_id: f.app_id, app_secret: f.app_secret,
+        receive_id: f.receive_id, receive_id_type: f.receive_id_type,
+      }, null, 2)
+    case 'wecom_app':
+      return JSON.stringify({
+        corp_id: f.corp_id, corp_secret: f.corp_secret,
+        agent_id: f.agent_id, to_user: f.to_user,
+      }, null, 2)
+    case 'flashduty':
+      return JSON.stringify({ integration_url: f.integration_url }, null, 2)
+    case 'pagerduty':
+      return JSON.stringify({ routing_key: f.routing_key }, null, 2)
+    case 'tencent_sms':
+      return JSON.stringify({
+        secret_id: f.secret_id, secret_key: f.secret_key,
+        sdk_app_id: f.sdk_app_id, template_id: f.template_id,
+        sign_name: f.sign_name, phone_numbers: f.phone_numbers,
+      }, null, 2)
+    case 'aliyun_sms':
+      return JSON.stringify({
+        access_key_id: f.access_key_id, access_key_secret: f.access_key_secret,
+        sign_name: f.sign_name, template_code: f.template_code,
+        phone_numbers: f.phone_numbers,
+      }, null, 2)
     default:
       return '{}'
   }
@@ -80,6 +156,13 @@ const crud = useCrudPage<NotifyMedia>({
     username: '', password: '', from: '',
     method: 'POST', url: '', headers: [] as { key: string; value: string }[],
     body: '', path: '', args: '',
+    bot_token: '', chat_id: '',
+    app_id: '', app_secret: '', receive_id: '', receive_id_type: '',
+    corp_id: '', corp_secret: '', agent_id: '', to_user: '',
+    integration_url: '', routing_key: '',
+    secret_id: '', secret_key: '', sdk_app_id: '', template_id: '',
+    sign_name: '', phone_numbers: '',
+    access_key_id: '', access_key_secret: '', template_code: '',
   } as unknown as Partial<NotifyMedia>),
   i18nKeys: {
     created: 'media.created',
@@ -100,6 +183,17 @@ const crud = useCrudPage<NotifyMedia>({
       method: (cfg.method as string) || 'POST', url: (cfg.url as string) || '',
       headers: Object.entries((cfg.headers as Record<string, string>) || {}).map(([key, value]) => ({ key, value: String(value) })),
       body: (cfg.body as string) || '', path: (cfg.path as string) || '', args: (cfg.args as string) || '',
+      bot_token: (cfg.bot_token as string) || '', chat_id: (cfg.chat_id as string) || '',
+      app_id: (cfg.app_id as string) || '', app_secret: (cfg.app_secret as string) || '',
+      receive_id: (cfg.receive_id as string) || '', receive_id_type: (cfg.receive_id_type as string) || '',
+      corp_id: (cfg.corp_id as string) || '', corp_secret: (cfg.corp_secret as string) || '',
+      agent_id: (cfg.agent_id as string) || '', to_user: (cfg.to_user as string) || '',
+      integration_url: (cfg.integration_url as string) || '', routing_key: (cfg.routing_key as string) || '',
+      secret_id: (cfg.secret_id as string) || '', secret_key: (cfg.secret_key as string) || '',
+      sdk_app_id: (cfg.sdk_app_id as string) || '', template_id: (cfg.template_id as string) || '',
+      sign_name: (cfg.sign_name as string) || '', phone_numbers: (cfg.phone_numbers as string) || '',
+      access_key_id: (cfg.access_key_id as string) || '', access_key_secret: (cfg.access_key_secret as string) || '',
+      template_code: (cfg.template_code as string) || '',
     } as unknown as Partial<NotifyMedia>
   },
   formToPayload: (form) => {
@@ -141,6 +235,19 @@ const typeOptions = computed(() => [
   { label: t('media.email'), value: 'email' },
   { label: t('media.http'), value: 'http' },
   { label: t('media.script'), value: 'script' },
+  { label: t('media.channelType.dingtalk_webhook'), value: 'dingtalk_webhook' },
+  { label: t('media.channelType.wecom_webhook'), value: 'wecom_webhook' },
+  { label: t('media.channelType.slack_webhook'), value: 'slack_webhook' },
+  { label: t('media.channelType.discord_webhook'), value: 'discord_webhook' },
+  { label: t('media.channelType.telegram_bot'), value: 'telegram_bot' },
+  { label: t('media.channelType.feishu_webhook'), value: 'feishu_webhook' },
+  { label: t('media.channelType.feishu_card'), value: 'feishu_card' },
+  { label: t('media.channelType.feishu_app'), value: 'feishu_app' },
+  { label: t('media.channelType.wecom_app'), value: 'wecom_app' },
+  { label: t('media.channelType.flashduty'), value: 'flashduty' },
+  { label: t('media.channelType.pagerduty'), value: 'pagerduty' },
+  { label: t('media.channelType.tencent_sms'), value: 'tencent_sms' },
+  { label: t('media.channelType.aliyun_sms'), value: 'aliyun_sms' },
 ])
 
 const filterTypeOptions = computed(() => [
@@ -155,12 +262,33 @@ const methodOptions = [
   { label: 'PATCH', value: 'PATCH' },
 ]
 
+const receiveIdTypeOptions = [
+  { label: 'open_id', value: 'open_id' },
+  { label: 'user_id', value: 'user_id' },
+  { label: 'union_id', value: 'union_id' },
+  { label: 'email', value: 'email' },
+  { label: 'chat_id', value: 'chat_id' },
+]
+
 function getTypeLabel(type: string) {
   const map: Record<string, string> = {
     lark_webhook: t('media.typeLark'),
     email: t('media.typeEmail'),
     http: t('media.typeHttp'),
     script: t('media.typeScript'),
+    dingtalk_webhook: t('media.channelType.dingtalk_webhook'),
+    wecom_webhook: t('media.channelType.wecom_webhook'),
+    slack_webhook: t('media.channelType.slack_webhook'),
+    discord_webhook: t('media.channelType.discord_webhook'),
+    telegram_bot: t('media.channelType.telegram_bot'),
+    feishu_webhook: t('media.channelType.feishu_webhook'),
+    feishu_card: t('media.channelType.feishu_card'),
+    feishu_app: t('media.channelType.feishu_app'),
+    wecom_app: t('media.channelType.wecom_app'),
+    flashduty: t('media.channelType.flashduty'),
+    pagerduty: t('media.channelType.pagerduty'),
+    tencent_sms: t('media.channelType.tencent_sms'),
+    aliyun_sms: t('media.channelType.aliyun_sms'),
   }
   return map[type] || type
 }
@@ -171,6 +299,19 @@ function getTypeIcon(type: string) {
     email: MailOutline,
     http: GlobeOutline,
     script: TerminalOutline,
+    dingtalk_webhook: MessageCircle,
+    wecom_webhook: MessageCircle,
+    slack_webhook: Hash,
+    discord_webhook: MessageCircle,
+    telegram_bot: Send,
+    feishu_webhook: MessageCircle,
+    feishu_card: CreditCard,
+    feishu_app: AppWindow,
+    wecom_app: Smartphone,
+    flashduty: Zap,
+    pagerduty: BellRing,
+    tencent_sms: MessageSquareText,
+    aliyun_sms: MessageSquareText,
   }
   return map[type] || FlashOutline
 }
@@ -180,6 +321,12 @@ function getTargetSummary(row: NotifyMedia): string {
     const cfg = JSON.parse(row.config || '{}')
     switch (row.type) {
       case 'lark_webhook':
+      case 'dingtalk_webhook':
+      case 'wecom_webhook':
+      case 'slack_webhook':
+      case 'discord_webhook':
+      case 'feishu_webhook':
+      case 'feishu_card':
         return cfg.webhook_url ? cfg.webhook_url.replace(/^https?:\/\//, '') : '—'
       case 'email':
         return cfg.from ? `${cfg.from} via ${cfg.smtp_host}:${cfg.smtp_port}` : (cfg.smtp_host || '—')
@@ -187,6 +334,20 @@ function getTargetSummary(row: NotifyMedia): string {
         return `${cfg.method || 'POST'} ${cfg.url || ''}`.trim()
       case 'script':
         return cfg.path || '—'
+      case 'telegram_bot':
+        return cfg.chat_id ? `chat: ${cfg.chat_id}` : '—'
+      case 'feishu_app':
+        return cfg.app_id ? `${cfg.app_id} -> ${cfg.receive_id || '?'}` : '—'
+      case 'wecom_app':
+        return cfg.corp_id ? `${cfg.corp_id}/${cfg.agent_id || '?'}` : '—'
+      case 'flashduty':
+        return cfg.integration_url ? cfg.integration_url.replace(/^https?:\/\//, '') : '—'
+      case 'pagerduty':
+        return cfg.routing_key || '—'
+      case 'tencent_sms':
+        return cfg.phone_numbers || '—'
+      case 'aliyun_sms':
+        return cfg.phone_numbers || '—'
       default:
         return '—'
     }
@@ -391,6 +552,164 @@ onMounted(fetchList)
           </n-form-item>
         </template>
 
+        <!-- dingtalk_webhook / wecom_webhook / slack_webhook / discord_webhook / feishu_webhook / feishu_card -->
+        <template v-if="['dingtalk_webhook','wecom_webhook','slack_webhook','discord_webhook','feishu_webhook','feishu_card'].includes(form.type)">
+          <n-form-item :label="t('media.webhookUrl')" required>
+            <n-input v-model:value="form.webhook_url" :placeholder="t('mediaMgmt.webhookUrlPlaceholder')" />
+          </n-form-item>
+        </template>
+
+        <!-- telegram_bot -->
+        <template v-if="form.type === 'telegram_bot'">
+          <n-form-item :label="t('media.field.botToken')" required>
+            <n-input v-model:value="form.bot_token" type="password" show-password-on="click" :placeholder="t('mediaMgmt.botTokenPlaceholder')" />
+          </n-form-item>
+          <n-form-item :label="t('media.field.chatId')" required>
+            <n-input v-model:value="form.chat_id" :placeholder="t('mediaMgmt.chatIdPlaceholder')" />
+          </n-form-item>
+        </template>
+
+        <!-- feishu_app -->
+        <template v-if="form.type === 'feishu_app'">
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.appId')" required>
+                <n-input v-model:value="form.app_id" :placeholder="t('mediaMgmt.appIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.appSecret')" required>
+                <n-input v-model:value="form.app_secret" type="password" show-password-on="click" :placeholder="t('mediaMgmt.appSecretPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.receiveId')" required>
+                <n-input v-model:value="form.receive_id" :placeholder="t('mediaMgmt.receiveIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.receiveIdType')">
+                <n-select v-model:value="form.receive_id_type" :options="receiveIdTypeOptions" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+        </template>
+
+        <!-- wecom_app -->
+        <template v-if="form.type === 'wecom_app'">
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.corpId')" required>
+                <n-input v-model:value="form.corp_id" :placeholder="t('mediaMgmt.corpIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.corpSecret')" required>
+                <n-input v-model:value="form.corp_secret" type="password" show-password-on="click" :placeholder="t('mediaMgmt.corpSecretPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.agentId')" required>
+                <n-input v-model:value="form.agent_id" :placeholder="t('mediaMgmt.agentIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.toUser')">
+                <n-input v-model:value="form.to_user" :placeholder="t('mediaMgmt.toUserPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+        </template>
+
+        <!-- flashduty -->
+        <template v-if="form.type === 'flashduty'">
+          <n-form-item :label="t('media.field.integrationUrl')" required>
+            <n-input v-model:value="form.integration_url" :placeholder="t('mediaMgmt.integrationUrlPlaceholder')" />
+          </n-form-item>
+        </template>
+
+        <!-- pagerduty -->
+        <template v-if="form.type === 'pagerduty'">
+          <n-form-item :label="t('media.field.routingKey')" required>
+            <n-input v-model:value="form.routing_key" :placeholder="t('mediaMgmt.routingKeyPlaceholder')" />
+          </n-form-item>
+        </template>
+
+        <!-- tencent_sms -->
+        <template v-if="form.type === 'tencent_sms'">
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.secretId')" required>
+                <n-input v-model:value="form.secret_id" :placeholder="t('mediaMgmt.secretIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.secretKey')" required>
+                <n-input v-model:value="form.secret_key" type="password" show-password-on="click" :placeholder="t('mediaMgmt.secretKeyPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.sdkAppId')">
+                <n-input v-model:value="form.sdk_app_id" :placeholder="t('mediaMgmt.sdkAppIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.templateId')">
+                <n-input v-model:value="form.template_id" :placeholder="t('mediaMgmt.templateIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.signName')">
+                <n-input v-model:value="form.sign_name" :placeholder="t('mediaMgmt.signNamePlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.phoneNumbers')" required>
+                <n-input v-model:value="form.phone_numbers" :placeholder="t('mediaMgmt.phoneNumbersPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+        </template>
+
+        <!-- aliyun_sms -->
+        <template v-if="form.type === 'aliyun_sms'">
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.accessKeyId')" required>
+                <n-input v-model:value="form.access_key_id" :placeholder="t('mediaMgmt.accessKeyIdPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.accessKeySecret')" required>
+                <n-input v-model:value="form.access_key_secret" type="password" show-password-on="click" :placeholder="t('mediaMgmt.accessKeySecretPlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <n-grid :x-gap="12" :cols="2">
+            <n-gi>
+              <n-form-item :label="t('media.field.signName')">
+                <n-input v-model:value="form.sign_name" :placeholder="t('mediaMgmt.signNamePlaceholder')" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item :label="t('media.field.templateCode')">
+                <n-input v-model:value="form.template_code" :placeholder="t('mediaMgmt.templateCodePlaceholder')" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <n-form-item :label="t('media.field.phoneNumbers')" required>
+            <n-input v-model:value="form.phone_numbers" :placeholder="t('mediaMgmt.phoneNumbersPlaceholder')" />
+          </n-form-item>
+        </template>
+
         <n-divider style="margin: 12px 0" />
 
         <n-form-item :label="t('media.variables')">
@@ -441,10 +760,23 @@ onMounted(fetchList)
   width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
   border-radius: 6px; background: var(--sre-bg-elevated);
 }
-.type-icon[data-type="lark_webhook"] { color: var(--sre-info); background: var(--sre-info-soft); }
-.type-icon[data-type="email"]        { color: var(--sre-text-secondary); background: var(--sre-bg-elevated); }
-.type-icon[data-type="http"]         { color: var(--sre-success); background: var(--sre-success-soft); }
-.type-icon[data-type="script"]       { color: var(--sre-warning); background: var(--sre-warning-soft); }
+.type-icon[data-type="lark_webhook"]     { color: var(--sre-info); background: var(--sre-info-soft); }
+.type-icon[data-type="email"]            { color: var(--sre-text-secondary); background: var(--sre-bg-elevated); }
+.type-icon[data-type="http"]             { color: var(--sre-success); background: var(--sre-success-soft); }
+.type-icon[data-type="script"]           { color: var(--sre-warning); background: var(--sre-warning-soft); }
+.type-icon[data-type="dingtalk_webhook"] { color: #0089ff; background: rgba(0,137,255,0.1); }
+.type-icon[data-type="wecom_webhook"]    { color: #07c160; background: rgba(7,193,96,0.1); }
+.type-icon[data-type="slack_webhook"]    { color: #4a154b; background: rgba(74,21,75,0.1); }
+.type-icon[data-type="discord_webhook"]  { color: #5865f2; background: rgba(88,101,242,0.1); }
+.type-icon[data-type="telegram_bot"]     { color: #0088cc; background: rgba(0,136,204,0.1); }
+.type-icon[data-type="feishu_webhook"]   { color: var(--sre-info); background: var(--sre-info-soft); }
+.type-icon[data-type="feishu_card"]      { color: var(--sre-info); background: var(--sre-info-soft); }
+.type-icon[data-type="feishu_app"]       { color: var(--sre-info); background: var(--sre-info-soft); }
+.type-icon[data-type="wecom_app"]        { color: #07c160; background: rgba(7,193,96,0.1); }
+.type-icon[data-type="flashduty"]        { color: var(--sre-warning); background: var(--sre-warning-soft); }
+.type-icon[data-type="pagerduty"]        { color: #06ac38; background: rgba(6,172,56,0.1); }
+.type-icon[data-type="tencent_sms"]      { color: #006eff; background: rgba(0,110,255,0.1); }
+.type-icon[data-type="aliyun_sms"]       { color: #ff6a00; background: rgba(255,106,0,0.1); }
 
 .row-name { font: 600 14px/1.3 var(--sre-font-sans), sans-serif; letter-spacing: -0.005em; }
 
@@ -453,10 +785,23 @@ onMounted(fetchList)
   padding: 3px 6px; border-radius: 4px; letter-spacing: .04em;
   background: var(--sre-bg-elevated); color: var(--sre-text-secondary);
 }
-.type-chip[data-type="lark_webhook"] { background: var(--sre-info-soft); color: var(--sre-info); }
-.type-chip[data-type="email"]        { background: var(--sre-bg-elevated); color: var(--sre-text-secondary); }
-.type-chip[data-type="http"]         { background: var(--sre-success-soft); color: var(--sre-success); }
-.type-chip[data-type="script"]       { background: var(--sre-warning-soft); color: var(--sre-warning); }
+.type-chip[data-type="lark_webhook"]     { background: var(--sre-info-soft); color: var(--sre-info); }
+.type-chip[data-type="email"]            { background: var(--sre-bg-elevated); color: var(--sre-text-secondary); }
+.type-chip[data-type="http"]             { background: var(--sre-success-soft); color: var(--sre-success); }
+.type-chip[data-type="script"]           { background: var(--sre-warning-soft); color: var(--sre-warning); }
+.type-chip[data-type="dingtalk_webhook"] { background: rgba(0,137,255,0.1); color: #0089ff; }
+.type-chip[data-type="wecom_webhook"]    { background: rgba(7,193,96,0.1); color: #07c160; }
+.type-chip[data-type="slack_webhook"]    { background: rgba(74,21,75,0.1); color: #4a154b; }
+.type-chip[data-type="discord_webhook"]  { background: rgba(88,101,242,0.1); color: #5865f2; }
+.type-chip[data-type="telegram_bot"]     { background: rgba(0,136,204,0.1); color: #0088cc; }
+.type-chip[data-type="feishu_webhook"]   { background: var(--sre-info-soft); color: var(--sre-info); }
+.type-chip[data-type="feishu_card"]      { background: var(--sre-info-soft); color: var(--sre-info); }
+.type-chip[data-type="feishu_app"]       { background: var(--sre-info-soft); color: var(--sre-info); }
+.type-chip[data-type="wecom_app"]        { background: rgba(7,193,96,0.1); color: #07c160; }
+.type-chip[data-type="flashduty"]        { background: var(--sre-warning-soft); color: var(--sre-warning); }
+.type-chip[data-type="pagerduty"]        { background: rgba(6,172,56,0.1); color: #06ac38; }
+.type-chip[data-type="tencent_sms"]      { background: rgba(0,110,255,0.1); color: #006eff; }
+.type-chip[data-type="aliyun_sms"]       { background: rgba(255,106,0,0.1); color: #ff6a00; }
 
 .builtin-chip {
   font: 500 10px/1 var(--sre-font-mono), monospace; padding: 3px 6px; border-radius: 4px;

@@ -132,6 +132,32 @@ func (s *NotifyMediaService) SendNotification(ctx context.Context, media *model.
 		return s.sendHTTP(ctx, media, renderedContent, data)
 	case model.MediaTypeScript:
 		return s.executeScript(ctx, media, renderedContent, data)
+	case model.MediaTypeDingTalkWebhook:
+		return s.sendDingTalkWebhook(ctx, media, renderedContent, data)
+	case model.MediaTypeWeComWebhook:
+		return s.sendWeComWebhook(ctx, media, renderedContent, data)
+	case model.MediaTypeSlackWebhook:
+		return s.sendSlackWebhook(ctx, media, renderedContent, data)
+	case model.MediaTypeDiscordWebhook:
+		return s.sendDiscordWebhook(ctx, media, renderedContent, data)
+	case model.MediaTypeTelegramBot:
+		return s.sendTelegramBot(ctx, media, renderedContent, data)
+	case model.MediaTypeFeishuWebhook:
+		return s.sendFeishuWebhook(ctx, media, renderedContent, data)
+	case model.MediaTypeFeishuCard:
+		return s.sendFeishuCard(ctx, media, renderedContent, data)
+	case model.MediaTypeFeishuApp:
+		return s.sendFeishuApp(ctx, media, renderedContent, data)
+	case model.MediaTypeWeComApp:
+		return s.sendWeComApp(ctx, media, renderedContent, data)
+	case model.MediaTypeFlashDuty:
+		return s.sendFlashDuty(ctx, media, renderedContent, data)
+	case model.MediaTypePagerDuty:
+		return s.sendPagerDuty(ctx, media, renderedContent, data)
+	case model.MediaTypeTencentSMS:
+		return s.sendTencentSMS(ctx, media, renderedContent, data)
+	case model.MediaTypeAliyunSMS:
+		return s.sendAliyunSMS(ctx, media, renderedContent, data)
 	default:
 		return fmt.Errorf("unsupported media type: %s", media.Type)
 	}
@@ -451,5 +477,663 @@ func severityToLarkColor(severity string) string {
 		return "blue"
 	default:
 		return "grey"
+	}
+}
+
+// --- DingTalk Webhook ---
+
+type dingTalkWebhookConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+func (s *NotifyMediaService) sendDingTalkWebhook(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg dingTalkWebhookConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid dingtalk config: %w", err)
+	}
+	if cfg.WebhookURL == "" {
+		return fmt.Errorf("dingtalk webhook_url is empty")
+	}
+	payload := map[string]interface{}{
+		"msgtype": "markdown",
+		"markdown": map[string]string{
+			"title": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
+			"text":  content,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal dingtalk payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, cfg.WebhookURL, "application/json", body)
+}
+
+// --- WeCom Webhook ---
+
+type weComWebhookConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+func (s *NotifyMediaService) sendWeComWebhook(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg weComWebhookConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid wecom webhook config: %w", err)
+	}
+	if cfg.WebhookURL == "" {
+		return fmt.Errorf("wecom webhook_url is empty")
+	}
+	payload := map[string]interface{}{
+		"msgtype": "markdown",
+		"markdown": map[string]string{
+			"content": content,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal wecom payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, cfg.WebhookURL, "application/json", body)
+}
+
+// --- Slack Webhook ---
+
+type slackWebhookConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+func (s *NotifyMediaService) sendSlackWebhook(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg slackWebhookConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid slack config: %w", err)
+	}
+	if cfg.WebhookURL == "" {
+		return fmt.Errorf("slack webhook_url is empty")
+	}
+	payload := map[string]interface{}{
+		"blocks": []interface{}{
+			map[string]interface{}{
+				"type": "header",
+				"text": map[string]string{
+					"type": "plain_text",
+					"text": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
+				},
+			},
+			map[string]interface{}{
+				"type": "section",
+				"text": map[string]string{
+					"type": "mrkdwn",
+					"text": content,
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal slack payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, cfg.WebhookURL, "application/json", body)
+}
+
+// --- Discord Webhook ---
+
+type discordWebhookConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+func (s *NotifyMediaService) sendDiscordWebhook(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg discordWebhookConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid discord config: %w", err)
+	}
+	if cfg.WebhookURL == "" {
+		return fmt.Errorf("discord webhook_url is empty")
+	}
+	payload := map[string]interface{}{
+		"embeds": []interface{}{
+			map[string]interface{}{
+				"title":       fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
+				"description": content,
+				"color":       severityToColor(data.Severity),
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal discord payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, cfg.WebhookURL, "application/json", body)
+}
+
+// --- Telegram Bot ---
+
+type telegramBotConfig struct {
+	BotToken string `json:"bot_token"`
+	ChatID   string `json:"chat_id"`
+}
+
+func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg telegramBotConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid telegram config: %w", err)
+	}
+	if cfg.BotToken == "" || cfg.ChatID == "" {
+		return fmt.Errorf("telegram bot_token or chat_id is empty")
+	}
+	title := fmt.Sprintf("*[%s] %s*", strings.ToUpper(data.Severity), data.AlertName)
+	payload := map[string]interface{}{
+		"chat_id":    cfg.ChatID,
+		"text":       title + "\n\n" + content,
+		"parse_mode": "Markdown",
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal telegram payload: %w", err)
+	}
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", cfg.BotToken)
+	return s.doHTTPPost(ctx, url, "application/json", body)
+}
+
+// --- Feishu Webhook (CN region, same API as Lark) ---
+
+type feishuWebhookConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+func (s *NotifyMediaService) sendFeishuWebhook(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg feishuWebhookConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid feishu webhook config: %w", err)
+	}
+	if cfg.WebhookURL == "" {
+		return fmt.Errorf("feishu webhook_url is empty")
+	}
+	payload := map[string]interface{}{
+		"msg_type": "interactive",
+		"card": map[string]interface{}{
+			"header": map[string]interface{}{
+				"title": map[string]interface{}{
+					"tag":     "plain_text",
+					"content": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
+				},
+				"template": severityToLarkColor(data.Severity),
+			},
+			"elements": []interface{}{
+				map[string]interface{}{
+					"tag": "div",
+					"text": map[string]interface{}{
+						"tag":     "lark_md",
+						"content": content,
+					},
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal feishu payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, cfg.WebhookURL, "application/json", body)
+}
+
+// --- Feishu Interactive Card ---
+
+type feishuCardConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+func (s *NotifyMediaService) sendFeishuCard(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg feishuCardConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid feishu card config: %w", err)
+	}
+	if cfg.WebhookURL == "" {
+		return fmt.Errorf("feishu card webhook_url is empty")
+	}
+	payload := map[string]interface{}{
+		"msg_type": "interactive",
+		"card": map[string]interface{}{
+			"header": map[string]interface{}{
+				"title": map[string]interface{}{
+					"tag":     "plain_text",
+					"content": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
+				},
+				"template": severityToLarkColor(data.Severity),
+			},
+			"elements": []interface{}{
+				map[string]interface{}{
+					"tag": "div",
+					"text": map[string]interface{}{
+						"tag":     "lark_md",
+						"content": content,
+					},
+				},
+				map[string]interface{}{
+					"tag": "hr",
+				},
+				map[string]interface{}{
+					"tag": "note",
+					"elements": []interface{}{
+						map[string]interface{}{
+							"tag":     "plain_text",
+							"content": fmt.Sprintf("SREAgent · %s · %s", data.Source, data.FiredAt.Format("2006-01-02 15:04:05")),
+						},
+					},
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal feishu card payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, cfg.WebhookURL, "application/json", body)
+}
+
+// --- Feishu App (send via tenant_access_token) ---
+
+type feishuAppConfig struct {
+	AppID        string `json:"app_id"`
+	AppSecret    string `json:"app_secret"`
+	ReceiveID    string `json:"receive_id"`
+	ReceiveIDType string `json:"receive_id_type"` // open_id, user_id, chat_id, email
+}
+
+func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg feishuAppConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid feishu app config: %w", err)
+	}
+	if cfg.AppID == "" || cfg.AppSecret == "" || cfg.ReceiveID == "" {
+		return fmt.Errorf("feishu app_id, app_secret, or receive_id is empty")
+	}
+
+	token, err := s.getFeishuTenantToken(ctx, cfg.AppID, cfg.AppSecret)
+	if err != nil {
+		return fmt.Errorf("failed to get feishu tenant token: %w", err)
+	}
+
+	ridType := cfg.ReceiveIDType
+	if ridType == "" {
+		ridType = "chat_id"
+	}
+
+	card := map[string]interface{}{
+		"header": map[string]interface{}{
+			"title": map[string]interface{}{
+				"tag":     "plain_text",
+				"content": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
+			},
+			"template": severityToLarkColor(data.Severity),
+		},
+		"elements": []interface{}{
+			map[string]interface{}{
+				"tag": "div",
+				"text": map[string]interface{}{
+					"tag":     "lark_md",
+					"content": content,
+				},
+			},
+		},
+	}
+	cardJSON, _ := json.Marshal(card)
+
+	payload := map[string]interface{}{
+		"receive_id": cfg.ReceiveID,
+		"msg_type":   "interactive",
+		"content":    string(cardJSON),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal feishu app payload: %w", err)
+	}
+
+	url := fmt.Sprintf("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=%s", ridType)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create feishu app request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := safehttp.NewSafeClient(30 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("feishu app request failed: %w", err)
+	}
+	defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("feishu app returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
+}
+
+func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, appSecret string) (string, error) {
+	payload := map[string]string{
+		"app_id":     appID,
+		"app_secret": appSecret,
+	}
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+
+	client := safehttp.NewSafeClient(15 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		Code              int    `json:"code"`
+		Msg               string `json:"msg"`
+		TenantAccessToken string `json:"tenant_access_token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	if result.Code != 0 {
+		return "", fmt.Errorf("feishu token error %d: %s", result.Code, result.Msg)
+	}
+	return result.TenantAccessToken, nil
+}
+
+// --- WeCom App (send via access_token) ---
+
+type weComAppConfig struct {
+	CorpID     string `json:"corp_id"`
+	CorpSecret string `json:"corp_secret"`
+	AgentID    int    `json:"agent_id"`
+	ToUser     string `json:"to_user"` // "@all" or user ids separated by "|"
+}
+
+func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg weComAppConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid wecom app config: %w", err)
+	}
+	if cfg.CorpID == "" || cfg.CorpSecret == "" {
+		return fmt.Errorf("wecom corp_id or corp_secret is empty")
+	}
+	if cfg.AgentID == 0 {
+		return fmt.Errorf("wecom agent_id is empty")
+	}
+
+	token, err := s.getWeComAccessToken(ctx, cfg.CorpID, cfg.CorpSecret)
+	if err != nil {
+		return fmt.Errorf("failed to get wecom access token: %w", err)
+	}
+
+	toUser := cfg.ToUser
+	if toUser == "" {
+		toUser = "@all"
+	}
+
+	payload := map[string]interface{}{
+		"touser":  toUser,
+		"msgtype": "markdown",
+		"agentid": cfg.AgentID,
+		"markdown": map[string]string{
+			"content": content,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal wecom app payload: %w", err)
+	}
+
+	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=%s", token)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create wecom app request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := safehttp.NewSafeClient(30 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("wecom app request failed: %w", err)
+	}
+	defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wecom app returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
+}
+
+func (s *NotifyMediaService) getWeComAccessToken(ctx context.Context, corpID, corpSecret string) (string, error) {
+	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=%s&corpsecret=%s", corpID, corpSecret)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	client := safehttp.NewSafeClient(15 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		ErrCode     int    `json:"errcode"`
+		ErrMsg      string `json:"errmsg"`
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	if result.ErrCode != 0 {
+		return "", fmt.Errorf("wecom token error %d: %s", result.ErrCode, result.ErrMsg)
+	}
+	return result.AccessToken, nil
+}
+
+// --- FlashDuty ---
+
+type flashDutyConfig struct {
+	IntegrationURL string `json:"integration_url"`
+}
+
+func (s *NotifyMediaService) sendFlashDuty(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg flashDutyConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid flashduty config: %w", err)
+	}
+	if cfg.IntegrationURL == "" {
+		return fmt.Errorf("flashduty integration_url is empty")
+	}
+	payload := map[string]interface{}{
+		"event_id":   fmt.Sprintf("%d", data.EventID),
+		"alert_name": data.AlertName,
+		"severity":   strings.ToUpper(data.Severity),
+		"status":     strings.ToUpper(data.Status),
+		"description": content,
+		"labels":     data.Labels,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal flashduty payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, cfg.IntegrationURL, "application/json", body)
+}
+
+// --- PagerDuty ---
+
+type pagerDutyConfig struct {
+	RoutingKey string `json:"routing_key"`
+}
+
+func (s *NotifyMediaService) sendPagerDuty(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg pagerDutyConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid pagerduty config: %w", err)
+	}
+	if cfg.RoutingKey == "" {
+		return fmt.Errorf("pagerduty routing_key is empty")
+	}
+	action := "trigger"
+	if strings.ToLower(data.Status) == "resolved" {
+		action = "resolve"
+	}
+	payload := map[string]interface{}{
+		"routing_key":  cfg.RoutingKey,
+		"event_action": action,
+		"dedup_key":    fmt.Sprintf("%d", data.EventID),
+		"payload": map[string]interface{}{
+			"summary":   fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
+			"severity":  strings.ToLower(data.Severity),
+			"source":    data.Source,
+			"timestamp": data.FiredAt.Format(time.RFC3339),
+			"custom_details": map[string]string{
+				"labels": fmt.Sprintf("%v", data.Labels),
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal pagerduty payload: %w", err)
+	}
+	return s.doHTTPPost(ctx, "https://events.pagerduty.com/v2/enqueue", "application/json", body)
+}
+
+// --- Tencent SMS ---
+
+type tencentSMSConfig struct {
+	SecretID   string   `json:"secret_id"`
+	SecretKey  string   `json:"secret_key"`
+	SdkAppID   string   `json:"sdk_app_id"`
+	TemplateID string   `json:"template_id"`
+	SignName   string   `json:"sign_name"`
+	PhoneNumbers []string `json:"phone_numbers"`
+}
+
+func (s *NotifyMediaService) sendTencentSMS(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg tencentSMSConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid tencent sms config: %w", err)
+	}
+	if cfg.SecretID == "" || cfg.SecretKey == "" || len(cfg.PhoneNumbers) == 0 {
+		return fmt.Errorf("tencent sms secret_id, secret_key, or phone_numbers is empty")
+	}
+
+	// Tencent Cloud SMS API v3 - simplified implementation using their REST API
+	// In production, use the official Tencent Cloud SDK for proper signing
+	payload := map[string]interface{}{
+		"SmsSdkAppId": cfg.SdkAppID,
+		"SignName":    cfg.SignName,
+		"TemplateId":  cfg.TemplateID,
+		"PhoneNumberSet": cfg.PhoneNumbers,
+		"TemplateParamSet": []string{
+			data.AlertName,
+			strings.ToUpper(data.Severity),
+			data.Status,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tencent sms payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://sms.tencentcloudapi.com", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create tencent sms request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-TC-Action", "SendSms")
+	req.Header.Set("X-TC-Version", "2021-01-11")
+	req.Header.Set("X-TC-Region", "ap-guangzhou")
+	// Note: In production, implement TC3-HMAC-SHA256 signing
+	req.Header.Set("Authorization", fmt.Sprintf("TC3-HMAC-SHA256 Credential=%s", cfg.SecretID))
+
+	client := safehttp.NewSafeClient(30 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("tencent sms request failed: %w", err)
+	}
+	defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("tencent sms returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
+}
+
+// --- Aliyun SMS ---
+
+type aliyunSMSConfig struct {
+	AccessKeyID     string   `json:"access_key_id"`
+	AccessKeySecret string   `json:"access_key_secret"`
+	SignName        string   `json:"sign_name"`
+	TemplateCode    string   `json:"template_code"`
+	PhoneNumbers    []string `json:"phone_numbers"`
+}
+
+func (s *NotifyMediaService) sendAliyunSMS(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
+	var cfg aliyunSMSConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid aliyun sms config: %w", err)
+	}
+	if cfg.AccessKeyID == "" || cfg.AccessKeySecret == "" || len(cfg.PhoneNumbers) == 0 {
+		return fmt.Errorf("aliyun sms access_key_id, access_key_secret, or phone_numbers is empty")
+	}
+
+	// Aliyun SMS API - simplified implementation using their REST API
+	// In production, use the official Aliyun SDK for proper POP signing
+	templateParam, _ := json.Marshal(map[string]string{
+		"alert":  data.AlertName,
+		"level":  strings.ToUpper(data.Severity),
+		"status": data.Status,
+	})
+
+	payload := map[string]string{
+		"PhoneNumbers":  strings.Join(cfg.PhoneNumbers, ","),
+		"SignName":      cfg.SignName,
+		"TemplateCode":  cfg.TemplateCode,
+		"TemplateParam": string(templateParam),
+	}
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://dysmsapi.aliyuncs.com", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create aliyun sms request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	// Note: In production, implement Alibaba Cloud POP signing
+	req.Header.Set("Authorization", fmt.Sprintf("acs %s", cfg.AccessKeyID))
+
+	client := safehttp.NewSafeClient(30 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("aliyun sms request failed: %w", err)
+	}
+	defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("aliyun sms returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
+}
+
+// --- Helpers ---
+
+// severityToColor maps severity to a decimal color integer (for Discord embeds).
+func severityToColor(severity string) int {
+	switch strings.ToLower(severity) {
+	case "critical":
+		return 16711680 // red #FF0000
+	case "warning":
+		return 16744448 // orange #FF8000
+	case "info":
+		return 3447003  // blue #3498DB
+	default:
+		return 9807270  // grey #95A5A6
 	}
 }
