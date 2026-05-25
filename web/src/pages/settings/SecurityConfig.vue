@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { NSpin, NForm, NFormItem, NSelect } from 'naive-ui'
+import { computed, ref, onMounted } from 'vue'
+import { NButton, NIcon, NSpin, NForm, NFormItem, NSelect } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import { SaveOutline } from '@vicons/ionicons5'
 import { securitySettingsApi } from '@/api'
-import { useConfigForm } from '@/composables'
+import { getErrorMessage } from '@/utils/format'
 
+const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, save, load } = useConfigForm({
-  load: () => securitySettingsApi.getConfig().then(r => r.data.data),
-  save: (f) => securitySettingsApi.updateConfig({ jwt_expire_seconds: f.jwt_expire_seconds }),
-})
+const loading = ref(false)
+const saving = ref(false)
+const form = { jwt_expire_seconds: 3600 }
 
 const expireOptions = computed(() => [
   { label: t('settings.jwtExpire1h'), value: 3600 },
@@ -19,6 +21,23 @@ const expireOptions = computed(() => [
   { label: t('settings.jwtExpire24h'), value: 86400 },
   { label: t('settings.jwtExpire7d'), value: 604800 },
 ])
+
+async function load() {
+  loading.value = true
+  try {
+    const res = await securitySettingsApi.getConfig()
+    const data = res.data.data
+    if (data) form.jwt_expire_seconds = data.jwt_expire_seconds
+  } catch { /* use default */ } finally { loading.value = false }
+}
+
+async function handleSave() {
+  saving.value = true
+  try {
+    await securitySettingsApi.updateConfig({ jwt_expire_seconds: form.jwt_expire_seconds })
+    message.success(t('common.savedSuccess'))
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { saving.value = false }
+}
 
 onMounted(() => load())
 </script>
@@ -46,6 +65,12 @@ onMounted(() => load())
             </NFormItem>
           </NForm>
         </div>
+        <div class="section-footer">
+          <NButton type="primary" size="small" :loading="saving" @click="handleSave">
+            <template #icon><NIcon :component="SaveOutline" /></template>
+            {{ t('common.save') }}
+          </NButton>
+        </div>
       </section>
     </div>
   </NSpin>
@@ -60,5 +85,10 @@ onMounted(() => load())
 }
 .security-form-row {
   margin-top: 8px;
+}
+.section-footer {
+  display: flex; justify-content: flex-end;
+  padding-top: 16px; margin-top: 16px;
+  border-top: var(--sre-hairline);
 }
 </style>

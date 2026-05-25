@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { NButton, NIcon, NSwitch, NSelect, NInput, NFormItem, NSpin } from 'naive-ui'
+import { computed, ref, onMounted } from 'vue'
+import { NButton, NIcon, NSwitch, NSelect, NInput, NFormItem, NSpin, NSpace } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { PulseOutline, SaveOutline } from '@vicons/ionicons5'
@@ -11,7 +11,7 @@ import { useConfigForm } from '@/composables'
 const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, saving, testing, isDirty, save, load, saveAndTest } = useConfigForm({
+const { form, loading, testing, load, saveAndTest } = useConfigForm({
   load: () => oidcSettingsApi.getConfig().then(r => r.data.data),
   save: (f) => oidcSettingsApi.updateConfig({ ...f }),
   test: async () => {
@@ -36,6 +36,11 @@ const { form, loading, saving, testing, isDirty, save, load, saveAndTest } = use
   },
 })
 
+// Per-section saving state
+const savingProvider = ref(false)
+const savingClaims = ref(false)
+const savingBehavior = ref(false)
+
 const defaultRoleOptions = computed(() => [
   { label: t('settings.admin'), value: 'admin' },
   { label: t('settings.teamLead'), value: 'team_lead' },
@@ -55,7 +60,37 @@ const roleMappingError = computed(() => {
     return (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) ? '' : t('settings.oidcInvalidJson')
   } catch { return t('settings.oidcInvalidJson') }
 })
-const canSave = computed(() => !issuerError.value && !roleMappingError.value)
+
+async function saveProvider() {
+  if (form.enabled) {
+    if (!form.issuer_url?.trim()) { message.warning(t('settings.oidcIssuerUrlRequired')); return }
+    if (issuerError.value) { message.warning(issuerError.value); return }
+    if (!form.client_id?.trim()) { message.warning(t('settings.oidcClientIdRequired')); return }
+    if (!form.client_secret?.trim()) { message.warning(t('settings.oidcClientSecretRequired')); return }
+  }
+  savingProvider.value = true
+  try {
+    await oidcSettingsApi.updateConfig({ ...form })
+    message.success(t('common.savedSuccess'))
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingProvider.value = false }
+}
+
+async function saveClaims() {
+  if (roleMappingError.value) { message.warning(roleMappingError.value); return }
+  savingClaims.value = true
+  try {
+    await oidcSettingsApi.updateConfig({ ...form })
+    message.success(t('common.savedSuccess'))
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingClaims.value = false }
+}
+
+async function saveBehavior() {
+  savingBehavior.value = true
+  try {
+    await oidcSettingsApi.updateConfig({ ...form })
+    message.success(t('common.savedSuccess'))
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingBehavior.value = false }
+}
 
 onMounted(() => load())
 </script>
@@ -68,33 +103,31 @@ onMounted(() => load())
           <h2 class="sre-config-header-title">{{ t('settings.oidcConfig') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.oidcSubtitle') }}</p>
         </div>
-        <div class="sre-config-header-actions">
-          <NButton size="small" quaternary :loading="testing" @click="saveAndTest">
-            <template #icon><NIcon :component="PulseOutline" /></template>
-            {{ t('common.test') }}
-          </NButton>
-          <NButton type="primary" size="small" :loading="saving" :disabled="!canSave" @click="save">
-            <template #icon><NIcon :component="SaveOutline" /></template>
-            {{ t('common.save') }}
-          </NButton>
-        </div>
       </header>
 
       <div class="config-sections sre-stagger">
         <section class="sre-config-section">
-          <h3 class="sre-config-section-title">{{ t('settings.oidcProviderSection') }}</h3>
-          <p class="sre-config-section-desc">{{ t('settings.oidcProviderDesc') }}</p>
+          <div class="section-header-row">
+            <div>
+              <h3 class="sre-config-section-title" style="margin: 0">{{ t('settings.oidcProviderSection') }}</h3>
+              <p class="sre-config-section-desc" style="margin-top: 4px">{{ t('settings.oidcProviderDesc') }}</p>
+            </div>
+            <NButton size="small" quaternary :loading="testing" @click="saveAndTest">
+              <template #icon><NIcon :component="PulseOutline" /></template>
+              {{ t('common.test') }}
+            </NButton>
+          </div>
           <div class="sre-config-form-grid">
             <NFormItem :label="t('settings.oidcEnabled')" class="full-row">
               <NSwitch v-model:value="form.enabled" />
             </NFormItem>
-            <NFormItem :label="t('settings.oidcIssuerUrl')" class="full-row" :validation-status="issuerError ? 'error' : undefined" :feedback="issuerError || t('settings.oidcIssuerUrlHelp')">
+            <NFormItem :label="t('settings.oidcIssuerUrl')" class="full-row" :required="form.enabled" :validation-status="issuerError ? 'error' : undefined" :feedback="issuerError || t('settings.oidcIssuerUrlHelp')">
               <NInput v-model:value="form.issuer_url" :placeholder="t('settings.oidcIssuerUrlPlaceholder')" />
             </NFormItem>
-            <NFormItem :label="t('settings.oidcClientId')">
+            <NFormItem :label="t('settings.oidcClientId')" :required="form.enabled">
               <NInput v-model:value="form.client_id" :placeholder="t('settings.oidcClientIdPlaceholder')" />
             </NFormItem>
-            <NFormItem :label="t('settings.oidcClientSecret')">
+            <NFormItem :label="t('settings.oidcClientSecret')" :required="form.enabled">
               <NInput v-model:value="form.client_secret" type="password" show-password-on="click" :placeholder="t('settings.oidcClientSecretPlaceholder')" />
             </NFormItem>
             <NFormItem :label="t('settings.oidcRedirectUrl')" class="full-row">
@@ -103,6 +136,12 @@ onMounted(() => load())
             <NFormItem :label="t('settings.oidcScopes')" class="full-row">
               <NInput v-model:value="form.scopes" :placeholder="t('settings.oidcScopesPlaceholder')" />
             </NFormItem>
+          </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingProvider" @click="saveProvider">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
           </div>
         </section>
 
@@ -123,6 +162,12 @@ onMounted(() => load())
               <NInput v-model:value="form.role_mapping" type="textarea" :rows="3" :placeholder="t('settings.oidcRoleMappingPlaceholder')" />
             </NFormItem>
           </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingClaims" @click="saveClaims">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
         </section>
 
         <section class="sre-config-section">
@@ -136,6 +181,12 @@ onMounted(() => load())
               <NSelect v-model:value="form.default_role" :options="defaultRoleOptions" />
             </NFormItem>
           </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingBehavior" @click="saveBehavior">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
         </section>
       </div>
     </div>
@@ -143,4 +194,16 @@ onMounted(() => load())
 </template>
 
 <style scoped>
+.section-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.section-footer {
+  display: flex; justify-content: flex-end;
+  padding-top: 16px; margin-top: 16px;
+  border-top: var(--sre-hairline);
+}
 </style>

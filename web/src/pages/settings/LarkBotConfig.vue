@@ -11,7 +11,7 @@ import { useConfigForm } from '@/composables'
 const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, saving, testing, save, load, saveAndTest } = useConfigForm({
+const { form, loading, testing, load, saveAndTest } = useConfigForm({
   load: () => larkBotApi.getConfig().then(r => r.data.data),
   save: (f) => larkBotApi.updateConfig({ ...f }),
   test: () => larkBotApi.testBotAPI().then(res => {
@@ -19,6 +19,12 @@ const { form, loading, saving, testing, save, load, saveAndTest } = useConfigFor
   }),
 })
 
+// Per-section saving state
+const savingCredentials = ref(false)
+const savingBehavior = ref(false)
+const savingCommands = ref(false)
+
+// Bot status
 const botStatusLoading = ref(false)
 const botStatus = ref<{ configured: boolean; app_id: string; webhook_set: boolean; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean } | null>(null)
 
@@ -26,6 +32,30 @@ const resolveOptions = [
   { label: () => t('settings.larkResolveUpdate'), value: 'update' },
   { label: () => t('settings.larkResolveDelete'), value: 'delete' },
 ]
+
+async function saveSection(section: 'credentials' | 'behavior' | 'commands') {
+  // Validate: if bot_enabled, require app_id and app_secret
+  if (section === 'credentials' && form.bot_enabled) {
+    if (!form.app_id?.trim()) {
+      message.warning(t('settings.larkAppIdRequired'))
+      return
+    }
+    if (!form.app_secret?.trim()) {
+      message.warning(t('settings.larkAppSecretRequired'))
+      return
+    }
+  }
+  const savingRef = section === 'credentials' ? savingCredentials : section === 'behavior' ? savingBehavior : savingCommands
+  savingRef.value = true
+  try {
+    await larkBotApi.updateConfig({ ...form })
+    message.success(t('common.savedSuccess'))
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    savingRef.value = false
+  }
+}
 
 async function fetchBotStatus() {
   botStatusLoading.value = true
@@ -53,12 +83,6 @@ onMounted(() => {
           <h2 class="sre-config-header-title">{{ t('settings.larkBotTitle') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.larkBotSubtitle') }} <code>/lark/event</code></p>
         </div>
-        <div class="sre-config-header-actions">
-          <NButton type="primary" size="small" :loading="saving" @click="save">
-            <template #icon><NIcon :component="SaveOutline" /></template>
-            {{ t('common.save') }}
-          </NButton>
-        </div>
       </header>
 
       <div class="config-sections sre-stagger">
@@ -70,10 +94,10 @@ onMounted(() => {
             <NFormItem :label="t('settings.larkBotEnabled')" class="full-row">
               <NSwitch v-model:value="form.bot_enabled" />
             </NFormItem>
-            <NFormItem :label="t('settings.larkAppId')">
+            <NFormItem :label="t('settings.larkAppId')" :required="form.bot_enabled">
               <NInput v-model:value="form.app_id" :placeholder="t('settings.larkAppIdPlaceholder')" />
             </NFormItem>
-            <NFormItem :label="t('settings.larkAppSecret')">
+            <NFormItem :label="t('settings.larkAppSecret')" :required="form.bot_enabled">
               <NInput v-model:value="form.app_secret" type="password" show-password-on="click" :placeholder="t('settings.larkAppSecretPlaceholder')" />
             </NFormItem>
             <NFormItem :label="t('settings.larkVerificationToken')">
@@ -85,6 +109,12 @@ onMounted(() => {
             <NFormItem :label="t('settings.larkDefaultWebhook')" class="full-row">
               <NInput v-model:value="form.default_webhook" :placeholder="t('settings.larkWebhookPlaceholder')" />
             </NFormItem>
+          </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingCredentials" @click="saveSection('credentials')">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
           </div>
         </section>
 
@@ -115,6 +145,12 @@ onMounted(() => {
               <NInput v-model:value="form.business_hours_end" placeholder="18:00" style="width: 120px" />
             </NFormItem>
           </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingBehavior" @click="saveSection('behavior')">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
         </section>
 
         <!-- Section 3: Commands -->
@@ -134,6 +170,12 @@ onMounted(() => {
                 <p class="form-desc">{{ t('settings.larkNLEnabledDesc') }}</p>
               </div>
             </NFormItem>
+          </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingCommands" @click="saveSection('commands')">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
           </div>
         </section>
 
@@ -204,6 +246,11 @@ onMounted(() => {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+}
+.section-footer {
+  display: flex; justify-content: flex-end;
+  padding-top: 16px; margin-top: 16px;
+  border-top: var(--sre-hairline);
 }
 .bot-status-list {
   display: flex;

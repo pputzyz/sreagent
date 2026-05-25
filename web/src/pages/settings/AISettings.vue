@@ -348,20 +348,6 @@ onMounted(() => {
           </h2>
           <p class="sre-config-header-sub">{{ t('aiSettings.subtitle') }}</p>
         </div>
-        <div class="sre-config-header-actions">
-          <n-button v-if="activeTab === 'providers'" type="primary" size="small" :loading="providersSaving" @click="handleSaveProviders">
-            <template #icon><n-icon :component="SaveOutline" /></template>
-            {{ t('common.save') }}
-          </n-button>
-          <n-button v-else-if="activeTab === 'modules'" type="primary" size="small" :loading="modulesForm.saving.value" @click="modulesForm.save">
-            <template #icon><n-icon :component="SaveOutline" /></template>
-            {{ t('common.save') }}
-          </n-button>
-          <n-button v-else-if="activeTab === 'global'" type="primary" size="small" :loading="globalForm.saving.value" @click="globalForm.save">
-            <template #icon><n-icon :component="SaveOutline" /></template>
-            {{ t('common.save') }}
-          </n-button>
-        </div>
       </header>
 
       <n-tabs v-model:value="activeTab" type="line" animated>
@@ -402,6 +388,13 @@ onMounted(() => {
             >
               {{ t('aiSettings.noProvidersWarning') }}
             </n-alert>
+
+            <div class="section-footer">
+              <n-button type="primary" size="small" :loading="providersSaving" @click="handleSaveProviders">
+                <template #icon><n-icon :component="SaveOutline" /></template>
+                {{ t('common.save') }}
+              </n-button>
+            </div>
           </section>
         </n-tab-pane>
 
@@ -456,6 +449,13 @@ onMounted(() => {
             <div v-else-if="!modulesForm.loading.value" class="ai-info-empty">
               {{ t('aiSettings.loadModuleFailed') }}
             </div>
+
+            <div class="section-footer">
+              <n-button type="primary" size="small" :loading="modulesForm.saving.value" @click="modulesForm.save">
+                <template #icon><n-icon :component="SaveOutline" /></template>
+                {{ t('common.save') }}
+              </n-button>
+            </div>
           </section>
         </n-tab-pane>
 
@@ -491,6 +491,13 @@ onMounted(() => {
                 </n-form-item>
               </n-form>
             </n-spin>
+
+            <div class="section-footer">
+              <n-button type="primary" size="small" :loading="globalForm.saving.value" @click="globalForm.save">
+                <template #icon><n-icon :component="SaveOutline" /></template>
+                {{ t('common.save') }}
+              </n-button>
+            </div>
           </div>
         </n-tab-pane>
       </n-tabs>
@@ -606,6 +613,11 @@ onMounted(() => {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+}
+.section-footer {
+  display: flex; justify-content: flex-end;
+  padding-top: 16px; margin-top: 16px;
+  border-top: var(--sre-hairline);
 }
 
 /* Provider Table */

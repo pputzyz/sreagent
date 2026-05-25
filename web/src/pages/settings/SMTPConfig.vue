@@ -11,14 +11,45 @@ import { useConfigForm } from '@/composables'
 const message = useMessage()
 const { t } = useI18n()
 
-const { form, loading, saving, isDirty, save, load } = useConfigForm({
+const { form, loading, isDirty, save, load } = useConfigForm({
   load: () => smtpSettingsApi.getConfig().then(r => r.data.data),
   save: (f) => smtpSettingsApi.updateConfig({ ...f }),
 })
 
+// Per-section saving state
+const savingServer = ref(false)
+const savingSender = ref(false)
+
+// Test state
 const testing = ref(false)
 const testTo = ref('')
 const lastTestResult = ref<{ success: boolean; message: string; time: string } | null>(null)
+
+async function saveServer() {
+  if (form.enabled) {
+    if (!form.smtp_host?.trim()) { message.warning(t('settings.smtpHostRequired')); return }
+    if (!form.smtp_port) { message.warning(t('settings.smtpPortRequired')); return }
+    if (!form.username?.trim()) { message.warning(t('settings.smtpUsernameRequired')); return }
+    if (!form.password?.trim() || form.password === '********') { message.warning(t('settings.smtpPasswordRequired')); return }
+  }
+  savingServer.value = true
+  try {
+    await smtpSettingsApi.updateConfig({ ...form })
+    message.success(t('common.savedSuccess'))
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingServer.value = false }
+}
+
+async function saveSender() {
+  if (form.enabled && !form.from?.trim()) {
+    message.warning(t('settings.smtpFromRequired'))
+    return
+  }
+  savingSender.value = true
+  try {
+    await smtpSettingsApi.updateConfig({ ...form })
+    message.success(t('common.savedSuccess'))
+  } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { savingSender.value = false }
+}
 
 async function testConnection() {
   if (!testTo.value) {
@@ -59,12 +90,6 @@ onMounted(() => load())
           <h2 class="sre-config-header-title">{{ t('settings.smtpTitle') }}</h2>
           <p class="sre-config-header-sub">{{ t('settings.smtpSubtitle') }}</p>
         </div>
-        <div class="sre-config-header-actions">
-          <NButton type="primary" size="small" :loading="saving" @click="save">
-            <template #icon><NIcon :component="SaveOutline" /></template>
-            {{ t('common.save') }}
-          </NButton>
-        </div>
       </header>
 
       <div v-if="lastTestResult" class="sre-config-status" :data-tone="lastTestResult.success ? 'success' : 'error'">
@@ -82,19 +107,19 @@ onMounted(() => load())
             <NFormItem :label="t('smtp.enabled')" class="full-row">
               <NSwitch v-model:value="form.enabled" />
             </NFormItem>
-            <NFormItem :label="t('smtp.host')">
+            <NFormItem :label="t('smtp.host')" :required="form.enabled">
               <NInput v-model:value="form.smtp_host" :placeholder="t('smtp.hostPlaceholder')" />
             </NFormItem>
-            <NFormItem :label="t('smtp.port')">
+            <NFormItem :label="t('smtp.port')" :required="form.enabled">
               <NInputNumber v-model:value="form.smtp_port" :min="1" :max="65535" style="width: 100%" />
             </NFormItem>
             <NFormItem :label="t('smtp.tls')">
               <NSwitch v-model:value="form.smtp_tls" />
             </NFormItem>
-            <NFormItem :label="t('smtp.username')">
+            <NFormItem :label="t('smtp.username')" :required="form.enabled">
               <NInput v-model:value="form.username" :placeholder="t('smtp.usernamePlaceholder')" />
             </NFormItem>
-            <NFormItem :label="t('smtp.password')" class="full-row">
+            <NFormItem :label="t('smtp.password')" class="full-row" :required="form.enabled">
               <NInput
                 v-model:value="form.password"
                 type="password"
@@ -104,18 +129,30 @@ onMounted(() => load())
               />
             </NFormItem>
           </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingServer" @click="saveServer">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
         </section>
 
         <section class="sre-config-section">
           <h3 class="sre-config-section-title">{{ t('settings.smtpSenderSection') }}</h3>
           <p class="sre-config-section-desc">{{ t('settings.smtpSenderDesc') }}</p>
           <div class="sre-config-form-grid">
-            <NFormItem :label="t('smtp.from')">
+            <NFormItem :label="t('smtp.from')" :required="form.enabled">
               <NInput v-model:value="form.from" :placeholder="t('smtp.fromPlaceholder')" />
             </NFormItem>
             <NFormItem :label="t('settings.smtpFromName')">
               <NInput v-model:value="form.from_name" :placeholder="t('settings.smtpFromNamePlaceholder')" />
             </NFormItem>
+          </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingSender" @click="saveSender">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
           </div>
         </section>
 
@@ -140,4 +177,9 @@ onMounted(() => load())
 </template>
 
 <style scoped>
+.section-footer {
+  display: flex; justify-content: flex-end;
+  padding-top: 16px; margin-top: 16px;
+  border-top: var(--sre-hairline);
+}
 </style>
