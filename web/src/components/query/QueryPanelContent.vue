@@ -64,7 +64,8 @@ const expression = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const logEntries = ref<LogEntry[]>([])
-const metricData = ref<QueryResponse | null>(null)
+const metricData = ref<QueryResponse | null>(null)  // range query results (Graph tab)
+const instantData = ref<QueryResponse | null>(null)  // instant query results (Table tab)
 const logTotal = ref(0)
 const logTruncated = ref(false)
 const resultMode = ref<ResultMode>('table')
@@ -342,6 +343,7 @@ async function run() {
   loading.value = true
   errorMsg.value = ''
   metricData.value = null
+  instantData.value = null
   logEntries.value = []
   try {
     if (isLogs.value) {
@@ -362,15 +364,28 @@ async function run() {
         fetchHistogram()
       }
     } else {
-      const res = await datasourceApi.rangeQuery(selectedDsId.value, {
+      // Nightingale pattern: Table = instant query, Graph = range query
+      // Always fetch range query for Graph tab
+      const rangeRes = await datasourceApi.rangeQuery(selectedDsId.value, {
         expression: expression.value,
         start: graphTimeStart.value,
         end: graphTimeEnd.value,
         step: resolveStep(),
       })
-      const data = res.data?.data
-      if (data?.series && data.series.length > metricLimit.value) data.series = data.series.slice(0, metricLimit.value)
-      metricData.value = data
+      const rangeData = rangeRes.data?.data
+      if (rangeData?.series && rangeData.series.length > metricLimit.value) rangeData.series = rangeData.series.slice(0, metricLimit.value)
+      metricData.value = rangeData
+
+      // Also fetch instant query for Table tab (Nightingale: /api/v1/query)
+      try {
+        const instantRes = await datasourceApi.query(selectedDsId.value, {
+          expression: expression.value,
+        })
+        instantData.value = instantRes.data?.data || null
+      } catch {
+        // Instant query may fail for some expressions; fall back to range data
+        instantData.value = null
+      }
     }
     queryStats.value = { executionTimeMs: Date.now() - startTime, resultCount: isLogs.value ? logEntries.value.length : (metricData.value?.series?.length || 0), step: isLogs.value ? undefined : resolveStep() }
     pushHistory(activeTab.value, expression.value)
@@ -494,11 +509,17 @@ const metricColumns = computed(() => [
 ])
 
 const metricTableData = computed(() => {
-  if (!metricData.value?.series) return []
+  // Nightingale pattern: Table tab shows instant query results (vector)
+  // Fall back to range query results if instant query not available
+  const source = instantData.value?.series?.length ? instantData.value : metricData.value
+  if (!source?.series) return []
   const rows: MetricTableRow[] = []
   let idx = 0
-  for (const s of metricData.value.series) {
-    for (const v of (s.values || [])) {
+  for (const s of source.series) {
+    // For instant query, each series has one value; for range query, show last value
+    const values = s.values || []
+    const displayValues = instantData.value?.series?.length ? values : values.slice(-1)
+    for (const v of displayValues) {
       rows.push({
         _key: idx++,
         name: s.labels?.__name__ || '-',
@@ -852,6 +873,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
               :class="logRowClassName(entry)"
               @click="openLogDrawer(idx)"
             >
+              <span v-if="logOptions.showLineNum" class="origin-line-num">{{ idx + 1 }}</span>
               <span class="origin-level-dot" :style="{ background: LEVEL_COLORS[detectLogLevel(entry)] }" />
               <span v-if="logOptions.showTime !== false" class="origin-time">{{ fmtTs(entry.timestamp) }}</span>
               <span class="origin-message" :style="{ whiteSpace: logOptions.lineBreak ? 'pre-wrap' : 'nowrap' }">{{ entry.message || '-' }}</span>
@@ -972,20 +994,44 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   display: flex;
   flex-direction: column;
 }
+/* Each tab: border except left (overlap), muted color */
 .metric-card-tabs :deep(.n-tabs-tab) {
   padding: 6px 16px;
   font-size: 13px;
   color: var(--sre-text-tertiary);
+  border: 1px solid var(--sre-border);
+  border-left: none;
+  border-bottom: 1px solid var(--sre-border);
+  border-radius: 0;
+  margin: 0;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
+/* First tab: add left border */
+.metric-card-tabs :deep(.n-tabs-tab:first-child) {
+  border-left: 1px solid var(--sre-border);
+  border-top-left-radius: 6px;
+}
+/* Active tab: top accent + fill + no bottom border (merge with content) */
 .metric-card-tabs :deep(.n-tabs-tab--active) {
   border-top: 2px solid var(--sre-primary) !important;
+  border-bottom-color: var(--sre-bg-sunken, #f8fafc);
+  background: var(--sre-bg-sunken, #f8fafc);
   color: var(--sre-text-primary);
 }
 .metric-card-tabs :deep(.n-tabs-tab-pad) {
   display: none;
 }
+/* Content area: border + padding + bottom radius (Nightingale content-holder) */
 .metric-card-tabs :deep(.n-tabs-content) {
   padding: 0;
+}
+.metric-card-tabs :deep(.n-tabs-pane) {
+  border: 1px solid var(--sre-border);
+  border-top: none;
+  padding: 16px;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  background: var(--sre-bg-sunken, #f8fafc);
 }
 .card-tabs-suffix {
   display: flex;
@@ -1139,6 +1185,16 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   border-radius: 2px;
   flex-shrink: 0;
   margin-top: 3px;
+}
+.origin-line-num {
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+  padding-right: 6px;
+  color: var(--sre-text-tertiary);
+  font-size: 11px;
+  user-select: none;
+  opacity: 0.6;
 }
 .origin-time {
   flex-shrink: 0;

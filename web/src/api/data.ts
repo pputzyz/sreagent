@@ -53,6 +53,10 @@ export const datasourceApi = {
 
   logHistogram: (id: number, data: { expression: string; start: number; end: number; step?: string }) =>
     request.post<ApiResponse<{ buckets: Array<{ timestamp: string; count: number }>; total: number }>>(`/datasources/${id}/log-histogram`, data),
+
+  // Generic proxy (Nightingale pattern): forward any request to datasource
+  proxy: (id: number, path: string, params?: Record<string, string>) =>
+    request.get<ApiResponse<unknown>>(`/datasources/${id}/proxy${path}`, { params }),
 }
 
 // ===== Dashboard API =====

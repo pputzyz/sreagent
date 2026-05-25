@@ -284,6 +284,24 @@ Authorization: Bearer <token>
 | GET | `/datasources/:id/labels/keys` | 已认证 | 获取 label name 列表（自动补全） |
 | GET | `/datasources/:id/labels/values?key=job` | 已认证 | 获取 label value 列表 |
 | GET | `/datasources/:id/metrics?search=&limit=` | 已认证 | 获取 metric 名称列表 |
+| POST | `/datasources/:id/log-histogram` | 管理权限 | 日志直方图（时间桶计数） |
+| ANY | `/datasources/:id/proxy/*path` | 管理权限 | 通用代理（透明转发到数据源 API） |
+| POST | `/ds-query` | 已认证 | 统一查询（多数据源并发） |
+
+**通用代理 (proxy)：**
+
+透传任意 HTTP 请求到目标数据源 endpoint，路径参数 `*path` 为数据源 API 的相对路径，query 参数原样转发。
+
+**统一查询 (ds-query) 请求体：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `queries` | array | 是 | 查询数组 |
+| `queries[].datasource_id` | uint | 是 | 数据源 ID |
+| `queries[].expression` | string | 是 | PromQL 表达式 |
+| `queries[].start` | int64 | 否 | 起始时间（Unix 秒），0 = 即时查询 |
+| `queries[].end` | int64 | 否 | 结束时间（Unix 秒） |
+| `queries[].step` | string | 否 | 步长，默认 `15s` |
 
 **Range Query 请求体：**
 

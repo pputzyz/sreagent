@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -448,6 +449,109 @@ func (h *DataSourceHandler) LogHistogram(c *gin.Context) {
 		return
 	}
 	Success(c, result)
+}
+
+// Proxy proxies any HTTP request to the target datasource endpoint.
+// ANY /api/v1/datasources/:id/proxy/*path
+// This is the Nightingale pattern: transparent proxy for all datasource API calls.
+func (h *DataSourceHandler) Proxy(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	// Extract the path after /proxy
+	path := c.Param("path")
+	if path == "" {
+		path = "/"
+	}
+
+	// Forward query parameters
+	params := make(map[string]string)
+	for k, v := range c.Request.URL.Query() {
+		if len(v) > 0 {
+			params[k] = v[0]
+		}
+	}
+
+	body, err := h.svc.ProxyToDatasource(c.Request.Context(), id, path, params)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	// Return raw response (JSON passthrough)
+	c.Data(200, "application/json", body)
+}
+
+// DsQuery is the unified query endpoint (Nightingale pattern).
+// POST /api/v1/ds-query
+// Supports multiple queries against different datasources concurrently.
+func (h *DataSourceHandler) DsQuery(c *gin.Context) {
+	var req struct {
+		Queries []struct {
+			DatasourceID uint   `json:"datasource_id" binding:"required"`
+			Expression   string `json:"expression" binding:"required"`
+			Start        int64  `json:"start"` // unix seconds, 0 = instant
+			End          int64  `json:"end"`   // unix seconds
+			Step         string `json:"step"`  // e.g. "15s"
+		} `json:"queries" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	type queryResult struct {
+		Index  int         `json:"index"`
+		Data  interface{} `json:"data"`
+		Error string      `json:"error,omitempty"`
+	}
+
+	results := make([]queryResult, len(req.Queries))
+	var wg sync.WaitGroup
+
+	for i, q := range req.Queries {
+		wg.Add(1)
+		go func(idx int, query struct {
+			DatasourceID uint   `json:"datasource_id" binding:"required"`
+			Expression   string `json:"expression" binding:"required"`
+			Start        int64  `json:"start"`
+			End          int64  `json:"end"`
+			Step         string `json:"step"`
+		}) {
+			defer wg.Done()
+			ctx := c.Request.Context()
+
+			if query.Start > 0 && query.End > 0 {
+				// Range query
+				start := time.Unix(query.Start, 0)
+				end := time.Unix(query.End, 0)
+				step := query.Step
+				if step == "" {
+					step = "15s"
+				}
+				data, err := h.svc.QueryRange(ctx, query.DatasourceID, query.Expression, start, end, step)
+				if err != nil {
+					results[idx] = queryResult{Index: idx, Error: err.Error()}
+				} else {
+					results[idx] = queryResult{Index: idx, Data: data}
+				}
+			} else {
+				// Instant query
+				data, err := h.svc.QueryDatasource(ctx, query.DatasourceID, query.Expression, time.Time{})
+				if err != nil {
+					results[idx] = queryResult{Index: idx, Error: err.Error()}
+				} else {
+					results[idx] = queryResult{Index: idx, Data: data}
+				}
+			}
+		}(i, q)
+	}
+
+	wg.Wait()
+	Success(c, results)
 }
 
 // MetricNames returns metric names from the target datasource (for PromQL autocompletion).

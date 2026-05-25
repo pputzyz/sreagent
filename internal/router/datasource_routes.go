@@ -24,9 +24,14 @@ func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, ma
 		ds.GET("/:id/labels/keys", h.DataSource.LabelKeys)
 		ds.GET("/:id/labels/values", h.DataSource.LabelValues)
 		ds.GET("/:id/metrics", h.DataSource.MetricNames)
+		// Generic proxy: ANY /datasources/:id/proxy/*path (Nightingale pattern)
+		ds.Any("/:id/proxy/*path", manage, h.DataSource.Proxy)
 	}
 
 	// Label Registry (autocomplete for match_labels)
+
+	// Unified query endpoint (Nightingale ds-query pattern)
+	auth.POST("/ds-query", manage, h.DataSource.DsQuery)
 	if h.LabelRegistry != nil {
 		labelReg := auth.Group("/label-registry")
 		{

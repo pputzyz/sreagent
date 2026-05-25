@@ -4,6 +4,32 @@
 
 ---
 
+## [v4.25.0] — 2026-05-25
+
+### Explore 页面对齐 Nightingale V9 — 后端架构 + 前端交互全量优化
+
+**后端架构对齐（Nightingale 模式）**:
+- 新增 `ANY /api/v1/datasources/:id/proxy/*path` 通用代理端点，透明转发任意请求到数据源 API（Nightingale proxy 模式）
+- 新增 `POST /api/v1/ds-query` 统一查询端点，支持多数据源并发查询（Nightingale ds-query 模式）
+- 数据源代理支持 query 参数透传，为 PromQL 自动补全、标签探索等高级功能提供基础设施
+
+**即时查询模式（Table Tab）**:
+- Table tab 改用 `/api/v1/query` 即时查询 API（vector 结果），对齐 Nightingale Explorer 的 Table 行为
+- Graph tab 继续使用 `/api/v1/query_range` 范围查询（matrix 结果）
+- 两种查询并发执行，instant 查询失败时自动降级到 range 数据
+
+**Card Tabs 样式对齐 Nightingale PromGraphCpt**:
+- 每个 tab 添加完整边框（左 border 通过 first-child 重叠）
+- active tab：顶部 2px primary accent + 背景填充 + 底部边框融合
+- content 区域：完整边框（无 top）+ 16px padding + 底部圆角
+- 对齐 Nightingale `style.less` 的 `.ant-tabs-card` 精确样式
+
+**Origin 模式行号支持**:
+- 日志 Origin 视图新增行号列（`showLineNum` 控制），默认隐藏
+- 行号右对齐、28px 宽、半透明样式，不干扰日志内容阅读
+
+---
+
 ## [v4.24.1] — 2026-05-25
 
 ### Explore 页面交互 Bug 修复
