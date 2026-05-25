@@ -158,6 +158,7 @@ export default {
     aiAgent: 'AI Agent',
     presetRules: '预置规则库',
     recordingRules: '录制规则',
+    builtinMetrics: '内置指标目录',
     security: '安全设置',
     systemSettings: '系统设置',
     inspection: '定时巡检',
@@ -2622,6 +2623,28 @@ export default {
       weekdays9am: '工作日 9:00',
       monthly1st9am: '每月 1 号 9:00',
     },
+  },
+
+  // ── Builtin Metrics ──
+  builtin: {
+    create: '新建指标',
+    createMetric: '新建内置指标',
+    editMetric: '编辑内置指标',
+    name: '指标名称',
+    namePlaceholder: '例如 node_cpu_seconds_total',
+    collector: '采集器',
+    type: '类型',
+    expression: '表达式',
+    expressionType: '表达式类型',
+    metricType: '指标类型',
+    unit: '单位',
+    note: '备注',
+    searchPlaceholder: '搜索指标名称...',
+    export: '导出',
+    import: '导入',
+    nameAndExprRequired: '指标名称和表达式为必填项',
+    confirmDelete: '确认删除内置指标 "{name}"？',
+    confirmBatchDelete: '确认删除 {count} 条内置指标？',
   },
 
   // ── Recording Rules ──

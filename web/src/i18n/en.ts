@@ -158,6 +158,7 @@ export default {
     aiAgent: 'AI Agent',
     presetRules: 'Preset Rules',
     recordingRules: 'Recording Rules',
+    builtinMetrics: 'Builtin Metrics',
     security: 'Security',
     systemSettings: 'System Settings',
     inspection: 'Inspection',
@@ -2601,6 +2602,28 @@ export default {
       weekdays9am: 'Weekdays at 9:00',
       monthly1st9am: '1st of month at 9:00',
     },
+  },
+
+  // ── Builtin Metrics ──
+  builtin: {
+    create: 'New Metric',
+    createMetric: 'New Builtin Metric',
+    editMetric: 'Edit Builtin Metric',
+    name: 'Metric Name',
+    namePlaceholder: 'e.g. node_cpu_seconds_total',
+    collector: 'Collector',
+    type: 'Type',
+    expression: 'Expression',
+    expressionType: 'Expression Type',
+    metricType: 'Metric Type',
+    unit: 'Unit',
+    note: 'Note',
+    searchPlaceholder: 'Search metric name...',
+    export: 'Export',
+    import: 'Import',
+    nameAndExprRequired: 'Metric name and expression are required',
+    confirmDelete: 'Delete builtin metric "{name}"?',
+    confirmBatchDelete: 'Delete {count} builtin metrics?',
   },
 
   // ── Recording Rules ──

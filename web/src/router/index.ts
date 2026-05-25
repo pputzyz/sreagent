@@ -45,6 +45,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/suppression', component: () => import('@/pages/alerts/mute/Index.vue'), meta: { title: 'menu.muteRules' } },
       { path: 'alert/suppression/inhibition', component: () => import('@/pages/alerts/inhibition/Index.vue'), meta: { title: 'menu.inhibitionRules' } },
       { path: 'alert/recording-rules', component: () => import('@/pages/alerts/recording-rules/Index.vue'), meta: { title: 'menu.recordingRules' } },
+      { path: 'alert/builtin-metrics', component: () => import('@/pages/alerts/builtin-metrics/Index.vue'), meta: { title: 'menu.builtinMetrics' } },
       { path: 'alert/presets', component: () => import('@/pages/alerts/Presets.vue'), meta: { title: 'menu.presetRules' } },
       { path: 'alert/datasources', component: () => import('@/pages/datasources/Index.vue'), meta: { title: 'menu.datasources' } },
       { path: 'alert/explore', component: () => import('@/pages/explore/Index.vue'), meta: { title: 'menu.dataQuery' } },

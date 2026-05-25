@@ -175,6 +175,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Recording rule repository
 	recordingRuleRepo := repository.NewRecordingRuleRepository(db)
 
+	// Builtin metric repositories
+	builtinMetricRepo := repository.NewBuiltinMetricRepository(db)
+	metricFilterRepo := repository.NewMetricFilterRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -262,6 +266,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Recording rule service
 	recordingRuleSvc := service.NewRecordingRuleService(recordingRuleRepo, zapLogger)
+
+	// Builtin metric services
+	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
+	metricFilterSvc := service.NewMetricFilterService(metricFilterRepo, zapLogger)
 
 	// TODO(AIOps P3): wire IncidentContextService into AgentService when agent gains incident-aware context
 	// incidentContextSvc := service.NewIncidentContextService(incidentRepo, eventRepo, knowledgeSvc, scheduleSvc, bizGroupSvc, zapLogger)
@@ -547,6 +555,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		ChangeEvent:         handler.NewChangeEventHandler(changeEventSvc),
 		Inspection:          handler.NewInspectionHandler(inspectionRepo, inspectionSched, inspectionExecutor),
 		RecordingRule:       handler.NewRecordingRuleHandler(recordingRuleSvc, zapLogger),
+		BuiltinMetric:       handler.NewBuiltinMetricHandler(builtinMetricSvc, metricFilterSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it

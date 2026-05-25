@@ -4,6 +4,45 @@
 
 ---
 
+## [v4.28.0] — 2026-05-25
+
+### Metrics Builtin 模块 — Nightingale 功能移植 #2
+
+**新增模块：内置指标目录（Metrics Builtin）**:
+- 内置指标元数据管理：指标名、采集器、类型、单位、表达式、备注
+- 支持多语言翻译条目、额外字段扩展
+- 指标筛选器：按标签条件筛选指标，支持团队权限控制
+
+**后端（Go + Gin + GORM）**:
+- 数据模型：`builtin_metrics` + `metric_filters` 表（迁移编号：000068）
+- Repository：完整 CRUD + 按 collector/typ/query/unit/lang 筛选 + 元数据查询（types/collectors）
+- Service：业务逻辑层，包含 FE2DB/DB2FE 转换
+- Handler：12 个 API 端点
+  - `GET /api/v1/builtin-metrics` — 列表（支持 collector/typ/query/unit 筛选 + 分页）
+  - `GET /api/v1/builtin-metrics/:id` — 详情
+  - `POST /api/v1/builtin-metrics` — 创建
+  - `PUT /api/v1/builtin-metrics` — 更新
+  - `POST /api/v1/builtin-metrics/delete` — 批量删除
+  - `POST /api/v1/builtin-metrics/batch` — 批量创建（导入）
+  - `GET /api/v1/builtin-metrics/types` — 获取类型列表
+  - `GET /api/v1/builtin-metrics/collectors` — 获取采集器列表
+  - `GET /api/v1/builtin-metric-filters` — 筛选器列表
+  - `POST /api/v1/builtin-metric-filters` — 创建筛选器
+  - `PUT /api/v1/builtin-metric-filters` — 更新筛选器
+  - `POST /api/v1/builtin-metric-filters/delete` — 删除筛选器
+- 权限：读取需认证，写入需 `manage` 角色 + `metrics.write` 权限
+
+**前端（Vue 3 + Naive UI）**:
+- API 客户端：`builtinMetricApi` + `metricFilterApi`
+- 页面：`/alert/builtin-metrics` — 指标列表页
+  - DataTable 支持多选、分页、按 collector/typ 筛选
+  - 编辑抽屉：完整表单（名称、采集器、类型、表达式、表达式类型、指标类型、单位、备注）
+  - 导出 JSON、批量删除
+- 路由：`alert/builtin-metrics`
+- i18n：中文 + 英文完整翻译
+
+---
+
 ## [v4.27.0] — 2026-05-25
 
 ### Recording Rules 模块 — Nightingale 功能移植 #1

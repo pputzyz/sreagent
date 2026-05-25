@@ -73,6 +73,10 @@ export { presetRuleApi, aiModuleApi, aiRuleApi } from './preset-rules'
 export { recordingRuleApi } from './recording'
 export type { RecordingRule, CreateRecordingRuleRequest, UpdateRecordingRuleRequest } from './recording'
 
+// ===== Builtin Metrics =====
+export { builtinMetricApi, metricFilterApi } from './builtin-metric'
+export type { BuiltinMetric, MetricFilter, TranslationEntry } from './builtin-metric'
+
 // ===== Notification Center & Permissions =====
 export { notificationCenterApi, permissionsApi } from './center'
 export type { UserNotification, MyPermissions, TeamRole } from './center'
