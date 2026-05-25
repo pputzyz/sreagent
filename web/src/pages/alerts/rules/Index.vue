@@ -101,6 +101,15 @@ const duplicateFrom = ref<AlertRule | null>(null)
 const initialExpr = ref('')
 const showImportModal = ref(false)
 
+function handleFormClose() {
+  showFormModal.value = false
+  initialExpr.value = ''
+  // Navigate back to Explore if we came from there
+  if (route.query.from === 'explore') {
+    router.replace({ path: '/explore' })
+  }
+}
+
 // ─── AI Rule Generation ───
 const { isEnabled: isAIModuleEnabled, loadModules } = useAIModule()
 const showAIModal = ref(false)
@@ -614,7 +623,7 @@ onUnmounted(() => {
       :duplicate-from="duplicateFrom"
       :initial-expr="initialExpr"
       :datasources="datasources"
-      @close="showFormModal = false; initialExpr = ''"
+      @close="handleFormClose"
       @saved="onFormSaved"
     />
 

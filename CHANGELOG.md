@@ -4,6 +4,29 @@
 
 ---
 
+## [v4.24.0] — 2026-05-25
+
+### Explore 图表交互重构 — 自定义图例 + 增强 Tooltip + 导航修复
+
+**QueryPanelContent.vue 重构**:
+- 图表自定义 HTML 图例：flex-wrap 换行、可滚动（max-height 120px）、每指标独立一行
+- 图例点击隔离：点击单个 series 隔离显示，再次点击恢复所有 series
+- 图表 tooltip 增强：显示完整标签名和值，hover 时展示所有 label key=value 对
+- 数据源选择器从面板顶部移至独立行，放在 PromQL 编辑器上方
+- 移除面板顶部的 `panel-top-left` 布局，简化为 tabs + close
+
+**KVEditor.vue 增强**:
+- 标签 key 字段从 NAutoComplete 改为 NSelect（filterable 模式），点击即显示所有选项
+- 标签 value 字段同样改为 NSelect，确保下拉框可见
+- 新增 `keyFocus` 事件
+
+**告警规则弹窗修复**:
+- RuleFormModal 关闭时检查 `from=explore` 参数，自动返回 Explore 页面
+- Explore 页面导航前保存状态到 sessionStorage，返回时自动恢复查询条件
+- alerts/rules/Index.vue 新增 `handleFormClose` 函数
+
+---
+
 ## [v4.23.0] — 2026-05-25
 
 ### 标签自动联想 — 告警规则表单接入标签注册表

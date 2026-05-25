@@ -1,14 +1,16 @@
 <template>
   <div class="kv-editor">
     <div v-for="(item, idx) in modelValue" :key="idx" class="kv-row">
-      <n-auto-complete
+      <n-select
         v-if="keyOptions"
-        :value="item.key"
-        :options="getKeyOptions(item.key)"
+        :value="item.key || undefined"
+        :options="getKeySelectOptions()"
         :placeholder="resolvedKeyPlaceholder"
+        filterable
+        clearable
         size="small"
-        blur-after-select
-        @update:value="(v: string) => { item.key = v; emitUpdate(); $emit('keyChange', idx, v) }"
+        style="flex: 1"
+        @update:value="(v: string) => { item.key = v || ''; emitUpdate(); $emit('keyChange', idx, v || '') }"
       />
       <n-input
         v-else
@@ -17,13 +19,16 @@
         size="small"
         @update:value="emitUpdate"
       />
-      <n-auto-complete
+      <n-select
         v-if="valueOptions"
-        :value="item.value"
-        :options="getValueOptions(item.value)"
+        :value="item.value || undefined"
+        :options="getValueSelectOptions()"
         :placeholder="resolvedValuePlaceholder"
+        filterable
+        clearable
         size="small"
-        @update:value="(v: string) => { item.value = v; emitUpdate() }"
+        style="flex: 1"
+        @update:value="(v: string) => { item.value = v || ''; emitUpdate() }"
       />
       <n-input
         v-else
@@ -45,7 +50,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NInput, NButton, NIcon, NAutoComplete } from 'naive-ui'
+import { NInput, NButton, NIcon, NAutoComplete, NSelect } from 'naive-ui'
 import { AddOutline, CloseOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 
@@ -78,6 +83,7 @@ const resolvedAddLabel = computed(() => props.addLabel || t('common.add'))
 const emit = defineEmits<{
   'update:modelValue': [value: KVItem[]]
   'keyChange': [index: number, key: string]
+  'keyFocus': [index: number]
 }>()
 
 function getKeyOptions(input: string) {
@@ -86,10 +92,20 @@ function getKeyOptions(input: string) {
   return props.keyOptions.filter(k => k.toLowerCase().includes(q)).map(k => ({ label: k, value: k }))
 }
 
+function getKeySelectOptions() {
+  if (!props.keyOptions) return []
+  return props.keyOptions.map(k => ({ label: k, value: k }))
+}
+
 function getValueOptions(input: string) {
   if (!props.valueOptions) return []
   const q = input.toLowerCase()
   return props.valueOptions.filter(v => v.toLowerCase().includes(q)).map(v => ({ label: v, value: v }))
+}
+
+function getValueSelectOptions() {
+  if (!props.valueOptions) return []
+  return props.valueOptions.map(v => ({ label: v, value: v }))
 }
 
 function addItem() {

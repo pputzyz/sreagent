@@ -198,6 +198,15 @@ function openLabelDrawer(labels: Record<string, string>, seriesName: string) {
 }
 
 function goToCreateAlertRule(expr: string) {
+  // Save Explore state so we can restore when user returns
+  const p = panelRefs.value[0] as any
+  if (p) {
+    sessionStorage.setItem('sre-explore-return', JSON.stringify({
+      ds: p.selectedDsId,
+      expr: p.expression,
+      tab: p.activeTab,
+    }))
+  }
   router.push({ path: '/alert/rules', query: { from: 'explore', expr: encodeURIComponent(expr) } })
 }
 
@@ -327,8 +336,20 @@ function onPanelTimeRangeChange(start: number, end: number) {
 onMounted(async () => {
   const urlState = syncFromURL()
   await loadDs()
-  // Apply URL state to first panel after datasources loaded
-  if (urlState.ds && datasources.value.some(d => d.id === urlState.ds)) {
+  // Check if returning from alert rule creation
+  const returnState = sessionStorage.getItem('sre-explore-return')
+  if (returnState) {
+    sessionStorage.removeItem('sre-explore-return')
+    try {
+      const saved = JSON.parse(returnState)
+      if (saved.ds && datasources.value.some(d => d.id === saved.ds)) {
+        setTimeout(() => {
+          panelRefs.value[0]?.setState(saved.ds, saved.expr, saved.tab)
+        }, 100)
+      }
+    } catch { /* ignore */ }
+  } else if (urlState.ds && datasources.value.some(d => d.id === urlState.ds)) {
+    // Apply URL state to first panel after datasources loaded
     setTimeout(() => {
       panelRefs.value[0]?.setState(urlState.ds, urlState.expr, urlState.tab)
     }, 100)

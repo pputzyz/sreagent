@@ -6,7 +6,7 @@
  * Each panel manages its own: datasource, expression, tab, result mode, data.
  * Shared state (time range, datasources list) comes from parent via props.
  */
-import { ref, computed, watch, h, type Component } from 'vue'
+import { ref, computed, watch, h, type Component, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NSelect, NButton, NSpace, NTag, NSpin,
@@ -89,6 +89,62 @@ const chartSettings = ref<ChartSettings>({
   sharedTooltip: false,
   tooltipSort: 'desc',
 })
+
+// Chart ref and legend interaction
+const chartRef = ref<any>(null)
+const isolatedSeries = ref<string | null>(null)
+const legendColors = [
+  '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
+  '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#48b8d0',
+  '#c4ccd3', '#5ab1ef', '#d87c7c', '#8d98b3', '#e5cf0d',
+  '#97b552', '#95706d', '#dc69aa', '#07a2a4', '#9a7fd1',
+]
+
+function getSeriesColor(index: number): string {
+  return legendColors[index % legendColors.length]
+}
+
+const legendItems = computed(() => {
+  if (!metricData.value?.series?.length) return []
+  return metricData.value.series.map((s, i) => ({
+    name: formatLegend(s.labels),
+    color: getSeriesColor(i),
+    fullName: formatLegendFull(s.labels),
+  }))
+})
+
+function formatLegendFull(lbs: Record<string, string>): string {
+  if (!lbs) return 'value'
+  const parts: string[] = []
+  for (const [k, v] of Object.entries(lbs)) {
+    if (k !== '__name__') parts.push(`${k}="${v}"`)
+  }
+  const name = lbs.__name__ || ''
+  return parts.length > 0 ? `${name}{${parts.join(', ')}}` : name
+}
+
+function toggleLegend(name: string) {
+  if (isolatedSeries.value === name) {
+    // Click same item again → show all
+    isolatedSeries.value = null
+  } else {
+    isolatedSeries.value = name
+  }
+  // Update ECharts series visibility
+  const chart = chartRef.value?.chart || chartRef.value
+  if (!chart || !metricData.value?.series) return
+  const option = chart.getOption()
+  if (!option?.series) return
+  const selected: Record<string, boolean> = {}
+  for (const s of option.series) {
+    selected[s.name] = isolatedSeries.value ? s.name === isolatedSeries.value : true
+  }
+  chart.setOption({ legend: { selected } })
+}
+
+function onChartReady(chart: any) {
+  // ECharts instance accessible via chart
+}
 
 // Per-panel graph time range (Nightingale Graph.tsx: each panel has own TimeRangePicker)
 const graphRangeMin = ref<number>(-1) // -1 means use parent range
@@ -378,42 +434,49 @@ function onTokenFilter(key: string, value: string, operator: string) {
 // --- Chart option ---
 const chartOption = computed(() => {
   if (!metricData.value?.series?.length) return null
-  interface EChartsSeries { name: string; type: string; data: [number, number][]; smooth: boolean; showSymbol: boolean; connectNulls: boolean; areaStyle?: { opacity: number } }
+  // Reset isolation when data changes
+  isolatedSeries.value = null
+  interface EChartsSeries { name: string; type: string; data: [number, number][]; smooth: boolean; showSymbol: boolean; connectNulls: boolean; lineStyle: { width: number }; areaStyle?: { opacity: number } }
   const seriesList: EChartsSeries[] = []
   const isArea = chartSettings.value.chartType === 'area'
   for (const s of metricData.value.series) {
     const name = formatLegend(s.labels)
     const data: [number, number][] = []
     for (const v of s.values || []) data.push([Number(v.ts) * 1000, v.value != null ? Number(v.value) : 0])
-    const seriesItem: EChartsSeries = { name, type: 'line', data, smooth: true, showSymbol: false, connectNulls: true }
+    const seriesItem: EChartsSeries = { name, type: 'line', data, smooth: true, showSymbol: false, connectNulls: true, lineStyle: { width: 1.5 } }
     if (isArea) seriesItem.areaStyle = { opacity: 0.5 }
     seriesList.push(seriesItem)
   }
-  const tertiaryColor = typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-tertiary').trim() || '#64748b' : '#64748b'
+  const secondaryColor = typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-secondary').trim() || '#475569' : '#475569'
   return {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: chartSettings.value.sharedTooltip ? 'axis' : 'item',
       confine: true,
       ...(chartSettings.value.sharedTooltip ? { axisPointer: { type: 'cross' } } : {}),
-      formatter: (params: { seriesName: string; value: [number, number]; marker: string } | Array<{ seriesName: string; value: [number, number]; marker: string }>) => {
+      formatter: (params: { seriesName: string; value: [number, number]; marker: string; seriesIndex: number } | Array<{ seriesName: string; value: [number, number]; marker: string; seriesIndex: number }>) => {
         const items = Array.isArray(params) ? params : [params]
         if (!items.length || !items[0].value) return ''
-        const time = new Date(items[0].value[0]).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        let html = `<div style="font-size:12px;margin-bottom:4px"><strong>${time}</strong></div>`
+        const time = new Date(items[0].value[0]).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        let html = `<div style="font-size:12px;margin-bottom:6px;font-weight:600">${time}</div>`
         for (const item of items) {
-          const val = typeof item.value[1] === 'number' ? item.value[1].toFixed(4) : item.value[1]
-          html += `<div style="font-size:12px;display:flex;align-items:center;gap:4px">${item.marker}<span>${item.seriesName}</span>: <strong>${val}</strong></div>`
+          const val = typeof item.value[1] === 'number' ? item.value[1].toPrecision(6) : item.value[1]
+          const series = metricData.value?.series?.[item.seriesIndex]
+          const labels = series?.labels || {}
+          const labelParts = Object.entries(labels)
+            .filter(([k]) => k !== '__name__')
+            .map(([k, v]) => `<span style="color:${secondaryColor}">${k}</span>=${v}`)
+            .join(' ')
+          html += `<div style="font-size:11px;margin:3px 0;line-height:1.4">`
+          html += `<div style="display:flex;align-items:center;gap:4px">${item.marker}<span style="font-weight:600">${item.seriesName}</span>: <strong>${val}</strong></div>`
+          if (labelParts) html += `<div style="padding-left:16px;font-size:10px;color:${secondaryColor};word-break:break-all">${labelParts}</div>`
+          html += `</div>`
         }
         return html
       },
     },
-    legend: chartSettings.value.showLegend ? {
-      type: 'scroll', bottom: 0,
-      textStyle: { color: tertiaryColor, fontSize: 12 },
-      selectedMode: 'single',
-    } : { show: false },
-    grid: { left: 80, right: 20, top: 20, bottom: chartSettings.value.showLegend ? 50 : 20 },
+    legend: { show: false },
+    grid: { left: 80, right: 20, top: 20, bottom: 20 },
     xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 11 }, splitLine: { lineStyle: { type: 'dashed' } } },
     series: seriesList,
@@ -556,22 +619,12 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 <template>
   <div class="panel-content">
-    <!-- Panel header: datasource + tabs + close (Nightingale: Row gutter=8) -->
+    <!-- Panel header: tabs + close -->
     <div class="panel-top-row">
-      <div class="panel-top-left">
-        <NSelect
-          v-model:value="selectedDsId"
-          :options="datasourceOptions"
-          :placeholder="t('query.selectDatasource')"
-          filterable
-          size="small"
-          class="ds-select"
-        />
-        <NTabs v-model:value="activeTab" type="line" size="small" class="panel-tabs-inline">
-          <NTabPane name="metrics" :tab="t('query.metricsTab')" />
-          <NTabPane name="logs" :tab="t('query.logsTab')" />
-        </NTabs>
-      </div>
+      <NTabs v-model:value="activeTab" type="line" size="small" class="panel-tabs-inline">
+        <NTabPane name="metrics" :tab="t('query.metricsTab')" />
+        <NTabPane name="logs" :tab="t('query.logsTab')" />
+      </NTabs>
       <NButton v-if="canClose" size="tiny" quaternary @click="emit('remove', panelId)">
         <template #icon><NIcon><CloseCircleOutline /></NIcon></template>
       </NButton>
@@ -579,6 +632,18 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
     <div v-if="isLogs && !logDatasources.length" class="query-empty-inline">
       {{ t('query.noLogDatasources') }}
+    </div>
+
+    <!-- Datasource Selector + Editor + Execute -->
+    <div class="ds-row">
+      <NSelect
+        v-model:value="selectedDsId"
+        :options="datasourceOptions"
+        :placeholder="t('query.selectDatasource')"
+        filterable
+        size="small"
+        class="ds-select-inline"
+      />
     </div>
 
     <!-- Editor + Execute (Nightingale: flex gap-[8px] side-by-side) -->
@@ -694,10 +759,31 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
           </div>
           <div class="chart-container">
             <template v-if="ChartReady && VChart && chartOption">
-              <component :is="VChart" :option="chartOption" :autoresize="true" class="chart-full" />
+              <component
+                :is="VChart"
+                ref="chartRef"
+                :option="chartOption"
+                :autoresize="true"
+                class="chart-full"
+                @ready="onChartReady"
+              />
             </template>
             <div v-else class="chart-fallback">
               <p>{{ t('query.chartUnavailable') }}</p>
+            </div>
+          </div>
+          <!-- Custom HTML Legend (Nightingale: flex-wrap, scrollable, click-to-isolate) -->
+          <div v-if="chartSettings.showLegend && legendItems.length" class="custom-legend-container">
+            <div
+              v-for="item in legendItems"
+              :key="item.name"
+              class="custom-legend-item"
+              :class="{ 'legend-dimmed': isolatedSeries !== null && isolatedSeries !== item.name, 'legend-isolated': isolatedSeries === item.name }"
+              :title="item.fullName"
+              @click="toggleLegend(item.name)"
+            >
+              <span class="legend-color-dot" :style="{ background: item.color }" />
+              <span class="legend-label">{{ item.name }}</span>
             </div>
           </div>
         </NTabPane>
@@ -828,25 +914,23 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   position: relative;
 }
 
-/* Panel top row: ds select + tabs + close (Nightingale: Row gutter=8) */
+/* Panel top row: tabs + close */
 .panel-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   flex-shrink: 0;
 }
-.panel-top-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-.ds-select { width: 260px; flex-shrink: 0; }
 .panel-tabs-inline { flex: 1; min-width: 0; }
 .panel-tabs-inline :deep(.n-tabs-tab) { padding: 4px 12px; }
+
+/* Datasource selector row */
+.ds-row {
+  margin-bottom: 8px;
+}
+.ds-select-inline { width: 100%; max-width: 400px; }
 
 /* Editor row (Nightingale: PromQL input + Execute button side-by-side) */
 .editor-row {
@@ -934,6 +1018,57 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 .chart-container { min-height: 300px; display: flex; align-items: center; justify-content: center; }
 .chart-fallback { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--sre-text-tertiary); font-size: 13px; }
 .chart-full { width: 100%; height: 300px; }
+
+/* Custom HTML Legend (Nightingale: flex-wrap, scrollable, click-to-isolate) */
+.custom-legend-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-top: 1px solid var(--sre-border);
+  margin-top: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.custom-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  transition: opacity 0.15s, background 0.15s;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.custom-legend-item:hover {
+  background: var(--sre-bg-hover);
+}
+.legend-dimmed {
+  opacity: 0.3;
+}
+.legend-isolated {
+  opacity: 1;
+  background: var(--sre-bg-hover);
+  font-weight: 600;
+}
+.legend-color-dot {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.legend-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .loading-container { display: flex; justify-content: center; padding: 40px; }
 
 /* Log Results (Nightingale logExplorer pattern) */
