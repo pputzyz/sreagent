@@ -23,6 +23,9 @@ import { formatTime } from '@/utils/format'
 import PromQLEditor from './PromQLEditor.vue'
 import LogsQLEditor from './LogsQLEditor.vue'
 import LogHistogram from './LogHistogram.vue'
+import MetricChartControls from './MetricChartControls.vue'
+import type { ChartSettings } from './MetricChartControls.vue'
+import LogDetailDrawer from './LogDetailDrawer.vue'
 import type { DataSource, QueryResponse, LogEntry } from '@/types'
 
 const props = defineProps<{
@@ -38,6 +41,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'remove', panelId: number): void
+  (e: 'openLabels', labels: Record<string, string>, seriesName: string): void
+  (e: 'timeRangeChange', start: number, end: number): void
 }>()
 
 // Local copy of stepValue so we can use v-model
@@ -73,6 +78,16 @@ const showHistogram = ref(true)
 interface QueryStats { executionTimeMs: number; resultCount: number; step?: string }
 const queryStats = ref<QueryStats | null>(null)
 
+// Chart settings (PromGraphCpt-style)
+const chartSettings = ref<ChartSettings>({
+  maxDataPoints: null,
+  minStep: null,
+  chartType: 'line',
+  showLegend: true,
+  sharedTooltip: false,
+  tooltipSort: 'desc',
+})
+
 // Limits
 const metricLimit = ref(100)
 const metricLimitOptions = [50, 100, 200, 500, 1000].map(v => ({ label: String(v), value: v }))
@@ -89,6 +104,18 @@ const stepOptions = computed(() => [
   { label: '15m', value: '15m' },
   { label: '1h', value: '1h' },
 ])
+
+// Log detail drawer (NavigableDrawer pattern)
+const drawerVisible = ref(false)
+const drawerCurrentIndex = ref(0)
+const drawerLogEntry = computed(() => logEntries.value[drawerCurrentIndex.value] || null)
+
+function openLogDrawer(index: number) {
+  drawerCurrentIndex.value = index
+  drawerVisible.value = true
+}
+function onDrawerPrev() { if (drawerCurrentIndex.value > 0) drawerCurrentIndex.value-- }
+function onDrawerNext() { if (drawerCurrentIndex.value < logEntries.value.length - 1) drawerCurrentIndex.value++ }
 
 // History — per-datasource (Nightingale HistoricalRecords pattern)
 type HistoryItem = { tab: QueryTab; expression: string; ts: number }
@@ -247,27 +274,42 @@ async function fetchHistogram() {
 }
 
 function onHistogramBarClick(start: number, end: number) {
-  // Emit to parent to change time range
-  // For now, just re-run with the same range
-  run()
+  // Emit to parent to zoom time range to the clicked bar
+  emit('timeRangeChange', start, end)
+}
+
+function onHistogramBrushSelect(start: number, end: number) {
+  // Emit to parent to zoom time range to the brushed selection
+  emit('timeRangeChange', start, end)
 }
 
 // --- Chart option ---
 const chartOption = computed(() => {
   if (!metricData.value?.series?.length) return null
-  interface EChartsSeries { name: string; type: string; data: [number, number][]; smooth: boolean; showSymbol: boolean; connectNulls: boolean }
+  interface EChartsSeries { name: string; type: string; data: [number, number][]; smooth: boolean; showSymbol: boolean; connectNulls: boolean; areaStyle?: { opacity: number } }
   const seriesList: EChartsSeries[] = []
+  const isArea = chartSettings.value.chartType === 'area'
   for (const s of metricData.value.series) {
     const name = formatLegend(s.labels)
     const data: [number, number][] = []
     for (const v of s.values || []) data.push([Number(v.ts) * 1000, v.value != null ? Number(v.value) : 0])
-    seriesList.push({ name, type: 'line', data, smooth: false, showSymbol: false, connectNulls: true })
+    const seriesItem: EChartsSeries = { name, type: 'line', data, smooth: true, showSymbol: false, connectNulls: true }
+    if (isArea) seriesItem.areaStyle = { opacity: 0.3 }
+    seriesList.push(seriesItem)
   }
+  const tertiaryColor = typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-tertiary').trim() || '#64748b' : '#64748b'
   return {
     backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis', confine: true },
-    legend: { type: 'scroll', bottom: 0, textStyle: { color: (typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--sre-text-tertiary').trim() || '#64748b' : '#64748b'), fontSize: 12 } },
-    grid: { left: 80, right: 20, top: 20, bottom: 50 },
+    tooltip: {
+      trigger: chartSettings.value.sharedTooltip ? 'axis' : 'item',
+      confine: true,
+      ...(chartSettings.value.sharedTooltip ? { axisPointer: { type: 'cross' } } : {}),
+    },
+    legend: chartSettings.value.showLegend ? {
+      type: 'scroll', bottom: 0,
+      textStyle: { color: tertiaryColor, fontSize: 12 },
+    } : { show: false },
+    grid: { left: 80, right: 20, top: 20, bottom: chartSettings.value.showLegend ? 50 : 20 },
     xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 11 }, splitLine: { lineStyle: { type: 'dashed' } } },
     series: seriesList,
@@ -304,21 +346,19 @@ const metricTableData = computed(() => {
 })
 
 const logColumnsEnhanced = computed(() => [
-  { type: 'expand' as const, expandable: () => true, renderExpand: (row: LogEntry) => {
-    const labels = row.labels || {}
-    return h('div', { class: 'log-expanded-row' }, [
-      h('div', { class: 'log-expanded-title' }, t('query.logFields')),
-      h('div', { class: 'log-expanded-grid' },
-        Object.entries(labels).map(([k, v]) =>
-          h('div', { class: 'log-field-item', onClick: () => copyFieldValue(k, v) }, [
-            h('span', { class: 'log-field-key' }, k),
-            h('span', { class: 'log-field-value' }, String(v)),
-          ])
-        )
-      ),
-      h('div', { class: 'log-expanded-level' }, ['Level: ', h('strong', {}, detectLogLevel(row).toUpperCase())]),
-    ])
-  } },
+  {
+    title: '',
+    key: 'expand',
+    width: 40,
+    render: (_r: LogEntry, index: number) =>
+      h(NTooltip, { trigger: 'hover' }, {
+        trigger: () => h('div', {
+          style: 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer;',
+          onClick: () => openLogDrawer(index),
+        }, [h('span', { style: 'font-size:14px;color:var(--sre-text-tertiary);' }, '\u{1F50D}')]),
+        default: () => t('query.logDetailTip'),
+      }),
+  },
   { title: '', key: 'level', width: 6, render: (r: LogEntry) => h('div', { style: { width: '4px', height: '100%', minHeight: '20px', borderRadius: '2px', background: LEVEL_COLORS[detectLogLevel(r)] } }) },
   { title: t('query.logTime'), key: 'timestamp', width: 180, render: (r: LogEntry) => h('span', { style: { fontFamily: 'var(--sre-font-mono, monospace)', fontSize: '12px' } }, fmtTs(r.timestamp)) },
   { title: t('query.logMessage'), key: 'message', ellipsis: { tooltip: true }, render: (r: LogEntry) => h('span', { style: { fontFamily: 'var(--sre-font-mono, monospace)', fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: (detectLogLevel(r) === 'error' || detectLogLevel(r) === 'fatal') ? '#ef4444' : detectLogLevel(r) === 'warn' ? '#eab308' : undefined } }, r.message || '-') },
@@ -526,7 +566,8 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
           </span>
           <span v-if="queryStats" class="query-stats">{{ queryStats.executionTimeMs }}ms<template v-if="queryStats.step"> · step {{ queryStats.step }}</template></span>
         </div>
-        <NSpace :size="4">
+        <NSpace :size="4" align="center">
+          <MetricChartControls v-model="chartSettings" />
           <NButton size="small" :type="resultMode === 'chart' ? 'primary' : 'default'" :secondary="resultMode !== 'chart'" @click="resultMode = 'chart'">{{ t('query.chart') }}</NButton>
           <NButton size="small" :type="resultMode === 'table' ? 'primary' : 'default'" :secondary="resultMode !== 'table'" @click="resultMode = 'table'">{{ t('query.table') }}</NButton>
           <NButton v-if="canExport" size="small" tertiary @click="exportCsv"><template #icon><NIcon><DownloadOutline /></NIcon></template>{{ t('query.exportCsv') }}</NButton>
@@ -541,7 +582,18 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
           <NButton size="small" @click="resultMode = 'table'">{{ t('query.switchToTable') }}</NButton>
         </div>
       </div>
-      <NDataTable v-if="resultMode === 'table'" :columns="metricColumns" :data="metricTableData" :row-key="(r: Record<string, unknown>) => String(r._key)" size="small" :single-line="false" striped max-height="500" virtual-scroll />
+      <NDataTable
+        v-if="resultMode === 'table'"
+        :columns="metricColumns"
+        :data="metricTableData"
+        :row-key="(r: Record<string, unknown>) => String(r._key)"
+        :row-props="(row: MetricTableRow) => ({ style: 'cursor: pointer', onClick: () => emit('openLabels', row._rawLabels, row.name) })"
+        size="small"
+        :single-line="false"
+        striped
+        max-height="500"
+        virtual-scroll
+      />
     </div>
 
     <!-- Log Results -->
@@ -561,7 +613,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
           <NButton v-if="canExport" size="small" tertiary @click="exportCsv"><template #icon><NIcon><DownloadOutline /></NIcon></template>{{ t('query.exportCsv') }}</NButton>
         </NSpace>
       </div>
-      <LogHistogram v-if="showHistogram" :buckets="histogramBuckets" :loading="histogramLoading" class="log-histogram-container" @bar-click="onHistogramBarClick" />
+      <LogHistogram v-if="showHistogram" :buckets="histogramBuckets" :loading="histogramLoading" class="log-histogram-container" @bar-click="onHistogramBarClick" @brush-select="onHistogramBrushSelect" />
       <div class="log-level-legend">
         <span v-for="(color, level) in LEVEL_COLORS" :key="level" class="level-item" v-show="level !== 'unknown'">
           <span class="level-dot" :style="{ background: color }" />
@@ -575,6 +627,16 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
     <div v-if="!loading && !errorMsg && selectedDsId && expression.trim() && ((!isLogs && metricData !== null && !metricData?.series?.length) || (isLogs && !logEntries.length && metricData === null && logTotal === 0))" class="query-empty">
       {{ t('query.noResults') }}
     </div>
+
+    <!-- Log Detail Drawer -->
+    <LogDetailDrawer
+      v-model:show="drawerVisible"
+      :log-entry="drawerLogEntry"
+      :log-entries="logEntries"
+      :current-index="drawerCurrentIndex"
+      @prev="onDrawerPrev"
+      @next="onDrawerNext"
+    />
   </div>
 </template>
 

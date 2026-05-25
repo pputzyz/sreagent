@@ -5,11 +5,11 @@
  *
  * Features:
  * - Click a bar to zoom into that time bucket
- * - Brush selection to zoom into a range
+ * - Brush selection to zoom into a range (drag to select)
  * - Responsive height (120px default)
  * - Dark/light theme aware
  */
-import { ref, computed, onMounted, onUnmounted, watch, shallowRef, type Component } from 'vue'
+import { ref, computed, onMounted, shallowRef, type Component } from 'vue'
 
 const props = withDefaults(defineProps<{
   buckets: Array<{ timestamp: string | number; count: number }>
@@ -28,6 +28,7 @@ const emit = defineEmits<{
 // Lazy load ECharts
 const ChartReady = ref(false)
 const VChart = shallowRef<Component | null>(null)
+const chartRef = ref<any>(null)
 
 async function loadECharts() {
   try {
@@ -110,13 +111,23 @@ const chartOption = computed(() => {
         itemStyle: { opacity: 1 },
       },
     }],
+    brush: {
+      toolbox: ['lineX', 'clear'],
+      xAxisIndex: 0,
+      brushStyle: { borderWidth: 1, color: 'rgba(13, 148, 136, 0.15)', borderColor: 'rgba(13, 148, 136, 0.6)' },
+      throttleType: 'debounce',
+      throttleDelay: 300,
+    },
+    toolbox: { show: false },
     dataZoom: [
       { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
     ],
   }
 })
 
-function handleClick(params: { dataIndex: number }) {
+function handleClick(params: { dataIndex: number; componentType?: string }) {
+  // Ignore brush events that fire as click
+  if (params.componentType === 'brush') return
   if (!props.buckets?.[params.dataIndex]) return
   const bucket = props.buckets[params.dataIndex]
   const ts = typeof bucket.timestamp === 'string' ? new Date(bucket.timestamp).getTime() / 1000 : bucket.timestamp
@@ -137,6 +148,17 @@ function handleClick(params: { dataIndex: number }) {
   emit('barClick', ts, ts + duration)
 }
 
+function handleBrushEnd(params: { areas?: Array<{ coordRange?: [number, number][]; range?: number[][] }> }) {
+  const areas = params.areas
+  if (!areas?.length) return
+  const area = areas[0]
+  // coordRange for xAxisIndex gives [min, max] in data coordinates
+  if (area.coordRange) {
+    const [min, max] = area.coordRange[0]
+    emit('brushSelect', Math.floor(min / 1000), Math.floor(max / 1000))
+  }
+}
+
 onMounted(() => { loadECharts() })
 </script>
 
@@ -148,10 +170,12 @@ onMounted(() => { loadECharts() })
     <template v-else-if="ChartReady && VChart && chartOption">
       <component
         :is="VChart"
+        ref="chartRef"
         :option="chartOption"
         :autoresize="true"
         :style="{ width: '100%', height: '100%' }"
         @click="handleClick"
+        @brush-end="handleBrushEnd"
       />
     </template>
     <div v-else-if="!buckets?.length" class="histogram-empty">

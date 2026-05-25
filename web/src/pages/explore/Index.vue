@@ -294,6 +294,36 @@ function syncFromURL() {
 // --- Watch ---
 watch(autoRefreshSec, () => startAutoTimer())
 
+// Auto-sync URL when panel state changes (debounced)
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedSyncToURL() {
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(syncToURL, 500)
+}
+
+// Watch first panel's reactive state for URL sync
+watch(() => {
+  const p = panelRefs.value[0] as any
+  if (!p) return null
+  return `${p.selectedDsId}-${p.expression}-${p.activeTab}`
+}, (val) => {
+  if (val) debouncedSyncToURL()
+})
+
+// Handle openLabels from child panel
+function onPanelOpenLabels(labels: Record<string, string>, seriesName: string) {
+  openLabelDrawer(labels, seriesName)
+}
+
+// Handle histogram time range zoom from child panel
+function onPanelTimeRangeChange(start: number, end: number) {
+  // Update shared time range to the zoomed range
+  rangeMin.value = -1
+  customRange.value = [start * 1000, end * 1000]
+  showCustomPicker.value = true
+  now.value = Date.now()
+}
+
 onMounted(async () => {
   const urlState = syncFromURL()
   await loadDs()
@@ -408,6 +438,8 @@ onUnmounted(() => {
           :VChart="VChart"
           :canClose="panels.length > 1"
           @remove="removePanel"
+          @open-labels="onPanelOpenLabels"
+          @time-range-change="onPanelTimeRangeChange"
         />
       </div>
     </div>

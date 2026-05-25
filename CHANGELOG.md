@@ -4,6 +4,26 @@
 
 ---
 
+## [v4.18.0] — 2026-05-25
+
+### Explore 页面深度改造 — 对齐 Nightingale V9 UX
+
+**新增组件**:
+- `MetricChartControls.vue` — 指标图表控制栏（MaxDataPoints、MinStep、Line/Area 切换、Settings 齿轮、Share）
+- `LogDetailDrawer.vue` — 日志详情抽屉（Table/JSON 双 tab、prev/next 导航、键盘快捷键 ↑↓/Esc、可调宽度 S/M/L）
+- `FieldValueToken.vue` — 字段值 token 化 + 点击过滤菜单（Copy、Filter AND/NOT）
+- `LogViewSettings.vue` — 日志显示设置（Line Break、Show Time、Line Numbers、JSON Expand Level）
+- `LogFieldSidebar.vue` — 日志字段侧边栏（搜索、类型图标、Top 10 值 + 进度条、AND 过滤）
+
+**改动**:
+- `QueryPanelContent.vue` — 集成 MetricChartControls（图表设置影响 ECharts 渲染）、LogDetailDrawer（替代 inline expand）、openLabels/timeRangeChange emit
+- `LogHistogram.vue` — 增加 brush 选区缩放（ECharts BrushComponent）、bar click 事件修复
+- `explore/Index.vue` — 自动 URL sync（debounced watch）、openLabels 事件处理、timeRangeChange 事件处理（直方图缩放更新全局时间范围）
+- `PromQLEditor.vue` — 接入后端 metricNames/labelKeys/labelValues API 实现 PromQL 自动补全
+- `i18n/en.ts` + `zh-CN.ts` — 新增 ~25 个 query 相关 key
+
+---
+
 ## [v4.17.1] — 2026-05-25
 
 ### 多面板 + 视图保存 + 按数据源历史
