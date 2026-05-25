@@ -4,6 +4,19 @@
 
 ---
 
+## [v4.21.1] — 2026-05-25
+
+### Explore 页面布局修复 — 移除溢出裁剪，修复卡片样式
+
+**QueryPanelContent.vue 修复**:
+- 移除 `panel-content` 的 `max-height: 650px` + `overflow: hidden`，解除图表/表格内容裁剪
+- 移除 `metrics-results` 和 `log-results` 的 `overflow: hidden`，改为 `overflow: visible/auto`
+- 修复 card tabs CSS：移除无效的 `border-left` hack，改用简洁的 active tab top border 方式
+- `log-main-area` 改为 `overflow: auto` 支持日志内容滚动
+- `chart-container` 移除 `overflow: hidden` 防止图表被裁剪
+
+---
+
 ## [v4.21.0] — 2026-05-25
 
 ### Explore 页面修复 — 对齐 Nightingale V9 关键交互和样式

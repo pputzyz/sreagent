@@ -825,18 +825,14 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 </template>
 
 <style scoped>
-/* Nightingale panel: bg-fc-100, border, rounded-lg, p-4, max-h-650 */
+/* Nightingale panel: bg-fc-100, border, rounded-lg, p-4 */
 .panel-content {
   background: var(--sre-bg-sunken, #f8fafc);
   border: 1px solid var(--sre-border);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
-  max-height: 650px;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 /* Panel top row: ds select + tabs + close (Nightingale: Row gutter=8) */
@@ -895,46 +891,28 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 /* Metrics Results (Nightingale: card-style tabs container) */
 .metrics-results {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Card tabs: Nightingale PromGraphCpt style.less pattern */
 .metric-card-tabs {
-  height: 100%;
   display: flex;
   flex-direction: column;
 }
-.metric-card-tabs :deep(.n-tabs-nav) {
-  border-left: 1px solid var(--sre-border);
-  border-top-left-radius: 6px;
-}
 .metric-card-tabs :deep(.n-tabs-tab) {
-  border: 1px solid var(--sre-border);
-  border-left: none;
   padding: 6px 16px;
   font-size: 13px;
   color: var(--sre-text-tertiary);
 }
 .metric-card-tabs :deep(.n-tabs-tab--active) {
-  border-top: 2px solid var(--sre-primary);
-  border-bottom-color: var(--sre-bg-card, #fff);
-  background: var(--sre-bg-card, #fff);
+  border-top: 2px solid var(--sre-primary) !important;
   color: var(--sre-text-primary);
 }
 .metric-card-tabs :deep(.n-tabs-tab-pad) {
   display: none;
 }
 .metric-card-tabs :deep(.n-tabs-content) {
-  border: 1px solid var(--sre-border);
-  border-top: none;
-  padding: 16px;
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+  padding: 0;
 }
 .card-tabs-suffix {
   display: flex;
@@ -964,7 +942,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 .query-stats { font-size: 11px; color: var(--sre-text-tertiary); font-family: var(--sre-font-mono, monospace); }
 .tag-ml { margin-left: 4px; }
 
-.chart-container { min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.chart-container { min-height: 300px; display: flex; align-items: center; justify-content: center; }
 .chart-fallback { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--sre-text-tertiary); font-size: 13px; }
 .chart-full { width: 100%; height: 300px; }
 .loading-container { display: flex; justify-content: center; padding: 40px; }
@@ -973,7 +951,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 .log-results {
   border: 1px solid var(--sre-border);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--sre-bg-card);
   padding: 12px;
 }
@@ -1000,7 +978,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 .log-main-area {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
 }
