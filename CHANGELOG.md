@@ -4,6 +4,16 @@
 
 ---
 
+## [v4.22.1] — 2026-05-25
+
+### 图表交互修复 — Tooltip 显示 series 名称 + Legend 点击隔离
+
+**QueryPanelContent.vue**:
+- 图表 tooltip 新增 formatter：显示时间 + 每个 series 的名称、marker 和值
+- Legend 设置 `selectedMode: 'single'`：点击单个 series 可隔离高亮显示
+
+---
+
 ## [v4.22.0] — 2026-05-25
 
 ### Explore 页面架构重构 — 对齐 Nightingale PromGraphCpt 控件布局

@@ -396,10 +396,22 @@ const chartOption = computed(() => {
       trigger: chartSettings.value.sharedTooltip ? 'axis' : 'item',
       confine: true,
       ...(chartSettings.value.sharedTooltip ? { axisPointer: { type: 'cross' } } : {}),
+      formatter: (params: { seriesName: string; value: [number, number]; marker: string } | Array<{ seriesName: string; value: [number, number]; marker: string }>) => {
+        const items = Array.isArray(params) ? params : [params]
+        if (!items.length || !items[0].value) return ''
+        const time = new Date(items[0].value[0]).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        let html = `<div style="font-size:12px;margin-bottom:4px"><strong>${time}</strong></div>`
+        for (const item of items) {
+          const val = typeof item.value[1] === 'number' ? item.value[1].toFixed(4) : item.value[1]
+          html += `<div style="font-size:12px;display:flex;align-items:center;gap:4px">${item.marker}<span>${item.seriesName}</span>: <strong>${val}</strong></div>`
+        }
+        return html
+      },
     },
     legend: chartSettings.value.showLegend ? {
       type: 'scroll', bottom: 0,
       textStyle: { color: tertiaryColor, fontSize: 12 },
+      selectedMode: 'single',
     } : { show: false },
     grid: { left: 80, right: 20, top: 20, bottom: chartSettings.value.showLegend ? 50 : 20 },
     xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
