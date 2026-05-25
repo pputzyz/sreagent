@@ -12,6 +12,7 @@ import {
   NSelect, NButton, NSpace, NTag, NSpin,
   NDataTable, NTabs, NTabPane, NPopover, NIcon, NTooltip,
   NButtonGroup, NDrawer, NDrawerContent, NDescriptions, NDescriptionsItem,
+  NDatePicker, NInputNumber,
   useMessage,
 } from 'naive-ui'
 import {
@@ -147,38 +148,16 @@ function onChartReady(chart: any) {
   // ECharts instance accessible via chart
 }
 
-// Per-panel graph time range (Nightingale Graph.tsx: each panel has own TimeRangePicker)
-const graphRangeMin = ref<number>(-1) // -1 means use parent range
-const graphNow = ref(Date.now())
+// Graph time range — uses shared time range from parent (header)
+const graphTimeStart = computed(() => props.timeStart)
+const graphTimeEnd = computed(() => props.timeEnd)
 
-const graphPresetOptions = [
-  { label: '5m', value: 5 },
-  { label: '15m', value: 15 },
-  { label: '30m', value: 30 },
-  { label: '1h', value: 60 },
-  { label: '3h', value: 180 },
-  { label: '6h', value: 360 },
-  { label: '12h', value: 720 },
-  { label: '24h', value: 1440 },
-]
+// Max data points / Min step (Nightingale Graph.tsx)
+const maxDataPoints = ref<number | null>(null)
+const minStep = ref<number | null>(null)
 
-const graphTimeStart = computed(() => {
-  if (graphRangeMin.value === -1) return props.timeStart
-  return Math.floor((graphNow.value - graphRangeMin.value * 60000) / 1000)
-})
-const graphTimeEnd = computed(() => {
-  if (graphRangeMin.value === -1) return props.timeEnd
-  return Math.floor(graphNow.value / 1000)
-})
-
-function selectGraphPreset(v: number) {
-  graphRangeMin.value = v
-  graphNow.value = Date.now()
-}
-
-function resetGraphRange() {
-  graphRangeMin.value = -1
-}
+// Table evaluation timestamp (Nightingale Table.tsx: single DatePicker)
+const tableTimestamp = ref<number | null>(null)
 
 // Log mode (Nightingale: origin/table toggle)
 type LogMode = 'origin' | 'table'
@@ -330,10 +309,10 @@ function resolveStep(): string {
   const start = graphTimeStart.value
   const end = graphTimeEnd.value
   const duration = end - start
-  const maxPts = chartSettings.value.maxDataPoints || 240
+  const maxPts = maxDataPoints.value || 240
   const computedStep = Math.ceil(duration / maxPts)
-  const minStep = chartSettings.value.minStep || 15
-  return `${Math.max(computedStep, minStep)}s`
+  const min = minStep.value || 15
+  return `${Math.max(computedStep, min)}s`
 }
 
 // --- Actions ---
@@ -380,6 +359,7 @@ async function run() {
       try {
         const instantRes = await datasourceApi.query(selectedDsId.value, {
           expression: expression.value,
+          time: tableTimestamp.value ? tableTimestamp.value / 1000 : undefined,
         })
         instantData.value = instantRes.data?.data || null
       } catch {
@@ -640,8 +620,16 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 <template>
   <div class="panel-content">
-    <!-- Panel header: tabs + close -->
+    <!-- Panel header: Datasource + Tabs + Close (Nightingale Explorer header row) -->
     <div class="panel-top-row">
+      <NSelect
+        v-model:value="selectedDsId"
+        :options="datasourceOptions"
+        :placeholder="t('query.selectDatasource')"
+        filterable
+        size="small"
+        class="ds-select-inline"
+      />
       <NTabs v-model:value="activeTab" type="line" size="small" class="panel-tabs-inline">
         <NTabPane name="metrics" :tab="t('query.metricsTab')" />
         <NTabPane name="logs" :tab="t('query.logsTab')" />
@@ -653,18 +641,6 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
     <div v-if="isLogs && !logDatasources.length" class="query-empty-inline">
       {{ t('query.noLogDatasources') }}
-    </div>
-
-    <!-- Datasource Selector + Editor + Execute -->
-    <div class="ds-row">
-      <NSelect
-        v-model:value="selectedDsId"
-        :options="datasourceOptions"
-        :placeholder="t('query.selectDatasource')"
-        filterable
-        size="small"
-        class="ds-select-inline"
-      />
     </div>
 
     <!-- Editor + Execute (Nightingale: flex gap-[8px] side-by-side) -->
@@ -735,6 +711,15 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
         <NTabPane name="table" tab="Table">
           <div class="table-controls">
             <NSpace :size="8" align="center">
+              <span class="field-label">Time</span>
+              <NDatePicker
+                v-model:value="tableTimestamp"
+                type="datetime"
+                size="small"
+                class="table-time-picker"
+                :placeholder="t('query.evalTime') || 'Evaluation time'"
+                clearable
+              />
               <span class="field-label">{{ t('query.limit') }}</span>
               <NSelect v-model:value="metricLimit" :options="metricLimitOptions" size="small" class="control-select-sm" />
               <NButton v-if="canExport" size="small" quaternary @click="exportCsv">
@@ -758,23 +743,21 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
         <!-- Graph Tab (Nightingale: controls row inside graph pane) -->
         <NTabPane name="graph" tab="Graph">
-          <!-- Graph Controls Row (Nightingale Graph.tsx pattern) -->
+          <!-- Graph Controls Row (Nightingale Graph.tsx: maxDataPoints + minStep + chartType + settings) -->
           <div class="graph-controls-row">
-            <div class="graph-time-presets">
-              <NButton
-                v-for="opt in graphPresetOptions"
-                :key="opt.value"
-                size="tiny"
-                :type="graphRangeMin === opt.value ? 'primary' : 'default'"
-                :secondary="graphRangeMin !== opt.value"
-                @click="selectGraphPreset(opt.value)"
-              >{{ opt.label }}</NButton>
-              <NButton
-                size="tiny"
-                :type="graphRangeMin === -1 ? 'primary' : 'default'"
-                :secondary="graphRangeMin !== -1"
-                @click="resetGraphRange"
-              >Global</NButton>
+            <div class="graph-ctrl-item">
+              <span class="ctrl-label">Max pts</span>
+              <NInputNumber v-model:value="maxDataPoints" size="small" class="ctrl-input-sm" :min="10" :max="10000" :show-button="false" placeholder="240" />
+            </div>
+            <div class="graph-ctrl-item">
+              <span class="ctrl-label">Min step</span>
+              <NInputNumber v-model:value="minStep" size="small" class="ctrl-input-sm" :min="1" :max="3600" :show-button="false" placeholder="15" />
+            </div>
+            <div class="graph-ctrl-item">
+              <NButtonGroup size="small">
+                <NButton :type="chartSettings.chartType === 'line' ? 'primary' : 'default'" :secondary="chartSettings.chartType !== 'line'" @click="chartSettings.chartType = 'line'">Line</NButton>
+                <NButton :type="chartSettings.chartType === 'area' ? 'primary' : 'default'" :secondary="chartSettings.chartType !== 'area'" @click="chartSettings.chartType = 'area'">Area</NButton>
+              </NButtonGroup>
             </div>
             <MetricChartControls v-model="chartSettings" />
           </div>
@@ -936,23 +919,17 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   position: relative;
 }
 
-/* Panel top row: tabs + close */
+/* Panel top row: datasource + tabs + close (Nightingale Explorer header) */
 .panel-top-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
   flex-shrink: 0;
 }
+.ds-select-inline { width: 220px; flex-shrink: 0; }
 .panel-tabs-inline { flex: 1; min-width: 0; }
 .panel-tabs-inline :deep(.n-tabs-tab) { padding: 4px 12px; }
-
-/* Datasource selector row */
-.ds-row {
-  margin-bottom: 8px;
-}
-.ds-select-inline { width: 100%; max-width: 400px; }
 
 /* Editor row (Nightingale: PromQL input + Execute button side-by-side) */
 .editor-row {
@@ -964,6 +941,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   flex: 1;
   min-width: 0;
   width: 100%;
+  cursor: text;
 }
 .editor-actions {
   flex-shrink: 0;
@@ -1050,12 +1028,19 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   border-bottom: 1px solid var(--sre-border);
   margin-bottom: 12px;
 }
-.graph-time-presets {
+.graph-ctrl-item {
   display: flex;
-  gap: 4px;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
 }
+.ctrl-label {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  white-space: nowrap;
+}
+.ctrl-input-sm { width: 70px; }
+.table-time-picker { width: 200px; }
 
 .results-count { font-size: 13px; color: var(--sre-text-secondary); }
 .query-stats { font-size: 11px; color: var(--sre-text-tertiary); font-family: var(--sre-font-mono, monospace); }

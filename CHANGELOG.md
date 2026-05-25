@@ -4,6 +4,33 @@
 
 ---
 
+## [v4.26.0] — 2026-05-25
+
+### Explore 页面 UI 重构 — 对齐 Nightingale 面板布局 + 控件体验
+
+**面板 Header 重构（对齐 Nightingale Explorer.tsx）**:
+- Datasource 选择器 + Tabs + Close 按钮合并为一行（原来分散在两行）
+- Datasource 选择器固定 220px 宽度，放在 header 最左侧
+- 移除独立的 `.ds-row`，减少视觉层级
+
+**Graph Controls 对齐 Nightingale Graph.tsx**:
+- 移除 per-panel 时间范围 preset 按钮（与 header 全局时间范围重复）
+- Graph 统一使用页面 header 的共享时间范围，不再有不一致问题
+- 新增 Max data points InputNumber 控件（默认 240，影响 step 计算）
+- 新增 Min step InputNumber 控件（默认 15s）
+- 新增 Line/Area 图表类型切换按钮组
+- MetricChartControls（legend/tooltip 设置）保留在同一行
+
+**Table Controls 对齐 Nightingale Table.tsx**:
+- 新增 Evaluation Time DatePicker（单点时间选择器）
+- 支持指定特定时间点执行即时查询，不指定则默认 now
+
+**PromQL 编辑器光标修复**:
+- `overflow: hidden` 改为 `overflow: clip`，修复 cursor: text 被浏览器忽略的问题
+- PromQLEditor 和 LogsQLEditor 同步修复
+
+---
+
 ## [v4.25.0] — 2026-05-25
 
 ### Explore 页面对齐 Nightingale V9 — 后端架构 + 前端交互全量优化

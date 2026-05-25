@@ -110,7 +110,7 @@ watch(() => props.datasourceId, () => {
 .promql-editor {
   border: 1px solid var(--sre-border);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: clip;
   min-height: 42px;
   width: 100%;
   cursor: text;
