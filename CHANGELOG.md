@@ -4,6 +4,37 @@
 
 ---
 
+## [v4.27.0] — 2026-05-25
+
+### Recording Rules 模块 — Nightingale 功能移植 #1
+
+**新增模块：录制规则（Recording Rules）**:
+- 预计算昂贵的 PromQL 表达式，按固定间隔写入新时间序列
+- 对齐 Nightingale V9 的 Recording Rules 完整功能
+
+**后端（Go + Gin + GORM）**:
+- 数据模型：`recording_rules` 表（迁移编号：000067）
+- 字段：group_id、name、prom_ql、datasource_ids、cron_pattern、disabled、append_tags、note、query_configs
+- Repository：完整 CRUD + 分页筛选 + 批量操作
+- Service：业务逻辑层，包含验证、FE2DB/DB2FE 转换
+- Handler：8 个 API 端点
+  - `GET /api/v1/recording-rules` — 列表（支持 group_id/query/disabled 筛选 + 分页）
+  - `GET /api/v1/recording-rules/:id` — 详情
+  - `POST /api/v1/recording-rules` — 创建
+  - `PUT /api/v1/recording-rules/:id` — 更新
+  - `DELETE /api/v1/recording-rules/:id` — 删除
+  - `POST /api/v1/recording-rules/batch` — 批量创建（导入）
+  - `POST /api/v1/recording-rules/batch-delete` — 批量删除
+  - `PUT /api/v1/recording-rules/fields` — 批量字段更新
+- 权限：读取需认证，写入需 `manage` 角色 + `rules.write` 权限
+
+**前端（Vue 3 + Naive UI）**:
+- 列表页面：表格 + 筛选 + 分页 + 批量操作
+- 新增/编辑表单：PromQL 编辑器、数据源选择、cron 模式、附加标签
+- 功能：克隆、导入/导出 JSON、批量更新、启用/禁用切换
+
+---
+
 ## [v4.26.0] — 2026-05-25
 
 ### Explore 页面 UI 重构 — 对齐 Nightingale 面板布局 + 控件体验

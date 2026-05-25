@@ -172,6 +172,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Inspection repository
 	inspectionRepo := repository.NewInspectionRepository(db)
 
+	// Recording rule repository
+	recordingRuleRepo := repository.NewRecordingRuleRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -256,6 +259,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Inspection executor (scheduler created after engine block for Leader access)
 	inspectionExecutor := service.NewInspectionExecutor(inspectionRepo, agentSvc, zapLogger)
+
+	// Recording rule service
+	recordingRuleSvc := service.NewRecordingRuleService(recordingRuleRepo, zapLogger)
 
 	// TODO(AIOps P3): wire IncidentContextService into AgentService when agent gains incident-aware context
 	// incidentContextSvc := service.NewIncidentContextService(incidentRepo, eventRepo, knowledgeSvc, scheduleSvc, bizGroupSvc, zapLogger)
@@ -540,6 +546,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		DiagnosticWorkflow:  handler.NewDiagnosticWorkflowHandler(diagnosticWorkflowSvc),
 		ChangeEvent:         handler.NewChangeEventHandler(changeEventSvc),
 		Inspection:          handler.NewInspectionHandler(inspectionRepo, inspectionSched, inspectionExecutor),
+		RecordingRule:       handler.NewRecordingRuleHandler(recordingRuleSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it

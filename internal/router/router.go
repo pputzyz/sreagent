@@ -67,6 +67,7 @@ type Handlers struct {
 	DiagnosticWorkflow  *handler.DiagnosticWorkflowHandler // 诊断工作流 (AIOps Phase 2)
 	ChangeEvent         *handler.ChangeEventHandler        // 变更事件 (AIOps Phase 2)
 	Inspection          *handler.InspectionHandler         // 定时巡检 Agent
+	RecordingRule       *handler.RecordingRuleHandler      // 录制规则 (Recording Rules)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -176,6 +177,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerTeamRoutes(auth, adminOnly, manage)
 			handlers.registerSettingRoutes(auth, adminOnly, manage, operate)
 			handlers.registerAdminRoutes(auth, adminOnly, manage, operate)
+			handlers.registerRecordingRuleRoutes(auth, adminOnly, manage)
 		}
 	}
 

@@ -69,6 +69,10 @@ export {
 // ===== Preset rules & AI modules =====
 export { presetRuleApi, aiModuleApi, aiRuleApi } from './preset-rules'
 
+// ===== Recording Rules =====
+export { recordingRuleApi } from './recording'
+export type { RecordingRule, CreateRecordingRuleRequest, UpdateRecordingRuleRequest } from './recording'
+
 // ===== Notification Center & Permissions =====
 export { notificationCenterApi, permissionsApi } from './center'
 export type { UserNotification, MyPermissions, TeamRole } from './center'
