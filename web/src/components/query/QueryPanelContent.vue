@@ -26,6 +26,8 @@ import LogHistogram from './LogHistogram.vue'
 import MetricChartControls from './MetricChartControls.vue'
 import type { ChartSettings } from './MetricChartControls.vue'
 import LogDetailDrawer from './LogDetailDrawer.vue'
+import LogFieldSidebar from './LogFieldSidebar.vue'
+import LogViewSettings from './LogViewSettings.vue'
 import type { DataSource, QueryResponse, LogEntry } from '@/types'
 
 const props = defineProps<{
@@ -86,6 +88,28 @@ const chartSettings = ref<ChartSettings>({
   showLegend: true,
   sharedTooltip: false,
   tooltipSort: 'desc',
+})
+
+// Log mode (Nightingale: origin/table toggle)
+type LogMode = 'origin' | 'table'
+const logMode = ref<LogMode>('origin')
+const logOptions = ref({
+  lineBreak: true,
+  showTime: true,
+  showLabels: true,
+  showLineNum: false,
+  jsonExpandLevel: 2,
+})
+
+// Computed log fields from entries
+const logFields = computed(() => {
+  const fieldSet = new Set<string>()
+  for (const entry of logEntries.value) {
+    if (entry.labels) {
+      for (const k of Object.keys(entry.labels)) fieldSet.add(k)
+    }
+  }
+  return Array.from(fieldSet).sort()
 })
 
 // Limits
@@ -283,6 +307,16 @@ function onHistogramBrushSelect(start: number, end: number) {
   emit('timeRangeChange', start, end)
 }
 
+function onFieldFilterAdd(key: string, value: string) {
+  // Add field filter to query expression (Nightingale: AND filter pattern)
+  const filterExpr = `${key}="${value}"`
+  if (expression.value.trim()) {
+    expression.value = expression.value.trim() + ', ' + filterExpr
+  } else {
+    expression.value = filterExpr
+  }
+}
+
 // --- Chart option ---
 const chartOption = computed(() => {
   if (!metricData.value?.series?.length) return null
@@ -452,65 +486,51 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 <template>
   <div class="panel-content">
-    <!-- Panel header with close button -->
-    <div v-if="canClose" class="panel-header">
-      <span class="panel-label">{{ t('query.panel') }} {{ panelId }}</span>
-      <NButton size="tiny" quaternary @click="emit('remove', panelId)">
+    <!-- Panel header: close + tabs -->
+    <div class="panel-top-row">
+      <NTabs v-model:value="activeTab" type="line" size="small" class="panel-tabs-inline">
+        <NTabPane name="metrics" :tab="t('query.metricsTab')" />
+        <NTabPane name="logs" :tab="t('query.logsTab')" />
+      </NTabs>
+      <NButton v-if="canClose" size="tiny" quaternary @click="emit('remove', panelId)">
         <template #icon><NIcon><CloseCircleOutline /></NIcon></template>
       </NButton>
     </div>
-    <!-- Tab selector -->
-    <NTabs v-model:value="activeTab" type="line" size="small" class="panel-tabs">
-      <NTabPane name="metrics" :tab="t('query.metricsTab')" />
-      <NTabPane name="logs" :tab="t('query.logsTab')" />
-    </NTabs>
 
-    <!-- Datasource selector -->
-    <div class="ds-selector">
-      <NSelect
-        v-model:value="selectedDsId"
-        :options="(isLogs ? logDatasources : metricDatasources).map(d => ({ label: dsLabel(d), value: d.id }))"
-        :placeholder="isLogs ? t('query.selectLogDatasource') : t('query.selectDatasource')"
-        filterable clearable size="small" class="ds-select"
-      />
-      <div v-if="selectedDs" class="ds-info">
-        <NTag :color="{ color: typeColor(selectedDs.type), textColor: '#f1f5f9' }" size="small" :bordered="false">
-          {{ typeBadge(selectedDs.type) }}
-        </NTag>
-        <span class="ds-endpoint">{{ selectedDs.endpoint }}</span>
-      </div>
-    </div>
-
+    <!-- Datasource selector + controls row (Nightingale: Row gutter=8 pattern) -->
     <div v-if="isLogs && !logDatasources.length" class="query-empty-inline">
       {{ t('query.noLogDatasources') }}
     </div>
 
-    <!-- Editor -->
-    <div v-if="selectedDsId != null" class="query-bar">
-      <div class="query-editor-wrap">
+    <!-- Editor + Execute (Nightingale: flex gap-[8px] side-by-side) -->
+    <div v-if="selectedDsId != null" class="editor-row">
+      <div class="editor-input-wrap">
         <PromQLEditor v-if="!isLogs" v-model="expression" :datasource-id="selectedDsId" :placeholder="t('query.promqlPlaceholder')" @execute="run" />
         <LogsQLEditor v-else v-model="expression" :datasource-id="selectedDsId" :placeholder="t('query.logQueryPlaceholder')" @execute="run" />
-        <div class="editor-tools">
-          <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end">
-            <template #trigger>
-              <NTooltip><template #trigger><NButton size="tiny" quaternary><template #icon><NIcon><TimeOutline /></NIcon></template></NButton></template>{{ t('query.queryHistory') }}</NTooltip>
-            </template>
-            <div class="history-pop">
-              <div class="history-title">{{ t('query.recentQueries') }}</div>
-              <div v-if="!filteredHistory.length" class="history-empty">{{ t('query.noHistory') }}</div>
-              <div v-for="item in filteredHistory" :key="item.ts" class="history-item" @click="expression = item.expression; historyVisible = false">
-                <div class="history-expr">{{ item.expression }}</div>
-                <div class="history-ts">{{ fmtTs(item.ts) }}</div>
-              </div>
+      </div>
+      <div class="editor-actions">
+        <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end">
+          <template #trigger>
+            <NTooltip><template #trigger><NButton size="small" quaternary><template #icon><NIcon><TimeOutline /></NIcon></template></NButton></template>{{ t('query.queryHistory') }}</NTooltip>
+          </template>
+          <div class="history-pop">
+            <div class="history-title">{{ t('query.recentQueries') }}</div>
+            <div v-if="!filteredHistory.length" class="history-empty">{{ t('query.noHistory') }}</div>
+            <div v-for="item in filteredHistory" :key="item.ts" class="history-item" @click="expression = item.expression; historyVisible = false">
+              <div class="history-expr">{{ item.expression }}</div>
+              <div class="history-ts">{{ fmtTs(item.ts) }}</div>
             </div>
-          </NPopover>
-          <NTooltip><template #trigger><NButton size="tiny" quaternary :disabled="!expression" @click="expression = ''"><template #icon><NIcon><TrashOutline /></NIcon></template></NButton></template>{{ t('query.clearBtn') }}</NTooltip>
-        </div>
+          </div>
+        </NPopover>
+        <NTooltip><template #trigger><NButton size="small" quaternary :disabled="!expression" @click="expression = ''"><template #icon><NIcon><TrashOutline /></NIcon></template></NButton></template>{{ t('query.clearBtn') }}</NTooltip>
+        <NButton type="primary" size="small" :loading="loading" :disabled="!selectedDsId || !expression.trim()" @click="run">
+          {{ t('query.runQuery') }}
+        </NButton>
       </div>
     </div>
 
-    <!-- Controls -->
-    <div v-if="selectedDsId != null" class="query-actions-row">
+    <!-- Pre-query controls (instant/range, step, limit) -->
+    <div v-if="selectedDsId != null" class="pre-query-controls">
       <NSpace :size="8" align="center">
         <template v-if="!isLogs">
           <NButtonGroup size="small">
@@ -527,12 +547,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
           <NSelect v-model:value="logLimit" :options="logLimitOptions" size="small" class="control-select-sm" />
         </template>
       </NSpace>
-      <NSpace :size="8" align="center">
-        <span class="shortcut-hint">{{ t('query.shortcutHint') }}</span>
-        <NButton type="primary" size="small" :loading="loading" :disabled="!expression.trim()" @click="run">
-          {{ t('query.runQuery') }}
-        </NButton>
-      </NSpace>
+      <span class="shortcut-hint">{{ t('query.shortcutHint') }}</span>
     </div>
 
     <div v-if="selectedDsId == null && !(isLogs && !logDatasources.length)" class="query-empty-inline">
@@ -555,72 +570,148 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
     <!-- Loading -->
     <div v-if="loading" class="loading-container"><NSpin size="medium" /></div>
 
-    <!-- Metrics Results -->
-    <div v-if="!loading && !isLogs && metricData?.series?.length" class="results-panel">
-      <div class="results-header">
-        <div class="results-header-left">
-          <span class="results-count">
-            {{ metricData.series.length }} {{ t('query.seriesCount') }}
-            <template v-if="metricData.result_type"> · {{ metricData.result_type }}</template>
-            <NTag v-if="isMetricLimited" type="warning" size="small" :bordered="false" class="tag-ml">{{ t('query.limitedTo', { n: metricLimit }) }}</NTag>
-          </span>
-          <span v-if="queryStats" class="query-stats">{{ queryStats.executionTimeMs }}ms<template v-if="queryStats.step"> · step {{ queryStats.step }}</template></span>
-        </div>
-        <NSpace :size="4" align="center">
-          <MetricChartControls v-model="chartSettings" />
-          <NButton size="small" :type="resultMode === 'chart' ? 'primary' : 'default'" :secondary="resultMode !== 'chart'" @click="resultMode = 'chart'">{{ t('query.chart') }}</NButton>
-          <NButton size="small" :type="resultMode === 'table' ? 'primary' : 'default'" :secondary="resultMode !== 'table'" @click="resultMode = 'table'">{{ t('query.table') }}</NButton>
-          <NButton v-if="canExport" size="small" tertiary @click="exportCsv"><template #icon><NIcon><DownloadOutline /></NIcon></template>{{ t('query.exportCsv') }}</NButton>
-        </NSpace>
-      </div>
-      <div v-if="resultMode === 'chart'" class="chart-container">
-        <template v-if="ChartReady && VChart && chartOption">
-          <component :is="VChart" :option="chartOption" :autoresize="true" class="chart-full" />
+    <!-- ============================================ -->
+    <!-- Metrics Results (Nightingale: card-style tabs) -->
+    <!-- ============================================ -->
+    <div v-if="!loading && !isLogs && metricData?.series?.length" class="metrics-results">
+      <!-- Card tabs: Table / Graph (Nightingale PromGraphCpt type='card') -->
+      <NTabs v-model:value="resultMode" type="card" size="small" class="metric-card-tabs"
+        :tab-bar-style="{ marginBottom: 0 }"
+      >
+        <template #suffix>
+          <div class="card-tabs-suffix">
+            <span class="results-count">
+              {{ metricData.series.length }} {{ t('query.seriesCount') }}
+              <NTag v-if="isMetricLimited" type="warning" size="tiny" :bordered="false" class="tag-ml">{{ t('query.limitedTo', { n: metricLimit }) }}</NTag>
+            </span>
+            <span v-if="queryStats" class="query-stats">{{ queryStats.executionTimeMs }}ms<template v-if="queryStats.step"> · step {{ queryStats.step }}</template></span>
+            <NButton v-if="canExport" size="tiny" quaternary @click="exportCsv"><template #icon><NIcon :size="14"><DownloadOutline /></NIcon></template></NButton>
+          </div>
         </template>
-        <div v-else class="chart-fallback">
-          <p>{{ t('query.chartUnavailable') }}</p>
-          <NButton size="small" @click="resultMode = 'table'">{{ t('query.switchToTable') }}</NButton>
-        </div>
-      </div>
-      <NDataTable
-        v-if="resultMode === 'table'"
-        :columns="metricColumns"
-        :data="metricTableData"
-        :row-key="(r: Record<string, unknown>) => String(r._key)"
-        :row-props="(row: MetricTableRow) => ({ style: 'cursor: pointer', onClick: () => emit('openLabels', row._rawLabels, row.name) })"
-        size="small"
-        :single-line="false"
-        striped
-        max-height="500"
-        virtual-scroll
-      />
+
+        <!-- Table Tab -->
+        <NTabPane name="table" tab="Table">
+          <NDataTable
+            :columns="metricColumns"
+            :data="metricTableData"
+            :row-key="(r: Record<string, unknown>) => String(r._key)"
+            :row-props="(row: MetricTableRow) => ({ style: 'cursor: pointer', onClick: () => emit('openLabels', row._rawLabels, row.name) })"
+            size="small"
+            :single-line="false"
+            striped
+            max-height="500"
+            virtual-scroll
+          />
+        </NTabPane>
+
+        <!-- Graph Tab (Nightingale: controls row inside graph pane) -->
+        <NTabPane name="graph" tab="Graph">
+          <!-- Graph Controls Row (Nightingale Graph.tsx pattern) -->
+          <div class="graph-controls-row">
+            <MetricChartControls v-model="chartSettings" />
+          </div>
+          <div class="chart-container">
+            <template v-if="ChartReady && VChart && chartOption">
+              <component :is="VChart" :option="chartOption" :autoresize="true" class="chart-full" />
+            </template>
+            <div v-else class="chart-fallback">
+              <p>{{ t('query.chartUnavailable') }}</p>
+            </div>
+          </div>
+        </NTabPane>
+      </NTabs>
     </div>
 
-    <!-- Log Results -->
-    <div v-if="!loading && isLogs && logEntries.length" class="results-panel">
-      <div class="results-header">
-        <div class="results-header-left">
+    <!-- ============================================ -->
+    <!-- Log Results (Nightingale logExplorer pattern) -->
+    <!-- ============================================ -->
+    <div v-if="!loading && isLogs && logEntries.length" class="log-results">
+      <!-- Histogram (Nightingale: 120px, always on top) -->
+      <LogHistogram v-if="showHistogram" :buckets="histogramBuckets" :loading="histogramLoading" class="log-histogram-container" @bar-click="onHistogramBarClick" @brush-select="onHistogramBrushSelect" />
+
+      <!-- Log Controls Row (Nightingale: mode + settings + fullscreen) -->
+      <div class="log-controls-row">
+        <NSpace :size="8" align="center">
+          <NButtonGroup size="small">
+            <NButton :type="logMode === 'origin' ? 'primary' : 'default'" :secondary="logMode !== 'origin'" @click="logMode = 'origin'">{{ t('query.rawMode') }}</NButton>
+            <NButton :type="logMode === 'table' ? 'primary' : 'default'" :secondary="logMode !== 'table'" @click="logMode = 'table'">{{ t('query.logTableMode') }}</NButton>
+          </NButtonGroup>
+          <LogViewSettings v-model:options="logOptions" />
+          <NButton size="small" quaternary @click="showHistogram = !showHistogram">
+            {{ showHistogram ? t('query.hideHistogram') : t('query.showHistogram') }}
+          </NButton>
+        </NSpace>
+        <NSpace :size="4" align="center">
           <span class="results-count">
             {{ t('query.showing') }} {{ logEntries.length }}
             <template v-if="logTotal > 0"> / {{ logTotal }}</template>
             {{ t('query.entries') }}
-            <NTag v-if="logTruncated" type="warning" size="small" :bordered="false" class="tag-ml">{{ t('query.truncated') }}</NTag>
+            <NTag v-if="logTruncated" type="warning" size="tiny" :bordered="false" class="tag-ml">{{ t('query.truncated') }}</NTag>
           </span>
           <span v-if="queryStats" class="query-stats">{{ queryStats.executionTimeMs }}ms</span>
-        </div>
-        <NSpace :size="4" align="center">
-          <NButton size="tiny" quaternary @click="showHistogram = !showHistogram">{{ showHistogram ? t('query.hideHistogram') : t('query.showHistogram') }}</NButton>
-          <NButton v-if="canExport" size="small" tertiary @click="exportCsv"><template #icon><NIcon><DownloadOutline /></NIcon></template>{{ t('query.exportCsv') }}</NButton>
+          <NButton v-if="canExport" size="tiny" quaternary @click="exportCsv"><template #icon><NIcon :size="14"><DownloadOutline /></NIcon></template></NButton>
         </NSpace>
       </div>
-      <LogHistogram v-if="showHistogram" :buckets="histogramBuckets" :loading="histogramLoading" class="log-histogram-container" @bar-click="onHistogramBarClick" @brush-select="onHistogramBrushSelect" />
-      <div class="log-level-legend">
-        <span v-for="(color, level) in LEVEL_COLORS" :key="level" class="level-item" v-show="level !== 'unknown'">
-          <span class="level-dot" :style="{ background: color }" />
-          <span class="level-label">{{ level }}</span>
-        </span>
+
+      <!-- Log Content: Sidebar + Main -->
+      <div class="log-content-area">
+        <!-- Field Sidebar (Nightingale FieldsList pattern) -->
+        <LogFieldSidebar
+          :fields="logFields"
+          :log-entries="logEntries"
+          @add-field-filter="onFieldFilterAdd"
+        />
+
+        <!-- Log Main Area -->
+        <div class="log-main-area">
+          <!-- Level Legend -->
+          <div class="log-level-legend">
+            <span v-for="(color, level) in LEVEL_COLORS" :key="level" class="level-item" v-show="level !== 'unknown'">
+              <span class="level-dot" :style="{ background: color }" />
+              <span class="level-label">{{ level }}</span>
+            </span>
+          </div>
+
+          <!-- Origin Mode (Nightingale Raw.tsx pattern) -->
+          <div v-if="logMode === 'origin'" class="log-origin-view">
+            <div
+              v-for="(entry, idx) in logEntries"
+              :key="(entry as any)._key ?? idx"
+              class="log-origin-row"
+              :class="logRowClassName(entry)"
+              @click="openLogDrawer(idx)"
+            >
+              <span class="origin-level-dot" :style="{ background: LEVEL_COLORS[detectLogLevel(entry)] }" />
+              <span v-if="logOptions.showTime !== false" class="origin-time">{{ fmtTs(entry.timestamp) }}</span>
+              <span class="origin-message" :style="{ whiteSpace: logOptions.lineBreak ? 'pre-wrap' : 'nowrap' }">{{ entry.message || '-' }}</span>
+              <div v-if="logOptions.showLabels !== false" class="origin-labels">
+                <NTag
+                  v-for="([k, v], i) in Object.entries(entry.labels || {}).slice(0, 6)"
+                  :key="i"
+                  size="tiny"
+                  :bordered="false"
+                  class="origin-label-tag"
+                  @click.stop="copyFieldValue(k, v)"
+                >
+                  {{ k }}={{ v }}
+                </NTag>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table Mode (Nightingale Table.tsx pattern) -->
+          <NDataTable
+            v-if="logMode === 'table'"
+            :columns="logColumnsEnhanced"
+            :data="logEntries"
+            :row-key="(r: Record<string, unknown>) => String(r._key)"
+            :row-class-name="logRowClassName"
+            size="small"
+            max-height="600"
+            virtual-scroll
+          />
+        </div>
       </div>
-      <NDataTable :columns="logColumnsEnhanced" :data="logEntries" :row-key="(r: Record<string, unknown>) => String(r._key)" :row-class-name="logRowClassName" size="small" max-height="600" virtual-scroll />
     </div>
 
     <!-- No results -->
@@ -641,6 +732,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 </template>
 
 <style scoped>
+/* Nightingale panel pattern: card with border-radius */
 .panel-content {
   background: var(--sre-bg-card);
   border: 1px solid var(--sre-border);
@@ -648,56 +740,200 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   padding: 16px;
   margin-bottom: 12px;
 }
-.panel-header {
+
+/* Panel top row: tabs + close (Nightingale: inline header) */
+.panel-top-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
-.panel-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sre-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.panel-tabs { margin-bottom: 12px; }
+.panel-tabs-inline { flex: 1; min-width: 0; }
+.panel-tabs-inline :deep(.n-tabs-tab) { padding: 4px 12px; }
+
+/* Datasource selector */
 .ds-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .ds-info { display: flex; align-items: center; gap: 8px; }
 .ds-endpoint { font-size: 12px; color: var(--sre-text-tertiary); }
 .ds-select { max-width: 420px; flex: 1; }
-.query-bar { margin-bottom: 12px; }
-.query-editor-wrap { position: relative; }
-.editor-tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; }
-.query-actions-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Editor row (Nightingale: PromQL input + Execute button side-by-side) */
+.editor-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.editor-input-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.editor-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* Pre-query controls (instant/range, step, limit) */
+.pre-query-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
 .field-label { font-size: 12px; color: var(--sre-text-tertiary); }
 .shortcut-hint { font-size: 11px; color: var(--sre-text-tertiary); white-space: nowrap; }
 .control-select-sm { width: 100px; }
+
 .query-empty-inline { padding: 16px 4px; color: var(--sre-text-tertiary); font-size: 13px; }
 .query-empty { display: flex; align-items: center; justify-content: center; min-height: 200px; color: var(--sre-text-tertiary); font-size: 14px; }
-.results-panel { background: var(--sre-bg-sunken, #f8fafc); border-radius: 8px; padding: 16px; border: 1px solid var(--sre-border); overflow: hidden; }
-.results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.results-header-left { display: flex; align-items: center; gap: 4px; }
+
+/* Metrics Results (Nightingale: card-style tabs container) */
+.metrics-results {
+  border: 1px solid var(--sre-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.metric-card-tabs :deep(.n-tabs-tab) {
+  border: 1px solid var(--sre-border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 6px 16px;
+  font-size: 13px;
+}
+.metric-card-tabs :deep(.n-tabs-tab--active) {
+  border-top: 2px solid var(--sre-primary);
+  background: var(--sre-bg-card);
+}
+.metric-card-tabs :deep(.n-tabs-tab-pad) {
+  display: none;
+}
+.metric-card-tabs :deep(.n-tabs-content) {
+  padding: 16px;
+  background: var(--sre-bg-card);
+}
+.card-tabs-suffix {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+/* Graph controls row (Nightingale Graph.tsx: Space wrap pattern) */
+.graph-controls-row {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sre-border);
+  margin-bottom: 12px;
+}
+
 .results-count { font-size: 13px; color: var(--sre-text-secondary); }
-.query-stats { font-size: 11px; color: var(--sre-text-tertiary); font-family: var(--sre-font-mono, monospace); margin-left: 8px; }
-.tag-ml { margin-left: 8px; }
+.query-stats { font-size: 11px; color: var(--sre-text-tertiary); font-family: var(--sre-font-mono, monospace); }
+.tag-ml { margin-left: 4px; }
+
 .chart-container { min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .chart-fallback { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--sre-text-tertiary); font-size: 13px; }
 .chart-full { width: 100%; height: 300px; }
 .loading-container { display: flex; justify-content: center; padding: 40px; }
-.log-histogram-container { margin-bottom: 12px; }
-.log-level-legend { display: flex; gap: 12px; margin-bottom: 8px; padding: 4px 0; }
+
+/* Log Results (Nightingale logExplorer pattern) */
+.log-results {
+  border: 1px solid var(--sre-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--sre-bg-card);
+  padding: 12px;
+}
+.log-histogram-container { margin-bottom: 8px; }
+
+/* Log controls row (Nightingale: mode + settings + stats) */
+.log-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--sre-border);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+/* Log content area: sidebar + main (Nightingale: flex row) */
+.log-content-area {
+  display: flex;
+  gap: 0;
+  min-height: 400px;
+}
+.log-main-area {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Level legend */
+.log-level-legend { display: flex; gap: 12px; margin-bottom: 8px; padding: 4px 0; flex-shrink: 0; }
 .level-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--sre-text-tertiary); }
 .level-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .level-label { text-transform: uppercase; font-weight: 500; letter-spacing: 0.5px; }
-.log-expanded-row { padding: 12px 16px; background: var(--sre-bg-sunken, #f8fafc); border-radius: 6px; }
-.log-expanded-title { font-weight: 600; font-size: 13px; color: var(--sre-text-primary); margin-bottom: 8px; }
-.log-expanded-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
-.log-field-item { display: flex; gap: 6px; padding: 4px 8px; border-radius: 4px; background: var(--sre-bg-card, #fff); border: 1px solid var(--sre-border); cursor: pointer; font-size: 12px; transition: border-color 0.15s; }
-.log-field-item:hover { border-color: var(--sre-primary); }
-.log-field-key { color: var(--sre-primary); font-weight: 500; min-width: 80px; font-family: var(--sre-font-mono, monospace); }
-.log-field-value { color: var(--sre-text-secondary); word-break: break-all; font-family: var(--sre-font-mono, monospace); }
-.log-expanded-level { margin-top: 8px; font-size: 12px; color: var(--sre-text-tertiary); }
+
+/* Origin mode (Nightingale Raw.tsx pattern: inline field-value rows) */
+.log-origin-view {
+  flex: 1;
+  overflow-y: auto;
+  font-family: var(--sre-font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.log-origin-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--sre-border-light, rgba(0,0,0,0.04));
+  transition: background 0.15s;
+}
+.log-origin-row:hover {
+  background: var(--sre-bg-hover);
+}
+.origin-level-dot {
+  width: 4px;
+  min-height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.origin-time {
+  flex-shrink: 0;
+  color: var(--sre-text-tertiary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.origin-message {
+  flex: 1;
+  min-width: 0;
+  color: var(--sre-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.origin-labels {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  max-width: 300px;
+}
+.origin-label-tag {
+  max-width: 140px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+/* History popover */
 .history-pop { min-width: 360px; max-width: 480px; }
 .history-title { font-size: 12px; font-weight: 600; color: var(--sre-text-secondary); margin-bottom: 8px; }
 .history-empty { font-size: 12px; color: var(--sre-text-tertiary); padding: 12px 0; text-align: center; }
@@ -705,8 +941,10 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 .history-item:hover { background: var(--sre-bg-hover); border-color: var(--sre-border); }
 .history-expr { font-family: var(--sre-font-mono, monospace); font-size: 12px; color: var(--sre-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-ts { font-size: 11px; color: var(--sre-text-tertiary); margin-top: 2px; }
+
 :deep(.log-row-error) { background: rgba(239, 68, 68, 0.04) !important; }
 :deep(.log-row-warn) { background: rgba(234, 179, 8, 0.04) !important; }
+
 /* Error card */
 .error-card { display: flex; align-items: flex-start; gap: 12px; padding: 16px; margin: 12px 0; background: var(--sre-critical-soft); border: 1px solid var(--sre-critical-soft); border-radius: var(--sre-radius-md); }
 .error-icon-wrap { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--sre-critical); display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--sre-text-inverse); }

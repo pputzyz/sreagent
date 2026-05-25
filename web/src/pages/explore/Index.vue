@@ -343,13 +343,60 @@ onUnmounted(() => {
 
 <template>
   <div class="query-page">
-    <!-- Header -->
+    <!-- Header: title + time range + actions (Nightingale: compact inline) -->
     <div class="query-header">
-      <div>
+      <div class="header-left">
         <h2 class="query-title">{{ t('query.title') }}</h2>
-        <p class="query-subtitle">{{ t('query.subtitle') }}</p>
+        <div class="time-range-bar">
+          <NButton
+            v-for="opt in presetOptions"
+            :key="opt.value"
+            size="tiny"
+            :type="rangeMin === opt.value ? 'primary' : 'default'"
+            :secondary="rangeMin !== opt.value"
+            @click="selectPreset(opt.value)"
+          >
+            {{ opt.label }}
+          </NButton>
+          <NButton
+            size="tiny"
+            :type="rangeMin === -1 ? 'primary' : 'default'"
+            :secondary="rangeMin !== -1"
+            @click="openCustomRange"
+          >
+            {{ t('query.timeCustom') }}
+          </NButton>
+          <span class="range-display-inline">
+            <NIcon size="12"><TimeOutline /></NIcon>
+            {{ rangeDisplay }}
+          </span>
+        </div>
+        <div v-if="rangeMin === -1 && showCustomPicker" class="custom-range-inline">
+          <NDatePicker
+            v-model:value="customRange"
+            type="datetimerange"
+            size="small"
+            clearable
+            class="custom-date-picker"
+          />
+        </div>
       </div>
       <div class="header-actions">
+        <NButton size="small" quaternary @click="runAllPanels">
+          <template #icon><NIcon><RefreshOutline /></NIcon></template>
+        </NButton>
+        <NSelect
+          v-model:value="autoRefreshSec"
+          :options="autoRefreshOptions"
+          size="small"
+          class="auto-refresh-select"
+        >
+          <template #arrow>
+            <span class="select-prefix">
+              <span v-if="autoRefreshSec > 0 && autoCountdown > 0" class="countdown">{{ autoCountdown }}s</span>
+            </span>
+          </template>
+        </NSelect>
         <ViewSelect
           :current-tab="currentPanelTab"
           :current-ds-id="currentPanelDsId"
@@ -361,66 +408,6 @@ onUnmounted(() => {
           <template #icon><NIcon><AddOutline /></NIcon></template>
           {{ t('query.addPanel') }}
         </NButton>
-      </div>
-    </div>
-
-    <!-- Toolbar Card: time range + refresh -->
-    <div class="toolbar-card">
-      <div class="toolbar-row">
-        <div class="preset-group">
-          <NButton
-            v-for="opt in presetOptions"
-            :key="opt.value"
-            size="small"
-            :type="rangeMin === opt.value ? 'primary' : 'default'"
-            :secondary="rangeMin !== opt.value"
-            @click="selectPreset(opt.value)"
-          >
-            {{ opt.label }}
-          </NButton>
-          <NButton
-            size="small"
-            :type="rangeMin === -1 ? 'primary' : 'default'"
-            :secondary="rangeMin !== -1"
-            @click="openCustomRange"
-          >
-            {{ t('query.timeCustom') }}
-          </NButton>
-        </div>
-
-        <div class="toolbar-right">
-          <NButton size="small" @click="runAllPanels">
-            <template #icon><NIcon><RefreshOutline /></NIcon></template>
-            {{ t('query.refreshBtn') }}
-          </NButton>
-          <NSelect
-            v-model:value="autoRefreshSec"
-            :options="autoRefreshOptions"
-            size="small"
-            class="auto-refresh-select"
-          >
-            <template #arrow>
-              <span class="select-prefix">
-                <span v-if="autoRefreshSec > 0 && autoCountdown > 0" class="countdown">{{ autoCountdown }}s</span>
-              </span>
-            </template>
-          </NSelect>
-        </div>
-      </div>
-
-      <div v-if="rangeMin === -1 && showCustomPicker" class="custom-range-row">
-        <NDatePicker
-          v-model:value="customRange"
-          type="datetimerange"
-          size="small"
-          clearable
-          class="custom-date-picker"
-        />
-      </div>
-
-      <div class="range-display">
-        <NIcon size="12"><TimeOutline /></NIcon>
-        <span>{{ rangeDisplay }}</span>
       </div>
     </div>
 
@@ -476,60 +463,54 @@ onUnmounted(() => {
   padding: 24px;
 }
 
+/* Compact header (Nightingale: inline title + time range + actions) */
 .query-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.query-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--sre-text-primary);
+}
+.time-range-bar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.range-display-inline {
+  font-size: 11px;
+  color: var(--sre-text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+.custom-range-inline {
+  margin-top: 4px;
+}
+.custom-date-picker {
+  width: 420px;
 }
 
 .header-actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-shrink: 0;
 }
-
-.query-title {
-  font-size: 22px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-  color: var(--sre-text-primary);
-}
-
-.query-subtitle {
-  font-size: 13px;
-  color: var(--sre-text-secondary);
-  margin: 0;
-}
-
-.toolbar-card {
-  background: var(--sre-bg-card);
-  border: 1px solid var(--sre-border);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-}
-
-.toolbar-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.preset-group {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.toolbar-right {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
 .select-prefix {
   font-size: 12px;
   color: var(--sre-text-tertiary);
@@ -537,31 +518,12 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
 }
-
 .countdown {
   color: var(--sre-primary);
   font-weight: 500;
 }
-
-.custom-range-row {
-  margin-top: 8px;
-}
-
-.range-display {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--sre-text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.custom-date-picker {
-  width: 420px;
-}
-
 .auto-refresh-select {
-  width: 140px;
+  width: 120px;
 }
 
 .panels-container {
@@ -591,27 +553,19 @@ onUnmounted(() => {
   justify-content: flex-end;
 }
 
-/* Mobile responsive */
 @media (max-width: 768px) {
   .query-page {
     padding: 16px;
   }
-  .toolbar-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .preset-group {
-    justify-content: center;
-  }
-  .toolbar-right {
-    justify-content: center;
-  }
-  .custom-date-picker {
-    width: 100%;
-  }
   .query-header {
     flex-direction: column;
     gap: 12px;
+  }
+  .header-actions {
+    flex-wrap: wrap;
+  }
+  .custom-date-picker {
+    width: 100%;
   }
 }
 </style>

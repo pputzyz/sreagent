@@ -4,6 +4,35 @@
 
 ---
 
+## [v4.19.0] — 2026-05-25
+
+### Explore 页面布局重构 — 对齐 Nightingale PromGraphCpt / logExplorer 架构
+
+**布局重构 (QueryPanelContent.vue)**:
+- Editor + Execute 按钮同行（Nightingale `flex gap-[8px]` 模式），替代之前的分离布局
+- 指标结果使用 Card-style Tabs（`type='card'`）替代 line tabs，对齐 PromGraphCpt
+- QueryStats 显示在 card tabs 的 suffix 位置（Nightingale tabBarExtraContent 模式）
+- Graph Controls 独立行（MetricChartControls 在 Graph tab 内部，Nightingale Graph.tsx 模式）
+- Pre-query controls（instant/range、step、limit）独立行，不与 Execute 按钮混杂
+- Panel 顶部行：tabs + close 按钮内联（Nightingale 紧凑 header 模式）
+
+**日志模式切换**:
+- 新增 Origin/Table 双模式切换（Nightingale Radio.Group 模式）
+- Origin 模式：字段流式展示（level dot + time + message + labels inline）
+- Table 模式：NDataTable 列式展示
+- 集成 LogViewSettings（Line Break / Show Time / Show Line Numbers / JSON Expand Level）
+
+**日志字段侧边栏集成**:
+- LogFieldSidebar 集成到日志结果区左侧（Nightingale FieldsList flex row 模式）
+- 字段过滤自动追加到查询表达式
+
+**Index.vue 简化**:
+- 移除 toolbar-card 包裹，时间范围预设内联到 header 行
+- 更紧凑的布局：标题 + 时间预设 + 操作按钮一行排列
+- Refresh 按钮改为图标按钮（quaternary 样式）
+
+---
+
 ## [v4.18.0] — 2026-05-25
 
 ### Explore 页面深度改造 — 对齐 Nightingale V9 UX
