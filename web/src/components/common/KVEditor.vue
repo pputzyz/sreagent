@@ -1,13 +1,32 @@
 <template>
   <div class="kv-editor">
     <div v-for="(item, idx) in modelValue" :key="idx" class="kv-row">
+      <n-auto-complete
+        v-if="keyOptions"
+        :value="item.key"
+        :options="getKeyOptions(item.key)"
+        :placeholder="resolvedKeyPlaceholder"
+        size="small"
+        blur-after-select
+        @update:value="(v: string) => { item.key = v; emitUpdate(); $emit('keyChange', idx, v) }"
+      />
       <n-input
+        v-else
         v-model:value="item.key"
         :placeholder="resolvedKeyPlaceholder"
         size="small"
         @update:value="emitUpdate"
       />
+      <n-auto-complete
+        v-if="valueOptions"
+        :value="item.value"
+        :options="getValueOptions(item.value)"
+        :placeholder="resolvedValuePlaceholder"
+        size="small"
+        @update:value="(v: string) => { item.value = v; emitUpdate() }"
+      />
       <n-input
+        v-else
         v-model:value="item.value"
         :placeholder="resolvedValuePlaceholder"
         size="small"
@@ -26,7 +45,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NInput, NButton, NIcon } from 'naive-ui'
+import { NInput, NButton, NIcon, NAutoComplete } from 'naive-ui'
 import { AddOutline, CloseOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 
@@ -42,10 +61,14 @@ const props = withDefaults(defineProps<{
   keyPlaceholder?: string
   valuePlaceholder?: string
   addLabel?: string
+  keyOptions?: string[]
+  valueOptions?: string[]
 }>(), {
   keyPlaceholder: '',
   valuePlaceholder: '',
   addLabel: '',
+  keyOptions: undefined,
+  valueOptions: undefined,
 })
 
 const resolvedKeyPlaceholder = computed(() => props.keyPlaceholder || t('common.key'))
@@ -54,7 +77,20 @@ const resolvedAddLabel = computed(() => props.addLabel || t('common.add'))
 
 const emit = defineEmits<{
   'update:modelValue': [value: KVItem[]]
+  'keyChange': [index: number, key: string]
 }>()
+
+function getKeyOptions(input: string) {
+  if (!props.keyOptions) return []
+  const q = input.toLowerCase()
+  return props.keyOptions.filter(k => k.toLowerCase().includes(q)).map(k => ({ label: k, value: k }))
+}
+
+function getValueOptions(input: string) {
+  if (!props.valueOptions) return []
+  const q = input.toLowerCase()
+  return props.valueOptions.filter(v => v.toLowerCase().includes(q)).map(v => ({ label: v, value: v }))
+}
 
 function addItem() {
   const updated = [...props.modelValue, { key: '', value: '' }]

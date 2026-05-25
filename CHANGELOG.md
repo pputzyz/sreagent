@@ -4,6 +4,25 @@
 
 ---
 
+## [v4.23.0] — 2026-05-25
+
+### 标签自动联想 — 告警规则表单接入标签注册表
+
+**KVEditor.vue 增强**:
+- 新增 `keyOptions` / `valueOptions` props，支持 NAutoComplete 自动联想
+- 新增 `keyChange` 事件，用于监听标签 key 变化并触发对应 value 列表加载
+- 无 options 时回退到普通 NInput，保持向后兼容
+
+**RuleFormModal.vue 增强**:
+- 接入 `labelRegistryApi.getKeys()` 和 `labelRegistryApi.getValues(key)` API
+- 标签输入框支持自动联想：选择 key 后自动加载对应 value 列表
+- 弹窗打开时预加载标签 key 列表
+
+**告警规则页面**:
+- alerts/rules/Index.vue 支持从 URL query 参数 `expr` 预填 PromQL 表达式
+
+---
+
 ## [v4.22.1] — 2026-05-25
 
 ### 图表交互修复 — Tooltip 显示 series 名称 + Legend 点击隔离

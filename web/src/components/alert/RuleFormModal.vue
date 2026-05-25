@@ -5,7 +5,7 @@ import {
   NInput, NInputNumber, NSelect, NCollapseTransition, NSwitch, NCollapse, NCollapseItem,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { alertRuleApi, datasourceApi, templateApi } from '@/api'
+import { alertRuleApi, datasourceApi, templateApi, labelRegistryApi } from '@/api'
 import type { AlertRule, AlertRuleType, DataSource, AlertSeverity, DataSourceType, QueryResponse } from '@/types'
 import { kvArrayToRecord } from '@/utils/format'
 import KVEditor from '@/components/common/KVEditor.vue'
@@ -58,6 +58,29 @@ const defaultForm = {
   ack_sla_minutes: 0,
 }
 const form = reactive({ ...defaultForm })
+
+// Label registry autocomplete
+const labelKeys = ref<string[]>([])
+const labelValues = ref<string[]>([])
+
+async function fetchLabelKeys() {
+  try {
+    const res = await labelRegistryApi.getKeys(form.datasource_id ?? undefined)
+    labelKeys.value = res.data?.data || []
+  } catch { labelKeys.value = [] }
+}
+
+async function fetchLabelValues(key: string) {
+  if (!key) { labelValues.value = []; return }
+  try {
+    const res = await labelRegistryApi.getValues(key, form.datasource_id ?? undefined)
+    labelValues.value = res.data?.data || []
+  } catch { labelValues.value = [] }
+}
+
+function onLabelKeyChange(_idx: number, key: string) {
+  fetchLabelValues(key)
+}
 
 const severityOptions = [
   { label: () => t('alert.p0'), value: 'p0' },
@@ -285,7 +308,7 @@ function initForm() {
 }
 
 watch(() => props.show, (val) => {
-  if (val) initForm()
+  if (val) { initForm(); fetchLabelKeys() }
 })
 
 async function handleSave() {
@@ -540,7 +563,7 @@ async function handleSave() {
       </n-grid>
 
       <n-form-item :label="t('alert.labels')">
-        <KVEditor v-model:modelValue="form.labels" :add-label="t('alert.addLabel')" />
+        <KVEditor v-model:modelValue="form.labels" :add-label="t('alert.addLabel')" :key-options="labelKeys" :value-options="labelValues" @key-change="onLabelKeyChange" />
       </n-form-item>
 
       <n-form-item :label="t('alert.annotations')">
