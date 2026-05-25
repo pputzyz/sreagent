@@ -19,6 +19,7 @@ declare module 'vue' {
     CronInput: typeof import('./components/common/CronInput.vue')['default']
     EmptyState: typeof import('./components/common/EmptyState.vue')['default']
     FieldValueToken: typeof import('./components/query/FieldValueToken.vue')['default']
+    FullscreenButton: typeof import('./components/query/FullscreenButton.vue')['default']
     GlowCard: typeof import('./components/common/GlowCard.vue')['default']
     ImportModal: typeof import('./components/alert/ImportModal.vue')['default']
     KVEditor: typeof import('./components/common/KVEditor.vue')['default']

@@ -28,6 +28,8 @@ import type { ChartSettings } from './MetricChartControls.vue'
 import LogDetailDrawer from './LogDetailDrawer.vue'
 import LogFieldSidebar from './LogFieldSidebar.vue'
 import LogViewSettings from './LogViewSettings.vue'
+import FieldValueToken from './FieldValueToken.vue'
+import FullscreenButton from './FullscreenButton.vue'
 import type { DataSource, QueryResponse, LogEntry } from '@/types'
 
 const props = defineProps<{
@@ -89,6 +91,39 @@ const chartSettings = ref<ChartSettings>({
   sharedTooltip: false,
   tooltipSort: 'desc',
 })
+
+// Per-panel graph time range (Nightingale Graph.tsx: each panel has own TimeRangePicker)
+const graphRangeMin = ref<number>(-1) // -1 means use parent range
+const graphNow = ref(Date.now())
+
+const graphPresetOptions = [
+  { label: '5m', value: 5 },
+  { label: '15m', value: 15 },
+  { label: '30m', value: 30 },
+  { label: '1h', value: 60 },
+  { label: '3h', value: 180 },
+  { label: '6h', value: 360 },
+  { label: '12h', value: 720 },
+  { label: '24h', value: 1440 },
+]
+
+const graphTimeStart = computed(() => {
+  if (graphRangeMin.value === -1) return props.timeStart
+  return Math.floor((graphNow.value - graphRangeMin.value * 60000) / 1000)
+})
+const graphTimeEnd = computed(() => {
+  if (graphRangeMin.value === -1) return props.timeEnd
+  return Math.floor(graphNow.value / 1000)
+})
+
+function selectGraphPreset(v: number) {
+  graphRangeMin.value = v
+  graphNow.value = Date.now()
+}
+
+function resetGraphRange() {
+  graphRangeMin.value = -1
+}
 
 // Log mode (Nightingale: origin/table toggle)
 type LogMode = 'origin' | 'table'
@@ -261,7 +296,7 @@ async function run() {
     } else if (queryMode.value === 'instant') {
       const res = await datasourceApi.query(selectedDsId.value, {
         expression: expression.value,
-        time: props.timeEnd,
+        time: graphTimeEnd.value,
       })
       const data = res.data?.data
       if (data?.series && data.series.length > metricLimit.value) data.series = data.series.slice(0, metricLimit.value)
@@ -269,8 +304,8 @@ async function run() {
     } else {
       const res = await datasourceApi.rangeQuery(selectedDsId.value, {
         expression: expression.value,
-        start: props.timeStart,
-        end: props.timeEnd,
+        start: graphTimeStart.value,
+        end: graphTimeEnd.value,
         step: resolveStep(),
       })
       const data = res.data?.data
@@ -315,6 +350,25 @@ function onFieldFilterAdd(key: string, value: string) {
   } else {
     expression.value = filterExpr
   }
+}
+
+function onTokenFilter(key: string, value: string, operator: string) {
+  if (operator === 'AND') {
+    const filterExpr = `${key}="${value}"`
+    if (expression.value.trim()) {
+      expression.value = expression.value.trim() + ', ' + filterExpr
+    } else {
+      expression.value = filterExpr
+    }
+  } else if (operator === 'NOT') {
+    const filterExpr = `${key}!="${value}"`
+    if (expression.value.trim()) {
+      expression.value = expression.value.trim() + ', ' + filterExpr
+    } else {
+      expression.value = filterExpr
+    }
+  }
+  run()
 }
 
 // --- Chart option ---
@@ -608,6 +662,22 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
         <NTabPane name="graph" tab="Graph">
           <!-- Graph Controls Row (Nightingale Graph.tsx pattern) -->
           <div class="graph-controls-row">
+            <div class="graph-time-presets">
+              <NButton
+                v-for="opt in graphPresetOptions"
+                :key="opt.value"
+                size="tiny"
+                :type="graphRangeMin === opt.value ? 'primary' : 'default'"
+                :secondary="graphRangeMin !== opt.value"
+                @click="selectGraphPreset(opt.value)"
+              >{{ opt.label }}</NButton>
+              <NButton
+                size="tiny"
+                :type="graphRangeMin === -1 ? 'primary' : 'default'"
+                :secondary="graphRangeMin !== -1"
+                @click="resetGraphRange"
+              >Global</NButton>
+            </div>
             <MetricChartControls v-model="chartSettings" />
           </div>
           <div class="chart-container">
@@ -637,6 +707,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
             <NButton :type="logMode === 'table' ? 'primary' : 'default'" :secondary="logMode !== 'table'" @click="logMode = 'table'">{{ t('query.logTableMode') }}</NButton>
           </NButtonGroup>
           <LogViewSettings v-model:options="logOptions" />
+          <FullscreenButton />
           <NButton size="small" quaternary @click="showHistogram = !showHistogram">
             {{ showHistogram ? t('query.hideHistogram') : t('query.showHistogram') }}
           </NButton>
@@ -685,16 +756,17 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
               <span v-if="logOptions.showTime !== false" class="origin-time">{{ fmtTs(entry.timestamp) }}</span>
               <span class="origin-message" :style="{ whiteSpace: logOptions.lineBreak ? 'pre-wrap' : 'nowrap' }">{{ entry.message || '-' }}</span>
               <div v-if="logOptions.showLabels !== false" class="origin-labels">
-                <NTag
+                <span
                   v-for="([k, v], i) in Object.entries(entry.labels || {}).slice(0, 6)"
                   :key="i"
-                  size="tiny"
-                  :bordered="false"
-                  class="origin-label-tag"
-                  @click.stop="copyFieldValue(k, v)"
+                  class="origin-label-pair"
                 >
-                  {{ k }}={{ v }}
-                </NTag>
+                  <span class="origin-label-key">{{ k }}</span>=<FieldValueToken
+                    :field-key="k"
+                    :field-value="String(v ?? '')"
+                    @filter="(key: string, value: string, op: string) => onTokenFilter(key, value, op)"
+                  />
+                </span>
               </div>
             </div>
           </div>
@@ -824,9 +896,18 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 /* Graph controls row (Nightingale Graph.tsx: Space wrap pattern) */
 .graph-controls-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--sre-border);
   margin-bottom: 12px;
+}
+.graph-time-presets {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .results-count { font-size: 13px; color: var(--sre-text-secondary); }
@@ -931,6 +1012,18 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   max-width: 140px;
   cursor: pointer;
   font-size: 11px;
+}
+.origin-label-pair {
+  font-size: 11px;
+  font-family: var(--sre-font-mono, monospace);
+  color: var(--sre-text-secondary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.origin-label-key {
+  color: var(--sre-primary);
 }
 
 /* History popover */

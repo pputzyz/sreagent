@@ -4,6 +4,25 @@
 
 ---
 
+## [v4.20.0] — 2026-05-25
+
+### Explore 页面深度增强 — 对齐 Nightingale V9 核心交互
+
+**新增组件**:
+- `FullscreenButton.vue` — 浏览器 Fullscreen API 切换，支持 targetRef 指定全屏元素
+
+**QueryPanelContent.vue 增强**:
+- Graph tab 内嵌 TimeRangePicker（Nightingale Graph.tsx 模式）：每个面板独立时间选择，支持 5m/15m/30m/1h/3h/6h/12h/24h 预设 + Global 回到全局时间
+- 指标查询使用面板独立时间范围（graphTimeStart/graphTimeEnd），日志查询仍使用全局时间
+- FullscreenButton 集成到日志控制栏（mode + settings + fullscreen + histogram toggle）
+- FieldValueToken 集成到 Origin 模式日志标签显示，支持点击过滤菜单（Copy/Filter AND/Filter NOT）
+
+**LogHistogram.vue 增强**:
+- 新增 header 栏：显示 "All log statistics" 标题 + 总日志数（locale 格式化）+ 内联 loading spinner
+- 布局重构：.log-histogram-wrapper 包含 header + chart
+
+---
+
 ## [v4.19.0] — 2026-05-25
 
 ### Explore 页面布局重构 — 对齐 Nightingale PromGraphCpt / logExplorer 架构

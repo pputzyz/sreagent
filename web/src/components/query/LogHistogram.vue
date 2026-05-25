@@ -159,44 +159,65 @@ function handleBrushEnd(params: { areas?: Array<{ coordRange?: [number, number][
   }
 }
 
+const totalLogs = computed(() => {
+  if (!props.buckets?.length) return 0
+  return props.buckets.reduce((sum, b) => sum + b.count, 0)
+})
+
 onMounted(() => { loadECharts() })
 </script>
 
 <template>
-  <div class="log-histogram" :style="{ height: `${height}px` }">
-    <div v-if="loading" class="histogram-loading">
-      <NSpin size="small" />
+  <div class="log-histogram-wrapper">
+    <div class="histogram-header">
+      <span class="histogram-title">{{ $t('query.allLogStats') || 'All log statistics' }}</span>
+      <span v-if="totalLogs > 0" class="histogram-total">{{ totalLogs.toLocaleString() }}</span>
+      <NSpin v-if="loading" size="small" style="margin-left: 8px;" />
     </div>
-    <template v-else-if="ChartReady && VChart && chartOption">
-      <component
-        :is="VChart"
-        ref="chartRef"
-        :option="chartOption"
-        :autoresize="true"
-        :style="{ width: '100%', height: '100%' }"
-        @click="handleClick"
-        @brush-end="handleBrushEnd"
-      />
-    </template>
-    <div v-else-if="!buckets?.length" class="histogram-empty">
-      {{ $t('query.noHistogramData') }}
+    <div class="log-histogram" :style="{ height: `${height}px` }">
+      <template v-if="ChartReady && VChart && chartOption">
+        <component
+          :is="VChart"
+          ref="chartRef"
+          :option="chartOption"
+          :autoresize="true"
+          :style="{ width: '100%', height: '100%' }"
+          @click="handleClick"
+          @brush-end="handleBrushEnd"
+        />
+      </template>
+      <div v-else-if="!buckets?.length" class="histogram-empty">
+        {{ $t('query.noHistogramData') || 'No histogram data' }}
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.log-histogram {
-  position: relative;
+.log-histogram-wrapper {
   border-radius: 6px;
   overflow: hidden;
   background: var(--sre-bg-sunken, #f8fafc);
   border: 1px solid var(--sre-border);
 }
-.histogram-loading {
+.histogram-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 100%;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+}
+.histogram-title {
+  font-weight: 500;
+}
+.histogram-total {
+  font-family: var(--sre-font-mono, monospace);
+  color: var(--sre-text-tertiary);
+  font-size: 11px;
+}
+.log-histogram {
+  position: relative;
 }
 .histogram-empty {
   display: flex;
