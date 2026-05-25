@@ -62,7 +62,6 @@ const logTruncated = ref(false)
 const resultMode = ref<ResultMode>('chart')
 const activeTab = ref<QueryTab>('metrics')
 const queryMode = ref<QueryMode>('range')
-const expandedRowKeys = ref<number[]>([])
 
 // Log histogram
 interface HistogramBucket { timestamp: string; count: number }
@@ -305,6 +304,21 @@ const metricTableData = computed(() => {
 })
 
 const logColumnsEnhanced = computed(() => [
+  { type: 'expand' as const, expandable: () => true, renderExpand: (row: LogEntry) => {
+    const labels = row.labels || {}
+    return h('div', { class: 'log-expanded-row' }, [
+      h('div', { class: 'log-expanded-title' }, t('query.logFields')),
+      h('div', { class: 'log-expanded-grid' },
+        Object.entries(labels).map(([k, v]) =>
+          h('div', { class: 'log-field-item', onClick: () => copyFieldValue(k, v) }, [
+            h('span', { class: 'log-field-key' }, k),
+            h('span', { class: 'log-field-value' }, String(v)),
+          ])
+        )
+      ),
+      h('div', { class: 'log-expanded-level' }, ['Level: ', h('strong', {}, detectLogLevel(row).toUpperCase())]),
+    ])
+  } },
   { title: '', key: 'level', width: 6, render: (r: LogEntry) => h('div', { style: { width: '4px', height: '100%', minHeight: '20px', borderRadius: '2px', background: LEVEL_COLORS[detectLogLevel(r)] } }) },
   { title: t('query.logTime'), key: 'timestamp', width: 180, render: (r: LogEntry) => h('span', { style: { fontFamily: 'var(--sre-font-mono, monospace)', fontSize: '12px' } }, fmtTs(r.timestamp)) },
   { title: t('query.logMessage'), key: 'message', ellipsis: { tooltip: true }, render: (r: LogEntry) => h('span', { style: { fontFamily: 'var(--sre-font-mono, monospace)', fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: (detectLogLevel(r) === 'error' || detectLogLevel(r) === 'fatal') ? '#ef4444' : detectLogLevel(r) === 'warn' ? '#eab308' : undefined } }, r.message || '-') },
@@ -312,11 +326,15 @@ const logColumnsEnhanced = computed(() => [
     const labels = r.labels || {}
     const entries = Object.entries(labels)
     if (entries.length === 0) return '-'
-    return h('div', { style: 'display:flex;flex-wrap:wrap;gap:2px;' }, entries.slice(0, 6).map(([k, v]) => h(NTag, { size: 'tiny', bordered: false, style: 'cursor:pointer;max-width:140px;', onClick: (e: MouseEvent) => { e.stopPropagation(); navigator.clipboard?.writeText(`${k}=${v}`); message.success(`Copied: ${k}=${v}`) } }, { default: () => `${k}=${v}` })))
+    return h('div', { style: 'display:flex;flex-wrap:wrap;gap:2px;' }, entries.slice(0, 6).map(([k, v]) => h(NTag, { size: 'tiny', bordered: false, style: 'cursor:pointer;max-width:140px;', onClick: (e: MouseEvent) => { e.stopPropagation(); copyFieldValue(k, v) } }, { default: () => `${k}=${v}` })))
   } },
 ])
 
 // --- Helpers ---
+function copyFieldValue(k: string, v: unknown) {
+  window.navigator?.clipboard?.writeText(`${k}=${v}`)
+  message.success(`${t('query.copiedField')}: ${k}=${v}`)
+}
 function formatLegend(lbs: Record<string, string>): string {
   if (!lbs) return 'value'
   const parts: string[] = []
@@ -550,20 +568,7 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
           <span class="level-label">{{ level }}</span>
         </span>
       </div>
-      <NDataTable :columns="logColumnsEnhanced" :data="logEntries" :row-key="(r: Record<string, unknown>) => String(r._key)" :expanded-row-keys="expandedRowKeys" :row-class-name="logRowClassName" size="small" max-height="600" virtual-scroll @update:expanded-row-keys="(keys: number[]) => expandedRowKeys = keys">
-        <template #expand="{ row }">
-          <div class="log-expanded-row">
-            <div class="log-expanded-title">{{ t('query.logFields') }}</div>
-            <div class="log-expanded-grid">
-              <div v-for="(v, k) in row.labels" :key="k" class="log-field-item" @click="() => { navigator.clipboard?.writeText(`${k}=${v}`); message.success(`${t('query.copiedField')}: ${k}=${v}`) }">
-                <span class="log-field-key">{{ k }}</span>
-                <span class="log-field-value">{{ v }}</span>
-              </div>
-            </div>
-            <div class="log-expanded-level">Level: <strong>{{ detectLogLevel(row).toUpperCase() }}</strong></div>
-          </div>
-        </template>
-      </NDataTable>
+      <NDataTable :columns="logColumnsEnhanced" :data="logEntries" :row-key="(r: Record<string, unknown>) => String(r._key)" :row-class-name="logRowClassName" size="small" max-height="600" virtual-scroll />
     </div>
 
     <!-- No results -->

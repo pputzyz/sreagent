@@ -125,14 +125,12 @@ function handleClick(params: { dataIndex: number }) {
   const idx = params.dataIndex
   let duration = 60 // default 1 minute
   if (idx < props.buckets.length - 1) {
-    const nextTs = typeof props.buckets[idx + 1].timestamp === 'string'
-      ? new Date(props.buckets[idx + 1].timestamp).getTime() / 1000
-      : props.buckets[idx + 1].timestamp
+    const raw = props.buckets[idx + 1].timestamp
+    const nextTs = typeof raw === 'number' ? raw : new Date(raw).getTime() / 1000
     duration = Math.max(nextTs - ts, 1)
   } else if (idx > 0) {
-    const prevTs = typeof props.buckets[idx - 1].timestamp === 'string'
-      ? new Date(props.buckets[idx - 1].timestamp).getTime() / 1000
-      : props.buckets[idx - 1].timestamp
+    const raw = props.buckets[idx - 1].timestamp
+    const prevTs = typeof raw === 'number' ? raw : new Date(raw).getTime() / 1000
     duration = Math.max(ts - prevTs, 1)
   }
 

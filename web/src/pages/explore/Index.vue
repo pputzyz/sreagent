@@ -219,15 +219,15 @@ function onViewLoad(view: SavedView) {
 }
 
 // Current panel state for ViewSelect
+// Exposed refs are auto-unwrapped via template ref, so access directly
 const currentPanelTab = computed(() => {
-  const p = panelRefs.value[0]
-  const tab = p?.activeTab?.value ?? p?.activeTab
+  const p = panelRefs.value[0] as any
+  const tab = p?.activeTab
   return ((tab === 'logs') ? 'logs' : 'metrics') as 'metrics' | 'logs'
 })
 const currentPanelDsId = computed(() => {
-  const p = panelRefs.value[0]
-  const val = p?.selectedDsId?.value ?? p?.selectedDsId
-  return val as number | null
+  const p = panelRefs.value[0] as any
+  return (p?.selectedDsId ?? null) as number | null
 })
 const currentPanelDsName = computed(() => {
   const dsId = currentPanelDsId.value
@@ -235,9 +235,8 @@ const currentPanelDsName = computed(() => {
   return datasources.value.find(d => d.id === dsId)?.name || ''
 })
 const currentPanelExpression = computed(() => {
-  const p = panelRefs.value[0]
-  const val = p?.expression?.value ?? p?.expression
-  return (val || '') as string
+  const p = panelRefs.value[0] as any
+  return (p?.expression || '') as string
 })
 
 // --- URL sync ---
@@ -258,11 +257,11 @@ function syncToURL() {
   url.searchParams.delete('expr')
   url.searchParams.delete('tab')
   if (panels.value.length === 1) {
-    const p = panelRefs.value[0]
+    const p = panelRefs.value[0] as any
     if (p) {
-      const ds = p.selectedDsId?.value ?? p.selectedDsId
-      const expr = p.expression?.value ?? p.expression
-      const tab = p.activeTab?.value ?? p.activeTab
+      const ds = p.selectedDsId
+      const expr = p.expression
+      const tab = p.activeTab
       if (ds) url.searchParams.set('ds', String(ds))
       if (expr) url.searchParams.set('expr', expr)
       if (tab) url.searchParams.set('tab', tab)
@@ -400,14 +399,14 @@ onUnmounted(() => {
       <div v-for="(panel, idx) in panels" :key="panel.id" class="panel-wrapper">
         <QueryPanelContent
           :ref="(el: any) => setPanelRef(el, idx)"
-          :panel-id="panel.id"
+          :panelId="panel.id"
           :datasources="datasources"
-          :time-start="timeStart"
-          :time-end="timeEnd"
-          :step-value="stepValue"
-          :chart-ready="ChartReady"
-          :v-chart="VChart"
-          :can-close="panels.length > 1"
+          :timeStart="timeStart"
+          :timeEnd="timeEnd"
+          :stepValue="stepValue"
+          :ChartReady="ChartReady"
+          :VChart="VChart"
+          :canClose="panels.length > 1"
           @remove="removePanel"
         />
       </div>
