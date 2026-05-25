@@ -4,6 +4,36 @@
 
 ---
 
+## [v4.17.1] — 2026-05-25
+
+### 多面板 + 视图保存 + 按数据源历史
+
+**多面板支持（借鉴 Nightingale Metric panels 模式）**
+- 重构 `Index.vue` 为多面板架构：共享时间范围工具栏 + 独立面板
+- 新增 `QueryPanelContent.vue` 自包含面板组件：每个面板独立管理数据源、表达式、查询、结果
+- 支持添加/关闭面板，至少保留一个面板
+- 刷新按钮同步执行所有面板查询
+
+**视图保存/恢复（借鉴 Nightingale ViewSelect 模式）**
+- 新增 `ViewSelect.vue` 组件：保存当前查询状态（数据源 + 表达式 + Tab）
+- 支持搜索/过滤已保存视图
+- 支持删除已保存视图（带确认弹窗）
+- localStorage 持久化
+
+**查询历史按数据源分组（借鉴 Nightingale HistoricalRecords 模式）**
+- 查询历史从全局改为按数据源 ID 分组存储
+- 切换数据源自动加载对应历史
+- 历史上限从 20 条提升至 50 条
+- 显示上限从 10 条提升至 15 条
+
+**前端变更**
+- `web/src/components/query/QueryPanelContent.vue`: 新增自包含面板组件
+- `web/src/components/query/ViewSelect.vue`: 新增视图保存/恢复组件
+- `web/src/pages/explore/Index.vue`: 重构为多面板架构
+- `web/src/i18n/en.ts` + `zh-CN.ts`: 新增多面板/视图 i18n key
+
+---
+
 ## [v4.17.0] — 2026-05-25
 
 ### 数据查询页面全面改造（借鉴 Nightingale V9）
@@ -40,6 +70,32 @@
 - `web/src/pages/explore/Index.vue`: 全面改造日志查看体验
 - `web/src/api/data.ts`: 新增 `logHistogram` API 方法
 - `web/src/i18n/en.ts` + `zh-CN.ts`: 新增 i18n key
+
+### 多面板 + 视图保存 + 按数据源历史
+
+**多面板支持（借鉴 Nightingale Metric panels 模式）**
+- 重构 `Index.vue` 为多面板架构：共享时间范围工具栏 + 独立面板
+- 新增 `QueryPanelContent.vue` 自包含面板组件：每个面板独立管理数据源、表达式、查询、结果
+- 支持添加/关闭面板，至少保留一个面板
+- 刷新按钮同步执行所有面板查询
+
+**视图保存/恢复（借鉴 Nightingale ViewSelect 模式）**
+- 新增 `ViewSelect.vue` 组件：保存当前查询状态（数据源 + 表达式 + Tab）
+- 支持搜索/过滤已保存视图
+- 支持删除已保存视图（带确认弹窗）
+- localStorage 持久化
+
+**查询历史按数据源分组（借鉴 Nightingale HistoricalRecords 模式）**
+- 查询历史从全局改为按数据源 ID 分组存储
+- 切换数据源自动加载对应历史
+- 历史上限从 20 条提升至 50 条
+- 显示上限从 10 条提升至 15 条
+
+**前端变更**
+- `web/src/components/query/QueryPanelContent.vue`: 新增自包含面板组件
+- `web/src/components/query/ViewSelect.vue`: 新增视图保存/恢复组件
+- `web/src/pages/explore/Index.vue`: 重构为多面板架构
+- `web/src/i18n/en.ts` + `zh-CN.ts`: 新增多面板/视图 i18n key
 
 ---
 

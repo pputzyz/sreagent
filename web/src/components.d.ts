@@ -71,6 +71,7 @@ declare module 'vue' {
     PanelCard: typeof import('./components/query/PanelCard.vue')['default']
     PromQLEditor: typeof import('./components/query/PromQLEditor.vue')['default']
     QueryPanel: typeof import('./components/query/QueryPanel.vue')['default']
+    QueryPanelContent: typeof import('./components/query/QueryPanelContent.vue')['default']
     QueryResultChart: typeof import('./components/query/QueryResultChart.vue')['default']
     QueryResultTable: typeof import('./components/query/QueryResultTable.vue')['default']
     QueryRow: typeof import('./components/query/QueryRow.vue')['default']
@@ -83,5 +84,6 @@ declare module 'vue' {
     SnoozeModal: typeof import('./components/incident/SnoozeModal.vue')['default']
     TimeRangePicker: typeof import('./components/time/TimeRangePicker.vue')['default']
     UserAvatar: typeof import('./components/common/UserAvatar.vue')['default']
+    ViewSelect: typeof import('./components/query/ViewSelect.vue')['default']
   }
 }
