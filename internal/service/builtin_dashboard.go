@@ -33,7 +33,7 @@ func (s *BuiltinDashboardService) List(ctx context.Context, category, component,
 func (s *BuiltinDashboardService) GetByID(ctx context.Context, id uint) (*model.BuiltinDashboard, error) {
 	d, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, apperr.ErrNotFound
+		return nil, apperr.Wrap(apperr.ErrNotFound, err)
 	}
 	return d, nil
 }

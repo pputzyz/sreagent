@@ -147,86 +147,8 @@ func hashString(s string) uint32 {
 	return crc32.ChecksumIEEE([]byte(s))
 }
 
-// RingManager manages per-key hash rings (similar to Nightingale's
-// DatasourceHashRingType). In SREAgent the "key" is typically a
-// datasource ID, so different datasources can have independent rings.
-type RingManager struct {
-	mu      sync.RWMutex
-	rings   map[string]*Ring
-	replicas int
-}
-
-// NewRingManager creates a ring manager with the given replica count.
-func NewRingManager(replicas int) *RingManager {
-	if replicas <= 0 {
-		replicas = DefaultReplicas
-	}
-	return &RingManager{
-		rings:    make(map[string]*Ring),
-		replicas: replicas,
-	}
-}
-
-// GetRing returns the ring for the given key, creating it if absent.
-func (m *RingManager) GetRing(key string) *Ring {
-	m.mu.RLock()
-	r, ok := m.rings[key]
-	m.mu.RUnlock()
-	if ok {
-		return r
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	// double-check after acquiring write lock
-	if r, ok = m.rings[key]; ok {
-		return r
-	}
-	r = New(m.replicas)
-	m.rings[key] = r
-	return r
-}
-
-// SetRing replaces the ring for the given key.
-func (m *RingManager) SetRing(key string, r *Ring) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.rings[key] = r
-}
-
-// DeleteRing removes the ring for the given key.
-func (m *RingManager) DeleteRing(key string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.rings, key)
-}
-
-// RebuildRing rebuilds the ring for the given key with a new set of nodes.
-func (m *RingManager) RebuildRing(key string, nodes []string) {
-	r := New(m.replicas)
-	for _, n := range nodes {
-		r.Add(n)
-	}
-	m.SetRing(key, r)
-}
-
-// IsHit checks whether the given node is responsible for the given
-// primary key within the ring identified by ringKey.
-func (m *RingManager) IsHit(ringKey string, pk string, node string) bool {
-	ring := m.GetRing(ringKey)
-	if ring == nil {
-		return false
-	}
-	return ring.IsHit(pk, node)
-}
-
 // RuleRingKey generates a standard ring key for an alert rule.
 // It uses the rule ID as a string.
 func RuleRingKey(ruleID uint) string {
 	return strconv.FormatUint(uint64(ruleID), 10)
-}
-
-// DatasourceRingKey generates a standard ring key for a datasource.
-func DatasourceRingKey(dsID uint) string {
-	return strconv.FormatUint(uint64(dsID), 10)
 }

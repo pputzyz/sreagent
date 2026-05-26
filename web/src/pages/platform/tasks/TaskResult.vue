@@ -104,10 +104,10 @@ function getStatusIcon(status: number) {
 
 function getStatusColor(status: number): string {
   switch (status) {
-    case TaskStatus.Success: return '#18a058'
-    case TaskStatus.Fail: return '#d03050'
-    case TaskStatus.Running: return '#2080f0'
-    default: return '#999'
+    case TaskStatus.Success: return 'var(--n-success-color, #18a058)'
+    case TaskStatus.Fail: return 'var(--n-error-color, #d03050)'
+    case TaskStatus.Running: return 'var(--n-info-color, #2080f0)'
+    default: return 'var(--n-text-color-3, #999)'
   }
 }
 
@@ -154,7 +154,7 @@ const hostColumns = computed<DataTableColumns<TaskHostRecord>>(() => [
     key: 'exit_code',
     width: 80,
     render: (row) => {
-      const color = row.exit_code === 0 ? '#18a050' : '#d03050'
+      const color = row.exit_code === 0 ? 'var(--n-success-color, #18a058)' : 'var(--n-error-color, #d03050)'
       return h('span', { style: `color: ${color}; font-family: monospace; font-weight: 600;` }, String(row.exit_code))
     },
   },
@@ -230,19 +230,19 @@ onMounted(() => {
               <span class="stat-label">{{ t('task.totalHosts') }}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value" style="color: #18a058;">{{ statusCounts.success }}</span>
+              <span class="stat-value" style="color: var(--n-success-color, #18a058);">{{ statusCounts.success }}</span>
               <span class="stat-label">{{ t('task.statusSuccess') }}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value" style="color: #d03050;">{{ statusCounts.failed }}</span>
+              <span class="stat-value" style="color: var(--n-error-color, #d03050);">{{ statusCounts.failed }}</span>
               <span class="stat-label">{{ t('task.statusFailed') }}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value" style="color: #2080f0;">{{ statusCounts.running }}</span>
+              <span class="stat-value" style="color: var(--n-info-color, #2080f0);">{{ statusCounts.running }}</span>
               <span class="stat-label">{{ t('task.statusRunning') }}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value" style="color: #999;">{{ statusCounts.pending }}</span>
+              <span class="stat-value" style="color: var(--n-text-color-3, #999);">{{ statusCounts.pending }}</span>
               <span class="stat-label">{{ t('task.statusPending') }}</span>
             </div>
           </div>
@@ -372,9 +372,9 @@ onMounted(() => {
   overflow-y: auto;
 }
 .output-block.stderr {
-  border-left: 3px solid #d03050;
+  border-left: 3px solid var(--n-error-color, #d03050);
 }
 .output-block.stdout {
-  border-left: 3px solid #18a058;
+  border-left: 3px solid var(--n-success-color, #18a058);
 }
 </style>

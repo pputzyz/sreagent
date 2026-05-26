@@ -150,7 +150,7 @@ export const aiAgentApi = {
 
 // ===== Auth API =====
 export const authApi = {
-  login: (data: { username: string; password: string }) =>
+  login: (data: { username: string; password: string; captcha_id?: string; captcha?: string }) =>
     request.post<ApiResponse<{ token: string; expires_in: number }>>('/auth/login', data),
 
   getProfile: () =>

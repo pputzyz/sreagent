@@ -564,31 +564,29 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 
 ---
 
-## LLM 配置管理 (llm-config) [v4.36.0]
+## 用户联系方式 (user-contact) [v4.40.0]
 
-- **功能**: 独立 LLM Provider CRUD + 连接测试，AES-256-GCM 加密存储 API Key，IsDefault 互斥
-- **后端文件**: `internal/model/llm_config.go`, `internal/repository/llm_config.go`, `internal/service/llm_config.go`, `internal/handler/llm_config.go`, `internal/router/llm_config_routes.go`
-- **前端文件**: `web/src/pages/platform/LLMConfigs.vue`, `web/src/api/llm-config.ts`
-- **迁移**: `000076_llm_configs.up.sql` / `000076_llm_configs.down.sql`
-- **API**: `GET/POST/PUT/DELETE /api/v1/llm-configs`, `POST /api/v1/llm-configs/:id/test`
+- **功能**: 用户个人联系方式管理（邮箱、手机、飞书、Webhook 等），用于通知分发
+- **后端文件**: `internal/model/user_contact.go`, `internal/repository/user_contact.go`, `internal/service/user_contact.go`, `internal/handler/user_contact.go`, `internal/router/user_contact_routes.go`
+- **前端文件**: `web/src/api/user-contact.ts`, `web/src/pages/settings/UserContacts.vue`
+- **迁移**: `000088_user_contacts`
+- **API**: `GET/POST/PUT/DELETE /api/v1/user/contacts` (6 endpoints: LIST, GET, POST, PUT, DELETE, PATCH /:id/default)
 - **状态**: ✅ 完成
 
-## MCP 服务器管理 (mcp-server) [v4.36.0, v4.38.1 增强]
+## 仪表盘业务分组 (dashboard-biz-group) [v4.40.0]
 
-- **功能**: MCP Server 注册 + 连接测试 + 工具枚举 + 工具调用，SSE 客户端连接外部 MCP 服务器
-- **后端文件**: `internal/model/mcp_server.go`, `internal/repository/mcp_server.go`, `internal/service/mcp_server.go`, `internal/service/mcp_client.go`, `internal/handler/mcp_server.go`, `internal/router/mcp_server_routes.go`, `internal/pkg/mcp/`
-- **前端文件**: `web/src/pages/platform/MCPServers.vue`, `web/src/api/mcp-server.ts`
-- **迁移**: `000077_mcp_servers.up.sql` / `000077_mcp_servers.down.sql`
-- **API**: `GET/POST/PUT/DELETE /api/v1/mcp-servers`, `POST /api/v1/mcp-servers/:id/test`, `GET /api/v1/mcp-servers/:id/tools`, `POST /api/v1/mcp-servers/:id/tools/:toolName/call`
+- **功能**: 仪表盘级业务分组绑定，将仪表盘关联到业务分组实现权限隔离
+- **后端文件**: `internal/model/dashboard_biz_group.go`, `internal/repository/dashboard_biz_group.go`, `internal/service/dashboard_biz_group.go`, `internal/handler/dashboard_biz_group.go`
+- **迁移**: `000087_dashboard_biz_groups`
+- **API**: `GET/POST/DELETE /api/v1/dashboards/:id/biz-groups` (3 endpoints)
 - **状态**: ✅ 完成
 
-## AI 技能管理 (ai-skill) [v4.36.0]
+## 内置仪表盘 (builtin-dashboard) [v4.40.0]
 
-- **功能**: 结构化 Skill 文件管理（SKILL.md + tool YAML），支持 zip/tar.gz 导入
-- **后端文件**: `internal/model/ai_skill.go`, `internal/repository/ai_skill.go`, `internal/service/ai_skill.go`, `internal/handler/ai_skill.go`, `internal/router/ai_skill_routes.go`
-- **前端文件**: `web/src/pages/ai/SkillManager.vue`, `web/src/api/ai-skill.ts`
-- **迁移**: `000078_ai_skills.up.sql` / `000078_ai_skills.down.sql`
-- **API**: `GET/POST/PUT/DELETE /api/v1/ai-skills`, `POST /api/v1/ai-skills/import`, `GET/POST/DELETE /api/v1/ai-skills/:id/files`, `GET /api/v1/ai-skills/files/:fileId`
+- **功能**: 内置仪表盘模板管理，预定义常见监控场景的仪表盘，支持一键应用
+- **后端文件**: `internal/model/builtin_dashboard.go`, `internal/repository/builtin_dashboard.go`, `internal/service/builtin_dashboard.go`, `internal/handler/builtin_dashboard.go`, `internal/router/builtin_dashboard_routes.go`
+- **迁移**: `000089_builtin_dashboards`
+- **API**: `GET/POST/PUT/DELETE /api/v1/builtin-dashboards` + `POST /:id/apply` + `GET /categories` (6 endpoints)
 - **状态**: ✅ 完成
 
 ## AI Agent SSE 流式推送 (agent-sse) [v4.36.0 → v4.39.0]

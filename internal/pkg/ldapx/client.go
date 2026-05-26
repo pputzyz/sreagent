@@ -556,11 +556,8 @@ func (c *Conn) readResponse() (*berElement, error) {
 		return nil, fmt.Errorf("ldap: read content (%d bytes): %w", contentLen, err)
 	}
 
-	full := append(tagBuf, lengthBuf...)
-	full = append(full, content...)
-	_, _, _ = full[0], full[1], full[2] // suppress unused
-
-	elem, _, err := decodeElement(append(tagBuf, append(lengthBuf, content...)...), 0)
+	full := append(tagBuf, append(lengthBuf, content...)...)
+	elem, _, err := decodeElement(full, 0)
 	if err != nil {
 		return nil, err
 	}

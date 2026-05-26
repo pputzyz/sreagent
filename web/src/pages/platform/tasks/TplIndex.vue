@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import {
   NButton, NIcon, NInput, NTag, NDrawer, NDrawerContent,
-  NForm, NFormItem, NInputNumber, NSelect, NDataTable, NPagination,
+  NForm, NFormItem, NInputNumber, NDataTable, NPagination,
   NEmpty, NSpace, NTooltip,
 } from 'naive-ui'
 import {
@@ -54,17 +54,6 @@ const form = ref<CreateTaskTplRequest>({
   hosts: '[]',
   tags: '[]',
   note: '',
-})
-
-// --- Filtered ---
-const filtered = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return tpls.value
-  return tpls.value.filter(tpl =>
-    tpl.name.toLowerCase().includes(q) ||
-    (tpl.note || '').toLowerCase().includes(q) ||
-    (tpl.create_by || '').toLowerCase().includes(q)
-  )
 })
 
 // --- Helpers ---
@@ -346,7 +335,7 @@ onMounted(fetchTpls)
     <template v-else>
       <n-data-table
         :columns="columns"
-        :data="filtered"
+        :data="tpls"
         :loading="loading"
         :row-key="(row: TaskTpl) => row.id"
         size="small"

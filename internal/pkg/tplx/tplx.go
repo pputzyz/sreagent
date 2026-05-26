@@ -121,8 +121,12 @@ func ToString(v interface{}) string {
 }
 
 // ReReplaceAll replaces all matches of pattern in text with repl.
+// Returns the original text if the pattern is an invalid regex.
 func ReReplaceAll(pattern, repl, text string) string {
-	re := regexp.MustCompile(pattern)
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return text
+	}
 	return re.ReplaceAllString(text, repl)
 }
 

@@ -8,6 +8,13 @@ import { resetAIChat } from '@/composables/useAIChat'
 import { resetPermissions } from '@/composables/usePermissions'
 import type { User } from '@/types'
 
+interface LoginPayload {
+  username: string
+  password: string
+  captcha_id?: string
+  captcha?: string
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string>(localStorage.getItem('token') || '')
   const user = ref<User | null>(null)
@@ -22,10 +29,10 @@ export const useAuthStore = defineStore('auth', () => {
   /** Standard username/password login */
   async function login(username: string, password: string, captchaId?: string, captcha?: string) {
     try {
-      const payload: Record<string, string> = { username, password }
+      const payload: LoginPayload = { username, password }
       if (captchaId) payload.captcha_id = captchaId
       if (captcha) payload.captcha = captcha
-      const { data } = await authApi.login(payload as { username: string; password: string })
+      const { data } = await authApi.login(payload)
       token.value = data.data.token
       localStorage.setItem('token', data.data.token)
       await fetchProfile()

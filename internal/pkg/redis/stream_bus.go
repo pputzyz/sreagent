@@ -127,16 +127,6 @@ func (b *StreamBus) Finish(ctx context.Context, taskID string) error {
 	return nil
 }
 
-// Exists reports whether the stream key exists in Redis.
-func (b *StreamBus) Exists(ctx context.Context, taskID string) (bool, error) {
-	key := streamKey(taskID)
-	n, err := b.client.rdb.Exists(ctx, key).Result()
-	if err != nil {
-		return false, fmt.Errorf("StreamBus.Exists: %w", err)
-	}
-	return n > 0, nil
-}
-
 // Subscribe returns a channel that yields StreamMessage values (as interface{}
 // to satisfy the service.AgentStreamBus interface without import cycles).
 // It reads from the given lastID (use "0" to start from the beginning).

@@ -280,10 +280,12 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, script, args s
 	config := &ssh.ClientConfig{
 		User: account,
 		Auth: []ssh.AuthMethod{
-			// TODO: support key-based auth and password from config
-			ssh.Password(""),
+			// TODO: support key-based auth (ssh.PublicKeys) with key from config;
+			// for now use password auth with the account field as credential source.
+			ssh.Password(account),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: use known hosts
+		// TODO: replace InsecureIgnoreHostKey with proper known_hosts verification
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}
 
@@ -301,9 +303,12 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, script, args s
 	}
 	defer session.Close()
 
-	// Build command
+	// Build command — sanitize args to prevent shell injection
 	cmd := script
 	if args != "" {
+		if err := sanitizeSSHArgs(args); err != nil {
+			return "", "", -1, fmt.Errorf("unsafe SSH args: %w", err)
+		}
 		cmd = cmd + " " + args
 	}
 
@@ -334,4 +339,15 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, script, args s
 		_ = session.Signal(ssh.SIGKILL)
 		return stdoutBuf.String(), stderrBuf.String(), -1, fmt.Errorf("execution timed out after %s", timeout)
 	}
+}
+
+// sanitizeSSHArgs rejects args that contain shell metacharacters to prevent injection.
+func sanitizeSSHArgs(args string) error {
+	dangerous := []string{";", "|", "&", "`", "$(", "\n", "\r"}
+	for _, d := range dangerous {
+		if strings.Contains(args, d) {
+			return fmt.Errorf("argument contains unsafe character %q", d)
+		}
+	}
+	return nil
 }

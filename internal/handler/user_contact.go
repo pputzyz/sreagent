@@ -24,15 +24,8 @@ func NewUserContactHandler(svc *service.UserContactService, logger ...*zap.Logge
 	return &UserContactHandler{svc: svc, log: l}
 }
 
-// CreateContactRequest is the request body for creating a contact.
-type CreateContactRequest struct {
-	Type  string `json:"type" binding:"required"`
-	Value string `json:"value" binding:"required"`
-	Name  string `json:"name"`
-}
-
-// UpdateContactRequest is the request body for updating a contact.
-type UpdateContactRequest struct {
+// ContactRequest is the request body for creating or updating a contact.
+type ContactRequest struct {
 	Type  string `json:"type" binding:"required"`
 	Value string `json:"value" binding:"required"`
 	Name  string `json:"name"`
@@ -63,7 +56,7 @@ func (h *UserContactHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var req CreateContactRequest
+	var req ContactRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
@@ -105,7 +98,7 @@ func (h *UserContactHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UpdateContactRequest
+	var req ContactRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return

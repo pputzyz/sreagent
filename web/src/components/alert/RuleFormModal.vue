@@ -15,7 +15,7 @@ import VChart from 'vue-echarts'
 import { useI18n } from 'vue-i18n'
 import { alertRuleApi, datasourceApi, templateApi, labelRegistryApi } from '@/api'
 import type { AlertRule, AlertRuleType, DataSource, AlertSeverity, DataSourceType, QueryResponse } from '@/types'
-import { kvArrayToRecord } from '@/utils/format'
+import { kvArrayToRecord, getErrorMessage } from '@/utils/format'
 import { formatValue } from '@/utils/valueFormatter'
 import KVEditor from '@/components/common/KVEditor.vue'
 import { PlayOutline, StatsChartOutline } from '@vicons/ionicons5'
@@ -167,7 +167,7 @@ async function handleTestExpression() {
     const { data } = await datasourceApi.query(form.datasource_id, { expression: form.expression })
     queryResult.value = data.data
   } catch (err: unknown) {
-    message.error((err as Error).message || t('common.failed'))
+    message.error(getErrorMessage(err) || t('common.failed'))
   } finally { queryTesting.value = false }
 }
 
@@ -194,7 +194,7 @@ async function openGraphPreview() {
     })
     graphResult.value = data.data
   } catch (err: unknown) {
-    message.error((err as Error).message || t('common.failed'))
+    message.error(getErrorMessage(err) || t('common.failed'))
   } finally { graphLoading.value = false }
 }
 
@@ -370,7 +370,7 @@ async function saveAsTemplate() {
     await templateApi.create(payload)
     message.success(t('alert.templateSaved'))
   } catch (err: unknown) {
-    message.error((err as Error).message || t('common.saveFailed'))
+    message.error(getErrorMessage(err) || t('common.saveFailed'))
   }
 }
 
@@ -480,7 +480,7 @@ async function handleSave() {
     }
     emit('saved')
   } catch (err: unknown) {
-    message.error((err as Error).message)
+    message.error(getErrorMessage(err))
   } finally {
     saving.value = false
   }

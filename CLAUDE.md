@@ -20,11 +20,11 @@
 ```
 cmd/server/main.go           # 入口 + DI wiring
 internal/
-  model/ (34) handler/ (44) service/ (46) repository/ (34)
-  engine/ (6)                # 告警引擎：evaluator + rule_eval + suppression + heartbeat + escalation
+  model/ (59) handler/ (70) service/ (96) repository/ (56)
+  engine/ (10)               # 告警引擎：evaluator + rule_eval + suppression + heartbeat + escalation + multi_query + pipeline
   middleware/ (3)            # JWT / CORS / Logger
-  router/ (9 files)          # 179+ 端点
-  pkg/                       # dbmigrate / datasource / lark / redis / errors
+  router/ (21 files)         # 350+ 端点
+  pkg/                       # dbmigrate / datasource / lark / redis / errors / hashring / tplx / mcp / ldapx
 web/src/                     # Vue 3 前端
 ```
 

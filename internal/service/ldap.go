@@ -44,7 +44,6 @@ type LDAPUserInfo struct {
 type LDAPService struct {
 	settingSvc *SystemSettingService
 	userRepo   *repository.UserRepository
-	jwtCfg     interface{ GetSecret() string; GetExpire() int }
 	logger     *zap.Logger
 }
 

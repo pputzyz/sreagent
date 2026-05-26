@@ -132,37 +132,6 @@ func Test_Ring_Consistency(t *testing.T) {
 	assert.Greater(t, remapped, 500, "too few keys remapped — ring may not be working")
 }
 
-// --- RingManager tests ---
-
-func Test_RingManager_GetRing_CreatesOnDemand(t *testing.T) {
-	m := NewRingManager(200)
-	r1 := m.GetRing("ds-1")
-	r2 := m.GetRing("ds-1")
-	assert.Same(t, r1, r2)
-}
-
-func Test_RingManager_RebuildRing(t *testing.T) {
-	m := NewRingManager(200)
-	m.RebuildRing("ds-1", []string{"node-a", "node-b"})
-
-	assert.True(t, m.IsHit("ds-1", "some-key", "node-a") || m.IsHit("ds-1", "some-key", "node-b"))
-}
-
-func Test_RingManager_DeleteRing(t *testing.T) {
-	m := NewRingManager(200)
-	m.RebuildRing("ds-1", []string{"node-a"})
-	m.DeleteRing("ds-1")
-
-	// After deletion, GetRing should create a new empty ring
-	r := m.GetRing("ds-1")
-	assert.Equal(t, 0, r.Size())
-}
-
-func Test_RingManager_IsHit_EmptyRing(t *testing.T) {
-	m := NewRingManager(200)
-	assert.False(t, m.IsHit("ds-1", "pk", "node"))
-}
-
 func Test_DefaultReplicas(t *testing.T) {
 	r := New(0)
 	assert.Equal(t, DefaultReplicas, r.replicas)

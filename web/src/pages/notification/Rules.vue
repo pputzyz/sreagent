@@ -166,9 +166,9 @@ const testResults = ref<Array<{ media_id: number; media_name: string; status: st
 const mediaOptions = ref<Array<{ label: string; value: number }>>([])
 
 const testSeverityOptions = computed(() => [
-  { label: t('severity.critical'), value: 'critical' },
-  { label: t('severity.warning'), value: 'warning' },
-  { label: t('severity.info'), value: 'info' },
+  { label: t('alert.critical'), value: 'critical' },
+  { label: t('alert.warning'), value: 'warning' },
+  { label: t('alert.info'), value: 'info' },
 ])
 
 async function openTestModal(rule: NotifyRule) {

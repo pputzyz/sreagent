@@ -22,7 +22,6 @@ type AgentStreamBus interface {
 	Init(ctx context.Context, taskID string) error
 	Publish(ctx context.Context, taskID string, event string, data interface{}) error
 	Finish(ctx context.Context, taskID string) error
-	Exists(ctx context.Context, taskID string) (bool, error)
 	// Subscribe returns a channel of redis.StreamMessage (interface{} to avoid import cycle).
 	// Callers must type-assert: msg := <-ch.(redis.StreamMessage)
 	Subscribe(ctx context.Context, taskID string, lastID string) <-chan interface{}

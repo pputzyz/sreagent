@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NInput, NSpace, NTag, NEmpty, NSpin, NGrid, NGi, NDrawer, NDrawerContent, NScrollbar, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { builtinDashboardApi } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import type { BuiltinDashboard } from '@/api/builtin-dashboard'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -73,7 +74,7 @@ async function fetchDashboards() {
     const res = await builtinDashboardApi.list()
     dashboards.value = res.data.data || []
   } catch (err: unknown) {
-    message.error((err as Error)?.message || t('common.loadFailed'))
+    message.error(getErrorMessage(err) || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -101,7 +102,7 @@ async function handleImport(dash: BuiltinDashboard) {
     importedIdents.value.add(dash.ident)
     message.success(t('builtinDash.importSuccess', { name: res.data.data.name }))
   } catch (err: unknown) {
-    message.error((err as Error)?.message || t('common.failed'))
+    message.error(getErrorMessage(err) || t('common.failed'))
   } finally {
     importingIdents.value.delete(dash.ident)
   }
@@ -123,7 +124,7 @@ async function openPreview(dash: BuiltinDashboard) {
     const res = await builtinDashboardApi.getByIdent(dash.ident)
     previewDashboard.value = res.data.data
   } catch (err: unknown) {
-    message.error((err as Error)?.message || t('common.loadFailed'))
+    message.error(getErrorMessage(err) || t('common.loadFailed'))
   } finally {
     previewLoading.value = false
   }
