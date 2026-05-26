@@ -2736,6 +2736,7 @@ export default {
     name: '指标名称',
     namePlaceholder: '新指标名称，例如 http_requests_total_5m',
     promql: 'PromQL 表达式',
+    promqlPlaceholder: '输入 PromQL 表达式，支持自动补全...',
     note: '备注',
     notePlaceholder: '规则说明',
     datasource: '数据源',

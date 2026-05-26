@@ -33,6 +33,7 @@ import {
   FlashOutline,
   TimeOutline,
   VolumeMuteOutline,
+  PulseOutline,
   ServerOutline,
   SearchOutline,
   PieChartOutline,
@@ -237,6 +238,7 @@ export function useAppNav() {
             items: [
               { label: t('menu.alertRules'),      key: '/alert/rules', icon: ListOutline },
               { label: t('menu.presetRules'),       key: '/alert/presets', icon: LibraryOutline },
+              { label: t('menu.recordingRules'),   key: '/alert/recording-rules', icon: PulseOutline },
               { label: t('menu.activeAlerts'),     key: '/alert/events', icon: FlashOutline },
               { label: t('menu.alertHistory'),     key: '/alert/history', icon: TimeOutline },
               { label: t('menu.muteRules'),        key: '/alert/suppression', icon: VolumeMuteOutline },

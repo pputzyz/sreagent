@@ -9,6 +9,7 @@ import { recordingRuleApi, type RecordingRule } from '@/api/recording'
 import { datasourceApi } from '@/api'
 import { useFilterMemory, usePermissions } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PromQLEditor from '@/components/query/PromQLEditor.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -466,11 +467,12 @@ onMounted(() => {
           />
         </NFormItem>
         <NFormItem :label="t('recording.promql')" required>
-          <NInput
-            v-model:value="form.prom_ql"
-            type="textarea"
-            :autosize="{ minRows: 3, maxRows: 8 }"
-            placeholder="sum(rate(http_requests_total[5m])) by (method)"
+          <PromQLEditor
+            :model-value="form.prom_ql"
+            :datasource-id="form.datasource_ids.length ? form.datasource_ids[0] : null"
+            :placeholder="t('recording.promqlPlaceholder')"
+            style="width: 100%; min-height: 80px; border: 1px solid var(--n-border-color); border-radius: 3px;"
+            @update:model-value="form.prom_ql = $event"
           />
         </NFormItem>
         <NFormItem :label="t('recording.cronPattern')">

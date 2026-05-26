@@ -2715,6 +2715,7 @@ export default {
     name: 'Metric Name',
     namePlaceholder: 'New metric name, e.g. http_requests_total_5m',
     promql: 'PromQL Expression',
+    promqlPlaceholder: 'Enter PromQL expression with autocomplete...',
     note: 'Note',
     notePlaceholder: 'Rule description',
     datasource: 'Datasource',

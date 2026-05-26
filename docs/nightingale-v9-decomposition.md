@@ -879,13 +879,22 @@ LDAP, OAuth2, OIDC, CAS, DingTalk, Feishu
 | 日志探索 | ES _msearch | VLogs 查询 | 查询引擎不同 |
 | 直方图 | Timeseries 组件 | LogHistogram（ECharts） | 已对齐 |
 
-### 17.3 Nightingale 特有功能（SREAgent 无对应）
+### 17.3 已移植的 Nightingale 功能
+
+| 功能 | SREAgent 版本 | 说明 |
+|---|---|---|
+| 事件管道 | v4.29.0 | 可编程事件处理管道，Processor 注册表模式 |
+| 指标内置规则 | v4.28.0 | PresetRule + 分类体系，299 条预置规则 |
+| 记录规则引擎 | v4.32.0 | RecordingRuleEngine + cron 调度 + 执行记录 |
+| 通知渠道扩展 | v4.30.0 | 从 4 种扩展至 17 种渠道类型 |
+| Saved Views | v4.32.0 | 持久化视图存储，API + 前端 |
+| Metric Views | v4.32.0 | 三面板指标探索页面 |
+
+### 17.4 Nightingale 特有功能（SREAgent 无对应）
 
 | 功能 | 说明 | 优先级 |
 |---|---|---|
 | AI Agent 子系统 | LLM 集成、MCP、A2A、技能系统 | 高（SREAgent AI 路线图） |
-| 事件管道 | 可编程事件处理管道 | 中 |
-| 记录规则 | Prometheus recording rules | 中 |
 | Push Gateway | remote write、OpenTSDB、Falcon、Datadog | 低 |
 | 任务执行 | 自愈脚本执行 | 低 |
 | Trace 探索 | Jaeger/Zipkin trace 查看 | 低 |
