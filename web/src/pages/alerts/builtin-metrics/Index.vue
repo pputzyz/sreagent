@@ -2,12 +2,13 @@
 import { ref, onMounted, watch, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog } from 'naive-ui'
-import { NButton, NSpace, NIcon } from 'naive-ui'
-import { AddOutline } from '@vicons/ionicons5'
+import { NButton, NSpace, NIcon, NTag } from 'naive-ui'
+import { AddOutline, SearchOutline } from '@vicons/ionicons5'
 import type { DataTableColumns } from 'naive-ui'
-import { builtinMetricApi, type BuiltinMetric } from '@/api/builtin-metric'
+import { builtinMetricApi, metricFilterApi, type BuiltinMetric, type MetricFilter, type FilterConfig } from '@/api/builtin-metric'
 import { useFilterMemory, usePermissions } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
+import PromQLEditor from '@/components/query/PromQLEditor.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -27,16 +28,32 @@ const filterMemory = useFilterMemory('builtin-metrics')
 const searchQuery = ref(filterMemory.restore('query', ''))
 const filterCollector = ref<string | null>(filterMemory.restore('collector', null))
 const filterTyp = ref<string | null>(filterMemory.restore('typ', null))
-filterMemory.bindRefs({ query: searchQuery, collector: filterCollector, typ: filterTyp })
+const filterUnit = ref<string[]>(filterMemory.restore('unit', []))
+filterMemory.bindRefs({ query: searchQuery, collector: filterCollector, typ: filterTyp, unit: filterUnit })
 
 // Metadata
 const collectorOptions = ref<string[]>([])
 const typeOptions = ref<string[]>([])
+const unitOptions = ref<string[]>([])
 
 // Edit drawer
 const showDrawer = ref(false)
 const drawerMode = ref<'create' | 'edit'>('create')
 const drawerMetric = ref<Partial<BuiltinMetric>>({})
+
+// Explorer drawer (Nightingale pattern: click metric name to explore)
+const showExplorerDrawer = ref(false)
+const explorerMetric = ref<BuiltinMetric | null>(null)
+const explorerPromql = ref('')
+
+// MetricFilter management
+const showFilterModal = ref(false)
+const savedFilters = ref<MetricFilter[]>([])
+const editingFilter = ref<Partial<MetricFilter> & { configs: FilterConfig[] }>({ configs: [] })
+const filterModalMode = ref<'create' | 'edit'>('create')
+
+// Active filter (applied to metric expressions)
+const activeFilter = ref<MetricFilter | null>(null)
 
 const canWrite = computed(() => hasPerm('metrics.write'))
 
@@ -50,7 +67,12 @@ async function fetchMetrics() {
       typ: filterTyp.value || undefined,
       query: searchQuery.value || undefined,
     })
-    metrics.value = resp.data.data?.list || []
+    let list = resp.data.data?.list || []
+    // Client-side unit filter
+    if (filterUnit.value.length > 0) {
+      list = list.filter((m) => filterUnit.value.includes(m.unit))
+    }
+    metrics.value = list
     total.value = resp.data.data?.total || 0
   } catch (e: any) {
     message.error(e.message || 'Failed to load metrics')
@@ -67,6 +89,18 @@ async function fetchMetadata() {
     ])
     typeOptions.value = typesResp.data.data || []
     collectorOptions.value = collectorsResp.data.data || []
+
+    // Build unit options from current metrics
+    const units = new Set<string>()
+    metrics.value.forEach((m) => { if (m.unit) units.add(m.unit) })
+    unitOptions.value = Array.from(units).sort()
+  } catch {}
+}
+
+async function fetchFilters() {
+  try {
+    const resp = await metricFilterApi.list()
+    savedFilters.value = resp.data.data || []
   } catch {}
 }
 
@@ -83,6 +117,28 @@ function openEdit(metric: BuiltinMetric) {
   drawerMode.value = 'edit'
   drawerMetric.value = { ...metric }
   showDrawer.value = true
+}
+
+// Nightingale pattern: click metric name to open explorer drawer
+function openExplorer(metric: BuiltinMetric) {
+  explorerMetric.value = metric
+  let promql = metric.expression || metric.name
+  // If expression_type is metric_name, wrap as simple metric query
+  if (metric.expression_type === 'metric_name') {
+    promql = metric.name
+    // If there's an active filter, inject label matchers
+    if (activeFilter.value?.configs && activeFilter.value.configs.length > 0) {
+      const matchers = activeFilter.value.configs
+        .filter((c) => c.label && c.value)
+        .map((c) => `${c.label}${c.operator}"${c.value}"`)
+        .join(', ')
+      if (matchers) {
+        promql = `${metric.name}{${matchers}}`
+      }
+    }
+  }
+  explorerPromql.value = promql
+  showExplorerDrawer.value = true
 }
 
 async function handleSave() {
@@ -169,6 +225,68 @@ function handleExport() {
   URL.revokeObjectURL(url)
 }
 
+// MetricFilter CRUD
+function openCreateFilter() {
+  filterModalMode.value = 'create'
+  editingFilter.value = { configs: [] }
+  showFilterModal.value = true
+}
+
+function openEditFilter(filter: MetricFilter) {
+  filterModalMode.value = 'edit'
+  editingFilter.value = { ...filter, configs: [...(filter.configs || [])] }
+  showFilterModal.value = true
+}
+
+async function handleSaveFilter() {
+  const f = editingFilter.value
+  if (!f.name) {
+    message.warning(t('builtin.filterNameRequired'))
+    return
+  }
+  try {
+    if (filterModalMode.value === 'edit' && f.id) {
+      await metricFilterApi.update(f as MetricFilter)
+      message.success(t('common.savedSuccess'))
+    } else {
+      await metricFilterApi.create(f)
+      message.success(t('common.createSuccess'))
+    }
+    showFilterModal.value = false
+    fetchFilters()
+  } catch (e: any) {
+    message.error(e.message || t('common.saveFailed'))
+  }
+}
+
+async function handleDeleteFilter(filter: MetricFilter) {
+  dialog.warning({
+    title: t('common.confirm'),
+    content: t('builtin.confirmDeleteFilter', { name: filter.name }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await metricFilterApi.delete([filter.id])
+        message.success(t('common.deleteSuccess'))
+        if (activeFilter.value?.id === filter.id) activeFilter.value = null
+        fetchFilters()
+      } catch (e: any) {
+        message.error(e.message || t('common.deleteFailed'))
+      }
+    },
+  })
+}
+
+function applyFilter(filter: MetricFilter | null) {
+  activeFilter.value = filter
+}
+
+// Get filter configs (already parsed by API)
+function getFilterConfigs(): FilterConfig[] {
+  return editingFilter.value.configs || []
+}
+
 const columns = computed<DataTableColumns<BuiltinMetric>>(() => [
   { type: 'selection' },
   {
@@ -179,18 +297,24 @@ const columns = computed<DataTableColumns<BuiltinMetric>>(() => [
     render: (row) =>
       h('a', {
         style: 'color: var(--sre-primary); cursor: pointer; text-decoration: none;',
-        onClick: () => openEdit(row),
+        onClick: () => openExplorer(row),
       }, row.name),
   },
   {
     title: t('builtin.collector'),
     key: 'collector',
     width: 140,
+    render: (row) => row.collector
+      ? h(NTag, { size: 'small', bordered: false, type: 'info' }, () => row.collector)
+      : '-',
   },
   {
     title: t('builtin.type'),
     key: 'typ',
     width: 120,
+    render: (row) => row.typ
+      ? h(NTag, { size: 'small', bordered: false, type: 'warning' }, () => row.typ)
+      : '-',
   },
   {
     title: t('builtin.unit'),
@@ -202,11 +326,18 @@ const columns = computed<DataTableColumns<BuiltinMetric>>(() => [
     key: 'expression',
     minWidth: 200,
     ellipsis: { tooltip: true },
+    render: (row) =>
+      h('code', {
+        style: 'font-size: 12px; background: var(--n-code-color, rgba(0,0,0,0.05)); padding: 1px 4px; border-radius: 2px;',
+      }, row.expression),
   },
   {
     title: t('builtin.metricType'),
     key: 'metric_type',
     width: 100,
+    render: (row) => row.metric_type
+      ? h(NTag, { size: 'small', bordered: false }, () => row.metric_type)
+      : '-',
   },
   {
     title: t('common.actions'),
@@ -220,7 +351,7 @@ const columns = computed<DataTableColumns<BuiltinMetric>>(() => [
   },
 ])
 
-watch([searchQuery, filterCollector, filterTyp], () => {
+watch([searchQuery, filterCollector, filterTyp, filterUnit], () => {
   page.value = 1
   fetchMetrics()
   fetchMetadata()
@@ -229,6 +360,7 @@ watch([searchQuery, filterCollector, filterTyp], () => {
 onMounted(() => {
   fetchMetrics()
   fetchMetadata()
+  fetchFilters()
 })
 </script>
 
@@ -243,7 +375,16 @@ onMounted(() => {
           :placeholder="t('builtin.searchPlaceholder')"
           clearable
           size="small"
-          style="width: 260px;"
+          style="width: 240px;"
+        />
+        <NSelect
+          v-model:value="filterTyp"
+          :placeholder="t('builtin.type')"
+          :options="typeOptions.map(t => ({ label: t, value: t }))"
+          clearable
+          filterable
+          size="small"
+          style="width: 140px;"
         />
         <NSelect
           v-model:value="filterCollector"
@@ -255,32 +396,68 @@ onMounted(() => {
           style="width: 160px;"
         />
         <NSelect
-          v-model:value="filterTyp"
-          :placeholder="t('builtin.type')"
-          :options="typeOptions.map(t => ({ label: t, value: t }))"
+          v-model:value="filterUnit"
+          :placeholder="t('builtin.unit')"
+          :options="unitOptions.map(u => ({ label: u, value: u }))"
+          multiple
           clearable
           filterable
           size="small"
-          style="width: 140px;"
+          style="width: 160px;"
         />
-      </div>
-      <div class="toolbar-right" v-if="canWrite">
-        <NButton size="small" type="primary" @click="openCreate">
-          <template #icon><NIcon><AddOutline /></NIcon></template>
-          {{ t('builtin.create') }}
-        </NButton>
-        <NButton size="small" @click="handleExport">
-          {{ t('builtin.export') }}
-        </NButton>
-        <NButton
-          v-if="selectedIds.length"
+        <!-- Active filter indicator -->
+        <NTag
+          v-if="activeFilter"
+          closable
           size="small"
-          type="error"
-          @click="handleBatchDelete"
+          type="success"
+          @close="applyFilter(null)"
         >
-          {{ t('common.delete') }} ({{ selectedIds.length }})
-        </NButton>
+          {{ activeFilter.name }}
+        </NTag>
       </div>
+      <div class="toolbar-right">
+        <NButton size="small" @click="openCreateFilter">
+          <template #icon><NIcon><SearchOutline /></NIcon></template>
+          {{ t('builtin.manageFilters') }}
+        </NButton>
+        <template v-if="canWrite">
+          <NButton size="small" type="primary" @click="openCreate">
+            <template #icon><NIcon><AddOutline /></NIcon></template>
+            {{ t('builtin.create') }}
+          </NButton>
+          <NButton size="small" @click="handleExport">
+            {{ t('builtin.export') }}
+          </NButton>
+          <NButton
+            v-if="selectedIds.length"
+            size="small"
+            type="error"
+            @click="handleBatchDelete"
+          >
+            {{ t('common.delete') }} ({{ selectedIds.length }})
+          </NButton>
+        </template>
+      </div>
+    </div>
+
+    <!-- Saved Filters Bar -->
+    <div v-if="savedFilters.length" class="filter-bar">
+      <span class="filter-bar-label">{{ t('builtin.filters') }}:</span>
+      <NTag
+        v-for="f in savedFilters"
+        :key="f.id"
+        :type="activeFilter?.id === f.id ? 'success' : 'default'"
+        size="small"
+        checkable
+        :checked="activeFilter?.id === f.id"
+        @update:checked="(v: boolean) => applyFilter(v ? f : null)"
+        closable
+        @close="handleDeleteFilter(f)"
+      >
+        {{ f.name }}
+      </NTag>
+      <NButton size="tiny" quaternary @click="openCreateFilter">+</NButton>
     </div>
 
     <NDataTable
@@ -353,6 +530,80 @@ onMounted(() => {
         </template>
       </NDrawerContent>
     </NDrawer>
+
+    <!-- Explorer Drawer (Nightingale pattern: click metric to explore) -->
+    <NDrawer v-model:show="showExplorerDrawer" :width="800">
+      <NDrawerContent :title="explorerMetric ? `${t('builtin.explore')}: ${explorerMetric.name}` : t('builtin.explore')">
+        <div v-if="explorerMetric" class="explorer-drawer">
+          <div class="explorer-info">
+            <NTag size="small" type="info" bordered>{{ explorerMetric.collector }}</NTag>
+            <NTag size="small" type="warning" bordered>{{ explorerMetric.typ }}</NTag>
+            <span v-if="explorerMetric.unit" style="font-size: 12px; color: var(--n-text-color-3);">{{ explorerMetric.unit }}</span>
+          </div>
+          <div v-if="explorerMetric.note" class="explorer-note">{{ explorerMetric.note }}</div>
+          <PromQLEditor
+            :model-value="explorerPromql"
+            :datasource-id="null"
+            placeholder="PromQL expression..."
+            style="width: 100%; min-height: 100px; border: 1px solid var(--n-border-color); border-radius: 3px;"
+            @update:model-value="explorerPromql = $event"
+          />
+        </div>
+        <template #footer>
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <NButton @click="showExplorerDrawer = false">{{ t('common.close') }}</NButton>
+            <NButton type="primary" @click="explorerMetric && openEdit(explorerMetric); showExplorerDrawer = false">
+              {{ t('common.edit') }}
+            </NButton>
+          </div>
+        </template>
+      </NDrawerContent>
+    </NDrawer>
+
+    <!-- MetricFilter Modal -->
+    <NModal
+      v-model:show="showFilterModal"
+      preset="card"
+      :title="filterModalMode === 'edit' ? t('builtin.editFilter') : t('builtin.createFilter')"
+      style="width: 600px;"
+    >
+      <NForm label-placement="left" label-width="100px">
+        <NFormItem :label="t('builtin.filterName')" required>
+          <NInput v-model:value="editingFilter.name" :placeholder="t('builtin.filterNamePlaceholder')" />
+        </NFormItem>
+        <NFormItem :label="t('builtin.filterConditions')">
+          <div style="width: 100%;">
+            <div
+              v-for="(cfg, idx) in editingFilter.configs"
+              :key="idx"
+              style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;"
+            >
+              <NInput v-model:value="cfg.label" size="small" placeholder="label" style="width: 120px;" />
+              <NSelect
+                v-model:value="cfg.operator"
+                size="small"
+                style="width: 70px;"
+                :options="[
+                  { label: '=', value: '=' },
+                  { label: '!=', value: '!=' },
+                  { label: '=~', value: '=~' },
+                  { label: '!~', value: '!~' },
+                ]"
+              />
+              <NInput v-model:value="cfg.value" size="small" placeholder="value" style="flex: 1;" />
+              <NButton size="tiny" quaternary type="error" @click="editingFilter.configs!.splice(idx, 1)">-</NButton>
+            </div>
+            <NButton size="small" dashed @click="editingFilter.configs!.push({ label: '', operator: '=', value: '' })">+ {{ t('builtin.addCondition') }}</NButton>
+          </div>
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <NButton @click="showFilterModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" @click="handleSaveFilter">{{ t('common.save') }}</NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -364,22 +615,52 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   gap: 12px;
 }
 .toolbar-left {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .toolbar-right {
   display: flex;
   gap: 8px;
   align-items: center;
 }
+.filter-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.filter-bar-label {
+  font-size: 12px;
+  color: var(--n-text-color-3);
+  margin-right: 4px;
+}
 .page-pagination {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+.explorer-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.explorer-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.explorer-note {
+  font-size: 13px;
+  color: var(--n-text-color-3);
+  padding: 8px 12px;
+  background: var(--n-code-color, rgba(0,0,0,0.03));
+  border-radius: 4px;
 }
 </style>

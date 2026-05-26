@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, watch, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog } from 'naive-ui'
-import { NButton, NSpace, NSwitch, NTag, NIcon } from 'naive-ui'
+import { NButton, NSpace, NSwitch, NTag, NIcon, NForm, NFormItem, NInput, NSelect, NAlert } from 'naive-ui'
 import { AddOutline } from '@vicons/ionicons5'
 import type { DataTableColumns } from 'naive-ui'
 import { recordingRuleApi, type RecordingRule } from '@/api/recording'
@@ -29,10 +29,12 @@ const filterMemory = useFilterMemory('recording-rules')
 const searchQuery = ref(filterMemory.restore('query', ''))
 const filterDisabled = ref<number | null>(filterMemory.restore('disabled', null))
 const filterGroupId = ref<number | null>(filterMemory.restore('group_id', null))
-filterMemory.bindRefs({ query: searchQuery, disabled: filterDisabled, group_id: filterGroupId })
+const filterDatasourceIds = ref<number[]>(filterMemory.restore('datasource_ids', []))
+filterMemory.bindRefs({ query: searchQuery, disabled: filterDisabled, group_id: filterGroupId, datasource_ids: filterDatasourceIds })
 
-// Datasource options for display
+// Datasource options for display and filter
 const datasourceOptions = ref<{ label: string; value: number }[]>([])
+const prometheusDatasources = computed(() => datasourceOptions.value)
 
 // Edit dialog
 const showEditModal = ref(false)
@@ -55,7 +57,16 @@ const showImportModal = ref(false)
 const importJson = ref('')
 const importResults = ref<Record<string, string> | null>(null)
 
+// Batch update
+const showBatchUpdateModal = ref(false)
+const batchUpdateField = ref<string>('datasource_ids')
+const batchUpdateValue = ref<any>(null)
+const batchUpdateLoading = ref(false)
+
 const canWrite = computed(() => hasPerm('rules.write'))
+
+// Name validation (Nightingale pattern: letters, digits, underscores, colons)
+const namePattern = /^[0-9a-zA-Z_:]+$/
 
 async function fetchRules() {
   loading.value = true
@@ -67,7 +78,15 @@ async function fetchRules() {
       query: searchQuery.value || undefined,
       disabled: filterDisabled.value !== null ? filterDisabled.value : undefined,
     })
-    rules.value = resp.data.data?.list || []
+    let list = resp.data.data?.list || []
+    // Client-side datasource filter
+    if (filterDatasourceIds.value.length > 0) {
+      list = list.filter((r) => {
+        if (!r.datasource_ids || r.datasource_ids.length === 0 || r.datasource_ids.includes(0)) return true
+        return r.datasource_ids.some((id) => filterDatasourceIds.value.includes(id))
+      })
+    }
+    rules.value = list
     total.value = resp.data.data?.total || 0
   } catch (e: any) {
     message.error(e.message || 'Failed to load recording rules')
@@ -79,10 +98,12 @@ async function fetchRules() {
 async function fetchDatasources() {
   try {
     const resp = await datasourceApi.list({ page: 1, page_size: 500 })
-    datasourceOptions.value = (resp.data.data?.list || []).map((ds: any) => ({
-      label: ds.name,
-      value: ds.id,
-    }))
+    const all = (resp.data.data?.list || [])
+      .filter((ds: any) => ds.type === 'prometheus' || ds.type === 'victoriametrics')
+    datasourceOptions.value = [
+      { label: t('recording.allDatasources'), value: 0 },
+      ...all.map((ds: any) => ({ label: ds.name, value: ds.id })),
+    ]
   } catch {}
 }
 
@@ -139,11 +160,46 @@ function fillForm(rule: RecordingRule) {
   form.note = rule.note || ''
 }
 
+// Validate PromQL against datasource (Nightingale pattern)
+async function validatePromql(): Promise<boolean> {
+  if (!form.prom_ql) return false
+  const dsId = form.datasource_ids.length > 0 && form.datasource_ids[0] !== 0
+    ? form.datasource_ids[0]
+    : null
+  if (!dsId) return true // Skip validation if $all or no datasource
+  try {
+    const resp = await datasourceApi.query(dsId, { expression: form.prom_ql })
+    const data = resp.data?.data as any
+    if (data?.error) {
+      message.error(t('recording.promqlValidationError', { error: data.error }))
+      return false
+    }
+    return true
+  } catch (e: any) {
+    message.error(t('recording.promqlValidationError', { error: e.message || 'Unknown error' }))
+    return false
+  }
+}
+
 async function handleSave() {
-  if (!form.name || !form.prom_ql) {
+  // Name validation
+  if (!form.name) {
     message.warning(t('recording.nameAndPromqlRequired'))
     return
   }
+  if (!namePattern.test(form.name)) {
+    message.error(t('recording.nameInvalid'))
+    return
+  }
+  if (!form.prom_ql) {
+    message.warning(t('recording.nameAndPromqlRequired'))
+    return
+  }
+
+  // PromQL validation (Nightingale: validate before save)
+  const valid = await validatePromql()
+  if (!valid) return
+
   try {
     if (editMode.value === 'edit' && editId.value) {
       await recordingRuleApi.update(editId.value, { ...form })
@@ -256,6 +312,45 @@ async function handleImport() {
   }
 }
 
+// Batch update (Nightingale pattern)
+async function handleBatchUpdate() {
+  if (!selectedIds.value.length) return
+  const ids = selectedIds.value.map((id) => Number(id))
+  const fields: Record<string, any> = {}
+
+  if (batchUpdateField.value === 'datasource_ids') {
+    if (!batchUpdateValue.value || batchUpdateValue.value.length === 0) return
+    fields.datasource_ids = batchUpdateValue.value
+  } else if (batchUpdateField.value === 'cron_pattern') {
+    if (!batchUpdateValue.value) return
+    fields.cron_pattern = batchUpdateValue.value
+  } else if (batchUpdateField.value === 'disabled') {
+    fields.disabled = batchUpdateValue.value ? 0 : 1
+  } else if (batchUpdateField.value === 'append_tags') {
+    fields.append_tags = batchUpdateValue.value || []
+  }
+
+  batchUpdateLoading.value = true
+  try {
+    await recordingRuleApi.updateFields(ids, fields)
+    message.success(t('recording.batchUpdateSuccess'))
+    showBatchUpdateModal.value = false
+    selectedIds.value = []
+    batchUpdateValue.value = null
+    fetchRules()
+  } catch (e: any) {
+    message.error(e.message || t('common.updateFailed'))
+  } finally {
+    batchUpdateLoading.value = false
+  }
+}
+
+function openBatchUpdate() {
+  batchUpdateField.value = 'datasource_ids'
+  batchUpdateValue.value = null
+  showBatchUpdateModal.value = true
+}
+
 function handleSelectionChange(keys: (string | number)[]) {
   selectedIds.value = keys
 }
@@ -304,7 +399,18 @@ const columns = computed<DataTableColumns<RecordingRule>>(() => {
       key: 'datasource_ids',
       minWidth: 150,
       ellipsis: { tooltip: true },
-      render: (row) => dsNames(row.datasource_ids),
+      render: (row) => {
+        const ids = row.datasource_ids || []
+        if (ids.length === 0 || ids.includes(0)) {
+          return h(NTag, { size: 'small', type: 'info', bordered: false }, () => t('recording.allDatasources'))
+        }
+        return h(NSpace, { size: 4, wrap: true }, () =>
+          ids.map((id) => {
+            const ds = datasourceOptions.value.find((d) => d.value === id)
+            return h(NTag, { size: 'small', bordered: false }, () => ds ? ds.label : `ID:${id}`)
+          })
+        )
+      },
     },
     {
       title: t('recording.cronPattern'),
@@ -318,11 +424,9 @@ const columns = computed<DataTableColumns<RecordingRule>>(() => {
       ellipsis: { tooltip: true },
       render: (row) =>
         row.append_tags?.length
-          ? h('div', { style: 'display: flex; flex-wrap: wrap; gap: 2px;' },
+          ? h(NSpace, { size: 4, wrap: true }, () =>
               row.append_tags.map((tag) =>
-                h('span', {
-                  style: 'background: var(--sre-primary-soft); color: var(--sre-primary); padding: 1px 6px; border-radius: 3px; font-size: 12px;',
-                }, tag)
+                h(NTag, { size: 'small', type: 'warning', bordered: false }, () => tag)
               )
             )
           : '-',
@@ -361,7 +465,7 @@ const columns = computed<DataTableColumns<RecordingRule>>(() => {
 })
 
 // Watch filters
-watch([searchQuery, filterDisabled, filterGroupId], () => {
+watch([searchQuery, filterDisabled, filterGroupId, filterDatasourceIds], () => {
   page.value = 1
   fetchRules()
 })
@@ -383,7 +487,17 @@ onMounted(() => {
           :placeholder="t('recording.searchPlaceholder')"
           clearable
           size="small"
-          style="width: 260px;"
+          style="width: 240px;"
+        />
+        <NSelect
+          v-model:value="filterDatasourceIds"
+          :placeholder="t('recording.selectDatasource')"
+          :options="prometheusDatasources"
+          multiple
+          filterable
+          clearable
+          size="small"
+          style="width: 200px;"
         />
         <NSelect
           v-model:value="filterDisabled"
@@ -407,6 +521,14 @@ onMounted(() => {
         </NButton>
         <NButton size="small" @click="handleExport">
           {{ t('recording.export') }}
+        </NButton>
+        <NButton
+          v-if="selectedIds.length"
+          size="small"
+          type="warning"
+          @click="openBatchUpdate"
+        >
+          {{ t('recording.batchUpdate') }} ({{ selectedIds.length }})
         </NButton>
         <NButton
           v-if="selectedIds.length"
@@ -448,14 +570,14 @@ onMounted(() => {
       v-model:show="showEditModal"
       preset="card"
       :title="editMode === 'edit' ? t('recording.editRule') : editMode === 'clone' ? t('recording.cloneRule') : t('recording.createRule')"
-      style="width: 680px; max-height: 80vh; overflow-y: auto;"
+      style="width: 720px; max-height: 80vh; overflow-y: auto;"
     >
       <NForm label-placement="left" label-width="120px">
-        <NFormItem :label="t('recording.name')" required>
+        <NFormItem :label="t('recording.name')" required :validation-status="form.name && !namePattern.test(form.name) ? 'error' : undefined" :feedback="form.name && !namePattern.test(form.name) ? t('recording.nameInvalid') : undefined">
           <NInput v-model:value="form.name" :placeholder="t('recording.namePlaceholder')" />
         </NFormItem>
         <NFormItem :label="t('recording.note')">
-          <NInput v-model:value="form.note" type="textarea" :placeholder="t('recording.notePlaceholder')" />
+          <NInput v-model:value="form.note" type="textarea" :placeholder="t('recording.notePlaceholder')" :rows="2" />
         </NFormItem>
         <NFormItem :label="t('recording.datasource')">
           <NSelect
@@ -469,9 +591,9 @@ onMounted(() => {
         <NFormItem :label="t('recording.promql')" required>
           <PromQLEditor
             :model-value="form.prom_ql"
-            :datasource-id="form.datasource_ids.length ? form.datasource_ids[0] : null"
+            :datasource-id="form.datasource_ids.length && form.datasource_ids[0] !== 0 ? form.datasource_ids[0] : null"
             :placeholder="t('recording.promqlPlaceholder')"
-            style="width: 100%; min-height: 80px; border: 1px solid var(--n-border-color); border-radius: 3px;"
+            style="width: 100%; min-height: 100px; border: 1px solid var(--n-border-color); border-radius: 3px;"
             @update:model-value="form.prom_ql = $event"
           />
         </NFormItem>
@@ -538,6 +660,61 @@ onMounted(() => {
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
           <NButton @click="showImportModal = false; importResults = null">{{ t('common.cancel') }}</NButton>
           <NButton type="primary" @click="handleImport">{{ t('recording.import') }}</NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- Batch Update Modal (Nightingale pattern) -->
+    <NModal
+      v-model:show="showBatchUpdateModal"
+      preset="card"
+      :title="t('recording.batchUpdateTitle')"
+      style="width: 520px;"
+    >
+      <NAlert type="info" style="margin-bottom: 16px;">{{ t('recording.batchUpdateHint') }}</NAlert>
+      <NForm label-placement="left" label-width="100px">
+        <NFormItem :label="t('recording.batchUpdateField')">
+          <NSelect
+            v-model:value="batchUpdateField"
+            :options="[
+              { label: t('recording.datasource'), value: 'datasource_ids' },
+              { label: t('recording.cronPattern'), value: 'cron_pattern' },
+              { label: t('recording.enabled'), value: 'disabled' },
+              { label: t('recording.appendTags'), value: 'append_tags' },
+            ]"
+          />
+        </NFormItem>
+        <NFormItem :label="t('recording.batchUpdateValue')">
+          <NSelect
+            v-if="batchUpdateField === 'datasource_ids'"
+            v-model:value="batchUpdateValue"
+            :options="datasourceOptions"
+            multiple
+            filterable
+          />
+          <NInput
+            v-else-if="batchUpdateField === 'cron_pattern'"
+            v-model:value="batchUpdateValue"
+            placeholder="@every 60s"
+          />
+          <NSwitch
+            v-else-if="batchUpdateField === 'disabled'"
+            :value="batchUpdateValue === null ? true : batchUpdateValue"
+            @update-value="(v: boolean) => batchUpdateValue = v"
+          />
+          <NInput
+            v-else-if="batchUpdateField === 'append_tags'"
+            v-model:value="batchUpdateValue"
+            placeholder="tag1,tag2,tag3"
+          />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <NButton @click="showBatchUpdateModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="batchUpdateLoading" @click="handleBatchUpdate">
+            {{ t('recording.batchUpdate') }}
+          </NButton>
         </div>
       </template>
     </NModal>

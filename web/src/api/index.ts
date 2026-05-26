@@ -84,3 +84,7 @@ export type { UserNotification, MyPermissions, TeamRole } from './center'
 // ===== Event Pipeline =====
 export { eventPipelineApi } from './event-pipeline'
 export type { EventPipeline, EventPipelineExecution, ProcessorConfig, TagFilter, NodeResult } from './event-pipeline'
+
+// ===== Metric Views =====
+export { metricViewApi } from './metric-view'
+export type { MetricView, MetricViewConfig, MetricViewFilter, MetricViewDynamicLabel, CreateMetricViewRequest, UpdateMetricViewRequest } from './metric-view'

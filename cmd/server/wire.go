@@ -284,6 +284,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	savedViewRepo := repository.NewSavedViewRepository(db)
 	savedViewSvc := service.NewSavedViewService(savedViewRepo, zapLogger)
 
+	// Metric view service
+	metricViewRepo := repository.NewMetricViewRepository(db)
+	metricViewSvc := service.NewMetricViewService(metricViewRepo, zapLogger)
+
 	// Builtin metric services
 	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
 	metricFilterSvc := service.NewMetricFilterService(metricFilterRepo, zapLogger)
@@ -594,6 +598,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		EventPipeline:       handler.NewEventPipelineHandler(eventPipelineRepo, eventPipelineExecRepo, pipelineEngine, eventSvc, zapLogger),
 		Annotation:          handler.NewAnnotationHandler(annotationSvc, zapLogger),
 		SavedView:           handler.NewSavedViewHandler(savedViewSvc, zapLogger),
+		MetricView:          handler.NewMetricViewHandler(metricViewSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it
@@ -611,6 +616,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.RoutingRule.SetAuditService(auditLogSvc)
 	handlers.Annotation.SetAuditService(auditLogSvc)
 	handlers.SavedView.SetAuditService(auditLogSvc)
+	handlers.MetricView.SetAuditService(auditLogSvc)
 	handlers.RecordingRule.SetAuditService(auditLogSvc)
 
 	// Wire permission-denied audit callback into the RBAC middleware.

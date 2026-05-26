@@ -4,6 +4,42 @@
 
 ---
 
+## [v4.35.0] — 2026-05-26
+
+### 数据查询模块全面对齐 — Nightingale 功能移植 #7
+
+**记录规则前端增强**:
+- 工具栏新增数据源多选过滤器（支持 `$all` 选项，id=0）
+- 指标名称格式验证（`^[0-9a-zA-Z_:]+$`，Nightingale 模式）
+- PromQL 保存前验证（调用 datasource query API 检查语法）
+- 批量更新模态框：支持更新数据源、执行频率、启用状态、附加标签
+- i18n 新增 11 个翻译键
+
+**内置指标目录增强**:
+- 新增单位（Unit）多选过滤器
+- Explorer Drawer：点击指标名称打开探索抽屉，预填 PromQL 表达式
+- MetricFilter 管理 UI：创建/编辑/删除过滤器预设，支持标签条件注入
+- 过滤器栏：快速切换活跃过滤器，标签条件自动注入到指标表达式
+- Collector/Type 标签样式优化（NTag 组件）
+- i18n 新增 12 个翻译键
+
+**快捷视图（全新功能）**:
+- 后端：`metric_views` 表 + 完整 CRUD API（迁移: 000075_metric_views）
+- 模型：MetricViewConfig（filters + dynamicLabels + dimensionLabels + ignorePrefix）
+- 前端：三栏布局页面（视图列表 | 标签过滤 | 指标图表）
+- 左侧面板：视图列表，支持新建/编辑/删除
+- 中间面板：静态过滤条件显示、动态标签下拉、维度标签多选
+- 右侧面板：Prometheus 指标名称列表（按前缀分组）、搜索、点击添加图表
+- 数据源选择器（Prometheus/VM 类型筛选）
+- i18n 新增 20+ 翻译键（中英文）
+
+**即时查询增强**:
+- ViewSelect 组件已完整集成（保存/恢复查询状态，API + localStorage 双模式）
+
+**迁移文件**: 000075_metric_views (up + down)
+
+---
+
 ## [v4.34.0] — 2026-05-26
 
 ### Elasticsearch 数据源支持 — Nightingale 功能移植 #6
