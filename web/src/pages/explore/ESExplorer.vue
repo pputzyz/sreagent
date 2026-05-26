@@ -441,12 +441,12 @@ async function runQuery() {
     })
     const data = res.data?.data
     if (data) {
-      logEntries.value = (data.entries || []).map((e: Record<string, unknown>, i: number) => {
-        const entry = { ...e }
+      logEntries.value = (data.entries || []).map((e: any, i: number) => {
+        const entry: any = { ...e }
         // Flatten labels into top-level fields for table display
         if (entry.labels && typeof entry.labels === 'object') {
-          for (const [k, v] of Object.entries(entry.labels as Record<string, unknown>)) {
-            if (!(k in entry)) (entry as Record<string, unknown>)[k] = v
+          for (const [k, v] of Object.entries(entry.labels)) {
+            if (!(k in entry)) entry[k] = v
           }
         }
         entry._key = i
@@ -495,7 +495,7 @@ const tableColumns = computed(() => {
       key: selectedDateField.value || '@timestamp',
       width: 180,
       ellipsis: { tooltip: true },
-      render: (row: Record<string, unknown>) => {
+      render: (row: any) => {
         const val = row[selectedDateField.value || '@timestamp']
         if (!val) return '-'
         return new Date(String(val)).toLocaleString()
@@ -510,7 +510,7 @@ const tableColumns = computed(() => {
       key: field,
       width: 200,
       ellipsis: { tooltip: true },
-      render: (row: Record<string, unknown>) => {
+      render: (row: any) => {
         const val = row[field]
         if (val == null) return '-'
         if (typeof val === 'object') return JSON.stringify(val)
@@ -524,7 +524,8 @@ const tableColumns = computed(() => {
     title: '',
     key: '_actions',
     width: 60,
-    render: (row: Record<string, unknown>) => row._rawJson ? '...' : '-',
+    ellipsis: { tooltip: true },
+    render: (row: any) => row._rawJson ? '...' : '-',
   })
 
   return cols
@@ -775,7 +776,7 @@ onMounted(() => {
             size="small"
             :scroll-x="800"
             :max-height="500"
-            :row-key="(row: Record<string, unknown>) => row._key"
+            :row-key="(row: any) => row._key as number"
           />
 
           <!-- Pagination bottom -->
