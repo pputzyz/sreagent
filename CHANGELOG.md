@@ -4,6 +4,12 @@
 
 ---
 
+## [v4.41.5] — 2026-05-26
+
+### 迁移文件去重
+
+- `000061_inspection_task` 重编号为 `000086_inspection_task`，修复与 `000061_alert_rule_multi_query` 的编号冲突导致启动 fatal
+
 ## [v4.41.4] — 2026-05-26
 
 ### golangci-lint 漏网修复
