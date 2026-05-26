@@ -84,7 +84,7 @@ func Test_NewEvaluator_defaults(t *testing.T) {
 	assert.NotNil(t, eval.evaluators)
 	assert.NotNil(t, eval.suppressor)
 	assert.NotNil(t, eval.stopCh)
-	assert.Equal(t, 30*time.Second, eval.syncInterval)
+	assert.Equal(t, 9*time.Second, eval.syncInterval)
 	assert.Empty(t, eval.evaluators)
 }
 

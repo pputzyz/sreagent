@@ -1,6 +1,6 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.37.0
+> 最后更新: 2026-05-26 | tag: v4.37.8
 > 共 53 个 model, 64 个 handler, 78 个 service, 52 个 repository, 330+ API 端点, 17 种通知渠道
 
 ---
@@ -12,6 +12,7 @@ webhook ──────────→ alert-engine ←──── alert-rul
                        │    ↑
                        │    └── datasource (查询数据)
                        │    └── label-registry (标签匹配)
+                       │    └── mute-rule (引擎级时间窗口静默)
                        │
                        ├──→ alert-v2-pipeline ←── noise-reducer (降噪)
                        │        ├──→ alert (v2 Alert + AlertEventV2)
@@ -50,7 +51,7 @@ permissions ──→ team (团队角色查询)
 
 | 模块 | 功能状态 | 单元测试 | 集成测试 | 覆盖率 |
 |------|----------|----------|----------|--------|
-| 告警引擎 | ✅ | ✅ evaluator_test.go (19) + evaluator_concurrent_test.go (4) + rule_eval_test.go + suppression_test.go (26) | ❌ | service 层 ~40% |
+| 告警引擎 | ✅ | ✅ evaluator_test.go (19) + evaluator_concurrent_test.go (4) + rule_eval_test.go + suppression_test.go (26) + multi_query_test.go (7) | ❌ | service 层 ~40% |
 | 告警规则 | ✅ | ❌ | ❌ | 0% |
 | 告警事件 | ✅ | ❌ | ❌ | 0% |
 | 告警通道 | ✅ | ✅ alert_channel_test.go (handler + service) | ❌ | ~30% |
@@ -101,18 +102,30 @@ permissions ──→ team (团队角色查询)
 
 ## 告警引擎 (alert-engine)
 
-- **功能**: 规则评估、状态机、指纹去重、心跳检测、升级策略、分组通知
-- **后端文件**: `internal/engine/` (6 files), `internal/service/alert_group.go`
+- **功能**: 规则评估、状态机、指纹去重、心跳检测、升级策略、分组通知、引擎级时间窗口静默（TimeSpanMuteStrategy）、一致性哈希环多实例分片
+- **后端文件**: `internal/engine/` (6 files), `internal/service/alert_group.go`, `internal/pkg/hashring/` (1 file)
 - **API**: `GET /engine/status`
-- **状态**: ✅ 核心完成（含 heartbeat、inhibition、group_wait/interval）
+- **依赖**: mute-rule（通过 `MuteRuleChecker` 接口）、labelmatch（标签匹配）、hashring（一致性哈希环）
+- **状态**: ✅ 核心完成（含 heartbeat、inhibition、group_wait/interval、引擎级时间窗口静默、hash ring 多实例分片）
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
+
+## 一致性哈希环 (hashring) [v4.37.8]
+
+- **功能**: 一致性哈希环实现，用于将告警规则分布到多个引擎实例上评估，支持水平扩展
+- **后端文件**: `internal/pkg/hashring/hashring.go`（Ring + RingManager）
+- **测试**: `internal/pkg/hashring/hashring_test.go`（15 tests: 分布、一致性、节点增删、RingManager）
+- **依赖**: Go 标准库 `hash/crc32`（无外部依赖）
+- **配置**: `engine.hash_ring_enabled`、`engine.hash_ring_replicas`、`engine.instance_id`
+- **状态**: ✅ 完成
 
 ## 告警规则 (alert-rule)
 
-- **功能**: 规则 CRUD、分类、导入导出 (Prometheus format)、版本历史
+- **功能**: 规则 CRUD、分类、导入导出 (Prometheus format)、版本历史、多查询连接（Nightingale 对齐）
 - **后端**: `model/alert_rule.go`, `handler/alert_rule.go`, `service/alert_rule.go`, `repository/alert_rule.go`
 - **前端**: `web/src/pages/alerts/rules/Index.vue`
 - **API**: `/api/v1/alert-rules` (9 endpoints)
+- **多查询**: 支持多个查询（A, B, C...）+ 连接操作（inner_join/left_join/right_join/none）+ 触发表达式（$A, $B）
+- **迁移**: `000061_alert_rule_multi_query.up.sql` / `000061_alert_rule_multi_query.down.sql`
 - **状态**: ✅ 完成
 
 ## 告警事件 (alert-event)
@@ -139,17 +152,18 @@ permissions ──→ team (团队角色查询)
 - **API**: `/api/v1/notify-rules`, `/api/v1/notify-media`, `/api/v1/message-templates`, `/api/v1/subscribe-rules` (~25 endpoints)
 - **渠道类型**: lark_webhook, email, http, script, dingtalk_webhook, wecom_webhook, slack_webhook, discord_webhook, telegram_bot, feishu_webhook, feishu_card, feishu_app, wecom_app, flashduty, pagerduty, tencent_sms, aliyun_sms
 - **状态**: ✅ 完成（v4.30.0 扩展至 17 种渠道类型）
+- **迁移**: 000080_notify_max_notifications（NotifyRule.MaxNotifications 最大通知次数上限）
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
 
 ## 事件管道 (event-pipeline)
 
-- **功能**: 可编程告警处理链，支持 relabel/callback/event_drop/ai_summary 处理器，线性执行引擎，执行记录追踪
+- **功能**: 可编程告警处理链，支持 relabel/callback/event_drop/ai_summary/logic.if/logic.switch 处理器，线性执行引擎 + 条件分支，执行记录追踪
 - **后端**: `model/event_pipeline.go`, `repository/event_pipeline.go`, `handler/event_pipeline.go`, `engine/pipeline/` (processor.go, engine.go, processors/)
 - **前端**: `web/src/pages/alerts/event-pipelines/Index.vue`, `web/src/api/event-pipeline.ts`
 - **API**: `/api/v1/event-pipelines` (8 endpoints: LIST, GET, CREATE, UPDATE, DELETE, executions, tryrun, processor-types), `/api/v1/event-pipeline-executions` (2 endpoints: GET, clean)
 - **迁移**: 000069_event_pipeline_v2, 000070_notify_rule_pipeline_id
 - **依赖**: notification (NotifyRule 引用 PipelineID), ai (ai_summary 处理器)
-- **状态**: ✅ 核心完成（v4.29.0，线性执行引擎，DAG 可视化编辑器留后续版本）
+- **状态**: ✅ 核心完成（v4.37.6 新增 logic.if/logic.switch 条件分支处理器，DAG 可视化编辑器留后续版本）
 
 ## 静默规则 (mute-rule)
 

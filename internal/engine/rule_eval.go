@@ -73,7 +73,21 @@ func (re *RuleEvaluator) evaluate() {
 	defer cancel()
 
 	// 1. Execute query against datasource — dispatch by datasource type
-	results, err := re.executeQuery(ctx)
+	// Supports both single Expression and multi-query (Queries + TriggerExp)
+	var results []datasource.QueryResult
+	var err error
+
+	if len(re.rule.Queries) > 0 {
+		// Multi-query mode: evaluate each query, join results, apply trigger expression
+		results, err = re.executeMultiQuery(ctx)
+		if err == nil && re.rule.TriggerExp != "" {
+			results = re.evaluateTriggerExp(results)
+		}
+	} else {
+		// Legacy single-expression mode (backward compatible)
+		results, err = re.executeQuery(ctx)
+	}
+
 	if err != nil {
 		re.consecutiveErrors++
 		if re.consecutiveErrors >= 5 {
@@ -135,12 +149,19 @@ func (re *RuleEvaluator) evaluate() {
 			}
 
 			if forDuration <= 0 {
-				// Immediately fire — check suppression first
+				// Immediately fire — check suppression and time-window mute first
 				severity := string(re.rule.Severity)
 				if re.suppressor != nil && re.suppressor.ShouldSuppress(re.rule.ID, fp, severity) {
 					re.logger.Debug("alert suppressed by higher severity",
 						zap.String("fingerprint", fp),
 						zap.String("severity", severity),
+					)
+					sl.state = state
+					re.persistState(fp, state)
+				} else if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
+					re.logger.Debug("alert muted by time-window rule at engine level",
+						zap.String("fingerprint", fp),
+						zap.Uint("mute_rule_id", muteID),
 					)
 					sl.state = state
 					re.persistState(fp, state)
@@ -192,6 +213,11 @@ func (re *RuleEvaluator) evaluate() {
 							zap.String("fingerprint", fp),
 							zap.String("severity", severity),
 						)
+					} else if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
+						re.logger.Debug("pending alert muted by time-window rule at engine level",
+							zap.String("fingerprint", fp),
+							zap.Uint("mute_rule_id", muteID),
+						)
 					} else {
 						state.Status = "firing"
 						state.FiredAt = now
@@ -218,6 +244,11 @@ func (re *RuleEvaluator) evaluate() {
 						re.logger.Debug("re-fired alert suppressed by higher severity",
 							zap.String("fingerprint", fp),
 							zap.String("severity", severity),
+						)
+					} else if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
+						re.logger.Debug("re-fired alert muted by time-window rule at engine level",
+							zap.String("fingerprint", fp),
+							zap.Uint("mute_rule_id", muteID),
 						)
 					} else {
 						state.Status = "firing"
@@ -413,6 +444,12 @@ func parseDuration(s string) time.Duration {
 //   - Zabbix: JSON-RPC item.get by key pattern
 //   - VictoriaLogs: LogsQL query (/select/logsql/query), returns match count
 func (re *RuleEvaluator) executeQuery(ctx context.Context) ([]datasource.QueryResult, error) {
+	// Variable filling: if VarConfig is set, substitute $var placeholders
+	// in the expression with actual parameter values before querying.
+	if re.rule.VarConfig != nil && len(re.rule.VarConfig.Params) > 0 {
+		return re.executeQueryWithVarFilling(ctx)
+	}
+
 	ep := re.datasource.Endpoint
 	at := re.datasource.AuthType
 	ac := re.datasource.AuthConfig
@@ -427,4 +464,380 @@ func (re *RuleEvaluator) executeQuery(ctx context.Context) ([]datasource.QueryRe
 		// prometheus, victoriametrics and any future Prometheus-compatible sources
 		return re.queryClient.InstantQuery(ctx, ep, at, ac, expr, time.Time{})
 	}
+}
+
+// executeQueryWithVarFilling implements variable filling for alert rules.
+// When VarConfig is set, it substitutes $var placeholders in the expression
+// with actual parameter values, then executes each variant and combines results.
+//
+// Strategy "before_query": Replace $var in expression, execute each variant.
+//   - Required when expression contains aggregation functions (sum, avg, etc.)
+//   - Example: avg(mem_used_percent{host="$host"}) > $val
+//     becomes: avg(mem_used_percent{host="web01"}) > 90, then > 90 for web02, etc.
+//
+// Strategy "after_query": Execute query first, then filter by matching labels.
+//   - More efficient for simple expressions without aggregation
+//   - Example: mem_used_percent{host="$host"} > $val
+//     queries mem_used_percent{} > 90, then filters results where host matches
+func (re *RuleEvaluator) executeQueryWithVarFilling(ctx context.Context) ([]datasource.QueryResult, error) {
+	vc := re.rule.VarConfig
+	strategy := vc.Strategy
+	if strategy == "" {
+		strategy = "before_query"
+	}
+
+	// Resolve all variable values
+	varValues, err := re.resolveAllVarValues(ctx, vc.Params)
+	if err != nil {
+		return nil, fmt.Errorf("var filling: resolve values failed: %w", err)
+	}
+
+	// Check that all params have at least one value
+	for _, p := range vc.Params {
+		if len(varValues[p.Name]) == 0 {
+			re.logger.Warn("variable has no values, skipping var filling",
+				zap.String("var", p.Name),
+				zap.String("type", p.Type))
+			return nil, nil
+		}
+	}
+
+	switch strategy {
+	case "after_query":
+		return re.executeVarFillingAfterQuery(ctx, vc, varValues)
+	default: // "before_query"
+		return re.executeVarFillingBeforeQuery(ctx, vc, varValues)
+	}
+}
+
+// resolveAllVarValues resolves the value list for each variable parameter.
+func (re *RuleEvaluator) resolveAllVarValues(ctx context.Context, params []model.VarParam) (map[string][]string, error) {
+	result := make(map[string][]string, len(params))
+	for _, p := range params {
+		vals, err := re.resolveVarValues(ctx, p)
+		if err != nil {
+			return nil, fmt.Errorf("var %q (type=%s): %w", p.Name, p.Type, err)
+		}
+		result[p.Name] = vals
+	}
+	return result, nil
+}
+
+// resolveVarValues resolves the value list for a single variable parameter.
+//   - type "enum": use explicit Values list
+//   - type "host": query the label registry for known host/instance values
+//   - type "device": query the label registry for known device values
+func (re *RuleEvaluator) resolveVarValues(ctx context.Context, p model.VarParam) ([]string, error) {
+	// Explicit values always take priority
+	if len(p.Values) > 0 {
+		return p.Values, nil
+	}
+
+	switch p.Type {
+	case "enum":
+		// enum without explicit values — nothing to resolve
+		return nil, nil
+
+	case "host", "device":
+		// Query label registry for known values of this label key
+		if re.labelRegistryRepo == nil {
+			re.logger.Warn("label registry not available for host/device variable resolution",
+				zap.String("var", p.Name))
+			return nil, nil
+		}
+		// Try common label key names: the var name itself, "instance", "host", "ident"
+		keys := []string{p.Name}
+		if p.Name != "instance" {
+			keys = append(keys, "instance")
+		}
+		if p.Name != "host" && p.Name != "instance" {
+			keys = append(keys, "host")
+		}
+
+		var dsIDs []uint
+		if re.datasource != nil {
+			dsIDs = []uint{re.datasource.ID}
+		}
+
+		for _, key := range keys {
+			vals, err := re.labelRegistryRepo.GetValues(ctx, key, dsIDs)
+			if err != nil {
+				re.logger.Warn("label registry query failed",
+					zap.String("key", key), zap.Error(err))
+				continue
+			}
+			if len(vals) > 0 {
+				return vals, nil
+			}
+		}
+		return nil, nil
+
+	default:
+		return nil, fmt.Errorf("unknown variable type: %s", p.Type)
+	}
+}
+
+// executeVarFillingBeforeQuery substitutes $var in the expression and queries each variant.
+// Used when the expression contains aggregation functions that would lose labels.
+func (re *RuleEvaluator) executeVarFillingBeforeQuery(ctx context.Context, vc *model.VarConfig, varValues map[string][]string) ([]datasource.QueryResult, error) {
+	ep := re.datasource.Endpoint
+	at := re.datasource.AuthType
+	ac := re.datasource.AuthConfig
+
+	// Build all parameter combinations
+	paramNames := make([]string, 0, len(vc.Params))
+	for _, p := range vc.Params {
+		paramNames = append(paramNames, p.Name)
+	}
+	// Sort for deterministic order
+	sort.Strings(paramNames)
+
+	combinations := buildCombinations(paramNames, varValues)
+	if len(combinations) == 0 {
+		return nil, nil
+	}
+
+	// Limit concurrency to avoid overwhelming the datasource
+	const maxConcurrency = 50
+	sem := make(chan struct{}, maxConcurrency)
+	var mu sync.Mutex
+	var allResults []datasource.QueryResult
+	var firstErr error
+
+	var wg sync.WaitGroup
+	for _, combo := range combinations {
+		expr := re.rule.Expression
+		for i, name := range paramNames {
+			expr = strings.ReplaceAll(expr, fmt.Sprintf("$%s", name), combo[i])
+		}
+
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(queryExpr string) {
+			defer func() {
+				<-sem
+				wg.Done()
+			}()
+
+			var results []datasource.QueryResult
+			var err error
+			switch re.datasource.Type {
+			case "zabbix":
+				results, err = datasource.ZabbixInstantQuery(ctx, ep, at, ac, queryExpr)
+			case "victorialogs":
+				results, err = datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, queryExpr)
+			default:
+				results, err = re.queryClient.InstantQuery(ctx, ep, at, ac, queryExpr, time.Time{})
+			}
+
+			if err != nil {
+				re.logger.Debug("var filling query failed",
+					zap.String("expr", queryExpr), zap.Error(err))
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			allResults = append(allResults, results...)
+			mu.Unlock()
+		}(expr)
+	}
+	wg.Wait()
+
+	// If ALL queries failed, return the error; partial success is OK
+	if len(allResults) == 0 && firstErr != nil {
+		return nil, firstErr
+	}
+
+	return allResults, nil
+}
+
+// executeVarFillingAfterQuery executes the query first, then filters results by matching labels.
+// Used for simple expressions without aggregation (more efficient).
+func (re *RuleEvaluator) executeVarFillingAfterQuery(ctx context.Context, vc *model.VarConfig, varValues map[string][]string) ([]datasource.QueryResult, error) {
+	ep := re.datasource.Endpoint
+	at := re.datasource.AuthType
+	ac := re.datasource.AuthConfig
+
+	// Remove $var label selectors from the expression for the broad query
+	broadExpr := removeVarLabelSelectors(re.rule.Expression, vc.Params)
+
+	var allResults []datasource.QueryResult
+	var err error
+	switch re.datasource.Type {
+	case "zabbix":
+		allResults, err = datasource.ZabbixInstantQuery(ctx, ep, at, ac, broadExpr)
+	case "victorialogs":
+		allResults, err = datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, broadExpr)
+	default:
+		allResults, err = re.queryClient.InstantQuery(ctx, ep, at, ac, broadExpr, time.Time{})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Build allowed value sets for each variable (used for label matching)
+	allowedSets := make(map[string]map[string]bool, len(vc.Params))
+	for _, p := range vc.Params {
+		vals := varValues[p.Name]
+		if len(vals) == 0 {
+			continue
+		}
+		m := make(map[string]bool, len(vals))
+		for _, v := range vals {
+			m[v] = true
+		}
+		allowedSets[p.Name] = m
+	}
+
+	// Extract variable-to-label mapping from the expression
+	varToLabel := extractVarLabelMapping(re.rule.Expression)
+
+	// Filter results: keep only those whose labels match all variable constraints
+	filtered := make([]datasource.QueryResult, 0, len(allResults))
+	for _, r := range allResults {
+		match := true
+		for varName, allowed := range allowedSets {
+			labelKey := varToLabel[varName]
+			if labelKey == "" {
+				labelKey = varName // fallback: label key == variable name
+			}
+			labelVal, ok := r.Labels[labelKey]
+			if !ok || !allowed[labelVal] {
+				match = false
+				break
+			}
+		}
+		if match {
+			filtered = append(filtered, r)
+		}
+	}
+
+	return filtered, nil
+}
+
+// buildCombinations generates all permutations of parameter values.
+// For params ["host","env"] with values {"host":["a","b"], "env":["prod","staging"]},
+// returns [["a","prod"],["a","staging"],["b","prod"],["b","staging"]].
+func buildCombinations(paramNames []string, varValues map[string][]string) [][]string {
+	if len(paramNames) == 0 {
+		return nil
+	}
+	var result [][]string
+	combo := make([]string, len(paramNames))
+	var build func(depth int)
+	build = func(depth int) {
+		if depth == len(paramNames) {
+			c := make([]string, len(combo))
+			copy(c, combo)
+			result = append(result, c)
+			return
+		}
+		for _, v := range varValues[paramNames[depth]] {
+			combo[depth] = v
+			build(depth + 1)
+		}
+	}
+	build(0)
+	return result
+}
+
+// removeVarLabelSelectors removes label selectors containing $var from the expression.
+// e.g. mem_used_percent{host="$host",env="prod"} > $val
+// becomes mem_used_percent{env="prod"} > $val
+func removeVarLabelSelectors(expr string, params []model.VarParam) string {
+	// Build a set of variable names for quick lookup
+	varNames := make(map[string]bool, len(params))
+	for _, p := range params {
+		varNames[p.Name] = true
+	}
+
+	// Find the label selector block(s) in curly braces
+	var result strings.Builder
+	i := 0
+	for i < len(expr) {
+		if expr[i] == '{' {
+			// Find the closing brace
+			end := strings.IndexByte(expr[i:], '}')
+			if end < 0 {
+				result.WriteByte(expr[i])
+				i++
+				continue
+			}
+			inner := expr[i+1 : i+end]
+			// Split by comma, keep only non-variable selectors
+			parts := strings.Split(inner, ",")
+			var kept []string
+			for _, part := range parts {
+				trimmed := strings.TrimSpace(part)
+				isVar := false
+				for varName := range varNames {
+					if strings.Contains(trimmed, fmt.Sprintf("$%s", varName)) {
+						isVar = true
+						break
+					}
+				}
+				if !isVar {
+					kept = append(kept, part)
+				}
+			}
+			if len(kept) > 0 {
+				result.WriteByte('{')
+				result.WriteString(strings.Join(kept, ","))
+				result.WriteByte('}')
+			}
+			i += end + 1
+		} else {
+			result.WriteByte(expr[i])
+			i++
+		}
+	}
+	return result.String()
+}
+
+// extractVarLabelMapping extracts variable-to-label mappings from PromQL expressions.
+// e.g. mem_used_percent{host="$my_host"} -> {"my_host": "host"}
+func extractVarLabelMapping(expr string) map[string]string {
+	mapping := make(map[string]string)
+	// Find label selectors in curly braces
+	for {
+		start := strings.IndexByte(expr, '{')
+		if start < 0 {
+			break
+		}
+		end := strings.IndexByte(expr[start:], '}')
+		if end < 0 {
+			break
+		}
+		inner := expr[start+1 : start+end]
+		pairs := strings.Split(inner, ",")
+		for _, pair := range pairs {
+			// Handle =, !=, =~, !~ operators
+			var kv []string
+			if strings.Contains(pair, "!=") {
+				kv = strings.SplitN(pair, "!=", 2)
+			} else if strings.Contains(pair, "=~") {
+				kv = strings.SplitN(pair, "=~", 2)
+			} else if strings.Contains(pair, "!~") {
+				kv = strings.SplitN(pair, "!~", 2)
+			} else {
+				kv = strings.SplitN(pair, "=", 2)
+			}
+			if len(kv) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(kv[0])
+			value := strings.Trim(strings.TrimSpace(kv[1]), `"'`)
+			if strings.HasPrefix(value, "$") {
+				varName := value[1:]
+				mapping[varName] = key
+			}
+		}
+		expr = expr[start+end+1:]
+	}
+	return mapping
 }

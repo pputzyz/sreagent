@@ -10,6 +10,16 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 )
 
+// checkTimeWindowMute checks if the alert should be muted by engine-level time-window rules.
+// Returns (true, muteRuleID) if muted, (false, 0) otherwise.
+func (re *RuleEvaluator) checkTimeWindowMute(stateLabels map[string]string, severity string) (bool, uint) {
+	if re.suppressor == nil {
+		return false, 0
+	}
+	ruleID := re.rule.ID
+	return re.suppressor.IsMutedByAnyRule(re.ctx, stateLabels, severity, &ruleID)
+}
+
 // createAlertEvent creates a new alert event in the database.
 func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertEventStatus) {
 	ctx, cancel := context.WithTimeout(re.ctx, 10*time.Second)

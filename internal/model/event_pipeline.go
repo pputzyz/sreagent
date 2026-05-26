@@ -2,6 +2,9 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -113,6 +116,76 @@ type NodeResult struct {
 	Status        string `json:"status"` // success, failed, skipped
 	Message       string `json:"message,omitempty"`
 	DurationMs    int64  `json:"duration_ms"`
+}
+
+// MatchTagFilters checks if all TagFilter conditions match against the given labels map.
+// Supports operators: ==, !=, =~, !~, in, not in.
+// An empty filter slice always returns true (wildcard).
+func MatchTagFilters(labels map[string]string, filters []TagFilter) bool {
+	for _, f := range filters {
+		val, has := labels[f.Key]
+		if !has {
+			return false
+		}
+		if !matchSingleTag(val, f) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchSingleTag(value string, filter TagFilter) bool {
+	switch filter.Func {
+	case "==":
+		return strings.TrimSpace(fmt.Sprintf("%v", filter.Value)) == strings.TrimSpace(value)
+	case "!=":
+		return strings.TrimSpace(fmt.Sprintf("%v", filter.Value)) != strings.TrimSpace(value)
+	case "=~":
+		pattern := fmt.Sprintf("%v", filter.Value)
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return false
+		}
+		return re.MatchString(value)
+	case "!~":
+		pattern := fmt.Sprintf("%v", filter.Value)
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return false
+		}
+		return !re.MatchString(value)
+	case "in":
+		return valueInSet(filter.Value, value)
+	case "not in":
+		return !valueInSet(filter.Value, value)
+	}
+	return false
+}
+
+// valueInSet checks if the target value exists in the filter's value set.
+// The filter Value can be a comma/space-separated string or a []interface{} (from JSON).
+func valueInSet(filterValue interface{}, target string) bool {
+	switch v := filterValue.(type) {
+	case string:
+		for _, item := range strings.Fields(v) {
+			if item == target {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, item := range v {
+			if fmt.Sprintf("%v", item) == target {
+				return true
+			}
+		}
+	case []string:
+		for _, item := range v {
+			if item == target {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Helper to create invalid param errors (avoids importing handler package in model).

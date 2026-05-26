@@ -31,6 +31,9 @@ const (
 	// --- SMS ---
 	MediaTypeTencentSMS NotifyMediaType = "tencent_sms"
 	MediaTypeAliyunSMS  NotifyMediaType = "aliyun_sms"
+
+	// --- Custom HTTP ---
+	MediaTypeCustomHTTP NotifyMediaType = "custom_http"
 )
 
 // NotifyMedia represents a configurable notification backend (e.g., Lark webhook,
@@ -66,4 +69,27 @@ type MediaVariable struct {
 	Label    string `json:"label"`
 	Type     string `json:"type"` // string, number, boolean
 	Required bool   `json:"required"`
+}
+
+// CustomHTTPConfig is the JSON config schema for "custom_http" media type.
+// Body supports Go template syntax with the following fields:
+//
+//	{{.Content}}      - rendered notification content
+//	{{.AlertName}}    - alert name
+//	{{.Severity}}     - severity level
+//	{{.Status}}       - firing / resolved
+//	{{.Source}}       - event source
+//	{{.EventID}}      - event ID
+//	{{.FiredAt}}      - fire time (RFC3339)
+//	{{.RuleName}}     - rule name
+//	{{.Labels}}       - label map
+//	{{.Annotations}}  - annotation map
+type CustomHTTPConfig struct {
+	URL           string            `json:"url"`
+	Method        string            `json:"method"`           // GET, POST, PUT
+	Headers       map[string]string `json:"headers"`
+	Body          string            `json:"body"`             // Go template
+	Timeout       int               `json:"timeout"`          // milliseconds, default 30000
+	RetryTimes    int               `json:"retry_times"`      // default 3
+	RetryInterval int               `json:"retry_interval"`   // milliseconds, default 100
 }

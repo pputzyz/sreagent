@@ -32,30 +32,32 @@ func (h *NotifyRuleHandler) SetAuditService(svc *service.AuditLogService) {
 
 // CreateNotifyRuleRequest is the request body for creating a notify rule.
 type CreateNotifyRuleRequest struct {
-	Name           string           `json:"name" binding:"required"`
-	Description    string           `json:"description"`
-	IsEnabled      *bool            `json:"is_enabled"`
-	Severities     string           `json:"severities"`
-	MatchLabels    model.JSONLabels `json:"match_labels"`
-	Pipeline       string           `json:"pipeline"`
-	PipelineID     *uint            `json:"pipeline_id"`
-	NotifyConfigs  string           `json:"notify_configs"`
-	RepeatInterval int              `json:"repeat_interval"`
-	CallbackURL    string           `json:"callback_url"`
+	Name             string           `json:"name" binding:"required"`
+	Description      string           `json:"description"`
+	IsEnabled        *bool            `json:"is_enabled"`
+	Severities       string           `json:"severities"`
+	MatchLabels      model.JSONLabels `json:"match_labels"`
+	Pipeline         string           `json:"pipeline"`
+	PipelineID       *uint            `json:"pipeline_id"`
+	NotifyConfigs    string           `json:"notify_configs"`
+	RepeatInterval   int              `json:"repeat_interval"`
+	MaxNotifications int              `json:"max_notifications"`
+	CallbackURL      string           `json:"callback_url"`
 }
 
 // UpdateNotifyRuleRequest is the request body for updating a notify rule.
 type UpdateNotifyRuleRequest struct {
-	Name           string           `json:"name" binding:"required"`
-	Description    string           `json:"description"`
-	IsEnabled      *bool            `json:"is_enabled"`
-	Severities     string           `json:"severities"`
-	MatchLabels    model.JSONLabels `json:"match_labels"`
-	Pipeline       string           `json:"pipeline"`
-	PipelineID     *uint            `json:"pipeline_id"`
-	NotifyConfigs  string           `json:"notify_configs"`
-	RepeatInterval int              `json:"repeat_interval"`
-	CallbackURL    string           `json:"callback_url"`
+	Name             string           `json:"name" binding:"required"`
+	Description      string           `json:"description"`
+	IsEnabled        *bool            `json:"is_enabled"`
+	Severities       string           `json:"severities"`
+	MatchLabels      model.JSONLabels `json:"match_labels"`
+	Pipeline         string           `json:"pipeline"`
+	PipelineID       *uint            `json:"pipeline_id"`
+	NotifyConfigs    string           `json:"notify_configs"`
+	RepeatInterval   int              `json:"repeat_interval"`
+	MaxNotifications int              `json:"max_notifications"`
+	CallbackURL      string           `json:"callback_url"`
 }
 
 // Create creates a new notify rule.
@@ -78,17 +80,18 @@ func (h *NotifyRuleHandler) Create(c *gin.Context) {
 		zap.String("request_id", c.GetString("request_id")))
 
 	rule := &model.NotifyRule{
-		Name:           req.Name,
-		Description:    req.Description,
-		IsEnabled:      isEnabled,
-		Severities:     req.Severities,
-		MatchLabels:    req.MatchLabels,
-		Pipeline:       req.Pipeline,
-		PipelineID:     req.PipelineID,
-		NotifyConfigs:  req.NotifyConfigs,
-		RepeatInterval: req.RepeatInterval,
-		CallbackURL:    req.CallbackURL,
-		CreatedBy:      userID,
+		Name:             req.Name,
+		Description:      req.Description,
+		IsEnabled:        isEnabled,
+		Severities:       req.Severities,
+		MatchLabels:      req.MatchLabels,
+		Pipeline:         req.Pipeline,
+		PipelineID:       req.PipelineID,
+		NotifyConfigs:    req.NotifyConfigs,
+		RepeatInterval:   req.RepeatInterval,
+		MaxNotifications: req.MaxNotifications,
+		CallbackURL:      req.CallbackURL,
+		CreatedBy:        userID,
 	}
 
 	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
@@ -164,16 +167,17 @@ func (h *NotifyRuleHandler) Update(c *gin.Context) {
 		zap.String("request_id", c.GetString("request_id")))
 
 	rule := &model.NotifyRule{
-		Name:           req.Name,
-		Description:    req.Description,
-		IsEnabled:      isEnabled,
-		Severities:     req.Severities,
-		MatchLabels:    req.MatchLabels,
-		Pipeline:       req.Pipeline,
-		PipelineID:     req.PipelineID,
-		NotifyConfigs:  req.NotifyConfigs,
-		RepeatInterval: req.RepeatInterval,
-		CallbackURL:    req.CallbackURL,
+		Name:             req.Name,
+		Description:      req.Description,
+		IsEnabled:        isEnabled,
+		Severities:       req.Severities,
+		MatchLabels:      req.MatchLabels,
+		Pipeline:         req.Pipeline,
+		PipelineID:       req.PipelineID,
+		NotifyConfigs:    req.NotifyConfigs,
+		RepeatInterval:   req.RepeatInterval,
+		MaxNotifications: req.MaxNotifications,
+		CallbackURL:      req.CallbackURL,
 	}
 	rule.ID = id
 

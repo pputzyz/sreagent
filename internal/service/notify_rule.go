@@ -24,6 +24,8 @@ type NotifyRuleService struct {
 	mediaRepo      *repository.NotifyMediaRepository
 	templateRepo   *repository.MessageTemplateRepository
 	recordRepo     *repository.NotifyRecordRepository
+	alertRuleRepo  *repository.AlertRuleRepository   // for loading AlertRule (template enrichment)
+	dsRepo         *repository.DataSourceRepository  // for loading DataSource name (template enrichment)
 	mediaSvc       *NotifyMediaService
 	templateSvc    *MessageTemplateService
 	pipeline       *AlertPipeline
@@ -44,20 +46,24 @@ func NewNotifyRuleService(
 	mediaRepo *repository.NotifyMediaRepository,
 	templateRepo *repository.MessageTemplateRepository,
 	recordRepo *repository.NotifyRecordRepository,
+	alertRuleRepo *repository.AlertRuleRepository,
+	dsRepo *repository.DataSourceRepository,
 	mediaSvc *NotifyMediaService,
 	templateSvc *MessageTemplateService,
 	pipeline *AlertPipeline,
 	logger *zap.Logger,
 ) *NotifyRuleService {
 	return &NotifyRuleService{
-		ruleRepo:     ruleRepo,
-		mediaRepo:    mediaRepo,
-		templateRepo: templateRepo,
-		recordRepo:   recordRepo,
-		mediaSvc:     mediaSvc,
-		templateSvc:  templateSvc,
-		pipeline:     pipeline,
-		logger:       logger,
+		ruleRepo:      ruleRepo,
+		mediaRepo:     mediaRepo,
+		templateRepo:  templateRepo,
+		recordRepo:    recordRepo,
+		alertRuleRepo: alertRuleRepo,
+		dsRepo:        dsRepo,
+		mediaSvc:      mediaSvc,
+		templateSvc:   templateSvc,
+		pipeline:      pipeline,
+		logger:        logger,
 	}
 }
 
@@ -112,6 +118,7 @@ func (s *NotifyRuleService) Update(ctx context.Context, rule *model.NotifyRule) 
 	existing.PipelineID = rule.PipelineID
 	existing.NotifyConfigs = rule.NotifyConfigs
 	existing.RepeatInterval = rule.RepeatInterval
+	existing.MaxNotifications = rule.MaxNotifications
 	existing.CallbackURL = rule.CallbackURL
 
 	if err := s.ruleRepo.Update(ctx, existing); err != nil {
@@ -226,8 +233,26 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 		return nil
 	}
 
-	// Prepare template data
-	templateData := EventToTemplateData(event, analysis)
+	// Prepare template data — load AlertRule and DataSource for richer template variables
+	var alertRule *model.AlertRule
+	var ds *model.DataSource
+	if event.RuleID != nil && *event.RuleID > 0 && s.alertRuleRepo != nil {
+		if r, err := s.alertRuleRepo.GetByID(ctx, *event.RuleID); err == nil {
+			alertRule = r
+			// Load datasource if the rule references one
+			if r.DataSourceID != nil && *r.DataSourceID > 0 && s.dsRepo != nil {
+				if d, err := s.dsRepo.GetByID(ctx, *r.DataSourceID); err == nil {
+					ds = d
+				}
+			}
+		} else {
+			s.logger.Debug("failed to load alert rule for template enrichment",
+				zap.Uint("rule_id", *event.RuleID),
+				zap.Error(err),
+			)
+		}
+	}
+	templateData := EventToTemplateData(event, analysis, alertRule, ds)
 
 	for _, nc := range notifyConfigs {
 		// Filter by severity if specified in the notify config
@@ -361,8 +386,24 @@ func (s *NotifyRuleService) applyRelabel(event *model.AlertEvent, config map[str
 	}
 }
 
-// isThrottled checks whether a notification should be throttled based on the rule's repeat interval.
+// isThrottled checks whether a notification should be throttled based on the
+// rule's max notification cap and repeat interval.
 func (s *NotifyRuleService) isThrottled(ctx context.Context, rule *model.NotifyRule, nc *model.NotifyConfig) bool {
+	// Check max notification cap first (Nightingale NotifyMaxNumber pattern)
+	if rule.MaxNotifications > 0 {
+		count, err := s.recordRepo.CountSentRecords(ctx, nc.MediaID, rule.ID)
+		if err == nil && count >= rule.MaxNotifications {
+			s.logger.Debug("notification throttled by max cap",
+				zap.Uint("rule_id", rule.ID),
+				zap.Uint("media_id", nc.MediaID),
+				zap.Int("sent_count", count),
+				zap.Int("max_notifications", rule.MaxNotifications),
+			)
+			return true
+		}
+	}
+
+	// Then check repeat interval
 	if rule.RepeatInterval <= 0 {
 		return false
 	}

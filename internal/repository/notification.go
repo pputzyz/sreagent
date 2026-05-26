@@ -88,6 +88,17 @@ func (r *NotifyRecordRepository) GetLastSentRecord(ctx context.Context, channelI
 	return &record, nil
 }
 
+// CountSentRecords returns the total number of successfully sent notification records
+// for a given channel and policy combination.
+func (r *NotifyRecordRepository) CountSentRecords(ctx context.Context, channelID, policyID uint) (int, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.NotifyRecord{}).
+		Where("channel_id = ? AND policy_id = ? AND status = ?", channelID, policyID, "sent").
+		Count(&count).Error
+	return int(count), err
+}
+
 // severityMatches checks if the given severity is contained in the comma-separated severities string.
 func severityMatches(severities, severity string) bool {
 	// Parse the comma-separated list

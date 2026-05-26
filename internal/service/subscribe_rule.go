@@ -67,6 +67,10 @@ func (s *SubscribeRuleService) Update(ctx context.Context, rule *model.Subscribe
 	existing.IsEnabled = rule.IsEnabled
 	existing.MatchLabels = rule.MatchLabels
 	existing.Severities = rule.Severities
+	existing.TagFilters = rule.TagFilters
+	existing.DatasourceIDs = rule.DatasourceIDs
+	existing.RuleIDs = rule.RuleIDs
+	existing.ForDuration = rule.ForDuration
 	existing.NotifyRuleID = rule.NotifyRuleID
 
 	if err := s.repo.Update(ctx, existing); err != nil {
@@ -90,10 +94,10 @@ func (s *SubscribeRuleService) Delete(ctx context.Context, id uint) error {
 }
 
 // FindSubscriptions returns all enabled subscribe rules that match the given
-// event labels and severity. This is used to find which users/teams should
-// receive notifications for a specific alert event.
+// alert event across all filter dimensions. This is used to find which
+// users/teams should receive notifications for a specific alert event.
 func (s *SubscribeRuleService) FindSubscriptions(ctx context.Context, event *model.AlertEvent) ([]model.SubscribeRule, error) {
-	matched, err := s.repo.FindMatchingSubscriptions(ctx, event.Labels, string(event.Severity))
+	matched, err := s.repo.FindMatchingSubscriptions(ctx, event)
 	if err != nil {
 		s.logger.Error("failed to find matching subscriptions",
 			zap.Uint("event_id", event.ID),

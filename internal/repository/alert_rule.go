@@ -154,6 +154,7 @@ func (r *AlertRuleRepository) UpdateVersion(ctx context.Context, rule *model.Ale
 			"heartbeat_interval":    rule.HeartbeatInterval,
 			"ack_sla_minutes":       rule.AckSlaMinutes,
 			"status":                rule.Status,
+			"var_config":            rule.VarConfig,
 			"version":               gorm.Expr("version + 1"),
 		})
 	if result.Error != nil {

@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,13 +15,16 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/tplx"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
 const templateRenderTimeout = 5 * time.Second
 
 // TemplateData holds the data available to message templates during rendering.
+// Fields are aligned with Nightingale's AlertCurEvent for template parity.
 type TemplateData struct {
+	// Core fields (original)
 	AlertName   string            `json:"alert_name"`
 	Severity    string            `json:"severity"`
 	Status      string            `json:"status"`
@@ -34,6 +38,26 @@ type TemplateData struct {
 	Source      string            `json:"source"`
 	// AI analysis fields (may be empty if AI is disabled)
 	AIAnalysis *AlertAnalysis `json:"ai_analysis,omitempty"`
+
+	// Extended fields (Nightingale parity)
+	RuleID           uint              `json:"rule_id"`           // alert rule ID
+	RuleNote         string            `json:"rule_note"`         // alert rule note/description
+	Cate             string            `json:"cate"`              // alert rule category (datasource type)
+	GroupName        string            `json:"group_name"`        // business group name
+	TargetIdent      string            `json:"target_ident"`      // target host/instance identifier (from labels)
+	TargetNote       string            `json:"target_note"`       // target note/description
+	TriggerValue     string            `json:"trigger_value"`     // raw trigger value
+	TriggerValues    map[string]string `json:"trigger_values"`    // per-query trigger values (for multi-query rules)
+	FirstTriggerTime time.Time         `json:"first_trigger_time"` // first time this alert fired
+	LastEvalTime     time.Time         `json:"last_eval_time"`    // last evaluation time
+	Callbacks        []string          `json:"callbacks"`         // callback URLs
+	TagsJSON         []string          `json:"tags_json"`         // labels as "key=value" string array
+	IsRecovered      bool              `json:"is_recovered"`      // true if resolved
+	DatasourceID     uint              `json:"datasource_id"`     // datasource ID
+	DatasourceName   string            `json:"datasource_name"`   // datasource name
+	RunbookURL       string            `json:"runbook_url"`       // runbook URL
+	GeneratorURL     string            `json:"generator_url"`     // source URL that generated the alert
+	FireCount        int               `json:"fire_count"`        // number of times this alert has fired
 }
 
 // MessageTemplateService provides CRUD and rendering for message templates.
@@ -150,23 +174,7 @@ func (s *MessageTemplateService) RenderTemplate(ctx context.Context, templateID 
 // RenderContent renders a Go template string with the given data.
 // A 5-second timeout prevents CPU exhaustion from malicious or buggy templates.
 func (s *MessageTemplateService) RenderContent(ctx context.Context, content string, data *TemplateData) (string, error) {
-	funcMap := template.FuncMap{
-		"join": func(items []string, sep string) string {
-			result := ""
-			for i, item := range items {
-				if i > 0 {
-					result += sep
-				}
-				result += item
-			}
-			return result
-		},
-		"formatTime": func(t time.Time) string {
-			return t.Format("2006-01-02 15:04:05")
-		},
-		"upper": strings.ToUpper,
-		"lower": strings.ToLower,
-	}
+	funcMap := tplx.TemplateFuncMap
 
 	t, err := template.New("message").Funcs(funcMap).Parse(content)
 	if err != nil {
@@ -211,6 +219,7 @@ func (s *MessageTemplateService) RenderContent(ctx context.Context, content stri
 
 // RenderPreview renders a template with sample data for preview purposes.
 func (s *MessageTemplateService) RenderPreview(ctx context.Context, content string) (string, error) {
+	now := time.Now()
 	sampleData := &TemplateData{
 		AlertName: "HighCPUUsage",
 		Severity:  "critical",
@@ -224,7 +233,7 @@ func (s *MessageTemplateService) RenderPreview(ctx context.Context, content stri
 			"summary":     "CPU usage is above 90% for 5 minutes",
 			"description": "The CPU usage on prod-server-01 has been above 90% for the last 5 minutes.",
 		},
-		FiredAt:  time.Now().Add(-5 * time.Minute),
+		FiredAt:  now.Add(-5 * time.Minute),
 		Value:    "95.2%",
 		Duration: "5m",
 		RuleName: "cpu_high_usage",
@@ -241,24 +250,51 @@ func (s *MessageTemplateService) RenderPreview(ctx context.Context, content stri
 				"Scale horizontally if traffic-related",
 			},
 		},
+		// Extended fields (Nightingale parity)
+		RuleID:           101,
+		RuleNote:         "Monitors CPU usage across production nodes",
+		Cate:             "prometheus",
+		GroupName:        "Infrastructure",
+		TargetIdent:      "prod-server-01",
+		TargetNote:       "Primary application server",
+		TriggerValue:     "95.2%",
+		TriggerValues:    map[string]string{"A": "95.2%"},
+		FirstTriggerTime: now.Add(-10 * time.Minute),
+		LastEvalTime:     now,
+		Callbacks:        []string{"https://example.com/callback"},
+		TagsJSON:         []string{"instance=prod-server-01", "job=node-exporter", "env=production"},
+		IsRecovered:      false,
+		DatasourceID:     1,
+		DatasourceName:   "Prometheus",
+		RunbookURL:       "https://wiki.example.com/runbooks/high-cpu",
+		GeneratorURL:     "http://prometheus:9090/graph?g0.expr=cpu_usage",
+		FireCount:        3,
 	}
 
 	return s.RenderContent(ctx, content, sampleData)
 }
 
 // EventToTemplateData converts an AlertEvent into TemplateData for template rendering.
-func EventToTemplateData(event *model.AlertEvent, analysis *AlertAnalysis) *TemplateData {
+// rule and ds may be nil; when provided they populate extended fields (RuleNote, GroupName, etc.).
+func EventToTemplateData(event *model.AlertEvent, analysis *AlertAnalysis, rule *model.AlertRule, ds *model.DataSource) *TemplateData {
 	data := &TemplateData{
-		AlertName:   event.AlertName,
-		Severity:    string(event.Severity),
-		Status:      string(event.Status),
-		Labels:      event.Labels,
-		Annotations: event.Annotations,
-		FiredAt:     event.FiredAt,
-		EventID:     event.ID,
-		Source:      event.Source,
-		AIAnalysis:  analysis,
+		AlertName:    event.AlertName,
+		Severity:     string(event.Severity),
+		Status:       string(event.Status),
+		Labels:       event.Labels,
+		Annotations:  event.Annotations,
+		FiredAt:      event.FiredAt,
+		EventID:      event.ID,
+		Source:       event.Source,
+		GeneratorURL: event.GeneratorURL,
+		FireCount:    event.FireCount,
+		AIAnalysis:   analysis,
+		IsRecovered:  event.Status == model.EventStatusResolved,
 	}
+
+	// Timestamps
+	data.FirstTriggerTime = event.FiredAt
+	data.LastEvalTime = event.FiredAt // TODO: track actual last eval time in AlertEvent model
 
 	// Extract value and duration from annotations if available
 	if v, ok := event.Annotations["value"]; ok {
@@ -267,9 +303,70 @@ func EventToTemplateData(event *model.AlertEvent, analysis *AlertAnalysis) *Temp
 	if d, ok := event.Annotations["duration"]; ok {
 		data.Duration = d
 	}
-	// Extract rule name from labels if available
-	if rn, ok := event.Labels["rule_name"]; ok {
-		data.RuleName = rn
+
+	// Build TagsJSON from labels (Nightingale-compatible "key=value" array)
+	if event.Labels != nil {
+		tags := make([]string, 0, len(event.Labels))
+		for k, v := range event.Labels {
+			tags = append(tags, k+"="+v)
+		}
+		data.TagsJSON = tags
+	}
+
+	// Populate from AlertRule if available
+	if rule != nil {
+		if event.RuleID != nil {
+			data.RuleID = *event.RuleID
+		}
+		data.RuleName = rule.Name
+		data.RuleNote = rule.Description
+		data.Cate = string(rule.DatasourceType)
+		data.GroupName = rule.GroupName
+		data.RunbookURL = rule.Annotations["runbook_url"] // convention: runbook_url in rule annotations
+
+		// Callbacks from rule annotations (Nightingale stores callback URLs in rule config)
+		if cb, ok := rule.Annotations["callbacks"]; ok && cb != "" {
+			data.Callbacks = strings.Split(cb, ",")
+		}
+
+		// TriggerValue: extract from event annotations (set by evaluator)
+		if tv, ok := event.Annotations["trigger_value"]; ok {
+			data.TriggerValue = tv
+		}
+		// TriggerValues: per-query values stored as JSON in annotations
+		if tvs, ok := event.Annotations["trigger_values"]; ok && tvs != "" {
+			var m map[string]string
+			if jsonErr := json.Unmarshal([]byte(tvs), &m); jsonErr == nil {
+				data.TriggerValues = m
+			}
+		}
+	}
+
+	// Populate from DataSource if available
+	if ds != nil {
+		data.DatasourceID = ds.ID
+		data.DatasourceName = ds.Name
+	} else if event.DataSourceID != nil {
+		data.DatasourceID = *event.DataSourceID
+	}
+
+	// TargetIdent: prefer explicit label conventions
+	if event.Labels != nil {
+		if ident, ok := event.Labels["instance"]; ok {
+			data.TargetIdent = ident
+		} else if ident, ok := event.Labels["ident"]; ok {
+			data.TargetIdent = ident
+		}
+		if note, ok := event.Labels["target_note"]; ok {
+			data.TargetNote = note
+		}
+	}
+
+	// Extract rule name from labels if not set from rule
+	if data.RuleName == "" {
+		if rn, ok := event.Labels["rule_name"]; ok {
+			data.RuleName = rn
+		}
 	}
 
 	return data

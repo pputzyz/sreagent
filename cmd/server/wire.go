@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
+	"github.com/sreagent/sreagent/internal/pkg/hashring"
 	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
 	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/router"
@@ -209,6 +211,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	messageTemplateSvc := service.NewMessageTemplateService(messageTemplateRepo, zapLogger)
 	notifyRuleSvc := service.NewNotifyRuleService(
 		notifyRuleRepo, notifyMediaRepo, messageTemplateRepo, recordRepo,
+		ruleRepo, dsRepo,
 		notifyMediaSvc, messageTemplateSvc, alertPipeline, zapLogger,
 	)
 	subscribeRuleSvc := service.NewSubscribeRuleService(subscribeRuleRepo, zapLogger)
@@ -501,9 +504,67 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		}
 		evaluator.SetPerDatasourceEval(cfg.Engine.PerDatasourceEval)
 		evaluator.SetOnAlert(onAlertFn)
+		evaluator.SetMuteRuleRepository(muteRuleRepo)
+		evaluator.SetLabelRegistryRepository(labelRegistryRepo)
 
-		// Leader election: only one instance evaluates rules at a time
-		if redisClient != nil {
+		if cfg.Engine.HashRingEnabled && redisClient != nil {
+			// Hash ring mode: distribute rules across instances
+			instanceID := cfg.Engine.InstanceID
+			if instanceID == "" {
+				hostname, _ := os.Hostname()
+				instanceID = fmt.Sprintf("%s:%d", hostname, os.Getpid())
+			}
+			replicas := cfg.Engine.HashRingReplicas
+			if replicas <= 0 {
+				replicas = hashring.DefaultReplicas
+			}
+
+			ring := hashring.New(replicas)
+			ring.Add(instanceID)
+			evaluator.SetHashRing(ring, instanceID)
+
+			// Register this instance in Redis and start ring membership refresh.
+			// Uses a key prefix + instance ID with a 30s TTL; each instance
+			// refreshes every 10s so stale entries are cleaned up automatically.
+			rdb := redisClient.Raw()
+			const ringPrefix = "sreagent:engine:ring:"
+			const ringTTL = 30 * time.Second
+			const ringRefresh = 10 * time.Second
+
+			ctx := context.Background()
+			rdb.Set(ctx, ringPrefix+instanceID, "1", ringTTL)
+
+			go func() {
+				ticker := time.NewTicker(ringRefresh)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						// Refresh own registration
+						rdb.Set(ctx, ringPrefix+instanceID, "1", ringTTL)
+						// Discover all active instances
+						keys, err := rdb.Keys(ctx, ringPrefix+"*").Result()
+						if err != nil {
+							zapLogger.Warn("hash ring: failed to discover instances", zap.Error(err))
+							continue
+						}
+						newRing := hashring.New(replicas)
+						for _, k := range keys {
+							newRing.Add(k[len(ringPrefix):])
+						}
+						evaluator.UpdateHashRing(newRing)
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+
+			zapLogger.Info("hash ring mode enabled",
+				zap.String("instance_id", instanceID),
+				zap.Int("replicas", replicas),
+			)
+		} else if redisClient != nil {
+			// Leader election: only one instance evaluates rules at a time
 			leader := engine.NewRedisLeaderElection(redisClient.Raw(), zapLogger)
 			evaluator.SetLeaderElection(leader)
 			heartbeatChecker.SetLeaderElection(leader)

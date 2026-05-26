@@ -25,7 +25,7 @@ func newTestEvaluatorForDS(t *testing.T, perDSEval bool) *Evaluator {
 		suppressor:   NewLevelSuppressor(),
 		logger:       zap.NewNop(),
 		stopCh:       make(chan struct{}),
-		syncInterval: 30 * 1_000_000_000, // 30s in nanoseconds
+		syncInterval: 9 * 1_000_000_000, // 9s in nanoseconds
 		ctx:          ctx,
 		cancel:       cancel,
 		perDSEval:    perDSEval,

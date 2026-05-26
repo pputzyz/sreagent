@@ -22,10 +22,13 @@ type Config struct {
 
 // EngineConfig holds configuration for the native alert evaluator.
 type EngineConfig struct {
-	Enabled            bool `mapstructure:"enabled"`               // default true
-	SyncInterval       int  `mapstructure:"sync_interval"`         // how often to sync rules from DB (seconds, default 30)
-	PerDatasourceEval  bool `mapstructure:"per_datasource_eval"`   // per-datasource bucket evaluation (default false = legacy)
-	HeartbeatInterval  int  `mapstructure:"heartbeat_interval"`    // heartbeat check interval (seconds, default 60)
+	Enabled            bool   `mapstructure:"enabled"`               // default true
+	SyncInterval       int    `mapstructure:"sync_interval"`         // how often to sync rules from DB (seconds, default 30)
+	PerDatasourceEval  bool   `mapstructure:"per_datasource_eval"`   // per-datasource bucket evaluation (default false = legacy)
+	HeartbeatInterval  int    `mapstructure:"heartbeat_interval"`    // heartbeat check interval (seconds, default 60)
+	HashRingEnabled    bool   `mapstructure:"hash_ring_enabled"`     // distribute rules across instances via consistent hash ring (default false = single-leader)
+	HashRingReplicas   int    `mapstructure:"hash_ring_replicas"`    // virtual nodes per physical node in the hash ring (default 500)
+	InstanceID         string `mapstructure:"instance_id"`           // unique identifier for this engine instance (default: hostname:pid)
 }
 
 type ServerConfig struct {

@@ -337,8 +337,8 @@ type TemplateData struct {
 ### 渲染流程
 
 ```go
-// 1. 构建模板数据
-templateData := EventToTemplateData(event, analysis)
+// 1. 构建模板数据（可选传入 AlertRule / DataSource 以填充扩展字段）
+templateData := EventToTemplateData(event, analysis, alertRule, ds)
 
 // 2. 渲染模板
 if nc.TemplateID > 0 {

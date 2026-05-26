@@ -4,6 +4,123 @@
 
 ---
 
+## [v4.37.8] — 2026-05-26
+
+### 一致性哈希环 — 告警规则多实例水平分片（Nightingale DatasourceHashRing 对齐）
+
+- **功能**: 新增一致性哈希环模式，支持将告警规则分布到多个引擎实例上评估，实现水平扩展
+- **哈希环实现**: `internal/pkg/hashring/hashring.go` — CRC32 哈希 + 虚拟节点（默认 500 replicas），O(log N) 查找，线程安全
+- **配置**: `engine.hash_ring_enabled`（默认 false）、`engine.hash_ring_replicas`（默认 500）、`engine.instance_id`（默认 hostname:pid）
+- **实例发现**: 基于 Redis 的自动注册与发现，每个实例以 30s TTL 注册，10s 刷新周期，自动清理失效实例
+- **评估器集成**: `internal/engine/evaluator.go` — `SetHashRing`/`UpdateHashRing` 方法，`syncRules` 按 `hash(ruleID) -> instance` 过滤规则
+- **状态可见**: `EngineStatus` 新增 `hash_ring_mode` 和 `instance_id` 字段
+- **向后兼容**: 默认关闭（`hash_ring_enabled: false`），现有单 leader 模式完全不受影响
+- **依赖**: 无外部依赖，使用 Go 标准库 `hash/crc32`
+
+---
+
+## [v4.37.7] — 2026-05-26
+
+### 告警规则变量填充 — $host/$val 变量替换系统（Nightingale VarFilling 对齐）
+
+- **功能**: 告警规则新增 `var_config` 配置，支持在 PromQL 表达式中使用 `$host`、`$val` 等变量占位符，评估时自动替换为实际值
+- **before_query 策略**: 先替换变量再查询，适用于含聚合函数的表达式（如 `avg(mem_used_percent{host="$host"})`），并发查询所有参数组合
+- **after_query 策略**: 先查询再过滤，适用于简单表达式（如 `mem_used_percent{host="$host"}`），效率更高
+- **变量类型**: `enum`（显式值列表）、`host`（自动从标签注册表发现主机列表）、`device`（设备列表）
+- **标签注册表集成**: `host`/`device` 类型自动查询 `label_registry` 表获取已知值，无需手动维护主机列表
+- **模型**: `internal/model/alert_rule.go` — 新增 `VarConfig`、`VarParam` 类型，`AlertRule.VarConfig` 字段
+- **评估器**: `internal/engine/rule_eval.go` — 新增 `executeQueryWithVarFilling`、`executeVarFillingBeforeQuery`、`executeVarFillingAfterQuery` 方法
+- **迁移**: `000082_alert_rule_var_config` — `alert_rules` 表新增 `var_config` JSON 列
+- **向后兼容**: `var_config` 为 null 时规则行为完全不变
+
+---
+
+## [v4.37.6] — 2026-05-26
+
+### 事件管道分支处理器 — logic.if + logic.switch（Nightingale DAG 引擎对齐）
+
+- **功能**: 事件管道新增 `logic.if` 和 `logic.switch` 两个条件分支处理器，参考 Nightingale DAG 工作流引擎的 `logic.if`/`logic.switch` 实现
+- **logic.if**: 条件执行处理器，支持 `labels.<key> == 'value'`、`!=`、`=~`（正则）和 `severity == 'value'` 条件表达式；配置 `then`/`else` 两个内联子处理器链，条件为 true 走 then，否则走 else
+- **logic.switch**: 多分支路由处理器，根据字段值（`labels.*`、`annotations.*`、`severity`、`status`）匹配 `cases` 中的处理器链执行；支持 `default` 兜底分支
+- **核心**: `internal/engine/pipeline/processors/logic_if.go`, `internal/engine/pipeline/processors/logic_switch.go`
+- **兼容性**: 现有线性管道完全向后兼容，新处理器通过 `pipeline.Register` 注册，可通过 `processor-types` API 查看
+- **设计**: 子处理器内联在处理器配置中（非独立管道），保持 v1 简洁性
+
+---
+
+## [v4.37.5] — 2026-05-26
+
+### 告警规则多查询连接（Nightingale Multi-Query Trigger 对齐）
+
+- **功能**: 告警规则新增多查询评估模式，参考 Nightingale 的多查询触发系统
+  - 支持多个查询（A, B, C...），每个查询独立评估
+  - 支持连接操作：`inner_join`（交集）、`left_join`（左连接）、`right_join`（右连接）、`none`（独立评估）
+  - 支持触发表达式（`TriggerExp`），引用 `$A`、`$B` 等查询结果
+  - 向后兼容：仅有 `Expression` 的规则继续使用单查询模式
+- **模型**: `internal/model/alert_rule.go` — 新增 `RuleQuery` 类型和 `Queries`/`TriggerExp`/`JoinType`/`JoinKeys` 字段
+- **引擎**: `internal/engine/multi_query.go` — 新增多查询评估逻辑，包括连接操作和触发表达式解析
+- **引擎**: `internal/engine/rule_eval.go` — 修改 `evaluate()` 方法，根据 `Queries` 是否为空选择多查询或单查询模式
+- **迁移**: `000061_alert_rule_multi_query.up.sql` / `000061_alert_rule_multi_query.down.sql`
+- **兼容性**: 现有仅使用 `Expression` 的告警规则完全向后兼容，无需修改
+
+---
+
+## [v4.37.4] — 2026-05-26
+
+### 订阅规则增强 — 多维度过滤（Nightingale AlertSubscribe 对齐）
+
+- **功能**: SubscribeRule 新增 4 个过滤维度，对齐 Nightingale AlertSubscribe 模型
+  - `TagFilters`: 高级标签过滤器，支持 `==`/`!=`/`=~`/`!~`/`in`/`not in` 操作符
+  - `DatasourceIDs`: 按数据源过滤（空=全部，0=通配）
+  - `RuleIDs`: 按规则过滤（空或含 0=全局订阅，匹配所有规则）
+  - `ForDuration`: 最小触发持续时间（秒），事件必须持续触发指定时长才匹配
+- **模型**: `internal/model/subscribe_rule.go` — 新增 `TagFilters`/`DatasourceIDs`/`RuleIDs`/`ForDuration` 字段
+- **模型**: `internal/model/event_pipeline.go` — 新增 `MatchTagFilters` 函数，支持操作符匹配
+- **仓库**: `internal/repository/subscribe_rule.go` — `FindMatchingSubscriptions` 签名变更为接收 `*AlertEvent`，新增规则 ID、数据源、标签过滤、持续时间匹配逻辑
+- **服务**: `internal/service/subscribe_rule.go` — `Update` 方法同步新字段；`FindSubscriptions` 传递完整事件
+- **处理器**: `internal/handler/subscribe_rule.go` — Create/Update 请求结构体新增 `tag_filters`/`datasource_ids`/`rule_ids`/`for_duration`
+- **迁移**: `000081_subscribe_rule_filters.up.sql` / `000081_subscribe_rule_filters.down.sql`
+- **兼容性**: 现有仅使用 `MatchLabels`+`Severities` 的订阅规则完全向后兼容
+
+---
+
+## [v4.37.3] — 2026-05-26
+
+### 引擎级时间窗口静默（TimeSpanMuteStrategy 对齐）
+
+- **功能**: 告警引擎新增引擎级时间窗口静默检查，参考 Nightingale `TimeSpanMuteStrategy`，在评估阶段即过滤命中静默规则的告警，避免无效事件写入 DB
+- **核心**: `internal/engine/suppression.go` — 新增 `MuteRuleChecker` 接口、`isTimeWindowMuted`（星期+时间段+时区）、`isMutedByRule`（规则ID+标签+严重等级+时间窗口四维匹配）、`IsMutedByAnyRule` 方法
+- **评估**: `internal/engine/rule_eval.go` — 三处告警触发点（立即触发、pending→firing、resolved→re-fire）均新增时间窗口静默检查，与严重等级抑制并列
+- **DI**: `internal/engine/evaluator.go` — 新增 `muteRuleRepoAdapter` 适配器 + `SetMuteRuleRepository` 方法；`cmd/server/wire.go` — 注入 `muteRuleRepo` 到引擎
+- **依赖**: 引擎 → mute-rule（通过 `MuteRuleChecker` 接口解耦）
+
+---
+
+## [v4.37.2] — 2026-05-26
+
+### TemplateData 扩展（Nightingale 对齐）
+
+- **功能**: `TemplateData` 新增 17 个字段，对齐 Nightingale `AlertCurEvent` 模板变量（RuleID、RuleNote、Cate、GroupName、TargetIdent、TargetNote、TriggerValue、TriggerValues、FirstTriggerTime、LastEvalTime、Callbacks、TagsJSON、IsRecovered、DatasourceID、DatasourceName、RunbookURL、GeneratorURL、FireCount）
+- **服务**: `internal/service/message_template.go` — `EventToTemplateData` 签名变更新增 `*model.AlertRule` 和 `*model.DataSource` 可选参数；`RenderPreview` 示例数据同步扩展
+- **服务**: `internal/service/notify_rule.go` — `ProcessEvent` 在构建模板数据前加载 AlertRule 和 DataSource；`NewNotifyRuleService` 新增 `alertRuleRepo` 和 `dsRepo` 依赖
+- **DI**: `cmd/server/wire.go` — 传递 `ruleRepo` 和 `dsRepo` 到 `NewNotifyRuleService`
+- **文档**: `docs/notification-pipeline.md` — 更新 `EventToTemplateData` 调用示例
+
+---
+
+## [v4.37.1] — 2026-05-26
+
+### 通知最大次数上限 (NotifyMaxNumber)
+
+- **功能**: NotifyRule 新增 `MaxNotifications` 字段，限制单条规则+渠道组合的最大通知次数（0=不限），参考 Nightingale NotifyMaxNumber 模式
+- **模型**: `internal/model/notify_rule.go` — 新增 `MaxNotifications int` 字段
+- **仓库**: `internal/repository/notification.go` — 新增 `CountSentRecords` 方法
+- **服务**: `internal/service/notify_rule.go` — `isThrottled` 先检查 max cap 再检查 repeat interval；`Update` 方法同步 `MaxNotifications`
+- **处理器**: `internal/handler/notify_rule.go` — Create/Update 请求结构体新增 `max_notifications` 字段
+- **迁移**: `000080_notify_max_notifications.up.sql` / `000080_notify_max_notifications.down.sql`
+
+---
+
 ## [v4.37.0] — 2026-05-26
 
 ### ES Index Pattern 管理

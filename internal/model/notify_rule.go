@@ -24,7 +24,8 @@ type NotifyRule struct {
 	// JSON: [{"severity":"critical","media_id":1,"template_id":1,"user_ids":[1,2],"team_ids":[1]},...]
 	NotifyConfigs string `json:"notify_configs" gorm:"type:text"`
 	// Throttle
-	RepeatInterval int `json:"repeat_interval" gorm:"default:3600"` // seconds between repeated notifications
+	RepeatInterval   int `json:"repeat_interval" gorm:"default:3600"` // seconds between repeated notifications
+	MaxNotifications int `json:"max_notifications" gorm:"default:0"`   // 0 = unlimited; caps total sent notifications per rule+media
 	// Callback URL (optional, called when event is processed)
 	CallbackURL string `json:"callback_url" gorm:"size:512"`
 	CreatedBy   uint   `json:"created_by" gorm:"index"`

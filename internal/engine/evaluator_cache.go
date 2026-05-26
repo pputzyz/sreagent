@@ -162,5 +162,7 @@ func (e *Evaluator) GetStatus() EngineStatus {
 		ActiveAlerts: activeAlerts,
 		Uptime:       uptime,
 		IsLeader:     isLeader,
+		HashRingMode: e.hashRing != nil,
+		InstanceID:   e.instanceID,
 	}
 }

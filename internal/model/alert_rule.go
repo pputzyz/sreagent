@@ -2,6 +2,15 @@ package model
 
 import "time"
 
+// RuleQuery represents a single query within a multi-query alert rule.
+// Each query has a reference label (A, B, C...) and its own PromQL expression.
+type RuleQuery struct {
+	Ref          string `json:"ref"`            // A, B, C...
+	DatasourceID uint   `json:"datasource_id"`  // datasource to query against
+	Expr         string `json:"expr"`           // PromQL / LogsQL expression
+	Legend       string `json:"legend"`         // display format for the result
+}
+
 // AlertSeverity defines the severity level of an alert.
 // Preferred values: critical, warning, info.
 // Legacy values (p0–p4) are kept for backward compatibility with historical data.
@@ -60,6 +69,26 @@ const (
 	RuleTypeHeartbeat AlertRuleType = "heartbeat" // fire when no ping received within interval
 )
 
+// VarConfig defines variable filling configuration for alert rules.
+// Inspired by Nightingale's $host/$val variable replacement system.
+// When set, the evaluator substitutes variables in the expression with actual values.
+type VarConfig struct {
+	// Strategy: "before_query" (substitute variables then query) or
+	//           "after_query" (query first, then filter by variable values).
+	// before_query is required when the expression contains aggregation functions
+	// (sum, avg, etc.) that would lose the variable label after grouping.
+	Strategy string     `json:"strategy"`
+	Params   []VarParam `json:"params"` // variable definitions
+}
+
+// VarParam defines a single variable parameter.
+type VarParam struct {
+	Name   string   `json:"name"`   // variable name (e.g., "host", "device")
+	Type   string   `json:"type"`   // "host", "device", "enum"
+	Query  string   `json:"query"`  // optional filter query (JSON-encoded, for host/device type)
+	Values []string `json:"values"` // explicit values (used when type="enum", or as fallback)
+}
+
 // AlertRule represents an alerting rule definition.
 type AlertRule struct {
 	BaseModel
@@ -101,8 +130,22 @@ type AlertRule struct {
 	NoDataDuration string `json:"nodata_duration" gorm:"size:32;default:5m"` // after this duration of no data, fire nodata alert
 	// Level suppression (for rules with multiple severity conditions)
 	SuppressEnabled bool `json:"suppress_enabled" gorm:"default:false"`
+	// Multi-query support (Nightingale-style)
+	// When Queries is non-empty, the rule uses multi-query evaluation:
+	//   1. Each query (A, B, C...) is evaluated independently
+	//   2. Results are joined according to JoinType and JoinKeys
+	//   3. TriggerExp is evaluated against the combined results (referencing $A, $B, etc.)
+	// When Queries is empty, the rule falls back to single Expression evaluation (backward compatible).
+	Queries    []RuleQuery `json:"queries" gorm:"serializer:json"`    // multiple queries
+	TriggerExp string      `json:"trigger_exp" gorm:"size:512"`       // trigger expression referencing $A, $B
+	JoinType   string      `json:"join_type" gorm:"size:32"`          // inner_join, left_join, right_join, none
+	JoinKeys   []string    `json:"join_keys" gorm:"serializer:json"`  // label keys to join on
+
 	// Business group
 	BizGroupID *uint `json:"biz_group_id" gorm:"index"`
+	// Variable filling config — enables $var replacement in expression.
+	// When nil, the rule evaluates normally without variable substitution.
+	VarConfig *VarConfig `json:"var_config" gorm:"column:var_config;type:json;serializer:json"`
 
 	// Heartbeat monitoring (only relevant when RuleType="heartbeat")
 	// HeartbeatToken is the unique token embedded in the ping URL: POST /heartbeat/:token
