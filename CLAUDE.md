@@ -1,6 +1,6 @@
 # CLAUDE.md — SREAgent
 
-> **v4.32.1** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
+> **v4.32.2** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
 
 ## 代码约定
 
