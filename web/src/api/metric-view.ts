@@ -24,6 +24,7 @@ export interface MetricView {
   name: string
   configs: string
   configs_json: MetricViewConfig
+  is_favorite: boolean
   created_by: number
   updated_by: number
   created_at: string

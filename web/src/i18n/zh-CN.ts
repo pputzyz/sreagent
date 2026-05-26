@@ -2742,9 +2742,13 @@ export default {
 
   // ── Metric Views (快捷视图) ──
   metricViews: {
+    title: '快捷视图',
+    subtitle: '基于标签过滤和分组的指标探索工具',
     views: '视图列表',
     noViews: '暂无视图，点击 + 创建',
     selectViewHint: '请先选择一个视图',
+    selectDatasource: '选择数据源',
+    noDatasource: '暂无可用数据源',
     labelFilter: '标签过滤',
     staticFilters: '静态过滤条件',
     dynamicLabels: '动态标签',
@@ -2761,12 +2765,38 @@ export default {
     nameRequired: '视图名称为必填项',
     createView: '新建视图',
     editView: '编辑视图',
+    addView: '新建视图',
     confirmDelete: '确认删除视图 "{name}"？',
+    confirmDeleteView: '确认删除该视图？',
     addFilter: '添加过滤器',
     addDynamicLabel: '添加动态标签',
     addDimensionLabel: '添加维度标签',
     ignorePrefix: '忽略前缀',
     ignorePrefixPlaceholder: '例如 node_，用于指标分组',
+    // Left panel
+    favorite: '收藏',
+    unfavorite: '取消收藏',
+    publicView: '公开',
+    privateView: '私有',
+    // Middle panel
+    noFilters: '暂无筛选条件',
+    selectLabel: '选择标签',
+    allValues: '全部',
+    searchLabels: '搜索标签...',
+    // Right panel
+    metricList: '指标列表',
+    graphArea: '图表区域',
+    addMetric: '添加指标',
+    removeMetric: '移除',
+    noGraphs: '点击指标名称添加图表',
+    totalMetrics: '共 {n} 个指标',
+    filteredMetrics: '筛选后 {n} 个',
+    graphFunction: '函数',
+    graphOffset: '偏移',
+    graphAggregation: '聚合',
+    refreshGraphs: '刷新图表',
+    timeRange: '时间范围',
+    allPrefix: '全部',
   },
 
   // ── Recording Rules ──

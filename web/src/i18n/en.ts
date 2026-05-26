@@ -2721,9 +2721,13 @@ export default {
 
   // ── Metric Views ──
   metricViews: {
+    title: 'Quick Views',
+    subtitle: 'Metric exploration with label-based filtering and grouping',
     views: 'Views',
     noViews: 'No views yet, click + to create',
     selectViewHint: 'Select a view to start',
+    selectDatasource: 'Select Datasource',
+    noDatasource: 'No datasources available',
     labelFilter: 'Label Filter',
     staticFilters: 'Static Filters',
     dynamicLabels: 'Dynamic Labels',
@@ -2740,12 +2744,38 @@ export default {
     nameRequired: 'View name is required',
     createView: 'New View',
     editView: 'Edit View',
+    addView: 'New View',
     confirmDelete: 'Delete view "{name}"?',
+    confirmDeleteView: 'Delete this view?',
     addFilter: 'Add Filter',
     addDynamicLabel: 'Add Dynamic Label',
     addDimensionLabel: 'Add Dimension Label',
     ignorePrefix: 'Ignore Prefix',
     ignorePrefixPlaceholder: 'e.g. node_, used for metric grouping',
+    // Left panel
+    favorite: 'Favorite',
+    unfavorite: 'Unfavorite',
+    publicView: 'Public',
+    privateView: 'Private',
+    // Middle panel
+    noFilters: 'No filters configured',
+    selectLabel: 'Select label',
+    allValues: 'All',
+    searchLabels: 'Search labels...',
+    // Right panel
+    metricList: 'Metric List',
+    graphArea: 'Graph Area',
+    addMetric: 'Add Metric',
+    removeMetric: 'Remove',
+    noGraphs: 'Click a metric name to add a graph',
+    totalMetrics: '{n} metrics total',
+    filteredMetrics: '{n} filtered',
+    graphFunction: 'Function',
+    graphOffset: 'Offset',
+    graphAggregation: 'Aggregation',
+    refreshGraphs: 'Refresh Graphs',
+    timeRange: 'Time Range',
+    allPrefix: 'All',
   },
 
   // ── Recording Rules ──
