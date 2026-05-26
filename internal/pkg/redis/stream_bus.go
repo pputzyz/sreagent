@@ -44,6 +44,11 @@ const (
 // Made var so tests can override (miniredis doesn't interrupt XREAD on conn close).
 var streamBusXReadBlockTimeout = 30 * time.Second
 
+// streamBusMaxConsecutiveErrors is the number of consecutive XREAD errors
+// before the Subscribe goroutine gives up. Prevents infinite retry loops
+// when Redis is permanently down.
+const streamBusMaxConsecutiveErrors = 10
+
 // StreamBus provides pub/sub via Redis Streams for multi-instance SSE.
 // Any instance can Publish (write) and Subscribe (read); the stream is
 // the single source of truth shared across all instances.
@@ -149,6 +154,8 @@ func (b *StreamBus) Subscribe(ctx context.Context, taskID string, lastID string)
 			cursor = "0"
 		}
 
+		consecutiveErrors := 0
+
 		for {
 			if ctx.Err() != nil {
 				return
@@ -162,14 +169,25 @@ func (b *StreamBus) Subscribe(ctx context.Context, taskID string, lastID string)
 
 			if errors.Is(err, goredis.Nil) {
 				// BLOCK timeout with no new data — loop again.
+				consecutiveErrors = 0
 				continue
 			}
 			if err != nil {
 				if ctx.Err() != nil {
 					return
 				}
+				consecutiveErrors++
+				if consecutiveErrors >= streamBusMaxConsecutiveErrors {
+					b.logger.Error("XREAD failed too many times, giving up",
+						zap.String("key", key),
+						zap.Int("consecutive_errors", consecutiveErrors),
+						zap.Error(err),
+					)
+					return
+				}
 				b.logger.Warn("XREAD error, retrying after 1s",
 					zap.String("key", key),
+					zap.Int("consecutive_errors", consecutiveErrors),
 					zap.Error(err),
 				)
 				select {
@@ -179,6 +197,8 @@ func (b *StreamBus) Subscribe(ctx context.Context, taskID string, lastID string)
 				}
 				continue
 			}
+
+			consecutiveErrors = 0
 
 			for _, stream := range res {
 				for _, entry := range stream.Messages {

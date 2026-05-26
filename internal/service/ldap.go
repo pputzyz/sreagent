@@ -66,12 +66,7 @@ func (s *LDAPService) GetConfig(ctx context.Context) (LDAPConfig, error) {
 	if err != nil {
 		return LDAPConfig{}, err
 	}
-	port := 389
-	if v, ok := kv["port"]; ok {
-		if n, err := parseInt(v); err == nil && n > 0 {
-			port = n
-		}
-	}
+	port := parseIntDef(kv["port"], 389)
 	return LDAPConfig{
 		Enabled:         parseBool(kv["enabled"]),
 		Host:            kv["host"],
@@ -232,30 +227,27 @@ func (s *LDAPService) AuthenticateAndLogin(ctx context.Context, username, passwo
 // findOrCreateUser looks up the user by LDAP username, then by email.
 // Auto-creates if not found and auto_provision is enabled.
 func (s *LDAPService) findOrCreateUser(ctx context.Context, info *LDAPUserInfo) (*model.User, error) {
-	// 1. Try by username
-	user, err := s.userRepo.GetByUsername(ctx, info.Username)
+	ssoInfo := &SSOUserInfo{
+		Username:    info.Username,
+		DisplayName: info.DisplayName,
+		Email:       info.Email,
+		Source:      "ldap",
+	}
+
+	user, err := LookupSSOUser(ctx, s.userRepo, ssoInfo)
 	if err == nil {
-		// Update profile fields from LDAP
-		s.updateUserFromLDAP(ctx, user, info)
+		if UpdateUserFromSSO(user, ssoInfo) {
+			if err := s.userRepo.Update(ctx, user); err != nil {
+				s.logger.Warn("failed to update user from LDAP", zap.Uint("user_id", user.ID), zap.Error(err))
+			}
+		}
 		return user, nil
 	}
 	if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	// 2. Try by email
-	if info.Email != "" {
-		user, err = s.userRepo.GetByEmail(ctx, info.Email)
-		if err == nil {
-			s.updateUserFromLDAP(ctx, user, info)
-			return user, nil
-		}
-		if err != gorm.ErrRecordNotFound {
-			return nil, err
-		}
-	}
-
-	// 3. Load config to check auto_provision
+	// Load config to check auto_provision
 	cfg, err := s.GetConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -264,55 +256,8 @@ func (s *LDAPService) findOrCreateUser(ctx context.Context, info *LDAPUserInfo) 
 		return nil, fmt.Errorf("ldap: user not found and auto_provision is disabled")
 	}
 
-	// 4. Auto-provision new user
 	defaultRole := model.Role(cfg.DefaultRole)
-	if !defaultRole.IsValid() {
-		defaultRole = model.RoleViewer
-	}
-
-	newUser := &model.User{
-		Username:    info.Username,
-		Password:    "", // LDAP users don't have a local password
-		DisplayName: info.DisplayName,
-		Email:       info.Email,
-		Role:        defaultRole,
-		IsActive:    true,
-		UserType:    model.UserTypeHuman,
-	}
-
-	if err := s.userRepo.Create(ctx, newUser); err != nil {
-		return nil, fmt.Errorf("ldap: create user: %w", err)
-	}
-
-	s.logger.Info("auto-provisioned LDAP user",
-		zap.Uint("user_id", newUser.ID),
-		zap.String("username", newUser.Username),
-		zap.String("email", newUser.Email),
-		zap.String("role", string(newUser.Role)),
-	)
-
-	return newUser, nil
-}
-
-// updateUserFromLDAP updates user profile fields from LDAP attributes.
-func (s *LDAPService) updateUserFromLDAP(ctx context.Context, user *model.User, info *LDAPUserInfo) {
-	changed := false
-	if info.DisplayName != "" && user.DisplayName != info.DisplayName {
-		user.DisplayName = info.DisplayName
-		changed = true
-	}
-	if info.Email != "" && user.Email != info.Email {
-		user.Email = info.Email
-		changed = true
-	}
-	if changed {
-		if err := s.userRepo.Update(ctx, user); err != nil {
-			s.logger.Warn("failed to update user from LDAP",
-				zap.Uint("user_id", user.ID),
-				zap.Error(err),
-			)
-		}
-	}
+	return AutoCreateSSOUser(ctx, s.userRepo, ssoInfo, defaultRole, s.logger)
 }
 
 // Enabled returns whether LDAP is configured and active.
@@ -368,18 +313,6 @@ func escapeLDAPFilter(s string) string {
 		"\x00", "\\00",
 	)
 	return r.Replace(s)
-}
-
-// parseInt is a helper that delegates to the system_setting helpers.
-func parseInt(s string) (int, error) {
-	n := 0
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, fmt.Errorf("invalid integer: %s", s)
-		}
-		n = n*10 + int(c-'0')
-	}
-	return n, nil
 }
 
 // firstAttr returns the first value of the named attribute, or def if not found.

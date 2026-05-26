@@ -3,7 +3,6 @@ package processors
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/sreagent/sreagent/internal/engine/pipeline"
 	"github.com/sreagent/sreagent/internal/model"
@@ -72,7 +71,7 @@ func newLogicSwitch(config map[string]interface{}) (pipeline.Processor, error) {
 }
 
 func (p *logicSwitchProcessor) Process(ctx context.Context, event *model.AlertEvent) (*model.AlertEvent, string, error) {
-	actual := resolveFieldValue(p.field, event)
+	actual := resolveEventField(p.field, event)
 
 	// Look for exact match first
 	chain, found := p.cases[actual]
@@ -102,32 +101,4 @@ func (p *logicSwitchProcessor) Process(ctx context.Context, event *model.AlertEv
 	}
 
 	return current, fmt.Sprintf("logic.switch: field=%s=%q, matched case=%q (%d processors)", p.field, actual, caseKey, len(chain)), nil
-}
-
-// resolveFieldValue reads a field value from the event.
-func resolveFieldValue(field string, event *model.AlertEvent) string {
-	switch {
-	case field == "severity":
-		return string(event.Severity)
-	case field == "status":
-		return string(event.Status)
-	case strings.HasPrefix(field, "labels."):
-		key := strings.TrimPrefix(field, "labels.")
-		if event.Labels == nil {
-			return ""
-		}
-		return event.Labels[key]
-	case strings.HasPrefix(field, "annotations."):
-		key := strings.TrimPrefix(field, "annotations.")
-		if event.Annotations == nil {
-			return ""
-		}
-		return event.Annotations[key]
-	default:
-		// Try as direct label key
-		if event.Labels != nil {
-			return event.Labels[field]
-		}
-		return ""
-	}
 }

@@ -16,12 +16,8 @@ type UserContactHandler struct {
 }
 
 // NewUserContactHandler creates a new UserContactHandler.
-func NewUserContactHandler(svc *service.UserContactService, logger ...*zap.Logger) *UserContactHandler {
-	l := zap.NewNop()
-	if len(logger) > 0 && logger[0] != nil {
-		l = logger[0]
-	}
-	return &UserContactHandler{svc: svc, log: l}
+func NewUserContactHandler(svc *service.UserContactService, logger *zap.Logger) *UserContactHandler {
+	return &UserContactHandler{svc: svc, log: logger}
 }
 
 // ContactRequest is the request body for creating or updating a contact.

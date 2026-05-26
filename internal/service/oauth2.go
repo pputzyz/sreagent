@@ -306,103 +306,33 @@ func (s *OAuth2Service) fetchUserInfo(ctx context.Context, cfg OAuth2Config, acc
 // findOrCreateUser looks up the user by OAuth2 user ID (stored in OIDCSubject),
 // then by email, then by username. Auto-creates if not found and auto_provision is enabled.
 func (s *OAuth2Service) findOrCreateUser(ctx context.Context, cfg OAuth2Config, info *OAuth2UserInfo) (*model.User, error) {
-	oauth2Sub := "oauth2:" + info.UserID
+	ssoInfo := &SSOUserInfo{
+		Subject:     "oauth2:" + info.UserID,
+		Username:    info.Username,
+		DisplayName: info.DisplayName,
+		Email:       info.Email,
+		Source:      "oauth2",
+	}
 
-	// 1. Try by OIDC subject (we reuse the OIDCSubject field for OAuth2 too)
-	user, err := s.userRepo.GetByOIDCSubject(ctx, oauth2Sub)
+	user, err := LookupSSOUser(ctx, s.userRepo, ssoInfo)
 	if err == nil {
-		s.updateUserFromOAuth2(ctx, user, info)
+		if UpdateUserFromSSO(user, ssoInfo) {
+			if err := s.userRepo.Update(ctx, user); err != nil {
+				s.logger.Warn("failed to update user from OAuth2", zap.Uint("user_id", user.ID), zap.Error(err))
+			}
+		}
 		return user, nil
 	}
 	if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	// 2. Try by email
-	if info.Email != "" {
-		user, err = s.userRepo.GetByEmail(ctx, info.Email)
-		if err == nil {
-			user.OIDCSubject = oauth2Sub
-			s.updateUserFromOAuth2(ctx, user, info)
-			return user, nil
-		}
-		if err != gorm.ErrRecordNotFound {
-			return nil, err
-		}
-	}
-
-	// 3. Try by username
-	if info.Username != "" {
-		user, err = s.userRepo.GetByUsername(ctx, info.Username)
-		if err == nil {
-			user.OIDCSubject = oauth2Sub
-			s.updateUserFromOAuth2(ctx, user, info)
-			return user, nil
-		}
-		if err != gorm.ErrRecordNotFound {
-			return nil, err
-		}
-	}
-
-	// 4. Auto-provision
 	if !cfg.AutoProvision {
 		return nil, fmt.Errorf("oauth2: user not found and auto_provision is disabled")
 	}
 
 	defaultRole := model.Role(cfg.DefaultRole)
-	if !defaultRole.IsValid() {
-		defaultRole = model.RoleViewer
-	}
-
-	username := info.Username
-	if username == "" {
-		username = info.UserID
-	}
-
-	newUser := &model.User{
-		Username:    username,
-		Password:    "", // OAuth2 users don't have a local password
-		DisplayName: info.DisplayName,
-		Email:       info.Email,
-		Role:        defaultRole,
-		IsActive:    true,
-		UserType:    model.UserTypeHuman,
-		OIDCSubject: oauth2Sub,
-	}
-
-	if err := s.userRepo.Create(ctx, newUser); err != nil {
-		return nil, fmt.Errorf("oauth2: create user: %w", err)
-	}
-
-	s.logger.Info("auto-provisioned OAuth2 user",
-		zap.Uint("user_id", newUser.ID),
-		zap.String("username", newUser.Username),
-		zap.String("email", newUser.Email),
-		zap.String("role", string(newUser.Role)),
-	)
-
-	return newUser, nil
-}
-
-// updateUserFromOAuth2 updates user profile fields from OAuth2 claims.
-func (s *OAuth2Service) updateUserFromOAuth2(ctx context.Context, user *model.User, info *OAuth2UserInfo) {
-	changed := false
-	if info.DisplayName != "" && user.DisplayName != info.DisplayName {
-		user.DisplayName = info.DisplayName
-		changed = true
-	}
-	if info.Email != "" && user.Email != info.Email {
-		user.Email = info.Email
-		changed = true
-	}
-	if changed {
-		if err := s.userRepo.Update(ctx, user); err != nil {
-			s.logger.Warn("failed to update user from OAuth2",
-				zap.Uint("user_id", user.ID),
-				zap.Error(err),
-			)
-		}
-	}
+	return AutoCreateSSOUser(ctx, s.userRepo, ssoInfo, defaultRole, s.logger)
 }
 
 // Enabled returns whether OAuth2 is configured and active.

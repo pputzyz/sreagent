@@ -4,6 +4,15 @@
 
 ---
 
+## [v4.41.2] — 2026-05-26
+
+### 代码审查修复（续）
+
+- **SSO 助手提取**: 新增 `internal/service/sso_helper.go`，提取 `LookupSSOUser` + `AutoCreateSSOUser` + `UpdateUserFromSSO` 共享函数，消除 LDAP/OAuth2 重复的用户查找和创建逻辑
+- **字段解析去重**: 新增 `internal/engine/pipeline/processors/field_resolver.go`，提取 `resolveEventField` 共享函数，`logic_if` 和 `logic_switch` 处理器统一使用
+- **UserContactHandler**: 修复 variadic logger 参数为必选 `*zap.Logger`
+- **stream_bus.go**: 添加 `streamBusMaxConsecutiveErrors = 10` 连续错误上限，防止 Redis 永久下线时无限重试
+
 ## [v4.41.0] — 2026-05-26
 
 ### LDAP + OAuth2 SSO 集成（Nightingale 对齐）

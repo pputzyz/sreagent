@@ -146,31 +146,7 @@ func parseCondition(s string) (*conditionExpr, error) {
 
 // evaluateCondition evaluates a parsed condition against an alert event.
 func evaluateCondition(expr *conditionExpr, event *model.AlertEvent) bool {
-	var actual string
-
-	switch {
-	case expr.subject == "severity":
-		actual = string(event.Severity)
-	case strings.HasPrefix(expr.subject, "labels."):
-		key := strings.TrimPrefix(expr.subject, "labels.")
-		if event.Labels == nil {
-			actual = ""
-		} else {
-			actual = event.Labels[key]
-		}
-	case strings.HasPrefix(expr.subject, "annotations."):
-		key := strings.TrimPrefix(expr.subject, "annotations.")
-		if event.Annotations == nil {
-			actual = ""
-		} else {
-			actual = event.Annotations[key]
-		}
-	default:
-		// Try as a direct label key fallback
-		if event.Labels != nil {
-			actual = event.Labels[expr.subject]
-		}
-	}
+	actual := resolveEventField(expr.subject, event)
 
 	switch expr.op {
 	case "==":
