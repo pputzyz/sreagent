@@ -410,6 +410,8 @@ type LogQueryParams struct {
 	Start      time.Time
 	End        time.Time
 	Limit      int
+	Index      string // Elasticsearch index (required for ES)
+	DateField  string // Elasticsearch date field (default "@timestamp")
 }
 
 // QueryLogs executes a LogsQL query against a VictoriaLogs datasource and returns log entries.
@@ -419,31 +421,64 @@ func (s *DataSourceService) QueryLogs(ctx context.Context, dsID uint, params Log
 		return nil, apperr.ErrDSNotFound
 	}
 
-	if ds.Type != model.DSTypeVictoriaLogs {
-		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log query only supported for victorialogs datasources")
+	if ds.Type != model.DSTypeVictoriaLogs && ds.Type != model.DSTypeElasticsearch {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log query only supported for victorialogs and elasticsearch datasources")
 	}
 
 	authConfig := s.decryptAuthConfig(ds)
-	result, err := datasource.QueryLogs(ctx, ds.Endpoint, ds.AuthType, authConfig, datasource.QueryLogsParams{
-		Query: params.Expression,
-		Start: params.Start,
-		End:   params.End,
-		Limit: params.Limit,
-	})
-	if err != nil {
-		s.logger.Error("log query failed",
-			zap.String("datasource", ds.Name),
-			zap.String("expression", params.Expression),
-			zap.Error(err),
-		)
-		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
-	}
 
-	return &LogQueryResponse{
-		Entries:   result.Entries,
-		Total:     result.Total,
-		Truncated: result.Truncated,
-	}, nil
+	switch ds.Type {
+	case model.DSTypeVictoriaLogs:
+		result, err := datasource.QueryLogs(ctx, ds.Endpoint, ds.AuthType, authConfig, datasource.QueryLogsParams{
+			Query: params.Expression,
+			Start: params.Start,
+			End:   params.End,
+			Limit: params.Limit,
+		})
+		if err != nil {
+			s.logger.Error("log query failed",
+				zap.String("datasource", ds.Name),
+				zap.String("expression", params.Expression),
+				zap.Error(err),
+			)
+			return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+		}
+		return &LogQueryResponse{
+			Entries:   result.Entries,
+			Total:     result.Total,
+			Truncated: result.Truncated,
+		}, nil
+
+	case model.DSTypeElasticsearch:
+		if params.Index == "" {
+			return nil, apperr.WithMessage(apperr.ErrInvalidParam, "index is required for elasticsearch log queries")
+		}
+		result, err := datasource.ElasticsearchQueryLogs(ctx, ds.Endpoint, ds.AuthType, authConfig, datasource.ElasticsearchQueryLogsParams{
+			Index:     params.Index,
+			Query:     params.Expression,
+			DateField: params.DateField,
+			Start:     params.Start,
+			End:       params.End,
+			Limit:     params.Limit,
+		})
+		if err != nil {
+			s.logger.Error("elasticsearch log query failed",
+				zap.String("datasource", ds.Name),
+				zap.String("index", params.Index),
+				zap.String("expression", params.Expression),
+				zap.Error(err),
+			)
+			return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+		}
+		return &LogQueryResponse{
+			Entries:   result.Entries,
+			Total:     result.Total,
+			Truncated: result.Truncated,
+		}, nil
+
+	default:
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log query not supported for "+string(ds.Type))
+	}
 }
 
 // LogHistogramParams holds parameters for a log histogram query.
@@ -452,6 +487,8 @@ type LogHistogramParams struct {
 	Start      time.Time
 	End        time.Time
 	Step       string
+	Index      string // Elasticsearch index (required for ES)
+	DateField  string // Elasticsearch date field (default "@timestamp")
 }
 
 // LogHistogramBucket represents a single time bucket in the histogram.
@@ -473,26 +510,58 @@ func (s *DataSourceService) QueryLogHistogram(ctx context.Context, dsID uint, pa
 		return nil, apperr.ErrDSNotFound
 	}
 
-	if ds.Type != model.DSTypeVictoriaLogs {
-		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log histogram only supported for victorialogs datasources")
+	if ds.Type != model.DSTypeVictoriaLogs && ds.Type != model.DSTypeElasticsearch {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log histogram only supported for victorialogs and elasticsearch datasources")
 	}
 
 	authConfig := s.decryptAuthConfig(ds)
-	result, err := datasource.QueryLogHistogram(ctx, ds.Endpoint, ds.AuthType, authConfig, params.Expression, params.Start, params.End, params.Step)
-	if err != nil {
-		s.logger.Error("log histogram query failed",
-			zap.String("datasource", ds.Name),
-			zap.String("expression", params.Expression),
-			zap.Error(err),
-		)
-		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
-	}
 
-	buckets := make([]LogHistogramBucket, len(result.Buckets))
-	for i, b := range result.Buckets {
-		buckets[i] = LogHistogramBucket{Timestamp: b.Timestamp, Count: b.Count}
+	switch ds.Type {
+	case model.DSTypeVictoriaLogs:
+		result, err := datasource.QueryLogHistogram(ctx, ds.Endpoint, ds.AuthType, authConfig, params.Expression, params.Start, params.End, params.Step)
+		if err != nil {
+			s.logger.Error("log histogram query failed",
+				zap.String("datasource", ds.Name),
+				zap.String("expression", params.Expression),
+				zap.Error(err),
+			)
+			return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+		}
+		buckets := make([]LogHistogramBucket, len(result.Buckets))
+		for i, b := range result.Buckets {
+			buckets[i] = LogHistogramBucket{Timestamp: b.Timestamp, Count: b.Count}
+		}
+		return &LogHistogramResponse{Buckets: buckets, Total: result.Total}, nil
+
+	case model.DSTypeElasticsearch:
+		if params.Index == "" {
+			return nil, apperr.WithMessage(apperr.ErrInvalidParam, "index is required for elasticsearch log histogram")
+		}
+		result, err := datasource.ElasticsearchQueryHistogram(ctx, ds.Endpoint, ds.AuthType, authConfig, datasource.ElasticsearchQueryHistogramParams{
+			Index:     params.Index,
+			Query:     params.Expression,
+			DateField: params.DateField,
+			Start:     params.Start,
+			End:       params.End,
+			Step:      params.Step,
+		})
+		if err != nil {
+			s.logger.Error("elasticsearch log histogram failed",
+				zap.String("datasource", ds.Name),
+				zap.String("index", params.Index),
+				zap.Error(err),
+			)
+			return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+		}
+		buckets := make([]LogHistogramBucket, len(result.Buckets))
+		for i, b := range result.Buckets {
+			buckets[i] = LogHistogramBucket{Timestamp: b.Timestamp, Count: b.Count}
+		}
+		return &LogHistogramResponse{Buckets: buckets, Total: result.Total}, nil
+
+	default:
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log histogram not supported for "+string(ds.Type))
 	}
-	return &LogHistogramResponse{Buckets: buckets, Total: result.Total}, nil
 }
 
 // ProxyToDatasource proxies an HTTP GET request to the target datasource's API.

@@ -43,6 +43,8 @@ func NewChecker(dsType string) (HealthChecker, error) {
 		return &ZabbixChecker{}, nil
 	case "victorialogs":
 		return &VictoriaLogsChecker{}, nil
+	case "elasticsearch":
+		return &ElasticsearchChecker{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported datasource type: %s", dsType)
 	}

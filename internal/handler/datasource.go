@@ -378,6 +378,8 @@ func (h *DataSourceHandler) LogQuery(c *gin.Context) {
 		Start      float64 `json:"start" binding:"required"` // unix timestamp in seconds
 		End        float64 `json:"end" binding:"required"`   // unix timestamp in seconds
 		Limit      int     `json:"limit"`                    // max entries, default 100
+		Index      string  `json:"index"`                    // Elasticsearch index
+		DateField  string  `json:"date_field"`               // Elasticsearch date field
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
@@ -392,6 +394,8 @@ func (h *DataSourceHandler) LogQuery(c *gin.Context) {
 		Start:      start,
 		End:        end,
 		Limit:      req.Limit,
+		Index:      req.Index,
+		DateField:  req.DateField,
 	})
 	if err != nil {
 		Error(c, err)
@@ -413,7 +417,9 @@ func (h *DataSourceHandler) LogHistogram(c *gin.Context) {
 		Expression string  `json:"expression" binding:"required"`
 		Start      float64 `json:"start" binding:"required"`
 		End        float64 `json:"end" binding:"required"`
-		Step       string  `json:"step"` // e.g. "1m", "5m", "1h"
+		Step       string  `json:"step"`        // e.g. "1m", "5m", "1h"
+		Index      string  `json:"index"`       // Elasticsearch index
+		DateField  string  `json:"date_field"`  // Elasticsearch date field
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
@@ -443,6 +449,8 @@ func (h *DataSourceHandler) LogHistogram(c *gin.Context) {
 		Start:      start,
 		End:        end,
 		Step:       req.Step,
+		Index:      req.Index,
+		DateField:  req.DateField,
 	})
 	if err != nil {
 		Error(c, err)

@@ -10,6 +10,7 @@ const (
 	DSTypeVictoriaMetrics DataSourceType = "victoriametrics"
 	DSTypeZabbix          DataSourceType = "zabbix"
 	DSTypeVictoriaLogs    DataSourceType = "victorialogs"
+	DSTypeElasticsearch   DataSourceType = "elasticsearch"
 )
 
 // DataSourceStatus defines the health status of a data source.
