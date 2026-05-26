@@ -4,6 +4,13 @@
 
 ---
 
+## [v4.41.6] — 2026-05-26
+
+### 验证码修复
+
+- **字段名不匹配**: 后端返回 `image`，前端期望 `captcha_image`，修正前端 API 类型和读取字段
+- **SVG 未 base64 编码**: 后端拼接 `data:image/svg+xml;base64,` 前缀但未实际编码，补上 `base64.StdEncoding.EncodeToString`
+
 ## [v4.41.5] — 2026-05-26
 
 ### 迁移文件去重

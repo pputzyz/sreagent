@@ -54,7 +54,7 @@ async function fetchCaptcha() {
   try {
     const { data } = await authApi.getCaptcha()
     captchaId.value = data.data.captcha_id
-    captchaImage.value = data.data.captcha_image
+    captchaImage.value = data.data.image
     captchaRequired.value = true
     captchaInput.value = ''
   } catch {

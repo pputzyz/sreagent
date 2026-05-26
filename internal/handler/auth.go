@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -143,7 +144,7 @@ func (h *AuthHandler) Captcha(c *gin.Context) {
 
 	Success(c, gin.H{
 		"captcha_id": captchaID,
-		"image":      "data:image/svg+xml;base64," + svg,
+		"image":      "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(svg)),
 	})
 }
 

@@ -175,7 +175,7 @@ export const authApi = {
     request.get<ApiResponse<{ enabled: boolean; name?: string; login_url?: string }>>('/auth/oauth2/config'),
 
   getCaptcha: () =>
-    request.get<ApiResponse<{ captcha_id: string; captcha_image: string }>>('/auth/captcha'),
+    request.get<ApiResponse<{ captcha_id: string; image: string }>>('/auth/captcha'),
 
   getPreferences: () =>
     request.get<ApiResponse<UserPreferences>>('/me/preferences'),
