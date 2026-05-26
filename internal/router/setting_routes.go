@@ -122,6 +122,18 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		}
 	}
 
+	// Status Page email subscriptions (状态页邮件订阅)
+	if h.StatusSubscription != nil {
+		statusSub := auth.Group("/status-subscriptions")
+		{
+			statusSub.POST("", h.StatusSubscription.Subscribe)
+			statusSub.DELETE("", h.StatusSubscription.Unsubscribe)
+			statusSub.GET("", adminOnly, h.StatusSubscription.List)
+		}
+		// Public endpoint for unauthenticated unsubscribe
+		// Registered separately in Setup() if needed
+	}
+
 	// Notification Center (通知中心)
 	if h.UserNotification != nil {
 		notif := auth.Group("/notifications")

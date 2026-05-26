@@ -28,7 +28,7 @@ func setupAlertChannelTest(t *testing.T) (*handler.AlertChannelHandler, *gin.Eng
 	logger := testutil.TestLogger()
 	channelRepo := repository.NewAlertChannelRepository(db)
 	mediaRepo := repository.NewNotifyMediaRepository(db)
-	svc := service.NewAlertChannelService(channelRepo, mediaRepo, logger)
+	svc := service.NewAlertChannelService(channelRepo, mediaRepo, nil, logger)
 	h := handler.NewAlertChannelHandler(svc)
 
 	gin.SetMode(gin.TestMode)

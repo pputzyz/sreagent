@@ -4,6 +4,42 @@
 
 ---
 
+## [v4.41.8] — 2026-05-26
+
+### 全面功能修复与质量把关
+
+**权限系统修复：**
+- `loadPermissions()` 在登录后从未调用，导致所有权限控制按钮（录制规则、RBAC 相关）不显示 → 在 `fetchProfile()` 中补上 `loadPermissions()` 调用
+
+**菜单结构重构：**
+- 通知管理（集成、模板、订阅、渠道）从 Alert 模块移至 Oncall 配置中心
+- 4 个孤立页面（ES Patterns、Event Pipelines、Builtin Metrics、Builtin Dashboards）加入 Alert 数据区
+- 侧边栏菜单组改为可折叠（`type: 'submenu'`）
+
+**结构化编辑器替换原始 JSON：**
+- `notification/Rules.vue`: `notify_configs` 和 `pipeline` 字段从 JSON textarea 改为下拉选择 + 结构化表单
+- `integrations/RoutingRules.vue`: `conditions` 字段从 JSON textarea 改为字段/操作符/值的条件构建器
+
+**后端 stub 修复：**
+- 告警渠道测试：从空操作改为真正调用 `NotifyMediaService.SendNotification()` 发送测试消息
+- 巡检通知：`lark_bot` 和 `webhook` 渠道从日志占位改为真实发送（飞书 API + HTTP POST）
+- `InspectionScheduler` 新增 `LarkBotService` 依赖注入
+
+**状态页邮件订阅：**
+- 新增 `status_subscriptions` 表（迁移: 000090）
+- 新增 model → repository → handler → route 完整链路
+- 前端 `StatusPage.vue` 从 `setTimeout` 假实现改为调用真实 API
+
+**响应式修复：**
+- `SecurityConfig.vue`: `form` 从普通对象改为 `reactive()`，修复设置不生效
+
+**i18n：**
+- 更新 `demoNotice` 文案（不再是"演示功能"）
+
+**迁移文件：** 000090_status_subscriptions
+
+---
+
 ## [v4.41.7] — 2026-05-26
 
 ### 前端全面审查修复

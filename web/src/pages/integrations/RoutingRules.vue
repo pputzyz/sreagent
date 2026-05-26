@@ -3,7 +3,7 @@
  * RoutingRules.vue — 共享集成的路由规则配置面板
  * 按优先级从上到下匹配，命中即停，未命中则丢弃（或可配置默认空间）
  */
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, onMounted, h, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NSpace, NTag, NPopconfirm, NSwitch } from 'naive-ui'
 import { channelV2Api, routingRuleApi } from '@/api'
@@ -35,6 +35,63 @@ const channelOptions = computed(() =>
   channels.value.map(c => ({ label: c.name, value: c.id }))
 )
 
+// --- Structured condition editor ---
+interface ConditionItem {
+  field: string
+  operator: string
+  value: string
+}
+
+const conditionItems = ref<ConditionItem[]>([])
+
+const fieldOptions = [
+  { label: 'severity', value: 'severity' },
+  { label: 'status', value: 'status' },
+  { label: 'rule_name', value: 'rule_name' },
+  { label: 'datasource_id', value: 'datasource_id' },
+  { label: 'tags', value: 'tags' },
+]
+
+const operatorOptions = [
+  { label: '= (等于)', value: 'eq' },
+  { label: '!= (不等于)', value: 'ne' },
+  { label: '=~ (正则匹配)', value: 'regex' },
+  { label: '!~ (正则不匹配)', value: 'not_regex' },
+  { label: 'in (包含)', value: 'in' },
+]
+
+function parseConditions(json: string): ConditionItem[] {
+  try {
+    const arr = JSON.parse(json || '[]')
+    if (!Array.isArray(arr)) return []
+    return arr.map((c: Record<string, string>) => ({
+      field: c.field || '',
+      operator: c.operator || 'eq',
+      value: c.value || '',
+    }))
+  } catch { return [] }
+}
+
+function serializeConditions(items: ConditionItem[]): string {
+  return JSON.stringify(items.filter(c => c.field && c.value).map(c => ({
+    field: c.field,
+    operator: c.operator,
+    value: c.value,
+  })))
+}
+
+function addCondition() {
+  conditionItems.value.push({ field: '', operator: 'eq', value: '' })
+}
+
+function removeCondition(idx: number) {
+  conditionItems.value.splice(idx, 1)
+}
+
+watch(conditionItems, (items) => {
+  form.value.conditions = serializeConditions(items)
+}, { deep: true })
+
 async function load() {
   loading.value = true
   try {
@@ -54,6 +111,7 @@ async function load() {
 function openCreate() {
   editingId.value = null
   form.value = emptyForm()
+  conditionItems.value = []
   showModal.value = true
 }
 
@@ -65,6 +123,7 @@ function openEdit(rule: RoutingRule) {
     priority: rule.priority,
     is_enabled: rule.is_enabled,
   }
+  conditionItems.value = parseConditions(form.value.conditions)
   showModal.value = true
 }
 
@@ -258,18 +317,33 @@ onMounted(load)
           <n-input-number v-model:value="form.priority" :min="0" :max="9999" class="rr-input-full" />
         </n-form-item>
         <n-form-item :label="t('routingRule.conditionsLabel')">
-          <n-input
-            v-model:value="form.conditions"
-            type="textarea"
-            :rows="4"
-            :placeholder="t('routingRule.conditionsPlaceholder')"
-            class="rr-conditions-input"
-          />
-          <template #feedback>
-            <span class="rr-conditions-hint">
-              {{ t('routingRule.conditionsHint') }}
-            </span>
-          </template>
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+            <div v-for="(cond, idx) in conditionItems" :key="idx" style="display: flex; align-items: center; gap: 8px;">
+              <n-select
+                v-model:value="cond.field"
+                :options="fieldOptions"
+                :placeholder="t('routingRule.fieldPlaceholder')"
+                filterable
+                style="flex: 1"
+              />
+              <n-select
+                v-model:value="cond.operator"
+                :options="operatorOptions"
+                style="width: 160px"
+              />
+              <n-input
+                v-model:value="cond.value"
+                :placeholder="t('routingRule.valuePlaceholder')"
+                style="flex: 1"
+              />
+              <button class="sre-icon-btn" style="color: var(--sre-danger)" @click="removeCondition(idx)" :aria-label="t('common.delete')">
+                <span class="sre-dots">&times;</span>
+              </button>
+            </div>
+            <n-button dashed size="small" @click="addCondition" style="align-self: flex-start">
+              {{ t('routingRule.addCondition') }}
+            </n-button>
+          </div>
         </n-form-item>
         <n-form-item :label="t('routingRule.enabled')">
           <n-switch v-model:value="form.is_enabled" />

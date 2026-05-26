@@ -45,6 +45,7 @@ export {
   smtpSettingsApi,
   securitySettingsApi,
   statusServiceApi,
+  statusSubscriptionApi,
 } from './admin'
 export type { StatusServiceItem, AgentTask, AgentStep } from './admin'
 

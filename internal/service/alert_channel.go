@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 type AlertChannelService struct {
 	repo      *repository.AlertChannelRepository
 	mediaRepo *repository.NotifyMediaRepository
+	mediaSvc  *NotifyMediaService
 	logger    *zap.Logger
 }
 
@@ -24,9 +26,10 @@ type AlertChannelService struct {
 func NewAlertChannelService(
 	repo *repository.AlertChannelRepository,
 	mediaRepo *repository.NotifyMediaRepository,
+	mediaSvc *NotifyMediaService,
 	logger *zap.Logger,
 ) *AlertChannelService {
-	return &AlertChannelService{repo: repo, mediaRepo: mediaRepo, logger: logger}
+	return &AlertChannelService{repo: repo, mediaRepo: mediaRepo, mediaSvc: mediaSvc, logger: logger}
 }
 
 // Create creates a new alert channel.
@@ -110,6 +113,24 @@ func (s *AlertChannelService) TestChannel(ctx context.Context, id uint) error {
 
 	if !media.IsEnabled {
 		return apperr.WithMessage(apperr.ErrBadRequest, "associated notify media is disabled")
+	}
+
+	// Send a real test notification through the media service
+	testContent := fmt.Sprintf("[SREAgent Test] Channel '%s' test notification at %s",
+		ch.Name, time.Now().Format("2006-01-02 15:04:05"))
+
+	testData := &TemplateData{
+		AlertName: "ChannelTest",
+		Severity:  "info",
+		Status:    "firing",
+		Labels:    map[string]string{"test": "true", "channel": ch.Name},
+		FiredAt:   time.Now(),
+		EventID:   0,
+		Source:    "sreagent-channel-test",
+	}
+
+	if err := s.mediaSvc.SendNotification(ctx, media, testContent, testData); err != nil {
+		return apperr.WithMessage(apperr.ErrExternalAPI, fmt.Sprintf("test notification failed: %v", err))
 	}
 
 	s.logger.Info("alert channel test passed",

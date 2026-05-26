@@ -261,11 +261,13 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	postMortemSvc := service.NewPostMortemService(postMortemRepo, incidentRepo, zapLogger)
 
 	// Dispatch services
-	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, zapLogger)
+	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, notifyMediaSvc, zapLogger)
 	userNotifyConfigSvc := service.NewUserNotifyConfigService(userNotifyConfigRepo, zapLogger)
 
 	// Status service
 	statusServiceSvc := service.NewStatusServiceService(statusServiceRepo, zapLogger)
+	statusSubRepo := repository.NewStatusSubscriptionRepository(db)
+	statusSubHandler := handler.NewStatusSubscriptionHandler(statusSubRepo, zapLogger)
 
 	// Chat history service
 	chatHistorySvc := service.NewChatHistoryService(chatHistoryRepo)
@@ -624,7 +626,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	recordingRuleEngine.Start(appCtx)
 
 	// Inspection scheduler (created after engine block so d.Leader is set)
-	inspectionSched := service.NewInspectionScheduler(inspectionRepo, inspectionExecutor, d.Leader, zapLogger)
+	inspectionSched := service.NewInspectionScheduler(inspectionRepo, inspectionExecutor, d.Leader, larkBotSvc, zapLogger)
 
 	// --------------- AI 工具注册表 ---------------
 	toolRegistry := service.NewAIToolRegistry(zapLogger)
@@ -727,6 +729,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Task:                handler.NewTaskHandler(taskExecutor, taskRecordRepo, zapLogger),
 		UserContact:         handler.NewUserContactHandler(userContactSvc, zapLogger),
 		BuiltinDashboard:    handler.NewBuiltinDashboardHandler(builtinDashboardSvc),
+		StatusSubscription:  statusSubHandler,
 	}
 
 	// Inject audit service into handlers that support it

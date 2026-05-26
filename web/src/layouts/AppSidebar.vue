@@ -55,8 +55,9 @@ const menuOptions = computed<MenuOption[]>(() => {
 
     if (section.label) {
       result.push({
-        type: 'group',
+        type: 'submenu',
         label: section.label,
+        key: `section-${section.label}`,
         children: visibleItems,
       })
     } else {
@@ -217,6 +218,32 @@ function handleMenuUpdate(key: string) {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 12px 12px 4px;
+}
+
+/* Submenu (collapsible groups) */
+.sidebar-nav :deep(.n-submenu) {
+  margin-bottom: 2px;
+}
+
+.sidebar-nav :deep(.n-submenu-children) {
+  padding-left: 0;
+}
+
+.sidebar-nav :deep(.n-submenu > .n-menu-item-content) {
+  font-family: var(--sre-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sre-text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 12px 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar-nav :deep(.n-submenu > .n-menu-item-content:hover) {
+  color: var(--sre-text-secondary);
+  background: transparent;
 }
 
 /* Sidebar header */

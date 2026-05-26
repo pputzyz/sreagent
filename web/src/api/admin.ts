@@ -361,3 +361,14 @@ export const statusServiceApi = {
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/status-services/${id}`),
 }
+
+export const statusSubscriptionApi = {
+  subscribe: (email: string) =>
+    request.post<ApiResponse<{ message: string }>>('/status-subscriptions', { email }),
+
+  unsubscribe: (email: string) =>
+    request.delete<ApiResponse<{ message: string }>>(`/status-subscriptions?email=${encodeURIComponent(email)}`),
+
+  list: () =>
+    request.get<ApiResponse<Array<{ id: number; email: string; is_active: boolean; created_at: string }>>>('/status-subscriptions'),
+}

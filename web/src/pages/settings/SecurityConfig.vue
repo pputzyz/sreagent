@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { NButton, NIcon, NSpin, NForm, NFormItem, NSelect } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -12,7 +12,7 @@ const { t } = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
-const form = { jwt_expire_seconds: 3600 }
+const form = reactive({ jwt_expire_seconds: 3600 })
 
 const expireOptions = computed(() => [
   { label: t('settings.jwtExpire1h'), value: 3600 },

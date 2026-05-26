@@ -3,7 +3,7 @@ import { ref, computed, onMounted, reactive, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NSpin, NModal, NForm, NFormItem, NSelect, NInputNumber, NPopconfirm } from 'naive-ui'
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server, Settings, Plus, Pencil, Trash2 } from 'lucide-vue-next'
-import { statusServiceApi, type StatusServiceItem } from '@/api'
+import { statusServiceApi, statusSubscriptionApi, type StatusServiceItem } from '@/api'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 
@@ -68,17 +68,21 @@ onMounted(async () => {
 
 const allOperational = computed(() => services.value.length > 0 && services.value.every(s => s.status === 'operational'))
 
-function handleNotify() {
+async function handleNotify() {
   if (!email.value || !email.value.includes('@')) {
     message.warning(t('statusPageModule.invalidEmail'))
     return
   }
   submitting.value = true
-  setTimeout(() => {
-    submitting.value = false
+  try {
+    await statusSubscriptionApi.subscribe(email.value)
     email.value = ''
-    message.info(t('statusPageModule.demoNotice'))
-  }, 800)
+    message.success(t('statusPageModule.notifySuccess'))
+  } catch {
+    message.error(t('common.saveFailed'))
+  } finally {
+    submitting.value = false
+  }
 }
 
 function getIcon(iconName: string) {

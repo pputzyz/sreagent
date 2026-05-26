@@ -1,9 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -21,10 +23,11 @@ type LeaderChecker interface {
 
 // InspectionScheduler 管理巡检任务的定时调度
 type InspectionScheduler struct {
-	taskRepo  *repository.InspectionRepository
-	executor  *InspectionExecutor
-	leader    LeaderChecker
-	logger    *zap.Logger
+	taskRepo *repository.InspectionRepository
+	executor *InspectionExecutor
+	leader   LeaderChecker
+	larkSvc  *LarkBotService
+	logger   *zap.Logger
 
 	cron    *cron.Cron
 	mu      sync.Mutex
@@ -36,15 +39,17 @@ func NewInspectionScheduler(
 	taskRepo *repository.InspectionRepository,
 	executor *InspectionExecutor,
 	leader LeaderChecker,
+	larkSvc *LarkBotService,
 	logger *zap.Logger,
 ) *InspectionScheduler {
 	return &InspectionScheduler{
-		taskRepo:  taskRepo,
-		executor:  executor,
-		leader:    leader,
-		logger:    logger,
-		cron:      cron.New(cron.WithSeconds()),
-		entries:   make(map[uint]cron.EntryID),
+		taskRepo: taskRepo,
+		executor: executor,
+		leader:   leader,
+		larkSvc:  larkSvc,
+		logger:   logger,
+		cron:     cron.New(cron.WithSeconds()),
+		entries:  make(map[uint]cron.EntryID),
 	}
 }
 
@@ -170,20 +175,48 @@ func (s *InspectionScheduler) notifyResult(task *model.InspectionTask, run *mode
 		return
 	}
 
+	summary := fmt.Sprintf("[巡检] %s\n状态: %s\n%s", task.Name, run.Status, run.ReportSummary)
+
 	for _, ch := range channels {
 		switch ch.Type {
 		case "lark_bot":
-			// TODO: 发送飞书卡片消息（Phase 2 — 与 LarkBotService 集成）
-			s.logger.Info("巡检结果通知（飞书）",
-				zap.Uint("task_id", task.ID),
-				zap.String("bot_id", ch.BotID),
-				zap.String("summary", run.ReportSummary),
-			)
+			if s.larkSvc == nil {
+				s.logger.Warn("飞书服务未配置，跳过通知", zap.Uint("task_id", task.ID))
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			err := s.larkSvc.SendMessage(ctx, ch.BotID, summary)
+			cancel()
+			if err != nil {
+				s.logger.Error("巡检结果飞书通知失败", zap.Uint("task_id", task.ID), zap.Error(err))
+			} else {
+				s.logger.Info("巡检结果飞书通知已发送", zap.Uint("task_id", task.ID))
+			}
 		case "webhook":
-			s.logger.Info("巡检结果通知（Webhook）",
-				zap.Uint("task_id", task.ID),
-				zap.String("url", ch.URL),
-			)
+			if ch.URL == "" {
+				s.logger.Warn("webhook URL 为空，跳过通知", zap.Uint("task_id", task.ID))
+				continue
+			}
+			payload := map[string]interface{}{
+				"task_id":   task.ID,
+				"task_name": task.Name,
+				"status":    run.Status,
+				"summary":   run.ReportSummary,
+				"started_at": run.StartedAt,
+				"finished_at": run.FinishedAt,
+			}
+			body, _ := json.Marshal(payload)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			req, _ := http.NewRequestWithContext(ctx, http.MethodPost, ch.URL, bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := http.DefaultClient.Do(req)
+			cancel()
+			if err != nil {
+				s.logger.Error("巡检结果 webhook 通知失败", zap.Uint("task_id", task.ID), zap.Error(err))
+			} else {
+				resp.Body.Close()
+				s.logger.Info("巡检结果 webhook 通知已发送", zap.Uint("task_id", task.ID), zap.Int("status", resp.StatusCode))
+			}
 		default:
 			s.logger.Warn("未知的输出渠道类型", zap.String("type", ch.Type))
 		}

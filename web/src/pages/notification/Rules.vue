@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, h, type Ref } from 'vue'
+import { ref, shallowRef, computed, onMounted, h, watch, type Ref } from 'vue'
 import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyRuleApi, notifyMediaApi } from '@/api'
@@ -101,6 +101,103 @@ const severityOptions = computed(() => [
   { label: t('alert.warning'), value: 'warning' },
   { label: t('alert.info'), value: 'info' },
 ])
+
+// --- Structured editors for notify_configs and pipeline ---
+const allMediaOptions = ref<Array<{ label: string; value: number; type: string }>>([])
+
+interface NotifyConfigItem {
+  media_id: number | null
+  type: string
+}
+
+interface PipelineItem {
+  pipeline_id: number | null
+}
+
+const notifyConfigItems = ref<NotifyConfigItem[]>([])
+const pipelineItems = ref<PipelineItem[]>([])
+
+async function loadMediaOptions() {
+  try {
+    const res = await notifyMediaApi.list({ page: 1, page_size: 500 })
+    allMediaOptions.value = (res.data.data.list || []).map((m: NotifyMedia) => ({
+      label: m.name,
+      value: m.id,
+      type: m.type,
+    }))
+  } catch { /* ignore */ }
+}
+
+function parseNotifyConfigs(json: string): NotifyConfigItem[] {
+  try {
+    const arr = JSON.parse(json || '[]')
+    if (!Array.isArray(arr)) return []
+    return arr.map((c: Record<string, unknown>) => ({
+      media_id: (c.media_id as number) || null,
+      type: (c.type as string) || '',
+    }))
+  } catch { return [] }
+}
+
+function serializeNotifyConfigs(items: NotifyConfigItem[]): string {
+  return JSON.stringify(items.filter(c => c.media_id != null).map(c => {
+    const opt = allMediaOptions.value.find(m => m.value === c.media_id)
+    return { media_id: c.media_id, type: opt?.type || c.type }
+  }))
+}
+
+function parsePipeline(json: string): PipelineItem[] {
+  try {
+    const arr = JSON.parse(json || '[]')
+    if (!Array.isArray(arr)) return []
+    return arr.map((p: Record<string, unknown>) => ({
+      pipeline_id: (p.pipeline_id as number) || (typeof p === 'number' ? p as number : null),
+    }))
+  } catch { return [] }
+}
+
+function serializePipeline(items: PipelineItem[]): string {
+  return JSON.stringify(items.filter(p => p.pipeline_id != null).map(p => ({ pipeline_id: p.pipeline_id })))
+}
+
+function addNotifyConfig() {
+  notifyConfigItems.value.push({ media_id: null, type: '' })
+}
+
+function removeNotifyConfig(idx: number) {
+  notifyConfigItems.value.splice(idx, 1)
+}
+
+function onMediaSelect(idx: number, mediaId: number) {
+  const opt = allMediaOptions.value.find(m => m.value === mediaId)
+  if (opt) notifyConfigItems.value[idx].type = opt.type
+}
+
+function addPipeline() {
+  pipelineItems.value.push({ pipeline_id: null })
+}
+
+function removePipeline(idx: number) {
+  pipelineItems.value.splice(idx, 1)
+}
+
+// Sync structured items back to form JSON strings
+watch(notifyConfigItems, (items) => {
+  form.value.notify_configs = serializeNotifyConfigs(items)
+}, { deep: true })
+
+watch(pipelineItems, (items) => {
+  form.value.pipeline = serializePipeline(items)
+}, { deep: true })
+
+// Load media options on mount and parse form when modal opens
+watch(showModal, (open) => {
+  if (open) {
+    loadMediaOptions()
+    notifyConfigItems.value = parseNotifyConfigs(form.value.notify_configs)
+    pipelineItems.value = parsePipeline(form.value.pipeline)
+  }
+})
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -303,16 +400,46 @@ onMounted(fetchList)
           <LabelMatcherEditor v-model:modelValue="form.match_labels" :add-label="t('notifyRule.addLabel')" />
         </n-form-item>
 
-        <n-form-item :label="t('notifyRule.pipeline')">
-          <n-input v-model:value="form.pipeline" type="textarea" :rows="4"
-            :placeholder="t('notifyRule.pipelineHint')"
-            style="font-family: var(--sre-font-mono); font-size: 12px" />
+        <n-form-item :label="t('notifyRule.notifyConfigs')">
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+            <div v-for="(item, idx) in notifyConfigItems" :key="idx" style="display: flex; align-items: center; gap: 8px;">
+              <n-select
+                :value="item.media_id"
+                :options="allMediaOptions"
+                :placeholder="t('notifyRule.selectMedia')"
+                filterable
+                style="flex: 1"
+                @update:value="(v: number) => { notifyConfigItems[idx].media_id = v; onMediaSelect(idx, v) }"
+              />
+              <n-tag v-if="item.type" size="small" :bordered="false">{{ item.type }}</n-tag>
+              <button class="sre-icon-btn" style="color: var(--sre-danger)" @click="removeNotifyConfig(idx)" :aria-label="t('common.delete')">
+                <span class="sre-dots">&times;</span>
+              </button>
+            </div>
+            <n-button dashed size="small" @click="addNotifyConfig" style="align-self: flex-start">
+              {{ t('notifyRule.addMedia') }}
+            </n-button>
+          </div>
         </n-form-item>
 
-        <n-form-item :label="t('notifyRule.notifyConfigs')">
-          <n-input v-model:value="form.notify_configs" type="textarea" :rows="4"
-            :placeholder="t('notifyRule.notifyConfigsHint')"
-            style="font-family: var(--sre-font-mono); font-size: 12px" />
+        <n-form-item :label="t('notifyRule.pipeline')">
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+            <div v-for="(item, idx) in pipelineItems" :key="idx" style="display: flex; align-items: center; gap: 8px;">
+              <n-input-number
+                :value="item.pipeline_id"
+                :placeholder="t('notifyRule.pipelineIdPlaceholder')"
+                :min="1"
+                style="flex: 1"
+                @update:value="(v: number | null) => pipelineItems[idx].pipeline_id = v"
+              />
+              <button class="sre-icon-btn" style="color: var(--sre-danger)" @click="removePipeline(idx)" :aria-label="t('common.delete')">
+                <span class="sre-dots">&times;</span>
+              </button>
+            </div>
+            <n-button dashed size="small" @click="addPipeline" style="align-self: flex-start">
+              {{ t('notifyRule.addPipeline') }}
+            </n-button>
+          </div>
         </n-form-item>
 
         <n-grid :x-gap="12" :cols="2">

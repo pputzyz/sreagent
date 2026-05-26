@@ -5,7 +5,7 @@ import { getErrorMessage } from '@/utils/format'
 import { resetCommandPalette } from '@/composables/useCommandPalette'
 import { resetAIModule } from '@/composables/useAIModule'
 import { resetAIChat } from '@/composables/useAIChat'
-import { resetPermissions } from '@/composables/usePermissions'
+import { resetPermissions, usePermissions } from '@/composables/usePermissions'
 import type { User } from '@/types'
 
 interface LoginPayload {
@@ -56,6 +56,9 @@ export const useAuthStore = defineStore('auth', () => {
       if (data.data?.role) {
         localStorage.setItem('user_role', data.data.role)
       }
+      // Load RBAC permissions after profile is fetched
+      const { loadPermissions } = usePermissions()
+      await loadPermissions()
     } catch (err: unknown) {
       // Only logout on 401 (invalid/expired token), not on network/5xx errors.
       // The request interceptor already attempted token refresh; if it still

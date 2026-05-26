@@ -19,7 +19,7 @@ func setupAlertChannelService(t *testing.T) (*service.AlertChannelService, *gorm
 	testutil.CleanupDB(t, db)
 	repo := repository.NewAlertChannelRepository(db)
 	mediaRepo := repository.NewNotifyMediaRepository(db)
-	svc := service.NewAlertChannelService(repo, mediaRepo, testutil.TestLogger())
+	svc := service.NewAlertChannelService(repo, mediaRepo, nil, testutil.TestLogger())
 	return svc, db
 }
 
