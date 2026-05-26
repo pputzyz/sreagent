@@ -251,6 +251,7 @@ export function useAppNav() {
               { label: t('menu.datasources'), key: '/alert/datasources', icon: ServerOutline },
               { label: t('menu.dataQuery'),   key: '/alert/explore', icon: SearchOutline },
               { label: t('menu.metricViews'), key: '/alert/metric-views', icon: StatsChartOutline },
+              { label: t('menu.esExplorer'), key: '/alert/es-explore', icon: SearchOutline },
               { label: t('menu.dashboard'),   key: '/alert/dashboards', icon: PieChartOutline },
             ],
           },

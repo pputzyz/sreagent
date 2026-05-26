@@ -54,6 +54,7 @@
   --sre-ds-victoriametrics: #1a7f37;
   --sre-ds-victorialogs:    #0550ae;
   --sre-ds-zabbix:          #d32f2f;
+  --sre-ds-elasticsearch:   #FEC514;
 
   /* --- Integration type accents --- */
   --sre-integ-alertmanager: #e6522c;

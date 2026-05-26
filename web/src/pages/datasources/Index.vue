@@ -155,6 +155,7 @@ const typeOptions = [
   { label: () => t('datasource.typeVictoriaMetrics'), value: 'victoriametrics' },
   { label: () => t('datasource.typeVictoriaLogs'), value: 'victorialogs' },
   { label: () => t('datasource.typeZabbix'), value: 'zabbix' },
+  { label: () => t('datasource.typeElasticsearch'), value: 'elasticsearch' },
 ]
 
 const authTypeOptions = [
@@ -230,6 +231,7 @@ function typeLabel(type: string) {
     victoriametrics: t('datasource.typeVictoriaMetrics'),
     victorialogs: t('datasource.typeVictoriaLogs'),
     zabbix: t('datasource.typeZabbix'),
+    elasticsearch: t('datasource.typeElasticsearch'),
   }
   return m[type] || type
 }
@@ -272,6 +274,7 @@ onMounted(fetchList)
         <NRadioButton value="victoriametrics">{{ t('datasource.typeVictoriaMetrics') }}</NRadioButton>
         <NRadioButton value="victorialogs">{{ t('datasource.typeVictoriaLogs') }}</NRadioButton>
         <NRadioButton value="zabbix">{{ t('datasource.typeZabbix') }}</NRadioButton>
+        <NRadioButton value="elasticsearch">{{ t('datasource.typeElasticsearch') }}</NRadioButton>
       </NRadioGroup>
       <NInput v-model:value="search" :placeholder="t('common.search')" clearable size="small" class="ds-search">
         <template #prefix><NIcon :component="SearchOutline" /></template>
@@ -499,6 +502,7 @@ onMounted(fetchList)
 .ds-stripe[data-type="victoriametrics"] { background: var(--sre-ds-victoriametrics); }
 .ds-stripe[data-type="victorialogs"]    { background: var(--sre-ds-victorialogs); }
 .ds-stripe[data-type="zabbix"]          { background: var(--sre-ds-zabbix); }
+.ds-stripe[data-type="elasticsearch"]   { background: var(--sre-ds-elasticsearch); }
 
 .ds-status {
   display: flex;

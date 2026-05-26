@@ -48,7 +48,7 @@ export const datasourceApi = {
   metricNames: (id: number, search?: string, limit = 100) =>
     request.get<ApiResponse<string[]>>(`/datasources/${id}/metrics`, { params: { search, limit } }),
 
-  logQuery: (id: number, data: { expression: string; start: number; end: number; limit?: number }) =>
+  logQuery: (id: number, data: { expression: string; start: number; end: number; limit?: number; index?: string; query_string?: string; date_field?: string }) =>
     request.post<ApiResponse<{ entries: LogEntry[]; total: number; truncated: boolean }>>(`/datasources/${id}/log-query`, data),
 
   logHistogram: (id: number, data: { expression: string; start: number; end: number; step?: string }) =>
