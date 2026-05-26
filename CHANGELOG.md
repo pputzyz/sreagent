@@ -6,9 +6,9 @@
 
 ## [v4.34.0] — 2026-05-26
 
-### Elasticsearch 数据源支持
+### Elasticsearch 数据源支持 — Nightingale 功能移植 #6
 
-**新增功能**:
+**后端**:
 - 新增 `DSTypeElasticsearch` 数据源类型常量
 - 完整的 Elasticsearch 数据源客户端：健康检查（连接性 + 版本提取 + 搜索 API 探测）
 - 日志查询：通过 `_msearch` API 支持 Lucene 语法查询、分页、时间范围过滤
@@ -17,6 +17,16 @@
 - 字段发现：`_mapping` API 递归提取字段名和类型
 - 服务层按 `ds.Type` 分发到 ES 或 VictoriaLogs
 - Handler 层新增 `index` 和 `date_field` 可选参数
+
+**前端**:
+- 新增 ES 日志探索页面（`ESExplorer.vue`）：索引选择、日期字段选择、Lucene 查询输入
+- 字段侧边栏：已选/可用字段切换、Top-N 值弹窗
+- ECharts 日志直方图（延迟加载）
+- 服务端分页结果表 + 动态列
+- 过滤标签（is/is not）+ 时间范围预设
+- 数据源管理页面新增 ES 类型选项和标签
+- 侧边栏菜单新增"ES 日志探索"入口
+- i18n：30+ 新增翻译键
 
 ---
 
