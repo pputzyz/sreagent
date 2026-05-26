@@ -230,7 +230,7 @@ func (h *AISkillHandler) Import(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	userID := GetCurrentUserID(c)
 	userStr := strconv.FormatUint(uint64(userID), 10)
@@ -299,7 +299,7 @@ func parseZipArchive(r io.ReaderAt, size int64) (*model.AISkill, []model.AISkill
 			return nil, nil, err
 		}
 		content, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -328,7 +328,7 @@ func parseTarGzArchive(r io.Reader) (*model.AISkill, []model.AISkillFile, error)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
 	var skillMD string

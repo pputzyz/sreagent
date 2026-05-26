@@ -184,10 +184,10 @@ func renderCaptchaSVG(expr string) string {
 	height := 50
 
 	var svg strings.Builder
-	svg.WriteString(fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d">`, width, height))
+	fmt.Fprintf(&svg, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d">`, width, height)
 
 	// Background
-	svg.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="#f0f0f0"/>`, width, height))
+	fmt.Fprintf(&svg, `<rect width="%d" height="%d" fill="#f0f0f0"/>`, width, height)
 
 	// Noise lines
 	for i := 0; i < 5; i++ {
@@ -198,8 +198,8 @@ func renderCaptchaSVG(expr string) string {
 		rc := r.Intn(150) + 50
 		gc := r.Intn(150) + 50
 		bc := r.Intn(150) + 50
-		svg.WriteString(fmt.Sprintf(`<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="rgb(%d,%d,%d)" stroke-width="1"/>`,
-			x1, y1, x2, y2, rc, gc, bc))
+		fmt.Fprintf(&svg, `<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="rgb(%d,%d,%d)" stroke-width="1"/>`,
+			x1, y1, x2, y2, rc, gc, bc)
 	}
 
 	// Text characters with slight rotation
@@ -211,9 +211,9 @@ func renderCaptchaSVG(expr string) string {
 		rc := r.Intn(100)
 		gc := r.Intn(100)
 		bc := r.Intn(100)
-		svg.WriteString(fmt.Sprintf(
+		fmt.Fprintf(&svg,
 			`<text x="%d" y="%d" fill="rgb(%d,%d,%d)" font-size="24" font-family="monospace" transform="rotate(%d,%d,%d)">%s</text>`,
-			x, y, rc, gc, bc, angle, x, y, string(ch)))
+			x, y, rc, gc, bc, angle, x, y, string(ch))
 	}
 
 	svg.WriteString(`</svg>`)

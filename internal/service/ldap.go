@@ -132,7 +132,7 @@ func (s *LDAPService) Authenticate(ctx context.Context, username, password strin
 	if err != nil {
 		return nil, fmt.Errorf("ldap: connection failed: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	conn.SetTimeout(10 * time.Second)
 
@@ -285,7 +285,7 @@ func (s *LDAPService) TestConnection(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("connection failed: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if cfg.StartTLS {
 		if err := conn.StartTLS(cfg.SkipVerify); err != nil {

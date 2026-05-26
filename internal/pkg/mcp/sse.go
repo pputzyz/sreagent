@@ -51,7 +51,7 @@ func (c *Client) connectSSE(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("SSE connect: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -143,7 +143,7 @@ func (c *Client) sendRPC(ctx context.Context, method string, params interface{})
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1MB limit
 	if err != nil {
@@ -193,8 +193,8 @@ func (c *Client) sendNotification(ctx context.Context, method string, params int
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, resp.Body)
 
 	return nil
 }

@@ -472,29 +472,6 @@ func (s *NotifyMediaService) executeScript(ctx context.Context, media *model.Not
 	return nil
 }
 
-// doHTTPPost is a helper to send an HTTP POST request with SSRF protection.
-func (s *NotifyMediaService) doHTTPPost(ctx context.Context, url, contentType string, body []byte) error {
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", contentType)
-
-	client := safehttp.NewSafeClient(30 * time.Second)
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("http post failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("http post returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	return nil
-}
-
 // doHTTPPostWithRetry sends an HTTP POST with retry on transport errors.
 // Only client.Do failures are retried; HTTP status errors (>=400) are returned immediately.
 // retryTimes defaults to 3, retryIntervalMs defaults to 100 if non-positive.

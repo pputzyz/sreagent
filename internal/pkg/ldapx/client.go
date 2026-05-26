@@ -462,12 +462,13 @@ func parseFilterList(s string) ([]*berElement, error) {
 	depth := 0
 	start := -1
 	for i, ch := range s {
-		if ch == '(' {
+		switch ch {
+		case '(':
 			if depth == 0 {
 				start = i
 			}
 			depth++
-		} else if ch == ')' {
+		case ')':
 			depth--
 			if depth == 0 && start >= 0 {
 				f, err := parseFilter(s[start : i+1])

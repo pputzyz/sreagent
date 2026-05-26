@@ -201,8 +201,8 @@ func (s *LLMConfigService) TestConnection(ctx context.Context, v *model.LLMConfi
 	if err != nil {
 		return apperr.WithMessage(apperr.ErrExternalAPI, fmt.Sprintf("connection failed: %v", err))
 	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode >= 400 {
 		return apperr.WithMessage(apperr.ErrExternalAPI,

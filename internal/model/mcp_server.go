@@ -35,7 +35,7 @@ func (m *MCPServer) GetHeadersMap() map[string]string {
 
 // SetHeadersMap serializes a map into the JSON headers string.
 func (m *MCPServer) SetHeadersMap(h map[string]string) {
-	if h == nil || len(h) == 0 {
+	if len(h) == 0 {
 		m.Headers = ""
 		return
 	}

@@ -141,7 +141,7 @@ func (h *AgentHandler) streamAgentTaskViaBus(c *gin.Context, taskID string, task
 	// If task is already terminal, send the final snapshot and close.
 	if task.Status == "completed" || task.Status == "failed" {
 		data, _ := json.Marshal(task)
-		fmt.Fprintf(c.Writer, "event: task\ndata: %s\n\n", data)
+		_, _ = fmt.Fprintf(c.Writer, "event: task\ndata: %s\n\n", data)
 		c.Writer.Flush()
 		return
 	}
@@ -170,7 +170,7 @@ func (h *AgentHandler) streamAgentTaskViaBus(c *gin.Context, taskID string, task
 			data, _ := sm.Fields["data"].(string)
 
 			// Forward as SSE event
-			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)
+			_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)
 
 			// Terminal events close the stream
 			if event == sredis.SSEEventDone || event == sredis.SSEEventError {
@@ -198,7 +198,7 @@ func (h *AgentHandler) streamAgentTaskInMemory(c *gin.Context, taskID string, ta
 			if err != nil {
 				return true // skip bad data, keep stream alive
 			}
-			fmt.Fprintf(w, "event: task\ndata: %s\n\n", data)
+			_, _ = fmt.Fprintf(w, "event: task\ndata: %s\n\n", data)
 			// Terminal state closes the stream
 			if updated.Status == "completed" || updated.Status == "failed" {
 				return false

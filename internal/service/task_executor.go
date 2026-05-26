@@ -294,14 +294,14 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, script, args s
 	if err != nil {
 		return "", "", -1, fmt.Errorf("SSH dial failed: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Create session
 	session, err := client.NewSession()
 	if err != nil {
 		return "", "", -1, fmt.Errorf("SSH session failed: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	// Build command — sanitize args to prevent shell injection
 	cmd := script

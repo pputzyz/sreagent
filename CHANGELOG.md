@@ -4,6 +4,16 @@
 
 ---
 
+## [v4.41.3] — 2026-05-26
+
+### golangci-lint 修复
+
+- **errcheck (15)**: 所有 `fmt.Fprintf`、`defer Close()`、`io.Copy` 返回值已显式忽略 (`_ =`)
+- **staticcheck QF1012 (4)**: `auth.go` SVG 渲染改用 `fmt.Fprintf(&svg, ...)` 替代 `WriteString(fmt.Sprintf(...))`
+- **staticcheck S1009 (1)**: `mcp_server.go` 移除冗余 nil 检查（`len(nil)` 已定义为 0）
+- **staticcheck QF1003 (1)**: `ldapx/client.go` `parseFilterList` 改用 tagged switch
+- **unused (1)**: `notify_media.go` 删除未使用的 `doHTTPPost` 方法
+
 ## [v4.41.2] — 2026-05-26
 
 ### 代码审查修复（续）
