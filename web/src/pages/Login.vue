@@ -27,6 +27,13 @@ const oidcEnabled = ref(false)
 const oidcLoginUrl = ref('')
 const oidcLoading = ref(false)
 
+// --- Captcha ---
+const captchaId = ref('')
+const captchaImage = ref('')
+const captchaInput = ref('')
+const captchaRequired = ref(false)
+const captchaLoading = ref(false)
+
 const langOptions = computed(() => [
   { label: t('language.zh'), value: 'zh-CN' },
   { label: t('language.en'), value: 'en' },
@@ -37,21 +44,53 @@ function handleLangChange(val: string) {
   localStorage.setItem('locale', val)
 }
 
+async function fetchCaptcha() {
+  captchaLoading.value = true
+  try {
+    const { data } = await authApi.getCaptcha()
+    captchaId.value = data.data.captcha_id
+    captchaImage.value = data.data.captcha_image
+    captchaRequired.value = true
+    captchaInput.value = ''
+  } catch {
+    // Captcha endpoint may not exist — login works without it
+    captchaRequired.value = false
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
 async function handleLogin() {
   loginError.value = ''
   if (!form.value.username || !form.value.password) {
     loginError.value = t('auth.pleaseEnter')
     return
   }
+  if (captchaRequired.value && !captchaInput.value) {
+    loginError.value = t('auth.captchaRequired')
+    return
+  }
   loading.value = true
   try {
-    await authStore.login(form.value.username, form.value.password)
+    const loginData: Record<string, string> = {
+      username: form.value.username,
+      password: form.value.password,
+    }
+    if (captchaRequired.value && captchaId.value && captchaInput.value) {
+      loginData.captcha_id = captchaId.value
+      loginData.captcha = captchaInput.value
+    }
+    await authStore.login(loginData.username, loginData.password, loginData.captcha_id, loginData.captcha)
     message.success(t('auth.loginSuccess'))
     const raw = (route.query.redirect as string) || ''
     const safeRedirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
     router.push(safeRedirect)
   } catch (err: unknown) {
     loginError.value = getErrorMessage(err) || t('auth.loginFailed')
+    // Refresh captcha on error if captcha is active
+    if (captchaRequired.value) {
+      fetchCaptcha()
+    }
   } finally {
     loading.value = false
   }
@@ -78,6 +117,7 @@ async function checkOIDCConfig() {
 
 onMounted(() => {
   checkOIDCConfig()
+  fetchCaptcha()
 })
 
 watch([() => form.value.username, () => form.value.password], () => {
@@ -140,6 +180,30 @@ watch([() => form.value.username, () => form.value.password], () => {
               show-password-on="click"
               @keyup.enter="handleLogin"
             />
+          </label>
+
+          <!-- Captcha -->
+          <label v-if="captchaRequired" class="field">
+            <span class="field-label">{{ t('auth.captcha') }}</span>
+            <div class="captcha-row">
+              <n-input
+                v-model:value="captchaInput"
+                :placeholder="t('auth.enterCaptcha')"
+                size="large"
+                class="captcha-input"
+                @keyup.enter="handleLogin"
+              />
+              <div class="captcha-image-wrap" @click="fetchCaptcha">
+                <img
+                  v-if="captchaImage"
+                  :src="captchaImage"
+                  :alt="t('auth.captcha')"
+                  class="captcha-image"
+                />
+                <n-spin v-else :size="16" />
+                <span class="captcha-refresh-hint">{{ t('auth.refreshCaptcha') }}</span>
+              </div>
+            </div>
           </label>
 
           <n-button
@@ -499,6 +563,55 @@ watch([() => form.value.username, () => form.value.password], () => {
   }
   .brand-name { font-size: 24px; }
   .brand-logo { width: 28px; height: 28px; }
+}
+
+/* Captcha */
+.captcha-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.captcha-input {
+  flex: 1;
+}
+.captcha-image-wrap {
+  position: relative;
+  cursor: pointer;
+  height: 40px;
+  min-width: 120px;
+  border-radius: var(--sre-radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--sre-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease;
+}
+.captcha-image-wrap:hover {
+  border-color: var(--sre-primary);
+}
+.captcha-image {
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+  display: block;
+}
+.captcha-refresh-hint {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 9px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 1px 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.captcha-image-wrap:hover .captcha-refresh-hint {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

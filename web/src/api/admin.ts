@@ -171,6 +171,9 @@ export const authApi = {
   getOIDCConfig: () =>
     request.get<ApiResponse<{ enabled: boolean; login_url?: string }>>('/auth/oidc/config'),
 
+  getCaptcha: () =>
+    request.get<ApiResponse<{ captcha_id: string; captcha_image: string }>>('/auth/captcha'),
+
   getPreferences: () =>
     request.get<ApiResponse<UserPreferences>>('/me/preferences'),
 

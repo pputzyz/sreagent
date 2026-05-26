@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, nextTick, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NSpace, NInput, NSelect, useMessage, NModal, NPopconfirm, NSpin, NDropdown } from 'naive-ui'
+import { NButton, NSpace, NInput, NSelect, useMessage, NModal, NPopconfirm, NSpin, NDropdown, NTag, NRadioGroup, NRadio } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { dashboardV2Api, datasourceApi } from '@/api'
+import { dashboardV2Api, datasourceApi, dashboardBizGroupApi, bizGroupApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 import type { DashboardV2, DashboardConfig, PanelConfig, VariableConfig } from '@/types/dashboard'
 import type { DataSource } from '@/types'
@@ -401,9 +401,99 @@ const hasPanels = computed(() => config.value.panels.length > 0)
 const hasResults = computed(() => targets.value.some(t => t.series && t.series.length > 0))
 const isLoadingDashboard = computed(() => loading.value && !isNew.value)
 
+// --- Business Group Sharing ---
+interface BizGroupBinding {
+  biz_group_id: number
+  biz_group_name: string
+  perm_flag: string
+}
+
+const showBizGroupModal = ref(false)
+const bizGroupBindings = ref<BizGroupBinding[]>([])
+const bizGroupOptions = ref<Array<{ label: string; value: number }>>([])
+const selectedBizGroupId = ref<number | null>(null)
+const selectedPermFlag = ref<string>('ro')
+const bizGroupLoading = ref(false)
+
+const permOptions = computed(() => [
+  { label: t('dashboardV2.permReadOnly'), value: 'ro' },
+  { label: t('dashboardV2.permReadWrite'), value: 'rw' },
+])
+
+async function fetchBizGroupBindings() {
+  if (isNew.value || !dashboard.value) return
+  try {
+    const res = await dashboardBizGroupApi.list(dashboard.value.id)
+    bizGroupBindings.value = res.data.data || []
+  } catch { /* ignore */ }
+}
+
+async function fetchBizGroupOptions() {
+  try {
+    const res = await bizGroupApi.list({ page: 1, page_size: 100 })
+    bizGroupOptions.value = (res.data.data.list || []).map((g: { id: number; name: string }) => ({
+      label: g.name,
+      value: g.id,
+    }))
+  } catch { /* ignore */ }
+}
+
+function openBizGroupModal() {
+  selectedBizGroupId.value = null
+  selectedPermFlag.value = 'ro'
+  showBizGroupModal.value = true
+  fetchBizGroupOptions()
+}
+
+async function handleBindBizGroup() {
+  if (!dashboard.value || !selectedBizGroupId.value) return
+  bizGroupLoading.value = true
+  try {
+    await dashboardBizGroupApi.bind(dashboard.value.id, {
+      biz_group_id: selectedBizGroupId.value,
+      perm_flag: selectedPermFlag.value,
+    })
+    message.success(t('dashboardV2.groupBound'))
+    showBizGroupModal.value = false
+    await fetchBizGroupBindings()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.saveFailed'))
+  } finally {
+    bizGroupLoading.value = false
+  }
+}
+
+async function handleUnbindBizGroup(groupId: number) {
+  if (!dashboard.value) return
+  try {
+    await dashboardBizGroupApi.unbind(dashboard.value.id, groupId)
+    message.success(t('dashboardV2.groupUnbound'))
+    await fetchBizGroupBindings()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.deleteFailed'))
+  }
+}
+
+async function handleTogglePerm(binding: BizGroupBinding, newPerm: string) {
+  if (!dashboard.value) return
+  try {
+    await dashboardBizGroupApi.unbind(dashboard.value.id, binding.biz_group_id)
+    await dashboardBizGroupApi.bind(dashboard.value.id, {
+      biz_group_id: binding.biz_group_id,
+      perm_flag: newPerm,
+    })
+    message.success(t('dashboardV2.permUpdated'))
+    await fetchBizGroupBindings()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('common.saveFailed'))
+  }
+}
+
 onMounted(() => {
   fetchDatasources()
-  fetchDashboard()
+  fetchDashboard().then(() => {
+    if (!isNew.value) fetchBizGroupBindings()
+  })
 })
 </script>
 
@@ -643,6 +733,35 @@ onMounted(() => {
           <QueryResultChart :targets="targets" :time-range="timeRange" :height="300" />
         </div>
       </details>
+
+      <!-- Business Group Sharing Section -->
+      <details v-if="!isNew" class="biz-group-section">
+        <summary class="biz-group-toggle">{{ t('dashboardV2.sharedGroups') }}</summary>
+        <div class="biz-group-content">
+          <div v-if="bizGroupBindings.length === 0" class="biz-group-empty">
+            {{ t('dashboardV2.noSharedGroups') }}
+          </div>
+          <div v-else class="biz-group-list">
+            <div v-for="binding in bizGroupBindings" :key="binding.biz_group_id" class="biz-group-item">
+              <span class="biz-group-name">{{ binding.biz_group_name }}</span>
+              <n-radio-group
+                :value="binding.perm_flag"
+                size="small"
+                @update:value="(v: string) => handleTogglePerm(binding, v)"
+              >
+                <n-radio-button value="ro">{{ t('dashboardV2.permReadOnly') }}</n-radio-button>
+                <n-radio-button value="rw">{{ t('dashboardV2.permReadWrite') }}</n-radio-button>
+              </n-radio-group>
+              <n-button quaternary size="tiny" type="error" @click="handleUnbindBizGroup(binding.biz_group_id)">
+                {{ t('common.remove') }}
+              </n-button>
+            </div>
+          </div>
+          <n-button size="small" dashed @click="openBizGroupModal" style="margin-top: 8px;">
+            {{ t('dashboardV2.addGroup') }}
+          </n-button>
+        </div>
+      </details>
     </template>
 
     <!-- Variable Editor Drawer -->
@@ -665,6 +784,31 @@ onMounted(() => {
       @save="onPanelSave"
       @cancel="editingPanel = null"
     />
+
+    <!-- Add Business Group Modal -->
+    <NModal v-model:show="showBizGroupModal" preset="card" :title="t('dashboardV2.addGroup')" :bordered="false" style="width: 420px;">
+      <n-form label-placement="top">
+        <n-form-item :label="t('dashboardV2.selectGroup')" required>
+          <NSelect
+            v-model:value="selectedBizGroupId"
+            :options="bizGroupOptions"
+            :placeholder="t('dashboardV2.selectGroupPlaceholder')"
+            filterable
+          />
+        </n-form-item>
+        <n-form-item :label="t('dashboardV2.permission')">
+          <NSelect v-model:value="selectedPermFlag" :options="permOptions" />
+        </n-form-item>
+      </n-form>
+      <template #action>
+        <NSpace justify="end">
+          <NButton @click="showBizGroupModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="bizGroupLoading" :disabled="!selectedBizGroupId" @click="handleBindBizGroup">
+            {{ t('common.confirm') }}
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -866,5 +1010,52 @@ onMounted(() => {
 .results-label {
   font-size: 12px;
   color: var(--sre-text-secondary);
+}
+
+/* Business Group Sharing */
+.biz-group-section {
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-md);
+  padding: 12px 16px;
+  background: var(--sre-bg-sunken);
+  margin-top: 16px;
+}
+.biz-group-toggle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sre-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.biz-group-toggle:hover {
+  color: var(--sre-text-primary);
+}
+.biz-group-content {
+  margin-top: 12px;
+}
+.biz-group-empty {
+  font-size: 13px;
+  color: var(--sre-text-tertiary);
+  padding: 8px 0;
+}
+.biz-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.biz-group-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--sre-bg-card);
+  border: var(--sre-hairline);
+  border-radius: var(--sre-radius-sm);
+}
+.biz-group-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sre-text-primary);
+  min-width: 140px;
 }
 </style>

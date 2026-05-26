@@ -98,6 +98,18 @@ export const dashboardV2Api = {
     request.post<ApiResponse<import('@/types/dashboard').DashboardV2>>(`/dashboards/${id}/clone`, { name }),
 }
 
+// ===== Dashboard Biz-Group Binding API =====
+export const dashboardBizGroupApi = {
+  list: (dashboardId: number) =>
+    request.get<ApiResponse<Array<{ biz_group_id: number; biz_group_name: string; perm_flag: string }>>>(`/dashboards/${dashboardId}/biz-groups`),
+
+  bind: (dashboardId: number, data: { biz_group_id: number; perm_flag: string }) =>
+    request.post<ApiResponse<null>>(`/dashboards/${dashboardId}/biz-groups`, data),
+
+  unbind: (dashboardId: number, groupId: number) =>
+    request.delete<ApiResponse<null>>(`/dashboards/${dashboardId}/biz-groups/${groupId}`),
+}
+
 // ===== Label Registry API =====
 export const labelRegistryApi = {
   getKeys: (datasourceId?: number) =>

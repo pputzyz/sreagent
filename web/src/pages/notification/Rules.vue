@@ -2,12 +2,12 @@
 import { ref, shallowRef, computed, onMounted, h, type Ref } from 'vue'
 import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { notifyRuleApi } from '@/api'
-import type { NotifyRule } from '@/types'
+import { notifyRuleApi, notifyMediaApi } from '@/api'
+import type { NotifyRule, NotifyMedia } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { useCrudPage } from '@/composables/useCrudPage'
 import type { CrudApiModule } from '@/composables/useCrudPage'
-import { AddOutline, SearchOutline, FilterOutline } from '@vicons/ionicons5'
+import { AddOutline, SearchOutline, FilterOutline, FlaskOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -155,6 +155,60 @@ const RowMenu = (row: NotifyRule) => h(NDropdown, {
   onSelect: (k: string) => onRowMenu(k, row),
 }, { default: () => h('button', { class: 'sre-icon-btn', 'aria-label': t('common.actions') }, h('span', { class: 'sre-dots' })) })
 
+// --- Test Rule ---
+const showTestModal = ref(false)
+const testingRule = ref<NotifyRule | null>(null)
+const testLoading = ref(false)
+const testAlertName = ref('Test Alert')
+const testSeverity = ref<string>('critical')
+const testMediaId = ref<number | null>(null)
+const testResults = ref<Array<{ media_id: number; media_name: string; status: string; error?: string }>>([])
+const mediaOptions = ref<Array<{ label: string; value: number }>>([])
+
+const testSeverityOptions = computed(() => [
+  { label: t('severity.critical'), value: 'critical' },
+  { label: t('severity.warning'), value: 'warning' },
+  { label: t('severity.info'), value: 'info' },
+])
+
+async function openTestModal(rule: NotifyRule) {
+  testingRule.value = rule
+  testAlertName.value = 'Test Alert'
+  testSeverity.value = 'critical'
+  testMediaId.value = null
+  testResults.value = []
+  showTestModal.value = true
+  // Load media options
+  try {
+    const res = await notifyMediaApi.list({ page: 1, page_size: 100 })
+    mediaOptions.value = (res.data.data.list || []).map((m: NotifyMedia) => ({
+      label: m.name,
+      value: m.id,
+    }))
+  } catch { /* ignore */ }
+}
+
+async function handleTestRule() {
+  if (!testingRule.value) return
+  testLoading.value = true
+  testResults.value = []
+  try {
+    const data: { alert_name?: string; severity?: string; media_id?: number } = {}
+    if (testAlertName.value.trim()) data.alert_name = testAlertName.value.trim()
+    if (testSeverity.value) data.severity = testSeverity.value
+    if (testMediaId.value) data.media_id = testMediaId.value
+    const res = await notifyRuleApi.test(testingRule.value.id, data)
+    testResults.value = res.data.data || []
+    if (testResults.value.length === 0) {
+      message.success(t('notifyRule.testSent'))
+    }
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err) || t('notifyRule.testFailed'))
+  } finally {
+    testLoading.value = false
+  }
+}
+
 onMounted(fetchList)
 </script>
 
@@ -197,6 +251,10 @@ onMounted(fetchList)
               class="sev-chip" :data-sev="severityDot(s)">{{ t('severity.' + s) }}</span>
           </div>
           <div class="row-actions">
+            <n-button size="tiny" quaternary @click="openTestModal(r)">
+              <template #icon><n-icon :component="FlaskOutline" /></template>
+              {{ t('common.test') }}
+            </n-button>
             <n-switch :value="r.is_enabled" size="small" :aria-label="r.is_enabled ? t('common.disable') : t('common.enable')" @update:value="(v: boolean) => toggleEnabled(r, v)" />
             <component :is="RowMenu(r)" />
           </div>
@@ -280,6 +338,47 @@ onMounted(fetchList)
         </n-space>
       </template>
     </n-modal>
+
+    <!-- Test Rule Modal -->
+    <n-modal v-model:show="showTestModal" preset="card" :title="t('notifyRule.testTitle')" :bordered="false" class="test-modal">
+      <n-form label-placement="top">
+        <n-form-item :label="t('notifyRule.testAlertName')">
+          <n-input v-model:value="testAlertName" :placeholder="t('notifyRule.testAlertNamePlaceholder')" />
+        </n-form-item>
+        <n-form-item :label="t('notifyRule.testSeverity')">
+          <n-select v-model:value="testSeverity" :options="testSeverityOptions" />
+        </n-form-item>
+        <n-form-item :label="t('notifyRule.testChannel')">
+          <n-select
+            v-model:value="testMediaId"
+            :options="mediaOptions"
+            :placeholder="t('notifyRule.testChannelPlaceholder')"
+            clearable
+          />
+        </n-form-item>
+      </n-form>
+
+      <!-- Test Results -->
+      <div v-if="testResults.length > 0" class="test-results">
+        <div class="test-results-title">{{ t('notifyRule.testResults') }}</div>
+        <div v-for="r in testResults" :key="r.media_id" class="test-result-item">
+          <span class="test-result-name">{{ r.media_name }}</span>
+          <n-tag :type="r.status === 'success' ? 'success' : 'error'" size="small">
+            {{ r.status === 'success' ? t('common.success') : t('common.failed') }}
+          </n-tag>
+          <span v-if="r.error" class="test-result-error">{{ r.error }}</span>
+        </div>
+      </div>
+
+      <template #action>
+        <n-space justify="end">
+          <n-button @click="showTestModal = false">{{ t('common.close') }}</n-button>
+          <n-button type="primary" :loading="testLoading" @click="handleTestRule">
+            {{ t('notifyRule.testSend') }}
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -322,4 +421,10 @@ onMounted(fetchList)
 .meta { font-size: 12px; color: var(--sre-text-secondary, #888); }
 
 .rules-modal { width: 600px; }
+.test-modal { width: 480px; }
+.test-results { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--sre-hairline, rgba(255,255,255,0.06)); }
+.test-results-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--sre-text-primary); }
+.test-result-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.test-result-name { font-size: 13px; color: var(--sre-text-primary); min-width: 120px; }
+.test-result-error { font-size: 12px; color: var(--sre-danger, #ef4444); flex: 1; }
 </style>

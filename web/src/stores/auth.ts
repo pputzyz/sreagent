@@ -20,9 +20,12 @@ export const useAuthStore = defineStore('auth', () => {
   const canOperate = computed(() => ['admin', 'team_lead', 'member'].includes(user.value?.role || ''))
 
   /** Standard username/password login */
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string, captchaId?: string, captcha?: string) {
     try {
-      const { data } = await authApi.login({ username, password })
+      const payload: Record<string, string> = { username, password }
+      if (captchaId) payload.captcha_id = captchaId
+      if (captcha) payload.captcha = captcha
+      const { data } = await authApi.login(payload as { username: string; password: string })
       token.value = data.data.token
       localStorage.setItem('token', data.data.token)
       await fetchProfile()

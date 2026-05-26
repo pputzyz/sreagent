@@ -10,7 +10,7 @@ import { usePaginatedList } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { AddOutline, BarChartOutline, ChevronForwardOutline, DownloadOutline, CopyOutline, CloudUploadOutline, EllipsisHorizontalOutline } from '@vicons/ionicons5'
+import { AddOutline, BarChartOutline, ChevronForwardOutline, DownloadOutline, CopyOutline, CloudUploadOutline, EllipsisHorizontalOutline, LibraryOutline } from '@vicons/ionicons5'
 import type { DashboardConfig } from '@/types/dashboard'
 import { relTime } from '@/utils/format'
 
@@ -189,6 +189,12 @@ onMounted(fetchList)
             <CloudUploadOutline />
           </template>
           {{ t('dashboardV2.import') }}
+        </NButton>
+        <NButton quaternary @click="router.push('/alert/dashboards/builtin')">
+          <template #icon>
+            <LibraryOutline />
+          </template>
+          {{ t('builtinDash.title') }}
         </NButton>
         <input ref="importInput" type="file" accept=".json" style="display:none" @change="onImportFile" />
         <NButton type="primary" @click="router.push('/alert/dashboards/new')">

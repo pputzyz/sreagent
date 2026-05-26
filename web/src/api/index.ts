@@ -51,6 +51,7 @@ export {
   datasourceApi,
   dashboardApi,
   dashboardV2Api,
+  dashboardBizGroupApi,
   labelRegistryApi,
 } from './data'
 
@@ -104,3 +105,15 @@ export type { AISkill, AISkillFile, CreateAISkillRequest, UpdateAISkillRequest }
 // ===== ES Index Patterns =====
 export { esIndexPatternApi } from './es-index-pattern'
 export type { ESIndexPattern, CreateESIndexPatternRequest, UpdateESIndexPatternRequest } from './es-index-pattern'
+
+// ===== Builtin Dashboards =====
+export { builtinDashboardApi } from './builtin-dashboard'
+export type { BuiltinDashboard } from './builtin-dashboard'
+
+// ===== User Contacts =====
+export { userContactApi } from './user-contact'
+export type { UserContact } from './user-contact'
+
+// ===== Site Info =====
+export { siteInfoApi } from './admin'
+export type { SiteInfo } from './admin'
