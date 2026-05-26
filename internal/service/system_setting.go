@@ -97,6 +97,8 @@ const (
 	groupAI      = "ai"
 	groupLark    = "lark"
 	groupOIDC    = "oidc"
+	groupOAuth2  = "oauth2"
+	groupLDAP    = "ldap"
 	groupSMTP    = "smtp"
 	groupSecurity = "security"
 	groupSiteInfo = "site_info"
@@ -114,6 +116,8 @@ var sensitiveKeys = map[string]bool{
 	"lark.verification_token": true,
 	"lark.encrypt_key":        true,
 	"oidc.client_secret":      true,
+	"oauth2.client_secret":    true,
+	"ldap.bind_password":      true,
 	"smtp.password":           true,
 }
 

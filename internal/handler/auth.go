@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
@@ -16,9 +17,10 @@ import (
 )
 
 type AuthHandler struct {
-	svc     *service.AuthService
-	userSvc *service.UserService
-	redis   *sredis.Client // optional — nil when Redis is not configured
+	svc      *service.AuthService
+	userSvc  *service.UserService
+	ldapSvc  *service.LDAPService  // optional — nil when LDAP is not configured
+	redis    *sredis.Client // optional — nil when Redis is not configured
 }
 
 // SetUserService wires the user service for /me endpoints.
@@ -29,6 +31,11 @@ func (h *AuthHandler) SetUserService(svc *service.UserService) {
 // SetRedis injects the Redis client for captcha support.
 func (h *AuthHandler) SetRedis(rc *sredis.Client) {
 	h.redis = rc
+}
+
+// SetLDAPService injects the LDAP service for LDAP login fallback.
+func (h *AuthHandler) SetLDAPService(svc *service.LDAPService) {
+	h.ldapSvc = svc
 }
 
 func NewAuthHandler(svc *service.AuthService) *AuthHandler {
@@ -80,6 +87,28 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// --- Actual login ---
 	token, expiresIn, err := h.svc.Login(ctx, req.Username, req.Password)
 	if err != nil {
+		// Try LDAP login if local auth fails and LDAP is configured
+		if h.ldapSvc != nil && h.ldapSvc.Enabled() {
+			ldapToken, ldapExpires, ldapErr := h.ldapSvc.AuthenticateAndLogin(ctx, req.Username, req.Password, h.svc.GetJWTSecret(), h.svc.GetJWTExpire(ctx))
+			if ldapErr == nil {
+				// LDAP login successful
+				h.svc.ClearLoginFailures(ctx, req.Username)
+				Success(c, LoginResponse{
+					Token:     ldapToken,
+					ExpiresIn: ldapExpires,
+				})
+				return
+			}
+			// Both failed — log LDAP error and return local auth error
+			if l, exists := c.Get("logger"); exists {
+				if logger, ok := l.(*zap.Logger); ok {
+					logger.Debug("LDAP login fallback failed",
+						zap.String("username", req.Username),
+						zap.Error(ldapErr),
+					)
+				}
+			}
+		}
 		h.svc.RecordLoginFail(ctx, req.Username)
 		Error(c, err)
 		return

@@ -26,4 +26,21 @@ func (h *Handlers) registerAuthRoutes(auth *gin.RouterGroup, admin gin.HandlerFu
 			oidcSettings.PUT("", admin, h.OIDCSettings.UpdateConfig)
 		}
 	}
+
+	// LDAP settings — admin only
+	if h.SSOSettings != nil {
+		ldapSettings := auth.Group("/settings/ldap")
+		{
+			ldapSettings.GET("", admin, h.SSOSettings.GetLDAPConfig)
+			ldapSettings.PUT("", admin, h.SSOSettings.UpdateLDAPConfig)
+			ldapSettings.POST("/test", admin, h.SSOSettings.TestLDAPConnection)
+		}
+
+		// OAuth2 settings — admin only
+		oauth2Settings := auth.Group("/settings/oauth2")
+		{
+			oauth2Settings.GET("", admin, h.SSOSettings.GetOAuth2Config)
+			oauth2Settings.PUT("", admin, h.SSOSettings.UpdateOAuth2Config)
+		}
+	}
 }

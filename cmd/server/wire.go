@@ -373,6 +373,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// --------------- OIDC service (optional) ---------------
 	oidcSvc := d.initOIDCService(cfg, settingSvc, userRepo, zapLogger)
 
+	// --------------- LDAP + OAuth2 services ---------------
+	ldapSvc := service.NewLDAPService(settingSvc, userRepo, zapLogger)
+	oauth2Svc := service.NewOAuth2Service(settingSvc, userRepo, zapLogger)
+
 	// --------------- Redis (optional) ---------------
 	var redisClient *sredis.Client
 	var stateStore engine.StateStore
@@ -656,9 +660,11 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	}
 
 	handlers := &router.Handlers{
-		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(authSvc); h.SetUserService(userSvc); h.SetRedis(redisClient); return h }(),
+		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(authSvc); h.SetUserService(userSvc); h.SetRedis(redisClient); h.SetLDAPService(ldapSvc); return h }(),
 		OIDC:             oidcHandler,
 		OIDCSettings:     handler.NewOIDCSettingsHandler(settingSvc, d.ReloadOIDC),
+		OAuth2:           handler.NewOAuth2Handler(oauth2Svc, cfg.JWT.Secret, cfg.JWT.Expire),
+		SSOSettings:      handler.NewSSOSettingsHandler(ldapSvc, oauth2Svc),
 		DataSource:       handler.NewDataSourceHandler(dsSvc, zapLogger),
 		AlertRule:        handler.NewAlertRuleHandler(ruleSvc, zapLogger),
 		AlertEvent:       handler.NewAlertEventHandler(eventSvc, zapLogger),

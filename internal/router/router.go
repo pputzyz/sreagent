@@ -20,6 +20,8 @@ type Handlers struct {
 	Auth             *handler.AuthHandler
 	OIDC             *handler.OIDCHandler // nil if OIDC is not configured
 	OIDCSettings     *handler.OIDCSettingsHandler
+	OAuth2           *handler.OAuth2Handler      // nil if OAuth2 is not configured
+	SSOSettings      *handler.SSOSettingsHandler  // LDAP + OAuth2 settings
 	DataSource       *handler.DataSourceHandler
 	AlertRule        *handler.AlertRuleHandler
 	AlertEvent       *handler.AlertEventHandler
@@ -170,6 +172,19 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 		} else {
 			// Return disabled status when OIDC is not configured
 			api.GET("/auth/oidc/config", func(c *gin.Context) {
+				c.JSON(200, gin.H{"code": 0, "message": "ok", "data": gin.H{"enabled": false}})
+			})
+		}
+
+		// OAuth2 routes (public — before JWT middleware)
+		if handlers.OAuth2 != nil {
+			api.GET("/auth/oauth2/config", handlers.OAuth2.OAuth2Config)
+			api.GET("/auth/oauth2/login", handlers.OAuth2.LoginRedirect)
+			api.GET("/auth/oauth2/callback", handlers.OAuth2.Callback)
+			api.POST("/auth/oauth2/token", handlers.OAuth2.CallbackJSON)
+		} else {
+			// Return disabled status when OAuth2 is not configured
+			api.GET("/auth/oauth2/config", func(c *gin.Context) {
 				c.JSON(200, gin.H{"code": 0, "message": "ok", "data": gin.H{"enabled": false}})
 			})
 		}

@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.40.0
-> 共 56 个 model, 66 个 handler, 80 个 service, 54 个 repository, 340+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-26 | tag: v4.41.0
+> 共 56 个 model, 68 个 handler, 82 个 service, 54 个 repository, 350+ API 端点, 17 种通知渠道
 
 ---
 
@@ -229,10 +229,10 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 
 ## 认证 (auth)
 
-- **功能**: JWT 本地登录 + Keycloak OIDC SSO + JWT 7天宽限续签
-- **后端**: `handler/auth.go`, `handler/oidc.go`, `service/auth.go`, `service/oidc.go`, `middleware/auth.go`
+- **功能**: JWT 本地登录 + Keycloak OIDC SSO + LDAP 认证 + 通用 OAuth2 SSO + JWT 7天宽限续签
+- **后端**: `handler/auth.go`, `handler/oidc.go`, `handler/oauth2.go`, `service/auth.go`, `service/oidc.go`, `service/ldap.go`, `service/oauth2.go`, `middleware/auth.go`, `pkg/ldapx/client.go`
 - **前端**: `web/src/pages/Login.vue`, `web/src/stores/auth.ts`, `web/src/router/index.ts`
-- **API**: `/api/v1/auth/*` (10 endpoints)
+- **API**: `/api/v1/auth/*` (16 endpoints) — 含 OIDC/OAuth2 公开配置 + 登录/回调
 - **状态**: ✅ 完成
 
 ## 用户管理 (user)
@@ -285,10 +285,10 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 
 ## 系统设置 (system-setting)
 
-- **功能**: AES-256-GCM 加密 KV 存储（AI/Lark/SMTP/OIDC 配置）
-- **后端**: `model/system_setting.go`, `service/system_setting.go`, `repository/system_setting.go`, `handler/oidc_settings.go`, `handler/smtp_settings.go`
-- **前端**: `web/src/pages/settings/` (AIConfig, LarkBotConfig, OIDCConfig, SMTPConfig)
-- **API**: `/api/v1/settings/*`, `/api/v1/ai/config`, `/api/v1/lark/bot/config`
+- **功能**: AES-256-GCM 加密 KV 存储（AI/Lark/SMTP/OIDC/LDAP/OAuth2 配置）
+- **后端**: `model/system_setting.go`, `service/system_setting.go`, `repository/system_setting.go`, `handler/oidc_settings.go`, `handler/sso_settings.go`, `handler/smtp_settings.go`
+- **前端**: `web/src/pages/settings/` (AIConfig, LarkBotConfig, OIDCConfig, LDAPConfig, OAuth2Config, SMTPConfig)
+- **API**: `/api/v1/settings/*`, `/api/v1/ai/config`, `/api/v1/lark/bot/config`, `/api/v1/settings/ldap/*`, `/api/v1/settings/oauth2/*`
 - **状态**: ✅ 完成
 
 ## 审计日志 (audit-log)

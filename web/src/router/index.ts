@@ -151,6 +151,19 @@ router.beforeEach((to, _from, next) => {
     return
   }
 
+  // Handle OAuth2 callback: extract token from URL hash fragment
+  // Backend redirects to /#oauth2_token=...&expires_in=...
+  if (hash && hash.includes('oauth2_token=')) {
+    const params = new URLSearchParams(hash.substring(1))
+    const oauth2Token = params.get('oauth2_token')
+    if (oauth2Token) {
+      localStorage.setItem('token', oauth2Token)
+      window.history.replaceState(null, '', '/')
+      next({ path: '/', replace: true })
+      return
+    }
+  }
+
   const token = localStorage.getItem('token')
 
   if (to.meta.requiresAuth !== false && !token) {

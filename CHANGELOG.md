@@ -4,6 +4,46 @@
 
 ---
 
+## [v4.41.0] — 2026-05-26
+
+### LDAP + OAuth2 SSO 集成（Nightingale 对齐）
+
+- **LDAP 认证**:
+  - 新增 `internal/pkg/ldapx/client.go` — 轻量级 LDAP 客户端（纯标准库，BER 编码，支持 Bind + Search + StartTLS）
+  - 新增 `internal/service/ldap.go` — LDAP 认证服务（bind + search + 用户自动创建）
+  - 新增 `internal/handler/sso_settings.go` — LDAP 配置管理 handler（GET/PUT + 测试连接）
+  - 登录流程：本地认证失败后自动尝试 LDAP 认证
+  - 配置存储在 `system_settings` 表 `ldap` 组，`bind_password` AES-256-GCM 加密
+
+- **OAuth2 认证**:
+  - 新增 `internal/service/oauth2.go` — 通用 OAuth2 SSO 服务（授权码流程 + 用户自动创建）
+  - 新增 `internal/handler/oauth2.go` — OAuth2 登录流程 handler（redirect + callback + JSON callback）
+  - 支持任意 OAuth2 提供商（GitHub、GitLab、自定义），可配置字段映射
+  - 配置存储在 `system_settings` 表 `oauth2` 组，`client_secret` AES-256-GCM 加密
+
+- **路由新增**:
+  - `GET /api/v1/auth/oauth2/config` — OAuth2 公开配置（前端判断是否显示按钮）
+  - `GET /api/v1/auth/oauth2/login` — OAuth2 授权跳转
+  - `GET /api/v1/auth/oauth2/callback` — OAuth2 回调（redirect 模式）
+  - `POST /api/v1/auth/oauth2/token` — OAuth2 回调（JSON 模式）
+  - `GET/PUT /api/v1/settings/ldap` — LDAP 配置管理（admin only）
+  - `POST /api/v1/settings/ldap/test` — LDAP 连接测试（admin only）
+  - `GET/PUT /api/v1/settings/oauth2` — OAuth2 配置管理（admin only）
+
+- **前端变更**:
+  - `Login.vue` — 新增 OAuth2 SSO 按钮（与 OIDC 并列显示）
+  - `SSO.vue` — 改为 Tabs 布局（OIDC / LDAP / OAuth2）
+  - 新增 `LDAPConfig.vue` — LDAP 配置页面（服务器配置 + 行为配置 + 测试连接）
+  - 新增 `OAuth2Config.vue` — OAuth2 配置页面（提供商配置 + 字段映射 + 行为配置）
+  - `router/index.ts` — 支持 OAuth2 回调 token 解析
+  - API 层新增 `ldapSettingsApi`、`oauth2SettingsApi`、`authApi.getOAuth2Config`
+
+- **i18n**: 中英文完整翻译（LDAP + OAuth2 两个命名空间）
+
+- **无数据库迁移**: 配置存储在现有 `system_settings` 表，运行时自动创建新组
+
+---
+
 ## [v4.40.0] — 2026-05-26
 
 ### 任务执行前端页面（Nightingale 对齐）

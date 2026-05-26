@@ -40,6 +40,8 @@ export {
   userNotifyConfigApi,
   larkBotApi,
   oidcSettingsApi,
+  ldapSettingsApi,
+  oauth2SettingsApi,
   smtpSettingsApi,
   securitySettingsApi,
   statusServiceApi,

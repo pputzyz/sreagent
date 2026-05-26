@@ -92,6 +92,16 @@ func (s *AuthService) getExpireSeconds(ctx context.Context) int {
 	return s.jwtCfg.Expire
 }
 
+// GetJWTSecret returns the JWT signing secret.
+func (s *AuthService) GetJWTSecret() string {
+	return s.jwtCfg.Secret
+}
+
+// GetJWTExpire returns the effective JWT expiration in seconds (from DB or config).
+func (s *AuthService) GetJWTExpire(ctx context.Context) int {
+	return s.getExpireSeconds(ctx)
+}
+
 func (s *AuthService) Login(ctx context.Context, username, password string) (string, int, error) {
 	user, err := s.userRepo.GetByUsername(ctx, username)
 	if err != nil {

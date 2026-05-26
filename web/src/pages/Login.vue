@@ -27,6 +27,11 @@ const oidcEnabled = ref(false)
 const oidcLoginUrl = ref('')
 const oidcLoading = ref(false)
 
+const oauth2Enabled = ref(false)
+const oauth2LoginUrl = ref('')
+const oauth2Name = ref('OAuth2')
+const oauth2Loading = ref(false)
+
 // --- Captcha ---
 const captchaId = ref('')
 const captchaImage = ref('')
@@ -96,10 +101,13 @@ async function handleLogin() {
   }
 }
 
-function handleSSOLogin() {
-  if (oidcLoginUrl.value) {
+function handleSSOLogin(provider: 'oidc' | 'oauth2') {
+  if (provider === 'oidc' && oidcLoginUrl.value) {
     oidcLoading.value = true
     window.location.href = oidcLoginUrl.value
+  } else if (provider === 'oauth2' && oauth2LoginUrl.value) {
+    oauth2Loading.value = true
+    window.location.href = oauth2LoginUrl.value
   }
 }
 
@@ -115,8 +123,22 @@ async function checkOIDCConfig() {
   }
 }
 
+async function checkOAuth2Config() {
+  try {
+    const { data } = await authApi.getOAuth2Config()
+    if (data.data.enabled && data.data.login_url) {
+      oauth2Enabled.value = true
+      oauth2LoginUrl.value = data.data.login_url
+      oauth2Name.value = data.data.name || 'OAuth2'
+    }
+  } catch {
+    /* OAuth2 not configured */
+  }
+}
+
 onMounted(() => {
   checkOIDCConfig()
+  checkOAuth2Config()
   fetchCaptcha()
 })
 
@@ -222,17 +244,29 @@ watch([() => form.value.username, () => form.value.password], () => {
             <span>{{ loginError }}</span>
           </div>
 
-          <template v-if="oidcEnabled">
+          <template v-if="oidcEnabled || oauth2Enabled">
             <div class="form-divider">{{ t('auth.orContinueWith') }}</div>
             <n-button
+              v-if="oidcEnabled"
               block
               size="large"
               quaternary
               :loading="oidcLoading"
               class="sso-btn"
-              @click="handleSSOLogin"
+              @click="handleSSOLogin('oidc')"
             >
               {{ t('auth.ssoLogin') }}
+            </n-button>
+            <n-button
+              v-if="oauth2Enabled"
+              block
+              size="large"
+              quaternary
+              :loading="oauth2Loading"
+              class="sso-btn"
+              @click="handleSSOLogin('oauth2')"
+            >
+              {{ t('auth.oauth2Login', { name: oauth2Name }) }}
             </n-button>
           </template>
 

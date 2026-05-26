@@ -171,6 +171,9 @@ export const authApi = {
   getOIDCConfig: () =>
     request.get<ApiResponse<{ enabled: boolean; login_url?: string }>>('/auth/oidc/config'),
 
+  getOAuth2Config: () =>
+    request.get<ApiResponse<{ enabled: boolean; name?: string; login_url?: string }>>('/auth/oauth2/config'),
+
   getCaptcha: () =>
     request.get<ApiResponse<{ captcha_id: string; captcha_image: string }>>('/auth/captcha'),
 
@@ -243,6 +246,45 @@ export const oidcSettingsApi = {
     auto_provision?: boolean
   }) =>
     request.put<ApiResponse<{ message: string }>>('/settings/oidc', data),
+}
+
+// ===== LDAP Settings API =====
+export const ldapSettingsApi = {
+  getConfig: () =>
+    request.get<ApiResponse<{
+      enabled: boolean; host: string; port: number; base_dn: string
+      bind_dn: string; bind_password: string; user_filter: string
+      user_attr: string; email_attr: string; display_name_attr: string
+      start_tls: boolean; skip_verify: boolean; default_role: string; auto_provision: boolean
+    }>>('/settings/ldap'),
+
+  updateConfig: (data: {
+    enabled?: boolean; host?: string; port?: number; base_dn?: string
+    bind_dn?: string; bind_password?: string; user_filter?: string
+    user_attr?: string; email_attr?: string; display_name_attr?: string
+    start_tls?: boolean; skip_verify?: boolean; default_role?: string; auto_provision?: boolean
+  }) => request.put<ApiResponse<{ message: string }>>('/settings/ldap', data),
+
+  testConnection: () =>
+    request.post<ApiResponse<{ success: boolean; message: string }>>('/settings/ldap/test'),
+}
+
+// ===== OAuth2 Settings API =====
+export const oauth2SettingsApi = {
+  getConfig: () =>
+    request.get<ApiResponse<{
+      enabled: boolean; name: string; client_id: string; client_secret: string
+      auth_url: string; token_url: string; user_info_url: string
+      redirect_url: string; scopes: string; user_id_field: string
+      email_field: string; username_field: string; default_role: string; auto_provision: boolean
+    }>>('/settings/oauth2'),
+
+  updateConfig: (data: {
+    enabled?: boolean; name?: string; client_id?: string; client_secret?: string
+    auth_url?: string; token_url?: string; user_info_url?: string
+    redirect_url?: string; scopes?: string; user_id_field?: string
+    email_field?: string; username_field?: string; default_role?: string; auto_provision?: boolean
+  }) => request.put<ApiResponse<{ message: string }>>('/settings/oauth2', data),
 }
 
 // ===== SMTP Settings API =====

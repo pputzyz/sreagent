@@ -3,13 +3,24 @@ import { ref, reactive, computed, watch } from 'vue'
 import {
   useMessage, NModal, NButton, NIcon, NForm, NFormItem, NGrid, NGi,
   NInput, NInputNumber, NSelect, NCollapseTransition, NSwitch, NCollapse, NCollapseItem,
+  NCard, NDrawer, NDrawerContent, NSpin, NTabs, NTabPane, NDataTable,
 } from 'naive-ui'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart } from 'echarts/charts'
+import {
+  TooltipComponent, LegendComponent, GridComponent, DataZoomComponent,
+} from 'echarts/components'
+import VChart from 'vue-echarts'
 import { useI18n } from 'vue-i18n'
 import { alertRuleApi, datasourceApi, templateApi, labelRegistryApi } from '@/api'
 import type { AlertRule, AlertRuleType, DataSource, AlertSeverity, DataSourceType, QueryResponse } from '@/types'
 import { kvArrayToRecord } from '@/utils/format'
+import { formatValue } from '@/utils/valueFormatter'
 import KVEditor from '@/components/common/KVEditor.vue'
-import { PlayOutline } from '@vicons/ionicons5'
+import { PlayOutline, StatsChartOutline } from '@vicons/ionicons5'
+
+use([CanvasRenderer, LineChart, TooltipComponent, LegendComponent, GridComponent, DataZoomComponent])
 
 const props = defineProps<{
   show: boolean
@@ -30,6 +41,12 @@ const { t } = useI18n()
 const modalTitle = ref('')
 const editingId = ref<number | null>(null)
 const saving = ref(false)
+
+// Collapsible section state
+const sectionBasicOpen = ref(true)
+const sectionQueryOpen = ref(true)
+const sectionLabelsOpen = ref(false)
+const sectionAdvancedOpen = ref(false)
 
 const defaultForm = {
   name: '',
@@ -153,6 +170,113 @@ async function handleTestExpression() {
     message.error((err as Error).message || t('common.failed'))
   } finally { queryTesting.value = false }
 }
+
+// Graph preview drawer
+const showGraphDrawer = ref(false)
+const graphLoading = ref(false)
+const graphResult = ref<QueryResponse | null>(null)
+const graphTimeRange = ref(3600) // seconds, default 1h
+
+async function openGraphPreview() {
+  if (!form.datasource_id || !form.expression.trim()) return
+  showGraphDrawer.value = true
+  graphLoading.value = true
+  graphResult.value = null
+  try {
+    const end = Math.floor(Date.now() / 1000)
+    const start = end - graphTimeRange.value
+    const step = graphTimeRange.value <= 3600 ? '15s' : graphTimeRange.value <= 21600 ? '60s' : '300s'
+    const { data } = await datasourceApi.rangeQuery(form.datasource_id, {
+      expression: form.expression,
+      start,
+      end,
+      step,
+    })
+    graphResult.value = data.data
+  } catch (err: unknown) {
+    message.error((err as Error).message || t('common.failed'))
+  } finally { graphLoading.value = false }
+}
+
+const graphChartOption = computed(() => {
+  if (!graphResult.value?.series || graphResult.value.series.length === 0) return null
+  const now = Math.floor(Date.now() / 1000)
+  const start = now - graphTimeRange.value
+  const allSeries = graphResult.value.series.map(s => ({
+    name: Object.entries(s.labels || {}).filter(([k]) => k !== '__name__').map(([k, v]) => `${k}="${v}"`).join(', ') || 'value',
+    type: 'line' as const,
+    data: (s.values || []).map(v => [v.ts * 1000, v.value]),
+    smooth: true,
+    symbol: 'none',
+    lineStyle: { width: 1.5 },
+    emphasis: { lineStyle: { width: 2.5 } },
+  }))
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'cross' },
+      valueFormatter: (val: number) => formatValue(val, 'short'),
+    },
+    legend: {
+      type: 'scroll',
+      bottom: 0,
+      textStyle: { fontSize: 11 },
+    },
+    grid: { left: 60, right: 20, top: 30, bottom: 60 },
+    xAxis: {
+      type: 'time',
+      min: start * 1000,
+      max: now * 1000,
+      axisLabel: {
+        fontSize: 11,
+        formatter: (val: number) => {
+          const d = new Date(val)
+          return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+        },
+      },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, formatter: (val: number) => formatValue(val, 'short') },
+      splitLine: { lineStyle: { type: 'dashed', color: 'var(--sre-border, #1e293b)' } },
+    },
+    series: allSeries,
+    dataZoom: [
+      { type: 'inside', xAxisIndex: 0 },
+      { type: 'slider', xAxisIndex: 0, bottom: 25, height: 20 },
+    ],
+    animation: false,
+  }
+})
+
+const graphLegendData = computed(() => {
+  if (!graphResult.value?.series) return []
+  return graphResult.value.series.map((s, i) => {
+    const name = Object.entries(s.labels || {}).filter(([k]) => k !== '__name__').map(([k, v]) => `${k}="${v}"`).join(', ') || 'value'
+    const values = (s.values || []).map(v => v.value)
+    const min = values.length ? Math.min(...values) : 0
+    const max = values.length ? Math.max(...values) : 0
+    const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0
+    const last = values.length ? values[values.length - 1] : 0
+    return { key: String(i), name, min, max, avg, last }
+  })
+})
+
+const graphLegendColumns = computed(() => [
+  { title: t('query.series'), key: 'name', ellipsis: { tooltip: true } },
+  { title: t('query.min'), key: 'min', width: 80, align: 'right' as const, render: (row: { min: number }) => formatValue(row.min, 'short') },
+  { title: t('query.max'), key: 'max', width: 80, align: 'right' as const, render: (row: { max: number }) => formatValue(row.max, 'short') },
+  { title: t('query.avg'), key: 'avg', width: 80, align: 'right' as const, render: (row: { avg: number }) => formatValue(row.avg, 'short') },
+  { title: t('query.last'), key: 'last', width: 80, align: 'right' as const, render: (row: { last: number }) => formatValue(row.last, 'short') },
+])
+
+const graphTimeRangeOptions = [
+  { label: '15m', value: 900 },
+  { label: '1h', value: 3600 },
+  { label: '6h', value: 21600 },
+  { label: '24h', value: 86400 },
+]
 
 // Templates
 interface RuleTemplate {
@@ -436,213 +560,259 @@ async function handleSave() {
       </div>
     </n-modal>
 
-    <!-- Form -->
-    <n-form label-placement="top">
-      <n-grid :x-gap="12" :cols="2">
-        <n-gi>
-          <n-form-item :label="t('common.name')" required>
-            <n-input v-model:value="form.name" :placeholder="t('alert.namePlaceholder')" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item :label="t('alert.displayName')">
-            <n-input v-model:value="form.display_name" :placeholder="t('alert.displayNamePlaceholder')" />
-          </n-form-item>
-        </n-gi>
-      </n-grid>
-
-      <n-form-item :label="t('common.description')">
-        <n-input v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
-      </n-form-item>
-
-      <n-grid :x-gap="12" :cols="2">
-        <n-gi>
-          <n-form-item :label="t('alert.dataSource')">
-            <n-select v-model:value="form.datasource_id" :options="datasourceOptions" :placeholder="t('alert.selectDataSource')" clearable />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item :label="t('alert.datasourceType')">
-            <n-select
-              v-model:value="form.datasource_type"
-              :options="datasourceTypeOptions"
-              :placeholder="t('alert.selectDatasourceType')"
-              :disabled="form.datasource_id != null"
-              clearable
-            />
-          </n-form-item>
-        </n-gi>
-      </n-grid>
-
-      <n-grid :x-gap="12" :cols="2">
-        <n-gi>
-          <n-form-item :label="t('alert.groupName')">
-            <n-input v-model:value="form.group_name" :placeholder="t('alert.groupNamePlaceholder')" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item :label="t('alert.category')">
-            <n-select v-model:value="form.category" :options="categoryOptions" :placeholder="t('alert.selectCategory')" clearable tag filterable />
-          </n-form-item>
-        </n-gi>
-      </n-grid>
-
-      <n-grid :x-gap="12" :cols="2">
-        <n-gi>
-          <n-form-item :label="t('alert.groupWait')">
-            <n-input-number v-model:value="form.group_wait_seconds" :min="0" :max="3600" :placeholder="t('alert.groupWaitPlaceholder')" class="rfm-input-full">
-              <template #suffix>{{ t('common.seconds') }}</template>
-            </n-input-number>
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item :label="t('alert.groupInterval')">
-            <n-input-number v-model:value="form.group_interval_seconds" :min="0" :max="86400" :placeholder="t('alert.groupIntervalPlaceholder')" class="rfm-input-full">
-              <template #suffix>{{ t('common.seconds') }}</template>
-            </n-input-number>
-          </n-form-item>
-        </n-gi>
-      </n-grid>
-
-      <n-form-item required>
-        <template #label>
-          <span class="rfm-expr-label">
-            {{ t('alert.expression') }} <span class="lang-pill">{{ expressionLang }}</span>
-          </span>
-        </template>
-        <div class="rfm-expr-wrap">
-          <n-input
-            v-model:value="form.expression"
-            type="textarea"
-            :placeholder="expressionPlaceholder"
-            :rows="3"
-            class="rfm-expr-input"
-          />
-          <div class="rfm-expr-actions">
-            <n-button
-              size="small"
-              :loading="queryTesting"
-              :disabled="!form.datasource_id || !form.expression.trim()"
-              @click="handleTestExpression"
-            >
-              <template #icon><n-icon :component="PlayOutline" /></template>
-              {{ queryTesting ? t('alert.testing') : t('alert.testExpression') }}
-            </n-button>
-          </div>
-          <n-collapse-transition :show="queryResult !== null">
-            <div class="query-result">
-              <div class="sre-label-eyebrow qr-eyebrow">{{ t('alert.testResult') }}</div>
-              <div v-if="queryResult?.result_type === 'logs'" class="qr-logs">
-                {{ t('alert.matchedLogs') }}: <span class="tnum">{{ queryResult.raw_count }}</span>
-              </div>
-              <div v-else-if="queryResult?.series && queryResult.series.length > 0" class="series-list">
-                <div v-for="(s, i) in queryResult.series" :key="i" class="series-row">
-                  <code class="series-labels">{{ Object.entries(s.labels || {}).map(([k, v]) => `${k}=${v}`).join(', ') }}</code>
-                  <span class="series-value tnum">{{ s.values?.[0]?.value ?? '-' }}</span>
-                </div>
-              </div>
-              <div v-else class="qr-empty">
-                {{ t('alert.noResults') }}
-              </div>
+    <!-- Form: collapsible card sections -->
+    <div class="rfm-sections">
+      <n-form label-placement="top">
+        <!-- Section 1: Basic Info -->
+        <n-card size="small" class="rfm-section-card">
+          <template #header>
+            <div class="rfm-section-header" @click="sectionBasicOpen = !sectionBasicOpen">
+              <span class="rfm-section-title">{{ t('alert.sectionBasic') }}</span>
+              <span class="rfm-section-chevron" :class="{ open: sectionBasicOpen }">&#9662;</span>
             </div>
-          </n-collapse-transition>
-        </div>
-      </n-form-item>
-
-      <n-grid :x-gap="12" :cols="2">
-        <n-gi>
-          <n-form-item :label="t('alert.forDuration')">
-            <n-input v-model:value="form.for_duration" :placeholder="t('alert.forDurationPlaceholder')" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item :label="t('alert.severity')">
-            <n-select v-model:value="form.severity" :options="severityOptions" />
-          </n-form-item>
-        </n-gi>
-      </n-grid>
-
-      <n-form-item :label="t('alert.labels')">
-        <KVEditor v-model:modelValue="form.labels" :add-label="t('alert.addLabel')" :key-options="labelKeys" :value-options="labelValues" @key-change="onLabelKeyChange" />
-      </n-form-item>
-
-      <n-form-item :label="t('alert.annotations')">
-        <KVEditor v-model:modelValue="form.annotations" :add-label="t('alert.addAnnotation')" :key-placeholder="t('alert.annotationKeyPlaceholder')" />
-      </n-form-item>
-
-      <!-- Advanced Settings -->
-      <n-collapse>
-        <n-collapse-item :title="t('alert.advancedSettings')" name="advanced">
-          <n-grid :x-gap="12" :cols="2">
-            <n-gi>
-              <n-form-item :label="t('alert.ruleType')">
-                <n-select v-model:value="form.rule_type" :options="[
-                  { label: t('alert.ruleTypeThreshold'), value: 'threshold' },
-                  { label: t('alert.ruleTypeHeartbeat'), value: 'heartbeat' },
-                ]" />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item :label="t('alert.evalInterval')">
-                <n-input-number v-model:value="form.eval_interval" :min="10" :max="86400" class="rfm-input-full">
-                  <template #suffix>{{ t('common.seconds') }}</template>
-                </n-input-number>
-              </n-form-item>
-            </n-gi>
-          </n-grid>
-
-          <n-grid :x-gap="12" :cols="2">
-            <n-gi>
-              <n-form-item :label="t('alert.recoveryHold')">
-                <n-input v-model:value="form.recovery_hold" placeholder="0s" />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item :label="t('alert.ackSla')">
-                <n-input-number v-model:value="form.ack_sla_minutes" :min="0" :max="1440" class="rfm-input-full">
-                  <template #suffix>{{ t('common.minutes') }}</template>
-                </n-input-number>
-              </n-form-item>
-            </n-gi>
-          </n-grid>
-
-          <n-grid :x-gap="12" :cols="2">
-            <n-gi>
-              <n-form-item :label="t('alert.nodataEnabled')">
-                <n-switch v-model:value="form.nodata_enabled" />
-              </n-form-item>
-            </n-gi>
-            <n-gi v-if="form.nodata_enabled">
-              <n-form-item :label="t('alert.nodataDuration')">
-                <n-input v-model:value="form.nodata_duration" placeholder="5m" />
-              </n-form-item>
-            </n-gi>
-          </n-grid>
-
-          <n-form-item :label="t('alert.suppressEnabled')">
-            <n-switch v-model:value="form.suppress_enabled" />
-          </n-form-item>
-
-          <!-- Heartbeat fields (only for heartbeat type) -->
-          <template v-if="form.rule_type === 'heartbeat'">
+          </template>
+          <n-collapse-transition :show="sectionBasicOpen">
             <n-grid :x-gap="12" :cols="2">
               <n-gi>
-                <n-form-item :label="t('alert.heartbeatToken')">
-                  <n-input v-model:value="form.heartbeat_token" :placeholder="t('alert.heartbeatTokenPlaceholder')" />
+                <n-form-item :label="t('common.name')" required>
+                  <n-input v-model:value="form.name" :placeholder="t('alert.namePlaceholder')" />
                 </n-form-item>
               </n-gi>
               <n-gi>
-                <n-form-item :label="t('alert.heartbeatInterval')">
-                  <n-input-number v-model:value="form.heartbeat_interval" :min="30" :max="86400" class="rfm-input-full">
+                <n-form-item :label="t('alert.displayName')">
+                  <n-input v-model:value="form.display_name" :placeholder="t('alert.displayNamePlaceholder')" />
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+            <n-form-item :label="t('common.description')">
+              <n-input v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
+            </n-form-item>
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.groupName')">
+                  <n-input v-model:value="form.group_name" :placeholder="t('alert.groupNamePlaceholder')" />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item :label="t('alert.category')">
+                  <n-select v-model:value="form.category" :options="categoryOptions" :placeholder="t('alert.selectCategory')" clearable tag filterable />
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.groupWait')">
+                  <n-input-number v-model:value="form.group_wait_seconds" :min="0" :max="3600" :placeholder="t('alert.groupWaitPlaceholder')" class="rfm-input-full">
+                    <template #suffix>{{ t('common.seconds') }}</template>
+                  </n-input-number>
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item :label="t('alert.groupInterval')">
+                  <n-input-number v-model:value="form.group_interval_seconds" :min="0" :max="86400" :placeholder="t('alert.groupIntervalPlaceholder')" class="rfm-input-full">
                     <template #suffix>{{ t('common.seconds') }}</template>
                   </n-input-number>
                 </n-form-item>
               </n-gi>
             </n-grid>
+          </n-collapse-transition>
+        </n-card>
+
+        <!-- Section 2: Query & Condition -->
+        <n-card size="small" class="rfm-section-card">
+          <template #header>
+            <div class="rfm-section-header" @click="sectionQueryOpen = !sectionQueryOpen">
+              <span class="rfm-section-title">{{ t('alert.sectionQuery') }}</span>
+              <span class="rfm-section-chevron" :class="{ open: sectionQueryOpen }">&#9662;</span>
+            </div>
           </template>
-        </n-collapse-item>
-      </n-collapse>
-    </n-form>
+          <n-collapse-transition :show="sectionQueryOpen">
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.dataSource')">
+                  <n-select v-model:value="form.datasource_id" :options="datasourceOptions" :placeholder="t('alert.selectDataSource')" clearable />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item :label="t('alert.datasourceType')">
+                  <n-select
+                    v-model:value="form.datasource_type"
+                    :options="datasourceTypeOptions"
+                    :placeholder="t('alert.selectDatasourceType')"
+                    :disabled="form.datasource_id != null"
+                    clearable
+                  />
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+
+            <n-form-item required>
+              <template #label>
+                <span class="rfm-expr-label">
+                  {{ t('alert.expression') }} <span class="lang-pill">{{ expressionLang }}</span>
+                </span>
+              </template>
+              <div class="rfm-expr-wrap">
+                <n-input
+                  v-model:value="form.expression"
+                  type="textarea"
+                  :placeholder="expressionPlaceholder"
+                  :rows="3"
+                  class="rfm-expr-input"
+                />
+                <div class="rfm-expr-actions">
+                  <n-button
+                    size="small"
+                    :loading="queryTesting"
+                    :disabled="!form.datasource_id || !form.expression.trim()"
+                    @click="handleTestExpression"
+                  >
+                    <template #icon><n-icon :component="PlayOutline" /></template>
+                    {{ queryTesting ? t('alert.testing') : t('alert.testExpression') }}
+                  </n-button>
+                  <n-button
+                    size="small"
+                    secondary
+                    :disabled="!form.datasource_id || !form.expression.trim()"
+                    @click="openGraphPreview"
+                  >
+                    <template #icon><n-icon :component="StatsChartOutline" /></template>
+                    {{ t('alert.previewGraph') }}
+                  </n-button>
+                </div>
+                <n-collapse-transition :show="queryResult !== null">
+                  <div class="query-result">
+                    <div class="sre-label-eyebrow qr-eyebrow">{{ t('alert.testResult') }}</div>
+                    <div v-if="queryResult?.result_type === 'logs'" class="qr-logs">
+                      {{ t('alert.matchedLogs') }}: <span class="tnum">{{ queryResult.raw_count }}</span>
+                    </div>
+                    <div v-else-if="queryResult?.series && queryResult.series.length > 0" class="series-list">
+                      <div v-for="(s, i) in queryResult.series" :key="i" class="series-row">
+                        <code class="series-labels">{{ Object.entries(s.labels || {}).map(([k, v]) => `${k}=${v}`).join(', ') }}</code>
+                        <span class="series-value tnum">{{ s.values?.[0]?.value ?? '-' }}</span>
+                      </div>
+                    </div>
+                    <div v-else class="qr-empty">
+                      {{ t('alert.noResults') }}
+                    </div>
+                  </div>
+                </n-collapse-transition>
+              </div>
+            </n-form-item>
+
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.forDuration')">
+                  <n-input v-model:value="form.for_duration" :placeholder="t('alert.forDurationPlaceholder')" />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item :label="t('alert.severity')">
+                  <n-select v-model:value="form.severity" :options="severityOptions" />
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+          </n-collapse-transition>
+        </n-card>
+
+        <!-- Section 3: Labels & Annotations -->
+        <n-card size="small" class="rfm-section-card">
+          <template #header>
+            <div class="rfm-section-header" @click="sectionLabelsOpen = !sectionLabelsOpen">
+              <span class="rfm-section-title">{{ t('alert.sectionLabels') }}</span>
+              <span class="rfm-section-chevron" :class="{ open: sectionLabelsOpen }">&#9662;</span>
+            </div>
+          </template>
+          <n-collapse-transition :show="sectionLabelsOpen">
+            <n-form-item :label="t('alert.labels')">
+              <KVEditor v-model:modelValue="form.labels" :add-label="t('alert.addLabel')" :key-options="labelKeys" :value-options="labelValues" @key-change="onLabelKeyChange" />
+            </n-form-item>
+            <n-form-item :label="t('alert.annotations')">
+              <KVEditor v-model:modelValue="form.annotations" :add-label="t('alert.addAnnotation')" :key-placeholder="t('alert.annotationKeyPlaceholder')" />
+            </n-form-item>
+          </n-collapse-transition>
+        </n-card>
+
+        <!-- Section 4: Advanced Settings -->
+        <n-card size="small" class="rfm-section-card">
+          <template #header>
+            <div class="rfm-section-header" @click="sectionAdvancedOpen = !sectionAdvancedOpen">
+              <span class="rfm-section-title">{{ t('alert.advancedSettings') }}</span>
+              <span class="rfm-section-chevron" :class="{ open: sectionAdvancedOpen }">&#9662;</span>
+            </div>
+          </template>
+          <n-collapse-transition :show="sectionAdvancedOpen">
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.ruleType')">
+                  <n-select v-model:value="form.rule_type" :options="[
+                    { label: t('alert.ruleTypeThreshold'), value: 'threshold' },
+                    { label: t('alert.ruleTypeHeartbeat'), value: 'heartbeat' },
+                  ]" />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item :label="t('alert.evalInterval')">
+                  <n-input-number v-model:value="form.eval_interval" :min="10" :max="86400" class="rfm-input-full">
+                    <template #suffix>{{ t('common.seconds') }}</template>
+                  </n-input-number>
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.recoveryHold')">
+                  <n-input v-model:value="form.recovery_hold" placeholder="0s" />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item :label="t('alert.ackSla')">
+                  <n-input-number v-model:value="form.ack_sla_minutes" :min="0" :max="1440" class="rfm-input-full">
+                    <template #suffix>{{ t('common.minutes') }}</template>
+                  </n-input-number>
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+
+            <n-grid :x-gap="12" :cols="2">
+              <n-gi>
+                <n-form-item :label="t('alert.nodataEnabled')">
+                  <n-switch v-model:value="form.nodata_enabled" />
+                </n-form-item>
+              </n-gi>
+              <n-gi v-if="form.nodata_enabled">
+                <n-form-item :label="t('alert.nodataDuration')">
+                  <n-input v-model:value="form.nodata_duration" placeholder="5m" />
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+
+            <n-form-item :label="t('alert.suppressEnabled')">
+              <n-switch v-model:value="form.suppress_enabled" />
+            </n-form-item>
+
+            <!-- Heartbeat fields (only for heartbeat type) -->
+            <template v-if="form.rule_type === 'heartbeat'">
+              <n-grid :x-gap="12" :cols="2">
+                <n-gi>
+                  <n-form-item :label="t('alert.heartbeatToken')">
+                    <n-input v-model:value="form.heartbeat_token" :placeholder="t('alert.heartbeatTokenPlaceholder')" />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item :label="t('alert.heartbeatInterval')">
+                    <n-input-number v-model:value="form.heartbeat_interval" :min="30" :max="86400" class="rfm-input-full">
+                      <template #suffix>{{ t('common.seconds') }}</template>
+                    </n-input-number>
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+            </template>
+          </n-collapse-transition>
+        </n-card>
+      </n-form>
+    </div>
 
     <template #action>
       <div class="rfm-footer">
@@ -658,11 +828,67 @@ async function handleSave() {
       </div>
     </template>
   </n-modal>
+
+  <!-- Graph Preview Drawer -->
+  <n-drawer
+    :show="showGraphDrawer"
+    :width="560"
+    placement="right"
+    @update:show="(v: boolean) => { if (!v) showGraphDrawer = false }"
+  >
+    <n-drawer-content :title="t('alert.graphPreviewTitle')" closable>
+      <div class="graph-drawer-body">
+        <div class="graph-toolbar">
+          <n-select
+            v-model:value="graphTimeRange"
+            :options="graphTimeRangeOptions"
+            size="small"
+            class="graph-time-select"
+            @update:value="openGraphPreview"
+          />
+          <n-button
+            size="small"
+            secondary
+            :loading="graphLoading"
+            @click="openGraphPreview"
+          >
+            <template #icon><n-icon :component="PlayOutline" /></template>
+            {{ t('alert.testExpression') }}
+          </n-button>
+        </div>
+
+        <n-spin :show="graphLoading">
+          <div v-if="graphChartOption" class="graph-chart-container">
+            <VChart
+              :option="graphChartOption"
+              style="width: 100%; height: 320px"
+              autoresize
+            />
+            <div class="graph-legend-table">
+              <NDataTable
+                :columns="graphLegendColumns"
+                :data="graphLegendData"
+                :max-height="200"
+                size="small"
+                striped
+                :pagination="false"
+                :scroll-x="480"
+              />
+            </div>
+          </div>
+          <div v-else class="graph-empty">
+            <span v-if="graphLoading">{{ t('common.loading') }}</span>
+            <span v-else>{{ t('common.noData') }}</span>
+          </div>
+        </n-spin>
+      </div>
+    </n-drawer-content>
+  </n-drawer>
 </template>
 
 <style scoped>
 .rfm-modal {
-  width: 680px;
+  width: 900px;
 }
 
 .rfm-template-bar {
@@ -699,6 +925,55 @@ async function handleSave() {
   width: 100%;
 }
 
+/* Collapsible card sections */
+.rfm-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rfm-section-card {
+  border-radius: 8px;
+}
+
+.rfm-section-card :deep(.n-card-header) {
+  padding: 10px 16px;
+}
+
+.rfm-section-card :deep(.n-card__content) {
+  padding: 12px 16px 16px;
+}
+
+.rfm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rfm-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+}
+
+.rfm-section-chevron {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
+  transition: transform 200ms ease;
+  line-height: 1;
+}
+
+.rfm-section-chevron.open {
+  transform: rotate(0deg);
+}
+
+.rfm-section-chevron:not(.open) {
+  transform: rotate(-90deg);
+}
+
+/* Expression area */
 .rfm-expr-label {
   display: inline-flex;
   align-items: center;
@@ -720,6 +995,7 @@ async function handleSave() {
   gap: 8px;
 }
 
+/* Footer */
 .rfm-footer {
   display: flex;
   justify-content: space-between;
@@ -731,7 +1007,7 @@ async function handleSave() {
   gap: 8px;
 }
 
-/* Shared: template list */
+/* Template list */
 .tpl-list {
   display: flex;
   flex-direction: column;
@@ -752,7 +1028,7 @@ async function handleSave() {
   color: var(--sre-text-tertiary);
 }
 
-/* Shared: expression result */
+/* Expression result */
 .lang-pill {
   display: inline-flex;
   align-items: center;
@@ -812,5 +1088,42 @@ async function handleSave() {
   font-size: 12px;
   color: var(--sre-text-primary);
   font-weight: 500;
+}
+
+/* Graph preview drawer */
+.graph-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-time-select {
+  width: 100px;
+}
+
+.graph-chart-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.graph-legend-table {
+  border-top: var(--sre-hairline);
+  padding-top: 8px;
+}
+
+.graph-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 320px;
+  color: var(--sre-text-tertiary);
+  font-size: 14px;
 }
 </style>
