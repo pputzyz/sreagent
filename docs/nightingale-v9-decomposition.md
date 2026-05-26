@@ -886,9 +886,12 @@ LDAP, OAuth2, OIDC, CAS, DingTalk, Feishu
 | 事件管道 | v4.29.0 | 可编程事件处理管道，Processor 注册表模式 |
 | 指标内置规则 | v4.28.0 | PresetRule + 分类体系，299 条预置规则 |
 | 记录规则引擎 | v4.32.0 | RecordingRuleEngine + cron 调度 + 执行记录 |
+| 记录规则前端增强 | v4.35.0 | 数据源过滤、名称验证、PromQL 预验证、批量更新 |
 | 通知渠道扩展 | v4.30.0 | 从 4 种扩展至 17 种渠道类型 |
 | Saved Views | v4.32.0 | 持久化视图存储，API + 前端 |
-| Metric Views | v4.32.0 | 三面板指标探索页面 |
+| Metric Views | v4.35.0 | 持久化指标视图（后端 CRUD + 三栏前端），Nightingale Quick Views 移植 |
+| 内置指标增强 | v4.35.0 | 单位筛选、Explorer Drawer、MetricFilter 管理 UI |
+| ES 日志探索 | v4.34.0 | Elasticsearch 数据源支持，Index Pattern + 日志查询 |
 
 ### 17.4 Nightingale 特有功能（SREAgent 无对应）
 

@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.34.0
-> 共 47 个 model, 60 个 handler, 82 个 service, 47 个 repository, 302+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-26 | tag: v4.35.0
+> 共 48 个 model, 63 个 handler, 85 个 service, 47 个 repository, 307+ API 端点, 17 种通知渠道
 
 ---
 
@@ -497,12 +497,13 @@ permissions ──→ team (团队角色查询)
 - **API**: `GET/POST/PUT/DELETE /api/v1/saved-views` + `POST /:id/copy`
 - **状态**: ✅ 完成
 
-## 指标视图 (metric-views) [v4.32.0]
+## 指标视图 (metric-views) [v4.35.0]
 
-- **功能**: 独立的指标探索页面，三面板布局（视图列表 + 标签筛选 + 指标列表 + 图表），级联标签选择器
-- **前端文件**: `web/src/pages/explore/MetricViews.vue`, `web/src/components/query/MetricLabelSelector.vue`, `web/src/components/query/MetricList.vue`
-- **路由**: `/explore/metrics`
-- **API**: 复用 datasource proxy（`/api/v1/datasources/:id/proxy/api/v1/label/*/values`）
+- **功能**: 持久化指标视图配置（过滤器、动态标签、维度标签），三栏布局（视图列表 + 标签筛选 + 指标图表），Nightgale Quick Views 移植
+- **后端文件**: `internal/model/metric_view.go`, `internal/repository/metric_view.go`, `internal/service/metric_view.go`, `internal/handler/metric_view.go`, `internal/router/metric_view_routes.go`
+- **前端文件**: `web/src/pages/alerts/metric-views/Index.vue`, `web/src/api/metric-view.ts`
+- **迁移文件**: `000075_metric_views`
+- **API**: `GET/POST/PUT/DELETE /api/v1/metric-views` (CRUD + 收藏)
 - **状态**: ✅ 完成
 
 ## 即时查询增强 (instant-query) [v4.32.0]
