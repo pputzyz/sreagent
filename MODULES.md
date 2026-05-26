@@ -1,6 +1,6 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.39.0
+> 最后更新: 2026-05-26 | tag: v4.40.0
 > 共 56 个 model, 66 个 handler, 80 个 service, 54 个 repository, 340+ API 端点, 17 种通知渠道
 
 ---
@@ -613,16 +613,18 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 
 - **功能**: 可复用的自愈脚本模板 CRUD，定义脚本、参数、超时、批量执行策略、目标主机列表
 - **后端文件**: `internal/model/task_tpl.go`, `internal/repository/task_tpl.go`, `internal/service/task_tpl.go`, `internal/handler/task_tpl.go`, `internal/router/task_routes.go`
+- **前端文件**: `web/src/api/task.ts`, `web/src/pages/platform/tasks/TplIndex.vue`（列表 + 创建/编辑抽屉 + 执行模态框）
 - **API**: `GET/POST/PUT/DELETE /api/v1/task-tpls`（5 端点，manage 权限）
 - **迁移**: `000083_task_tpls`
 - **依赖**: 无外部依赖
-- **状态**: ✅ 完成
+- **状态**: ✅ 完成（前端 v4.40.0）
 
 ## 任务执行引擎 (task-execution) [v4.38.0]
 
 - **功能**: 基于模板或直接执行脚本，SSH 远程运行，按批次调度（batch + pause），每主机独立追踪，容错阈值控制
 - **后端文件**: `internal/model/task_record.go`, `internal/model/task_host_record.go`, `internal/repository/task_record.go`, `internal/service/task_executor.go`, `internal/handler/task.go`, `internal/router/task_routes.go`
+- **前端文件**: `web/src/api/task.ts`, `web/src/pages/platform/tasks/TaskIndex.vue`（记录列表）, `web/src/pages/platform/tasks/TaskResult.vue`（结果详情 + 主机级 stdout/stderr）
 - **API**: `GET/POST /api/v1/tasks` + `POST /api/v1/tasks/direct` + `GET /api/v1/tasks/:id` + `GET /api/v1/tasks/:id/hosts` + `GET /api/v1/tasks/hosts/:id`（6 端点，operate 权限）
 - **迁移**: `000084_task_records`, `000085_task_host_records`
 - **依赖**: `golang.org/x/crypto/ssh`, task-tpl（模板加载）, alert-event（event_id 关联）
-- **状态**: ✅ 后端核心完成（SSH 认证待增强：密钥认证 + known_hosts）
+- **状态**: ✅ 后端核心完成 + 前端完成（SSH 认证待增强：密钥认证 + known_hosts）

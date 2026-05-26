@@ -54,6 +54,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/es-explore', component: () => import('@/pages/explore/ESExplorer.vue'), meta: { title: 'menu.esExplorer' } },
       { path: 'alert/es-patterns', component: () => import('@/pages/alerts/es-patterns/Index.vue'), meta: { title: 'menu.esPatterns', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/dashboards', component: () => import('@/pages/dashboards/Index.vue'), meta: { title: 'menu.dashboard' } },
+      { path: 'alert/dashboards/builtin', component: () => import('@/pages/dashboards/BuiltinLibrary.vue'), meta: { title: 'menu.builtinDashboards' } },
       { path: 'alert/dashboards/:id', component: () => import('@/pages/dashboards/View.vue'), meta: { title: 'menu.dashboard' } },
       { path: 'alert/notify/policies', component: () => import('@/pages/notification/Index.vue'), meta: { title: 'menu.notifyPolicies' } },
       { path: 'alert/notify/templates', component: () => import('@/pages/notification/Templates.vue'), meta: { title: 'menu.templates' } },
@@ -74,6 +75,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/llm-configs', component: () => import('@/pages/platform/LLMConfigs.vue'), meta: { title: 'menu.llmConfigs', requiresRole: ['admin'] } },
       { path: 'platform/mcp-servers', component: () => import('@/pages/platform/MCPServers.vue'), meta: { title: 'menu.mcpServers', requiresRole: ['admin'] } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
+      { path: 'platform/settings/contacts', component: () => import('@/pages/settings/Contacts.vue'), meta: { title: 'menu.contacts' } },
+      { path: 'platform/settings/site-info', component: () => import('@/pages/settings/SiteInfo.vue'), meta: { title: 'menu.siteInfo', requiresRole: ['admin'] } },
 
       // ===== Notification Center =====
       { path: 'notifications', component: () => import('@/pages/notification/Center.vue'), meta: { title: 'notification.centerTitle' } },
@@ -85,6 +88,11 @@ const routes: RouteRecordRaw[] = [
       // ===== Inspection (定时巡检) =====
       { path: 'platform/inspections', component: () => import('@/pages/platform/inspections/Index.vue'), meta: { title: 'menu.inspection', requiresRole: ['admin', 'team_lead'] } },
       { path: 'platform/inspections/runs/:id', component: () => import('@/pages/platform/inspections/RunDetail.vue'), meta: { title: 'menu.inspectionDetail', requiresRole: ['admin', 'team_lead'] } },
+
+      // ===== Task Execution (任务执行) =====
+      { path: 'platform/task-tpls', component: () => import('@/pages/platform/tasks/TplIndex.vue'), meta: { title: 'menu.taskTpls', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'platform/tasks', component: () => import('@/pages/platform/tasks/TaskIndex.vue'), meta: { title: 'menu.tasks', requiresRole: ['admin', 'team_lead', 'member'] } },
+      { path: 'platform/tasks/:id', component: () => import('@/pages/platform/tasks/TaskResult.vue'), meta: { title: 'menu.taskDetail', requiresRole: ['admin', 'team_lead', 'member'] } },
 
       // ===== Legacy Redirects =====
       { path: 'dashboard', redirect: '/oncall/overview' },

@@ -4,6 +4,23 @@
 
 ---
 
+## [v4.40.0] — 2026-05-26
+
+### 任务执行前端页面（Nightingale 对齐）
+
+- **新增页面**:
+  - `web/src/pages/platform/tasks/TplIndex.vue` — 任务模板列表（CRUD + 执行抽屉）
+  - `web/src/pages/platform/tasks/TaskIndex.vue` — 任务执行记录列表（状态筛选 + 分页）
+  - `web/src/pages/platform/tasks/TaskResult.vue` — 任务结果详情（主机级 stdout/stderr）
+- **新增 API 模块**: `web/src/api/task.ts` — 类型定义 + taskTplApi/taskApi 封装
+- **路由**: `/platform/task-tpls`（admin/team_lead）、`/platform/tasks`、`/platform/tasks/:id`
+- **侧边栏**: 新增「任务模板」和「任务记录」菜单项（Platform 分组）
+- **i18n**: 中英文完整翻译（taskTpl + task 两个命名空间）
+- **设计参考**: Nightingale 任务执行 UI + 现有 LLMConfigs.vue CRUD 模式
+- **无迁移**: 纯前端变更，无数据库修改
+
+---
+
 ## [v4.39.0] — 2026-05-26
 
 ### AI Agent 多实例 SSE（Redis Streams）

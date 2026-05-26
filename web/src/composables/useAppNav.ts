@@ -50,6 +50,10 @@ import {
   HardwareChipOutline,
   SparklesOutline,
   ShieldOutline,
+  CallOutline,
+  InformationCircleOutline,
+  TerminalOutline,
+  PlayOutline,
 } from '@vicons/ionicons5'
 
 // ===== Public Types =====
@@ -102,6 +106,8 @@ export const iconColorMap = new Map<Component, string>([
   [HardwareChipOutline,     '#8B5CF6'], // violet — AI/hardware
   [SparklesOutline,         '#A855F7'], // purple — AI modules/magic
   [ShieldOutline,           '#EF4444'], // red — security/alert
+  [CallOutline,             '#10B981'], // emerald — contacts/phone
+  [InformationCircleOutline, '#3B82F6'], // blue — site info
 ])
 
 export interface MenuSection {
@@ -272,6 +278,7 @@ export function useAppNav() {
           {
             items: [
               { label: t('menu.profile'), key: '/platform/profile', icon: PersonOutline },
+              { label: t('menu.contacts'), key: '/platform/settings/contacts', icon: CallOutline },
             ],
           },
           {
@@ -293,7 +300,9 @@ export function useAppNav() {
               }
               if (authStore.canManage) {
                 items.push({ label: t('menu.inspection'), key: '/platform/inspections', icon: SearchOutline })
+                items.push({ label: t('menu.taskTpls'), key: '/platform/task-tpls', icon: TerminalOutline })
               }
+              items.push({ label: t('menu.tasks'), key: '/platform/tasks', icon: PlayOutline })
               return items
             })(),
           },
@@ -310,6 +319,7 @@ export function useAppNav() {
                   { label: t('menu.mcpServers'), key: '/platform/mcp-servers', icon: SparklesOutline },
                   { label: t('menu.aiSkills'),   key: '/ai/skills', icon: SparklesOutline },
                   { label: t('menu.aiAgent'),    key: '/ai/agent', icon: SparklesOutline },
+                  { label: t('menu.siteInfo'),   key: '/platform/settings/site-info', icon: InformationCircleOutline },
                   { label: t('menu.security'),   key: '/platform/settings/security', icon: ShieldOutline },
                 )
               }
