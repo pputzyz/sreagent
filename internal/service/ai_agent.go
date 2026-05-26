@@ -40,6 +40,12 @@ type AgentStep struct {
 	Duration    int64                  `json:"duration_ms"`
 }
 
+// sseSubscriber 表示一个等待任务更新的 SSE 客户端
+type sseSubscriber struct {
+	ch     chan *AgentTask
+	taskID string
+}
+
 // AgentService 管理 Agent 任务的规划与执行
 type AgentService struct {
 	aiSvc    *AIService
@@ -51,6 +57,10 @@ type AgentService struct {
 	mu    sync.RWMutex
 	tasks map[string]*AgentTask
 
+	// SSE 订阅者：taskID -> subscribers 列表
+	subscribers map[string][]*sseSubscriber
+	subMu       sync.RWMutex
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -59,13 +69,14 @@ type AgentService struct {
 func NewAgentService(aiSvc *AIService, convRepo *repository.AIConversationRepository, toolReg *AIToolRegistry, logger *zap.Logger) *AgentService {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &AgentService{
-		aiSvc:    aiSvc,
-		toolReg:  toolReg,
-		convRepo: convRepo,
-		logger:   logger,
-		tasks:    make(map[string]*AgentTask),
-		ctx:      ctx,
-		cancel:   cancel,
+		aiSvc:       aiSvc,
+		toolReg:     toolReg,
+		convRepo:    convRepo,
+		logger:      logger,
+		tasks:       make(map[string]*AgentTask),
+		subscribers: make(map[string][]*sseSubscriber),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 	// 定期清理过期任务，防止 OOM
 	go s.cleanupLoop()
@@ -175,6 +186,7 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 			now := time.Now()
 			task.CompletedAt = &now
 			s.mu.Unlock()
+			s.notifySubscribers(task)
 		}
 	}()
 
@@ -229,6 +241,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		task.Error = fmt.Sprintf("规划失败: %v", err)
 		now := time.Now()
 		task.CompletedAt = &now
+		s.notifySubscribers(task)
 		return task, err
 	}
 
@@ -243,12 +256,14 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 
 	task.Steps = steps
 	task.Status = "executing"
+	s.notifySubscribers(task)
 	s.logger.Info("Agent 规划完成", zap.String("id", task.ID), zap.Int("steps", len(steps)))
 
 	// 第 2 步：逐步执行
 	for i := range task.Steps {
 		step := &task.Steps[i]
 		step.Status = "running"
+		s.notifySubscribers(task)
 		startTime := time.Now()
 
 		err := s.executeStep(ctx, task, step)
@@ -257,6 +272,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		if err != nil {
 			step.Status = "failed"
 			step.Result = fmt.Sprintf("执行失败: %v", err)
+			s.notifySubscribers(task)
 			s.logger.Warn("Agent 步骤失败",
 				zap.String("task_id", task.ID),
 				zap.Int("step", step.Index),
@@ -269,12 +285,14 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 				task.Error = fmt.Sprintf("步骤 %d 失败且无法恢复: %v", step.Index, err)
 				now := time.Now()
 				task.CompletedAt = &now
+				s.notifySubscribers(task)
 				return task, nil
 			}
 			continue
 		}
 
 		step.Status = "completed"
+		s.notifySubscribers(task)
 		s.logger.Info("Agent 步骤完成",
 			zap.String("task_id", task.ID),
 			zap.Int("step", step.Index),
@@ -289,6 +307,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		task.Error = fmt.Sprintf("汇总失败: %v", err)
 		now := time.Now()
 		task.CompletedAt = &now
+		s.notifySubscribers(task)
 		return task, nil
 	}
 
@@ -296,6 +315,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 	task.Status = "completed"
 	now := time.Now()
 	task.CompletedAt = &now
+	s.notifySubscribers(task)
 
 	s.logger.Info("Agent 任务完成", zap.String("id", task.ID))
 	return task, nil
@@ -339,6 +359,75 @@ func (s *AgentService) GetTask(id string) (*AgentTask, bool) {
 	defer s.mu.RUnlock()
 	task, ok := s.tasks[id]
 	return task, ok
+}
+
+// Subscribe 注册一个 SSE 订阅者，返回只读 channel
+func (s *AgentService) Subscribe(taskID string) <-chan *AgentTask {
+	ch := make(chan *AgentTask, 16)
+	sub := &sseSubscriber{ch: ch, taskID: taskID}
+	s.subMu.Lock()
+	s.subscribers[taskID] = append(s.subscribers[taskID], sub)
+	s.subMu.Unlock()
+
+	// 立即推送当前任务状态（如果已有）
+	if task, ok := s.GetTask(taskID); ok {
+		ch <- copyTask(task)
+	}
+
+	return ch
+}
+
+// Unsubscribe 移除 SSE 订阅者并关闭 channel
+func (s *AgentService) Unsubscribe(taskID string, ch <-chan *AgentTask) {
+	s.subMu.Lock()
+	defer s.subMu.Unlock()
+	subs := s.subscribers[taskID]
+	for i, sub := range subs {
+		if sub.ch == ch {
+			close(sub.ch)
+			s.subscribers[taskID] = append(subs[:i], subs[i+1:]...)
+			break
+		}
+	}
+	if len(s.subscribers[taskID]) == 0 {
+		delete(s.subscribers, taskID)
+	}
+}
+
+// notifySubscribers 向所有订阅者推送任务更新
+func (s *AgentService) notifySubscribers(task *AgentTask) {
+	s.subMu.RLock()
+	subs := s.subscribers[task.ID]
+	s.subMu.RUnlock()
+
+	if len(subs) == 0 {
+		return
+	}
+
+	snapshot := copyTask(task)
+	for _, sub := range subs {
+		select {
+		case sub.ch <- snapshot:
+		default:
+			// channel 满，跳过该订阅者（避免阻塞）
+			s.logger.Warn("SSE subscriber channel full, skipping",
+				zap.String("task_id", task.ID))
+		}
+	}
+}
+
+// copyTask 深拷贝任务，避免并发读写竞争
+func copyTask(task *AgentTask) *AgentTask {
+	cp := *task
+	if task.Steps != nil {
+		cp.Steps = make([]AgentStep, len(task.Steps))
+		copy(cp.Steps, task.Steps)
+	}
+	if task.CompletedAt != nil {
+		t := *task.CompletedAt
+		cp.CompletedAt = &t
+	}
+	return &cp
 }
 
 // planSteps 让 LLM 规划执行步骤

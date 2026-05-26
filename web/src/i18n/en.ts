@@ -166,6 +166,7 @@ export default {
     inspection: 'Inspection',
     inspectionDetail: 'Inspection Report',
     esExplorer: 'ES Log Explorer',
+    esPatterns: 'ES Index Patterns',
     llmConfigs: 'LLM Configs',
     mcpServers: 'MCP Servers',
     aiSkills: 'AI Skills',

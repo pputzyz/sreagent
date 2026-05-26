@@ -4,7 +4,35 @@
 
 ---
 
+## [v4.37.0] — 2026-05-26
+
+### ES Index Pattern 管理
+
+**ES 索引模式管理模块（全新功能）**:
+- 新增模型 `internal/model/es_index_pattern.go`：ESIndexPattern 结构体（gorm.Model + DatasourceID/Name 唯一约束）
+- 新增仓库 `internal/repository/es_index_pattern.go`：CRUD + ExistsByName 唯一性检查
+- 新增服务 `internal/service/es_index_pattern.go`：Create/Update 验证 + Delete 前检查告警规则引用（JSON_EXTRACT）
+- 新增处理器 `internal/handler/es_index_pattern.go`：List / Get / Create / Update / Delete，含审计日志
+- 新增路由 `internal/router/es_index_pattern_routes.go`：`/api/v1/es-index-patterns`，manage 中间件保护写操作
+- 新增迁移 `000079_es_index_patterns.up.sql` / `000079_es_index_patterns.down.sql`
+- 新增前端 API `web/src/api/es-index-pattern.ts`：CRUD
+- 新增页面 `web/src/pages/alerts/es-patterns/Index.vue`：数据表格 + 创建/编辑抽屉（数据源选择、时间字段、跨集群开关）
+- DI 注入：wire.go 注册 ESIndexPattern repo / service / handler + 审计服务
+- 路由注册：router.go 新增 ESIndexPattern handler 和路由组
+- i18n：zh-CN + en 双语完整翻译（esPatterns 命名空间 18 个键 + menu.esPatterns）
+- 路由：`/alert/es-patterns`（admin + team_lead 可访问）
+
+---
+
 ## [v4.36.0] — 2026-05-26
+
+### AI Agent SSE Streaming
+
+**SSE 实时推送（替代 2s 轮询）**:
+- 服务层 `internal/service/ai_agent.go`：新增 SSE 订阅机制（Subscribe / Unsubscribe / notifySubscribers），任务状态变化时实时推送
+- 处理器 `internal/handler/ai_agent.go`：新增 `StreamAgentTask` 端点，通过 `c.Stream()` 实现 SSE 流
+- 路由 `internal/router/setting_routes.go`：新增 `GET /ai/agent/stream/:id`
+- 前端 `web/src/pages/ai/AgentView.vue`：轮询替换为 EventSource，SSE 断开自动回退轮询
 
 ### AI Agent Enhancement — Phase 1c: Skill System
 

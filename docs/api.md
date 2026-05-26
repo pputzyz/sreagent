@@ -1100,6 +1100,7 @@ AI 驱动的告警分析。支持 LLM 生成的告警报告和 SOP 建议。
 |------|------|----------|------|
 | POST | `/ai/agent/run` | 已认证 | 启动 Agent 任务（异步） |
 | GET | `/ai/agent/tasks/:id` | 已认证 | 查询 Agent 任务状态 |
+| GET | `/ai/agent/stream/:id` | 已认证 | SSE 实时推送任务状态变化 |
 | GET | `/ai/agent/conversations` | 已认证 | 列出会话 |
 | GET | `/ai/agent/conversations/:id` | 已认证 | 获取会话详情 |
 | DELETE | `/ai/agent/conversations/:id` | 已认证 | 删除会话 |
@@ -2196,6 +2197,228 @@ POST /api/v1/saved-views/:id/copy
 
 ---
 
+## LLM 配置管理
+
+### 列出 LLM 配置
+
+```
+GET /api/v1/llm-configs
+```
+
+### 获取 LLM 配置
+
+```
+GET /api/v1/llm-configs/:id
+```
+
+### 创建 LLM 配置
+
+```
+POST /api/v1/llm-configs
+```
+
+管理权限。API Key 使用 AES-256-GCM 加密存储。
+
+### 更新 LLM 配置
+
+```
+PUT /api/v1/llm-configs/:id
+```
+
+管理权限。
+
+### 删除 LLM 配置
+
+```
+DELETE /api/v1/llm-configs/:id
+```
+
+管理权限。
+
+### 测试 LLM 连接
+
+```
+POST /api/v1/llm-configs/:id/test
+```
+
+管理权限。测试 LLM Provider 连接是否可用。
+
+---
+
+## MCP 服务器管理
+
+### 列出 MCP 服务器
+
+```
+GET /api/v1/mcp-servers
+```
+
+### 获取 MCP 服务器
+
+```
+GET /api/v1/mcp-servers/:id
+```
+
+### 创建 MCP 服务器
+
+```
+POST /api/v1/mcp-servers
+```
+
+管理权限。
+
+### 更新 MCP 服务器
+
+```
+PUT /api/v1/mcp-servers/:id
+```
+
+管理权限。
+
+### 删除 MCP 服务器
+
+```
+DELETE /api/v1/mcp-servers/:id
+```
+
+管理权限。
+
+### 测试 MCP 连接
+
+```
+POST /api/v1/mcp-servers/:id/test
+```
+
+管理权限。
+
+### 列出 MCP 工具
+
+```
+GET /api/v1/mcp-servers/:id/tools
+```
+
+管理权限。连接 MCP 服务器并枚举可用工具。
+
+---
+
+## AI 技能管理
+
+### 列出 AI 技能
+
+```
+GET /api/v1/ai-skills
+```
+
+### 获取 AI 技能
+
+```
+GET /api/v1/ai-skills/:id
+```
+
+### 创建 AI 技能
+
+```
+POST /api/v1/ai-skills
+```
+
+管理权限。
+
+### 更新 AI 技能
+
+```
+PUT /api/v1/ai-skills/:id
+```
+
+管理权限。
+
+### 删除 AI 技能
+
+```
+DELETE /api/v1/ai-skills/:id
+```
+
+管理权限。
+
+### 导入 AI 技能
+
+```
+POST /api/v1/ai-skills/import
+```
+
+管理权限。上传 zip 或 tar.gz 文件导入技能。
+
+### 列出技能文件
+
+```
+GET /api/v1/ai-skills/:id/files
+```
+
+### 添加技能文件
+
+```
+POST /api/v1/ai-skills/:id/files
+```
+
+管理权限。
+
+### 获取技能文件
+
+```
+GET /api/v1/ai-skills/files/:fileId
+```
+
+### 删除技能文件
+
+```
+DELETE /api/v1/ai-skills/files/:fileId
+```
+
+管理权限。
+
+---
+
+## ES 索引模式管理
+
+### 列出 ES 索引模式
+
+```
+GET /api/v1/es-index-patterns?datasource_id=1
+```
+
+可选按 `datasource_id` 过滤。
+
+### 获取 ES 索引模式
+
+```
+GET /api/v1/es-index-patterns/:id
+```
+
+### 创建 ES 索引模式
+
+```
+POST /api/v1/es-index-patterns
+```
+
+管理权限。`datasource_id` + `name` 唯一约束。
+
+### 更新 ES 索引模式
+
+```
+PUT /api/v1/es-index-patterns/:id
+```
+
+管理权限。
+
+### 删除 ES 索引模式
+
+```
+DELETE /api/v1/es-index-patterns/:id
+```
+
+管理权限。删除前检查是否有告警规则引用此索引模式。
+
+---
+
 ## 路由汇总
 
 | 类别 | 数量 | 访问级别 |
@@ -2203,6 +2426,6 @@ POST /api/v1/saved-views/:id/copy
 | 公开（无需认证） | 13 | 健康检查、登录、OIDC、Webhook、集成接收、飞书回调、操作页面、Prometheus 指标 |
 | 只读（已认证） | 62 | 所有 GET/列表端点（含宠物/状态页面/预设规则） |
 | 操作权限（member 及以上） | 22 | 告警操作、故障操作、订阅规则、复盘编辑 |
-| 管理权限（team_lead 及以上） | 79 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入、Event Pipeline、Annotations、Recording Rules、Saved Views |
+| 管理权限（team_lead 及以上） | 90 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入、Event Pipeline、Annotations、Recording Rules、Saved Views、LLM Configs、MCP Servers、AI Skills、ES Index Patterns |
 | 仅管理员 | 16 | 用户 CRUD、系统设置、AI/飞书配置、标签同步、状态页面 CRUD、Pipeline 执行清理 |
-| **合计** | **~198** | |
+| **合计** | **~210** | |

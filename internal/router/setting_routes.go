@@ -63,6 +63,7 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		if h.Agent != nil {
 			ai.POST("/agent/run", aiRL, h.Agent.RunAgent)
 			ai.GET("/agent/tasks/:id", h.Agent.GetAgentTask)
+			ai.GET("/agent/stream/:id", h.Agent.StreamAgentTask)
 
 			// Agent 会话持久化
 			ai.GET("/agent/conversations", h.Agent.ListConversations)

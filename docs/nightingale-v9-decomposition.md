@@ -891,17 +891,17 @@ LDAP, OAuth2, OIDC, CAS, DingTalk, Feishu
 | Saved Views | v4.32.0 | 持久化视图存储，API + 前端 |
 | Metric Views | v4.35.0 | 持久化指标视图（后端 CRUD + 三栏前端），Nightingale Quick Views 移植 |
 | 内置指标增强 | v4.35.0 | 单位筛选、Explorer Drawer、MetricFilter 管理 UI |
-| ES 日志探索 | v4.34.0 | Elasticsearch 数据源支持，Index Pattern + 日志查询 |
+| ES 日志探索 | v4.34.0 | Elasticsearch 数据源支持 + 日志查询（Index Pattern 管理见 v4.37.0） |
 | LLM 配置管理 | v4.36.0 | 独立 LLM Provider CRUD + AES-256-GCM 加密 + 连接测试 |
 | MCP 服务器管理 | v4.36.0 | MCP SSE 客户端 + 工具发现 + 连接测试 |
 | AI 技能管理 | v4.36.0 | SKILL.md + 辅助文件 + zip/tar.gz 导入 |
+| AI Agent SSE 流式 | v4.36.0 | Agent 执行实时 token 推送（EventSource + 自动回退轮询） |
+| ES Index Pattern | v4.37.0 | ES 索引模式 CRUD + 告警规则引用检查 + 前端管理页面 |
 
 ### 17.4 Nightingale 特有功能（SREAgent 无对应）
 
 | 功能 | 说明 | 优先级 |
 |---|---|---|
-| AI Agent SSE 流式 | Agent 执行实时 token 推送 | 中 |
-| ES Index Pattern | ES 索引模式管理 | 中 |
 | Push Gateway | remote write、OpenTSDB、Falcon、Datadog | 低 |
 | 任务执行 | 自愈脚本执行 | 低 |
 | Trace 探索 | Jaeger/Zipkin trace 查看 | 低 |

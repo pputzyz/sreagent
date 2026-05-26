@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.36.0
-> 共 51 个 model, 62 个 handler, 76 个 service, 50 个 repository, 320+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-26 | tag: v4.37.0
+> 共 53 个 model, 64 个 handler, 78 个 service, 52 个 repository, 330+ API 端点, 17 种通知渠道
 
 ---
 
@@ -541,4 +541,50 @@ permissions ──→ team (团队角色查询)
 
 - **功能**: 查询历史记录（localStorage，每数据源 100 条），历史 UI 快捷访问
 - **前端文件**: `web/src/pages/explore/Index.vue`
+- **状态**: ✅ 完成
+
+---
+
+## LLM 配置管理 (llm-config) [v4.36.0]
+
+- **功能**: 独立 LLM Provider CRUD + 连接测试，AES-256-GCM 加密存储 API Key，IsDefault 互斥
+- **后端文件**: `internal/model/llm_config.go`, `internal/repository/llm_config.go`, `internal/service/llm_config.go`, `internal/handler/llm_config.go`, `internal/router/llm_config_routes.go`
+- **前端文件**: `web/src/pages/platform/LLMConfigs.vue`, `web/src/api/llm-config.ts`
+- **迁移**: `000076_llm_configs.up.sql` / `000076_llm_configs.down.sql`
+- **API**: `GET/POST/PUT/DELETE /api/v1/llm-configs`, `POST /api/v1/llm-configs/:id/test`
+- **状态**: ✅ 完成
+
+## MCP 服务器管理 (mcp-server) [v4.36.0]
+
+- **功能**: MCP Server 注册 + 连接测试 + 工具枚举，SSE 客户端连接外部 MCP 服务器
+- **后端文件**: `internal/model/mcp_server.go`, `internal/repository/mcp_server.go`, `internal/service/mcp_server.go`, `internal/service/mcp_client.go`, `internal/handler/mcp_server.go`, `internal/router/mcp_server_routes.go`
+- **前端文件**: `web/src/pages/platform/MCPServers.vue`, `web/src/api/mcp-server.ts`
+- **迁移**: `000077_mcp_servers.up.sql` / `000077_mcp_servers.down.sql`
+- **API**: `GET/POST/PUT/DELETE /api/v1/mcp-servers`, `POST /api/v1/mcp-servers/:id/test`, `GET /api/v1/mcp-servers/:id/tools`
+- **状态**: ✅ 完成
+
+## AI 技能管理 (ai-skill) [v4.36.0]
+
+- **功能**: 结构化 Skill 文件管理（SKILL.md + tool YAML），支持 zip/tar.gz 导入
+- **后端文件**: `internal/model/ai_skill.go`, `internal/repository/ai_skill.go`, `internal/service/ai_skill.go`, `internal/handler/ai_skill.go`, `internal/router/ai_skill_routes.go`
+- **前端文件**: `web/src/pages/ai/SkillManager.vue`, `web/src/api/ai-skill.ts`
+- **迁移**: `000078_ai_skills.up.sql` / `000078_ai_skills.down.sql`
+- **API**: `GET/POST/PUT/DELETE /api/v1/ai-skills`, `POST /api/v1/ai-skills/import`, `GET/POST/DELETE /api/v1/ai-skills/:id/files`, `GET /api/v1/ai-skills/files/:fileId`
+- **状态**: ✅ 完成
+
+## AI Agent SSE 流式推送 (agent-sse) [v4.36.0]
+
+- **功能**: Agent 任务 SSE 实时 token 推送，替代 2s 轮询，断开自动回退轮询
+- **后端文件**: `internal/service/ai_agent.go` (Subscribe/Unsubscribe/notifySubscribers), `internal/handler/ai_agent.go` (StreamAgentTask)
+- **前端文件**: `web/src/pages/ai/AgentView.vue` (EventSource 替代轮询)
+- **API**: `GET /api/v1/ai/agent/stream/:id` (SSE)
+- **状态**: ✅ 完成
+
+## ES 索引模式管理 (es-index-pattern) [v4.37.0]
+
+- **功能**: ES 索引模式 CRUD（通配符索引名 + 时间字段 + 字段显示配置），删除前检查告警规则引用
+- **后端文件**: `internal/model/es_index_pattern.go`, `internal/repository/es_index_pattern.go`, `internal/service/es_index_pattern.go`, `internal/handler/es_index_pattern.go`, `internal/router/es_index_pattern_routes.go`
+- **前端文件**: `web/src/pages/alerts/es-patterns/Index.vue`, `web/src/api/es-index-pattern.ts`
+- **迁移**: `000079_es_index_patterns.up.sql` / `000079_es_index_patterns.down.sql`
+- **API**: `GET/POST/PUT/DELETE /api/v1/es-index-patterns`
 - **状态**: ✅ 完成

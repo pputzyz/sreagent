@@ -20,11 +20,11 @@ const message = useMessage()
 const query = ref('')
 const loading = ref(false)
 const task = ref<AgentTask | null>(null)
-const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
+let eventSource: EventSource | null = null
 
-// 是否正在轮询（任务执行中）
+// 是否正在接收 SSE 流（任务执行中）
 const isPolling = computed(() => {
-  return !!task.value && (task.value.status === 'planning' || task.value.status === 'executing')
+  return !!eventSource && !!task.value && (task.value.status === 'planning' || task.value.status === 'executing')
 })
 
 // 执行 Agent
@@ -32,19 +32,19 @@ async function handleRun() {
   if (!query.value.trim()) return
   loading.value = true
   task.value = null
-  stopPolling()
+  stopSSE()
 
   try {
     const res = await aiAgentApi.run(query.value.trim())
     task.value = res.data.data ?? null
 
-    // 如果任务已完成，不需要轮询
+    // 如果任务已完成，不需要 SSE
     if (task.value && (task.value.status === 'completed' || task.value.status === 'failed')) {
       return
     }
 
-    // 启动轮询
-    startPolling()
+    // 启动 SSE 流
+    startSSE(task.value!.id)
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {
@@ -52,39 +52,77 @@ async function handleRun() {
   }
 }
 
-// 轮询任务状态（防重入锁：前一次请求未完成时跳过本轮）
+// SSE 实时推送（替代 2s 轮询）
+function startSSE(taskId: string) {
+  stopSSE()
+  const url = `/api/v1/ai/agent/stream/${taskId}`
+  const es = new EventSource(url)
+
+  es.addEventListener('task', (e: MessageEvent) => {
+    try {
+      const updated = JSON.parse(e.data) as AgentTask
+      task.value = updated
+      if (updated.status === 'completed' || updated.status === 'failed') {
+        stopSSE()
+      }
+    } catch {
+      // 解析失败不中断流
+    }
+  })
+
+  es.onerror = () => {
+    stopSSE()
+    // 连接断开时回退到轮询
+    if (task.value && (task.value.status === 'planning' || task.value.status === 'executing')) {
+      startPollingFallback(task.value.id)
+    }
+  }
+
+  eventSource = es
+}
+
+// 回退轮询（SSE 断开时使用）
+let pollingTimer: ReturnType<typeof setInterval> | null = null
 let pollingLock = false
-function startPolling() {
-  stopPolling()
+function startPollingFallback(taskId: string) {
+  stopPollingFallback()
   pollingLock = false
-  pollingTimer.value = setInterval(async () => {
+  pollingTimer = setInterval(async () => {
     if (pollingLock || !task.value) {
-      if (!task.value) stopPolling()
+      if (!task.value) stopPollingFallback()
       return
     }
     pollingLock = true
     try {
-      const res = await aiAgentApi.getTask(task.value.id)
+      const res = await aiAgentApi.getTask(taskId)
       const updated = res.data.data
       if (updated) {
         task.value = updated
         if (updated.status === 'completed' || updated.status === 'failed') {
-          stopPolling()
+          stopPollingFallback()
         }
       }
     } catch {
-      // 轮询失败不停止，继续尝试
+      // 轮询失败不停止
     } finally {
       pollingLock = false
     }
   }, 2000)
 }
 
-function stopPolling() {
-  if (pollingTimer.value) {
-    clearInterval(pollingTimer.value)
-    pollingTimer.value = null
+function stopPollingFallback() {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
   }
+}
+
+function stopSSE() {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+  stopPollingFallback()
 }
 
 // 步骤状态颜色
@@ -155,7 +193,7 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 onUnmounted(() => {
-  stopPolling()
+  stopSSE()
 })
 </script>
 
@@ -196,7 +234,7 @@ onUnmounted(() => {
           v-else
           type="error"
           size="large"
-          @click="stopPolling"
+          @click="stopSSE"
         >
           {{ t('common.cancel') }}
         </n-button>

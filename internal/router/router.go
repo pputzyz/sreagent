@@ -76,6 +76,7 @@ type Handlers struct {
 	LLMConfig           *handler.LLMConfigHandler         // LLM 配置管理 (LLM Configs)
 	MCPServer           *handler.MCPServerHandler          // MCP 服务器管理 (MCP Servers)
 	AISkill             *handler.AISkillHandler            // AI 技能管理 (AI Skills)
+	ESIndexPattern      *handler.ESIndexPatternHandler     // ES 索引模式 (ES Index Patterns)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -194,6 +195,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerLLMConfigRoutes(auth, manage)
 			handlers.registerMCPServerRoutes(auth, manage)
 			handlers.registerAISkillRoutes(auth, manage)
+			handlers.registerESIndexPatternRoutes(auth, manage)
 		}
 	}
 

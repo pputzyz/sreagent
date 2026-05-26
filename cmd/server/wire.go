@@ -302,6 +302,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	aiSkillRepo := repository.NewAISkillRepository(db)
 	aiSkillSvc := service.NewAISkillService(aiSkillRepo, zapLogger)
 
+	// ES index pattern service
+	esIndexPatternRepo := repository.NewESIndexPatternRepository(db)
+	esIndexPatternSvc := service.NewESIndexPatternService(esIndexPatternRepo, db, zapLogger)
+
 	// Builtin metric services
 	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
 	metricFilterSvc := service.NewMetricFilterService(metricFilterRepo, zapLogger)
@@ -616,6 +620,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		MCPServer:           handler.NewMCPServerHandler(mcpServerSvc, zapLogger),
 		LLMConfig:           handler.NewLLMConfigHandler(llmConfigSvc, zapLogger),
 		AISkill:             handler.NewAISkillHandler(aiSkillSvc, zapLogger),
+		ESIndexPattern:      handler.NewESIndexPatternHandler(esIndexPatternSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it
@@ -637,6 +642,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.RecordingRule.SetAuditService(auditLogSvc)
 	handlers.MCPServer.SetAuditService(auditLogSvc)
 	handlers.LLMConfig.SetAuditService(auditLogSvc)
+	handlers.ESIndexPattern.SetAuditService(auditLogSvc)
 
 	// Wire permission-denied audit callback into the RBAC middleware.
 	middleware.SetPermLogger(zapLogger)

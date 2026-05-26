@@ -100,3 +100,7 @@ export type { MCPServer, MCPTool, CreateMCPServerRequest, UpdateMCPServerRequest
 // ===== AI Skills =====
 export { aiSkillApi } from './ai-skill'
 export type { AISkill, AISkillFile, CreateAISkillRequest, UpdateAISkillRequest } from './ai-skill'
+
+// ===== ES Index Patterns =====
+export { esIndexPatternApi } from './es-index-pattern'
+export type { ESIndexPattern, CreateESIndexPatternRequest, UpdateESIndexPatternRequest } from './es-index-pattern'

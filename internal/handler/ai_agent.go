@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -81,6 +84,67 @@ func (h *AgentHandler) GetAgentTask(c *gin.Context) {
 	}
 
 	Success(c, task)
+}
+
+// StreamAgentTask godoc
+// @Summary SSE 流式推送 Agent 任务更新
+// @Description 通过 SSE 实时推送 Agent 任务状态变化，替代轮询
+// @Tags AI Agent
+// @Produce text/event-stream
+// @Param id path string true "任务 ID"
+// @Success 200 {string} string "SSE stream"
+// @Router /ai/agent/stream/{id} [get]
+func (h *AgentHandler) StreamAgentTask(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "任务 ID 不能为空"))
+		return
+	}
+
+	task, ok := h.agentSvc.GetTask(id)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrNotFound, "任务不存在"))
+		return
+	}
+
+	// Ownership check
+	currentUserID := GetCurrentUserID(c)
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == string(model.RoleAdmin)
+	if task.UserID != currentUserID && !isAdmin {
+		Error(c, apperr.WithMessage(apperr.ErrForbidden, "无权访问该任务"))
+		return
+	}
+
+	// SSE headers
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	ch := h.agentSvc.Subscribe(id)
+	defer h.agentSvc.Unsubscribe(id, ch)
+
+	c.Stream(func(w io.Writer) bool {
+		select {
+		case updated, ok := <-ch:
+			if !ok {
+				return false
+			}
+			data, err := json.Marshal(updated)
+			if err != nil {
+				return true // skip bad data, keep stream alive
+			}
+			fmt.Fprintf(w, "event: task\ndata: %s\n\n", data)
+			// 终态关闭流
+			if updated.Status == "completed" || updated.Status == "failed" {
+				return false
+			}
+			return true
+		case <-c.Request.Context().Done():
+			return false
+		}
+	})
 }
 
 // ListConversations godoc
