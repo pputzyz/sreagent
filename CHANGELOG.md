@@ -4,6 +4,23 @@
 
 ---
 
+## [v4.41.7] — 2026-05-26
+
+### 前端全面审查修复
+
+**API 不匹配修复：**
+- AI GenerateReport/SuggestSOP: 前端期望结构化对象，后端返回纯文本 → 前端改为直接渲染文本
+- AI TestConnection: 缺少 `success` 字段 → 补上 `success: true`
+- LLM Config TestConnection: 前端 `POST /llm-configs/:id/test` vs 后端 `/llm-configs/test` → 后端改为 `/:id/test` + 返回 `latency_ms`
+
+**前端代码清理：**
+- `dashboards/View.vue`: 移除未使用的 `createDefaultTarget` import
+- `explore/ESExplorer.vue`: 移除 `loadFieldTopValues` 中的死代码（构建了 ES 聚合查询但从未发送）
+
+**i18n 补全（46 个 key）：**
+- 26 个 key 补充到 zh-CN.ts + en.ts（common、alert、dashboardV2、escalation、incident、myAlerts、profile、schedule、settings）
+- 20 个 `esPatterns.*` key 补充到 en.ts
+
 ## [v4.41.6] — 2026-05-26
 
 ### 验证码修复

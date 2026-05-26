@@ -158,19 +158,6 @@ async function loadFieldTopValues(field: string) {
   }
   fieldTopLoading.value = field
   try {
-    const body = {
-      size: 0,
-      query: buildEsQuery(),
-      aggs: {
-        top_values: {
-          terms: { field, size: 10 },
-        },
-      },
-    }
-    const res = await datasourceApi.proxy(selectedDsId.value, `/${selectedIndex.value}/_search`, {})
-    // Use POST via a custom approach — proxy is GET, so we use logQuery with aggregation hint
-    // Actually, let's use the ES _search endpoint via a POST-capable proxy
-    // For now, we'll extract top values from the current results
     const valueCounts: Record<string, number> = {}
     for (const entry of logEntries.value) {
       const val = entry[field]

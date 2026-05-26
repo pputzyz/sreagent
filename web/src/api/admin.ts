@@ -79,10 +79,10 @@ export const aiApi = {
     request.post<ApiResponse<{ success: boolean; message: string }>>('/ai/test'),
 
   generateReport: (eventId: number) =>
-    request.post<ApiResponse<{ summary: string; probable_causes: string[]; impact: string; recommended_steps: string[] }>>('/ai/alert-report', { event_id: eventId }),
+    request.post<ApiResponse<{ report: string; event_id: number }>>('/ai/alert-report', { event_id: eventId }),
 
   suggestSOP: (eventId: number) =>
-    request.post<ApiResponse<{ title: string; steps: string[]; references: string[] }>>('/ai/suggest-sop', { event_id: eventId }),
+    request.post<ApiResponse<{ sop: string; event_id: number }>>('/ai/suggest-sop', { event_id: eventId }),
 
   analyzeAlert: (eventId: number) =>
     request.post<ApiResponse<{ summary: string; severity: string; probable_causes: string[]; impact: string; recommended_steps: string[]; root_cause_hint: string }>>('/ai/analyze-alert', { event_id: eventId }),

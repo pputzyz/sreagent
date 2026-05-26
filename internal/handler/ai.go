@@ -260,7 +260,7 @@ func (h *AIHandler) TestConnection(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{"message": "AI connection successful"})
+	Success(c, gin.H{"success": true, "message": "AI connection successful"})
 }
 
 // GetModules returns the AI module configuration.
@@ -338,7 +338,7 @@ func (h *AIHandler) TestProvider(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "AI connection test failed: "+err.Error()))
 		return
 	}
-	Success(c, gin.H{"message": "AI connection successful"})
+	Success(c, gin.H{"success": true, "message": "AI connection successful"})
 }
 
 // GetAIGlobal returns platform-wide AI settings.

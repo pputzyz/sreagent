@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
@@ -245,24 +247,25 @@ func (h *LLMConfigHandler) Delete(c *gin.Context) {
 }
 
 // TestConnection tests connectivity for an LLM config by ID.
-// POST /llm-configs/test
+// POST /llm-configs/:id/test
 func (h *LLMConfigHandler) TestConnection(c *gin.Context) {
-	var req TestLLMConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
-		return
-	}
-
-	v, err := h.svc.GetByID(c.Request.Context(), req.ID)
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, err)
 		return
 	}
 
+	v, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	start := time.Now()
 	if err := h.svc.TestConnection(c.Request.Context(), v); err != nil {
 		Error(c, err)
 		return
 	}
 
-	Success(c, gin.H{"message": "connection successful"})
+	Success(c, gin.H{"success": true, "message": "connection successful", "latency_ms": time.Since(start).Milliseconds()})
 }

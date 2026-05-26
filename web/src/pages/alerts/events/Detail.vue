@@ -248,7 +248,7 @@ function handleMore(key: string) {
 }
 
 // ── AI ──
-const aiReport = ref<{ summary: string; probable_causes: string[]; impact: string; recommended_steps: string[] } | null>(null)
+const aiReport = ref<string | null>(null)
 const aiReportLoading = ref(false)
 const aiReportError = ref('')
 
@@ -256,12 +256,13 @@ async function generateAIReport() {
   aiReportLoading.value = true; aiReportError.value = ''
   try {
     const res = await aiApi.generateReport(eventId)
-    aiReport.value = res.data.data ?? null
+    const d = res.data.data
+    aiReport.value = typeof d === 'string' ? d : (d as any)?.report ?? JSON.stringify(d)
   } catch (err: unknown) { aiReportError.value = getErrorMessage(err) || t('alert.aiReportError') }
   finally { aiReportLoading.value = false }
 }
 
-const sopReport = ref<{ title: string; steps: string[]; references: string[] } | null>(null)
+const sopReport = ref<string | null>(null)
 const sopLoading = ref(false)
 const sopError = ref('')
 
@@ -269,7 +270,8 @@ async function generateSOP() {
   sopLoading.value = true; sopError.value = ''
   try {
     const res = await aiApi.suggestSOP(eventId)
-    sopReport.value = res.data.data ?? null
+    const d = res.data.data
+    sopReport.value = typeof d === 'string' ? d : (d as any)?.sop ?? JSON.stringify(d)
   } catch (err: unknown) { sopError.value = getErrorMessage(err) || t('alert.aiReportError') }
   finally { sopLoading.value = false }
 }
@@ -464,19 +466,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
                   {{ aiReportError }}
                 </n-alert>
                 <div v-if="aiReport" class="evt-ai-report">
-                  <p class="evt-ai-summary">{{ aiReport.summary }}</p>
-                  <div v-if="aiReport.probable_causes?.length" class="evt-ai-block">
-                    <div class="sre-label-eyebrow">{{ t('alert.aiProbableCauses') }}</div>
-                    <ul><li v-for="(c, i) in aiReport.probable_causes" :key="i">{{ c }}</li></ul>
-                  </div>
-                  <div v-if="aiReport.impact" class="evt-ai-block">
-                    <div class="sre-label-eyebrow">{{ t('alert.aiImpact') }}</div>
-                    <p>{{ aiReport.impact }}</p>
-                  </div>
-                  <div v-if="aiReport.recommended_steps?.length" class="evt-ai-block">
-                    <div class="sre-label-eyebrow">{{ t('alert.aiRecommendedSteps') }}</div>
-                    <ol><li v-for="(s, i) in aiReport.recommended_steps" :key="i">{{ s }}</li></ol>
-                  </div>
+                  <pre class="evt-ai-text">{{ aiReport }}</pre>
                 </div>
               </n-spin>
             </section>
@@ -494,12 +484,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
               <n-spin :show="sopLoading">
                 <n-alert v-if="sopError" type="error" :bordered="false" size="small">{{ sopError }}</n-alert>
                 <div v-if="sopReport" class="evt-ai-report">
-                  <h4 class="evt-sop-title">{{ sopReport.title }}</h4>
-                  <ol v-if="sopReport.steps?.length"><li v-for="(s, i) in sopReport.steps" :key="i">{{ s }}</li></ol>
-                  <div v-if="sopReport.references?.length" class="evt-ai-block">
-                    <div class="sre-label-eyebrow">{{ t('alert.references') }}</div>
-                    <ul><li v-for="(r, i) in sopReport.references" :key="i">{{ r }}</li></ul>
-                  </div>
+                  <pre class="evt-ai-text">{{ sopReport }}</pre>
                 </div>
               </n-spin>
             </section>
