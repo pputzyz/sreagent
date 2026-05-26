@@ -215,7 +215,7 @@ func (s *OAuth2Service) exchangeToken(ctx context.Context, cfg OAuth2Config, cod
 	if err != nil {
 		return "", fmt.Errorf("oauth2: token exchange request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -264,7 +264,7 @@ func (s *OAuth2Service) fetchUserInfo(ctx context.Context, cfg OAuth2Config, acc
 	if err != nil {
 		return nil, fmt.Errorf("oauth2: userinfo request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -57,7 +57,7 @@ func (c *MCPClient) TestConnection(ctx context.Context, url string, headers map[
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)

@@ -4,6 +4,13 @@
 
 ---
 
+## [v4.41.4] — 2026-05-26
+
+### golangci-lint 漏网修复
+
+- `internal/service/mcp_client.go`: `defer resp.Body.Close()` → `defer func() { _ = resp.Body.Close() }()`
+- `internal/service/oauth2.go`: 同上（2 处）
+
 ## [v4.41.3] — 2026-05-26
 
 ### golangci-lint 修复
