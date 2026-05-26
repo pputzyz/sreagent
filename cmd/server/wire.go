@@ -59,6 +59,7 @@ type Dependencies struct {
 	AlertGroupMgr      *service.AlertGroupManager
 	EscalationExecutor *engine.EscalationExecutor
 	Evaluator          *engine.Evaluator // nil if engine disabled
+	RecordingRuleEngine *engine.RecordingRuleEngine
 
 	// Optional
 	RedisClient *sredis.Client
@@ -279,6 +280,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Annotation service
 	annotationSvc := service.NewAnnotationService(annotationRepo, zapLogger)
 
+	// Saved view service
+	savedViewRepo := repository.NewSavedViewRepository(db)
+	savedViewSvc := service.NewSavedViewService(savedViewRepo, zapLogger)
+
 	// Builtin metric services
 	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
 	metricFilterSvc := service.NewMetricFilterService(metricFilterRepo, zapLogger)
@@ -490,6 +495,15 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	heartbeatChecker.Start()
 
+	// Initialize and start the recording rule engine
+	recordingRuleEngine := engine.NewRecordingRuleEngine(
+		recordingRuleRepo, dsRepo, db, queryClient, zapLogger,
+	)
+	if d.Leader != nil {
+		recordingRuleEngine.SetLeaderElection(d.Leader)
+	}
+	recordingRuleEngine.Start(appCtx)
+
 	// Inspection scheduler (created after engine block so d.Leader is set)
 	inspectionSched := service.NewInspectionScheduler(inspectionRepo, inspectionExecutor, d.Leader, zapLogger)
 
@@ -579,6 +593,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		BuiltinMetric:       handler.NewBuiltinMetricHandler(builtinMetricSvc, metricFilterSvc, zapLogger),
 		EventPipeline:       handler.NewEventPipelineHandler(eventPipelineRepo, eventPipelineExecRepo, pipelineEngine, eventSvc, zapLogger),
 		Annotation:          handler.NewAnnotationHandler(annotationSvc, zapLogger),
+		SavedView:           handler.NewSavedViewHandler(savedViewSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it
@@ -595,6 +610,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.ChannelV2.SetAuditService(auditLogSvc)
 	handlers.RoutingRule.SetAuditService(auditLogSvc)
 	handlers.Annotation.SetAuditService(auditLogSvc)
+	handlers.SavedView.SetAuditService(auditLogSvc)
+	handlers.RecordingRule.SetAuditService(auditLogSvc)
 
 	// Wire permission-denied audit callback into the RBAC middleware.
 	middleware.SetPermLogger(zapLogger)
@@ -637,6 +654,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	d.AlertGroupMgr = alertGroupMgr
 	d.EscalationExecutor = escalationExecutor
 	d.Evaluator = evaluator
+	d.RecordingRuleEngine = recordingRuleEngine
 	d.RedisClient = redisClient
 	d.StateStore = stateStore
 	d.Handlers = handlers
@@ -744,6 +762,11 @@ func (d *Dependencies) Shutdown() {
 
 	// 4. Stop escalation executor
 	d.EscalationExecutor.Stop()
+
+	// 4.3 Stop recording rule engine
+	if d.RecordingRuleEngine != nil {
+		d.RecordingRuleEngine.Stop()
+	}
 
 	// 4.5 Stop inspection scheduler
 	if d.InspectionSched != nil {

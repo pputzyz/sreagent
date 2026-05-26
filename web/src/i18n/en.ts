@@ -143,6 +143,7 @@ export default {
     escalationPolicies: 'Escalation Policies',
     suppression: 'Silence & Inhibition',
     data: 'Data',
+    metricViews: 'Metric Views',
     notify: 'Notifications',
     profile: 'Profile',
     orgManagement: 'Organization',
@@ -437,6 +438,8 @@ export default {
     noSavedViews: 'No saved views',
     viewSaved: 'View saved',
     viewLoaded: 'View loaded',
+    viewCopied: 'View copied',
+    copyView: 'Copy view',
     // Chart controls (Phase 1)
     maxDataPoints: 'Max data points',
     minStep: 'Min step',
@@ -476,6 +479,14 @@ export default {
     // Fullscreen (Phase 7)
     fullscreen: 'Fullscreen',
     exitFullscreen: 'Exit Fullscreen',
+    // Metric Views
+    labelFilters: 'Label Filters',
+    noLabelFilters: 'No label filters. Click + to add.',
+    labelName: 'Label',
+    labelValue: 'Value',
+    searchMetrics: 'Search metrics...',
+    selectMetric: 'Select a metric to view chart',
+    openInExplore: 'Open in Explore',
   },
   dashboardV2: {
     title: 'Dashboards',

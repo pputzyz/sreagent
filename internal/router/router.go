@@ -71,6 +71,7 @@ type Handlers struct {
 	BuiltinMetric       *handler.BuiltinMetricHandler      // 内置指标目录 (Metrics Builtin)
 	EventPipeline       *handler.EventPipelineHandler      // 事件管道 (Event Pipeline)
 	Annotation          *handler.AnnotationHandler         // 仪表盘标注 (Annotations)
+	SavedView           *handler.SavedViewHandler          // 快捷视图 (Saved Views)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -184,6 +185,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerBuiltinMetricRoutes(auth, adminOnly, manage)
 			handlers.registerEventPipelineRoutes(auth, adminOnly, manage)
 			handlers.registerAnnotationRoutes(auth, manage)
+			handlers.registerSavedViewRoutes(auth, manage)
 		}
 	}
 

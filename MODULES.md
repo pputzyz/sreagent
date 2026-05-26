@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.31.0
-> 共 45 个 model, 59 个 handler, 80 个 service, 45 个 repository, 295+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-26 | tag: v4.32.0
+> 共 47 个 model, 60 个 handler, 82 个 service, 47 个 repository, 302+ API 端点, 17 种通知渠道
 
 ---
 
@@ -90,6 +90,8 @@ permissions ──→ team (团队角色查询)
 | Incident 上下文 | ✅ | ❌ | ❌ | 0% |
 | 事件管道 | ✅ | ❌ | ❌ | 0% |
 | 录制规则 | ✅ | ❌ | ❌ | 0% |
+| 录制规则引擎 | ✅ | ❌ | ❌ | 0% |
+| 快捷视图 | ✅ | ❌ | ❌ | 0% |
 | 内置指标 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
@@ -475,4 +477,36 @@ permissions ──→ team (团队角色查询)
 - **功能**: 故障详情页新增暂缓（Snooze）/合并（Merge）/重新分派（Reassign）操作入口
 - **前端文件**: `web/src/pages/incidents/Detail.vue`
 - **后端 API**: 已有（POST /incidents/:id/snooze|merge|reassign）
+- **状态**: ✅ 完成
+
+## 录制规则引擎 (recording-rule-engine) [v4.32.0]
+
+- **功能**: 定时执行录制规则的 PromQL 查询，记录执行结果，支持分布式 leader 选举
+- **后端文件**: `internal/engine/recording_rule.go`, `internal/model/recording_rule_execution.go`
+- **迁移文件**: `000072_recording_rule_executions`
+- **依赖**: `robfig/cron/v3`, datasource.QueryClient, LeaderElection
+- **API**: 审计日志已补充到 RecordingRule CRUD
+- **状态**: ✅ 完成
+
+## 快捷视图 (saved-views) [v4.32.0]
+
+- **功能**: 持久化保存 Explore 页面的查询配置（数据源、PromQL 表达式），支持复制、公开/私有
+- **后端文件**: `internal/model/saved_view.go`, `internal/repository/saved_view.go`, `internal/service/saved_view.go`, `internal/handler/saved_view.go`, `internal/router/saved_view_routes.go`
+- **前端文件**: `web/src/api/saved-views.ts`, `web/src/components/query/ViewSelect.vue`
+- **迁移文件**: `000073_saved_views`
+- **API**: `GET/POST/PUT/DELETE /api/v1/saved-views` + `POST /:id/copy`
+- **状态**: ✅ 完成
+
+## 指标视图 (metric-views) [v4.32.0]
+
+- **功能**: 独立的指标探索页面，三面板布局（视图列表 + 标签筛选 + 指标列表 + 图表），级联标签选择器
+- **前端文件**: `web/src/pages/explore/MetricViews.vue`, `web/src/components/query/MetricLabelSelector.vue`, `web/src/components/query/MetricList.vue`
+- **路由**: `/explore/metrics`
+- **API**: 复用 datasource proxy（`/api/v1/datasources/:id/proxy/api/v1/label/*/values`）
+- **状态**: ✅ 完成
+
+## 即时查询增强 (instant-query) [v4.32.0]
+
+- **功能**: 查询历史记录（localStorage，每数据源 100 条），历史 UI 快捷访问
+- **前端文件**: `web/src/pages/explore/Index.vue`
 - **状态**: ✅ 完成

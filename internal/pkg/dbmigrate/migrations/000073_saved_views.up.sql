@@ -1,0 +1,18 @@
+CREATE TABLE saved_views (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME DEFAULT NULL,
+  name VARCHAR(200) NOT NULL,
+  description VARCHAR(500) NOT NULL DEFAULT '',
+  tab VARCHAR(20) NOT NULL,
+  datasource_id BIGINT NOT NULL DEFAULT 0,
+  expression TEXT NOT NULL,
+  query_config TEXT,
+  is_public TINYINT(1) NOT NULL DEFAULT 0,
+  created_by BIGINT NOT NULL DEFAULT 0,
+  updated_by BIGINT NOT NULL DEFAULT 0,
+  INDEX idx_deleted_at (deleted_at),
+  INDEX idx_tab (tab),
+  INDEX idx_created_by (created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

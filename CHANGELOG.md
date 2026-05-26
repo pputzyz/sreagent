@@ -4,6 +4,48 @@
 
 ---
 
+## [v4.32.0] — 2026-05-26
+
+### 数据查询模块对齐 — Nightingale 功能移植 #6
+
+**Recording Rules 引擎执行**:
+- 新增 `RecordingRuleEngine`：基于 `robfig/cron/v3` 的定时调度引擎
+- 每条规则独立 cron 调度，支持 `@every 60s` 等模式
+- 通过 `datasource.QueryClient.InstantQuery` 执行 PromQL 查询
+- 执行记录持久化到 `recording_rule_executions` 表
+- 支持 `LeaderElection` 分布式锁（仅 leader 执行）
+- 30 秒同步周期，自动发现新增/修改/删除的规则
+- 迁移: 000072_recording_rule_executions
+
+**Saved Views 快捷视图持久化**:
+- 新增后端 CRUD：model → repository → service → handler → routes
+- API: `GET/POST/PUT/DELETE /api/v1/saved-views` + `POST /:id/copy`
+- 支持按 `tab`/`is_public`/`created_by` 过滤，分页查询
+- 前端 `ViewSelect.vue` 改造：localStorage → API 优先，localStorage 兜底
+- 迁移: 000073_saved_views
+
+**Metric Views 指标视图**:
+- 新增 `/explore/metrics` 独立页面
+- 三面板布局：视图列表 + 标签筛选 + 指标列表 + 图表
+- 级联标签选择器：选择标签 → 获取值 → 生成 PromQL selector
+- 指标分组展示：按前缀分类（`go_*`、`node_*` 等）
+- 复用现有 datasource proxy 转发 Prometheus API 调用
+
+**Instant Query 即时查询增强**:
+- 查询历史记录：localStorage 存储，每数据源 100 条上限
+- 查询历史 UI：Popover 展示，搜索过滤，点击加载
+- PromQL 编辑器增强：支持查询历史快捷访问
+
+**Recording Rule 审计日志**:
+- Create/Update/Delete 操作记录审计日志
+
+### 数据库迁移
+
+- `000072_recording_rule_executions` — 录制规则执行记录表
+- `000073_saved_views` — 快捷视图持久化表
+
+---
+
 ## [v4.31.0] — 2026-05-26
 
 ### Dashboard 增强 — Nightingale 功能移植 #5

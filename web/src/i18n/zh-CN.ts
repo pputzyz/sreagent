@@ -143,6 +143,7 @@ export default {
     escalationPolicies: '升级策略',
     suppression: '静默与抑制',
     data: '数据管理',
+    metricViews: '指标视图',
     notify: '通知管理',
     profile: '个人中心',
     orgManagement: '组织管理',
@@ -437,6 +438,8 @@ export default {
     noSavedViews: '暂无保存的视图',
     viewSaved: '视图已保存',
     viewLoaded: '视图已加载',
+    viewCopied: '视图已复制',
+    copyView: '复制视图',
     // 图表控制 (Phase 1)
     maxDataPoints: '最大数据点',
     minStep: '最小步长',
@@ -476,6 +479,14 @@ export default {
     // 全屏 (Phase 7)
     fullscreen: '全屏',
     exitFullscreen: '退出全屏',
+    // Metric Views
+    labelFilters: '标签筛选',
+    noLabelFilters: '暂无标签筛选，点击 + 添加',
+    labelName: '标签名',
+    labelValue: '标签值',
+    searchMetrics: '搜索指标...',
+    selectMetric: '选择一个指标查看图表',
+    openInExplore: '在查询页打开',
   },
   dashboardV2: {
     title: '仪表盘',

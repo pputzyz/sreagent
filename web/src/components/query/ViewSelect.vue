@@ -1,8 +1,7 @@
 <script setup lang="ts">
 /**
- * ViewSelect — save/restore query state.
- * Inspired by Nightingale ViewSelect pattern.
- * localStorage-backed for now (no backend API needed).
+ * ViewSelect -- save/restore query state.
+ * Backend API primary, localStorage fallback.
  */
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -11,9 +10,12 @@ import {
   useMessage, useDialog,
 } from 'naive-ui'
 import {
-  BookmarkOutline, TrashOutline, SearchOutline,
+  BookmarkOutline, TrashOutline, SearchOutline, CopyOutline,
 } from '@vicons/ionicons5'
+import { savedViewApi } from '@/api/saved-views'
+import type { SavedViewApiItem } from '@/api/saved-views'
 
+/** Local view shape used by the parent component. */
 export interface SavedView {
   id: string
   name: string
@@ -44,17 +46,55 @@ const views = ref<SavedView[]>([])
 const popoverVisible = ref(false)
 const searchQuery = ref('')
 const viewName = ref('')
+const apiAvailable = ref(true)
 
-function loadViews() {
+// ---- mapping helpers ----
+
+function apiToLocal(item: SavedViewApiItem): SavedView {
+  return {
+    id: String(item.id),
+    name: item.name,
+    tab: item.tab,
+    dsId: item.datasource_id,
+    dsName: '', // backend does not return ds name; shown as fallback id
+    expression: item.expression,
+    createdAt: new Date(item.created_at).getTime(),
+  }
+}
+
+function loadLocal(): SavedView[] {
   try {
     const raw = localStorage.getItem(VIEWS_KEY)
-    if (raw) views.value = JSON.parse(raw) || []
-  } catch { views.value = [] }
+    return raw ? JSON.parse(raw) || [] : []
+  } catch {
+    return []
+  }
 }
 
-function saveViews() {
-  try { localStorage.setItem(VIEWS_KEY, JSON.stringify(views.value)) } catch { /* ignore */ }
+function saveLocal(list: SavedView[]) {
+  try { localStorage.setItem(VIEWS_KEY, JSON.stringify(list)) } catch { /* ignore */ }
 }
+
+// ---- load ----
+
+async function loadViews() {
+  if (!apiAvailable.value) {
+    views.value = loadLocal()
+    return
+  }
+  try {
+    const res = await savedViewApi.list({ tab: props.currentTab, page: 1, page_size: 200 })
+    const items: SavedViewApiItem[] = res.data.data?.list ?? []
+    views.value = items.map(apiToLocal)
+    // keep localStorage in sync
+    saveLocal(views.value)
+  } catch {
+    apiAvailable.value = false
+    views.value = loadLocal()
+  }
+}
+
+// ---- filtered list ----
 
 const filteredViews = computed(() => {
   const q = searchQuery.value.toLowerCase()
@@ -66,13 +106,34 @@ const filteredViews = computed(() => {
   )
 })
 
+// ---- save current ----
+
 function canSave(): boolean {
   return !!(props.currentDsId && props.currentExpression.trim())
 }
 
-function saveCurrentView() {
+async function saveCurrentView() {
   if (!canSave()) return
   const name = viewName.value.trim() || `${props.currentDsName}: ${props.currentExpression.slice(0, 40)}`
+
+  if (apiAvailable.value) {
+    try {
+      await savedViewApi.create({
+        name,
+        tab: props.currentTab,
+        datasource_id: props.currentDsId!,
+        expression: props.currentExpression,
+      })
+      await loadViews()
+      viewName.value = ''
+      message.success(t('query.viewSaved'))
+      return
+    } catch {
+      // fall through to localStorage
+    }
+  }
+
+  // localStorage fallback
   const view: SavedView = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     name,
@@ -83,33 +144,76 @@ function saveCurrentView() {
     createdAt: Date.now(),
   }
   views.value.unshift(view)
-  saveViews()
+  saveLocal(views.value)
   viewName.value = ''
   message.success(t('query.viewSaved'))
 }
+
+// ---- load a view ----
 
 function loadView(view: SavedView) {
   emit('load', view)
   popoverVisible.value = false
 }
 
-function deleteView(id: string) {
+// ---- delete ----
+
+async function deleteView(id: string) {
   dialog.warning({
     title: t('common.confirmDelete'),
     content: t('common.confirmDeleteMsg'),
-    onPositiveClick: () => {
+    onPositiveClick: async () => {
+      if (apiAvailable.value) {
+        try {
+          await savedViewApi.delete(Number(id))
+          await loadViews()
+          message.success(t('common.deleteSuccess'))
+          return
+        } catch {
+          // fall through
+        }
+      }
       views.value = views.value.filter(v => v.id !== id)
-      saveViews()
+      saveLocal(views.value)
       message.success(t('common.deleteSuccess'))
     },
   })
 }
 
+// ---- copy ----
+
+async function copyView(id: string) {
+  if (apiAvailable.value) {
+    try {
+      await savedViewApi.copy(Number(id))
+      await loadViews()
+      message.success(t('query.viewCopied'))
+      return
+    } catch {
+      // fall through
+    }
+  }
+  // localStorage fallback: duplicate in-memory
+  const src = views.value.find(v => v.id === id)
+  if (!src) return
+  const copy: SavedView = {
+    ...src,
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name: src.name + ' (copy)',
+    createdAt: Date.now(),
+  }
+  views.value.unshift(copy)
+  saveLocal(views.value)
+  message.success(t('query.viewCopied'))
+}
+
+// ---- helpers ----
+
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleString()
 }
 
-// Load on component creation
+// init
 loadViews()
 </script>
 
@@ -176,20 +280,34 @@ loadViews()
         >
           <div class="view-item-header">
             <span class="view-item-name">{{ view.name }}</span>
-            <NButton
-              size="tiny"
-              quaternary
-              type="error"
-              @click.stop="deleteView(view.id)"
-            >
-              <template #icon><NIcon size="14"><TrashOutline /></NIcon></template>
-            </NButton>
+            <div class="view-item-actions">
+              <NTooltip>
+                <template #trigger>
+                  <NButton
+                    size="tiny"
+                    quaternary
+                    @click.stop="copyView(view.id)"
+                  >
+                    <template #icon><NIcon size="14"><CopyOutline /></NIcon></template>
+                  </NButton>
+                </template>
+                {{ t('query.copyView') }}
+              </NTooltip>
+              <NButton
+                size="tiny"
+                quaternary
+                type="error"
+                @click.stop="deleteView(view.id)"
+              >
+                <template #icon><NIcon size="14"><TrashOutline /></NIcon></template>
+              </NButton>
+            </div>
           </div>
           <div class="view-item-meta">
             <NTag size="tiny" :bordered="false" :type="view.tab === 'logs' ? 'warning' : 'info'">
               {{ view.tab === 'logs' ? 'Logs' : 'Metrics' }}
             </NTag>
-            <span class="view-item-ds">{{ view.dsName }}</span>
+            <span v-if="view.dsName" class="view-item-ds">{{ view.dsName }}</span>
           </div>
           <div class="view-item-expr">{{ view.expression }}</div>
           <div class="view-item-time">{{ formatTime(view.createdAt) }}</div>
@@ -247,6 +365,10 @@ loadViews()
   font-size: 13px;
   font-weight: 500;
   color: var(--sre-text-primary);
+}
+.view-item-actions {
+  display: flex;
+  gap: 2px;
 }
 .view-item-meta {
   display: flex;

@@ -1,6 +1,6 @@
 # SREAgent REST API 参考手册
 
-> 基于源码自动生成。最后更新：2026-05-21。
+> 基于源码自动生成。最后更新：2026-05-26。
 
 ## 目录
 
@@ -2076,6 +2076,126 @@ file: alertmanager.yml
 
 ---
 
+## 录制规则 (Recording Rules)
+
+### 获取录制规则列表
+
+```
+GET /api/v1/recording-rules?group_id=1&query=node&disabled=0&page=1&page_size=20
+```
+
+### 获取单条录制规则
+
+```
+GET /api/v1/recording-rules/:id
+```
+
+### 创建录制规则
+
+```
+POST /api/v1/recording-rules
+```
+
+**请求体：**
+
+```json
+{
+  "group_id": 1,
+  "name": "node_cpu_seconds_total_rate",
+  "prom_ql": "rate(node_cpu_seconds_total[5m])",
+  "datasource_ids": [1, 2],
+  "cron_pattern": "@every 60s",
+  "disabled": 0,
+  "append_tags": ["service=node-exporter"],
+  "note": "CPU usage rate"
+}
+```
+
+### 更新录制规则
+
+```
+PUT /api/v1/recording-rules/:id
+```
+
+### 删除录制规则
+
+```
+DELETE /api/v1/recording-rules/:id
+```
+
+### 批量创建（导入）
+
+```
+POST /api/v1/recording-rules/batch
+```
+
+### 批量删除
+
+```
+POST /api/v1/recording-rules/batch-delete
+```
+
+### 批量更新字段
+
+```
+PUT /api/v1/recording-rules/fields
+```
+
+---
+
+## 快捷视图 (Saved Views)
+
+### 获取快捷视图列表
+
+```
+GET /api/v1/saved-views?tab=metrics&is_public=true&page=1&page_size=20
+```
+
+### 获取单条快捷视图
+
+```
+GET /api/v1/saved-views/:id
+```
+
+### 创建快捷视图
+
+```
+POST /api/v1/saved-views
+```
+
+**请求体：**
+
+```json
+{
+  "name": "Go Runtime Metrics",
+  "description": "Go runtime metrics view",
+  "tab": "metrics",
+  "datasource_id": 1,
+  "expression": "go_goroutines{instance=\"localhost:9090\"}",
+  "is_public": false
+}
+```
+
+### 更新快捷视图
+
+```
+PUT /api/v1/saved-views/:id
+```
+
+### 删除快捷视图
+
+```
+DELETE /api/v1/saved-views/:id
+```
+
+### 复制快捷视图
+
+```
+POST /api/v1/saved-views/:id/copy
+```
+
+---
+
 ## 路由汇总
 
 | 类别 | 数量 | 访问级别 |
@@ -2083,6 +2203,6 @@ file: alertmanager.yml
 | 公开（无需认证） | 13 | 健康检查、登录、OIDC、Webhook、集成接收、飞书回调、操作页面、Prometheus 指标 |
 | 只读（已认证） | 62 | 所有 GET/列表端点（含宠物/状态页面/预设规则） |
 | 操作权限（member 及以上） | 22 | 告警操作、故障操作、订阅规则、复盘编辑 |
-| 管理权限（team_lead 及以上） | 72 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入、Event Pipeline、Annotations |
+| 管理权限（team_lead 及以上） | 79 | 配置 CRUD、渠道、规则、排班、团队、Pipeline、集成、路由、预设规则应用/导入、Alertmanager 导入、Event Pipeline、Annotations、Recording Rules、Saved Views |
 | 仅管理员 | 16 | 用户 CRUD、系统设置、AI/飞书配置、标签同步、状态页面 CRUD、Pipeline 执行清理 |
-| **合计** | **~191** | |
+| **合计** | **~198** | |

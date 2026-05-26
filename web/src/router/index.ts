@@ -50,6 +50,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/presets', component: () => import('@/pages/alerts/Presets.vue'), meta: { title: 'menu.presetRules' } },
       { path: 'alert/datasources', component: () => import('@/pages/datasources/Index.vue'), meta: { title: 'menu.datasources' } },
       { path: 'alert/explore', component: () => import('@/pages/explore/Index.vue'), meta: { title: 'menu.dataQuery' } },
+      { path: 'alert/metric-views', component: () => import('@/pages/explore/MetricViews.vue'), meta: { title: 'menu.metricViews' } },
       { path: 'alert/dashboards', component: () => import('@/pages/dashboards/Index.vue'), meta: { title: 'menu.dashboard' } },
       { path: 'alert/dashboards/:id', component: () => import('@/pages/dashboards/View.vue'), meta: { title: 'menu.dashboard' } },
       { path: 'alert/notify/policies', component: () => import('@/pages/notification/Index.vue'), meta: { title: 'menu.notifyPolicies' } },

@@ -12,12 +12,17 @@ import (
 )
 
 type RecordingRuleHandler struct {
-	svc    *service.RecordingRuleService
-	log    *zap.Logger
+	svc      *service.RecordingRuleService
+	auditSvc *service.AuditLogService
+	log      *zap.Logger
 }
 
 func NewRecordingRuleHandler(svc *service.RecordingRuleService, log *zap.Logger) *RecordingRuleHandler {
 	return &RecordingRuleHandler{svc: svc, log: log}
+}
+
+func (h *RecordingRuleHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // List returns recording rules with optional filtering and pagination.
@@ -99,6 +104,16 @@ func (h *RecordingRuleHandler) Create(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
 	}
+	if h.auditSvc != nil {
+		uid := userID
+		h.auditSvc.Record(&model.AuditLog{
+			UserID:       &uid,
+			Action:       model.AuditActionCreate,
+			ResourceType: "recording_rule",
+			ResourceID:   &rule.ID,
+			IP:           c.ClientIP(),
+		})
+	}
 	Success(c, rule)
 }
 
@@ -143,6 +158,17 @@ func (h *RecordingRuleHandler) Update(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
 	}
+	if h.auditSvc != nil {
+		uid := userID
+		rid := id
+		h.auditSvc.Record(&model.AuditLog{
+			UserID:       &uid,
+			Action:       model.AuditActionUpdate,
+			ResourceType: "recording_rule",
+			ResourceID:   &rid,
+			IP:           c.ClientIP(),
+		})
+	}
 	Success(c, nil)
 }
 
@@ -163,6 +189,17 @@ func (h *RecordingRuleHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id, rule.GroupID); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
+	}
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		rid := id
+		h.auditSvc.Record(&model.AuditLog{
+			UserID:       &uid,
+			Action:       model.AuditActionDelete,
+			ResourceType: "recording_rule",
+			ResourceID:   &rid,
+			IP:           c.ClientIP(),
+		})
 	}
 	Success(c, nil)
 }

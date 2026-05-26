@@ -83,6 +83,16 @@ var (
 			Help: "Unix timestamp of the last successful engine heartbeat (deadman switch)",
 		},
 	)
+
+	// recordingRuleExecutionsTotal counts recording rule execution outcomes.
+	// Labels: result (string: "success", "error")
+	recordingRuleExecutionsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sreagent_recording_rule_executions_total",
+			Help: "Total number of recording rule executions",
+		},
+		[]string{"result"},
+	)
 )
 
 func init() {
@@ -94,6 +104,7 @@ func init() {
 	prometheus.MustRegister(heartbeatChecksTotal)
 	prometheus.MustRegister(heartbeatActiveRules)
 	prometheus.MustRegister(engineLastHeartbeatTimestamp)
+	prometheus.MustRegister(recordingRuleExecutionsTotal)
 	prometheus.MustRegister(rbacWarnCounter)
 }
 
@@ -166,4 +177,10 @@ var rbacWarnCounter = prometheus.NewCounterVec(
 // IncRBACWarn increments the RBAC warn counter for a given permission and path.
 func IncRBACWarn(perm, path string) {
 	rbacWarnCounter.WithLabelValues(perm, path).Inc()
+}
+
+// IncRecordingRuleExecution increments the recording rule execution counter.
+// result is "success" or "error".
+func IncRecordingRuleExecution(result string) {
+	recordingRuleExecutionsTotal.WithLabelValues(result).Inc()
 }

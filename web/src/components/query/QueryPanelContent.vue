@@ -233,7 +233,7 @@ function pushHistory(tab: QueryTab, expr: string) {
   const key = historyKey()
   const list = history.value.filter(h => !(h.tab === tab && h.expression === expr))
   list.unshift({ tab, expression: expr, ts: Date.now() })
-  history.value = list.slice(0, 50)
+  history.value = list.slice(0, 100)
   try { localStorage.setItem(key, JSON.stringify(history.value)) } catch { /* ignore */ }
 }
 

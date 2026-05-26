@@ -32,6 +32,8 @@ declare module 'vue' {
     LogViewSettings: typeof import('./components/query/LogViewSettings.vue')['default']
     MergeModal: typeof import('./components/incident/MergeModal.vue')['default']
     MetricChartControls: typeof import('./components/query/MetricChartControls.vue')['default']
+    MetricLabelSelector: typeof import('./components/query/MetricLabelSelector.vue')['default']
+    MetricList: typeof import('./components/query/MetricList.vue')['default']
     NAlert: typeof import('naive-ui')['NAlert']
     NAvatar: typeof import('naive-ui')['NAvatar']
     NButton: typeof import('naive-ui')['NButton']
