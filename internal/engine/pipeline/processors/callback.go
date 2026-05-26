@@ -86,7 +86,7 @@ func (p *callbackProcessor) Process(ctx context.Context, event *model.AlertEvent
 		// Fire-and-forget: log error but don't block pipeline
 		return event, fmt.Sprintf("callback: request failed: %v", err), nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return event, fmt.Sprintf("callback: got HTTP %d from %s", resp.StatusCode, p.URL), nil

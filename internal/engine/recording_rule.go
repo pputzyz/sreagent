@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -309,47 +308,3 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 	}
 }
 
-// runAll fetches all enabled rules and executes each one sequentially.
-// Useful for manual triggers or testing.
-func (e *RecordingRuleEngine) runAll(ctx context.Context) {
-	rules, err := e.ruleRepo.ListEnabled(ctx)
-	if err != nil {
-		e.logger.Error("recording rule engine: failed to list rules for runAll", zap.Error(err))
-		return
-	}
-
-	if len(rules) == 0 {
-		e.logger.Debug("recording rule engine: no enabled rules to execute")
-		return
-	}
-
-	e.logger.Info("recording rule engine: running all enabled rules", zap.Int("count", len(rules)))
-
-	for i := range rules {
-		select {
-		case <-ctx.Done():
-			e.logger.Warn("recording rule engine: runAll cancelled")
-			return
-		default:
-		}
-		e.RunOnce(ctx, &rules[i])
-	}
-}
-
-// parseInterval parses a "@every Xs" cron pattern into a time.Duration.
-// Returns 60s as default if the pattern is not parseable.
-func parseInterval(pattern string) time.Duration {
-	pattern = strings.TrimSpace(pattern)
-	if !strings.HasPrefix(pattern, "@every ") {
-		return 60 * time.Second
-	}
-	durStr := strings.TrimPrefix(pattern, "@every ")
-	d, err := time.ParseDuration(durStr)
-	if err != nil {
-		return 60 * time.Second
-	}
-	if d < time.Second {
-		return time.Second
-	}
-	return d
-}
