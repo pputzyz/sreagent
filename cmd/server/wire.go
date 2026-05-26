@@ -278,9 +278,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// User preference service
 	userPreferenceSvc := service.NewUserPreferenceService(userPreferenceRepo, zapLogger)
 
-	// User contact service
-	userContactSvc := service.NewUserContactService(userContactRepo, zapLogger)
-
 	// Notification center service
 	userNotificationSvc := service.NewUserNotificationService(userNotificationRepo, zapLogger)
 
@@ -403,6 +400,14 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		}
 	} else {
 		zapLogger.Info("redis not configured, engine will use in-memory state only")
+	}
+
+	// User contact service (needs Redis for verification codes)
+	var userContactSvc *service.UserContactService
+	if redisClient != nil {
+		userContactSvc = service.NewUserContactService(userContactRepo, redisClient.Raw(), settingSvc, zapLogger)
+	} else {
+		userContactSvc = service.NewUserContactService(userContactRepo, nil, settingSvc, zapLogger)
 	}
 
 	// --------------- Engine components ---------------

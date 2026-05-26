@@ -148,7 +148,7 @@ async function fetchUsers() {
   try {
     const { data } = await userApi.list({ page: 1, page_size: 200, is_active: true })
     users.value = data.data.list || []
-  } catch { /* silent */ }
+  } catch { message.error(t('common.loadFailed')) }
 }
 
 async function refreshAll() {

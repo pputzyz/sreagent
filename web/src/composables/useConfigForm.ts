@@ -2,6 +2,7 @@ import { ref, reactive, watch, computed, onBeforeUnmount } from 'vue'
 import { onBeforeRouteLeave, type LocationQuery } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import { getErrorMessage } from '@/utils/format'
 
 interface UseConfigFormOptions<T> {
   /** Load config from API — should return the config object */
@@ -85,6 +86,8 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
     testing.value = true
     try {
       await options.test()
+    } catch (err: unknown) {
+      message.error(getErrorMessage(err))
     } finally {
       testing.value = false
     }

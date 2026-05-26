@@ -63,8 +63,9 @@ async function fetchBotStatus() {
   try {
     const res = await larkBotApi.getBotStatus()
     botStatus.value = res.data.data ?? null
-  } catch {
+  } catch (err: unknown) {
     botStatus.value = null
+    message.error(getErrorMessage(err))
   } finally {
     botStatusLoading.value = false
   }

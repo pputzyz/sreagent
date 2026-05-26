@@ -191,7 +191,7 @@ async function fetchAllUsers() {
   try {
     const res = await userApi.list({ page_size: 1000, is_active: true })
     allUsers.value = res.data.data?.list || []
-  } catch { /* ignore */ }
+  } catch { message.error(t('common.loadFailed')) }
 }
 
 onMounted(() => { fetchList(); fetchAllUsers() })

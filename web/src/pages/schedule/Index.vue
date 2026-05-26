@@ -238,14 +238,14 @@ async function fetchTeams() {
   try {
     const { data } = await teamApi.list({ page: 1, page_size: 100 })
     teams.value = data.data.list || []
-  } catch { /* silent */ }
+  } catch { message.error(t('common.loadFailed')) }
 }
 
 async function fetchUsers() {
   try {
     const { data } = await userApi.list({ page: 1, page_size: 200 })
     users.value = data.data.list || []
-  } catch { /* silent */ }
+  } catch { message.error(t('common.loadFailed')) }
 }
 
 function selectSchedule(s: Schedule) {

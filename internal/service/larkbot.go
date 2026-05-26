@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -514,13 +515,18 @@ func (s *LarkBotService) TestBotAPI(ctx context.Context) error {
 		return fmt.Errorf("AppID and AppSecret must be configured")
 	}
 	bot := lark.NewBotClient(cfg.AppID, cfg.AppSecret)
-	// SendText to an invalid ID will fail with auth error if credentials are wrong,
-	// but we just want to test token acquisition — use the internal method.
+	// SendText to an invalid chat_id — if credentials are wrong, we get a
+	// LarkError during token acquisition. If credentials are valid, the API
+	// returns a routing error (invalid chat_id) which is expected.
 	_, err = bot.SendText(ctx, "chat_id", "__test__", "ping")
-	// We expect a routing error (invalid chat_id), not an auth error.
-	// If we got a token, the credentials are valid.
-	if err != nil && strings.Contains(err.Error(), "lark auth error") {
-		return err
+	if err != nil {
+		// Auth errors (bad AppID/AppSecret) are wrapped as *LarkError
+		var larkErr *lark.LarkError
+		if errors.As(err, &larkErr) {
+			return fmt.Errorf("Lark bot API authentication failed (code %d): %s", larkErr.Code, larkErr.Message)
+		}
+		// Network or other unexpected errors
+		return fmt.Errorf("Lark bot API test failed: %w", err)
 	}
 	return nil
 }

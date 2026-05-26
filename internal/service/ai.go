@@ -165,8 +165,7 @@ func (s *AIService) GenerateAlertReport(ctx context.Context, event *model.AlertE
 		return "", fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		s.logger.Warn("AI is not enabled, returning placeholder report")
-		return fmt.Sprintf("[AI Disabled] Alert report placeholder for event: %s (severity: %s)", event.AlertName, event.Severity), nil
+		return "", fmt.Errorf("AI 功能未启用，请在系统设置中配置并启用 AI")
 	}
 
 	prompt := fmt.Sprintf(
@@ -192,8 +191,7 @@ func (s *AIService) SuggestSOP(ctx context.Context, event *model.AlertEvent) (st
 		return "", fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		s.logger.Warn("AI is not enabled, returning placeholder SOP")
-		return fmt.Sprintf("[AI Disabled] SOP suggestion placeholder for event: %s", event.AlertName), nil
+		return "", fmt.Errorf("AI 功能未启用，请在系统设置中配置并启用 AI")
 	}
 
 	prompt := fmt.Sprintf(
@@ -216,8 +214,7 @@ func (s *AIService) AnalyzeAlert(ctx context.Context, event *model.AlertEvent) (
 		return "", fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		s.logger.Warn("AI is not enabled, returning placeholder analysis")
-		return fmt.Sprintf("[AI Disabled] Root cause analysis placeholder for event: %s", event.AlertName), nil
+		return "", fmt.Errorf("AI 功能未启用，请在系统设置中配置并启用 AI")
 	}
 
 	prompt := fmt.Sprintf(

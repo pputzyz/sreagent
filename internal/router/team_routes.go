@@ -58,6 +58,7 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 			contacts.DELETE("/:id", h.UserContact.Delete)
 			contacts.POST("/:id/default", h.UserContact.SetDefault)
 			contacts.POST("/:id/verify", h.UserContact.Verify)
+			contacts.POST("/:id/verify/confirm", h.UserContact.ConfirmVerify)
 		}
 	}
 }

@@ -156,7 +156,7 @@ func (h *UserContactHandler) SetDefault(c *gin.Context) {
 	Success(c, nil)
 }
 
-// Verify sends a verification message to the contact (placeholder).
+// Verify sends a verification code to the contact.
 func (h *UserContactHandler) Verify(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
@@ -170,17 +170,51 @@ func (h *UserContactHandler) Verify(c *gin.Context) {
 		return
 	}
 
-	// Verify ownership.
-	if _, err := h.svc.GetByID(c.Request.Context(), id, userID); err != nil {
+	contact, err := h.svc.GetByID(c.Request.Context(), id, userID)
+	if err != nil {
 		Error(c, err)
 		return
 	}
 
-	// Placeholder: verification logic will be implemented when notification channels are integrated.
-	h.log.Info("contact verification requested",
-		zap.Uint("user_id", userID),
-		zap.Uint("contact_id", id),
-	)
+	if contact.Verified {
+		Success(c, gin.H{"message": "contact already verified"})
+		return
+	}
 
-	Success(c, gin.H{"message": "verification sent"})
+	if err := h.svc.SendVerification(c.Request.Context(), contact); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, gin.H{"message": "verification code sent"})
+}
+
+// ConfirmVerify confirms a verification code.
+func (h *UserContactHandler) ConfirmVerify(c *gin.Context) {
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauth)
+		return
+	}
+
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "verification code is required"))
+		return
+	}
+
+	if err := h.svc.ConfirmVerification(c.Request.Context(), id, userID, req.Code); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, gin.H{"message": "contact verified successfully"})
 }

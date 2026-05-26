@@ -294,7 +294,7 @@ func EventToTemplateData(event *model.AlertEvent, analysis *AlertAnalysis, rule 
 
 	// Timestamps
 	data.FirstTriggerTime = event.FiredAt
-	data.LastEvalTime = event.FiredAt // TODO: track actual last eval time in AlertEvent model
+	data.LastEvalTime = event.UpdatedAt
 
 	// Extract value and duration from annotations if available
 	if v, ok := event.Annotations["value"]; ok {

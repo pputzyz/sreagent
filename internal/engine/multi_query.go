@@ -72,11 +72,15 @@ func (re *RuleEvaluator) executeQueryByRef(ctx context.Context, q model.RuleQuer
 	// Resolve datasource — use query-specific DS if set, otherwise fall back to rule's DS
 	ds := re.datasource
 	if q.DatasourceID > 0 && q.DatasourceID != re.datasource.ID {
-		// TODO: resolve datasource by ID from cache/repo
-		// For now, use the rule's datasource
-		re.logger.Debug("multi-query: using rule datasource (query-specific DS resolution not yet implemented)",
+		var queryDS model.DataSource
+		if err := re.db.WithContext(ctx).First(&queryDS, q.DatasourceID).Error; err != nil {
+			return nil, fmt.Errorf("multi-query %s: failed to resolve datasource %d: %w", q.Ref, q.DatasourceID, err)
+		}
+		ds = &queryDS
+		re.logger.Debug("multi-query: resolved query-specific datasource",
 			zap.String("ref", q.Ref),
 			zap.Uint("query_ds_id", q.DatasourceID),
+			zap.String("ds_type", string(ds.Type)),
 		)
 	}
 

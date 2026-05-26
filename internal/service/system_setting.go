@@ -143,6 +143,8 @@ type OIDCConfigDB struct {
 	ClientSecret  string `json:"client_secret"`
 	RedirectURL   string `json:"redirect_url"`
 	Scopes        string `json:"scopes"`         // comma-separated, e.g. "openid,profile,email"
+	UsernameClaim string `json:"username_claim"`  // default "preferred_username"
+	EmailClaim    string `json:"email_claim"`     // default "email"
 	RoleClaim     string `json:"role_claim"`     // default "realm_access.roles"
 	RoleMapping   string `json:"role_mapping"`   // JSON object string, e.g. {"sre-admin":"admin"}
 	DefaultRole   string `json:"default_role"`   // default "viewer"
@@ -615,6 +617,8 @@ func (s *SystemSettingService) GetOIDCConfig(ctx context.Context) (OIDCConfigDB,
 		ClientSecret:  s.getDecrypted(groupOIDC, "client_secret", kv["client_secret"]),
 		RedirectURL:   kv["redirect_url"],
 		Scopes:        strDef(kv["scopes"], "openid,profile,email"),
+		UsernameClaim: strDef(kv["username_claim"], "preferred_username"),
+		EmailClaim:    strDef(kv["email_claim"], "email"),
 		RoleClaim:     strDef(kv["role_claim"], "realm_access.roles"),
 		RoleMapping:   kv["role_mapping"],
 		DefaultRole:   strDef(kv["default_role"], "viewer"),
@@ -637,6 +641,8 @@ func (s *SystemSettingService) SaveOIDCConfig(ctx context.Context, cfg OIDCConfi
 		"client_id":      cfg.ClientID,
 		"redirect_url":   cfg.RedirectURL,
 		"scopes":         cfg.Scopes,
+		"username_claim": cfg.UsernameClaim,
+		"email_claim":    cfg.EmailClaim,
 		"role_claim":     cfg.RoleClaim,
 		"role_mapping":   cfg.RoleMapping,
 		"default_role":   cfg.DefaultRole,
