@@ -4,6 +4,28 @@
 
 ---
 
+## [v4.41.9] — 2026-05-26
+
+### 审计驱动修复（6 个后端 stub + OIDC + 前端错误处理）
+
+**后端修复：**
+- LarkBot TestBotAPI: 错误字符串匹配 `"lark auth error"` 与实际 `"lark api error code=..."` 不符 → 改用 `errors.As` 类型断言
+- OIDCConfigDB: 补全 `username_claim` / `email_claim` 字段（前端期望但后端缺失，保存无效）
+- AI 未启用: 返回 `[AI Disabled] placeholder` 文本 → 返回明确错误 `"AI 功能未启用"`
+- 联系方式验证: placeholder → 完整验证码流程（Redis 存储 + SMTP 发送 + 确认端点）
+  - UserContact 模型新增 `Verified` 字段（迁移: 000091）
+  - 新增 `POST /user/contacts/:id/verify/confirm` 端点
+- 多查询规则数据源: TODO stub → 真实 DB 查询（支持查询级独立数据源）
+- 消息模板 LastEvalTime: 用 FiredAt 代替 → 改用 UpdatedAt（更准确）
+
+**前端修复：**
+- 6 个文件的 silent catch → 添加 `message.error()` 错误提示
+- 涉及: TeamManagement, BizGroups, schedule/Index, alerts/Detail, LarkBotConfig, useConfigForm
+
+**迁移文件：** 000091_user_contact_verified
+
+---
+
 ## [v4.41.8] — 2026-05-26
 
 ### 全面功能修复与质量把关
