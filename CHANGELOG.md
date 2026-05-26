@@ -4,6 +4,22 @@
 
 ---
 
+## [v4.34.0] — 2026-05-26
+
+### Elasticsearch 数据源支持
+
+**新增功能**:
+- 新增 `DSTypeElasticsearch` 数据源类型常量
+- 完整的 Elasticsearch 数据源客户端：健康检查（连接性 + 版本提取 + 搜索 API 探测）
+- 日志查询：通过 `_msearch` API 支持 Lucene 语法查询、分页、时间范围过滤
+- 日志直方图：通过 `date_histogram` 聚合实现时间桶统计
+- 索引发现：`_cat/indices` 列出非隐藏索引
+- 字段发现：`_mapping` API 递归提取字段名和类型
+- 服务层按 `ds.Type` 分发到 ES 或 VictoriaLogs
+- Handler 层新增 `index` 和 `date_field` 可选参数
+
+---
+
 ## [v4.33.0] — 2026-05-26
 
 ### 录制规则 UI 增强 — Nightingale 功能移植 #5
