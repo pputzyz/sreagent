@@ -88,3 +88,15 @@ export type { EventPipeline, EventPipelineExecution, ProcessorConfig, TagFilter,
 // ===== Metric Views =====
 export { metricViewApi } from './metric-view'
 export type { MetricView, MetricViewConfig, MetricViewFilter, MetricViewDynamicLabel, CreateMetricViewRequest, UpdateMetricViewRequest } from './metric-view'
+
+// ===== LLM Configs =====
+export { llmConfigApi } from './llm-config'
+export type { LLMConfig, LLMExtraConfig, CreateLLMConfigRequest, UpdateLLMConfigRequest, TestConnectionResponse } from './llm-config'
+
+// ===== MCP Servers =====
+export { mcpServerApi } from './mcp-server'
+export type { MCPServer, MCPTool, CreateMCPServerRequest, UpdateMCPServerRequest } from './mcp-server'
+
+// ===== AI Skills =====
+export { aiSkillApi } from './ai-skill'
+export type { AISkill, AISkillFile, CreateAISkillRequest, UpdateAISkillRequest } from './ai-skill'

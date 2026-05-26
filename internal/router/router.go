@@ -73,6 +73,9 @@ type Handlers struct {
 	Annotation          *handler.AnnotationHandler         // 仪表盘标注 (Annotations)
 	SavedView           *handler.SavedViewHandler          // 快捷视图 (Saved Views)
 	MetricView          *handler.MetricViewHandler         // 指标视图 (Metric Views)
+	LLMConfig           *handler.LLMConfigHandler         // LLM 配置管理 (LLM Configs)
+	MCPServer           *handler.MCPServerHandler          // MCP 服务器管理 (MCP Servers)
+	AISkill             *handler.AISkillHandler            // AI 技能管理 (AI Skills)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -188,6 +191,9 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerAnnotationRoutes(auth, manage)
 			handlers.registerSavedViewRoutes(auth, manage)
 			handlers.registerMetricViewRoutes(auth, manage)
+			handlers.registerLLMConfigRoutes(auth, manage)
+			handlers.registerMCPServerRoutes(auth, manage)
+			handlers.registerAISkillRoutes(auth, manage)
 		}
 	}
 

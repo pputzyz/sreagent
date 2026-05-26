@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.35.0
-> 共 48 个 model, 63 个 handler, 85 个 service, 47 个 repository, 307+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-26 | tag: v4.36.0
+> 共 51 个 model, 62 个 handler, 76 个 service, 50 个 repository, 320+ API 端点, 17 种通知渠道
 
 ---
 
@@ -93,6 +93,7 @@ permissions ──→ team (团队角色查询)
 | 录制规则引擎 | ✅ | ❌ | ❌ | 0% |
 | 快捷视图 | ✅ | ❌ | ❌ | 0% |
 | 内置指标 | ✅ | ❌ | ❌ | 0% |
+| MCP 服务器 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
 
@@ -504,6 +505,36 @@ permissions ──→ team (团队角色查询)
 - **前端文件**: `web/src/pages/alerts/metric-views/Index.vue`, `web/src/api/metric-view.ts`
 - **迁移文件**: `000075_metric_views`
 - **API**: `GET/POST/PUT/DELETE /api/v1/metric-views` (CRUD + 收藏)
+- **状态**: ✅ 完成
+
+## MCP 服务器管理 (mcp-servers) [v4.36.0]
+
+- **功能**: MCP (Model Context Protocol) 服务器注册管理，支持 SSE 连接测试、工具发现和调用，供 AI Agent 使用外部工具
+- **后端文件**: `internal/model/mcp_server.go`, `internal/repository/mcp_server.go`, `internal/service/mcp_server.go`, `internal/service/mcp_client.go`, `internal/handler/mcp_server.go`, `internal/router/mcp_server_routes.go`
+- **前端文件**: `web/src/api/mcp-server.ts`, `web/src/pages/platform/MCPServers.vue`
+- **迁移文件**: `000077_mcp_servers`
+- **API**: `GET/POST/PUT/DELETE /api/v1/mcp-servers` + `POST /:id/test` + `GET /:id/tools`
+- **依赖**: 无外部依赖（纯 HTTP SSE 客户端）
+- **状态**: ✅ 完成
+
+## LLM 配置管理 (llm-configs) [v4.36.0]
+
+- **功能**: 独立的 LLM Provider 配置管理，支持多 Provider（openai/azure/ollama/anthropic/custom），API Key AES-256-GCM 加密存储，IsDefault 互斥，连接测试
+- **后端文件**: `internal/model/llm_config.go`, `internal/repository/llm_config.go`, `internal/service/llm_config.go`, `internal/handler/llm_config.go`, `internal/router/llm_config_routes.go`
+- **前端文件**: `web/src/api/llm-config.ts`, `web/src/pages/platform/LLMConfigs.vue`
+- **迁移文件**: `000076_llm_configs`
+- **API**: `GET/POST/PUT/DELETE /api/v1/llm-configs` + `POST /test`
+- **依赖**: `internal/pkg/crypto` (AES-256-GCM)
+- **状态**: ✅ 完成
+
+## AI 技能管理 (ai-skills) [v4.36.0]
+
+- **功能**: 结构化 Skill 文件管理（SKILL.md + 辅助文件），支持 zip/tar.gz 导入，YAML frontmatter 解析，内置技能保护
+- **后端文件**: `internal/model/ai_skill.go`, `internal/repository/ai_skill.go`, `internal/service/ai_skill.go`, `internal/handler/ai_skill.go`, `internal/router/ai_skill_routes.go`
+- **前端文件**: `web/src/api/ai-skill.ts`, `web/src/pages/ai/SkillManager.vue`
+- **迁移文件**: `000078_ai_skills`
+- **API**: `GET/POST/PUT/DELETE /api/v1/ai-skills` + `POST /import` + `GET/POST/DELETE /:id/files` + `GET/DELETE /files/:fileId`
+- **依赖**: 无外部依赖
 - **状态**: ✅ 完成
 
 ## 即时查询增强 (instant-query) [v4.32.0]

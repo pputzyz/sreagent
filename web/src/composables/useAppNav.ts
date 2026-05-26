@@ -306,6 +306,9 @@ export function useAppNav() {
                   { label: t('menu.smtp'),      key: '/platform/settings/smtp', icon: MailOutline },
                   { label: t('menu.larkBot'),    key: '/platform/settings/lark', icon: ChatbubbleEllipsesOutline },
                   { label: t('menu.aiConfig'),   key: '/platform/settings/ai', icon: HardwareChipOutline },
+                  { label: t('menu.llmConfigs'), key: '/platform/llm-configs', icon: SparklesOutline },
+                  { label: t('menu.mcpServers'), key: '/platform/mcp-servers', icon: SparklesOutline },
+                  { label: t('menu.aiSkills'),   key: '/ai/skills', icon: SparklesOutline },
                   { label: t('menu.aiAgent'),    key: '/ai/agent', icon: SparklesOutline },
                   { label: t('menu.security'),   key: '/platform/settings/security', icon: ShieldOutline },
                 )

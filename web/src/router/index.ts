@@ -70,6 +70,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/settings/smtp', component: () => import('@/pages/settings/SMTP.vue'), meta: { title: 'menu.smtp', requiresRole: ['admin'] } },
       { path: 'platform/settings/lark', component: () => import('@/pages/settings/LarkBotConfig.vue'), meta: { title: 'menu.larkBot', requiresRole: ['admin'] } },
       { path: 'platform/settings/ai', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiConfig', requiresRole: ['admin'] } },
+      { path: 'platform/llm-configs', component: () => import('@/pages/platform/LLMConfigs.vue'), meta: { title: 'menu.llmConfigs', requiresRole: ['admin'] } },
+      { path: 'platform/mcp-servers', component: () => import('@/pages/platform/MCPServers.vue'), meta: { title: 'menu.mcpServers', requiresRole: ['admin'] } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
 
       // ===== Notification Center =====
@@ -77,6 +79,7 @@ const routes: RouteRecordRaw[] = [
 
       // ===== AI Agent =====
       { path: 'ai/agent', component: () => import('@/pages/ai/AgentView.vue'), meta: { title: 'menu.aiAgent' } },
+      { path: 'ai/skills', component: () => import('@/pages/ai/SkillManager.vue'), meta: { title: 'menu.aiSkills', requiresRole: ['admin', 'team_lead'] } },
 
       // ===== Inspection (定时巡检) =====
       { path: 'platform/inspections', component: () => import('@/pages/platform/inspections/Index.vue'), meta: { title: 'menu.inspection', requiresRole: ['admin', 'team_lead'] } },

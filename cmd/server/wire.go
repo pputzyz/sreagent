@@ -189,6 +189,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Annotation repository
 	annotationRepo := repository.NewAnnotationRepository(db)
 
+	// LLM config repository
+	llmConfigRepo := repository.NewLLMConfigRepository(db)
+
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
@@ -287,6 +290,17 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Metric view service
 	metricViewRepo := repository.NewMetricViewRepository(db)
 	metricViewSvc := service.NewMetricViewService(metricViewRepo, zapLogger)
+
+	// MCP server service
+	mcpServerRepo := repository.NewMCPServerRepository(db)
+	mcpServerSvc := service.NewMCPServerService(mcpServerRepo, zapLogger)
+
+	// LLM config service
+	llmConfigSvc := service.NewLLMConfigService(llmConfigRepo, db, zapLogger)
+
+	// AI Skill service
+	aiSkillRepo := repository.NewAISkillRepository(db)
+	aiSkillSvc := service.NewAISkillService(aiSkillRepo, zapLogger)
 
 	// Builtin metric services
 	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
@@ -599,6 +613,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Annotation:          handler.NewAnnotationHandler(annotationSvc, zapLogger),
 		SavedView:           handler.NewSavedViewHandler(savedViewSvc, zapLogger),
 		MetricView:          handler.NewMetricViewHandler(metricViewSvc, zapLogger),
+		MCPServer:           handler.NewMCPServerHandler(mcpServerSvc, zapLogger),
+		LLMConfig:           handler.NewLLMConfigHandler(llmConfigSvc, zapLogger),
+		AISkill:             handler.NewAISkillHandler(aiSkillSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it
@@ -618,6 +635,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.SavedView.SetAuditService(auditLogSvc)
 	handlers.MetricView.SetAuditService(auditLogSvc)
 	handlers.RecordingRule.SetAuditService(auditLogSvc)
+	handlers.MCPServer.SetAuditService(auditLogSvc)
+	handlers.LLMConfig.SetAuditService(auditLogSvc)
 
 	// Wire permission-denied audit callback into the RBAC middleware.
 	middleware.SetPermLogger(zapLogger)

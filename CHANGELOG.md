@@ -4,6 +4,67 @@
 
 ---
 
+## [v4.36.0] — 2026-05-26
+
+### AI Agent Enhancement — Phase 1c: Skill System
+
+**AI 技能管理模块（全新功能）**:
+- 新增模型 `internal/model/ai_skill.go`：AISkill + AISkillFile 结构体，支持 YAML frontmatter 解析
+- 新增仓库 `internal/repository/ai_skill.go`：CRUD + 文件批量同步（BatchUpsertFiles）
+- 新增服务 `internal/service/ai_skill.go`：CRUD + 文件管理 + ImportSkill（zip/tar.gz 导入）
+- 新增处理器 `internal/handler/ai_skill.go`：List / Get / Create / Update / Delete / Import / GetFiles / AddFile / GetFile / DeleteFile
+- 新增路由 `internal/router/ai_skill_routes.go`：`/api/v1/ai-skills`，manage 中间件保护写操作
+- 新增迁移 `000078_ai_skills.up.sql` / `000078_ai_skills.down.sql`
+- 新增前端 API `web/src/api/ai-skill.ts`：CRUD + import + 文件管理
+- 新增页面 `web/src/pages/ai/SkillManager.vue`：数据表格 + 创建/编辑抽屉 + 文件管理抽屉 + 导入功能
+- DI 注入：wire.go 注册 AISkill repo / service / handler
+- 路由注册：router.go 新增 AISkill handler 和路由组
+- i18n：zh-CN + en 双语完整翻译（aiSkills 命名空间 35 个键 + menu.aiSkills）
+- 路由：`/ai/skills`（admin + team_lead 可访问）
+- 导航：AI Agent > AI 技能
+
+### AI Agent Enhancement — Phase 1a: LLM Config Backend
+
+**LLM 配置管理后端（全新功能）**:
+- 新增模型 `internal/model/llm_config.go`：LLMConfig 结构体（gorm.Model + CreatedBy/UpdatedBy），MaskAPIKey / IsMaskedAPIKey / Verify
+- 新增仓库 `internal/repository/llm_config.go`：CRUD + 分页列表 + PickDefault + ClearDefault
+- 新增服务 `internal/service/llm_config.go`：AES-256-GCM 加密存储、IsDefault 互斥、TestConnection
+- 新增处理器 `internal/handler/llm_config.go`：List / Get / Create / Update / Delete / TestConnection，含审计日志
+- 新增路由 `internal/router/llm_config_routes.go`：`/api/v1/llm-configs`，manage 中间件保护写操作
+- 新增迁移 `000076_llm_configs.up.sql` / `000076_llm_configs.down.sql`
+
+### AI Agent Enhancement — Phase 1b: MCP Server Management
+
+**MCP 服务器管理模块（全新功能）**:
+- 新增模型 `internal/model/mcp_server.go`：MCPServer 结构体（name, url, headers, description, enabled）
+- 新增仓库 `internal/repository/mcp_server.go`：CRUD + 分页列表
+- 新增 MCP SSE 客户端 `internal/service/mcp_client.go`：SSE 连接、endpoint 解析、JSON-RPC initialize + tools/list
+- 新增服务 `internal/service/mcp_server.go`：CRUD + TestConnection + ListTools
+- 新增处理器 `internal/handler/mcp_server.go`：List / Get / Create / Update / Delete / TestConnection / ListTools，含审计日志
+- 新增路由 `internal/router/mcp_server_routes.go`：`/api/v1/mcp-servers`，manage 中间件保护写操作
+- 新增迁移 `000077_mcp_servers.up.sql` / `000077_mcp_servers.down.sql`
+- 新增前端 API `web/src/api/mcp-server.ts`：CRUD + testConnection + listTools
+- 新增页面 `web/src/pages/platform/MCPServers.vue`：数据表格 + 创建/编辑抽屉（KV 请求头编辑器）+ 测试连接 + 查看工具抽屉
+- DI 注入：wire.go 注册 MCPServer repo / service / handler + 审计服务
+- 路由注册：router.go 新增 MCPServer handler 和路由组
+- i18n：zh-CN + en 双语完整翻译（mcpServers 呟名空间 27 个键 + menu.mcpServers）
+- 路由：`/platform/mcp-servers`（仅 admin 可访问）
+
+### AI Agent Enhancement — Phase 1a: LLM Config Frontend
+
+**LLM 配置管理页面（全新功能）**:
+- 新增 API 模块 `web/src/api/llm-config.ts`：list / get / create / update / delete / testConnection
+- 新增页面 `web/src/pages/platform/LLMConfigs.vue`：NDataTable + NDrawer CRUD 界面
+- 表单字段：name、provider（openai/azure/ollama/anthropic/custom）、api_url、api_key、model、enabled、is_default、description
+- 高级设置折叠面板：timeout_seconds、skip_tls_verify、proxy、temperature、max_tokens
+- 每行操作：测试连接、编辑、删除（带确认）
+- 默认配置星标图标指示
+- 路由：`/platform/llm-configs`（仅 admin 可访问）
+- 导航：Platform > 系统设置 > LLM 配置
+- i18n：zh-CN + en 双语完整翻译（27 个键）
+
+---
+
 ## [v4.35.0] — 2026-05-26
 
 ### 数据查询模块全面对齐 — Nightingale 功能移植 #7
