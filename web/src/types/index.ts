@@ -41,7 +41,7 @@ export interface User {
 }
 
 // ===== DataSource =====
-export type DataSourceType = 'prometheus' | 'victoriametrics' | 'zabbix' | 'victorialogs'
+export type DataSourceType = 'prometheus' | 'victoriametrics' | 'zabbix' | 'victorialogs' | 'elasticsearch'
 export type DataSourceStatus = 'healthy' | 'unhealthy' | 'unknown'
 
 export interface DataSource {

@@ -243,8 +243,8 @@ const filteredHistory = computed(() =>
 
 // --- Computed ---
 const selectedDs = computed(() => props.datasources.find(d => d.id === selectedDsId.value))
-const metricDatasources = computed(() => props.datasources.filter(d => d.supports_query && d.type !== 'victorialogs'))
-const logDatasources = computed(() => props.datasources.filter(d => d.type === 'victorialogs'))
+const metricDatasources = computed(() => props.datasources.filter(d => d.supports_query && d.type !== 'victorialogs' && d.type !== 'elasticsearch'))
+const logDatasources = computed(() => props.datasources.filter(d => d.type === 'victorialogs' || d.type === 'elasticsearch'))
 const isLogs = computed(() => activeTab.value === 'logs')
 
 // Datasource selector options (filtered by active tab)
@@ -262,13 +262,14 @@ const isMetricLimited = computed(() => {
 
 function dsLabel(ds: DataSource): string { return `${ds.name} (${typeBadge(ds.type)})` }
 function typeBadge(tp: string): string {
-  const m: Record<string, string> = { prometheus: 'Prometheus', victoriametrics: 'VictoriaMetrics', victorialogs: 'VictoriaLogs', zabbix: 'Zabbix' }
+  const m: Record<string, string> = { prometheus: 'Prometheus', victoriametrics: 'VictoriaMetrics', victorialogs: 'VictoriaLogs', zabbix: 'Zabbix', elasticsearch: 'ES' }
   return m[tp] || tp
 }
 function typeColor(tp: string): string {
   const tokenMap: Record<string, string> = {
     prometheus: '--sre-ds-prometheus', victoriametrics: '--sre-ds-victoriametrics',
     victorialogs: '--sre-ds-victorialogs', zabbix: '--sre-ds-zabbix',
+    elasticsearch: '--sre-ds-elasticsearch',
   }
   const token = tokenMap[tp]
   if (token && typeof document !== 'undefined') {
