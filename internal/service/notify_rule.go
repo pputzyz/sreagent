@@ -260,6 +260,16 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 			continue
 		}
 
+		// Filter by time range (Nightingale-compatible)
+		if !isInTimeRanges(time.Now(), nc.TimeRanges) {
+			s.logger.Debug("notification outside time range",
+				zap.Uint("event_id", event.ID),
+				zap.Uint("rule_id", rule.ID),
+				zap.Uint("media_id", nc.MediaID),
+			)
+			continue
+		}
+
 		// Check throttle
 		if s.isThrottled(ctx, rule, &nc) {
 			s.logger.Debug("notification throttled",
@@ -386,6 +396,107 @@ func (s *NotifyRuleService) applyRelabel(event *model.AlertEvent, config map[str
 	}
 }
 
+// isInTimeRange checks whether the current time falls within any of the
+// configured time ranges. If no time ranges are configured, it returns true
+// (always allowed). This implements Nightingale-compatible time-range filtering.
+func isInTimeRanges(now time.Time, ranges []model.TimeRange) bool {
+	if len(ranges) == 0 {
+		return true
+	}
+
+	weekday := int(now.Weekday()) // 0=Sunday in Go
+	if weekday == 0 {
+		weekday = 7 // convert to ISO: 7=Sunday
+	}
+
+	hour, min := now.Hour(), now.Minute()
+	currentMinutes := hour*60 + min
+
+	for _, tr := range ranges {
+		// Check day-of-week filter
+		if len(tr.Week) > 0 {
+			dayMatch := false
+			for _, d := range tr.Week {
+				if d == weekday {
+					dayMatch = true
+					break
+				}
+			}
+			if !dayMatch {
+				continue
+			}
+		}
+
+		// Parse start and end times
+		startMin := parseHHMM(tr.Start)
+		endMin := parseHHMM(tr.End)
+
+		if startMin < 0 || endMin < 0 {
+			continue // invalid time format, skip
+		}
+
+		// Handle same-day range (e.g. 09:00 - 18:00)
+		if startMin <= endMin {
+			if currentMinutes >= startMin && currentMinutes < endMin {
+				return true
+			}
+		} else {
+			// Overnight range (e.g. 22:00 - 06:00)
+			if currentMinutes >= startMin || currentMinutes < endMin {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// parseHHMM parses a "HH:MM" string into total minutes since midnight.
+// Returns -1 if the format is invalid.
+func parseHHMM(s string) int {
+	if len(s) < 4 || len(s) > 5 {
+		return -1
+	}
+	parts := splitHHMM(s)
+	if len(parts) != 2 {
+		return -1
+	}
+	h, m := parts[0], parts[1]
+	if h < 0 || h > 23 || m < 0 || m > 59 {
+		return -1
+	}
+	return h*60 + m
+}
+
+// splitHHMM splits "HH:MM" into [hour, minute].
+func splitHHMM(s string) [2]int {
+	idx := -1
+	for i, c := range s {
+		if c == ':' {
+			idx = i
+			break
+		}
+	}
+	if idx <= 0 || idx >= len(s)-1 {
+		return [2]int{-1, -1}
+	}
+	h := parseIntSafe(s[:idx])
+	m := parseIntSafe(s[idx+1:])
+	return [2]int{h, m}
+}
+
+// parseIntSafe parses a string to int, returning -1 on error.
+func parseIntSafe(s string) int {
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return -1
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
+}
+
 // isThrottled checks whether a notification should be throttled based on the
 // rule's max notification cap and repeat interval.
 func (s *NotifyRuleService) isThrottled(ctx context.Context, rule *model.NotifyRule, nc *model.NotifyConfig) bool {
@@ -507,4 +618,129 @@ func (s *NotifyRuleService) BatchDelete(ctx context.Context, ids []uint) error {
 		return nil
 	}
 	return s.ruleRepo.BatchDelete(ctx, ids)
+}
+
+// TestRuleRequest is the payload for testing a notify rule.
+type TestRuleRequest struct {
+	// MediaID tests a specific media within the rule (0 = test all configured media).
+	MediaID uint `json:"media_id"`
+	// Custom test message (optional, defaults to a synthetic alert).
+	AlertName string `json:"alert_name"`
+	Severity  string `json:"severity"`
+}
+
+// TestRuleResult is the result of testing a single media within a rule.
+type TestRuleResult struct {
+	MediaID   uint   `json:"media_id"`
+	MediaName string `json:"media_name"`
+	Status    string `json:"status"` // "sent" or "failed"
+	Error     string `json:"error,omitempty"`
+}
+
+// TestRule sends a test notification through a notify rule's configured media.
+// If mediaID is specified, only that media is tested; otherwise all configured media are tested.
+func (s *NotifyRuleService) TestRule(ctx context.Context, ruleID uint, req TestRuleRequest) ([]TestRuleResult, error) {
+	rule, err := s.ruleRepo.GetByID(ctx, ruleID)
+	if err != nil {
+		return nil, apperr.ErrNotifyRuleNotFound
+	}
+
+	// Parse notify configs
+	var notifyConfigs []model.NotifyConfig
+	if rule.NotifyConfigs != "" {
+		if err := json.Unmarshal([]byte(rule.NotifyConfigs), &notifyConfigs); err != nil {
+			return nil, fmt.Errorf("invalid notify_configs: %w", err)
+		}
+	}
+
+	if len(notifyConfigs) == 0 {
+		return nil, fmt.Errorf("no notify configs defined for rule %d", ruleID)
+	}
+
+	// Build a synthetic test event
+	alertName := req.AlertName
+	if alertName == "" {
+		alertName = "SREAgent Test Alert"
+	}
+	severity := req.Severity
+	if severity == "" {
+		severity = "warning"
+	}
+
+	now := time.Now()
+	testEvent := &model.AlertEvent{
+		AlertName: alertName,
+		Severity:  model.AlertSeverity(severity),
+		Status:    model.EventStatusFiring,
+		Labels:    model.JSONLabels{"test": "true", "source": "sreagent-test"},
+		FiredAt:   now,
+		Source:    "sreagent-test",
+	}
+
+	templateData := EventToTemplateData(testEvent, nil, nil, nil)
+
+	var results []TestRuleResult
+	for _, nc := range notifyConfigs {
+		// Filter by specific media if requested
+		if req.MediaID > 0 && nc.MediaID != req.MediaID {
+			continue
+		}
+
+		// Load media
+		media, err := s.mediaRepo.GetByID(ctx, nc.MediaID)
+		if err != nil {
+			results = append(results, TestRuleResult{
+				MediaID: nc.MediaID,
+				Status:  "failed",
+				Error:   fmt.Sprintf("media not found: %v", err),
+			})
+			continue
+		}
+
+		// Render template
+		var renderedContent string
+		if nc.TemplateID > 0 {
+			rendered, err := s.templateSvc.RenderTemplate(ctx, nc.TemplateID, templateData)
+			if err != nil {
+				renderedContent = fmt.Sprintf("[%s] %s - test (template error: %v)", severity, alertName, err)
+			} else {
+				renderedContent = rendered
+			}
+		} else {
+			renderedContent = fmt.Sprintf("[%s] %s - test notification", strings.ToUpper(severity), alertName)
+		}
+
+		// Send
+		if err := s.mediaSvc.SendNotification(ctx, media, renderedContent, templateData); err != nil {
+			results = append(results, TestRuleResult{
+				MediaID:   nc.MediaID,
+				MediaName: media.Name,
+				Status:    "failed",
+				Error:     err.Error(),
+			})
+		} else {
+			results = append(results, TestRuleResult{
+				MediaID:   nc.MediaID,
+				MediaName: media.Name,
+				Status:    "sent",
+			})
+		}
+	}
+
+	if len(results) == 0 {
+		return nil, fmt.Errorf("no matching media found for test")
+	}
+
+	return results, nil
+}
+
+// BatchCreate creates multiple notify rules at once (Nightingale parity).
+func (s *NotifyRuleService) BatchCreate(ctx context.Context, rules []*model.NotifyRule) error {
+	for _, rule := range rules {
+		if err := s.ruleRepo.Create(ctx, rule); err != nil {
+			s.logger.Error("failed to create notify rule in batch", zap.Error(err), zap.String("name", rule.Name))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+	}
+	return nil
 }

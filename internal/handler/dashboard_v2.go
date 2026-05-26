@@ -132,3 +132,70 @@ func (h *DashboardV2Handler) Delete(c *gin.Context) {
 
 	Success(c, nil)
 }
+
+// BindBizGroupRequest is the request body for binding a dashboard to a biz group.
+type BindBizGroupRequest struct {
+	BizGroupID uint   `json:"biz_group_id" binding:"required"`
+	PermFlag   string `json:"perm_flag"` // ro or rw, defaults to ro
+}
+
+// BindBizGroup binds a dashboard to a business group.
+func (h *DashboardV2Handler) BindBizGroup(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req BindBizGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	if err := h.svc.BindToBizGroup(c.Request.Context(), id, req.BizGroupID, req.PermFlag); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// UnbindBizGroup unbinds a dashboard from a business group.
+func (h *DashboardV2Handler) UnbindBizGroup(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	gid, err := GetIDParam(c, "gid")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	if err := h.svc.UnbindFromBizGroup(c.Request.Context(), id, gid); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// ListBizGroups returns all biz group bindings for a dashboard.
+func (h *DashboardV2Handler) ListBizGroups(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	bindings, err := h.svc.ListBizGroups(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, bindings)
+}

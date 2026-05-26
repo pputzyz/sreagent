@@ -51,6 +51,8 @@
 - [状态页面](#44-状态页面)
 - [预设规则](#45-预设规则)
 - [Alertmanager 导入](#46-alertmanager-导入)
+- [任务模板](#47-任务模板)
+- [任务执行](#48-任务执行)
 
 ---
 
@@ -2416,6 +2418,142 @@ DELETE /api/v1/es-index-patterns/:id
 ```
 
 管理权限。删除前检查是否有告警规则引用此索引模式。
+
+---
+
+## 47. 任务模板
+
+### 列表
+
+```
+GET /api/v1/task-tpls?page=1&page_size=20&keyword=xxx
+```
+
+已认证。支持关键词搜索（name/tags/note）。
+
+### 详情
+
+```
+GET /api/v1/task-tpls/:id
+```
+
+已认证。
+
+### 创建
+
+```
+POST /api/v1/task-tpls
+```
+
+管理权限（task.write）。Body:
+
+```json
+{
+  "name": "restart-nginx",
+  "script": "systemctl restart nginx",
+  "args": "",
+  "batch": 5,
+  "tolerance": 1,
+  "timeout": 30,
+  "account": "root",
+  "pause": "5,2",
+  "hosts": "[\"10.0.0.1\",\"10.0.0.2\"]",
+  "tags": "[\"nginx\",\"restart\"]",
+  "note": "重启 Nginx 服务"
+}
+```
+
+### 更新
+
+```
+PUT /api/v1/task-tpls/:id
+```
+
+管理权限（task.write）。
+
+### 删除
+
+```
+DELETE /api/v1/task-tpls/:id
+```
+
+管理权限（task.write）。软删除。
+
+---
+
+## 48. 任务执行
+
+### 执行任务（基于模板）
+
+```
+POST /api/v1/tasks
+```
+
+操作权限（task.execute）。异步执行，立即返回任务记录。
+
+```json
+{
+  "tpl_id": 1,
+  "hosts": ["10.0.0.1", "10.0.0.2"],
+  "event_id": 0
+}
+```
+
+- `hosts` 为空时使用模板默认主机
+- `event_id` 为 0 表示手动执行
+
+### 直接执行（无模板）
+
+```
+POST /api/v1/tasks/direct
+```
+
+操作权限（task.execute）。
+
+```json
+{
+  "script": "df -h",
+  "args": "",
+  "account": "root",
+  "timeout": 30,
+  "hosts": ["10.0.0.1"],
+  "title": "磁盘检查"
+}
+```
+
+### 任务记录列表
+
+```
+GET /api/v1/tasks?page=1&page_size=20&tpl_id=1&event_id=123&status=2
+```
+
+已认证。支持按 tpl_id、event_id、status 过滤。
+
+- status: 0=pending, 1=running, 2=success, 3=fail
+
+### 任务记录详情
+
+```
+GET /api/v1/tasks/:id
+```
+
+已认证。
+
+### 主机执行详情
+
+```
+GET /api/v1/tasks/:id/hosts
+```
+
+已认证。返回该任务所有主机的执行结果（stdout/stderr/exit_code/duration_ms）。
+
+### 单条主机记录
+
+```
+GET /api/v1/tasks/hosts/:id
+```
+
+已认证。按主机记录 ID 查询。
 
 ---
 

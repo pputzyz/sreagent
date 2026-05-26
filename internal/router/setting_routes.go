@@ -30,6 +30,15 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		}
 	}
 
+	// Site Info settings — admin only
+	if h.SiteInfo != nil {
+		siteInfo := auth.Group("/settings/site-info")
+		{
+			siteInfo.GET("", h.SiteInfo.Get)
+			siteInfo.PUT("", adminOnly, h.SiteInfo.Save)
+		}
+	}
+
 	// AI — config is admin only, usage is for all
 	// Rate limit: 1 RPS, burst 10 for AI inference endpoints
 	aiRL := middleware.RateLimit(func(c *gin.Context) string {

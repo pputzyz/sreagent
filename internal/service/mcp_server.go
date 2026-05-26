@@ -103,3 +103,27 @@ func (s *MCPServerService) ListTools(ctx context.Context, srv *model.MCPServer) 
 	}
 	return tools, nil
 }
+
+// CallTool invokes a tool on the MCP server.
+func (s *MCPServerService) CallTool(ctx context.Context, srv *model.MCPServer, toolName string, args map[string]interface{}) (*MCPToolCallResult, error) {
+	result, err := s.client.CallTool(ctx, srv.URL, srv.GetHeadersMap(), toolName, args)
+	if err != nil {
+		s.logger.Error("failed to call MCP tool",
+			zap.Uint("server_id", srv.ID),
+			zap.String("tool", toolName),
+			zap.Error(err),
+		)
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
+	return result, nil
+}
+
+// ListEnabled returns all enabled MCP servers.
+func (s *MCPServerService) ListEnabled(ctx context.Context) ([]model.MCPServer, error) {
+	list, err := s.repo.ListEnabled(ctx)
+	if err != nil {
+		s.logger.Error("failed to list enabled MCP servers", zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return list, nil
+}

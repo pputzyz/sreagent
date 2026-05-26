@@ -99,6 +99,7 @@ const (
 	groupOIDC    = "oidc"
 	groupSMTP    = "smtp"
 	groupSecurity = "security"
+	groupSiteInfo = "site_info"
 
 	// cacheTTL is how long a cached config entry is considered fresh.
 	cacheTTL = 30 * time.Second
@@ -1002,6 +1003,50 @@ func (s *SystemSettingService) SaveLabelValidationConfig(ctx context.Context, cf
 		"label_validation_enabled": strconv.FormatBool(cfg.Enabled),
 	}
 	return s.repo.SetGroup(ctx, "alert_rule", kv)
+}
+
+// ---- Site Info config --------------------------------------------------------
+
+// SiteInfo holds site-wide branding and customization settings.
+type SiteInfo struct {
+	SiteName    string `json:"site_name"`
+	LogoURL     string `json:"logo_url"`
+	FaviconURL  string `json:"favicon_url"`
+	LoginTitle  string `json:"login_title"`
+	LoginSubTitle string `json:"login_subtitle"`
+	FooterText  string `json:"footer_text"`
+	CustomCSS   string `json:"custom_css"`
+}
+
+// GetSiteInfo loads site branding configuration from DB.
+func (s *SystemSettingService) GetSiteInfo(ctx context.Context) (SiteInfo, error) {
+	kv, err := s.repo.ListByGroup(ctx, groupSiteInfo)
+	if err != nil {
+		return SiteInfo{}, err
+	}
+	return SiteInfo{
+		SiteName:      kv["site_name"],
+		LogoURL:       kv["logo_url"],
+		FaviconURL:    kv["favicon_url"],
+		LoginTitle:    kv["login_title"],
+		LoginSubTitle: kv["login_subtitle"],
+		FooterText:    kv["footer_text"],
+		CustomCSS:     kv["custom_css"],
+	}, nil
+}
+
+// SaveSiteInfo persists site branding configuration to DB.
+func (s *SystemSettingService) SaveSiteInfo(ctx context.Context, cfg SiteInfo) error {
+	kv := map[string]string{
+		"site_name":    cfg.SiteName,
+		"logo_url":     cfg.LogoURL,
+		"favicon_url":  cfg.FaviconURL,
+		"login_title":  cfg.LoginTitle,
+		"login_subtitle": cfg.LoginSubTitle,
+		"footer_text":  cfg.FooterText,
+		"custom_css":   cfg.CustomCSS,
+	}
+	return s.repo.SetGroup(ctx, groupSiteInfo, kv)
 }
 
 // ---- helpers -----------------------------------------------------------------

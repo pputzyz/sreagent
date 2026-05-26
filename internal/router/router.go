@@ -77,6 +77,11 @@ type Handlers struct {
 	MCPServer           *handler.MCPServerHandler          // MCP 服务器管理 (MCP Servers)
 	AISkill             *handler.AISkillHandler            // AI 技能管理 (AI Skills)
 	ESIndexPattern      *handler.ESIndexPatternHandler     // ES 索引模式 (ES Index Patterns)
+	SiteInfo            *handler.SiteInfoHandler            // 站点信息 (Site Info)
+	TaskTpl             *handler.TaskTplHandler            // 任务模板管理 (Task Templates)
+	Task                *handler.TaskHandler               // 任务执行 (Task Execution)
+	BuiltinDashboard    *handler.BuiltinDashboardHandler   // 内置仪表盘库 (Builtin Dashboards)
+	UserContact         *handler.UserContactHandler        // 用户联系人 (User Contacts)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -154,6 +159,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 		loginRL := middleware.LoginRateLimit(5, 5, 5, 15*time.Minute)
 		api.POST("/auth/login", loginRL, handlers.Auth.Login)
 		api.POST("/auth/refresh", handlers.Auth.Refresh)
+		api.GET("/auth/captcha", handlers.Auth.Captcha)
 
 		// OIDC routes (public — before JWT middleware)
 		if handlers.OIDC != nil {
@@ -196,6 +202,8 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerMCPServerRoutes(auth, manage)
 			handlers.registerAISkillRoutes(auth, manage)
 			handlers.registerESIndexPatternRoutes(auth, manage)
+			handlers.registerBuiltinDashboardRoutes(auth, adminOnly, manage)
+			handlers.registerTaskRoutes(auth, manage, operate)
 		}
 	}
 

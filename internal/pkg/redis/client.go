@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -82,6 +83,79 @@ func (c *Client) IsThrottled(ctx context.Context, key string) (bool, error) {
 // SetThrottle marks a notification as throttled for the given duration.
 func (c *Client) SetThrottle(ctx context.Context, key string, ttl time.Duration) error {
 	return c.Set(ctx, key, "1", ttl)
+}
+
+// --- Login rate-limit helpers ---
+
+const loginFailPrefix = "sreagent:login:fail:"
+
+// LoginFailKey returns the Redis key for tracking login failures for a username.
+func LoginFailKey(username string) string {
+	return loginFailPrefix + username
+}
+
+// IncrLoginFail increments the login-failure counter for a username.
+// The key is set to expire after ttl; on first call it is created with value 1.
+func (c *Client) IncrLoginFail(ctx context.Context, username string, ttl time.Duration) {
+	key := LoginFailKey(username)
+	val, err := c.rdb.Get(ctx, key).Result()
+	if err != nil {
+		// key does not exist or redis error — start at 1
+		c.rdb.Set(ctx, key, "1", ttl)
+		return
+	}
+	count, parseErr := strconv.ParseInt(val, 10, 64)
+	if parseErr != nil {
+		c.rdb.Set(ctx, key, "1", ttl)
+		return
+	}
+	c.rdb.Set(ctx, key, strconv.FormatInt(count+1, 10), ttl)
+}
+
+// GetLoginFailCount returns the current login-failure count for a username.
+// Returns 0 if the key does not exist.
+func (c *Client) GetLoginFailCount(ctx context.Context, username string) (int64, error) {
+	key := LoginFailKey(username)
+	val, err := c.rdb.Get(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return strconv.ParseInt(val, 10, 64)
+}
+
+// ClearLoginFail deletes the login-failure counter for a username.
+func (c *Client) ClearLoginFail(ctx context.Context, username string) error {
+	return c.rdb.Del(ctx, LoginFailKey(username)).Err()
+}
+
+// --- Captcha helpers ---
+
+const captchaPrefix = "sreagent:captcha:"
+
+// CaptchaKey returns the Redis key for a captcha answer.
+func CaptchaKey(captchaID string) string {
+	return captchaPrefix + captchaID
+}
+
+// SetCaptcha stores a captcha answer in Redis with the given TTL.
+func (c *Client) SetCaptcha(ctx context.Context, captchaID, answer string, ttl time.Duration) error {
+	return c.rdb.Set(ctx, CaptchaKey(captchaID), answer, ttl).Err()
+}
+
+// GetCaptcha retrieves a captcha answer and deletes it (one-time use).
+func (c *Client) GetCaptcha(ctx context.Context, captchaID string) (string, error) {
+	key := CaptchaKey(captchaID)
+	val, err := c.rdb.GetDel(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return "", nil
+		}
+		return "", err
+	}
+	return val, nil
 }
 
 // --- Stream helpers (for alert event bus) ---

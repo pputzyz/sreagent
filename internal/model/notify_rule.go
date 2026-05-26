@@ -38,11 +38,21 @@ func (NotifyRule) TableName() string {
 // NotifyConfig represents a single notification configuration within a NotifyRule.
 // This is the deserialized form of one element in NotifyRule.NotifyConfigs.
 type NotifyConfig struct {
-	Severity   string `json:"severity"`
-	MediaID    uint   `json:"media_id"`
-	TemplateID uint   `json:"template_id"`
-	UserIDs    []uint `json:"user_ids,omitempty"`
-	TeamIDs    []uint `json:"team_ids,omitempty"`
+	Severity   string      `json:"severity"`
+	MediaID    uint        `json:"media_id"`
+	TemplateID uint        `json:"template_id"`
+	UserIDs    []uint      `json:"user_ids,omitempty"`
+	TeamIDs    []uint      `json:"team_ids,omitempty"`
+	TimeRanges []TimeRange `json:"time_ranges,omitempty"` // time-range restrictions (empty = always)
+}
+
+// TimeRange defines a time window restriction for a notification config.
+// Notifications are only sent when the current time falls within one of the
+// configured time ranges. Week uses ISO weekday numbers (1=Monday, 7=Sunday).
+type TimeRange struct {
+	Start string `json:"start"` // "HH:MM" (e.g. "09:00")
+	End   string `json:"end"`   // "HH:MM" (e.g. "18:00")
+	Week  []int  `json:"week"`  // [1,2,3,4,5] for Mon-Fri; empty = all days
 }
 
 // PipelineStep represents a single step in the event processing pipeline.

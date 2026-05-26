@@ -63,6 +63,10 @@ func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, ma
 		dashV2.POST("", manage, h.DashboardV2.Create)
 		dashV2.PUT("/:id", manage, h.DashboardV2.Update)
 		dashV2.DELETE("/:id", manage, h.DashboardV2.Delete)
+		// Dashboard biz group bindings
+		dashV2.GET("/:id/biz-groups", h.DashboardV2.ListBizGroups)
+		dashV2.POST("/:id/biz-groups", manage, h.DashboardV2.BindBizGroup)
+		dashV2.DELETE("/:id/biz-groups/:gid", manage, h.DashboardV2.UnbindBizGroup)
 	}
 
 }

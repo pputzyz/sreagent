@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -14,15 +15,69 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// Login rate-limit constants (ported from Nightingale).
+const (
+	LoginFailMax    = 5               // max failures before lockout
+	LoginFailWindow = 15 * time.Minute // counter TTL
+)
+
+// LoginFailStore abstracts the Redis operations needed for login rate limiting.
+// This avoids an import cycle between service -> pkg/redis -> engine -> service.
+type LoginFailStore interface {
+	GetLoginFailCount(ctx context.Context, username string) (int64, error)
+	IncrLoginFail(ctx context.Context, username string, ttl time.Duration)
+	ClearLoginFail(ctx context.Context, username string) error
+}
+
 type AuthService struct {
 	userRepo   *repository.UserRepository
 	jwtCfg     *config.JWTConfig
 	settingSvc *SystemSettingService
+	failStore  LoginFailStore // optional — nil when Redis is not configured
 	logger     *zap.Logger
 }
 
 func NewAuthService(userRepo *repository.UserRepository, jwtCfg *config.JWTConfig, settingSvc *SystemSettingService, logger *zap.Logger) *AuthService {
 	return &AuthService{userRepo: userRepo, jwtCfg: jwtCfg, settingSvc: settingSvc, logger: logger}
+}
+
+// SetFailStore injects the Redis-backed store for login rate limiting.
+func (s *AuthService) SetFailStore(store LoginFailStore) {
+	s.failStore = store
+}
+
+// CheckLoginRateLimit returns an error if the user has exceeded the login failure limit.
+func (s *AuthService) CheckLoginRateLimit(ctx context.Context, username string) error {
+	if s.failStore == nil {
+		return nil
+	}
+	count, err := s.failStore.GetLoginFailCount(ctx, username)
+	if err != nil {
+		s.logger.Warn("login rate limit: failed to read redis counter", zap.Error(err))
+		return nil // degrade gracefully
+	}
+	if count >= LoginFailMax {
+		return fmt.Errorf("account temporarily locked due to too many failed login attempts, please try again in %d minutes", int(LoginFailWindow.Minutes()))
+	}
+	return nil
+}
+
+// RecordLoginFail increments the login-failure counter.
+func (s *AuthService) RecordLoginFail(ctx context.Context, username string) {
+	if s.failStore == nil {
+		return
+	}
+	s.failStore.IncrLoginFail(ctx, username, LoginFailWindow)
+}
+
+// ClearLoginFailures removes the login-failure counter on successful login.
+func (s *AuthService) ClearLoginFailures(ctx context.Context, username string) {
+	if s.failStore == nil {
+		return
+	}
+	if err := s.failStore.ClearLoginFail(ctx, username); err != nil {
+		s.logger.Warn("login rate limit: failed to clear redis counter", zap.Error(err))
+	}
 }
 
 // getExpireSeconds returns the effective JWT expiration in seconds.

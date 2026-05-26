@@ -47,4 +47,17 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 		bizGroups.POST("/:id/members", manage, h.BizGroup.AddMember)
 		bizGroups.DELETE("/:id/members/:uid", manage, h.BizGroup.RemoveMember)
 	}
+
+	// User Contacts (self-service, any authenticated user)
+	if h.UserContact != nil {
+		contacts := auth.Group("/user/contacts")
+		{
+			contacts.GET("", h.UserContact.List)
+			contacts.POST("", h.UserContact.Create)
+			contacts.PUT("/:id", h.UserContact.Update)
+			contacts.DELETE("/:id", h.UserContact.Delete)
+			contacts.POST("/:id/default", h.UserContact.SetDefault)
+			contacts.POST("/:id/verify", h.UserContact.Verify)
+		}
+	}
 }

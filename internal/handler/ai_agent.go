@@ -1,14 +1,17 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
+	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -88,10 +91,11 @@ func (h *AgentHandler) GetAgentTask(c *gin.Context) {
 
 // StreamAgentTask godoc
 // @Summary SSE 流式推送 Agent 任务更新
-// @Description 通过 SSE 实时推送 Agent 任务状态变化，替代轮询
+// @Description 通过 SSE 实时推送 Agent 任务状态变化，支持 last_id 断线重连
 // @Tags AI Agent
 // @Produce text/event-stream
 // @Param id path string true "任务 ID"
+// @Param last_id query string false "Redis Stream ID for reconnection" default("")
 // @Success 200 {string} string "SSE stream"
 // @Router /ai/agent/stream/{id} [get]
 func (h *AgentHandler) StreamAgentTask(c *gin.Context) {
@@ -122,8 +126,67 @@ func (h *AgentHandler) StreamAgentTask(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	ch := h.agentSvc.Subscribe(id)
-	defer h.agentSvc.Unsubscribe(id, ch)
+	// Use Redis StreamBus if available (multi-instance SSE).
+	if h.agentSvc.HasStreamBus() {
+		h.streamAgentTaskViaBus(c, id, task)
+	} else {
+		h.streamAgentTaskInMemory(c, id, task)
+	}
+}
+
+// streamAgentTaskViaBus streams SSE events via Redis Streams (multi-instance).
+func (h *AgentHandler) streamAgentTaskViaBus(c *gin.Context, taskID string, task *service.AgentTask) {
+	lastID := c.DefaultQuery("last_id", "0")
+
+	// If task is already terminal, send the final snapshot and close.
+	if task.Status == "completed" || task.Status == "failed" {
+		data, _ := json.Marshal(task)
+		fmt.Fprintf(c.Writer, "event: task\ndata: %s\n\n", data)
+		c.Writer.Flush()
+		return
+	}
+
+	ch := h.agentSvc.SubscribeStream(c.Request.Context(), taskID, lastID)
+
+	// Schedule stream cleanup after 5 minute grace period (deferred).
+	go func() {
+		<-c.Request.Context().Done()
+		time.AfterFunc(5*time.Minute, func() {
+			_ = h.agentSvc.DeleteStream(context.Background(), taskID)
+		})
+	}()
+
+	c.Stream(func(w io.Writer) bool {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return false
+			}
+			sm, ok := msg.(sredis.StreamMessage)
+			if !ok {
+				return true // skip unexpected type
+			}
+			event, _ := sm.Fields["event"].(string)
+			data, _ := sm.Fields["data"].(string)
+
+			// Forward as SSE event
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)
+
+			// Terminal events close the stream
+			if event == sredis.SSEEventDone || event == sredis.SSEEventError {
+				return false
+			}
+			return true
+		case <-c.Request.Context().Done():
+			return false
+		}
+	})
+}
+
+// streamAgentTaskInMemory streams SSE events via in-memory channels (single-instance fallback).
+func (h *AgentHandler) streamAgentTaskInMemory(c *gin.Context, taskID string, task *service.AgentTask) {
+	ch := h.agentSvc.Subscribe(taskID)
+	defer h.agentSvc.Unsubscribe(taskID, ch)
 
 	c.Stream(func(w io.Writer) bool {
 		select {
@@ -136,7 +199,7 @@ func (h *AgentHandler) StreamAgentTask(c *gin.Context) {
 				return true // skip bad data, keep stream alive
 			}
 			fmt.Fprintf(w, "event: task\ndata: %s\n\n", data)
-			// 终态关闭流
+			// Terminal state closes the stream
 			if updated.Status == "completed" || updated.Status == "failed" {
 				return false
 			}

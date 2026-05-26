@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.37.8
-> 共 53 个 model, 64 个 handler, 78 个 service, 52 个 repository, 330+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-26 | tag: v4.39.0
+> 共 56 个 model, 66 个 handler, 80 个 service, 54 个 repository, 340+ API 端点, 17 种通知渠道
 
 ---
 
@@ -43,6 +43,8 @@ diagnostic-workflow ──→ incident-context + change-event + ai-agent
 dashboard ──→ alert-event + incident + channel + team (统计数据)
 user-notification ──→ user (按用户推送)
 permissions ──→ team (团队角色查询)
+task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
+  └── SSH 远程执行 → task-host-record (每主机执行结果)
 ```
 
 改模块前查上方依赖：改 notification 会影响 alert-engine 和 escalation；改 schedule 会影响 escalation。
@@ -95,6 +97,8 @@ permissions ──→ team (团队角色查询)
 | 快捷视图 | ✅ | ❌ | ❌ | 0% |
 | 内置指标 | ✅ | ❌ | ❌ | 0% |
 | MCP 服务器 | ✅ | ❌ | ❌ | 0% |
+| 任务模板 | ✅ | ❌ | ❌ | 0% |
+| 任务执行 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
 
@@ -521,14 +525,15 @@ permissions ──→ team (团队角色查询)
 - **API**: `GET/POST/PUT/DELETE /api/v1/metric-views` (CRUD + 收藏)
 - **状态**: ✅ 完成
 
-## MCP 服务器管理 (mcp-servers) [v4.36.0]
+## MCP 服务器管理 (mcp-servers) [v4.36.0, v4.38.1 增强]
 
 - **功能**: MCP (Model Context Protocol) 服务器注册管理，支持 SSE 连接测试、工具发现和调用，供 AI Agent 使用外部工具
-- **后端文件**: `internal/model/mcp_server.go`, `internal/repository/mcp_server.go`, `internal/service/mcp_server.go`, `internal/service/mcp_client.go`, `internal/handler/mcp_server.go`, `internal/router/mcp_server_routes.go`
+- **后端文件**: `internal/model/mcp_server.go`, `internal/repository/mcp_server.go`, `internal/service/mcp_server.go`, `internal/service/mcp_client.go`, `internal/handler/mcp_server.go`, `internal/router/mcp_server_routes.go`, `internal/pkg/mcp/client.go`, `internal/pkg/mcp/sse.go`, `internal/pkg/mcp/tools.go`
 - **前端文件**: `web/src/api/mcp-server.ts`, `web/src/pages/platform/MCPServers.vue`
 - **迁移文件**: `000077_mcp_servers`
-- **API**: `GET/POST/PUT/DELETE /api/v1/mcp-servers` + `POST /:id/test` + `GET /:id/tools`
-- **依赖**: 无外部依赖（纯 HTTP SSE 客户端）
+- **API**: `GET/POST/PUT/DELETE /api/v1/mcp-servers` + `POST /:id/test` + `GET /:id/tools` + `POST /:id/tools/:toolName/call`
+- **依赖**: 无外部依赖（Go stdlib SSE 客户端）
+- **Agent 集成**: 启动时自动发现已启用 MCP 服务器的工具，注册为 `mcp_{server}_{tool}` 格式的 AI 工具
 - **状态**: ✅ 完成
 
 ## LLM 配置管理 (llm-configs) [v4.36.0]
@@ -568,13 +573,13 @@ permissions ──→ team (团队角色查询)
 - **API**: `GET/POST/PUT/DELETE /api/v1/llm-configs`, `POST /api/v1/llm-configs/:id/test`
 - **状态**: ✅ 完成
 
-## MCP 服务器管理 (mcp-server) [v4.36.0]
+## MCP 服务器管理 (mcp-server) [v4.36.0, v4.38.1 增强]
 
-- **功能**: MCP Server 注册 + 连接测试 + 工具枚举，SSE 客户端连接外部 MCP 服务器
-- **后端文件**: `internal/model/mcp_server.go`, `internal/repository/mcp_server.go`, `internal/service/mcp_server.go`, `internal/service/mcp_client.go`, `internal/handler/mcp_server.go`, `internal/router/mcp_server_routes.go`
+- **功能**: MCP Server 注册 + 连接测试 + 工具枚举 + 工具调用，SSE 客户端连接外部 MCP 服务器
+- **后端文件**: `internal/model/mcp_server.go`, `internal/repository/mcp_server.go`, `internal/service/mcp_server.go`, `internal/service/mcp_client.go`, `internal/handler/mcp_server.go`, `internal/router/mcp_server_routes.go`, `internal/pkg/mcp/`
 - **前端文件**: `web/src/pages/platform/MCPServers.vue`, `web/src/api/mcp-server.ts`
 - **迁移**: `000077_mcp_servers.up.sql` / `000077_mcp_servers.down.sql`
-- **API**: `GET/POST/PUT/DELETE /api/v1/mcp-servers`, `POST /api/v1/mcp-servers/:id/test`, `GET /api/v1/mcp-servers/:id/tools`
+- **API**: `GET/POST/PUT/DELETE /api/v1/mcp-servers`, `POST /api/v1/mcp-servers/:id/test`, `GET /api/v1/mcp-servers/:id/tools`, `POST /api/v1/mcp-servers/:id/tools/:toolName/call`
 - **状态**: ✅ 完成
 
 ## AI 技能管理 (ai-skill) [v4.36.0]
@@ -586,12 +591,13 @@ permissions ──→ team (团队角色查询)
 - **API**: `GET/POST/PUT/DELETE /api/v1/ai-skills`, `POST /api/v1/ai-skills/import`, `GET/POST/DELETE /api/v1/ai-skills/:id/files`, `GET /api/v1/ai-skills/files/:fileId`
 - **状态**: ✅ 完成
 
-## AI Agent SSE 流式推送 (agent-sse) [v4.36.0]
+## AI Agent SSE 流式推送 (agent-sse) [v4.36.0 → v4.39.0]
 
-- **功能**: Agent 任务 SSE 实时 token 推送，替代 2s 轮询，断开自动回退轮询
-- **后端文件**: `internal/service/ai_agent.go` (Subscribe/Unsubscribe/notifySubscribers), `internal/handler/ai_agent.go` (StreamAgentTask)
-- **前端文件**: `web/src/pages/ai/AgentView.vue` (EventSource 替代轮询)
-- **API**: `GET /api/v1/ai/agent/stream/:id` (SSE)
+- **功能**: Agent 任务 SSE 实时推送，支持多实例部署（Redis Streams）+ 单实例回退（内存 channel）
+- **后端文件**: `internal/service/ai_agent.go` (Subscribe/Unsubscribe/notifySubscribers/SubscribeStream/DeleteStream), `internal/handler/ai_agent.go` (StreamAgentTask/streamAgentTaskViaBus/streamAgentTaskInMemory), `internal/pkg/redis/stream_bus.go` (StreamBus)
+- **前端文件**: `web/src/pages/ai/AgentView.vue` (EventSource)
+- **API**: `GET /api/v1/ai/agent/stream/:id?last_id=<id>` (SSE, last_id 支持断线重连)
+- **依赖**: Redis（可选，无 Redis 则回退到内存 channel）
 - **状态**: ✅ 完成
 
 ## ES 索引模式管理 (es-index-pattern) [v4.37.0]
@@ -602,3 +608,21 @@ permissions ──→ team (团队角色查询)
 - **迁移**: `000079_es_index_patterns.up.sql` / `000079_es_index_patterns.down.sql`
 - **API**: `GET/POST/PUT/DELETE /api/v1/es-index-patterns`
 - **状态**: ✅ 完成
+
+## 任务模板管理 (task-tpl) [v4.38.0]
+
+- **功能**: 可复用的自愈脚本模板 CRUD，定义脚本、参数、超时、批量执行策略、目标主机列表
+- **后端文件**: `internal/model/task_tpl.go`, `internal/repository/task_tpl.go`, `internal/service/task_tpl.go`, `internal/handler/task_tpl.go`, `internal/router/task_routes.go`
+- **API**: `GET/POST/PUT/DELETE /api/v1/task-tpls`（5 端点，manage 权限）
+- **迁移**: `000083_task_tpls`
+- **依赖**: 无外部依赖
+- **状态**: ✅ 完成
+
+## 任务执行引擎 (task-execution) [v4.38.0]
+
+- **功能**: 基于模板或直接执行脚本，SSH 远程运行，按批次调度（batch + pause），每主机独立追踪，容错阈值控制
+- **后端文件**: `internal/model/task_record.go`, `internal/model/task_host_record.go`, `internal/repository/task_record.go`, `internal/service/task_executor.go`, `internal/handler/task.go`, `internal/router/task_routes.go`
+- **API**: `GET/POST /api/v1/tasks` + `POST /api/v1/tasks/direct` + `GET /api/v1/tasks/:id` + `GET /api/v1/tasks/:id/hosts` + `GET /api/v1/tasks/hosts/:id`（6 端点，operate 权限）
+- **迁移**: `000084_task_records`, `000085_task_host_records`
+- **依赖**: `golang.org/x/crypto/ssh`, task-tpl（模板加载）, alert-event（event_id 关联）
+- **状态**: ✅ 后端核心完成（SSH 认证待增强：密钥认证 + known_hosts）

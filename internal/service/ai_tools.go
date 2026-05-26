@@ -811,6 +811,76 @@ func aiToolNames(r *AIToolRegistry) []string {
 	return names
 }
 
+// RegisterMCPTools discovers and registers tools from all enabled MCP servers.
+// Each MCP tool is registered with the prefix "mcp_{serverName}_" to avoid name collisions.
+// Connection failures to individual servers are logged but do not block other servers.
+func (r *AIToolRegistry) RegisterMCPTools(mcpSvc *MCPServerService) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	servers, err := mcpSvc.ListEnabled(ctx)
+	if err != nil {
+		r.logger.Error("failed to list enabled MCP servers for tool registration", zap.Error(err))
+		return
+	}
+
+	registered := 0
+	for _, srv := range servers {
+		tools, err := mcpSvc.ListTools(ctx, &srv)
+		if err != nil {
+			r.logger.Warn("failed to discover MCP tools, skipping server",
+				zap.String("server", srv.Name),
+				zap.Uint("server_id", srv.ID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		for _, tool := range tools {
+			toolName := fmt.Sprintf("mcp_%s_%s", srv.Name, tool.Name)
+			// Capture for closure
+			srvURL := srv.URL
+			srvHeaders := srv.GetHeadersMap()
+			mcpToolName := tool.Name
+			toolDesc := tool.Description
+			toolSchema := tool.InputSchema
+
+			r.Register(&AITool{
+				Name:        toolName,
+				Description: fmt.Sprintf("[MCP:%s] %s", srv.Name, toolDesc),
+				Parameters:  toolSchema,
+				IO:          "read",
+				Execute: func(execCtx context.Context, params map[string]interface{}) (string, error) {
+					client := NewMCPClient()
+					result, err := client.CallTool(execCtx, srvURL, srvHeaders, mcpToolName, params)
+					if err != nil {
+						return "", fmt.Errorf("MCP tool %q call failed: %w", mcpToolName, err)
+					}
+					// Extract text from result content
+					var texts []string
+					for _, c := range result.Content {
+						if c.Text != "" {
+							texts = append(texts, c.Text)
+						}
+					}
+					if len(texts) == 0 {
+						return marshalJSONOrError(result), nil
+					}
+					return strings.Join(texts, "\n"), nil
+				},
+			})
+			registered++
+		}
+	}
+
+	if registered > 0 {
+		r.logger.Info("MCP tools registered",
+			zap.Int("count", registered),
+			zap.Int("servers", len(servers)),
+		)
+	}
+}
+
 // aiToolToUint 将 interface{} 转为 uint，支持 float64（JSON 解析默认类型）和 int
 func aiToolToUint(v interface{}) (uint, bool) {
 	switch val := v.(type) {

@@ -18,5 +18,6 @@ func (h *Handlers) registerMCPServerRoutes(auth *gin.RouterGroup, manage gin.Han
 		mcp.DELETE("/:id", manage, h.MCPServer.Delete)
 		mcp.POST("/:id/test", manage, h.MCPServer.TestConnection)
 		mcp.GET("/:id/tools", h.MCPServer.ListTools)
+		mcp.POST("/:id/tools/:toolName/call", manage, h.MCPServer.CallTool)
 	}
 }

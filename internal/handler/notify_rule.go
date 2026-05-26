@@ -274,3 +274,83 @@ func (h *NotifyRuleHandler) BatchDelete(c *gin.Context) {
 	}
 	Success(c, nil)
 }
+
+// Test sends a test notification through a notify rule's configured media.
+func (h *NotifyRuleHandler) Test(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req service.TestRuleRequest
+	// Body is optional — defaults to a synthetic test alert
+	_ = c.ShouldBindJSON(&req)
+
+	h.log.Info("notify rule test",
+		zap.Uint("user_id", GetCurrentUserID(c)),
+		zap.Uint("rule_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
+	results, err := h.svc.TestRule(c.Request.Context(), id, req)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, results)
+}
+
+// BatchCreate creates multiple notify rules at once.
+func (h *NotifyRuleHandler) BatchCreate(c *gin.Context) {
+	var reqs []CreateNotifyRuleRequest
+	if err := c.ShouldBindJSON(&reqs); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if len(reqs) == 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "input list is empty"))
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	var rules []*model.NotifyRule
+	for _, req := range reqs {
+		isEnabled := true
+		if req.IsEnabled != nil {
+			isEnabled = *req.IsEnabled
+		}
+		rules = append(rules, &model.NotifyRule{
+			Name:             req.Name,
+			Description:      req.Description,
+			IsEnabled:        isEnabled,
+			Severities:       req.Severities,
+			MatchLabels:      req.MatchLabels,
+			Pipeline:         req.Pipeline,
+			PipelineID:       req.PipelineID,
+			NotifyConfigs:    req.NotifyConfigs,
+			RepeatInterval:   req.RepeatInterval,
+			MaxNotifications: req.MaxNotifications,
+			CallbackURL:      req.CallbackURL,
+			CreatedBy:        userID,
+		})
+	}
+
+	if err := h.svc.BatchCreate(c.Request.Context(), rules); err != nil {
+		Error(c, err)
+		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		for _, rule := range rules {
+			h.auditSvc.Record(&model.AuditLog{
+				UserID: &uid, Action: model.AuditActionCreate,
+				ResourceType: model.AuditResourceNotifyRule, ResourceID: &rule.ID, ResourceName: rule.Name,
+				IP: c.ClientIP(),
+			})
+		}
+	}
+
+	Success(c, rules)
+}

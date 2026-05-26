@@ -4,6 +4,132 @@
 
 ---
 
+## [v4.39.0] — 2026-05-26
+
+### AI Agent 多实例 SSE（Redis Streams）
+
+- **问题**: 原 SSE 实现使用内存 `sync.Map` channel，仅支持单实例部署。多实例环境下用户连接到实例 A 无法收到实例 B 生成的 token。
+- **方案**: 引入 `StreamBus` 抽象层，使用 Redis Streams (XADD/XREAD) 实现跨实例 SSE 推送，保留内存 channel 作为无 Redis 环境的回退。
+- **新增文件**:
+  - `internal/pkg/redis/stream_bus.go` — Redis StreamBus 实现（Init/Publish/Finish/Exists/Subscribe/DeleteStream）
+  - Stream key 格式: `sreagent:sse:agent:{taskID}`
+  - 事件类型: `init`(占位)、`task`(快照)、`finish`(终止标记)
+  - Stream 参数: MAXLEN ~5000、TTL 24h、XREAD BLOCK 30s
+- **修改文件**:
+  - `internal/service/ai_agent.go` — 新增 `AgentStreamBus` 接口、`SetStreamBus`/`HasStreamBus`/`SubscribeStream`/`DeleteStream` 方法；`notifySubscribers` 双写（Redis Stream + 内存 channel）；所有终态路径调用 `finishStream`
+  - `internal/handler/ai_agent.go` — `StreamAgentTask` 分两条路径：`streamAgentTaskViaBus`（Redis Streams + `last_id` 断线重连）和 `streamAgentTaskInMemory`（内存 channel 回退）
+  - `cmd/server/wire.go` — Redis 可用时创建 StreamBus 并注入 AgentService
+- **API**: `GET /api/v1/ai/agent/stream/:id?last_id=<stream_id>`（last_id 支持断线重连）
+- **无迁移**: 仅使用 Redis Streams，无数据库变更
+- **设计参考**: Nightingale `aiagent/stream_bus.go`
+
+---
+
+## [v4.38.2] — 2026-05-26
+
+### 登录防暴力破解 + 验证码支持（Nightingale 对齐）
+
+- **登录失败限流**: 基于 Redis 的用户名级别登录失败计数器，连续失败 5 次后锁定 15 分钟
+  - Redis key: `sreagent:login:fail:{username}`，TTL 15 分钟
+  - 登录成功自动清除计数器
+  - 与现有 IP 级 rate-limit 中间件（token bucket）形成双层防护
+- **数学验证码**: `GET /api/v1/auth/captcha` 生成简单算术验证码（SVG 内联图片）
+  - 验证码答案存储在 Redis（`sreagent:captcha:{uuid}`），TTL 5 分钟，一次使用后自动删除
+  - 登录接口可选传入 `captcha_id` + `captcha` 字段，传入则校验，不传则跳过
+  - SVG 包含噪声线和字符旋转，无外部图片库依赖
+- **后端文件修改**:
+  - `internal/pkg/redis/client.go` — 新增 `IncrLoginFail`/`GetLoginFailCount`/`ClearLoginFail`/`SetCaptcha`/`GetCaptcha` 方法
+  - `internal/service/auth.go` — 新增 `LoginFailStore` 接口 + `CheckLoginRateLimit`/`RecordLoginFail`/`ClearLoginFailures` 方法
+  - `internal/handler/auth.go` — Login 方法增加限流检查 + 验证码校验，新增 `Captcha` 端点
+  - `internal/router/router.go` — 新增 `GET /auth/captcha` 公开路由
+  - `cmd/server/wire.go` — 注入 Redis 到 AuthService 和 AuthHandler
+- **API**: `GET /api/v1/auth/captcha`（公开，无需认证）
+- **无迁移**: 仅使用 Redis，无数据库变更
+- **依赖**: `github.com/google/uuid`（已有依赖）
+
+---
+
+## [v4.38.1] — 2026-05-26
+
+### MCP Runtime Client — SSE Transport + Tool Discovery + Agent Integration
+
+**MCP Client Package** (`internal/pkg/mcp/`)
+- `client.go` — `Client` struct with SSE connection, JSON-RPC handshake, connection lifecycle
+- `sse.go` — SSE transport: endpoint event discovery, JSON-RPC send/parse, SSE response parsing
+- `tools.go` — `ListTools()` and `CallTool()` methods with auto-connect semantics
+- SSE-only transport (no stdio), Go stdlib only (no external dependency)
+
+**Service Layer Enhancement**
+- `internal/service/mcp_client.go` — Refactored to delegate to `internal/pkg/mcp` package, added `CallTool` method
+- `internal/service/mcp_server.go` — Added `CallTool(ctx, srv, toolName, args)` and `ListEnabled(ctx)` methods
+- `internal/repository/mcp_server.go` — Added `ListEnabled()` query for enabled servers
+
+**Handler + Route**
+- `internal/handler/mcp_server.go` — Added `CallTool` handler: `POST /mcp-servers/:id/tools/:toolName/call`
+- `internal/router/mcp_server_routes.go` — Registered new CallTool route (manage permission)
+
+**AI Agent Integration**
+- `internal/service/ai_tools.go` — Added `RegisterMCPTools(mcpSvc)` method on `AIToolRegistry`
+  - Discovers tools from all enabled MCP servers at startup
+  - Registers each MCP tool as `mcp_{serverName}_{toolName}` with `[MCP:serverName]` description prefix
+  - Graceful degradation: connection failures to individual servers are logged and skipped
+- `cmd/server/wire.go` — Wired `toolRegistry.RegisterMCPTools(mcpServerSvc)` into DI
+
+**API Summary**
+- `POST /mcp-servers/:id/tools/:toolName/call` — Invoke a tool on an MCP server (body: `{"arguments": {...}}`)
+
+---
+
+## [v4.38.0] — 2026-05-26
+
+### 任务执行模块 — 自愈脚本引擎（Nightingale Task 对齐）
+
+- **功能**: 任务模板管理 + SSH 远程脚本执行，支持告警触发和手动执行两种模式
+- **任务模板**: CRUD 管理可复用的脚本模板（名称、脚本、参数、超时、批量、容错、主机列表、标签）
+- **任务执行**: 基于模板或直接执行脚本，SSH 连接目标主机运行，按批次执行（支持批次间暂停）
+- **执行追踪**: 每个任务记录聚合状态 + 每台主机独立执行记录（stdout/stderr/exit_code/duration_ms）
+- **批量模式**: 支持设置每批次主机数（batch）和允许失败数（tolerance），超出容忍则标记任务失败
+- **后端文件**:
+  - `internal/model/task_tpl.go` — TaskTpl 模型
+  - `internal/model/task_record.go` — TaskRecord 模型（含状态常量）
+  - `internal/model/task_host_record.go` — TaskHostRecord 模型
+  - `internal/repository/task_tpl.go` — TaskTpl 仓库（CRUD + 分页 + 关键词搜索）
+  - `internal/repository/task_record.go` — TaskRecord + TaskHostRecord 仓库
+  - `internal/service/task_tpl.go` — TaskTpl 服务（校验 + 名称唯一性）
+  - `internal/service/task_executor.go` — 任务执行器（SSH + 批次调度 + 超时控制）
+  - `internal/handler/task_tpl.go` — TaskTpl Handler（5 个端点）
+  - `internal/handler/task.go` — Task Handler（6 个端点）
+  - `internal/router/task_routes.go` — 路由注册
+- **API**: `GET/POST/PUT/DELETE /api/v1/task-tpls` + `GET/POST /api/v1/tasks` + `POST /api/v1/tasks/direct` + `GET /api/v1/tasks/:id/hosts`
+- **权限**: 模板 CRUD 需 manage 权限 + task.write，任务执行需 operate 权限 + task.execute
+- **迁移**: 000083_task_tpls, 000084_task_records, 000085_task_host_records
+- **依赖**: `golang.org/x/crypto/ssh`（已有依赖）
+- **状态**: 后端核心完成（SSH 认证待增强：密钥认证 + known_hosts）
+
+---
+
+## [v4.37.9] — 2026-05-26
+
+### 仪表盘业务分组共享 + 用户联系人管理
+
+**Feature 1: 仪表盘业务分组共享（Dashboard Biz Group Sharing）**
+- **模型**: `internal/model/dashboard_biz_group.go` — `DashboardBizGroup` 关联表，支持 `ro`/`rw` 权限标志
+- **迁移**: `000087_dashboard_biz_groups.{up|down}.sql`
+- **仓库**: `internal/repository/dashboard_biz_group.go` — 绑定/解绑/按仪表盘查分组/按分组查仪表盘
+- **服务**: `internal/service/dashboard.go` — `BindToBizGroup`/`UnbindFromBizGroup`/`ListBizGroups`/`ListDashboardsByGroup`
+- **处理器**: `internal/handler/dashboard_v2.go` — `BindBizGroup`/`UnbindBizGroup`/`ListBizGroups`
+- **API**: `POST/DELETE/GET /dashboards/:id/biz-groups`
+
+**Feature 2: 用户联系人管理（Contact Management）**
+- **模型**: `internal/model/user_contact.go` — `UserContact`，支持 email/phone/feishu/wecom/dingtalk/webhook
+- **迁移**: `000088_user_contacts.{up|down}.sql`
+- **仓库**: `internal/repository/user_contact.go` — CRUD + 唯一性检查 + 按类型计数
+- **服务**: `internal/service/user_contact.go` — 格式校验（邮箱/手机/URL）、每类型上限 5 个、默认联系人
+- **处理器**: `internal/handler/user_contact.go` — `List`/`Create`/`Update`/`Delete`/`SetDefault`/`Verify`
+- **API**: `GET/POST/PUT/DELETE /user/contacts`、`POST /user/contacts/:id/default`、`POST /user/contacts/:id/verify`
+
+---
+
 ## [v4.37.8] — 2026-05-26
 
 ### 一致性哈希环 — 告警规则多实例水平分片（Nightingale DatasourceHashRing 对齐）

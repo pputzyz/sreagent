@@ -15,6 +15,20 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// AgentStreamBus is the interface for distributed SSE via Redis Streams.
+// Defined here to avoid import cycle (redis -> engine -> service).
+// Implemented by redis.StreamBus.
+type AgentStreamBus interface {
+	Init(ctx context.Context, taskID string) error
+	Publish(ctx context.Context, taskID string, event string, data interface{}) error
+	Finish(ctx context.Context, taskID string) error
+	Exists(ctx context.Context, taskID string) (bool, error)
+	// Subscribe returns a channel of redis.StreamMessage (interface{} to avoid import cycle).
+	// Callers must type-assert: msg := <-ch.(redis.StreamMessage)
+	Subscribe(ctx context.Context, taskID string, lastID string) <-chan interface{}
+	DeleteStream(ctx context.Context, taskID string) error
+}
+
 // AgentTask 表示一个 Agent 任务
 type AgentTask struct {
 	ID             string      `json:"id"`
@@ -57,9 +71,12 @@ type AgentService struct {
 	mu    sync.RWMutex
 	tasks map[string]*AgentTask
 
-	// SSE 订阅者：taskID -> subscribers 列表
+	// SSE 订阅者：taskID -> subscribers 列表（内存回退）
 	subscribers map[string][]*sseSubscriber
 	subMu       sync.RWMutex
+
+	// 分布式 SSE：Redis StreamBus（nil = 回退到内存 channel）
+	streamBus AgentStreamBus
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -86,6 +103,28 @@ func NewAgentService(aiSvc *AIService, convRepo *repository.AIConversationReposi
 // SetToolRegistry 延迟注入工具注册表（DI 两阶段初始化）
 func (s *AgentService) SetToolRegistry(reg *AIToolRegistry) {
 	s.toolReg = reg
+}
+
+// SetStreamBus 注入分布式 SSE 总线（可选，nil 表示回退到内存 channel）
+func (s *AgentService) SetStreamBus(bus AgentStreamBus) {
+	s.streamBus = bus
+}
+
+// HasStreamBus reports whether a distributed StreamBus is configured.
+func (s *AgentService) HasStreamBus() bool {
+	return s.streamBus != nil
+}
+
+// SubscribeStream subscribes to task updates via Redis StreamBus.
+// Returns a channel of redis.StreamMessage (as interface{}).
+// The lastID parameter supports reconnection ("0" = from beginning).
+func (s *AgentService) SubscribeStream(ctx context.Context, taskID string, lastID string) <-chan interface{} {
+	return s.streamBus.Subscribe(ctx, taskID, lastID)
+}
+
+// DeleteStream removes the Redis stream for a task (cleanup).
+func (s *AgentService) DeleteStream(ctx context.Context, taskID string) error {
+	return s.streamBus.DeleteStream(ctx, taskID)
 }
 
 // cleanupLoop 每 10 分钟清理超过 1 小时的已完成任务
@@ -163,6 +202,14 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 	s.tasks[task.ID] = task
 	s.mu.Unlock()
 
+	// Init Redis stream if StreamBus is available (so handler can verify stream exists).
+	if s.streamBus != nil {
+		if err := s.streamBus.Init(context.Background(), task.ID); err != nil {
+			s.logger.Warn("StreamBus init failed, falling back to in-memory SSE",
+				zap.String("task_id", task.ID), zap.Error(err))
+		}
+	}
+
 	// Background goroutine: detach from request lifecycle but keep a timeout.
 	go func() {
 		defer func() {
@@ -187,6 +234,7 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 			task.CompletedAt = &now
 			s.mu.Unlock()
 			s.notifySubscribers(task)
+			s.finishStream(task)
 		}
 	}()
 
@@ -242,6 +290,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		now := time.Now()
 		task.CompletedAt = &now
 		s.notifySubscribers(task)
+		s.finishStream(task)
 		return task, err
 	}
 
@@ -286,6 +335,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 				now := time.Now()
 				task.CompletedAt = &now
 				s.notifySubscribers(task)
+				s.finishStream(task)
 				return task, nil
 			}
 			continue
@@ -308,6 +358,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		now := time.Now()
 		task.CompletedAt = &now
 		s.notifySubscribers(task)
+		s.finishStream(task)
 		return task, nil
 	}
 
@@ -316,6 +367,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 	now := time.Now()
 	task.CompletedAt = &now
 	s.notifySubscribers(task)
+	s.finishStream(task)
 
 	s.logger.Info("Agent 任务完成", zap.String("id", task.ID))
 	return task, nil
@@ -394,8 +446,17 @@ func (s *AgentService) Unsubscribe(taskID string, ch <-chan *AgentTask) {
 	}
 }
 
-// notifySubscribers 向所有订阅者推送任务更新
+// notifySubscribers 向所有订阅者推送任务更新（内存 channel + Redis Stream 双写）
 func (s *AgentService) notifySubscribers(task *AgentTask) {
+	// 1. Publish to Redis Stream (distributed SSE)
+	if s.streamBus != nil {
+		if err := s.streamBus.Publish(context.Background(), task.ID, sseEventTask, task); err != nil {
+			s.logger.Warn("StreamBus publish failed",
+				zap.String("task_id", task.ID), zap.Error(err))
+		}
+	}
+
+	// 2. Push to in-memory subscribers (single-instance fallback)
 	s.subMu.RLock()
 	subs := s.subscribers[task.ID]
 	s.subMu.RUnlock()
@@ -409,12 +470,26 @@ func (s *AgentService) notifySubscribers(task *AgentTask) {
 		select {
 		case sub.ch <- snapshot:
 		default:
-			// channel 满，跳过该订阅者（避免阻塞）
 			s.logger.Warn("SSE subscriber channel full, skipping",
 				zap.String("task_id", task.ID))
 		}
 	}
 }
+
+// finishStream writes a finish marker to the Redis stream so all blocked
+// consumers are woken up and can exit cleanly.
+func (s *AgentService) finishStream(task *AgentTask) {
+	if s.streamBus == nil {
+		return
+	}
+	if err := s.streamBus.Finish(context.Background(), task.ID); err != nil {
+		s.logger.Warn("StreamBus finish failed",
+			zap.String("task_id", task.ID), zap.Error(err))
+	}
+}
+
+// sseEventTask is the event type for full task snapshot updates.
+const sseEventTask = "task"
 
 // copyTask 深拷贝任务，避免并发读写竞争
 func copyTask(task *AgentTask) *AgentTask {

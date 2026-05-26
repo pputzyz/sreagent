@@ -60,3 +60,12 @@ func (r *MCPServerRepository) List(ctx context.Context, page, pageSize int) ([]m
 
 	return list, total, nil
 }
+
+// ListEnabled returns all enabled MCP servers.
+func (r *MCPServerRepository) ListEnabled(ctx context.Context) ([]model.MCPServer, error) {
+	var list []model.MCPServer
+	if err := r.db.WithContext(ctx).Where("enabled = ?", true).Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}

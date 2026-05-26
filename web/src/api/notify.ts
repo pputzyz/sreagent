@@ -27,6 +27,12 @@ export const notifyRuleApi = {
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/notify-rules/${id}`),
+
+  batchCreate: (data: Partial<NotifyRule>[]) =>
+    request.post<ApiResponse<NotifyRule[]>>('/notify-rules/batch', data),
+
+  test: (id: number, data?: { media_id?: number; alert_name?: string; severity?: string }) =>
+    request.post<ApiResponse<Array<{ media_id: number; media_name: string; status: string; error?: string }>>>(`/notify-rules/${id}/test`, data),
 }
 
 // ===== Notify Media API =====

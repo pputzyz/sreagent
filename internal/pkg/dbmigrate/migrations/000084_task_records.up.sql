@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS task_records (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    tpl_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    event_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    title VARCHAR(256) DEFAULT '',
+    account VARCHAR(64) DEFAULT '',
+    batch INT NOT NULL DEFAULT 0,
+    tolerance INT NOT NULL DEFAULT 0,
+    timeout INT NOT NULL DEFAULT 60,
+    script LONGTEXT,
+    args VARCHAR(512) DEFAULT '',
+    hosts TEXT,
+    status INT NOT NULL DEFAULT 0,
+    create_by VARCHAR(64) DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT NULL,
+    INDEX idx_tpl_id (tpl_id),
+    INDEX idx_event_id (event_id),
+    INDEX idx_status (status),
+    INDEX idx_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

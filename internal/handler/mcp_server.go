@@ -250,3 +250,41 @@ func (h *MCPServerHandler) ListTools(c *gin.Context) {
 
 	Success(c, tools)
 }
+
+// CallTool invokes a tool on an MCP server.
+// POST /mcp-servers/:id/tools/:toolName/call
+func (h *MCPServerHandler) CallTool(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	toolName := c.Param("toolName")
+	if toolName == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "toolName is required"))
+		return
+	}
+
+	var req struct {
+		Arguments map[string]interface{} `json:"arguments"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	srv, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	result, err := h.svc.CallTool(c.Request.Context(), srv, toolName, req.Arguments)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, result)
+}

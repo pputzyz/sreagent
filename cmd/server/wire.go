@@ -134,6 +134,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Dashboard v2 repository
 	dashboardV2Repo := repository.NewDashboardRepository(db)
+	dashboardBizGroupRepo := repository.NewDashboardBizGroupRepository(db)
 	templateRepo := repository.NewAlertRuleTemplateRepository(db)
 
 	// v2 collaboration channel, incident, alert, noise-reduction, dispatch, integration & postmortem repositories
@@ -167,6 +168,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// User preference repository
 	userPreferenceRepo := repository.NewUserPreferenceRepository(db)
 
+	// User contact repository
+	userContactRepo := repository.NewUserContactRepository(db)
+
 	// Notification center repository
 	userNotificationRepo := repository.NewUserNotificationRepository(db)
 
@@ -193,6 +197,13 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// LLM config repository
 	llmConfigRepo := repository.NewLLMConfigRepository(db)
+
+	// Builtin dashboard repository
+	builtinDashboardRepo := repository.NewBuiltinDashboardRepository(db)
+
+	// Task execution repositories
+	taskTplRepo := repository.NewTaskTplRepository(db)
+	taskRecordRepo := repository.NewTaskRecordRepository(db)
 
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
@@ -235,6 +246,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Dashboard v2 service
 	dashboardV2Svc := service.NewDashboardService(dashboardV2Repo, zapLogger)
+	dashboardV2Svc.SetBizGroupRepository(dashboardBizGroupRepo)
 
 	// Alert rule template service
 	templateSvc := service.NewAlertRuleTemplateService(templateRepo, zapLogger)
@@ -263,6 +275,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// User preference service
 	userPreferenceSvc := service.NewUserPreferenceService(userPreferenceRepo, zapLogger)
+
+	// User contact service
+	userContactSvc := service.NewUserContactService(userContactRepo, zapLogger)
 
 	// Notification center service
 	userNotificationSvc := service.NewUserNotificationService(userNotificationRepo, zapLogger)
@@ -309,6 +324,13 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	esIndexPatternRepo := repository.NewESIndexPatternRepository(db)
 	esIndexPatternSvc := service.NewESIndexPatternService(esIndexPatternRepo, db, zapLogger)
 
+	// Builtin dashboard service
+	builtinDashboardSvc := service.NewBuiltinDashboardService(builtinDashboardRepo, dashboardV2Repo, zapLogger)
+
+	// Task execution services
+	taskTplSvc := service.NewTaskTplService(taskTplRepo, zapLogger)
+	taskExecutor := service.NewTaskExecutor(taskTplRepo, taskRecordRepo, zapLogger)
+
 	// Builtin metric services
 	builtinMetricSvc := service.NewBuiltinMetricService(builtinMetricRepo, zapLogger)
 	metricFilterSvc := service.NewMetricFilterService(metricFilterRepo, zapLogger)
@@ -332,6 +354,11 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	seedSvc := service.NewSeedService(notifyMediaRepo, messageTemplateRepo, zapLogger)
 	if err := seedSvc.SeedDefaults(context.Background()); err != nil {
 		zapLogger.Error("failed to seed default notification data", zap.Error(err))
+	}
+
+	// Seed built-in dashboards (runs once when table is empty)
+	if err := builtinDashboardSvc.SeedDefaults(context.Background()); err != nil {
+		zapLogger.Error("failed to seed builtin dashboards", zap.Error(err))
 	}
 
 	// Initialize bounded worker pool for onAlert callbacks.
@@ -359,7 +386,12 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		} else {
 			redisClient = rc
 			stateStore = sredis.NewRedisStateStore(rc, zapLogger)
-			zapLogger.Info("redis connected, engine state persistence enabled",
+			// Inject Redis into AuthService for login rate limiting
+			authSvc.SetFailStore(rc)
+			// Inject Redis StreamBus into AgentService for multi-instance SSE
+			streamBus := sredis.NewStreamBus(rc, zapLogger)
+			agentSvc.SetStreamBus(streamBus)
+			zapLogger.Info("redis connected, engine state persistence enabled, agent SSE stream bus enabled",
 				zap.String("addr", cfg.Redis.Addr()),
 			)
 		}
@@ -600,6 +632,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			return evaluator.GetStatus(), true
 		},
 	)
+	// Register MCP tools from enabled MCP servers (non-blocking, logs warnings on failure)
+	toolRegistry.RegisterMCPTools(mcpServerSvc)
 	aiSvc.SetToolRegistry(toolRegistry)
 	agentSvc.SetToolRegistry(toolRegistry)
 
@@ -622,7 +656,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	}
 
 	handlers := &router.Handlers{
-		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(authSvc); h.SetUserService(userSvc); return h }(),
+		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(authSvc); h.SetUserService(userSvc); h.SetRedis(redisClient); return h }(),
 		OIDC:             oidcHandler,
 		OIDCSettings:     handler.NewOIDCSettingsHandler(settingSvc, d.ReloadOIDC),
 		DataSource:       handler.NewDataSourceHandler(dsSvc, zapLogger),
@@ -682,6 +716,11 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		LLMConfig:           handler.NewLLMConfigHandler(llmConfigSvc, zapLogger),
 		AISkill:             handler.NewAISkillHandler(aiSkillSvc, zapLogger),
 		ESIndexPattern:      handler.NewESIndexPatternHandler(esIndexPatternSvc, zapLogger),
+		SiteInfo:            handler.NewSiteInfoHandler(settingSvc),
+		TaskTpl:             handler.NewTaskTplHandler(taskTplSvc, zapLogger),
+		Task:                handler.NewTaskHandler(taskExecutor, taskRecordRepo, zapLogger),
+		UserContact:         handler.NewUserContactHandler(userContactSvc, zapLogger),
+		BuiltinDashboard:    handler.NewBuiltinDashboardHandler(builtinDashboardSvc),
 	}
 
 	// Inject audit service into handlers that support it

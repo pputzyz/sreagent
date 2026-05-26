@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS task_tpls (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(128) NOT NULL DEFAULT '',
+    script LONGTEXT,
+    args VARCHAR(512) DEFAULT '',
+    batch INT NOT NULL DEFAULT 0,
+    tolerance INT NOT NULL DEFAULT 0,
+    timeout INT NOT NULL DEFAULT 60,
+    account VARCHAR(64) DEFAULT '',
+    pause VARCHAR(256) DEFAULT '',
+    hosts TEXT,
+    tags TEXT,
+    note VARCHAR(512) DEFAULT '',
+    create_by VARCHAR(64) DEFAULT '',
+    update_by VARCHAR(64) DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT NULL,
+    UNIQUE INDEX idx_name (name),
+    INDEX idx_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

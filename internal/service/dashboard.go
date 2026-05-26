@@ -11,12 +11,18 @@ import (
 )
 
 type DashboardService struct {
-	repo   *repository.DashboardRepository
-	logger *zap.Logger
+	repo         *repository.DashboardRepository
+	bizGroupRepo *repository.DashboardBizGroupRepository
+	logger       *zap.Logger
 }
 
 func NewDashboardService(repo *repository.DashboardRepository, logger *zap.Logger) *DashboardService {
 	return &DashboardService{repo: repo, logger: logger}
+}
+
+// SetBizGroupRepository injects the dashboard-biz-group binding repository.
+func (s *DashboardService) SetBizGroupRepository(repo *repository.DashboardBizGroupRepository) {
+	s.bizGroupRepo = repo
 }
 
 func (s *DashboardService) Create(ctx context.Context, d *model.Dashboard) error {
@@ -63,9 +69,84 @@ func (s *DashboardService) Delete(ctx context.Context, id uint) error {
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		return apperr.ErrNotFound
 	}
+	// Clean up biz group bindings when deleting a dashboard.
+	if s.bizGroupRepo != nil {
+		if err := s.bizGroupRepo.DeleteByDashboard(ctx, id); err != nil {
+			s.logger.Error("failed to delete dashboard biz group bindings", zap.Error(err))
+		}
+	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		s.logger.Error("failed to delete dashboard", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return nil
+}
+
+// BindToBizGroup binds a dashboard to a business group with the given permission flag.
+func (s *DashboardService) BindToBizGroup(ctx context.Context, dashboardID, bizGroupID uint, permFlag string) error {
+	if s.bizGroupRepo == nil {
+		return apperr.WithMessage(apperr.ErrInternal, "biz group binding not configured")
+	}
+	if permFlag == "" {
+		permFlag = "ro"
+	}
+	if permFlag != "ro" && permFlag != "rw" {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "perm_flag must be 'ro' or 'rw'")
+	}
+	// Verify dashboard exists.
+	if _, err := s.repo.GetByID(ctx, dashboardID); err != nil {
+		return apperr.ErrNotFound
+	}
+	// Check if binding already exists.
+	existing, err := s.bizGroupRepo.GetBinding(ctx, dashboardID, bizGroupID)
+	if err == nil && existing != nil {
+		// Update perm flag if different.
+		if existing.PermFlag != permFlag {
+			return s.bizGroupRepo.UpdatePermFlag(ctx, dashboardID, bizGroupID, permFlag)
+		}
+		return nil // already bound with same perm
+	}
+	if err := s.bizGroupRepo.BindDashboardToGroup(ctx, dashboardID, bizGroupID, permFlag); err != nil {
+		s.logger.Error("failed to bind dashboard to biz group", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// UnbindFromBizGroup removes the binding between a dashboard and a business group.
+func (s *DashboardService) UnbindFromBizGroup(ctx context.Context, dashboardID, bizGroupID uint) error {
+	if s.bizGroupRepo == nil {
+		return apperr.WithMessage(apperr.ErrInternal, "biz group binding not configured")
+	}
+	if err := s.bizGroupRepo.UnbindDashboardFromGroup(ctx, dashboardID, bizGroupID); err != nil {
+		s.logger.Error("failed to unbind dashboard from biz group", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// ListBizGroups returns all biz group bindings for a dashboard.
+func (s *DashboardService) ListBizGroups(ctx context.Context, dashboardID uint) ([]model.DashboardBizGroup, error) {
+	if s.bizGroupRepo == nil {
+		return nil, nil
+	}
+	bindings, err := s.bizGroupRepo.ListGroupsByDashboard(ctx, dashboardID)
+	if err != nil {
+		s.logger.Error("failed to list dashboard biz groups", zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return bindings, nil
+}
+
+// ListDashboardsByGroup returns all dashboards accessible to a business group.
+func (s *DashboardService) ListDashboardsByGroup(ctx context.Context, bizGroupID uint) ([]uint, error) {
+	if s.bizGroupRepo == nil {
+		return nil, nil
+	}
+	ids, err := s.bizGroupRepo.ListDashboardsByGroup(ctx, bizGroupID)
+	if err != nil {
+		s.logger.Error("failed to list dashboards by biz group", zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return ids, nil
 }

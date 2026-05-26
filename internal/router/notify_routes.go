@@ -20,6 +20,8 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 		notifyRules.POST("/batch/enable", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.BatchEnable)
 		notifyRules.POST("/batch/disable", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.BatchDisable)
 		notifyRules.POST("/batch/delete", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.BatchDelete)
+		notifyRules.POST("/batch", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.BatchCreate)
+		notifyRules.POST("/:id/test", manage, middleware.RequirePerm("notify.write"), h.NotifyRule.Test)
 	}
 
 	// Notify Media

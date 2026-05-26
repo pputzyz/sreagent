@@ -286,9 +286,27 @@ export interface NotifyRule {
   pipeline: string // JSON array of processor configs
   notify_configs: string // JSON array of notification configs
   repeat_interval: number
+  max_notifications: number
   callback_url: string
   created_by: number
   created_at: string
+}
+
+/** Time range restriction for a notification config (Nightingale-compatible). */
+export interface TimeRange {
+  start: string // "HH:MM"
+  end: string   // "HH:MM"
+  week: number[] // ISO weekday: 1=Mon..7=Sun; empty = all days
+}
+
+/** Deserialized notification config element within a NotifyRule.notify_configs JSON. */
+export interface NotifyConfigItem {
+  severity: string
+  media_id: number
+  template_id: number
+  user_ids?: number[]
+  team_ids?: number[]
+  time_ranges?: TimeRange[]
 }
 
 // ===== Notify Media (replaces NotifyChannel) =====

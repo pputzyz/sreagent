@@ -268,6 +268,25 @@ export const securitySettingsApi = {
     request.put<ApiResponse<null>>('/settings/security', data),
 }
 
+// ===== Site Info Settings API =====
+export interface SiteInfo {
+  site_name: string
+  logo_url: string
+  favicon_url: string
+  login_title: string
+  login_subtitle: string
+  footer_text: string
+  custom_css: string
+}
+
+export const siteInfoApi = {
+  get: () =>
+    request.get<ApiResponse<SiteInfo>>('/settings/site-info'),
+
+  save: (data: SiteInfo) =>
+    request.put<ApiResponse<null>>('/settings/site-info', data),
+}
+
 // ===== Status Service API =====
 export interface StatusServiceItem {
   id: number
