@@ -4,6 +4,23 @@
 
 ---
 
+## [v4.44.5] — 2026-05-27
+
+### 迁移 000092 unified_template_id 类型修复
+
+- 修正 `000092` `unified_template_id`：`BIGINT` → `BIGINT UNSIGNED`（修复 GORM AutoMigrate FK Error 3780）
+- 新增 `000099_fix_dispatch_template_unsigned` — 为已部署生产库修复有符号列
+
+---
+
+## [v4.44.4] — 2026-05-27
+
+### errcheck lint 修复
+
+- `sendSMTPWithTLS` 中 `defer conn.Close()` / `defer client.Close()` 改为 `defer func() { _ = ... }()` 满足 errcheck lint
+
+---
+
 ## [v4.44.3] — 2026-05-27
 
 ### 全平台代码质量审查 + 修复
@@ -12,8 +29,6 @@
 - 删除 `000097_alert_rule_ds_nullable` — 与 `000010` 完全重复（同一 ALTER TABLE 语句）
 - 保留 `000098_fix_signed_to_unsigned` — 为已部署 v4.42.0 的生产库修复有符号 BIGINT 列
 - 修正 `000094`/`000095`/`000096` 列类型：`BIGINT` → `BIGINT UNSIGNED`（与初始架构一致）
-- 修正 `000092` `unified_template_id`：`BIGINT` → `BIGINT UNSIGNED`（修复 GORM AutoMigrate FK Error 3780）
-- 新增 `000099_fix_dispatch_template_unsigned` — 为已部署生产库修复有符号列
 
 **后端安全修复：**
 - StatusSubscription 路由添加 `adminOnly` RBAC 守卫（POST/DELETE），防止任意用户订阅/退订
