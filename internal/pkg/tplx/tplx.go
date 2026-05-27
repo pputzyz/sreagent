@@ -31,7 +31,7 @@ var TemplateFuncMap = template.FuncMap{
 	"toUpper":      strings.ToUpper,
 	"toLower":      strings.ToLower,
 	"contains":     strings.Contains,
-	"title":        Title,
+	"title":        strings.Title, //nolint:staticcheck // template function, acceptable usage
 	"split":        strings.Split,
 	"join":         strings.Join,
 	"toString":     ToString,
@@ -109,11 +109,6 @@ func Now() time.Time {
 // ---------------------------------------------------------------------------
 // String helpers
 // ---------------------------------------------------------------------------
-
-// Title returns a copy of s with the first letter of each word capitalised.
-func Title(s string) string {
-	return strings.Title(s) //nolint:staticcheck // ported from Nightingale
-}
 
 // ToString converts any value to its string representation.
 func ToString(v interface{}) string {

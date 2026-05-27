@@ -52,13 +52,13 @@ const fieldOptions = [
   { label: 'tags', value: 'tags' },
 ]
 
-const operatorOptions = [
-  { label: '= (等于)', value: 'eq' },
-  { label: '!= (不等于)', value: 'ne' },
-  { label: '=~ (正则匹配)', value: 'regex' },
-  { label: '!~ (正则不匹配)', value: 'not_regex' },
-  { label: 'in (包含)', value: 'in' },
-]
+const operatorOptions = computed(() => [
+  { label: t('routingRule.opEq'), value: 'eq' },
+  { label: t('routingRule.opNe'), value: 'ne' },
+  { label: t('routingRule.opRegex'), value: 'regex' },
+  { label: t('routingRule.opNotRegex'), value: 'not_regex' },
+  { label: t('routingRule.opIn'), value: 'in' },
+])
 
 function parseConditions(json: string): ConditionItem[] {
   try {

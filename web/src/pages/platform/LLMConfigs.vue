@@ -191,6 +191,14 @@ async function handleSave() {
     message.warning(t('llmConfigs.nameRequired'))
     return
   }
+  if (!form.value.api_url?.trim()) {
+    message.warning(t('llmConfigs.apiUrlRequired'))
+    return
+  }
+  if (!form.value.model?.trim()) {
+    message.warning(t('llmConfigs.modelRequired'))
+    return
+  }
   saving.value = true
   try {
     const payload: CreateLLMConfigRequest = {
@@ -437,14 +445,14 @@ onMounted(fetchConfigs)
             />
           </n-form-item>
 
-          <n-form-item :label="t('llmConfigs.apiUrl')">
+          <n-form-item :label="t('llmConfigs.apiUrl')" required>
             <n-input
               v-model:value="form.api_url"
               :placeholder="t('llmConfigs.apiUrlPlaceholder')"
             />
           </n-form-item>
 
-          <n-form-item :label="t('llmConfigs.model')">
+          <n-form-item :label="t('llmConfigs.model')" required>
             <n-input
               v-model:value="form.model"
               :placeholder="t('llmConfigs.modelPlaceholder')"

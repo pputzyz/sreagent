@@ -7,6 +7,7 @@ import { AddOutline, SearchOutline } from '@vicons/ionicons5'
 import type { DataTableColumns } from 'naive-ui'
 import { builtinMetricApi, metricFilterApi, type BuiltinMetric, type MetricFilter, type FilterConfig } from '@/api/builtin-metric'
 import { useFilterMemory, usePermissions } from '@/composables'
+import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import PromQLEditor from '@/components/query/PromQLEditor.vue'
 
@@ -75,7 +76,7 @@ async function fetchMetrics() {
     metrics.value = list
     total.value = resp.data.data?.total || 0
   } catch (e: any) {
-    message.error(e.message || 'Failed to load metrics')
+    message.error(getErrorMessage(e))
   } finally {
     loading.value = false
   }
@@ -158,7 +159,7 @@ async function handleSave() {
     showDrawer.value = false
     fetchMetrics()
   } catch (e: any) {
-    message.error(e.message || t('common.saveFailed'))
+    message.error(getErrorMessage(e))
   }
 }
 
@@ -174,7 +175,7 @@ async function handleDelete(metric: BuiltinMetric) {
         message.success(t('common.deleteSuccess'))
         fetchMetrics()
       } catch (e: any) {
-        message.error(e.message || t('common.deleteFailed'))
+        message.error(getErrorMessage(e))
       }
     },
   })
@@ -195,7 +196,7 @@ async function handleBatchDelete() {
         selectedIds.value = []
         fetchMetrics()
       } catch (e: any) {
-        message.error(e.message || t('common.deleteFailed'))
+        message.error(getErrorMessage(e))
       }
     },
   })
@@ -255,7 +256,7 @@ async function handleSaveFilter() {
     showFilterModal.value = false
     fetchFilters()
   } catch (e: any) {
-    message.error(e.message || t('common.saveFailed'))
+    message.error(getErrorMessage(e))
   }
 }
 
@@ -272,7 +273,7 @@ async function handleDeleteFilter(filter: MetricFilter) {
         if (activeFilter.value?.id === filter.id) activeFilter.value = null
         fetchFilters()
       } catch (e: any) {
-        message.error(e.message || t('common.deleteFailed'))
+        message.error(getErrorMessage(e))
       }
     },
   })
@@ -500,8 +501,8 @@ onMounted(() => {
           </NFormItem>
           <NFormItem :label="t('builtin.expressionType')">
             <NRadioGroup v-model:value="drawerMetric.expression_type">
-              <NRadioButton value="metric_name">Metric Name</NRadioButton>
-              <NRadioButton value="promql">PromQL</NRadioButton>
+              <NRadioButton value="metric_name">{{ t('builtin.metricNameExpr') }}</NRadioButton>
+              <NRadioButton value="promql">{{ t('builtin.promqlExpr') }}</NRadioButton>
             </NRadioGroup>
           </NFormItem>
           <NFormItem :label="t('builtin.metricType')">
@@ -544,7 +545,7 @@ onMounted(() => {
           <PromQLEditor
             :model-value="explorerPromql"
             :datasource-id="null"
-            placeholder="PromQL expression..."
+            :placeholder="t('builtin.promqlPlaceholder')"
             style="width: 100%; min-height: 100px; border: 1px solid var(--n-border-color); border-radius: 3px;"
             @update:model-value="explorerPromql = $event"
           />

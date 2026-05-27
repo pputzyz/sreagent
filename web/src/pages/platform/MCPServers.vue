@@ -73,6 +73,24 @@ const columns = [
     }, row.url),
   },
   {
+    title: t('mcpServers.headers'),
+    key: 'headers',
+    width: 180,
+    ellipsis: { tooltip: true },
+    render: (row: MCPServer) => {
+      if (!row.headers) return '-'
+      try {
+        const obj = typeof row.headers === 'string' ? JSON.parse(row.headers) : row.headers
+        if (!obj || Object.keys(obj).length === 0) return '-'
+        return h('code', {
+          style: 'font-size:11px;padding:2px 6px;background:var(--sre-bg-elevated);border-radius:4px',
+        }, JSON.stringify(obj))
+      } catch {
+        return row.headers
+      }
+    },
+  },
+  {
     title: t('mcpServers.enabled'),
     key: 'enabled',
     width: 80,

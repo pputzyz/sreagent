@@ -12,6 +12,7 @@ import { AddOutline, TrashOutline, PlayOutline, TimeOutline } from '@vicons/ioni
 import { eventPipelineApi } from '@/api/event-pipeline'
 import type { EventPipeline, ProcessorConfig, TagFilter, EventPipelineExecution, NodeResult } from '@/api/event-pipeline'
 import { useFilterMemory, usePermissions } from '@/composables'
+import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
@@ -109,7 +110,7 @@ async function fetchList() {
     list.value = resp.data.data?.list || []
     total.value = resp.data.data?.total || 0
   } catch (e: any) {
-    message.error(e.message || t('common.loadFailed'))
+    message.error(getErrorMessage(e))
   } finally {
     loading.value = false
   }
@@ -186,7 +187,7 @@ async function handleSave() {
     showDrawer.value = false
     fetchList()
   } catch (e: any) {
-    message.error(e.message || t('common.saveFailed'))
+    message.error(getErrorMessage(e))
   } finally {
     saving.value = false
   }
@@ -204,7 +205,7 @@ async function handleDelete(id: number) {
         message.success(t('common.deleteSuccess'))
         fetchList()
       } catch (e: any) {
-        message.error(e.message || t('common.deleteFailed'))
+        message.error(getErrorMessage(e))
       }
     },
   })
@@ -220,7 +221,7 @@ async function handleTryRun(id: number) {
       message.info(t('eventPipeline.tryRunNoEvent'))
     }
   } catch (e: any) {
-    message.error(e.message || t('common.failed'))
+    message.error(getErrorMessage(e))
   }
 }
 
@@ -243,7 +244,7 @@ async function fetchExecutions(pipelineId: number) {
     execList.value = resp.data.data?.list || []
     execTotal.value = resp.data.data?.total || 0
   } catch (e: any) {
-    message.error(e.message || t('common.loadFailed'))
+    message.error(getErrorMessage(e))
   } finally {
     execLoading.value = false
   }

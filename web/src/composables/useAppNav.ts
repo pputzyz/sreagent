@@ -54,6 +54,9 @@ import {
   InformationCircleOutline,
   TerminalOutline,
   PlayOutline,
+  BookmarkOutline,
+  GitPullRequestOutline,
+  BookOutline,
 } from '@vicons/ionicons5'
 
 // ===== Public Types =====
@@ -108,6 +111,9 @@ export const iconColorMap = new Map<Component, string>([
   [ShieldOutline,           '#EF4444'], // red — security/alert
   [CallOutline,             '#10B981'], // emerald — contacts/phone
   [InformationCircleOutline, '#3B82F6'], // blue — site info
+  [BookmarkOutline,          '#14B8A6'], // teal — saved views
+  [GitPullRequestOutline,    '#6366F1'], // indigo — change events
+  [BookOutline,              '#64748B'], // slate — knowledge/docs
 ])
 
 export interface MenuSection {
@@ -123,36 +129,12 @@ let _routeWatcherInstalled = false
 // ===== Route → App mapping =====
 
 function resolveAppFromPath(path: string): AppKey {
-  // Homepage — platform root
   if (path === '/') return 'home'
-
-  // New 3-app prefixed routes
   if (path.startsWith('/oncall'))   return 'oncall'
   if (path.startsWith('/alert'))    return 'alert'
   if (path.startsWith('/platform')) return 'platform'
-
-  // Legacy routes — oncall
-  if (
-    path.startsWith('/incident-dashboard') ||
-    path.startsWith('/channels') ||
-    path.startsWith('/incidents') ||
-    path.startsWith('/schedule') ||
-    path.startsWith('/integrations')
-  ) return 'oncall'
-
-  // Legacy routes — alert
-  if (
-    path.startsWith('/alerts') ||
-    path.startsWith('/datasources') ||
-    path.startsWith('/query') ||
-    path.startsWith('/dashboards') ||
-    path.startsWith('/notification')
-  ) return 'alert'
-
-  // Legacy routes — platform
-  if (path.startsWith('/settings') || path.startsWith('/ai')) return 'platform'
-
-  // Default
+  if (path.startsWith('/ai'))       return 'platform'
+  if (path.startsWith('/notifications')) return 'oncall'
   return 'oncall'
 }
 
@@ -273,6 +255,12 @@ export function useAppNav() {
               { label: t('menu.builtinDashboards'), key: '/alert/dashboards/builtin', icon: LibraryOutline },
             ],
           },
+          {
+            items: [
+              { label: t('menu.savedViews'), key: '/alert/saved-views', icon: BookmarkOutline },
+              { label: t('menu.ruleTemplates'), key: '/alert/rule-templates', icon: CopyOutline },
+            ],
+          },
         ]
 
       // ──────────────── PLATFORM ────────────────
@@ -304,10 +292,18 @@ export function useAppNav() {
               if (authStore.canManage) {
                 items.push({ label: t('menu.inspection'), key: '/platform/inspections', icon: SearchOutline })
                 items.push({ label: t('menu.taskTpls'), key: '/platform/task-tpls', icon: TerminalOutline })
+                items.push({ label: t('menu.diagnosticWorkflows'), key: '/platform/diagnostic-workflows', icon: GitBranchOutline })
+                items.push({ label: t('menu.changeEvents'), key: '/platform/change-events', icon: GitPullRequestOutline })
               }
               items.push({ label: t('menu.tasks'), key: '/platform/tasks', icon: PlayOutline })
               return items
             })(),
+          },
+          {
+            items: [
+              { label: t('menu.knowledge'), key: '/platform/knowledge', icon: BookOutline },
+              { label: t('menu.annotations'), key: '/platform/annotations', icon: BookmarkOutline },
+            ],
           },
           {
             label: t('menu.systemSettings'),

@@ -10,6 +10,7 @@ import { AddOutline, TrashOutline, RefreshOutline } from '@vicons/ionicons5'
 import { metricViewApi, type MetricView, type MetricViewConfig, type MetricViewFilter } from '@/api/metric-view'
 import { datasourceApi } from '@/api'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { getErrorMessage } from '@/utils/format'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -75,7 +76,7 @@ async function fetchViews() {
       selectView(views.value[0])
     }
   } catch (e: any) {
-    message.error(e.message || 'Failed to load views')
+    message.error(getErrorMessage(e))
   } finally {
     loading.value = false
   }
@@ -137,7 +138,7 @@ async function handleSaveView() {
     showEditDrawer.value = false
     await fetchViews()
   } catch (e: any) {
-    message.error(e.message || t('common.saveFailed'))
+    message.error(getErrorMessage(e))
   }
 }
 
@@ -154,7 +155,7 @@ async function handleDeleteView(view: MetricView) {
         if (selectedView.value?.id === view.id) selectedView.value = null
         await fetchViews()
       } catch (e: any) {
-        message.error(e.message || t('common.deleteFailed'))
+        message.error(getErrorMessage(e))
       }
     },
   })

@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import type { RouteRecordRaw, RouteLocation } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
@@ -29,37 +29,39 @@ const routes: RouteRecordRaw[] = [
       { path: 'oncall/integrations', component: () => import('@/pages/integrations/Index.vue'), meta: { title: 'menu.integrations', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/schedule', component: () => import('@/pages/schedule/Index.vue'), meta: { title: 'menu.schedule', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/my-alerts', component: () => import('@/pages/oncall/MyAlerts.vue'), meta: { title: 'myAlerts.title' } },
-      { path: 'oncall/config/escalation-policies', component: () => import('@/pages/oncall/EscalationPolicies.vue'), meta: { title: 'menu.escalationPolicies', requiresRole: ['admin', 'team_lead'] } },
-      { path: 'oncall/config/notify-rules', component: () => import('@/pages/notification/Rules.vue'), meta: { title: 'menu.notifyChannels' } },
-      { path: 'oncall/config/routing-rules', component: () => import('@/pages/integrations/RoutingRules.vue'), meta: { title: 'menu.routingRules' } },
-      { path: 'oncall/config/biz-groups', component: () => import('@/pages/settings/BizGroups.vue'), meta: { title: 'menu.bizGroups' } },
+      { path: 'oncall/config/escalation-policies', component: () => import('@/pages/oncall/EscalationPolicies.vue'), meta: { title: 'menu.escalationPolicies' } },
+      { path: 'oncall/config/notify-rules', component: () => import('@/pages/notification/Rules.vue'), meta: { title: 'menu.notifyChannels', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/config/routing-rules', component: () => import('@/pages/integrations/RoutingRules.vue'), meta: { title: 'menu.routingRules', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/config/biz-groups', component: () => import('@/pages/settings/BizGroups.vue'), meta: { title: 'menu.bizGroups', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/config/subscribe-rules', component: () => import('@/pages/notification/Subscribe.vue'), meta: { title: 'menu.subscribeRules' } },
 
       // ===== Oncall — Notification Center =====
-      { path: 'oncall/notify/policies', component: () => import('@/pages/notification/Index.vue'), meta: { title: 'menu.notifyPolicies' } },
-      { path: 'oncall/notify/templates', component: () => import('@/pages/notification/Templates.vue'), meta: { title: 'menu.templates' } },
-      { path: 'oncall/notify/channels', component: () => import('@/pages/notification/Media.vue'), meta: { title: 'menu.notifyChannels' } },
+      { path: 'oncall/notify/policies', component: () => import('@/pages/notification/Index.vue'), meta: { title: 'menu.notifyPolicies', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/notify/templates', component: () => import('@/pages/notification/Templates.vue'), meta: { title: 'menu.templates', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/notify/channels', component: () => import('@/pages/notification/Media.vue'), meta: { title: 'menu.notifyChannels', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/notify/subscriptions', component: () => import('@/pages/notification/Subscribe.vue'), meta: { title: 'menu.subscriptions' } },
 
       // ===== Alert =====
       { path: 'alert', redirect: '/alert/overview' },
       { path: 'alert/overview', component: () => import('@/pages/dashboard/Index.vue'), meta: { title: 'menu.overview' } },
-      { path: 'alert/rules', component: () => import('@/pages/alerts/rules/Index.vue'), meta: { title: 'menu.alertRules' } },
+      { path: 'alert/rules', component: () => import('@/pages/alerts/rules/Index.vue'), meta: { title: 'menu.alertRules', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/events', component: () => import('@/pages/alerts/events/Index.vue'), meta: { title: 'menu.activeAlerts' } },
       { path: 'alert/events/:id', component: () => import('@/pages/alerts/events/Detail.vue'), meta: { title: 'route.alertDetail' } },
       { path: 'alert/history', component: () => import('@/pages/alerts/history/Index.vue'), meta: { title: 'menu.alertHistory' } },
-      { path: 'alert/suppression', component: () => import('@/pages/alerts/mute/Index.vue'), meta: { title: 'menu.muteRules' } },
+      { path: 'alert/suppression', component: () => import('@/pages/alerts/mute/Index.vue'), meta: { title: 'menu.muteRules', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/suppression/inhibition', component: () => import('@/pages/alerts/inhibition/Index.vue'), meta: { title: 'menu.inhibitionRules' } },
-      { path: 'alert/recording-rules', component: () => import('@/pages/alerts/recording-rules/Index.vue'), meta: { title: 'menu.recordingRules' } },
-      { path: 'alert/event-pipelines', component: () => import('@/pages/alerts/event-pipelines/Index.vue'), meta: { title: 'menu.eventPipelines' } },
-      { path: 'alert/builtin-metrics', component: () => import('@/pages/alerts/builtin-metrics/Index.vue'), meta: { title: 'menu.builtinMetrics' } },
+      { path: 'alert/recording-rules', component: () => import('@/pages/alerts/recording-rules/Index.vue'), meta: { title: 'menu.recordingRules', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'alert/event-pipelines', component: () => import('@/pages/alerts/event-pipelines/Index.vue'), meta: { title: 'menu.eventPipelines', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'alert/builtin-metrics', component: () => import('@/pages/alerts/builtin-metrics/Index.vue'), meta: { title: 'menu.builtinMetrics', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/presets', component: () => import('@/pages/alerts/Presets.vue'), meta: { title: 'menu.presetRules' } },
-      { path: 'alert/datasources', component: () => import('@/pages/datasources/Index.vue'), meta: { title: 'menu.datasources' } },
+      { path: 'alert/datasources', component: () => import('@/pages/datasources/Index.vue'), meta: { title: 'menu.datasources', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/explore', component: () => import('@/pages/explore/Index.vue'), meta: { title: 'menu.dataQuery' } },
       { path: 'alert/metric-views', component: () => import('@/pages/alerts/metric-views/Index.vue'), meta: { title: 'menu.metricViews' } },
+      { path: 'alert/saved-views', component: () => import('@/pages/alerts/SavedViews.vue'), meta: { title: 'menu.savedViews' } },
+      { path: 'alert/rule-templates', component: () => import('@/pages/alerts/RuleTemplates.vue'), meta: { title: 'menu.ruleTemplates' } },
       { path: 'alert/es-explore', component: () => import('@/pages/explore/ESExplorer.vue'), meta: { title: 'menu.esExplorer' } },
       { path: 'alert/es-patterns', component: () => import('@/pages/alerts/es-patterns/Index.vue'), meta: { title: 'menu.esPatterns', requiresRole: ['admin', 'team_lead'] } },
-      { path: 'alert/dashboards', component: () => import('@/pages/dashboards/Index.vue'), meta: { title: 'menu.dashboard' } },
+      { path: 'alert/dashboards', component: () => import('@/pages/dashboards/Index.vue'), meta: { title: 'menu.dashboard', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/dashboards/builtin', component: () => import('@/pages/dashboards/BuiltinLibrary.vue'), meta: { title: 'menu.builtinDashboards' } },
       { path: 'alert/dashboards/:id', component: () => import('@/pages/dashboards/View.vue'), meta: { title: 'menu.dashboard' } },
       // Legacy notification routes → redirect to /oncall/notify/* (v4.43.0 migration)
@@ -78,9 +80,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/audit', component: () => import('@/pages/settings/AuditLog.vue'), meta: { title: 'menu.audit', requiresRole: ['admin'] } },
       { path: 'platform/settings/smtp', component: () => import('@/pages/settings/SMTP.vue'), meta: { title: 'menu.smtp', requiresRole: ['admin'] } },
       { path: 'platform/settings/lark', component: () => import('@/pages/settings/LarkBotConfig.vue'), meta: { title: 'menu.larkBot', requiresRole: ['admin'] } },
-      { path: 'platform/settings/ai', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiConfig', requiresRole: ['admin'] } },
-      { path: 'platform/llm-configs', component: () => import('@/pages/platform/LLMConfigs.vue'), meta: { title: 'menu.llmConfigs', requiresRole: ['admin'] } },
-      { path: 'platform/mcp-servers', component: () => import('@/pages/platform/MCPServers.vue'), meta: { title: 'menu.mcpServers', requiresRole: ['admin'] } },
+      { path: 'platform/settings/ai', redirect: '/platform/ai-config' },
+      { path: 'platform/llm-configs', redirect: '/platform/ai-config#llm' },
+      { path: 'platform/mcp-servers', redirect: '/platform/ai-config#mcp' },
+      { path: 'ai/skills', redirect: '/platform/ai-config#skills' },
       { path: 'platform/ai-config', component: () => import('@/pages/ai/ConfigView.vue'), meta: { title: 'menu.aiConfig', requiresRole: ['admin'] } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
       { path: 'platform/settings/contacts', component: () => import('@/pages/settings/Contacts.vue'), meta: { title: 'menu.contacts' } },
@@ -91,40 +94,29 @@ const routes: RouteRecordRaw[] = [
 
       // ===== AI Agent =====
       { path: 'ai/agent', component: () => import('@/pages/ai/AgentView.vue'), meta: { title: 'menu.aiAgent' } },
-      { path: 'ai/skills', component: () => import('@/pages/ai/SkillManager.vue'), meta: { title: 'menu.aiSkills', requiresRole: ['admin', 'team_lead'] } },
 
       // ===== Inspection (定时巡检) =====
       { path: 'platform/inspections', component: () => import('@/pages/platform/inspections/Index.vue'), meta: { title: 'menu.inspection', requiresRole: ['admin', 'team_lead'] } },
       { path: 'platform/inspections/runs/:id', component: () => import('@/pages/platform/inspections/RunDetail.vue'), meta: { title: 'menu.inspectionDetail', requiresRole: ['admin', 'team_lead'] } },
 
+      // ===== Diagnostic Workflows =====
+      { path: 'platform/diagnostic-workflows', component: () => import('@/pages/platform/DiagnosticWorkflows.vue'), meta: { title: 'menu.diagnosticWorkflows', requiresRole: ['admin', 'team_lead'] } },
+
+      // ===== Change Events =====
+      { path: 'platform/change-events', component: () => import('@/pages/platform/ChangeEvents.vue'), meta: { title: 'menu.changeEvents', requiresRole: ['admin', 'team_lead'] } },
+
       // ===== Task Execution (任务执行) =====
       { path: 'platform/task-tpls', component: () => import('@/pages/platform/tasks/TplIndex.vue'), meta: { title: 'menu.taskTpls', requiresRole: ['admin', 'team_lead'] } },
       { path: 'platform/tasks', component: () => import('@/pages/platform/tasks/TaskIndex.vue'), meta: { title: 'menu.tasks', requiresRole: ['admin', 'team_lead', 'member'] } },
       { path: 'platform/tasks/:id', component: () => import('@/pages/platform/tasks/TaskResult.vue'), meta: { title: 'menu.taskDetail', requiresRole: ['admin', 'team_lead', 'member'] } },
+      { path: 'platform/knowledge', component: () => import('@/pages/platform/Knowledge.vue'), meta: { title: 'menu.knowledge' } },
+      { path: 'platform/annotations', component: () => import('@/pages/platform/Annotations.vue'), meta: { title: 'menu.annotations' } },
 
-      // ===== Legacy Redirects =====
-      { path: 'dashboard', redirect: '/oncall/overview' },
-      { path: 'channels', redirect: '/oncall/spaces' },
-      { path: 'channels/:id', redirect: (to: RouteLocation) => `/oncall/spaces/${to.params.id}` },
-      { path: 'incidents', redirect: '/oncall/incidents' },
-      { path: 'incidents/:id', redirect: (to: RouteLocation) => `/oncall/incidents/${to.params.id}` },
-      { path: 'incident-dashboard', redirect: '/oncall/overview' },
-      { path: 'integrations', redirect: '/oncall/integrations' },
-      { path: 'schedule', redirect: '/oncall/schedule' },
-      { path: 'alerts', redirect: '/alert/rules' },
-      { path: 'alerts/rules', redirect: '/alert/rules' },
-      { path: 'alerts/events', redirect: '/alert/events' },
-      { path: 'alerts/events/:id', redirect: (to: RouteLocation) => `/alert/events/${to.params.id}` },
-      { path: 'alerts/history', redirect: '/alert/history' },
-      { path: 'alerts/mute-rules', redirect: '/alert/suppression' },
-      { path: 'alerts/inhibition-rules', redirect: '/alert/suppression/inhibition' },
-      { path: 'datasources', redirect: '/alert/datasources' },
-      { path: 'query', redirect: '/alert/explore' },
-      { path: 'explore', redirect: '/alert/explore' },
-      { path: 'dashboards-v2', redirect: '/alert/dashboards' },
-      { path: 'dashboards-v2/:id', redirect: (to: RouteLocation) => `/alert/dashboards/${to.params.id}` },
-      { path: 'notification', redirect: '/oncall/notify/policies' },
-      { path: 'settings', redirect: '/platform/profile' },
+      // Legacy notification redirects (v4.43.0, keep until v4.45.0)
+      { path: 'alert/notify/policies', redirect: '/oncall/notify/policies' },
+      { path: 'alert/notify/templates', redirect: '/oncall/notify/templates' },
+      { path: 'alert/notify/channels', redirect: '/oncall/notify/channels' },
+      { path: 'alert/notify/subscriptions', redirect: '/oncall/notify/subscriptions' },
     ],
   },
 ]

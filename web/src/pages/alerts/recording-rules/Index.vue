@@ -8,6 +8,7 @@ import type { DataTableColumns } from 'naive-ui'
 import { recordingRuleApi, type RecordingRule } from '@/api/recording'
 import { datasourceApi } from '@/api'
 import { useFilterMemory, usePermissions } from '@/composables'
+import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import PromQLEditor from '@/components/query/PromQLEditor.vue'
 
@@ -89,7 +90,7 @@ async function fetchRules() {
     rules.value = list
     total.value = resp.data.data?.total || 0
   } catch (e: any) {
-    message.error(e.message || 'Failed to load recording rules')
+    message.error(getErrorMessage(e))
   } finally {
     loading.value = false
   }
@@ -176,7 +177,7 @@ async function validatePromql(): Promise<boolean> {
     }
     return true
   } catch (e: any) {
-    message.error(t('recording.promqlValidationError', { error: e.message || 'Unknown error' }))
+    message.error(t('recording.promqlValidationError', { error: getErrorMessage(e) }))
     return false
   }
 }
@@ -214,7 +215,7 @@ async function handleSave() {
     showEditModal.value = false
     fetchRules()
   } catch (e: any) {
-    message.error(e.message || t('common.saveFailed'))
+    message.error(getErrorMessage(e))
   }
 }
 
@@ -230,7 +231,7 @@ async function handleDelete(rule: RecordingRule) {
         message.success(t('common.deleteSuccess'))
         fetchRules()
       } catch (e: any) {
-        message.error(e.message || t('common.deleteFailed'))
+        message.error(getErrorMessage(e))
       }
     },
   })
@@ -251,7 +252,7 @@ async function handleBatchDelete() {
         selectedIds.value = []
         fetchRules()
       } catch (e: any) {
-        message.error(e.message || t('common.deleteFailed'))
+        message.error(getErrorMessage(e))
       }
     },
   })
@@ -271,7 +272,7 @@ async function handleToggleDisabled(rule: RecordingRule) {
     message.success(rule.disabled ? t('recording.enabled') : t('recording.disabled'))
     fetchRules()
   } catch (e: any) {
-    message.error(e.message || t('common.updateFailed'))
+    message.error(getErrorMessage(e))
   }
 }
 
@@ -308,7 +309,7 @@ async function handleImport() {
     importResults.value = resp.data.data || {}
     fetchRules()
   } catch (e: any) {
-    message.error(e.message || 'Import failed')
+    message.error(getErrorMessage(e))
   }
 }
 
@@ -339,7 +340,7 @@ async function handleBatchUpdate() {
     batchUpdateValue.value = null
     fetchRules()
   } catch (e: any) {
-    message.error(e.message || t('common.updateFailed'))
+    message.error(getErrorMessage(e))
   } finally {
     batchUpdateLoading.value = false
   }

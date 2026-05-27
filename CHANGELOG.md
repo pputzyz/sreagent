@@ -4,6 +4,42 @@
 
 ---
 
+## [v4.44.0] — 2026-05-27
+
+### 6 个缺失前端页面补齐 + 侧边栏菜单完善 + 代码清理
+
+**新增 6 个前端页面（补齐后端功能）：**
+- `Knowledge.vue` — 知识库管理（CRUD + 搜索 + 来源过滤 + helpful 标记）
+- `Annotations.vue` — 仪表盘标注管理（CRUD + dashboard_id 过滤）
+- `DiagnosticWorkflows.vue` — 诊断工作流（双 Tab: 工作流 + 运行记录，步骤编辑器，运行对话框）
+- `ChangeEvents.vue` — 变更事件（数据表 + 过滤器 + ingest 抽屉，不可变事件）
+- `SavedViews.vue` — 快捷视图（复制、公开/私有、Tab 过滤）
+- `RuleTemplates.vue` — 告警规则模板（apply、内置保护、分类过滤）
+
+**新增 6 个 API 模块：**
+- `api/knowledge.ts` — 知识库 CRUD + search + helpful
+- `api/annotation.ts` — 标注 CRUD + batch
+- `api/diagnostic.ts` — 诊断工作流 CRUD + steps + run + match
+- `api/change-event.ts` — 变更事件 ingest + list + delete
+- `api/saved-views.ts` — 快捷视图 CRUD + copy
+- `api/alert-rule-template.ts` — 规则模板 CRUD + categories + apply
+
+**路由 + 菜单：**
+- 新增 6 条路由：`/platform/knowledge`, `/platform/annotations`, `/platform/diagnostic-workflows`, `/platform/change-events`, `/alert/saved-views`, `/alert/rule-templates`
+- Alert 侧边栏新增「Saved Views + Rule Templates」分组
+- Platform 侧边栏新增「Knowledge + Annotations」分组 + Diagnostic/Change Events 归入任务区
+
+**代码清理（审计发现）：**
+- 删除死代码：`alert_channel_compat.go`（无路由引用）、`AuroraBackground.vue`/`GlowCard.vue`/`AnimatedNumber.vue`（未使用组件）
+- `tplx.go`: 移除未使用的 `Title()` 函数，FuncMap 改用 `strings.Title` 内联
+- 22 条遗留路由 redirect 清理（新项目无需向后兼容）
+- i18n 修复：`event-pipelines/Index.vue`、`events/Index.vue` 错误消息改用 `getErrorMessage()`；`RoutingRules.vue` 硬编码中文改为 i18n
+- `LLMConfigs.vue` 表单验证增强（api_url/model 必填）
+- `MCPServers.vue` 数据表新增 headers 列
+- `builtin-metrics/Index.vue` 硬编码英文改为 i18n
+
+---
+
 ## [v4.43.1] — 2026-05-27
 
 ### AI 统一配置入口 + Lint 修复

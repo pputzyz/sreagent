@@ -124,3 +124,19 @@ export type { SiteInfo } from './admin'
 // ===== Team Notify Channel =====
 export { teamNotifyChannelApi, userTeamNotifyPrefApi } from './team-notify-channel'
 export type { TeamNotifyChannel, UserTeamNotifyPref } from './team-notify-channel'
+
+// ===== Knowledge Base =====
+export { knowledgeApi } from './knowledge'
+export type { KnowledgeDocument, CreateKnowledgeRequest, UpdateKnowledgeRequest } from './knowledge'
+
+// ===== Annotations =====
+export { annotationApi } from './annotation'
+export type { Annotation, CreateAnnotationRequest, UpdateAnnotationRequest } from './annotation'
+
+// ===== Diagnostic Workflows =====
+export { diagnosticApi } from './diagnostic'
+export type { DiagnosticWorkflow, DiagnosticWorkflowStep, DiagnosticRun, DiagnosticRunStep } from './diagnostic'
+
+// ===== Change Events =====
+export { changeEventApi } from './change-event'
+export type { ChangeEvent, IngestChangeEventRequest } from './change-event'

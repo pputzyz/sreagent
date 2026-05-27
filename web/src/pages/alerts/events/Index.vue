@@ -27,6 +27,7 @@ import {
 import { alertEventApi, alertRuleApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
 import { usePaginatedList, useFilterMemory, usePermissions } from '@/composables'
+import { getErrorMessage } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -86,8 +87,7 @@ const {
     }
   },
   onError: (err: unknown) => {
-    const e = err as { message?: string }
-    message.error(e?.message || t('common.loadFailed'))
+    message.error(getErrorMessage(err))
   },
 })
 
@@ -207,7 +207,7 @@ async function onAck(ev: AlertEvent) {
     message.success(t('alert.alertAcknowledged'))
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error)?.message)
+    message.error(getErrorMessage(err))
   }
 }
 async function onResolve(ev: AlertEvent) {
@@ -216,7 +216,7 @@ async function onResolve(ev: AlertEvent) {
     message.success(t('alert.alertResolved'))
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error)?.message)
+    message.error(getErrorMessage(err))
   }
 }
 async function onClose(ev: AlertEvent) {
@@ -225,7 +225,7 @@ async function onClose(ev: AlertEvent) {
     message.success(t('alert.alertClosed'))
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error)?.message)
+    message.error(getErrorMessage(err))
   }
 }
 async function onSilence(ev: AlertEvent) {
@@ -234,7 +234,7 @@ async function onSilence(ev: AlertEvent) {
     message.success(t('alert.silenced'))
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error)?.message)
+    message.error(getErrorMessage(err))
   }
 }
 const batchLoading = ref(false)
@@ -248,7 +248,7 @@ async function batchAck() {
     selected.value = new Set()
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error)?.message)
+    message.error(getErrorMessage(err))
   } finally { batchLoading.value = false }
 }
 async function batchCloseAction() {
@@ -261,7 +261,7 @@ async function batchCloseAction() {
     selected.value = new Set()
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error)?.message)
+    message.error(getErrorMessage(err))
   } finally { batchLoading.value = false }
 }
 async function batchSilence() {
@@ -277,7 +277,7 @@ async function batchSilence() {
     selected.value = new Set()
     fetchList()
   } catch (err: unknown) {
-    message.error((err as Error)?.message)
+    message.error(getErrorMessage(err))
   }
 }
 

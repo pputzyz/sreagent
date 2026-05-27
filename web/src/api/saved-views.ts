@@ -31,7 +31,7 @@ export type SavedViewUpdate = SavedViewCreate
 
 // ===== API =====
 export const savedViewApi = {
-  list: (params?: { tab?: string; page?: number; page_size?: number }) =>
+  list: (params?: { page?: number; page_size?: number; tab?: string; created_by?: number; is_public?: boolean }) =>
     request.get<ApiResponse<PageData<SavedViewApiItem>>>('/saved-views', { params }),
 
   get: (id: number) =>
