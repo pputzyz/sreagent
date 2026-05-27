@@ -329,13 +329,13 @@ func sendSMTPWithTLS(addr, host, username, password, from, to, msg string) error
 	if err != nil {
 		return fmt.Errorf("TLS dial: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
 		return fmt.Errorf("smtp client: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	auth := smtp.PlainAuth("", username, password, host)
 	if err = client.Auth(auth); err != nil {
