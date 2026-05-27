@@ -56,6 +56,8 @@ type NotifyMedia struct {
 	Variables string `json:"variables" gorm:"type:text"`
 	// Built-in flag (built-in media cannot be deleted)
 	IsBuiltin bool `json:"is_builtin" gorm:"default:false"`
+	// TeamID: if set, this media belongs to a specific team (nil = global/shared)
+	TeamID *uint `json:"team_id" gorm:"index"`
 }
 
 func (NotifyMedia) TableName() string {

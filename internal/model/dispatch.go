@@ -50,6 +50,9 @@ type DispatchPolicy struct {
 	NotifyMode string `json:"notify_mode" gorm:"size:32;default:personal_preference"`
 	// UnifiedMediaID: if NotifyMode="unified", which notify media to use
 	UnifiedMediaID *uint `json:"unified_media_id" gorm:"index"`
+	// UnifiedTemplateID: if NotifyMode="unified", which message template to use
+	UnifiedTemplateID *uint            `json:"unified_template_id" gorm:"index"`
+	UnifiedTemplate   *MessageTemplate `json:"unified_template,omitempty" gorm:"foreignKey:UnifiedTemplateID"`
 
 	// --- Label enhancement rules ---
 	// LabelEnhancementRules: JSON []LabelEnhancementAction

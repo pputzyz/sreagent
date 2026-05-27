@@ -85,6 +85,9 @@ type Handlers struct {
 	BuiltinDashboard    *handler.BuiltinDashboardHandler   // 内置仪表盘库 (Builtin Dashboards)
 	UserContact         *handler.UserContactHandler        // 用户联系人 (User Contacts)
 	StatusSubscription  *handler.StatusSubscriptionHandler // 状态页邮件订阅 (Status Page Subscriptions)
+	TeamNotifyChannel   *handler.TeamNotifyChannelHandler  // 团队通知渠道 (Team Notify Channels)
+	UserTeamNotifyPref  *handler.UserTeamNotifyPrefHandler // 用户团队通知偏好 (User Team Notify Prefs)
+	AlertChannelCompat  *handler.AlertChannelCompatHandler // AlertChannel 兼容层 (deprecated, remove in v4.44.0)
 }
 
 // Setup initializes the Gin router with all routes and middleware.

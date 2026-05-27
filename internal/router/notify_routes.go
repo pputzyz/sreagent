@@ -76,4 +76,26 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 		auth.DELETE("/me/notify-configs/:mediaType", h.UserNotifyConfig.DeleteByMediaType)
 	}
 
+	// Team Notify Channels (团队通知渠道配置)
+	if h.TeamNotifyChannel != nil {
+		tnc := auth.Group("/team-notify-channels")
+		{
+			tnc.GET("/:teamId", h.TeamNotifyChannel.List)
+			tnc.POST("", operate, h.TeamNotifyChannel.Create)
+			tnc.PUT("/:id", operate, h.TeamNotifyChannel.Update)
+			tnc.POST("/:id/default", operate, h.TeamNotifyChannel.SetDefault)
+			tnc.DELETE("/:id", operate, h.TeamNotifyChannel.Delete)
+		}
+	}
+
+	// User Team Notify Preferences (用户团队通知偏好)
+	if h.UserTeamNotifyPref != nil {
+		utnp := auth.Group("/user/team-notify-prefs")
+		{
+			utnp.GET("", h.UserTeamNotifyPref.List)
+			utnp.POST("", h.UserTeamNotifyPref.Upsert)
+			utnp.DELETE("/:id", h.UserTeamNotifyPref.Delete)
+		}
+	}
+
 }

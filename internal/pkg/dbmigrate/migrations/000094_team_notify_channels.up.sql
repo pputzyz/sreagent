@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS team_notify_channels (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    team_id BIGINT NOT NULL,
+    media_id BIGINT NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT false,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_team_media (team_id, media_id),
+    INDEX idx_team_id (team_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

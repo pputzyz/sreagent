@@ -264,6 +264,19 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	alertChannelSvc := service.NewAlertChannelService(alertChannelRepo, notifyMediaRepo, notifyMediaSvc, zapLogger)
 	userNotifyConfigSvc := service.NewUserNotifyConfigService(userNotifyConfigRepo, zapLogger)
 
+	// Team notify channel service
+	teamNotifyChannelRepo := repository.NewTeamNotifyChannelRepository(db)
+	teamNotifyChannelSvc := service.NewTeamNotifyChannelService(teamNotifyChannelRepo, notifyMediaRepo, zapLogger)
+	teamNotifyChannelHandler := handler.NewTeamNotifyChannelHandler(teamNotifyChannelSvc, zapLogger)
+
+	// User team notify preference service
+	userTeamNotifyPrefRepo := repository.NewUserTeamNotifyPrefRepository(db)
+	userTeamNotifyPrefSvc := service.NewUserTeamNotifyPrefService(userTeamNotifyPrefRepo, zapLogger)
+	userTeamNotifyPrefHandler := handler.NewUserTeamNotifyPrefHandler(userTeamNotifyPrefSvc, zapLogger)
+
+	// AlertChannel compat handler (deprecated, remove in v4.44.0)
+	alertChannelCompatHandler := handler.NewAlertChannelCompatHandler(zapLogger)
+
 	// Status service
 	statusServiceSvc := service.NewStatusServiceService(statusServiceRepo, zapLogger)
 	statusSubRepo := repository.NewStatusSubscriptionRepository(db)
@@ -735,6 +748,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		UserContact:         handler.NewUserContactHandler(userContactSvc, zapLogger),
 		BuiltinDashboard:    handler.NewBuiltinDashboardHandler(builtinDashboardSvc),
 		StatusSubscription:  statusSubHandler,
+		TeamNotifyChannel:   teamNotifyChannelHandler,
+		UserTeamNotifyPref:  userTeamNotifyPrefHandler,
+		AlertChannelCompat:  alertChannelCompatHandler,
 	}
 
 	// Inject audit service into handlers that support it

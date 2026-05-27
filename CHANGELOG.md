@@ -4,6 +4,32 @@
 
 ---
 
+## [v4.42.0] — 2026-05-27
+
+### Alert/Oncall 模块重构 — 后端基础
+
+**设计思想：** 参考 Nightingale V9，统一告警分派链路：AlertRule → AlertEvent → DispatchPolicy → EscalationPolicy → NotifyMedia。通知子系统归属 Oncall 模块独占管理。
+
+**数据模型变更：**
+- DispatchPolicy 新增 `UnifiedTemplateID` 字段（统一模板 ID）
+- NotifyMedia 新增 `TeamID` 字段（团队专属渠道，NULL = 全局共享）
+- 新建 `team_notify_channels` 表 — 团队通知渠道关联
+- 新建 `user_team_notify_prefs` 表 — 用户团队通知偏好覆盖
+- AlertChannel 数据迁移至 DispatchPolicy（ETL，兼容期保留原表）
+
+**新增 API 端点：**
+- `GET/POST/PUT/DELETE /api/v1/team-notify-channels/*` — 团队通知渠道 CRUD
+- `GET/POST/DELETE /api/v1/user/team-notify-prefs/*` — 用户通知偏好 CRUD
+- AlertChannel 路由标记为 deprecated（v4.44.0 移除）
+
+**引擎变更：**
+- `alert_rules.datasource_id` 已支持 NULL（同类型所有启用数据源评估）
+- 多查询规则支持查询级独立数据源回退
+
+**迁移文件：** 000092-000097（dispatch_policy_ext, alert_channel_to_dispatch, team_notify_channels, notify_media_team_id, user_team_notify_prefs, alert_rule_ds_nullable）
+
+---
+
 ## [v4.41.9] — 2026-05-26
 
 ### 审计驱动修复（6 个后端 stub + OIDC + 前端错误处理）
