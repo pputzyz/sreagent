@@ -81,6 +81,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/settings/ai', component: () => import('@/pages/settings/AISettings.vue'), meta: { title: 'menu.aiConfig', requiresRole: ['admin'] } },
       { path: 'platform/llm-configs', component: () => import('@/pages/platform/LLMConfigs.vue'), meta: { title: 'menu.llmConfigs', requiresRole: ['admin'] } },
       { path: 'platform/mcp-servers', component: () => import('@/pages/platform/MCPServers.vue'), meta: { title: 'menu.mcpServers', requiresRole: ['admin'] } },
+      { path: 'platform/ai-config', component: () => import('@/pages/ai/ConfigView.vue'), meta: { title: 'menu.aiConfig', requiresRole: ['admin'] } },
       { path: 'platform/settings/security', component: () => import('@/pages/settings/Security.vue'), meta: { title: 'menu.security', requiresRole: ['admin'] } },
       { path: 'platform/settings/contacts', component: () => import('@/pages/settings/Contacts.vue'), meta: { title: 'menu.contacts' } },
       { path: 'platform/settings/site-info', component: () => import('@/pages/settings/SiteInfo.vue'), meta: { title: 'menu.siteInfo', requiresRole: ['admin'] } },

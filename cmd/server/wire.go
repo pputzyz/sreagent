@@ -275,7 +275,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	userTeamNotifyPrefHandler := handler.NewUserTeamNotifyPrefHandler(userTeamNotifyPrefSvc, zapLogger)
 
 	// AlertChannel compat handler (deprecated, remove in v4.44.0)
-	alertChannelCompatHandler := handler.NewAlertChannelCompatHandler(zapLogger)
+	alertChannelCompatHandler := handler.NewAlertChannelCompatHandler(zapLogger) //nolint:staticcheck
 
 	// Status service
 	statusServiceSvc := service.NewStatusServiceService(statusServiceRepo, zapLogger)
@@ -750,7 +750,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		StatusSubscription:  statusSubHandler,
 		TeamNotifyChannel:   teamNotifyChannelHandler,
 		UserTeamNotifyPref:  userTeamNotifyPrefHandler,
-		AlertChannelCompat:  alertChannelCompatHandler,
+		AlertChannelCompat:  alertChannelCompatHandler, //nolint:staticcheck
 	}
 
 	// Inject audit service into handlers that support it

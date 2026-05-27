@@ -523,10 +523,10 @@ func (s *LarkBotService) TestBotAPI(ctx context.Context) error {
 		// Auth errors (bad AppID/AppSecret) are wrapped as *LarkError
 		var larkErr *lark.LarkError
 		if errors.As(err, &larkErr) {
-			return fmt.Errorf("Lark bot API authentication failed (code %d): %s", larkErr.Code, larkErr.Message)
+			return fmt.Errorf("lark bot API authentication failed (code %d): %s", larkErr.Code, larkErr.Message)
 		}
 		// Network or other unexpected errors
-		return fmt.Errorf("Lark bot API test failed: %w", err)
+		return fmt.Errorf("lark bot API test failed: %w", err)
 	}
 	return nil
 }

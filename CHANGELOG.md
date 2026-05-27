@@ -4,6 +4,23 @@
 
 ---
 
+## [v4.43.1] — 2026-05-27
+
+### AI 统一配置入口 + Lint 修复
+
+**AI 统一配置入口：**
+- 新增 `ConfigView.vue` — 统一 AI 配置页面，侧边栏导航整合 4 个子页面：AI Settings / LLM Configs / MCP Servers / Skills
+- 路由 `/platform/ai-config`（admin only）
+- 侧边栏菜单精简：4 个 AI 配置项合并为 1 个「AI 配置」入口
+- UnifiedDashboard 快捷链接同步更新
+
+**Lint 修复（CI 阻断）：**
+- `larkbot.go`: 错误字符串首字母小写（ST1005）
+- `inspection_scheduler.go`: 检查 `resp.Body.Close()` 返回值（errcheck）
+- `router.go` + `wire.go`: 抑制 AlertChannelCompatHandler 的 deprecated 警告（SA1019，v4.44.0 移除）
+
+---
+
 ## [v4.43.0] — 2026-05-27
 
 ### 前端路由迁移 + 菜单重构 + 团队渠道 UI

@@ -2705,6 +2705,11 @@ export default {
     noMatchDs: 'No match',
   },
 
+  // ── AI Config ──
+  aiConfig: {
+    subtitle: 'Manage AI providers, models, tools, and skills',
+  },
+
   // ── AI Settings ──
   aiSettings: {
     title: 'AI Configuration',

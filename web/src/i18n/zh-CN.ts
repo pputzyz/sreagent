@@ -2726,6 +2726,11 @@ export default {
     noMatchDs: '未匹配',
   },
 
+  // ── AI Config ──
+  aiConfig: {
+    subtitle: '管理 AI 提供商、模型、工具和技能',
+  },
+
   // ── AI Settings ──
   aiSettings: {
     title: 'AI 配置',
