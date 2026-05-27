@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -71,9 +72,12 @@ func (h *InspectionHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	uid, _ := c.Get("user_id")
-	userID, _ := uid.(uint)
-	task.CreatedBy = userID
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
+	task.CreatedBy = uid
 
 	if err := h.taskRepo.CreateTask(c.Request.Context(), &task); err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
@@ -82,7 +86,9 @@ func (h *InspectionHandler) CreateTask(c *gin.Context) {
 
 	// 注册到调度器
 	if task.Enabled {
-		_ = h.schedSvc.AddTask(task)
+		if err := h.schedSvc.AddTask(task); err != nil {
+			zap.L().Error("failed to register inspection task to scheduler", zap.Uint("task_id", task.ID), zap.Error(err))
+		}
 	}
 
 	Success(c, task)
@@ -113,7 +119,9 @@ func (h *InspectionHandler) UpdateTask(c *gin.Context) {
 
 	// 更新调度器
 	if existing.Enabled {
-		_ = h.schedSvc.AddTask(*existing)
+		if err := h.schedSvc.AddTask(*existing); err != nil {
+			zap.L().Error("failed to update inspection task in scheduler", zap.Uint("task_id", existing.ID), zap.Error(err))
+		}
 	} else {
 		h.schedSvc.RemoveTask(existing.ID)
 	}

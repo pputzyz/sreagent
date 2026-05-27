@@ -2742,6 +2742,8 @@ export default {
   // ── AI Config ──
   aiConfig: {
     subtitle: '管理 AI 提供商、模型、工具和技能',
+    groupSettings: '设置',
+    groupExtensions: '扩展',
   },
 
   // ── AI Settings ──
@@ -3222,6 +3224,7 @@ export default {
   },
   aiSkills: {
     title: 'AI 技能管理',
+    subtitle: '管理 AI Agent 的结构化技能文件',
     create: '创建技能',
     edit: '编辑技能',
     import: '导入技能',

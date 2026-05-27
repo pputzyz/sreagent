@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"fmt"
 	"math/big"
 	"net/smtp"
@@ -321,11 +322,42 @@ func generateVerificationCode() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-// sendSMTPWithTLS sends an email via implicit TLS connection.
+// sendSMTPWithTLS sends an email via implicit TLS connection (port 465).
 func sendSMTPWithTLS(addr, host, username, password, from, to, msg string) error {
-	// Implementation delegated to the existing SMTP infrastructure.
-	// For now, use the standard net/smtp with TLS.
-	return sendSMTPPlain(addr, username, password, from, to, msg)
+	tlsCfg := &tls.Config{ServerName: host}
+	conn, err := tls.Dial("tcp", addr, tlsCfg)
+	if err != nil {
+		return fmt.Errorf("TLS dial: %w", err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return fmt.Errorf("smtp client: %w", err)
+	}
+	defer client.Close()
+
+	auth := smtp.PlainAuth("", username, password, host)
+	if err = client.Auth(auth); err != nil {
+		return fmt.Errorf("smtp auth: %w", err)
+	}
+	if err = client.Mail(from); err != nil {
+		return fmt.Errorf("smtp mail: %w", err)
+	}
+	if err = client.Rcpt(to); err != nil {
+		return fmt.Errorf("smtp rcpt: %w", err)
+	}
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp data: %w", err)
+	}
+	if _, err = w.Write([]byte(msg)); err != nil {
+		return fmt.Errorf("smtp write: %w", err)
+	}
+	if err = w.Close(); err != nil {
+		return fmt.Errorf("smtp close: %w", err)
+	}
+	return client.Quit()
 }
 
 // sendSMTPPlain sends an email via STARTTLS or plain SMTP.

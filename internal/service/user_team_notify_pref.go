@@ -32,19 +32,9 @@ func (s *UserTeamNotifyPrefService) ListByUser(ctx context.Context, userID uint)
 	return s.repo.ListByUser(ctx, userID)
 }
 
-func (s *UserTeamNotifyPrefService) ListByUserTeam(ctx context.Context, userID, teamID uint) ([]model.UserTeamNotifyPref, error) {
-	return s.repo.ListByUserTeam(ctx, userID, teamID)
-}
-
 func (s *UserTeamNotifyPrefService) Delete(ctx context.Context, id, userID uint) error {
-	prefs, err := s.repo.ListByUser(ctx, userID)
-	if err != nil {
-		return apperr.Wrap(apperr.ErrDatabase, err)
+	if err := s.repo.DeleteByUser(ctx, id, userID); err != nil {
+		return apperr.Wrap(apperr.ErrNotFound, err)
 	}
-	for _, p := range prefs {
-		if p.ID == id {
-			return s.repo.Delete(ctx, id)
-		}
-	}
-	return apperr.ErrNotFound
+	return nil
 }

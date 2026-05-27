@@ -81,8 +81,7 @@ func (h *KnowledgeHandler) Create(c *gin.Context) {
 		return
 	}
 
-	uid, ok := h.GetCurrentUserID(c)
-	if ok {
+	if uid, ok := GetCurrentUserIDOK(c); ok {
 		doc.OwnerID = &uid
 	}
 
@@ -205,12 +204,3 @@ func (h *KnowledgeHandler) Helpful(c *gin.Context) {
 	Success(c, nil)
 }
 
-// GetCurrentUserID extracts the current user ID from the gin context.
-func (h *KnowledgeHandler) GetCurrentUserID(c *gin.Context) (uint, bool) {
-	val, exists := c.Get("user_id")
-	if !exists {
-		return 0, false
-	}
-	id, ok := val.(uint)
-	return id, ok
-}

@@ -4,6 +4,52 @@
 
 ---
 
+## [v4.44.3] — 2026-05-27
+
+### 全平台代码质量审查 + 修复
+
+**迁移文件修复：**
+- 删除 `000097_alert_rule_ds_nullable` — 与 `000010` 完全重复（同一 ALTER TABLE 语句）
+- 保留 `000098_fix_signed_to_unsigned` — 为已部署 v4.42.0 的生产库修复有符号 BIGINT 列
+- 修正 `000094`/`000095`/`000096` 列类型：`BIGINT` → `BIGINT UNSIGNED`（与初始架构一致）
+
+**后端安全修复：**
+- StatusSubscription 路由添加 `adminOnly` RBAC 守卫（POST/DELETE），防止任意用户订阅/退订
+- `StatusSubscriptionHandler.List` 响应格式修正：`c.JSON` → `Success()`，统一响应结构
+- `sendSMTPWithTLS` 实现真正的 TLS 连接（`tls.Dial`），不再静默回退到明文
+- 修复 4 个 handler 中 unsafe `c.Get("user_id")`：改用 `GetCurrentUserIDOK` + 401 返回
+  - `diagnostic_workflow.go`、`inspection.go`、`ai_agent.go`（2 处）
+- `UserNotificationHandler` 全部 5 个方法改用 `GetCurrentUserIDOK`，缺失 user_id 时返回 401
+- 移除 broken standalone `GET /dispatch-policies` 路由（缺少 channel ID 参数，调用必失败）
+- Inspection handler 调度器错误不再静默丢弃，记录 zap.Error 日志
+
+**后端代码质量：**
+- 删除 `KnowledgeHandler.GetCurrentUserID` 重复方法，使用包级 `GetCurrentUserIDOK`
+- 删除 `UserTeamNotifyPrefService.ListByUserTeam` 死代码（零调用者）
+- 优化 `UserTeamNotifyPrefService.Delete`：改用 `DeleteByUser` 直接 DB 查询，不再全量加载
+- Repository 新增 `DeleteByUser(id, userID)` 方法，带 `RowsAffected` 检查
+
+**前端权限修复：**
+- `Presets.vue` 批量应用/导入 YAML/单条应用按钮添加 `v-if="authStore.canManage"` 守卫
+- `DiagnosticWorkflows.vue` 空状态创建按钮添加 `hasPerm('rules.manage')` 守卫
+- `ChangeEvents.vue` 空状态创建按钮添加 `hasPerm('rules.manage')` 守卫
+
+**前端 i18n 修复：**
+- `useAppNav.ts` 移除硬编码中文 fallback `'通知中心'`
+- `ConfigView.vue` 硬编码 `'SETTINGS'`/`'EXTENSIONS'` 改用 `t('aiConfig.groupSettings')`/`t('aiConfig.groupExtensions')`
+- 新增 `aiConfig.groupSettings`/`groupExtensions` 到 en.ts + zh-CN.ts
+- 新增 `aiSkills.subtitle` 到 en.ts + zh-CN.ts
+- 新增 `channel.mtta`/`channel.mttr` 到 en.ts（zh-CN 已有）
+
+**文档更新：**
+- CLAUDE.md 版本号 → v4.44.3，目录计数修正（model 62/handler 77/service 98/repository 59/engine 22/middleware 8）
+- MODULES.md 版本号 → v4.44.3，统计数据同步更新
+- MODULES.md 修正巡检模块迁移引用：`000061` → `000086`
+- web/package.json 版本号 → 4.44.3
+- README.md 更新项目结构、核心能力、技术栈、权限模型
+
+---
+
 ## [v4.44.2] — 2026-05-27
 
 ### 迁移 000097 外键约束修复

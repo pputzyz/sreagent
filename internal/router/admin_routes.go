@@ -74,9 +74,7 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 	if h.DispatchPolicy != nil {
 		dp := auth.Group("/dispatch-policies")
 		{
-			dp.GET("", h.DispatchPolicy.List)
 			dp.GET("/:id", h.DispatchPolicy.Get)
-			dp.POST("", manage, middleware.RequirePerm("dispatch.write"), h.DispatchPolicy.Create)
 			dp.PUT("/:id", manage, middleware.RequirePerm("dispatch.write"), h.DispatchPolicy.Update)
 			dp.DELETE("/:id", manage, middleware.RequirePerm("dispatch.write"), h.DispatchPolicy.Delete)
 		}

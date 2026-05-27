@@ -45,9 +45,12 @@ func (h *AgentHandler) RunAgent(c *gin.Context) {
 	}
 
 	// 异步执行：立即返回任务 ID，前端轮询状态
-	uid, _ := c.Get("user_id")
-	userID, _ := uid.(uint)
-	task, err := h.agentSvc.StartAgent(c.Request.Context(), userID, req.Query)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
+	task, err := h.agentSvc.StartAgent(c.Request.Context(), uid, req.Query)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "Agent 启动失败: "+err.Error()))
 		return
@@ -220,10 +223,13 @@ func (h *AgentHandler) streamAgentTaskInMemory(c *gin.Context, taskID string, ta
 // @Router /ai/agent/conversations [get]
 func (h *AgentHandler) ListConversations(c *gin.Context) {
 	pq := GetPageQuery(c)
-	uid, _ := c.Get("user_id")
-	userID, _ := uid.(uint)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
 
-	convs, total, err := h.agentSvc.ListConversations(c.Request.Context(), userID, pq.Page, pq.PageSize)
+	convs, total, err := h.agentSvc.ListConversations(c.Request.Context(), uid, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return

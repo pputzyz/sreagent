@@ -163,10 +163,13 @@ func (h *DiagnosticWorkflowHandler) StartRun(c *gin.Context) {
 		return
 	}
 
-	uid, _ := c.Get("user_id")
-	userID, _ := uid.(uint)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
 
-	run, err := h.svc.StartRun(c.Request.Context(), uint(id), req.IncidentID, &userID)
+	run, err := h.svc.StartRun(c.Request.Context(), uint(id), req.IncidentID, &uid)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, err.Error()))
 		return

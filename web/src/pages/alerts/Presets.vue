@@ -20,10 +20,12 @@ import {
 } from '@vicons/ionicons5'
 import { getErrorMessage } from '@/utils/format'
 import { severityLabel, severityType } from '@/utils/severity'
+import { useAuthStore } from '@/stores/auth'
 
 const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 // ─── Category tabs ───
 const activeCategory = ref('')
@@ -264,11 +266,11 @@ onMounted(() => {
   <div class="presets-page">
     <PageHeader :title="t('preset.title')" :subtitle="t('preset.subtitle')">
       <template #actions>
-        <n-button size="small" type="primary" @click="openBatchModal">
+        <n-button v-if="authStore.canManage" size="small" type="primary" @click="openBatchModal">
           <template #icon><n-icon :component="LayersOutline" /></template>
           {{ t('preset.batchApply') }}
         </n-button>
-        <n-button size="small" secondary @click="showImportModal = true">
+        <n-button v-if="authStore.canManage" size="small" secondary @click="showImportModal = true">
           <template #icon><n-icon :component="CloudUploadOutline" /></template>
           {{ t('preset.importYaml') }}
         </n-button>
@@ -329,7 +331,7 @@ onMounted(() => {
           class="empty-state"
         >
           <template #extra>
-            <n-button size="small" type="primary" @click="showImportModal = true">
+            <n-button v-if="authStore.canManage" size="small" type="primary" @click="showImportModal = true">
               {{ t('preset.importYaml') }}
             </n-button>
           </template>
@@ -365,7 +367,7 @@ onMounted(() => {
             <div class="preset-actions">
               <n-tooltip trigger="hover">
                 <template #trigger>
-                  <n-button size="small" type="primary" @click="openApplyDialog(preset)">
+                  <n-button v-if="authStore.canManage" size="small" type="primary" @click="openApplyDialog(preset)">
                     <template #icon><n-icon :component="RocketOutline" /></template>
                     {{ t('preset.apply') }}
                   </n-button>

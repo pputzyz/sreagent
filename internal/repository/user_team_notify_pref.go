@@ -37,10 +37,12 @@ func (r *UserTeamNotifyPrefRepository) ListByUser(ctx context.Context, userID ui
 	return prefs, err
 }
 
-func (r *UserTeamNotifyPrefRepository) ListByUserTeam(ctx context.Context, userID, teamID uint) ([]model.UserTeamNotifyPref, error) {
-	var prefs []model.UserTeamNotifyPref
-	err := r.db.WithContext(ctx).Where("user_id = ? AND team_id = ?", userID, teamID).Find(&prefs).Error
-	return prefs, err
+func (r *UserTeamNotifyPrefRepository) DeleteByUser(ctx context.Context, id, userID uint) error {
+	result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&model.UserTeamNotifyPref{})
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return result.Error
 }
 
 func (r *UserTeamNotifyPrefRepository) Update(ctx context.Context, pref *model.UserTeamNotifyPref) error {

@@ -126,8 +126,8 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 	if h.StatusSubscription != nil {
 		statusSub := auth.Group("/status-subscriptions")
 		{
-			statusSub.POST("", h.StatusSubscription.Subscribe)
-			statusSub.DELETE("", h.StatusSubscription.Unsubscribe)
+			statusSub.POST("", adminOnly, h.StatusSubscription.Subscribe)
+			statusSub.DELETE("", adminOnly, h.StatusSubscription.Unsubscribe)
 			statusSub.GET("", adminOnly, h.StatusSubscription.List)
 		}
 		// Public endpoint for unauthenticated unsubscribe

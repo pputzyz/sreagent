@@ -201,7 +201,7 @@ export function useAppNav() {
             })(),
           },
           {
-            label: t('menu.notifyCenter') || '通知中心',
+            label: t('menu.notifyCenter'),
             items: (() => {
               const items: MenuItem[] = []
               if (authStore.canManage) {

@@ -2180,6 +2180,8 @@ export default {
     notifyAndEscalation: 'Notify & Escalation',
     labelEnhancement: 'Label Enhancement',
     noChannelsDesc: 'Collaboration spaces group incidents by service or team. Create one to start managing incidents.',
+    mtta: 'MTTA',
+    mttr: 'MTTR',
     autoCloseMinutesUnit: '{n} min',
     maxDimensionsReached: 'Maximum 5 dimensions reached',
     maxThresholdsReached: 'Maximum 5 thresholds reached',
@@ -2721,6 +2723,8 @@ export default {
   // ── AI Config ──
   aiConfig: {
     subtitle: 'Manage AI providers, models, tools, and skills',
+    groupSettings: 'SETTINGS',
+    groupExtensions: 'EXTENSIONS',
   },
 
   // ── AI Settings ──
@@ -3201,6 +3205,7 @@ export default {
   },
   aiSkills: {
     title: 'AI Skills',
+    subtitle: 'Manage structured skill files for AI Agent',
     create: 'Create Skill',
     edit: 'Edit Skill',
     import: 'Import Skill',

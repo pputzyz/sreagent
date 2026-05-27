@@ -38,14 +38,14 @@ interface NavItem {
 
 const groups = computed<Array<{ eyebrow: string; items: NavItem[] }>>(() => [
   {
-    eyebrow: 'SETTINGS',
+    eyebrow: t('aiConfig.groupSettings'),
     items: [
       { key: 'settings', icon: SettingsOutline, label: t('menu.aiConfig'), desc: t('aiSettings.subtitle') },
       { key: 'llm', icon: HardwareChipOutline, label: t('menu.llmConfigs'), desc: t('llmConfigs.subtitle') || t('menu.llmConfigs') },
     ],
   },
   {
-    eyebrow: 'EXTENSIONS',
+    eyebrow: t('aiConfig.groupExtensions'),
     items: [
       { key: 'mcp', icon: SparklesOutline, label: t('menu.mcpServers'), desc: t('mcpServers.subtitle') || t('menu.mcpServers') },
       { key: 'skills', icon: CodeOutline, label: t('menu.aiSkills'), desc: t('aiSkills.subtitle') || t('menu.aiSkills') },

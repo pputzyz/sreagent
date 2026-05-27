@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-05-26 | tag: v4.41.7
-> 共 56 个 model, 68 个 handler, 82 个 service, 54 个 repository, 350+ API 端点, 17 种通知渠道
+> 最后更新: 2026-05-27 | tag: v4.44.3
+> 共 62 个 model, 77 个 handler, 98 个 service, 59 个 repository, 350+ API 端点, 17 种通知渠道
 
 ---
 
@@ -404,7 +404,7 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
   - `components/common/CronInput.vue` — Cron 表达式输入组件
   - `pages/platform/inspections/Index.vue` — 任务列表 + 创建/编辑 Modal
   - `pages/platform/inspections/RunDetail.vue` — 运行报告详情
-- **迁移**: `000061_inspection_task.{up,down}.sql`
+- **迁移**: `000086_inspection_task.{up,down}.sql`
 - **依赖**: ai-agent, ai-tools, leader-election, cron/v3
 - **状态**: ✅ 完成
 

@@ -19,7 +19,11 @@ func NewUserNotificationHandler(svc *service.UserNotificationService) *UserNotif
 
 // List handles GET /notifications — list user's notifications.
 func (h *UserNotificationHandler) List(c *gin.Context) {
-	uid := GetCurrentUserID(c)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
@@ -39,7 +43,11 @@ func (h *UserNotificationHandler) List(c *gin.Context) {
 
 // CountUnread handles GET /notifications/unread-count.
 func (h *UserNotificationHandler) CountUnread(c *gin.Context) {
-	uid := GetCurrentUserID(c)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
 	count, err := h.svc.CountUnread(c.Request.Context(), uid)
 	if err != nil {
 		Error(c, err)
@@ -50,7 +58,11 @@ func (h *UserNotificationHandler) CountUnread(c *gin.Context) {
 
 // MarkRead handles PATCH /notifications/:id/read.
 func (h *UserNotificationHandler) MarkRead(c *gin.Context) {
-	uid := GetCurrentUserID(c)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
@@ -65,7 +77,11 @@ func (h *UserNotificationHandler) MarkRead(c *gin.Context) {
 
 // MarkAllRead handles POST /notifications/read-all.
 func (h *UserNotificationHandler) MarkAllRead(c *gin.Context) {
-	uid := GetCurrentUserID(c)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
 	if err := h.svc.MarkAllRead(c.Request.Context(), uid); err != nil {
 		Error(c, err)
 		return
@@ -75,7 +91,11 @@ func (h *UserNotificationHandler) MarkAllRead(c *gin.Context) {
 
 // Delete handles DELETE /notifications/:id.
 func (h *UserNotificationHandler) Delete(c *gin.Context) {
-	uid := GetCurrentUserID(c)
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))

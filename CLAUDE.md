@@ -1,6 +1,6 @@
 # CLAUDE.md — SREAgent
 
-> **v4.44.2** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
+> **v4.44.3** | Go 1.25 + Gin + Vue 3 + MySQL 8 + Redis 7
 
 ## 代码约定
 
@@ -20,9 +20,9 @@
 ```
 cmd/server/main.go           # 入口 + DI wiring
 internal/
-  model/ (59) handler/ (70) service/ (96) repository/ (56)
-  engine/ (10)               # 告警引擎：evaluator + rule_eval + suppression + heartbeat + escalation + multi_query + pipeline
-  middleware/ (3)            # JWT / CORS / Logger
+  model/ (62) handler/ (77) service/ (98) repository/ (59)
+  engine/ (22)               # 告警引擎：evaluator + rule_eval + suppression + heartbeat + escalation + multi_query + pipeline
+  middleware/ (8)            # JWT / CORS / Logger / Permission / RateLimit / WebhookAuth
   router/ (21 files)         # 350+ 端点
   pkg/                       # dbmigrate / datasource / lark / redis / errors / hashring / tplx / mcp / ldapx
 web/src/                     # Vue 3 前端

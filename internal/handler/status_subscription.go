@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
@@ -61,5 +59,5 @@ func (h *StatusSubscriptionHandler) List(c *gin.Context) {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": subs})
+	Success(c, subs)
 }

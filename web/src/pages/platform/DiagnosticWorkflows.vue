@@ -477,7 +477,7 @@ onMounted(() => {
           style="padding: 60px 0"
         >
           <template #extra>
-            <n-button type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
+            <n-button v-if="hasPerm('rules.manage')" type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
           </template>
         </n-empty>
 
