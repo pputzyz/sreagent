@@ -4,6 +4,16 @@
 
 ---
 
+## [v4.44.2] — 2026-05-27
+
+### 迁移 000097 外键约束修复
+
+- `data_source_id` 列类型修正：`BIGINT` → `BIGINT UNSIGNED`（匹配 `datasources.id` 的 `bigint unsigned`）
+- FK drop 改用 `IF EXISTS` 处理脏状态重试（数据库从 dirty version 97 回退后 FK 可能已被删除）
+- down.sql 同步修正：使用 `BIGINT UNSIGNED NOT NULL DEFAULT 0` + 正确的表名 `datasources`
+
+---
+
 ## [v4.44.1] — 2026-05-27
 
 ### 死代码清理 + i18n 修复 + 权限守卫
