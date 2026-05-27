@@ -8,12 +8,14 @@ import { useI18n } from 'vue-i18n'
 import { escalationApi, teamApi, userApi, scheduleApi } from '@/api'
 import type { EscalationPolicy, Team, User, Schedule } from '@/types'
 import { getErrorMessage } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
 const dialog = useDialog()
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const policies = ref<EscalationPolicy[]>([])
@@ -187,8 +189,10 @@ const columns = [
     width: 160,
     render: (row: EscalationPolicy) =>
       h(NSpace, { size: 'small' }, () => [
-        h(NButton, { size: 'tiny', secondary: true, onClick: () => openEdit(row) }, () => t('common.edit')),
-        h(NButton, { size: 'tiny', type: 'error', secondary: true, onClick: () => handleDelete(row.id) }, () => t('common.delete')),
+        ...(authStore.canManage ? [
+          h(NButton, { size: 'tiny', secondary: true, onClick: () => openEdit(row) }, () => t('common.edit')),
+          h(NButton, { size: 'tiny', type: 'error', secondary: true, onClick: () => handleDelete(row.id) }, () => t('common.delete')),
+        ] : []),
       ]),
   },
 ]
@@ -203,7 +207,7 @@ onMounted(() => {
   <div class="page-container">
     <PageHeader :title="t('escalation.policies')" :subtitle="t('escalation.policiesSubtitle')">
       <template #actions>
-        <n-button type="primary" size="small" @click="openCreate">
+        <n-button v-if="authStore.canManage" type="primary" size="small" @click="openCreate">
           <template #icon><n-icon :component="AddOutline" /></template>
           {{ t('escalation.createPolicy') }}
         </n-button>

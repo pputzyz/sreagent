@@ -85,7 +85,6 @@ declare module 'vue' {
     QueryPanel: typeof import('./components/query/QueryPanel.vue')['default']
     QueryPanelContent: typeof import('./components/query/QueryPanelContent.vue')['default']
     QueryResultChart: typeof import('./components/query/QueryResultChart.vue')['default']
-    QueryResultTable: typeof import('./components/query/QueryResultTable.vue')['default']
     QueryRow: typeof import('./components/query/QueryRow.vue')['default']
     QuickSilenceModal: typeof import('./components/noise/QuickSilenceModal.vue')['default']
     ReassignModal: typeof import('./components/incident/ReassignModal.vue')['default']

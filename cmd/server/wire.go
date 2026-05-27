@@ -353,9 +353,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Wire pipeline engine into notify rule service (for PipelineID references)
 	notifyRuleSvc.SetPipelineEngine(pipelineEngine, eventPipelineRepo)
 
-	// TODO(AIOps P3): wire IncidentContextService into AgentService when agent gains incident-aware context
-	// incidentContextSvc := service.NewIncidentContextService(incidentRepo, eventRepo, knowledgeSvc, scheduleSvc, bizGroupSvc, zapLogger)
-
 	// Alertmanager config import service
 	alertmanagerImportSvc := service.NewAlertmanagerImportService(channelV2Svc, inhibitionRuleSvc, zapLogger)
 

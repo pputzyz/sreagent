@@ -84,9 +84,9 @@ function syncTriggerLabelsStr() {
 
 // ─── Options ───
 const stepTypeOptions = computed(() => [
-  { label: 'Query', value: 'query' },
-  { label: 'Command', value: 'command' },
-  { label: 'Check', value: 'check' },
+  { label: t('diagnostic.stepQuery'), value: 'query' },
+  { label: t('diagnostic.stepCommand'), value: 'command' },
+  { label: t('diagnostic.stepCheck'), value: 'check' },
 ])
 
 const onFailureOptions = computed(() => [
@@ -95,10 +95,10 @@ const onFailureOptions = computed(() => [
 ])
 
 const runStatusOptions = computed(() => [
-  { label: 'Pending', value: 'pending' },
-  { label: 'Running', value: 'running' },
-  { label: 'Completed', value: 'completed' },
-  { label: 'Failed', value: 'failed' },
+  { label: t('diagnostic.statusPending'), value: 'pending' },
+  { label: t('diagnostic.statusRunning'), value: 'running' },
+  { label: t('diagnostic.statusCompleted'), value: 'completed' },
+  { label: t('diagnostic.statusFailed'), value: 'failed' },
 ])
 
 // ─── Filtered workflows ───

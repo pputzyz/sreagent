@@ -79,10 +79,10 @@ const environmentOptions = computed(() => [
 ])
 
 const riskLevelOptions = computed(() => [
-  { label: 'Low', value: 'low' },
-  { label: 'Medium', value: 'medium' },
-  { label: 'High', value: 'high' },
-  { label: 'Critical', value: 'critical' },
+  { label: t('changeEvents.riskLow'), value: 'low' },
+  { label: t('changeEvents.riskMedium'), value: 'medium' },
+  { label: t('changeEvents.riskHigh'), value: 'high' },
+  { label: t('changeEvents.riskCritical'), value: 'critical' },
 ])
 
 // ─── Filtered events (client-side for search) ───
@@ -394,7 +394,7 @@ onMounted(fetchEvents)
         <n-form label-placement="top">
           <div style="display: flex; gap: 16px;">
             <n-form-item :label="t('changeEvents.source')" style="flex: 1;" required>
-              <n-input v-model:value="form.source" placeholder="e.g. jenkins" />
+              <n-input v-model:value="form.source" :placeholder="t('changeEvents.sourcePlaceholder')" />
             </n-form-item>
             <n-form-item :label="t('changeEvents.changeType')" style="flex: 1;">
               <n-select v-model:value="form.change_type" :options="changeTypeOptions" />

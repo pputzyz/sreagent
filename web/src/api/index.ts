@@ -6,7 +6,6 @@ export {
   alertGroupsApi,
   alertExportApi,
   engineApi,
-  expressionApi,
   templateApi,
 } from './alert'
 
@@ -37,7 +36,6 @@ export {
   aiAgentApi,
   authApi,
   auditLogApi,
-  userNotifyConfigApi,
   larkBotApi,
   oidcSettingsApi,
   ldapSettingsApi,
@@ -122,8 +120,8 @@ export { siteInfoApi } from './admin'
 export type { SiteInfo } from './admin'
 
 // ===== Team Notify Channel =====
-export { teamNotifyChannelApi, userTeamNotifyPrefApi } from './team-notify-channel'
-export type { TeamNotifyChannel, UserTeamNotifyPref } from './team-notify-channel'
+export { teamNotifyChannelApi } from './team-notify-channel'
+export type { TeamNotifyChannel } from './team-notify-channel'
 
 // ===== Knowledge Base =====
 export { knowledgeApi } from './knowledge'
@@ -140,3 +138,19 @@ export type { DiagnosticWorkflow, DiagnosticWorkflowStep, DiagnosticRun, Diagnos
 // ===== Change Events =====
 export { changeEventApi } from './change-event'
 export type { ChangeEvent, IngestChangeEventRequest } from './change-event'
+
+// ===== Saved Views =====
+export { savedViewApi } from './saved-views'
+export type { SavedViewApiItem, SavedViewCreate, SavedViewUpdate } from './saved-views'
+
+// ===== Alert Rule Templates =====
+export { alertRuleTemplateApi } from './alert-rule-template'
+export type { AlertRuleTemplate, CreateAlertRuleTemplateRequest, UpdateAlertRuleTemplateRequest } from './alert-rule-template'
+
+// ===== Inspection =====
+export { inspectionApi } from './inspection'
+export type { InspectionTask, InspectionRun, InspectionFinding } from './inspection'
+
+// ===== Task =====
+export { taskApi, taskTplApi } from './task'
+export type { TaskTpl, CreateTaskTplRequest, UpdateTaskTplRequest, TaskRecord, TaskHostRecord, ExecuteTaskRequest } from './task'

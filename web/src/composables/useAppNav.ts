@@ -202,22 +202,36 @@ export function useAppNav() {
           },
           {
             label: t('menu.notifyCenter') || '通知中心',
-            items: [
-              { label: t('menu.notifyPolicies'),    key: '/oncall/notify/policies', icon: NotificationsOutline },
-              { label: t('menu.subscribeRules'),    key: '/oncall/config/subscribe-rules', icon: MailOutline },
-              { label: t('menu.notifyChannels'),    key: '/oncall/notify/channels', icon: SendOutline },
-              { label: t('menu.templates'),         key: '/oncall/notify/templates', icon: CopyOutline },
-              { label: t('menu.subscriptions'),     key: '/oncall/notify/subscriptions', icon: MailOutline },
-            ],
+            items: (() => {
+              const items: MenuItem[] = []
+              if (authStore.canManage) {
+                items.push(
+                  { label: t('menu.notifyPolicies'), key: '/oncall/notify/policies', icon: NotificationsOutline },
+                  { label: t('menu.notifyChannels'), key: '/oncall/notify/channels', icon: SendOutline },
+                  { label: t('menu.templates'),      key: '/oncall/notify/templates', icon: CopyOutline },
+                )
+              }
+              items.push(
+                { label: t('menu.subscribeRules'), key: '/oncall/config/subscribe-rules', icon: MailOutline },
+                { label: t('menu.subscriptions'),  key: '/oncall/notify/subscriptions', icon: MailOutline },
+              )
+              return items
+            })(),
           },
           {
             label: t('menu.configCenter'),
-            items: [
-              { label: t('menu.integrations'),     key: '/oncall/integrations', icon: LinkOutline },
-              { label: t('menu.routingRules'),      key: '/oncall/config/routing-rules', icon: GitBranchOutline },
-              { label: t('menu.escalationPolicies'), key: '/oncall/config/escalation-policies', icon: SwapVerticalOutline },
-              { label: t('menu.bizGroups'),         key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
-            ],
+            items: (() => {
+              const items: MenuItem[] = []
+              items.push({ label: t('menu.escalationPolicies'), key: '/oncall/config/escalation-policies', icon: SwapVerticalOutline })
+              if (authStore.canManage) {
+                items.push(
+                  { label: t('menu.integrations'), key: '/oncall/integrations', icon: LinkOutline },
+                  { label: t('menu.routingRules'),  key: '/oncall/config/routing-rules', icon: GitBranchOutline },
+                  { label: t('menu.bizGroups'),     key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
+                )
+              }
+              return items
+            })(),
           },
         ]
 
@@ -231,29 +245,45 @@ export function useAppNav() {
           },
           {
             label: t('menu.alerts'),
-            items: [
-              { label: t('menu.alertRules'),      key: '/alert/rules', icon: ListOutline },
-              { label: t('menu.presetRules'),       key: '/alert/presets', icon: LibraryOutline },
-              { label: t('menu.recordingRules'),   key: '/alert/recording-rules', icon: PulseOutline },
-              { label: t('menu.activeAlerts'),     key: '/alert/events', icon: FlashOutline },
-              { label: t('menu.alertHistory'),     key: '/alert/history', icon: TimeOutline },
-              { label: t('menu.muteRules'),        key: '/alert/suppression', icon: VolumeMuteOutline },
-              { label: t('menu.inhibitionRules'),  key: '/alert/suppression/inhibition', icon: VolumeMuteOutline },
-            ],
+            items: (() => {
+              const items: MenuItem[] = []
+              items.push(
+                { label: t('menu.activeAlerts'),    key: '/alert/events', icon: FlashOutline },
+                { label: t('menu.alertHistory'),    key: '/alert/history', icon: TimeOutline },
+                { label: t('menu.presetRules'),     key: '/alert/presets', icon: LibraryOutline },
+                { label: t('menu.inhibitionRules'), key: '/alert/suppression/inhibition', icon: VolumeMuteOutline },
+              )
+              if (authStore.canManage) {
+                items.push(
+                  { label: t('menu.alertRules'),    key: '/alert/rules', icon: ListOutline },
+                  { label: t('menu.recordingRules'), key: '/alert/recording-rules', icon: PulseOutline },
+                  { label: t('menu.muteRules'),     key: '/alert/suppression', icon: VolumeMuteOutline },
+                )
+              }
+              return items
+            })(),
           },
           {
             label: t('menu.data'),
-            items: [
-              { label: t('menu.datasources'), key: '/alert/datasources', icon: ServerOutline },
-              { label: t('menu.dataQuery'),   key: '/alert/explore', icon: SearchOutline },
-              { label: t('menu.metricViews'), key: '/alert/metric-views', icon: StatsChartOutline },
-              { label: t('menu.esExplorer'),  key: '/alert/es-explore', icon: SearchOutline },
-              { label: t('menu.esPatterns'),  key: '/alert/es-patterns', icon: SearchOutline },
-              { label: t('menu.eventPipelines'), key: '/alert/event-pipelines', icon: GitBranchOutline },
-              { label: t('menu.builtinMetrics'), key: '/alert/builtin-metrics', icon: StatsChartOutline },
-              { label: t('menu.dashboard'),   key: '/alert/dashboards', icon: PieChartOutline },
-              { label: t('menu.builtinDashboards'), key: '/alert/dashboards/builtin', icon: LibraryOutline },
-            ],
+            items: (() => {
+              const items: MenuItem[] = []
+              items.push(
+                { label: t('menu.dataQuery'),       key: '/alert/explore', icon: SearchOutline },
+                { label: t('menu.metricViews'),     key: '/alert/metric-views', icon: StatsChartOutline },
+                { label: t('menu.esExplorer'),      key: '/alert/es-explore', icon: SearchOutline },
+                { label: t('menu.builtinDashboards'), key: '/alert/dashboards/builtin', icon: LibraryOutline },
+              )
+              if (authStore.canManage) {
+                items.push(
+                  { label: t('menu.datasources'),     key: '/alert/datasources', icon: ServerOutline },
+                  { label: t('menu.esPatterns'),      key: '/alert/es-patterns', icon: SearchOutline },
+                  { label: t('menu.eventPipelines'),  key: '/alert/event-pipelines', icon: GitBranchOutline },
+                  { label: t('menu.builtinMetrics'),  key: '/alert/builtin-metrics', icon: StatsChartOutline },
+                  { label: t('menu.dashboard'),       key: '/alert/dashboards', icon: PieChartOutline },
+                )
+              }
+              return items
+            })(),
           },
           {
             items: [

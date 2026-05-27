@@ -65,11 +65,11 @@ const categoryOptions = computed(() => [
 ])
 
 // Severity options
-const severityOptions = [
-  { label: 'Critical', value: 'critical' },
-  { label: 'Warning', value: 'warning' },
-  { label: 'Info', value: 'info' },
-]
+const severityOptions = computed(() => [
+  { label: t('ruleTemplates.severityCritical'), value: 'critical' },
+  { label: t('ruleTemplates.severityWarning'), value: 'warning' },
+  { label: t('ruleTemplates.severityInfo'), value: 'info' },
+])
 
 // Datasource type options
 const datasourceTypeOptions = [

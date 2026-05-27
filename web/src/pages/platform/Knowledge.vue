@@ -12,11 +12,13 @@ import {
 import type { DataTableColumns } from 'naive-ui'
 import { knowledgeApi, type KnowledgeDocument, type CreateKnowledgeRequest } from '@/api/knowledge'
 import { getErrorMessage } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 const dialog = useDialog()
+const authStore = useAuthStore()
 
 // --- State ---
 const docs = ref<KnowledgeDocument[]>([])
@@ -286,18 +288,20 @@ const columns = computed<DataTableColumns<KnowledgeDocument>>(() => [
           icon: () => h(NIcon, { size: 14, component: ThumbsUpOutline }),
           default: () => t('knowledge.helpful'),
         }),
-        h(NButton, {
-          size: 'tiny',
-          quaternary: true,
-          type: 'primary',
-          onClick: () => openEdit(row),
-        }, () => t('common.edit')),
-        h(NButton, {
-          size: 'tiny',
-          quaternary: true,
-          type: 'error',
-          onClick: () => confirmDelete(row),
-        }, () => t('common.delete')),
+        ...(authStore.canManage ? [
+          h(NButton, {
+            size: 'tiny',
+            quaternary: true,
+            type: 'primary',
+            onClick: () => openEdit(row),
+          }, () => t('common.edit')),
+          h(NButton, {
+            size: 'tiny',
+            quaternary: true,
+            type: 'error',
+            onClick: () => confirmDelete(row),
+          }, () => t('common.delete')),
+        ] : []),
       ]),
   },
 ])
@@ -310,7 +314,7 @@ onMounted(fetchDocs)
   <div class="knowledge-page">
     <PageHeader :title="t('knowledge.title')" :subtitle="t('knowledge.subtitle')">
       <template #actions>
-        <n-button type="primary" size="small" @click="openCreate">
+        <n-button v-if="authStore.canManage" type="primary" size="small" @click="openCreate">
           <template #icon><n-icon :component="AddOutline" /></template>
           {{ t('common.create') }}
         </n-button>
@@ -341,7 +345,7 @@ onMounted(fetchDocs)
     </div>
 
     <n-empty v-if="!loading && docs.length === 0" :description="t('common.noData')" style="padding: 60px 0">
-      <template #extra>
+      <template v-if="authStore.canManage" #extra>
         <n-button type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
       </template>
     </n-empty>

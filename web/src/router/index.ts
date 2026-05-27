@@ -112,11 +112,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/knowledge', component: () => import('@/pages/platform/Knowledge.vue'), meta: { title: 'menu.knowledge' } },
       { path: 'platform/annotations', component: () => import('@/pages/platform/Annotations.vue'), meta: { title: 'menu.annotations' } },
 
-      // Legacy notification redirects (v4.43.0, keep until v4.45.0)
-      { path: 'alert/notify/policies', redirect: '/oncall/notify/policies' },
-      { path: 'alert/notify/templates', redirect: '/oncall/notify/templates' },
-      { path: 'alert/notify/channels', redirect: '/oncall/notify/channels' },
-      { path: 'alert/notify/subscriptions', redirect: '/oncall/notify/subscriptions' },
     ],
   },
 ]

@@ -10,11 +10,13 @@ import { AddOutline, SearchOutline } from '@vicons/ionicons5'
 import type { DataTableColumns } from 'naive-ui'
 import { annotationApi, type Annotation, type CreateAnnotationRequest } from '@/api/annotation'
 import { getErrorMessage } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 const dialog = useDialog()
+const authStore = useAuthStore()
 
 // --- State ---
 const annotations = ref<Annotation[]>([])
@@ -207,18 +209,20 @@ const columns = computed<DataTableColumns<Annotation>>(() => [
     fixed: 'right',
     render: (row) =>
       h(NSpace, { size: 'small' }, () => [
-        h(NButton, {
-          size: 'tiny',
-          quaternary: true,
-          type: 'primary',
-          onClick: () => openEdit(row),
-        }, () => t('common.edit')),
-        h(NButton, {
-          size: 'tiny',
-          quaternary: true,
-          type: 'error',
-          onClick: () => confirmDelete(row),
-        }, () => t('common.delete')),
+        ...(authStore.canManage ? [
+          h(NButton, {
+            size: 'tiny',
+            quaternary: true,
+            type: 'primary',
+            onClick: () => openEdit(row),
+          }, () => t('common.edit')),
+          h(NButton, {
+            size: 'tiny',
+            quaternary: true,
+            type: 'error',
+            onClick: () => confirmDelete(row),
+          }, () => t('common.delete')),
+        ] : []),
       ]),
   },
 ])
@@ -231,7 +235,7 @@ onMounted(fetchAnnotations)
   <div class="annotations-page">
     <PageHeader :title="t('annotations.title')" :subtitle="t('annotations.subtitle')">
       <template #actions>
-        <n-button type="primary" size="small" @click="openCreate">
+        <n-button v-if="authStore.canManage" type="primary" size="small" @click="openCreate">
           <template #icon><n-icon :component="AddOutline" /></template>
           {{ t('common.create') }}
         </n-button>
@@ -260,7 +264,7 @@ onMounted(fetchAnnotations)
     </div>
 
     <n-empty v-if="!loading && annotations.length === 0" :description="t('common.noData')" style="padding: 60px 0">
-      <template #extra>
+      <template v-if="authStore.canManage" #extra>
         <n-button type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
       </template>
     </n-empty>

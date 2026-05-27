@@ -7,7 +7,6 @@ const (
 	UserNotificationAlert    UserNotificationType = "alert"
 	UserNotificationIncident UserNotificationType = "incident"
 	UserNotificationSystem   UserNotificationType = "system"
-	UserNotificationTodo     UserNotificationType = "todo"
 )
 
 // UserNotification represents a user-targeted notification for the notification center.

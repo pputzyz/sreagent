@@ -4,6 +4,34 @@
 
 ---
 
+## [v4.44.1] — 2026-05-27
+
+### 死代码清理 + i18n 修复 + 权限守卫
+
+**死代码清理（审计发现）：**
+- 删除 `internal/service/incident_context.go` — 174 行未使用的服务代码
+- 删除 `system_setting.go` 的 `MigrateLegacyAIConfig` — 85 行从未调用的迁移函数
+- 删除 `web/src/components/query/QueryResultTable.vue` — 未被引用的组件
+- 删除 `cmd/server/wire.go` 注释代码 + `user_notification.go` 孤立常量
+- 删除 `web/src/utils/alert.ts` 的废弃 `ROW_HIGHLIGHT_CSS` 导出
+- 清理 `api/index.ts`：移除 3 个未使用的 export（`expressionApi`、`userNotifyConfigApi`、`userTeamNotifyPrefApi`），补充 4 个缺失的 re-export（`savedViewApi`、`alertRuleTemplateApi`、`inspectionApi`、`taskApi`）
+- 移除 `router/index.ts` 重复的 redirect 条目
+
+**i18n 硬编码修复：**
+- `DiagnosticWorkflows.vue` — stepTypeOptions/runStatusOptions 改用 i18n
+- `ChangeEvents.vue` — riskLevelOptions + placeholder 改用 i18n
+- `RuleTemplates.vue` — severityOptions 改用 i18n
+- 新增 15 个 i18n 键（en.ts + zh-CN.ts）
+
+**权限守卫修复：**
+- On-Call 侧边栏：通知中心（policies/channels/templates）和配置中心（integrations/routingRules/bizGroups）添加 `canManage` 守卫
+- Alert 侧边栏：alertRules/recordingRules/muteRules/datasources/esPatterns/eventPipelines/builtinMetrics/dashboards 添加 `canManage` 守卫
+- `EscalationPolicies.vue` — create/edit/delete 按钮添加 `canManage` 守卫
+- `Knowledge.vue` — create/edit/delete 按钮添加 `canManage` 守卫
+- `Annotations.vue` — create/edit/delete 按钮添加 `canManage` 守卫
+
+---
+
 ## [v4.44.0] — 2026-05-27
 
 ### 6 个缺失前端页面补齐 + 侧边栏菜单完善 + 代码清理

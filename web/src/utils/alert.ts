@@ -170,11 +170,3 @@ export function injectRowHighlightCSS(): void {
 `
   document.head.appendChild(style)
 }
-
-/**
- * @deprecated Use `injectRowHighlightCSS()` instead for global CSS injection.
- */
-export const ROW_HIGHLIGHT_CSS = `
-.row-critical { background-color: rgba(239, 68, 68, 0.04); }
-.row-warning  { background-color: rgba(245, 158, 11, 0.04); }
-`
