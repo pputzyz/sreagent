@@ -35,6 +35,12 @@ const routes: RouteRecordRaw[] = [
       { path: 'oncall/config/biz-groups', component: () => import('@/pages/settings/BizGroups.vue'), meta: { title: 'menu.bizGroups' } },
       { path: 'oncall/config/subscribe-rules', component: () => import('@/pages/notification/Subscribe.vue'), meta: { title: 'menu.subscribeRules' } },
 
+      // ===== Oncall — Notification Center =====
+      { path: 'oncall/notify/policies', component: () => import('@/pages/notification/Index.vue'), meta: { title: 'menu.notifyPolicies' } },
+      { path: 'oncall/notify/templates', component: () => import('@/pages/notification/Templates.vue'), meta: { title: 'menu.templates' } },
+      { path: 'oncall/notify/channels', component: () => import('@/pages/notification/Media.vue'), meta: { title: 'menu.notifyChannels' } },
+      { path: 'oncall/notify/subscriptions', component: () => import('@/pages/notification/Subscribe.vue'), meta: { title: 'menu.subscriptions' } },
+
       // ===== Alert =====
       { path: 'alert', redirect: '/alert/overview' },
       { path: 'alert/overview', component: () => import('@/pages/dashboard/Index.vue'), meta: { title: 'menu.overview' } },
@@ -56,10 +62,11 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/dashboards', component: () => import('@/pages/dashboards/Index.vue'), meta: { title: 'menu.dashboard' } },
       { path: 'alert/dashboards/builtin', component: () => import('@/pages/dashboards/BuiltinLibrary.vue'), meta: { title: 'menu.builtinDashboards' } },
       { path: 'alert/dashboards/:id', component: () => import('@/pages/dashboards/View.vue'), meta: { title: 'menu.dashboard' } },
-      { path: 'alert/notify/policies', component: () => import('@/pages/notification/Index.vue'), meta: { title: 'menu.notifyPolicies' } },
-      { path: 'alert/notify/templates', component: () => import('@/pages/notification/Templates.vue'), meta: { title: 'menu.templates' } },
-      { path: 'alert/notify/channels', component: () => import('@/pages/notification/Media.vue'), meta: { title: 'menu.notifyChannels' } },
-      { path: 'alert/notify/subscriptions', component: () => import('@/pages/notification/Subscribe.vue'), meta: { title: 'menu.subscriptions' } },
+      // Legacy notification routes → redirect to /oncall/notify/* (v4.43.0 migration)
+      { path: 'alert/notify/policies', redirect: '/oncall/notify/policies' },
+      { path: 'alert/notify/templates', redirect: '/oncall/notify/templates' },
+      { path: 'alert/notify/channels', redirect: '/oncall/notify/channels' },
+      { path: 'alert/notify/subscriptions', redirect: '/oncall/notify/subscriptions' },
 
       // ===== Platform =====
       { path: 'platform', redirect: '/platform/profile' },
@@ -115,7 +122,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'explore', redirect: '/alert/explore' },
       { path: 'dashboards-v2', redirect: '/alert/dashboards' },
       { path: 'dashboards-v2/:id', redirect: (to: RouteLocation) => `/alert/dashboards/${to.params.id}` },
-      { path: 'notification', redirect: '/alert/notify/policies' },
+      { path: 'notification', redirect: '/oncall/notify/policies' },
       { path: 'settings', redirect: '/platform/profile' },
     ],
   },

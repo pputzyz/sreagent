@@ -821,6 +821,29 @@ export interface UserPreferences {
   updated_at?: string
 }
 
+// ===== Team Notify Channel =====
+export interface TeamNotifyChannel {
+  id: number
+  team_id: number
+  media_id: number
+  media_name?: string
+  media_type?: string
+  is_default: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface UserTeamNotifyPref {
+  id: number
+  team_id: number
+  media_id: number
+  media_name?: string
+  team_name?: string
+  is_muted: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 // ===== Preset Rules & AI Modules =====
 export * from './preset-rule'
 export * from './ai-module'

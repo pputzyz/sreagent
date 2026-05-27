@@ -219,15 +219,20 @@ export function useAppNav() {
             })(),
           },
           {
+            label: t('menu.notifyCenter') || '通知中心',
+            items: [
+              { label: t('menu.notifyPolicies'),    key: '/oncall/notify/policies', icon: NotificationsOutline },
+              { label: t('menu.subscribeRules'),    key: '/oncall/config/subscribe-rules', icon: MailOutline },
+              { label: t('menu.notifyChannels'),    key: '/oncall/notify/channels', icon: SendOutline },
+              { label: t('menu.templates'),         key: '/oncall/notify/templates', icon: CopyOutline },
+              { label: t('menu.subscriptions'),     key: '/oncall/notify/subscriptions', icon: MailOutline },
+            ],
+          },
+          {
             label: t('menu.configCenter'),
             items: [
               { label: t('menu.integrations'),     key: '/oncall/integrations', icon: LinkOutline },
               { label: t('menu.routingRules'),      key: '/oncall/config/routing-rules', icon: GitBranchOutline },
-              { label: t('menu.notifyPolicies'),    key: '/alert/notify/policies', icon: NotificationsOutline },
-              { label: t('menu.templates'),         key: '/alert/notify/templates', icon: CopyOutline },
-              { label: t('menu.notifyChannels'),    key: '/alert/notify/channels', icon: SendOutline },
-              { label: t('menu.subscriptions'),     key: '/alert/notify/subscriptions', icon: MailOutline },
-              { label: t('menu.subscribeRules'),    key: '/oncall/config/subscribe-rules', icon: MailOutline },
               { label: t('menu.escalationPolicies'), key: '/oncall/config/escalation-policies', icon: SwapVerticalOutline },
               { label: t('menu.bizGroups'),         key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
             ],

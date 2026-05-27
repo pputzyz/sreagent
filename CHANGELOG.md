@@ -4,6 +4,33 @@
 
 ---
 
+## [v4.43.0] — 2026-05-27
+
+### 前端路由迁移 + 菜单重构 + 团队渠道 UI
+
+**路由迁移：**
+- 通知路由从 `/alert/notify/*` 迁移至 `/oncall/notify/*`（policies, templates, channels, subscriptions）
+- 旧路由保留 redirect 兼容（`/alert/notify/*` → `/oncall/notify/*`）
+- 旧 `/notification` 路由重定向至 `/oncall/notify/policies`
+- UnifiedDashboard 快捷链接同步更新
+
+**菜单重构（useAppNav.ts）：**
+- Oncall 侧边栏新增「通知中心」分组：通知策略、订阅规则、通知渠道、消息模板、我的订阅
+- 原「配置中心」精简为：集成、路由规则、升级策略、业务分组
+
+**新增前端 API：**
+- `teamNotifyChannelApi` — 团队通知渠道 CRUD（list, create, update, setDefault, delete）
+- `userTeamNotifyPrefApi` — 用户团队通知偏好（list, upsert, delete）
+
+**新增 UI 组件：**
+- `TeamChannelConfig.vue` — 团队渠道配置组件（团队选择 + 渠道列表 + 添加/设默认/删除）
+
+**命令面板：** 通知策略入口归属从 Alert 改为 Oncall
+
+**i18n：** 新增 menu.notifyCenter, menu.teamChannels, teamChannel.* 等翻译键（中/英）
+
+---
+
 ## [v4.42.0] — 2026-05-27
 
 ### Alert/Oncall 模块重构 — 后端基础

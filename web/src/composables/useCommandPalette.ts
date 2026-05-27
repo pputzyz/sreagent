@@ -52,7 +52,7 @@ export function useCommandPalette() {
     { id: 'nav-history',       label: t('commandPalette.alertHistory'),     hint: t('commandPalette.hintAlert'),  group: 'navigate', icon: 'time-outline',            action: () => router.push('/alert/history') },
     { id: 'nav-suppression',   label: t('commandPalette.muteRules'),        hint: t('commandPalette.hintAlert'),  group: 'navigate', icon: 'volume-mute-outline',     action: () => router.push('/alert/suppression') },
     { id: 'nav-inhibition',    label: t('commandPalette.inhibitionRules'),  hint: t('commandPalette.hintAlert'),  group: 'navigate', icon: 'shield-outline',          action: () => router.push('/alert/suppression/inhibition') },
-    { id: 'nav-notification',  label: t('commandPalette.notificationPolicies'), hint: t('commandPalette.hintAlert'), group: 'navigate', icon: 'notifications-outline',  action: () => router.push('/alert/notify/policies') },
+    { id: 'nav-notification',  label: t('commandPalette.notificationPolicies'), hint: t('commandPalette.hintOncall'), group: 'navigate', icon: 'notifications-outline',  action: () => router.push('/oncall/notify/policies') },
     // Platform
     { id: 'nav-profile',       label: t('commandPalette.profile'),          hint: t('commandPalette.hintPlatform'), group: 'navigate', icon: 'settings-outline',        action: () => router.push('/platform/profile') },
   ])

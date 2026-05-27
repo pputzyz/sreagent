@@ -160,7 +160,7 @@ const ALL_QUICK_LINKS: Omit<QuickLink, 'enabled'>[] = [
   { id: 'schedule',   label: '', route: '/oncall/schedule',       icon: CalendarOutline,        color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
   { id: 'explore',    label: '', route: '/alert/explore',         icon: SearchOutline,          color: '#06B6D4', bg: 'rgba(6,182,212,0.08)' },
   { id: 'dashboards', label: '', route: '/alert/dashboards',      icon: StatsChartOutline,      color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
-  { id: 'notify',     label: '', route: '/alert/notify/policies', icon: NotificationsOutline,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
+  { id: 'notify',     label: '', route: '/oncall/notify/policies', icon: NotificationsOutline,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
   { id: 'suppression',label: '', route: '/alert/suppression',     icon: ShieldCheckmarkOutline, color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
   { id: 'datasources',label: '', route: '/alert/datasources',     icon: PulseOutline,           color: '#0D9488', bg: 'rgba(13,148,136,0.08)' },
   { id: 'incidents',  label: '', route: '/oncall/incidents',      icon: BugOutline,             color: '#EC4899', bg: 'rgba(236,72,153,0.08)' },

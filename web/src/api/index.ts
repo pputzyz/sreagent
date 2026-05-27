@@ -120,3 +120,7 @@ export type { UserContact } from './user-contact'
 // ===== Site Info =====
 export { siteInfoApi } from './admin'
 export type { SiteInfo } from './admin'
+
+// ===== Team Notify Channel =====
+export { teamNotifyChannelApi, userTeamNotifyPrefApi } from './team-notify-channel'
+export type { TeamNotifyChannel, UserTeamNotifyPref } from './team-notify-channel'
