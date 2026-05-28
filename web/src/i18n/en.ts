@@ -147,6 +147,7 @@ export default {
     statusPage: 'Status Page',
     postmortems: 'Post-Mortems',
     configCenter: 'Config Center',
+    oncallManagement: 'On-Call Management',
     routingRules: 'Routing Rules',
     bizGroups: 'Business Groups',
     subscribeRules: 'Subscribe Rules',
@@ -1669,7 +1670,7 @@ export default {
     oidcIssuerUrlHelp: 'The OIDC provider\'s Issuer URL. The system auto-fetches the Discovery document.',
     oidcRoleClaimHelp: 'JWT claim path containing user roles. Supports nested paths like realm_access.roles.',
     oidcRoleMappingHelp: 'JSON object: keys are OIDC role names, values are system roles (admin/team_lead/member/viewer).',
-    oidcRoleMappingExample: 'e.g. {"sre-admin":"admin","sre-user":"member"}',
+    oidcRoleMappingExample: 'e.g. "sre-admin" → "admin", "sre-user" → "member"',
     oidcInvalidUrl: 'Enter a valid URL starting with https://',
     oidcInvalidJson: 'Enter a valid JSON object',
     // LDAP Config

@@ -13,12 +13,12 @@ import { diagnosticApi } from '@/api/diagnostic'
 import type { DiagnosticWorkflow, DiagnosticWorkflowStep, DiagnosticRun, DiagnosticRunStep } from '@/api/diagnostic'
 import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { usePermissions } from '@/composables'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const message = useMessage()
 const dialog = useDialog()
-const { hasPerm } = usePermissions()
+const authStore = useAuthStore()
 
 // ─── Tab state ───
 const activeTab = ref('workflows')
@@ -444,7 +444,7 @@ onMounted(() => {
     <PageHeader :title="t('diagnostic.title')" :subtitle="t('diagnostic.subtitle')">
       <template #actions>
         <n-button
-          v-if="hasPerm('rules.manage')"
+          v-if="authStore.canManage"
           type="primary"
           size="small"
           @click="openCreate"
@@ -477,7 +477,7 @@ onMounted(() => {
           style="padding: 60px 0"
         >
           <template #extra>
-            <n-button v-if="hasPerm('rules.manage')" type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
+            <n-button v-if="authStore.canManage" type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
           </template>
         </n-empty>
 

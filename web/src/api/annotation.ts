@@ -6,7 +6,9 @@ export interface Annotation {
   dashboard_id: number
   dashboard_name?: string
   time: string // ISO datetime
-  content: string
+  text: string
+  tags?: Record<string, string>
+  source?: string
   created_by: number
   created_at: string
   updated_at: string
@@ -15,7 +17,7 @@ export interface Annotation {
 export interface CreateAnnotationRequest {
   dashboard_id: number
   time: string
-  content: string
+  text: string
 }
 
 export type UpdateAnnotationRequest = CreateAnnotationRequest

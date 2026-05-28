@@ -4,6 +4,55 @@
 
 ---
 
+## [v4.45.0] — 2026-05-28
+
+### 架构修复 — 告警→通知→升级链路打通
+
+**Phase 1 (P0): 降噪前置 + 去重复通知**
+- 噪声降噪（NoiseReducer）从异步后置改为同步前置，在 `onAlertFn` 中 mute check 之后、通知之前执行
+- 新增 `NotificationDedupService`（Redis SetNX + 4h TTL），统一 NotifyRule 和 Escalation 两条通知路径的去重
+- 新增迁移 `000100_alert_event_escalation_policy_id`
+
+**Phase 2 (P1): 统一通知路由**
+- `DispatchPolicy.EscalationPolicyID` 从死代码变为端到端连通：AlertV2Pipeline 写入 AlertEvent，EscalationExecutor 读取并定向执行
+- EscalationExecutor 新增 `EscalationPolicyID` 早返回逻辑，跳过全量策略匹配
+
+**Phase 3 (P2): Channel 枢纽**
+- AlertV2Pipeline 构造函数注入 `eventRepo`，支持写入 `escalation_policy_id`
+
+**Phase 4 (P3): 前端优化**
+- Oncall 菜单重组：新增"值班管理"分区（排班 + 升级策略），通知中心保持不变，配置中心精简
+
+### 新增文件
+- `internal/service/notify_dedup.go` — Redis 通知去重服务
+- `internal/service/notify_dedup_test.go` — 去重 key 构建测试
+- `internal/pkg/dbmigrate/migrations/000100_alert_event_escalation_policy_id.{up,down}.sql`
+
+---
+
+## [v4.44.6] — 2026-05-27
+
+### Bug 修复
+
+- **OIDC 白屏**: vue-i18n SyntaxError，i18n 文件中 JSON 花括号被解释为插值占位符，改用箭头符号
+- **标注管理参数错误**: 后端 `dashboard_id` 改为可选，新增分页支持；前端字段名 `content` → `text` 对齐后端 model
+- **hasPerm() 竞态条件**: `usePermissions` 异步加载期间 `hasPerm()` 返回 false，导致 admin 用户看不到按钮。新增 role-based fallback，镜像 `internal/pkg/rbac/rbac.go` 权限表
+- **metrics.write 权限缺失**: fallback 权限表补充 `metrics.write`、`metrics.manage`
+
+### 菜单整合
+
+- 删除重复的"订阅规则"菜单（`/oncall/config/subscribe-rules` → redirect）
+- 集成中心、路由规则移入通知中心分组
+- 配置中心精简为：升级策略 + 业务分组
+
+### 文档
+
+- 新增 `docs/PLATFORM_GUIDE.md` — 平台操作手册（全模块说明 + 三大工作流）
+- 新增 `docs/TEST_GUIDE.md` — 核心流程测试用例（10 组测试 + 回归检查清单）
+- 新增 `docs/ARCHITECTURE_FIX_PLAN.md` — 架构修复计划（6 个断裂点 + 4 Phase 修复方案）
+
+---
+
 ## [v4.44.5] — 2026-05-27
 
 ### 迁移 000092 unified_template_id 类型修复

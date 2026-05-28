@@ -66,6 +66,10 @@ type AlertEvent struct {
 	// SlaEscalatedAt records when the SLA breach escalation was fired for this event.
 	// Nil means no SLA escalation has been triggered yet.
 	SlaEscalatedAt *time.Time `json:"sla_escalated_at"`
+	// EscalationPolicyID is the specific escalation policy assigned to this event
+	// via dispatch policy matching. When set, the escalation executor will prefer
+	// this policy over team/global matching.
+	EscalationPolicyID *uint `json:"escalation_policy_id,omitempty" gorm:"index"`
 }
 
 func (AlertEvent) TableName() string {

@@ -38,7 +38,7 @@ const form = ref({
   id: undefined as number | undefined,
   dashboard_id: '',
   time: new Date().toISOString(),
-  content: '',
+  text: '',
 })
 
 // --- Filtered (client-side for search) ---
@@ -46,7 +46,7 @@ const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return annotations.value
   return annotations.value.filter(a =>
-    a.content.toLowerCase().includes(q) ||
+    a.text.toLowerCase().includes(q) ||
     (a.dashboard_name || '').toLowerCase().includes(q)
   )
 })
@@ -105,7 +105,7 @@ function resetForm() {
     id: undefined,
     dashboard_id: '',
     time: new Date().toISOString(),
-    content: '',
+    text: '',
   }
 }
 
@@ -114,7 +114,7 @@ function fillForm(annotation: Annotation) {
     id: annotation.id,
     dashboard_id: String(annotation.dashboard_id),
     time: annotation.time,
-    content: annotation.content,
+    text: annotation.text,
   }
 }
 
@@ -129,7 +129,7 @@ async function handleSave() {
     message.warning(t('annotations.dashboardIdRequired'))
     return
   }
-  if (!form.value.content?.trim()) {
+  if (!form.value.text?.trim()) {
     message.warning(t('annotations.contentRequired'))
     return
   }
@@ -138,7 +138,7 @@ async function handleSave() {
     const payload: CreateAnnotationRequest = {
       dashboard_id: Number(form.value.dashboard_id),
       time: form.value.time,
-      content: form.value.content,
+      text: form.value.text,
     }
     if (drawerMode.value === 'edit' && editingId.value) {
       await annotationApi.update(editingId.value, payload)
@@ -192,7 +192,7 @@ const columns = computed<DataTableColumns<Annotation>>(() => [
   },
   {
     title: t('annotations.content'),
-    key: 'content',
+    key: 'text',
     minWidth: 250,
     ellipsis: { tooltip: true },
   },
@@ -316,7 +316,7 @@ onMounted(fetchAnnotations)
 
           <n-form-item :label="t('annotations.content')" required>
             <n-input
-              v-model:value="form.content"
+              v-model:value="form.text"
               type="textarea"
               :rows="6"
               :placeholder="t('annotations.contentPlaceholder')"

@@ -78,6 +78,16 @@ func (s *AnnotationService) ListByDashboard(ctx context.Context, dashboardID uin
 	return list, nil
 }
 
+// List returns annotations with optional filters and pagination.
+func (s *AnnotationService) List(ctx context.Context, dashboardID uint, from, to time.Time, page, pageSize uint) ([]model.Annotation, int64, error) {
+	list, total, err := s.repo.List(ctx, dashboardID, from, to, page, pageSize)
+	if err != nil {
+		s.logger.Error("failed to list annotations", zap.Error(err))
+		return nil, 0, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return list, total, nil
+}
+
 // BatchCreate inserts multiple annotations at once.
 func (s *AnnotationService) BatchCreate(ctx context.Context, annotations []model.Annotation) error {
 	if len(annotations) == 0 {

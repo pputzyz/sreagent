@@ -30,10 +30,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'oncall/schedule', component: () => import('@/pages/schedule/Index.vue'), meta: { title: 'menu.schedule', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/my-alerts', component: () => import('@/pages/oncall/MyAlerts.vue'), meta: { title: 'myAlerts.title' } },
       { path: 'oncall/config/escalation-policies', component: () => import('@/pages/oncall/EscalationPolicies.vue'), meta: { title: 'menu.escalationPolicies' } },
-      { path: 'oncall/config/notify-rules', component: () => import('@/pages/notification/Rules.vue'), meta: { title: 'menu.notifyChannels', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/config/notify-rules', redirect: '/oncall/notify/policies' },
       { path: 'oncall/config/routing-rules', component: () => import('@/pages/integrations/RoutingRules.vue'), meta: { title: 'menu.routingRules', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/config/biz-groups', component: () => import('@/pages/settings/BizGroups.vue'), meta: { title: 'menu.bizGroups', requiresRole: ['admin', 'team_lead'] } },
-      { path: 'oncall/config/subscribe-rules', component: () => import('@/pages/notification/Subscribe.vue'), meta: { title: 'menu.subscribeRules' } },
+      { path: 'oncall/config/subscribe-rules', redirect: '/oncall/notify/subscriptions' },
 
       // ===== Oncall — Notification Center =====
       { path: 'oncall/notify/policies', component: () => import('@/pages/notification/Index.vue'), meta: { title: 'menu.notifyPolicies', requiresRole: ['admin', 'team_lead'] } },

@@ -268,6 +268,14 @@ func (r *AlertEventRepository) UpdateSLAEscalated(ctx context.Context, eventID u
 		UpdateColumn("sla_escalated_at", at).Error
 }
 
+// UpdateEscalationPolicyID sets the escalation_policy_id on an event record.
+func (r *AlertEventRepository) UpdateEscalationPolicyID(ctx context.Context, eventID uint, policyID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.AlertEvent{}).
+		Where("id = ?", eventID).
+		UpdateColumn("escalation_policy_id", policyID).Error
+}
+
 // BulkClose closes multiple events in one UPDATE … WHERE id IN (ids).
 // Returns the number of rows actually updated.
 func (r *AlertEventRepository) BulkClose(ctx context.Context, ids []uint) (int64, error) {

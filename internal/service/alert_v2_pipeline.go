@@ -30,6 +30,7 @@ const maxAsyncPipelineTasks = 100
 
 type AlertV2Pipeline struct {
 	alertRepo    *repository.AlertRepository
+	eventRepo    *repository.AlertEventRepository // for persisting EscalationPolicyID on AlertEvent
 	incidentRepo *repository.IncidentRepository
 	channelRepo  *repository.ChannelRepository
 	logger       *zap.Logger
@@ -54,12 +55,14 @@ type AlertV2Pipeline struct {
 // NewAlertV2Pipeline creates a new pipeline. Call SetDefaultChannelID before use.
 func NewAlertV2Pipeline(
 	alertRepo *repository.AlertRepository,
+	eventRepo *repository.AlertEventRepository,
 	incidentRepo *repository.IncidentRepository,
 	channelRepo *repository.ChannelRepository,
 	logger *zap.Logger,
 ) *AlertV2Pipeline {
 	return &AlertV2Pipeline{
 		alertRepo:    alertRepo,
+		eventRepo:    eventRepo,
 		incidentRepo: incidentRepo,
 		channelRepo:  channelRepo,
 		logger:       logger,
@@ -218,14 +221,27 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 		if err != nil {
 			p.logger.Warn("failed to find matching dispatch policy", zap.Error(err), zap.Uint("channel_id", channelID))
 		}
-		if policy != nil && policy.LabelEnhancementRules != "" {
-			enhanced := p.dispatchSvc.ApplyLabelEnhancements(policy.LabelEnhancementRules, model.JSONLabels(event.Labels))
-			// Merge enhanced labels back into event (non-destructive to existing labels)
-			if event.Labels == nil {
-				event.Labels = make(model.JSONLabels)
+		if policy != nil {
+			// Propagate the dispatch policy's escalation policy to the event
+			// so the escalation executor can use it directly.
+			if policy.EscalationPolicyID != nil {
+				event.EscalationPolicyID = policy.EscalationPolicyID
+				if p.eventRepo != nil {
+					if err := p.eventRepo.UpdateEscalationPolicyID(ctx, event.ID, *policy.EscalationPolicyID); err != nil {
+						p.logger.Warn("failed to persist escalation_policy_id on event",
+							zap.Uint("event_id", event.ID), zap.Error(err))
+					}
+				}
 			}
-			for k, v := range enhanced {
-				event.Labels[k] = v
+			if policy.LabelEnhancementRules != "" {
+				enhanced := p.dispatchSvc.ApplyLabelEnhancements(policy.LabelEnhancementRules, model.JSONLabels(event.Labels))
+				// Merge enhanced labels back into event (non-destructive to existing labels)
+				if event.Labels == nil {
+					event.Labels = make(model.JSONLabels)
+				}
+				for k, v := range enhanced {
+					event.Labels[k] = v
+				}
 			}
 		}
 	}

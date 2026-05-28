@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -62,19 +63,17 @@ type JSONMap map[string]string
 
 // --- Handler methods ---
 
-// List returns annotations for a dashboard within an optional time range.
-// GET /annotations?dashboard_id=X&from=T1&to=T2
+// List returns annotations, optionally filtered by dashboard and time range.
+// GET /annotations?dashboard_id=X&from=T1&to=T2&page=1&page_size=20
 func (h *AnnotationHandler) List(c *gin.Context) {
-	dashboardIDStr := c.Query("dashboard_id")
-	if dashboardIDStr == "" {
-		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "dashboard_id is required"))
-		return
-	}
-
-	dashboardID, err := parseUint64(dashboardIDStr)
-	if err != nil {
-		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid dashboard_id"))
-		return
+	var dashboardID uint
+	if dashboardIDStr := c.Query("dashboard_id"); dashboardIDStr != "" {
+		id, err := parseUint64(dashboardIDStr)
+		if err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid dashboard_id"))
+			return
+		}
+		dashboardID = uint(id)
 	}
 
 	var from, to time.Time
@@ -91,13 +90,23 @@ func (h *AnnotationHandler) List(c *gin.Context) {
 		}
 	}
 
-	annotations, err := h.svc.ListByDashboard(c.Request.Context(), uint(dashboardID), from, to)
+	// Pagination
+	page, _ := strconv.ParseUint(c.DefaultQuery("page", "1"), 10, 32)
+	pageSize, _ := strconv.ParseUint(c.DefaultQuery("page_size", "20"), 10, 32)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	annotations, total, err := h.svc.List(c.Request.Context(), dashboardID, from, to, uint(page), uint(pageSize))
 	if err != nil {
 		Error(c, err)
 		return
 	}
 
-	Success(c, annotations)
+	SuccessPage(c, annotations, total, int(page), int(pageSize))
 }
 
 // Create creates a new annotation.

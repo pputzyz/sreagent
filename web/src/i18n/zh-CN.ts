@@ -147,6 +147,7 @@ export default {
     statusPage: '状态页面',
     postmortems: '故障复盘',
     configCenter: '配置中心',
+    oncallManagement: '值班管理',
     routingRules: '路由规则',
     bizGroups: '业务分组',
     subscribeRules: '订阅规则',
@@ -1685,7 +1686,7 @@ export default {
     oidcIssuerUrlHelp: 'OIDC 提供商的 Issuer URL，系统会自动获取 Discovery 文档',
     oidcRoleClaimHelp: 'JWT 中包含用户角色的 claim 路径，支持嵌套路径如 realm_access.roles',
     oidcRoleMappingHelp: 'JSON 对象格式，key 为 OIDC 角色名，value 为系统角色（admin/team_lead/member/viewer）',
-    oidcRoleMappingExample: '例如: {"sre-admin":"admin","sre-user":"member"}',
+    oidcRoleMappingExample: '例如: "sre-admin" → "admin", "sre-user" → "member"',
     oidcInvalidUrl: '请输入有效的 URL（以 https:// 开头）',
     oidcInvalidJson: '请输入有效的 JSON 对象',
     // LDAP Config

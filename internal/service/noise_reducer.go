@@ -117,6 +117,28 @@ func (nr *NoiseReducer) Evaluate(
 	return result
 }
 
+// ShouldSuppress checks only exclusion rules. Returns true if the event should be dropped.
+// Unlike Evaluate, it skips flapping/storm/aggregation — use for pre-notification gating.
+func (nr *NoiseReducer) ShouldSuppress(ctx context.Context, event *model.AlertEvent) (bool, string) {
+	var channelID uint
+	if chStr, ok := event.Labels["_channel_id"]; ok && chStr != "" {
+		fmt.Sscanf(chStr, "%d", &channelID)
+	}
+	if channelID == 0 {
+		return false, ""
+	}
+	key := event.Fingerprint
+	if key == "" {
+		if event.RuleID != nil {
+			key = fmt.Sprintf("rule:%d", *event.RuleID)
+		} else {
+			key = fmt.Sprintf("event:%d", event.ID)
+		}
+	}
+	result := nr.Evaluate(ctx, channelID, key, event)
+	return result.Excluded, result.ExcludeReason
+}
+
 // RecordResolution records a resolution event for flapping detection.
 func (nr *NoiseReducer) RecordResolution(channelID uint, alertKey string) {
 	nr.recordStateChange(channelID, alertKey)

@@ -223,7 +223,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	notifyRuleSvc := service.NewNotifyRuleService(
 		notifyRuleRepo, notifyMediaRepo, messageTemplateRepo, recordRepo,
 		ruleRepo, dsRepo,
-		notifyMediaSvc, messageTemplateSvc, alertPipeline, zapLogger,
+		notifyMediaSvc, messageTemplateSvc, alertPipeline, nil, zapLogger,
 	)
 	subscribeRuleSvc := service.NewSubscribeRuleService(subscribeRuleRepo, zapLogger)
 
@@ -439,6 +439,13 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	)
 	escalationExecutor.Start()
 
+	// Inject Redis-backed dedup service (shared across notify rule + escalation paths)
+	if redisClient != nil {
+		notifyDedupSvc := service.NewNotificationDedupService(redisClient.Raw(), zapLogger)
+		notifyRuleSvc.SetDedupService(notifyDedupSvc)
+		escalationExecutor.SetDedupService(notifyDedupSvc)
+	}
+
 	// Initialize and start the heartbeat checker
 	heartbeatChecker := engine.NewHeartbeatChecker(ruleRepo, eventRepo, timelineRepo, zapLogger)
 	if cfg.Engine.HeartbeatInterval > 0 {
@@ -484,6 +491,18 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			return
 		}
 
+		// 2.5. Noise reduction: check exclusion rules before notification.
+		if noiseReducer != nil {
+			if suppressed, reason := noiseReducer.ShouldSuppress(ctx, event); suppressed {
+				zapLogger.Info("alert excluded by noise reduction, skipping notification",
+					zap.Uint("event_id", event.ID),
+					zap.String("alert_name", event.AlertName),
+					zap.String("reason", reason),
+				)
+				return
+			}
+		}
+
 		// 3. Annotate event with matching BizGroup scope.
 		if groups, err := bizGroupSvc.FindMatchingGroups(ctx, map[string]string(event.Labels)); err == nil && len(groups) > 0 {
 			g := groups[0] // most specific match
@@ -517,7 +536,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	d.appCancel = appCancel
 
 	// Initialize v2 alert pipeline (Alert → Incident lifecycle).
-	alertV2Pipeline := service.NewAlertV2Pipeline(alertV2Repo, incidentRepo, channelV2Repo, zapLogger)
+	alertV2Pipeline := service.NewAlertV2Pipeline(alertV2Repo, eventRepo, incidentRepo, channelV2Repo, zapLogger)
 	alertV2Pipeline.InitDefaultChannel(context.Background())
 	alertV2Pipeline.SetNoiseReducer(noiseReducer)
 	alertV2Pipeline.SetDispatchService(dispatchSvc)

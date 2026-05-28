@@ -35,6 +35,7 @@ type EscalationExecutor struct {
 	onCallShiftRepo      *repository.OnCallShiftRepository
 	larkSvc              *service.LarkService          // optional — enables lark_personal DM
 	settingSvc           *service.SystemSettingService // optional — enables personal email via global SMTP
+	dedupSvc             *service.NotificationDedupService // shared dedup with NotifyRule path
 	logger               *zap.Logger
 
 	interval  time.Duration
@@ -87,6 +88,11 @@ func (e *EscalationExecutor) SetInterval(d time.Duration) {
 	if d > 0 {
 		e.interval = d
 	}
+}
+
+// SetDedupService attaches a shared NotificationDedupService for cross-path dedup.
+func (e *EscalationExecutor) SetDedupService(svc *service.NotificationDedupService) {
+	e.dedupSvc = svc
 }
 
 // sendViaChannel adapts a v1 NotifyChannel to the v2 NotifyMediaService dispatch.
@@ -356,112 +362,135 @@ func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.Al
 // policies is the pre-filtered list (team-matched + global) from runOnce.
 // stepsMap is the batch-loaded steps from runOnce; may be nil (falls back to per-policy query).
 func (e *EscalationExecutor) escalateEvent(ctx context.Context, event *model.AlertEvent, policies []model.EscalationPolicy, stepsMap map[uint][]model.EscalationStep, now time.Time) {
+	// If the event has a specific EscalationPolicyID (set via dispatch policy),
+	// use only that policy instead of the full team/global matched list.
+	if event.EscalationPolicyID != nil {
+		for i := range policies {
+			if policies[i].ID == *event.EscalationPolicyID {
+				e.processPolicySteps(ctx, event, &policies[i], stepsMap, nil, now)
+				return
+			}
+		}
+		// Policy not found in matched list — log and fall through to normal matching.
+		e.logger.Warn("escalation: event EscalationPolicyID not in matched policies, falling back",
+			zap.Uint("event_id", event.ID),
+			zap.Uint("escalation_policy_id", *event.EscalationPolicyID),
+		)
+	}
+
 	// Fallback: timeline-based dedup when stepExecRepo is not configured (M4 — skip when repo available).
 	var executedSteps map[string]bool
 	if e.stepExecRepo == nil {
 		executedSteps = e.executedStepOrders(ctx, event.ID)
 	}
 
-	for _, policy := range policies {
-		steps, ok := stepsMap[policy.ID]
-		if !ok {
-			// Fallback: load individually if not in batch.
-			var err error
-			steps, err = e.stepRepo.ListByPolicyID(ctx, policy.ID)
+	for i := range policies {
+		e.processPolicySteps(ctx, event, &policies[i], stepsMap, executedSteps, now)
+	}
+}
+
+// processPolicySteps evaluates and executes due escalation steps for a single policy.
+// stepsMap is the batch-loaded steps; may be nil (falls back to per-policy query).
+// executedSteps is the timeline-based dedup set (only used when stepExecRepo is nil); may be nil.
+func (e *EscalationExecutor) processPolicySteps(ctx context.Context, event *model.AlertEvent, policy *model.EscalationPolicy, stepsMap map[uint][]model.EscalationStep, executedSteps map[string]bool, now time.Time) {
+	steps, ok := stepsMap[policy.ID]
+	if !ok {
+		// Fallback: load individually if not in batch.
+		var err error
+		steps, err = e.stepRepo.ListByPolicyID(ctx, policy.ID)
+		if err != nil {
+			e.logger.Warn("escalation: failed to list steps",
+				zap.Uint("policy_id", policy.ID), zap.Error(err))
+			return
+		}
+	}
+
+	for _, step := range steps {
+		// Check if enough time has passed since the alert fired.
+		dueAt := event.FiredAt.Add(time.Duration(step.DelayMinutes) * time.Minute)
+		if now.Before(dueAt) {
+			continue
+		}
+
+		// M5: Recheck event status — may have been resolved/ack'd since we fetched.
+		if e.stepExecRepo != nil {
+			fresh, err := e.eventRepo.GetByID(ctx, event.ID)
 			if err != nil {
-				e.logger.Warn("escalation: failed to list steps",
-					zap.Uint("policy_id", policy.ID), zap.Error(err))
+				e.logger.Error("escalation: failed to recheck event status",
+					zap.Uint("event_id", event.ID), zap.Error(err))
+				continue
+			}
+			if fresh.Status != model.EventStatusFiring {
+				return // event no longer firing — skip all remaining steps
+			}
+		}
+
+		// Atomic dedup: INSERT IGNORE ensures only one goroutine executes this step.
+		if e.stepExecRepo != nil {
+			inserted, err := e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
+			if err != nil {
+				e.logger.Error("escalation: failed to check step execution",
+					zap.Uint("event_id", event.ID),
+					zap.Uint("step_id", step.ID),
+					zap.Error(err),
+				)
+				continue
+			}
+			if !inserted {
+				// Already executed or in-progress — check if it failed and needs retry (H2).
+				executed, err := e.stepExecRepo.HasExecuted(ctx, event.ID, step.ID)
+				if err != nil {
+					e.logger.Error("escalation: failed to check step execution status",
+						zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
+					continue
+				}
+				if executed {
+					continue // successfully done
+				}
+				// Status is 'pending' or 'failed' — allow retry by deleting the old record.
+				if err := e.stepExecRepo.DeleteByEventAndStep(ctx, event.ID, step.ID); err != nil {
+					e.logger.Error("escalation: failed to delete stale step exec",
+						zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
+					continue
+				}
+				// Re-insert with fresh 'pending' status.
+				inserted, err = e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
+				if err != nil || !inserted {
+					continue
+				}
+			}
+		} else if executedSteps != nil {
+			// Fallback: timeline-based dedup when stepExecRepo is not configured.
+			stepKey := fmt.Sprintf("step:%d", step.ID)
+			if executedSteps[stepKey] {
 				continue
 			}
 		}
 
-		for _, step := range steps {
-			// Check if enough time has passed since the alert fired.
-			dueAt := event.FiredAt.Add(time.Duration(step.DelayMinutes) * time.Minute)
-			if now.Before(dueAt) {
-				continue
-			}
-
-			// M5: Recheck event status — may have been resolved/ack'd since we fetched.
+		// Execute this step.
+		policyIDStr := strconv.FormatUint(uint64(policy.ID), 10)
+		if err := e.executeStep(ctx, event, policy, &step); err != nil {
+			e.logger.Error("escalation: failed to execute step",
+				zap.Uint("event_id", event.ID),
+				zap.Uint("policy_id", policy.ID),
+				zap.Int("step_order", step.StepOrder),
+				zap.Error(err),
+			)
+			// H2: Mark as failed so it can be retried next cycle.
 			if e.stepExecRepo != nil {
-				fresh, err := e.eventRepo.GetByID(ctx, event.ID)
-				if err != nil {
-					e.logger.Error("escalation: failed to recheck event status",
-						zap.Uint("event_id", event.ID), zap.Error(err))
-					continue
-				}
-				if fresh.Status != model.EventStatusFiring {
-					return // event no longer firing — skip all remaining steps
-				}
+				_ = e.stepExecRepo.MarkFailed(ctx, event.ID, step.ID)
 			}
-
-			// Atomic dedup: INSERT IGNORE ensures only one goroutine executes this step.
+			// Record failure in timeline.
+			_ = e.recordTimeline(ctx, event.ID, fmt.Sprintf(
+				"escalation step %d (policy %s) failed: %v", step.StepOrder, policy.Name, err,
+			), &step.ID)
+			metrics.IncEscalationSteps(policyIDStr, "failure")
+		} else {
+			// H2: Mark as success.
 			if e.stepExecRepo != nil {
-				inserted, err := e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
-				if err != nil {
-					e.logger.Error("escalation: failed to check step execution",
-						zap.Uint("event_id", event.ID),
-						zap.Uint("step_id", step.ID),
-						zap.Error(err),
-					)
-					continue
-				}
-				if !inserted {
-					// Already executed or in-progress — check if it failed and needs retry (H2).
-					executed, err := e.stepExecRepo.HasExecuted(ctx, event.ID, step.ID)
-					if err != nil {
-						e.logger.Error("escalation: failed to check step execution status",
-							zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
-						continue
-					}
-					if executed {
-						continue // successfully done
-					}
-					// Status is 'pending' or 'failed' — allow retry by deleting the old record.
-					if err := e.stepExecRepo.DeleteByEventAndStep(ctx, event.ID, step.ID); err != nil {
-						e.logger.Error("escalation: failed to delete stale step exec",
-							zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
-						continue
-					}
-					// Re-insert with fresh 'pending' status.
-					inserted, err = e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
-					if err != nil || !inserted {
-						continue
-					}
-				}
-			} else {
-				// Fallback: timeline-based dedup when stepExecRepo is not configured.
-				stepKey := fmt.Sprintf("step:%d", step.ID)
-				if executedSteps[stepKey] {
-					continue
-				}
+				_ = e.stepExecRepo.MarkSuccess(ctx, event.ID, step.ID)
 			}
-
-			// Execute this step.
-			policyIDStr := strconv.FormatUint(uint64(policy.ID), 10)
-			if err := e.executeStep(ctx, event, &policy, &step); err != nil {
-				e.logger.Error("escalation: failed to execute step",
-					zap.Uint("event_id", event.ID),
-					zap.Uint("policy_id", policy.ID),
-					zap.Int("step_order", step.StepOrder),
-					zap.Error(err),
-				)
-				// H2: Mark as failed so it can be retried next cycle.
-				if e.stepExecRepo != nil {
-					_ = e.stepExecRepo.MarkFailed(ctx, event.ID, step.ID)
-				}
-				// Record failure in timeline.
-				_ = e.recordTimeline(ctx, event.ID, fmt.Sprintf(
-					"escalation step %d (policy %s) failed: %v", step.StepOrder, policy.Name, err,
-				), &step.ID)
-				metrics.IncEscalationSteps(policyIDStr, "failure")
-			} else {
-				// H2: Mark as success.
-				if e.stepExecRepo != nil {
-					_ = e.stepExecRepo.MarkSuccess(ctx, event.ID, step.ID)
-				}
-				metrics.IncEscalationSteps(policyIDStr, "success")
-			}
+			metrics.IncEscalationSteps(policyIDStr, "success")
 		}
 	}
 }
@@ -471,6 +500,19 @@ func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.Alert
 	// Per-step timeout: a single slow webhook must not consume the entire escalation budget.
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+
+	// Cross-path dedup: check if NotifyRule path already sent for this event.
+	if e.dedupSvc != nil {
+		dedupKey := service.BuildNotifyDedupKey(event.ID, 0, event.Fingerprint, string(event.Status))
+		if !e.dedupSvc.TrySend(ctx, dedupKey) {
+			e.logger.Info("escalation: notification already sent by notify rule, skipping",
+				zap.Uint("event_id", event.ID),
+				zap.String("policy", policy.Name),
+				zap.Int("step_order", step.StepOrder),
+			)
+			return nil
+		}
+	}
 
 	// This note is also used as the dedup key in executedStepOrders — keep format in sync.
 	note := fmt.Sprintf("escalation policy '%s' step %d triggered (delay: %dm)",

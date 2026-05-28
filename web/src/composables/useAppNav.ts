@@ -190,6 +190,7 @@ export function useAppNav() {
             ],
           },
           {
+            label: t('menu.oncallManagement'),
             items: (() => {
               const items: MenuItem[] = []
               if (authStore.canManage) {
@@ -197,6 +198,7 @@ export function useAppNav() {
                   { label: t('menu.schedule'), key: '/oncall/schedule', icon: CalendarOutline },
                 )
               }
+              items.push({ label: t('menu.escalationPolicies'), key: '/oncall/config/escalation-policies', icon: SwapVerticalOutline })
               return items
             })(),
           },
@@ -209,25 +211,22 @@ export function useAppNav() {
                   { label: t('menu.notifyPolicies'), key: '/oncall/notify/policies', icon: NotificationsOutline },
                   { label: t('menu.notifyChannels'), key: '/oncall/notify/channels', icon: SendOutline },
                   { label: t('menu.templates'),      key: '/oncall/notify/templates', icon: CopyOutline },
+                  { label: t('menu.integrations'),   key: '/oncall/integrations', icon: LinkOutline },
+                  { label: t('menu.routingRules'),   key: '/oncall/config/routing-rules', icon: GitBranchOutline },
                 )
               }
               items.push(
-                { label: t('menu.subscribeRules'), key: '/oncall/config/subscribe-rules', icon: MailOutline },
-                { label: t('menu.subscriptions'),  key: '/oncall/notify/subscriptions', icon: MailOutline },
+                { label: t('menu.subscriptions'), key: '/oncall/notify/subscriptions', icon: MailOutline },
               )
               return items
             })(),
           },
           {
-            label: t('menu.configCenter'),
             items: (() => {
               const items: MenuItem[] = []
-              items.push({ label: t('menu.escalationPolicies'), key: '/oncall/config/escalation-policies', icon: SwapVerticalOutline })
               if (authStore.canManage) {
                 items.push(
-                  { label: t('menu.integrations'), key: '/oncall/integrations', icon: LinkOutline },
-                  { label: t('menu.routingRules'),  key: '/oncall/config/routing-rules', icon: GitBranchOutline },
-                  { label: t('menu.bizGroups'),     key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
+                  { label: t('menu.bizGroups'), key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
                 )
               }
               return items

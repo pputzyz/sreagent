@@ -31,6 +31,7 @@ type NotifyRuleService struct {
 	pipeline       *AlertPipeline
 	pipelineEngine *ppipeline.Engine
 	pipelineRepo   *repository.EventPipelineRepository
+	dedupSvc       *NotificationDedupService
 	logger         *zap.Logger
 }
 
@@ -38,6 +39,11 @@ type NotifyRuleService struct {
 func (s *NotifyRuleService) SetPipelineEngine(engine *ppipeline.Engine, repo *repository.EventPipelineRepository) {
 	s.pipelineEngine = engine
 	s.pipelineRepo = repo
+}
+
+// SetDedupService injects the Redis-backed notification dedup service.
+func (s *NotifyRuleService) SetDedupService(dedupSvc *NotificationDedupService) {
+	s.dedupSvc = dedupSvc
 }
 
 // NewNotifyRuleService creates a new NotifyRuleService.
@@ -51,6 +57,7 @@ func NewNotifyRuleService(
 	mediaSvc *NotifyMediaService,
 	templateSvc *MessageTemplateService,
 	pipeline *AlertPipeline,
+	dedupSvc *NotificationDedupService,
 	logger *zap.Logger,
 ) *NotifyRuleService {
 	return &NotifyRuleService{
@@ -63,6 +70,7 @@ func NewNotifyRuleService(
 		mediaSvc:      mediaSvc,
 		templateSvc:   templateSvc,
 		pipeline:      pipeline,
+		dedupSvc:      dedupSvc,
 		logger:        logger,
 	}
 }
@@ -282,9 +290,17 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 
 		// Dedup: skip if this event+media was already sent via either pipeline.
 		// Include event.Status so firing and resolved are not deduped against each other (M1).
-		dedupKey := fmt.Sprintf("v2:%d:%d:%s:%s", rule.ID, nc.MediaID, event.Fingerprint, event.Status)
-		if !routeDedup.TrySend(dedupKey) {
-			s.logger.Debug("v2 notification deduped",
+		dedupKey := BuildNotifyDedupKey(event.ID, nc.MediaID, event.Fingerprint, string(event.Status))
+		if s.dedupSvc != nil && !s.dedupSvc.TrySend(ctx, dedupKey) {
+			s.logger.Debug("v2 notification deduped (redis)",
+				zap.Uint("event_id", event.ID),
+				zap.Uint("rule_id", rule.ID),
+				zap.Uint("media_id", nc.MediaID),
+				zap.String("fingerprint", event.Fingerprint),
+			)
+			continue
+		} else if s.dedupSvc == nil && !routeDedup.TrySend(dedupKey) {
+			s.logger.Debug("v2 notification deduped (in-memory)",
 				zap.Uint("event_id", event.ID),
 				zap.Uint("rule_id", rule.ID),
 				zap.Uint("media_id", nc.MediaID),

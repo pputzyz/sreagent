@@ -59,6 +59,31 @@ func (r *AnnotationRepository) ListByDashboard(ctx context.Context, dashboardID 
 	return list, err
 }
 
+// List returns annotations with optional dashboard_id filter, time range, and pagination.
+func (r *AnnotationRepository) List(ctx context.Context, dashboardID uint, from, to time.Time, page, pageSize uint) ([]model.Annotation, int64, error) {
+	var list []model.Annotation
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Annotation{})
+	if dashboardID > 0 {
+		query = query.Where("dashboard_id = ?", dashboardID)
+	}
+	if !from.IsZero() {
+		query = query.Where("time >= ?", from)
+	}
+	if !to.IsZero() {
+		query = query.Where("time <= ?", to)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	err := query.Order("time DESC").Offset(int(offset)).Limit(int(pageSize)).Find(&list).Error
+	return list, total, err
+}
+
 // BatchCreate inserts multiple annotations in a single transaction.
 func (r *AnnotationRepository) BatchCreate(ctx context.Context, annotations []model.Annotation) error {
 	if len(annotations) == 0 {

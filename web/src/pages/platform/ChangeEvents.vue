@@ -13,12 +13,12 @@ import { changeEventApi } from '@/api/change-event'
 import type { ChangeEvent, IngestChangeEventRequest } from '@/api/change-event'
 import { getErrorMessage } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { usePermissions } from '@/composables'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const message = useMessage()
 const dialog = useDialog()
-const { hasPerm } = usePermissions()
+const authStore = useAuthStore()
 
 // ─── State ───
 const events = ref<ChangeEvent[]>([])
@@ -302,7 +302,7 @@ onMounted(fetchEvents)
     <PageHeader :title="t('changeEvents.title')" :subtitle="t('changeEvents.subtitle')">
       <template #actions>
         <n-button
-          v-if="hasPerm('rules.manage')"
+          v-if="authStore.canManage"
           type="primary"
           size="small"
           @click="openCreate"
@@ -359,7 +359,7 @@ onMounted(fetchEvents)
       style="padding: 60px 0"
     >
       <template #extra>
-        <n-button v-if="hasPerm('rules.manage')" type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
+        <n-button v-if="authStore.canManage" type="primary" size="small" @click="openCreate">{{ t('common.create') }}</n-button>
       </template>
     </n-empty>
 
