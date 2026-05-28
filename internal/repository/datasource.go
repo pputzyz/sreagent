@@ -67,6 +67,15 @@ func (r *DataSourceRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.DataSource{}, id).Error
 }
 
+// UpdateHealthStatus updates only the status and version fields (avoids full Save overwriting concurrent edits).
+func (r *DataSourceRepository) UpdateHealthStatus(ctx context.Context, id uint, status model.DataSourceStatus, version string) error {
+	updates := map[string]interface{}{"status": status}
+	if version != "" {
+		updates["version"] = version
+	}
+	return r.db.WithContext(ctx).Model(&model.DataSource{}).Where("id = ?", id).Updates(updates).Error
+}
+
 // ListEnabled returns all enabled datasources.
 func (r *DataSourceRepository) ListEnabled(ctx context.Context) ([]model.DataSource, error) {
 	var list []model.DataSource

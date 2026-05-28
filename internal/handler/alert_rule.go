@@ -57,6 +57,74 @@ type CreateAlertRuleRequest struct {
 	Status model.AlertRuleStatus `json:"status"`
 	// Source indicates the origin of this rule (e.g. "ai", "import", "manual").
 	Source string `json:"source"`
+	// Evaluation
+	EvalInterval     int    `json:"eval_interval"`
+	RuleType         string `json:"rule_type"`
+	RecoveryHold     string `json:"recovery_hold"`
+	NoDataEnabled    bool   `json:"nodata_enabled"`
+	NoDataDuration   string `json:"nodata_duration"`
+	SuppressEnabled  bool   `json:"suppress_enabled"`
+	// Ownership
+	BizGroupID *uint `json:"biz_group_id"`
+	TeamID     *uint `json:"team_id"`
+	// Heartbeat
+	HeartbeatToken    string `json:"heartbeat_token"`
+	HeartbeatInterval int    `json:"heartbeat_interval"`
+	// SLA
+	AckSlaMinutes int `json:"ack_sla_minutes"`
+	// Multi-query
+	Queries    []model.RuleQuery `json:"queries"`
+	TriggerExp string            `json:"trigger_exp"`
+	JoinType   string            `json:"join_type"`
+	JoinKeys   []string          `json:"join_keys"`
+	// Variable filling
+	VarConfig *model.VarConfig `json:"var_config"`
+	// Channel
+	ChannelID *uint `json:"channel_id"`
+}
+
+// UpdateAlertRuleRequest uses pointer types so nil = "not sent in JSON".
+// The Update handler only overwrites fields that are explicitly provided.
+type UpdateAlertRuleRequest struct {
+	Name                 *string               `json:"name"`
+	DisplayName          *string               `json:"display_name"`
+	Description          *string               `json:"description"`
+	DataSourceID         *uint                 `json:"datasource_id"`
+	DatasourceType       *model.DataSourceType `json:"datasource_type"`
+	Expression           *string               `json:"expression"`
+	ForDuration          *string               `json:"for_duration"`
+	Severity             *model.AlertSeverity  `json:"severity"`
+	Labels               *model.JSONLabels     `json:"labels"`
+	Annotations          *model.JSONLabels     `json:"annotations"`
+	GroupName            *string               `json:"group_name"`
+	Category             *string               `json:"category"`
+	GroupWaitSeconds     *int                  `json:"group_wait_seconds"`
+	GroupIntervalSeconds *int                  `json:"group_interval_seconds"`
+	Status               *model.AlertRuleStatus `json:"status"`
+	// Evaluation
+	EvalInterval     *int    `json:"eval_interval"`
+	RuleType         *string `json:"rule_type"`
+	RecoveryHold     *string `json:"recovery_hold"`
+	NoDataEnabled    *bool   `json:"nodata_enabled"`
+	NoDataDuration   *string `json:"nodata_duration"`
+	SuppressEnabled  *bool   `json:"suppress_enabled"`
+	// Ownership
+	BizGroupID *uint `json:"biz_group_id"`
+	TeamID     *uint `json:"team_id"`
+	// Heartbeat
+	HeartbeatToken    *string `json:"heartbeat_token"`
+	HeartbeatInterval *int    `json:"heartbeat_interval"`
+	// SLA
+	AckSlaMinutes *int `json:"ack_sla_minutes"`
+	// Multi-query
+	Queries    *[]model.RuleQuery `json:"queries"`
+	TriggerExp *string            `json:"trigger_exp"`
+	JoinType   *string            `json:"join_type"`
+	JoinKeys   *[]string          `json:"join_keys"`
+	// Variable filling
+	VarConfig *model.VarConfig `json:"var_config"`
+	// Channel
+	ChannelID *uint `json:"channel_id"`
 }
 
 func (h *AlertRuleHandler) Create(c *gin.Context) {
@@ -95,6 +163,30 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		GroupIntervalSeconds: req.GroupIntervalSeconds,
 		Status:               status,
 		CreatedBy:            userID,
+		// Evaluation
+		EvalInterval:     req.EvalInterval,
+		RuleType:         model.AlertRuleType(req.RuleType),
+		RecoveryHold:     req.RecoveryHold,
+		NoDataEnabled:    req.NoDataEnabled,
+		NoDataDuration:   req.NoDataDuration,
+		SuppressEnabled:  req.SuppressEnabled,
+		// Ownership
+		BizGroupID: req.BizGroupID,
+		TeamID:     req.TeamID,
+		// Heartbeat
+		HeartbeatToken:    req.HeartbeatToken,
+		HeartbeatInterval: req.HeartbeatInterval,
+		// SLA
+		AckSlaMinutes: req.AckSlaMinutes,
+		// Multi-query
+		Queries:    req.Queries,
+		TriggerExp: req.TriggerExp,
+		JoinType:   req.JoinType,
+		JoinKeys:   req.JoinKeys,
+		// Variable filling
+		VarConfig: req.VarConfig,
+		// Channel
+		ChannelID: req.ChannelID,
 	}
 
 	if err := h.svc.Create(c.Request.Context(), rule, req.Source); err != nil {
@@ -166,52 +258,149 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req CreateAlertRuleRequest
+	var req UpdateAlertRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
 	userID := GetCurrentUserID(c)
+
+	// Fetch existing rule so we only overwrite fields explicitly provided in JSON.
+	existing, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	// Merge non-nil request fields into existing rule (PATCH semantics).
+	if req.Name != nil {
+		existing.Name = *req.Name
+	}
+	if req.DisplayName != nil {
+		existing.DisplayName = *req.DisplayName
+	}
+	if req.Description != nil {
+		existing.Description = *req.Description
+	}
+	if req.DataSourceID != nil {
+		existing.DataSourceID = req.DataSourceID
+	}
+	if req.DatasourceType != nil {
+		existing.DatasourceType = *req.DatasourceType
+	}
+	if req.Expression != nil {
+		existing.Expression = *req.Expression
+	}
+	if req.ForDuration != nil {
+		existing.ForDuration = *req.ForDuration
+	}
+	if req.Severity != nil {
+		existing.Severity = *req.Severity
+	}
+	if req.Labels != nil {
+		existing.Labels = *req.Labels
+	}
+	if req.Annotations != nil {
+		existing.Annotations = *req.Annotations
+	}
+	if req.GroupName != nil {
+		existing.GroupName = *req.GroupName
+	}
+	if req.Category != nil {
+		existing.Category = *req.Category
+	}
+	if req.GroupWaitSeconds != nil {
+		existing.GroupWaitSeconds = *req.GroupWaitSeconds
+	}
+	if req.GroupIntervalSeconds != nil {
+		existing.GroupIntervalSeconds = *req.GroupIntervalSeconds
+	}
+	if req.Status != nil {
+		existing.Status = *req.Status
+	}
+	// Evaluation
+	if req.EvalInterval != nil {
+		existing.EvalInterval = *req.EvalInterval
+	}
+	if req.RuleType != nil {
+		existing.RuleType = model.AlertRuleType(*req.RuleType)
+	}
+	if req.RecoveryHold != nil {
+		existing.RecoveryHold = *req.RecoveryHold
+	}
+	if req.NoDataEnabled != nil {
+		existing.NoDataEnabled = *req.NoDataEnabled
+	}
+	if req.NoDataDuration != nil {
+		existing.NoDataDuration = *req.NoDataDuration
+	}
+	if req.SuppressEnabled != nil {
+		existing.SuppressEnabled = *req.SuppressEnabled
+	}
+	// Ownership
+	if req.BizGroupID != nil {
+		existing.BizGroupID = req.BizGroupID
+	}
+	if req.TeamID != nil {
+		existing.TeamID = req.TeamID
+	}
+	// Heartbeat
+	if req.HeartbeatToken != nil {
+		existing.HeartbeatToken = *req.HeartbeatToken
+	}
+	if req.HeartbeatInterval != nil {
+		existing.HeartbeatInterval = *req.HeartbeatInterval
+	}
+	// SLA
+	if req.AckSlaMinutes != nil {
+		existing.AckSlaMinutes = *req.AckSlaMinutes
+	}
+	// Multi-query
+	if req.Queries != nil {
+		existing.Queries = *req.Queries
+	}
+	if req.TriggerExp != nil {
+		existing.TriggerExp = *req.TriggerExp
+	}
+	if req.JoinType != nil {
+		existing.JoinType = *req.JoinType
+	}
+	if req.JoinKeys != nil {
+		existing.JoinKeys = *req.JoinKeys
+	}
+	// Variable filling
+	if req.VarConfig != nil {
+		existing.VarConfig = req.VarConfig
+	}
+	// Channel
+	if req.ChannelID != nil {
+		existing.ChannelID = req.ChannelID
+	}
+
+	existing.UpdatedBy = userID
+
+	ruleName := existing.Name
 	h.log.Info("alert rule update",
 		zap.Uint("user_id", userID),
 		zap.Uint("rule_id", id),
-		zap.String("name", req.Name),
+		zap.String("name", ruleName),
 		zap.String("request_id", c.GetString("request_id")))
 
-	rule := &model.AlertRule{
-		Name:                 req.Name,
-		DisplayName:          req.DisplayName,
-		Description:          req.Description,
-		DataSourceID:         req.DataSourceID,
-		DatasourceType:       req.DatasourceType,
-		Expression:           req.Expression,
-		ForDuration:          req.ForDuration,
-		Severity:             req.Severity,
-		Labels:               req.Labels,
-		Annotations:          req.Annotations,
-		GroupName:            req.GroupName,
-		Category:             req.Category,
-		GroupWaitSeconds:     req.GroupWaitSeconds,
-		GroupIntervalSeconds: req.GroupIntervalSeconds,
-		UpdatedBy:            userID,
-	}
-	rule.ID = id
-
-	if err := h.svc.Update(c.Request.Context(), rule); err != nil {
+	if err := h.svc.Update(c.Request.Context(), existing); err != nil {
 		Error(c, err)
 		return
 	}
 
 	if h.auditSvc != nil {
-		uid := rule.UpdatedBy
+		uid := existing.UpdatedBy
 		h.auditSvc.Record(&model.AuditLog{
 			UserID: &uid, Username: GetCurrentUsername(c),
 			Action: model.AuditActionUpdate, ResourceType: model.AuditResourceAlertRule,
-			ResourceID: &rule.ID, ResourceName: rule.Name, IP: c.ClientIP(),
+			ResourceID: &existing.ID, ResourceName: ruleName, IP: c.ClientIP(),
 		})
 	}
-	Success(c, rule)
+	Success(c, existing)
 }
 
 func (h *AlertRuleHandler) Delete(c *gin.Context) {

@@ -41,13 +41,13 @@ func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Log
 }
 
 // decryptAuthConfig decrypts the datasource's AuthConfig if it is encrypted.
-// Returns the plaintext config, or empty string on error (M1: no silent fallback to raw ciphertext).
-func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) string {
+// Returns the plaintext config, or an error if decryption fails.
+func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) (string, error) {
 	if ds.AuthConfig == "" {
-		return ""
+		return "", nil
 	}
 	if !crypto.IsEncrypted(ds.AuthConfig) {
-		return ds.AuthConfig
+		return ds.AuthConfig, nil
 	}
 	plain, err := crypto.DecryptString(ds.AuthConfig)
 	if err != nil {
@@ -55,9 +55,9 @@ func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) string {
 			zap.Uint("datasource_id", ds.ID),
 			zap.Error(err),
 		)
-		return ""
+		return "", fmt.Errorf("decrypt auth_config for ds=%d: %w", ds.ID, err)
 	}
-	return plain
+	return plain, nil
 }
 
 // validateEndpoint checks that the endpoint URL does not point to a private/loopback IP (SSRF protection).
@@ -110,7 +110,9 @@ func validateEndpoint(endpoint string) error {
 	return nil
 }
 
-// validateIP checks that an IP is not loopback, link-local, private, or IPv4-mapped loopback.
+// validateIP checks that an IP is not loopback or link-local.
+// Private IPs (RFC1918) are allowed because datasources commonly run on internal networks.
+// Runtime SSRF protection is handled by NewInternalClient in safehttp.
 func validateIP(ip net.IP) error {
 	if ip.IsLoopback() {
 		return fmt.Errorf("loopback IP not allowed")
@@ -118,12 +120,9 @@ func validateIP(ip net.IP) error {
 	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 		return fmt.Errorf("link-local IP not allowed")
 	}
-	if ip.IsPrivate() {
-		return fmt.Errorf("private IP not allowed")
-	}
 	// Check IPv4-mapped IPv6 (e.g., ::ffff:127.0.0.1).
 	if ip4 := ip.To4(); ip4 != nil {
-		if ip4.IsLoopback() || ip4.IsPrivate() || ip4.IsLinkLocalUnicast() {
+		if ip4.IsLoopback() || ip4.IsLinkLocalUnicast() {
 			return fmt.Errorf("IPv4-mapped blocked IP not allowed")
 		}
 	}
@@ -212,6 +211,7 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 		}
 	}
 	existing.HealthCheckInterval = ds.HealthCheckInterval
+	existing.IsEnabled = ds.IsEnabled
 
 	if err := s.repo.Update(ctx, existing); err != nil {
 		s.logger.Error("failed to update datasource", zap.Error(err))
@@ -258,7 +258,10 @@ func (s *DataSourceService) HealthCheck(ctx context.Context, id uint) (*HealthCh
 		return &HealthCheckResult{Status: model.DSStatusUnknown, Message: "unsupported datasource type"}, nil
 	}
 
-	authConfig := s.decryptAuthConfig(ds)
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
 	hr := checker.CheckHealth(ctx, ds.Endpoint, ds.AuthType, authConfig)
 
 	status := model.DSStatusHealthy
@@ -277,11 +280,7 @@ func (s *DataSourceService) HealthCheck(ctx context.Context, id uint) (*HealthCh
 		)
 	}
 
-	ds.Status = status
-	if hr.Healthy && hr.Version != "" {
-		ds.Version = hr.Version
-	}
-	if err := s.repo.Update(ctx, ds); err != nil {
+	if err := s.repo.UpdateHealthStatus(ctx, ds.ID, status, hr.Version); err != nil {
 		s.logger.Error("failed to persist datasource health status",
 			zap.String("datasource", ds.Name),
 			zap.Error(err),
@@ -324,7 +323,10 @@ func (s *DataSourceService) QueryDatasource(ctx context.Context, dsID uint, expr
 
 	qc := datasource.NewQueryClient()
 	resp := &QueryResponse{}
-	authConfig := s.decryptAuthConfig(ds)
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
 
 	switch ds.Type {
 	case model.DSTypePrometheus, model.DSTypeVictoriaMetrics:
@@ -375,7 +377,10 @@ func (s *DataSourceService) QueryRange(ctx context.Context, dsID uint, expressio
 	}
 
 	qc := datasource.NewQueryClient()
-	authConfig := s.decryptAuthConfig(ds)
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
 	results, err := qc.RangeQuery(ctx, ds.Endpoint, ds.AuthType, authConfig, expression, start, end, step)
 	if err != nil {
 		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
@@ -425,7 +430,10 @@ func (s *DataSourceService) QueryLogs(ctx context.Context, dsID uint, params Log
 		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log query only supported for victorialogs and elasticsearch datasources")
 	}
 
-	authConfig := s.decryptAuthConfig(ds)
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
 
 	switch ds.Type {
 	case model.DSTypeVictoriaLogs:
@@ -514,7 +522,10 @@ func (s *DataSourceService) QueryLogHistogram(ctx context.Context, dsID uint, pa
 		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "log histogram only supported for victorialogs and elasticsearch datasources")
 	}
 
-	authConfig := s.decryptAuthConfig(ds)
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
 
 	switch ds.Type {
 	case model.DSTypeVictoriaLogs:
@@ -573,6 +584,9 @@ func (s *DataSourceService) ProxyToDatasource(ctx context.Context, dsID uint, pa
 	}
 
 	qc := datasource.NewQueryClient()
-	authConfig := s.decryptAuthConfig(ds)
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
 	return qc.ProxyGet(ctx, ds.Endpoint, ds.AuthType, authConfig, path, params)
 }

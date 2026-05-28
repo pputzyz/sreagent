@@ -4,6 +4,25 @@
 
 ---
 
+## [v4.46.0] — 2026-05-28
+
+### 架构审查修复 — datasource + alert-rule/engine P0 全量修复
+
+**Datasource 模块 (5 P0)**
+- **P0-1**: `service.Update` 补 `existing.IsEnabled = ds.IsEnabled` — 禁用开关之前被吞
+- **P0-2**: `HealthCheck` 改用 `UpdateHealthStatus` partial update，不再 Save 全字段覆盖用户编辑
+- **P0-3**: `decryptAuthConfig` 返回 `(string, error)`，解密失败不再静默降级为无认证
+- **P0-4**: Zabbix token 缓存（3h TTL），避免每条规则每次评估都重新登录
+- **P0-5**: `validateIP` 放行私网 IP（RFC1918），与 NewInternalClient 策略对齐
+
+**Alert Rule + Engine 模块 (4 P0)**
+- **P0-1**: 新增 `UpdateAlertRuleRequest`（pointer 类型 PATCH 语义），修复 Update 擦除 10+ 字段（EvalInterval/NoData/Heartbeat/SLA 等）
+- **P0-2**: handler 补全 multi-query/VarConfig/ChannelID/TeamID/BizGroupID 字段
+- **P0-3**: Recording Rule 执行时 log Phase 1 限制（结果不写回 TSDB）
+- **P0-4**: RecordingRuleEngine 支持 cron pattern 变更自动 reschedule
+
+---
+
 ## [v4.45.1] — 2026-05-28
 
 ### Bug 修复

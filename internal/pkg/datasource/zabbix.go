@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -53,6 +54,47 @@ type zabbixAuthConfig struct {
 	Token    string `json:"token"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+// zabbixCachedToken holds a cached Zabbix API session token with its expiry time.
+type zabbixCachedToken struct {
+	token   string
+	expires time.Time
+}
+
+// zabbixTokenCache provides thread-safe caching of Zabbix API session tokens
+// keyed by apiURL + "|" + username. Prevents re-login on every query.
+type zabbixTokenCache struct {
+	mu     sync.Mutex
+	tokens map[string]zabbixCachedToken
+}
+
+var defaultZabbixTokenCache = &zabbixTokenCache{
+	tokens: make(map[string]zabbixCachedToken),
+}
+
+func (c *zabbixTokenCache) cacheKey(apiURL, username string) string {
+	return apiURL + "|" + username
+}
+
+func (c *zabbixTokenCache) get(apiURL, username string) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	key := c.cacheKey(apiURL, username)
+	if ct, ok := c.tokens[key]; ok && time.Now().Before(ct.expires) {
+		return ct.token, true
+	}
+	return "", false
+}
+
+func (c *zabbixTokenCache) put(apiURL, username, token string, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	key := c.cacheKey(apiURL, username)
+	c.tokens[key] = zabbixCachedToken{
+		token:   token,
+		expires: time.Now().Add(ttl),
+	}
 }
 
 // CheckHealth calls apiinfo.version via JSON-RPC to verify the Zabbix API is reachable
@@ -183,13 +225,19 @@ func ZabbixInstantQuery(ctx context.Context, endpoint, authType, authConfig, exp
 		_ = json.Unmarshal([]byte(authConfig), &cfg)
 	}
 
-	// Resolve API token
+	// Resolve API token (with cache for username/password auth)
 	token := cfg.Token
 	if token == "" && cfg.Username != "" {
-		var err error
-		token, err = zabbixAPIToken(ctx, apiURL, cfg.Username, cfg.Password)
-		if err != nil {
-			return nil, fmt.Errorf("zabbix authentication failed: %w", err)
+		if cached, ok := defaultZabbixTokenCache.get(apiURL, cfg.Username); ok {
+			token = cached
+		} else {
+			var err error
+			token, err = zabbixAPIToken(ctx, apiURL, cfg.Username, cfg.Password)
+			if err != nil {
+				return nil, fmt.Errorf("zabbix authentication failed: %w", err)
+			}
+			// Cache for 3 hours (Zabbix sessions default to 4 hours)
+			defaultZabbixTokenCache.put(apiURL, cfg.Username, token, 3*time.Hour)
 		}
 	}
 

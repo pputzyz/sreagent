@@ -32,7 +32,8 @@ type RecordingRuleEngine struct {
 	logger    *zap.Logger
 
 	cron    *cron.Cron
-	entries map[uint]cron.EntryID // ruleID → cron entry
+	entries  map[uint]cron.EntryID // ruleID → cron entry
+	patterns map[uint]string       // ruleID → cron pattern (for change detection)
 	mu      sync.Mutex
 	stopCh  chan struct{}
 	stopped bool
@@ -52,9 +53,10 @@ func NewRecordingRuleEngine(
 		execDB:   db,
 		queryCli: queryCli,
 		logger:   logger,
-		cron:     cron.New(),
-		entries:  make(map[uint]cron.EntryID),
-		stopCh:   make(chan struct{}),
+		cron:      cron.New(),
+		entries:   make(map[uint]cron.EntryID),
+		patterns:  make(map[uint]string),
+		stopCh:    make(chan struct{}),
 	}
 }
 
@@ -134,12 +136,36 @@ func (e *RecordingRuleEngine) syncRules(ctx context.Context) error {
 
 		e.mu.Lock()
 		existingEntryID, exists := e.entries[rule.ID]
+		oldPattern := e.patterns[rule.ID]
 		e.mu.Unlock()
 
 		if exists {
-			// Rule already scheduled — nothing to update in Phase 1
-			// (CronPattern changes would require remove + re-add; skip for now)
-			_ = existingEntryID
+			// Detect cron pattern change — remove old entry and re-add
+			newPattern := rule.CronPattern
+			if newPattern == "" {
+				newPattern = "@every 60s"
+			}
+			if oldPattern != newPattern {
+				e.cron.Remove(existingEntryID)
+				e.mu.Lock()
+				delete(e.entries, rule.ID)
+				delete(e.patterns, rule.ID)
+				e.mu.Unlock()
+
+				if err := e.addRule(rule); err != nil {
+					e.logger.Error("recording rule engine: failed to reschedule rule after pattern change",
+						zap.Uint("rule_id", rule.ID),
+						zap.String("name", rule.Name),
+						zap.Error(err),
+					)
+				} else {
+					e.logger.Info("recording rule engine: rescheduled rule with new pattern",
+						zap.Uint("rule_id", rule.ID),
+						zap.String("old_pattern", oldPattern),
+						zap.String("new_pattern", newPattern),
+					)
+				}
+			}
 			continue
 		}
 
@@ -158,6 +184,7 @@ func (e *RecordingRuleEngine) syncRules(ctx context.Context) error {
 		if !activeIDs[ruleID] {
 			e.cron.Remove(entryID)
 			delete(e.entries, ruleID)
+			delete(e.patterns, ruleID)
 			e.logger.Info("recording rule engine: removed rule", zap.Uint("rule_id", ruleID))
 		}
 	}
@@ -195,6 +222,7 @@ func (e *RecordingRuleEngine) addRule(rule *model.RecordingRule) error {
 
 	e.mu.Lock()
 	e.entries[rule.ID] = entryID
+	e.patterns[rule.ID] = pattern
 	e.mu.Unlock()
 
 	e.logger.Info("recording rule engine: scheduled rule",
@@ -265,8 +293,17 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 			zap.Int("series", len(results)),
 		)
 
-		// Phase 2: write results back as new time series with rule.Name metric name.
-		// For now we only validate the query and log the outcome.
+		// Phase 1 limitation: query is validated and execution recorded, but results
+		// are NOT written back to the datasource as new time series.
+		// Users expecting derived metrics (e.g. instance:cpu_usage:5m_avg) to appear
+		// in Prometheus will see "no data" — this is a known limitation until Phase 2
+		// implements remote-write support.
+		e.logger.Warn("recording rule: Phase 1 — query validated but results NOT written back to datasource",
+			zap.Uint("rule_id", rule.ID),
+			zap.String("name", rule.Name),
+			zap.String("metric", rule.Name),
+			zap.Int("series_count", len(results)),
+		)
 	}
 
 	duration := time.Since(start)

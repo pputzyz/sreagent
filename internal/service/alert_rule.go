@@ -209,6 +209,16 @@ func (s *AlertRuleService) Update(ctx context.Context, rule *model.AlertRule) er
 	existing.HeartbeatToken = rule.HeartbeatToken
 	existing.HeartbeatInterval = rule.HeartbeatInterval
 	existing.AckSlaMinutes = rule.AckSlaMinutes
+	// Multi-query fields
+	existing.Queries = rule.Queries
+	existing.TriggerExp = rule.TriggerExp
+	existing.JoinType = rule.JoinType
+	existing.JoinKeys = rule.JoinKeys
+	// Variable filling
+	existing.VarConfig = rule.VarConfig
+	// Ownership / Channel
+	existing.TeamID = rule.TeamID
+	existing.ChannelID = rule.ChannelID
 
 	oldVersion := existing.Version
 	existing.Version++
