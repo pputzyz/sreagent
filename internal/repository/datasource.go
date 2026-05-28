@@ -38,13 +38,16 @@ func (r *DataSourceRepository) GetByName(ctx context.Context, name string) (*mod
 	return &ds, nil
 }
 
-func (r *DataSourceRepository) List(ctx context.Context, dsType string, page, pageSize int) ([]model.DataSource, int64, error) {
+func (r *DataSourceRepository) List(ctx context.Context, dsType, search string, page, pageSize int) ([]model.DataSource, int64, error) {
 	var list []model.DataSource
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&model.DataSource{})
 	if dsType != "" {
 		query = query.Where("type = ?", dsType)
+	}
+	if search != "" {
+		query = query.Where("name LIKE ?", "%"+search+"%")
 	}
 
 	if err := query.Count(&total).Error; err != nil {

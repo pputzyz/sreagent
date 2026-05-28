@@ -35,12 +35,8 @@ type DataSourceHandler struct {
 	log      *zap.Logger
 }
 
-func NewDataSourceHandler(svc *service.DataSourceService, logger ...*zap.Logger) *DataSourceHandler {
-	l := zap.NewNop()
-	if len(logger) > 0 && logger[0] != nil {
-		l = logger[0]
-	}
-	return &DataSourceHandler{svc: svc, log: l}
+func NewDataSourceHandler(svc *service.DataSourceService, logger *zap.Logger) *DataSourceHandler {
+	return &DataSourceHandler{svc: svc, log: logger}
 }
 
 // SetAuditService injects the audit log service (called after construction to avoid circular DI).
@@ -129,8 +125,9 @@ func (h *DataSourceHandler) Get(c *gin.Context) {
 func (h *DataSourceHandler) List(c *gin.Context) {
 	pq := GetPageQuery(c)
 	dsType := c.Query("type")
+	search := c.Query("search")
 
-	list, total, err := h.svc.List(c.Request.Context(), dsType, pq.Page, pq.PageSize)
+	list, total, err := h.svc.List(c.Request.Context(), dsType, search, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, err)
 		return
@@ -242,6 +239,15 @@ func (h *DataSourceHandler) HealthCheck(c *gin.Context) {
 	Success(c, result)
 }
 
+// toTime converts a unix timestamp in seconds (with fractional precision) to time.Time.
+// Handles millisecond/sub-second precision correctly (P1-3).
+func toTime(unixSec float64) time.Time {
+	if unixSec <= 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(int64(unixSec * 1000))
+}
+
 // Query tests an expression against a datasource.
 // POST /api/v1/datasources/:id/query
 func (h *DataSourceHandler) Query(c *gin.Context) {
@@ -260,10 +266,7 @@ func (h *DataSourceHandler) Query(c *gin.Context) {
 		return
 	}
 
-	var queryTime time.Time
-	if req.Time > 0 {
-		queryTime = time.UnixMilli(int64(req.Time * 1000))
-	}
+	queryTime := toTime(req.Time)
 
 	result, err := h.svc.QueryDatasource(c.Request.Context(), id, req.Expression, queryTime)
 	if err != nil {
@@ -293,8 +296,8 @@ func (h *DataSourceHandler) RangeQuery(c *gin.Context) {
 		return
 	}
 
-	start := time.Unix(int64(req.Start), 0)
-	end := time.Unix(int64(req.End), 0)
+	start := toTime(req.Start)
+	end := toTime(req.End)
 
 	result, err := h.svc.QueryRange(c.Request.Context(), id, req.Expression, start, end, req.Step)
 	if err != nil {
@@ -386,8 +389,8 @@ func (h *DataSourceHandler) LogQuery(c *gin.Context) {
 		return
 	}
 
-	start := time.Unix(int64(req.Start), 0)
-	end := time.Unix(int64(req.End), 0)
+	start := toTime(req.Start)
+	end := toTime(req.End)
 
 	result, err := h.svc.QueryLogs(c.Request.Context(), id, service.LogQueryParams{
 		Expression: req.Expression,
@@ -441,8 +444,8 @@ func (h *DataSourceHandler) LogHistogram(c *gin.Context) {
 		}
 	}
 
-	start := time.Unix(int64(req.Start), 0)
-	end := time.Unix(int64(req.End), 0)
+	start := toTime(req.Start)
+	end := toTime(req.End)
 
 	result, err := h.svc.QueryLogHistogram(c.Request.Context(), id, service.LogHistogramParams{
 		Expression: req.Expression,
@@ -459,9 +462,10 @@ func (h *DataSourceHandler) LogHistogram(c *gin.Context) {
 	Success(c, result)
 }
 
-// Proxy proxies any HTTP request to the target datasource endpoint.
-// ANY /api/v1/datasources/:id/proxy/*path
-// This is the Nightingale pattern: transparent proxy for all datasource API calls.
+// Proxy proxies HTTP GET requests to the target datasource endpoint.
+// GET /api/v1/datasources/:id/proxy/*path
+// This is the Nightingale pattern: transparent proxy for datasource API calls.
+// P1-7: Restricted to GET only. P1-9: Path whitelist for security.
 func (h *DataSourceHandler) Proxy(c *gin.Context) {
 	id, err := GetIDParam(c, "id")
 	if err != nil {
@@ -473,6 +477,35 @@ func (h *DataSourceHandler) Proxy(c *gin.Context) {
 	path := c.Param("path")
 	if path == "" {
 		path = "/"
+	}
+
+	// P1-9: Path whitelist validation
+	allowedPrefixes := []string{
+		"/api/v1/labels", "/api/v1/label/", "/api/v1/series",
+		"/api/v1/query", "/api/v1/query_range",
+		"/api/v1/status/", "/api/v1/metadata",
+	}
+	blockedPrefixes := []string{
+		"/api/v1/admin", "/_security", "/_cat/", "/_cluster",
+	}
+
+	for _, blocked := range blockedPrefixes {
+		if strings.HasPrefix(path, blocked) {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "access to this path is blocked"))
+			return
+		}
+	}
+
+	allowed := false
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "path not in proxy whitelist"))
+		return
 	}
 
 	// Forward query parameters
@@ -499,15 +532,22 @@ func (h *DataSourceHandler) Proxy(c *gin.Context) {
 func (h *DataSourceHandler) DsQuery(c *gin.Context) {
 	var req struct {
 		Queries []struct {
-			DatasourceID uint   `json:"datasource_id" binding:"required"`
-			Expression   string `json:"expression" binding:"required"`
-			Start        int64  `json:"start"` // unix seconds, 0 = instant
-			End          int64  `json:"end"`   // unix seconds
-			Step         string `json:"step"`  // e.g. "15s"
+			DatasourceID uint    `json:"datasource_id" binding:"required"`
+			Expression   string  `json:"expression" binding:"required"`
+			Start        float64 `json:"start"` // unix seconds (float for ms precision), 0 = instant
+			End          float64 `json:"end"`   // unix seconds
+			Step         string  `json:"step"`  // e.g. "15s"
 		} `json:"queries" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	// P1-8: Limit concurrent queries per request
+	const maxQueriesPerRequest = 50
+	if len(req.Queries) > maxQueriesPerRequest {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("too many queries: max %d", maxQueriesPerRequest)))
 		return
 	}
 
@@ -523,19 +563,19 @@ func (h *DataSourceHandler) DsQuery(c *gin.Context) {
 	for i, q := range req.Queries {
 		wg.Add(1)
 		go func(idx int, query struct {
-			DatasourceID uint   `json:"datasource_id" binding:"required"`
-			Expression   string `json:"expression" binding:"required"`
-			Start        int64  `json:"start"`
-			End          int64  `json:"end"`
-			Step         string `json:"step"`
+			DatasourceID uint    `json:"datasource_id" binding:"required"`
+			Expression   string  `json:"expression" binding:"required"`
+			Start        float64 `json:"start"`
+			End          float64 `json:"end"`
+			Step         string  `json:"step"`
 		}) {
 			defer wg.Done()
 			ctx := c.Request.Context()
 
 			if query.Start > 0 && query.End > 0 {
 				// Range query
-				start := time.Unix(query.Start, 0)
-				end := time.Unix(query.End, 0)
+				start := toTime(query.Start)
+				end := toTime(query.End)
 				step := query.Step
 				if step == "" {
 					step = "15s"
@@ -597,4 +637,46 @@ func (h *DataSourceHandler) MetricNames(c *gin.Context) {
 	}
 
 	Success(c, apiResp.Data)
+}
+
+// GetESIndices returns non-hidden Elasticsearch indices for the given datasource.
+// GET /api/v1/datasources/:id/es-indices
+func (h *DataSourceHandler) GetESIndices(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	indices, err := h.svc.GetESIndices(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, indices)
+}
+
+// GetESFields returns field names and types for a given Elasticsearch index.
+// GET /api/v1/datasources/:id/es-fields?index=my-index
+func (h *DataSourceHandler) GetESFields(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	index := c.Query("index")
+	if index == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "index query parameter is required"))
+		return
+	}
+
+	fields, err := h.svc.GetESFields(c.Request.Context(), id, index)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, fields)
 }

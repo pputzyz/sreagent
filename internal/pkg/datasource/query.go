@@ -76,7 +76,9 @@ func (qc *QueryClient) RangeQuery(ctx context.Context, endpoint, authType, authC
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("range query auth: %w", err)
+	}
 
 	resp, err := qc.httpClient.Do(req)
 	if err != nil {
@@ -113,7 +115,9 @@ func (qc *QueryClient) InstantQuery(ctx context.Context, endpoint, authType, aut
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("instant query auth: %w", err)
+	}
 
 	resp, err := qc.httpClient.Do(req)
 	if err != nil {
@@ -212,12 +216,12 @@ func parseDataPoint(raw []interface{}) (DataPoint, error) {
 		return DataPoint{}, fmt.Errorf("expected 2 elements, got %d", len(raw))
 	}
 
-	// Timestamp is a float64 (unix seconds)
+	// Timestamp is a float64 (unix seconds, may have sub-second precision)
 	tsFloat, ok := raw[0].(float64)
 	if !ok {
 		return DataPoint{}, fmt.Errorf("unexpected timestamp type: %T", raw[0])
 	}
-	ts := time.Unix(int64(tsFloat), 0).UTC()
+	ts := time.Unix(0, int64(tsFloat*1e9)).UTC()
 
 	// Value is a string in Prometheus JSON responses
 	valStr, ok := raw[1].(string)
@@ -251,7 +255,9 @@ func (qc *QueryClient) ProxyGet(ctx context.Context, endpoint, authType, authCon
 	}
 	req.URL.RawQuery = q.Encode()
 
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("proxy request auth: %w", err)
+	}
 
 	resp, err := qc.httpClient.Do(req)
 	if err != nil {

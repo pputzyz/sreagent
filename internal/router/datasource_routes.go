@@ -24,8 +24,11 @@ func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, ma
 		ds.GET("/:id/labels/keys", h.DataSource.LabelKeys)
 		ds.GET("/:id/labels/values", h.DataSource.LabelValues)
 		ds.GET("/:id/metrics", h.DataSource.MetricNames)
-		// Generic proxy: ANY /datasources/:id/proxy/*path (Nightingale pattern)
-		ds.Any("/:id/proxy/*path", manage, h.DataSource.Proxy)
+		ds.GET("/:id/es-indices", manage, h.DataSource.GetESIndices)
+		ds.GET("/:id/es-fields", manage, h.DataSource.GetESFields)
+		// Generic proxy: GET /datasources/:id/proxy/*path (Nightingale pattern)
+		// P1-7: Restricted to GET only for security
+		ds.GET("/:id/proxy/*path", manage, h.DataSource.Proxy)
 	}
 
 	// Label Registry (autocomplete for match_labels)

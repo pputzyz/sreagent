@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -177,4 +178,19 @@ func (r *AlertRuleRepository) BatchUpdateStatus(ctx context.Context, ids []uint,
 // BatchDelete soft-deletes all rules whose IDs are in ids.
 func (r *AlertRuleRepository) BatchDelete(ctx context.Context, ids []uint) error {
 	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.AlertRule{}).Error
+}
+
+// UpdateHeartbeatLastAt updates only the heartbeat_last_at column for a single rule.
+// This avoids a full-row Save that would overwrite concurrent UI edits.
+func (r *AlertRuleRepository) UpdateHeartbeatLastAt(ctx context.Context, ruleID uint, ts time.Time) error {
+	return r.db.WithContext(ctx).Model(&model.AlertRule{}).
+		Where("id = ?", ruleID).
+		Update("heartbeat_last_at", ts).Error
+}
+
+// CountByDataSourceID counts alert rules referencing the given datasource (P1-11).
+func (r *AlertRuleRepository) CountByDataSourceID(ctx context.Context, dsID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.AlertRule{}).Where("data_source_id = ?", dsID).Count(&count).Error
+	return count, err
 }

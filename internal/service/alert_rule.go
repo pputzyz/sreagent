@@ -183,6 +183,13 @@ func (s *AlertRuleService) Update(ctx context.Context, rule *model.AlertRule) er
 		return apperr.ErrRuleNotFound
 	}
 
+	// Validate datasource_id if it changed
+	if rule.DataSourceID != nil && (existing.DataSourceID == nil || *rule.DataSourceID != *existing.DataSourceID) {
+		if _, err := s.dsRepo.GetByID(ctx, *rule.DataSourceID); err != nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("datasource ID %d not found", *rule.DataSourceID))
+		}
+	}
+
 	existing.Name = rule.Name
 	existing.DisplayName = rule.DisplayName
 	existing.Description = rule.Description
@@ -304,6 +311,14 @@ func (s *AlertRuleService) BatchEnable(ctx context.Context, ids []uint) error {
 		s.logger.Error("failed to batch enable alert rules", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	// Record history for each affected rule
+	for _, id := range ids {
+		rule, err := s.repo.GetByID(ctx, id)
+		if err != nil {
+			continue // rule may have been deleted between batch and history
+		}
+		s.recordHistory(ctx, rule, "updated")
+	}
 	return nil
 }
 
@@ -316,6 +331,14 @@ func (s *AlertRuleService) BatchDisable(ctx context.Context, ids []uint) error {
 		s.logger.Error("failed to batch disable alert rules", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	// Record history for each affected rule
+	for _, id := range ids {
+		rule, err := s.repo.GetByID(ctx, id)
+		if err != nil {
+			continue
+		}
+		s.recordHistory(ctx, rule, "updated")
+	}
 	return nil
 }
 
@@ -323,6 +346,14 @@ func (s *AlertRuleService) BatchDisable(ctx context.Context, ids []uint) error {
 func (s *AlertRuleService) BatchDelete(ctx context.Context, ids []uint) error {
 	if len(ids) == 0 {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "ids must not be empty")
+	}
+	// Record history before deletion (snapshot captured while rule still exists)
+	for _, id := range ids {
+		rule, err := s.repo.GetByID(ctx, id)
+		if err != nil {
+			continue
+		}
+		s.recordHistory(ctx, rule, "deleted")
 	}
 	if err := s.repo.BatchDelete(ctx, ids); err != nil {
 		s.logger.Error("failed to batch delete alert rules", zap.Error(err))
@@ -333,14 +364,14 @@ func (s *AlertRuleService) BatchDelete(ctx context.Context, ids []uint) error {
 
 // RecordHeartbeatPing is called when a valid heartbeat token is received via
 // POST /heartbeat/:token. It looks up the rule and updates HeartbeatLastAt.
+// Uses a targeted column update to avoid overwriting concurrent UI edits.
 func (s *AlertRuleService) RecordHeartbeatPing(ctx context.Context, token string) error {
 	rule, err := s.repo.GetByHeartbeatToken(ctx, token)
 	if err != nil {
 		return apperr.ErrNotFound
 	}
 	now := time.Now()
-	rule.HeartbeatLastAt = &now
-	if err := s.repo.Update(ctx, rule); err != nil {
+	if err := s.repo.UpdateHeartbeatLastAt(ctx, rule.ID, now); err != nil {
 		s.logger.Error("failed to update heartbeat_last_at", zap.Uint("rule_id", rule.ID), zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
@@ -362,12 +393,14 @@ func (s *AlertRuleService) GetHeartbeatToken(ctx context.Context, id uint) (stri
 }
 
 // recordHistory creates an audit trail entry for an alert rule change.
+// The HeartbeatToken is masked in the snapshot to avoid leaking secrets.
 func (s *AlertRuleService) recordHistory(ctx context.Context, rule *model.AlertRule, changeType string) {
 	if s.historyRepo == nil {
 		return
 	}
 
-	snapshot, err := json.Marshal(rule)
+	maskedRule := rule.MaskHeartbeatToken()
+	snapshot, err := json.Marshal(maskedRule)
 	if err != nil {
 		s.logger.Error("failed to marshal rule snapshot for history",
 			zap.Uint("rule_id", rule.ID),

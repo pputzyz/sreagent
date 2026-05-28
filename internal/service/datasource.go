@@ -32,12 +32,23 @@ type DataSourceQuerier interface {
 var _ DataSourceQuerier = (*DataSourceService)(nil)
 
 type DataSourceService struct {
-	repo   *repository.DataSourceRepository
-	logger *zap.Logger
+	repo        *repository.DataSourceRepository
+	logger      *zap.Logger
+	queryClient *datasource.QueryClient
+	ruleCountFn func(ctx context.Context, dsID uint) (int64, error) // P1-11: optional cascade check
 }
 
 func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Logger) *DataSourceService {
-	return &DataSourceService{repo: repo, logger: logger}
+	return &DataSourceService{
+		repo:        repo,
+		logger:      logger,
+		queryClient: datasource.NewQueryClient(),
+	}
+}
+
+// SetRuleCountFn injects the function used to check alert rule references before deletion (P1-11).
+func (s *DataSourceService) SetRuleCountFn(fn func(ctx context.Context, dsID uint) (int64, error)) {
+	s.ruleCountFn = fn
 }
 
 // decryptAuthConfig decrypts the datasource's AuthConfig if it is encrypted.
@@ -78,9 +89,19 @@ func validateEndpoint(endpoint string) error {
 		return fmt.Errorf("endpoint hostname is empty")
 	}
 
-	// Block known dangerous hostnames.
+	// Block known dangerous hostnames (cloud metadata endpoints, internal services).
 	lowerHost := strings.ToLower(host)
-	blockedHosts := []string{"localhost", "metadata.google.internal", "instance-data", "169.254.169.254"}
+	blockedHosts := []string{
+		"localhost",
+		"metadata.google.internal",
+		"metadata.google.com",
+		"metadata.azure.com",
+		"metadata.azure.internal",
+		"instance-data",
+		"169.254.169.254", // AWS/GCP/Azure metadata IP (defense in depth; also blocked by IP check)
+		"kubernetes.default.svc",
+		"kubernetes.default",
+	}
 	for _, blocked := range blockedHosts {
 		if lowerHost == blocked || strings.HasSuffix(lowerHost, "."+blocked) {
 			return fmt.Errorf("endpoint hostname %q is not allowed", host)
@@ -173,14 +194,19 @@ func (s *DataSourceService) GetByID(ctx context.Context, id uint) (*model.DataSo
 	return ds, nil
 }
 
-func (s *DataSourceService) List(ctx context.Context, dsType string, page, pageSize int) ([]model.DataSource, int64, error) {
-	return s.repo.List(ctx, dsType, page, pageSize)
+func (s *DataSourceService) List(ctx context.Context, dsType, search string, page, pageSize int) ([]model.DataSource, int64, error) {
+	return s.repo.List(ctx, dsType, search, page, pageSize)
 }
 
 func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) error {
 	existing, err := s.repo.GetByID(ctx, ds.ID)
 	if err != nil {
 		return apperr.ErrDSNotFound
+	}
+
+	// P1-2: Prevent changing datasource type (e.g. prometheus→zabbix breaks everything)
+	if existing.Type != ds.Type {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "datasource type cannot be changed; create a new datasource instead")
 	}
 
 	// Validate endpoint against SSRF
@@ -197,7 +223,12 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 	existing.Description = ds.Description
 	existing.Labels = ds.Labels
 	existing.AuthType = ds.AuthType
-	if ds.AuthConfig != "" {
+
+	// P1-1: Allow clearing AuthConfig when switching to "none" auth
+	if ds.AuthType == "none" || ds.AuthType == "" {
+		existing.AuthConfig = ""
+		existing.AuthType = ds.AuthType
+	} else if ds.AuthConfig != "" {
 		// Encrypt AuthConfig if not already encrypted
 		if !crypto.IsEncrypted(ds.AuthConfig) {
 			enc, err := crypto.EncryptString(ds.AuthConfig)
@@ -224,6 +255,18 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 func (s *DataSourceService) Delete(ctx context.Context, id uint) error {
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		return apperr.ErrDSNotFound
+	}
+
+	// P1-11: Check cascade dependencies before deletion
+	if s.ruleCountFn != nil {
+		count, err := s.ruleCountFn(ctx, id)
+		if err != nil {
+			s.logger.Error("failed to check alert rule references", zap.Error(err))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+		if count > 0 {
+			return apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("cannot delete: %d alert rules reference this datasource", count))
+		}
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {
@@ -300,6 +343,7 @@ type QueryResponse struct {
 	ResultType string            `json:"result_type"`
 	Series     []QuerySeriesItem `json:"series"`
 	RawCount   int               `json:"raw_count"`
+	Truncated  bool              `json:"truncated,omitempty"` // P2-6: true when series were truncated
 }
 
 // QuerySeriesItem represents a single series in the query response.
@@ -321,7 +365,7 @@ func (s *DataSourceService) QueryDatasource(ctx context.Context, dsID uint, expr
 		return nil, apperr.ErrDSNotFound
 	}
 
-	qc := datasource.NewQueryClient()
+	qc := s.queryClient
 	resp := &QueryResponse{}
 	authConfig, err := s.decryptAuthConfig(ds)
 	if err != nil {
@@ -343,7 +387,7 @@ func (s *DataSourceService) QueryDatasource(ctx context.Context, dsID uint, expr
 			resp.Series = append(resp.Series, item)
 		}
 	case model.DSTypeVictoriaLogs:
-		results, err := datasource.VictoriaLogsInstantQuery(ctx, ds.Endpoint, ds.AuthType, authConfig, expression)
+		results, err := datasource.VictoriaLogsInstantQuery(ctx, ds.Endpoint, ds.AuthType, authConfig, expression, 0)
 		if err != nil {
 			return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
 		}
@@ -358,6 +402,7 @@ func (s *DataSourceService) QueryDatasource(ctx context.Context, dsID uint, expr
 	// Limit series count
 	if len(resp.Series) > 100 {
 		resp.Series = resp.Series[:100]
+		resp.Truncated = true
 	}
 	return resp, nil
 }
@@ -376,7 +421,7 @@ func (s *DataSourceService) QueryRange(ctx context.Context, dsID uint, expressio
 		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "range query not supported for "+string(ds.Type))
 	}
 
-	qc := datasource.NewQueryClient()
+	qc := s.queryClient
 	authConfig, err := s.decryptAuthConfig(ds)
 	if err != nil {
 		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
@@ -398,6 +443,7 @@ func (s *DataSourceService) QueryRange(ctx context.Context, dsID uint, expressio
 	// Limit series count
 	if len(resp.Series) > 1000 {
 		resp.Series = resp.Series[:1000]
+		resp.Truncated = true
 	}
 	return resp, nil
 }
@@ -583,10 +629,57 @@ func (s *DataSourceService) ProxyToDatasource(ctx context.Context, dsID uint, pa
 		return nil, apperr.ErrDSNotFound
 	}
 
-	qc := datasource.NewQueryClient()
+	qc := s.queryClient
 	authConfig, err := s.decryptAuthConfig(ds)
 	if err != nil {
 		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
 	}
 	return qc.ProxyGet(ctx, ds.Endpoint, ds.AuthType, authConfig, path, params)
+}
+
+// GetESIndices returns a list of non-hidden Elasticsearch indices for the given datasource.
+// The datasource must be of type elasticsearch.
+func (s *DataSourceService) GetESIndices(ctx context.Context, dsID uint) ([]string, error) {
+	ds, err := s.repo.GetByID(ctx, dsID)
+	if err != nil {
+		return nil, apperr.ErrDSNotFound
+	}
+	if ds.Type != model.DSTypeElasticsearch {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "es-indices only supported for elasticsearch datasources")
+	}
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
+	indices, err := datasource.ElasticsearchGetIndices(ctx, ds.Endpoint, ds.AuthType, authConfig)
+	if err != nil {
+		s.logger.Error("failed to get ES indices", zap.String("datasource", ds.Name), zap.Error(err))
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
+	return indices, nil
+}
+
+// GetESFields returns field names and types for a given Elasticsearch index.
+// The datasource must be of type elasticsearch.
+func (s *DataSourceService) GetESFields(ctx context.Context, dsID uint, index string) ([]datasource.FieldInfo, error) {
+	ds, err := s.repo.GetByID(ctx, dsID)
+	if err != nil {
+		return nil, apperr.ErrDSNotFound
+	}
+	if ds.Type != model.DSTypeElasticsearch {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "es-fields only supported for elasticsearch datasources")
+	}
+	if index == "" {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, "index query parameter is required")
+	}
+	authConfig, err := s.decryptAuthConfig(ds)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
+	fields, err := datasource.ElasticsearchGetFields(ctx, ds.Endpoint, ds.AuthType, authConfig, index)
+	if err != nil {
+		s.logger.Error("failed to get ES fields", zap.String("datasource", ds.Name), zap.String("index", index), zap.Error(err))
+		return nil, apperr.WithMessage(apperr.ErrExternalAPI, err.Error())
+	}
+	return fields, nil
 }

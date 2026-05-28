@@ -4,6 +4,47 @@
 
 ---
 
+## [v4.47.0] — 2026-05-28
+
+### 架构审查修复 — P1/P2 全量修复（审查 01 + 02）
+
+**Datasource Service/Handler (7 P1 + 7 P2)**
+- **P1-1**: Update 清空 AuthConfig（AuthType=none 时显式清空）
+- **P1-2**: Update 禁止变更 datasource type
+- **P1-3**: 时间参数统一 `toTime(float64)` — 5 个端点全部 UnixMilli
+- **P1-7/9**: Proxy 端点 Any→GET + path 白名单/黑名单
+- **P1-8**: DsQuery 并发查询上限 50
+- **P1-10**: QueryClient 单例化（连接池复用）
+- **P1-11**: Delete 检查 alert_rules 级联依赖
+- **P2-1**: Handler constructor 改 required logger
+- **P2-5**: parseDataPoint 亚秒精度（纳秒）
+- **P2-6**: QueryResponse 加 Truncated 标志
+- **P2-8**: Repository.List 支持 name 搜索
+- **P2-10**: ES message 字段加 ECS 标准（body/event.message/log.message + nested lookup）
+- **P2-13**: ES histogram fallback 字段名排序确定性
+
+**External Datasource Packages (4 P1 + 5 P2)**
+- **P1-4**: VictoriaLogs InstantQuery 加 lookback 参数
+- **P1-5**: LogsQL count==limit 时 log warning
+- **P1-6**: streamLabels 多 host 聚合
+- **P1-12**: Histogram 解析失败返明确 error
+- **P2-3**: applyAuth 改为返回 error（移除 stdlib log）
+- **P2-4**: API Key auth header 黑名单
+- **P2-7**: FetchAllLabels errgroup 并发化（limit 8）
+- **P2-9**: Zabbix 7.0+ 废弃注释
+- **P2-12**: ES 健康检查验证认证有效性
+
+**Alert Rule + Engine (5 P1 + 2 P2)**
+- **P1-1**: HeartbeatPing 改 partial update
+- **P1-2**: BatchEnable/Disable/Delete 写 history
+- **P1-3**: History snapshot 掩码 HeartbeatToken
+- **P1-4**: Update 校验 datasource_id 存在
+- **P1-5**: evaluator sync 限制文档化
+- **P2-2**: SSRF blocked hosts 补全
+- **P2-14**: ES indices/fields API 端点暴露
+
+---
+
 ## [v4.46.0] — 2026-05-28
 
 ### 架构审查修复 — datasource + alert-rule/engine P0 全量修复

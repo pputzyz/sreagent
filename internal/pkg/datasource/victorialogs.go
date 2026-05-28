@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 )
@@ -44,7 +46,10 @@ func (c *VictoriaLogsChecker) CheckHealth(ctx context.Context, endpoint, authTyp
 			Message: fmt.Sprintf("failed to build query request: %v", err)}
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return HealthResult{Healthy: false, LatencyMs: -1,
+			Message: fmt.Sprintf("auth config error: %v", err)}
+	}
 
 	resp, err := httpClient.Do(req)
 	latency := time.Since(start).Milliseconds()
@@ -63,33 +68,42 @@ func (c *VictoriaLogsChecker) CheckHealth(ctx context.Context, endpoint, authTyp
 	return HealthResult{Healthy: true, LatencyMs: latency, Message: "VictoriaLogs is healthy"}
 }
 
+// vlogsQueryLimit is the maximum number of log lines returned per query.
+// If the result count equals this limit, the actual count may be higher.
+const vlogsQueryLimit = 10000
+
 // VictoriaLogsInstantQuery executes a LogsQL query against VictoriaLogs and returns
 // the count of matching log entries as a single QueryResult.
 //
 // The expression is a LogsQL query string (e.g. `error level:error _time:5m`).
 // The result value is the number of log lines returned by the query.
-// A time range of the last 5 minutes is used if not specified in the expression.
+// The lookback parameter controls the time window; defaults to 5 minutes if <= 0.
 //
 // VictoriaLogs API: POST /select/logsql/query
 // Response format: NDJSON — one JSON object per line.
-func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfig, expression string) ([]QueryResult, error) {
+func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfig, expression string, lookback time.Duration) ([]QueryResult, error) {
+	if lookback <= 0 {
+		lookback = 5 * time.Minute
+	}
+
 	apiURL := strings.TrimRight(endpoint, "/") + "/select/logsql/query"
 
-	// Build form body with the LogsQL query and a 5-minute time window
+	// Build form body with the LogsQL query and the configured time window
 	now := time.Now()
 	form := url.Values{}
 	form.Set("query", expression)
-	form.Set("start", now.Add(-5*time.Minute).Format(time.RFC3339))
+	form.Set("start", now.Add(-lookback).Format(time.RFC3339))
 	form.Set("end", now.Format(time.RFC3339))
-	// Limit to 10000 lines max to avoid memory issues
-	form.Set("limit", "10000")
+	form.Set("limit", fmt.Sprintf("%d", vlogsQueryLimit))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logsql query request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("logsql query auth: %w", err)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -108,9 +122,11 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // 1MB per line max
 
 	var count float64
-	// Collect distinct stream labels from the first few entries to enrich result labels
-	streamLabels := make(map[string]string)
-	firstEntry := true
+	// Collect distinct stream label values across ALL entries to enrich result labels.
+	// Using maps to track unique values per field — multiple hosts/jobs may report.
+	jobs := make(map[string]bool)
+	instances := make(map[string]bool)
+	hosts := make(map[string]bool)
 
 	for scanner.Scan() {
 		line := bytes.TrimSpace(scanner.Bytes())
@@ -119,20 +135,19 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 		}
 		count++
 
-		// Parse first entry to extract stream labels (e.g. job, instance)
-		if firstEntry {
-			firstEntry = false
-			var entry map[string]interface{}
-			if err := json.Unmarshal(line, &entry); err == nil {
-				// Common VictoriaLogs stream fields
-				for _, field := range []string{"job", "instance", "host", "app", "service", "level", "stream"} {
-					if v, ok := entry[field]; ok {
-						if s, ok := v.(string); ok && s != "" {
-							streamLabels[field] = s
-						}
-					}
-				}
-			}
+		// Parse every entry to collect all unique stream label values
+		var entry map[string]interface{}
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if v, ok := entry["job"].(string); ok && v != "" {
+			jobs[v] = true
+		}
+		if v, ok := entry["instance"].(string); ok && v != "" {
+			instances[v] = true
+		}
+		if v, ok := entry["host"].(string); ok && v != "" {
+			hosts[v] = true
 		}
 	}
 
@@ -140,12 +155,24 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 		return nil, fmt.Errorf("failed to read logsql response: %w", err)
 	}
 
-	// Build labels: merge stream labels with query info
-	labels := make(map[string]string, len(streamLabels)+2)
+	// P1-5: Warn if count hit the query limit — actual count may be higher
+	if count >= vlogsQueryLimit {
+		log.Printf("WARNING: VictoriaLogs query hit limit=%d, actual count may be higher for rule expression=%s", vlogsQueryLimit, expression)
+	}
+
+	// Build labels: merge collected stream labels with query info.
+	// Join multiple values with comma so alert annotations show all affected hosts.
+	labels := make(map[string]string, 5)
 	labels["__logsql__"] = "true"
 	labels["query"] = expression
-	for k, v := range streamLabels {
-		labels[k] = v
+	if len(jobs) > 0 {
+		labels["job"] = joinMapKeys(jobs)
+	}
+	if len(instances) > 0 {
+		labels["instance"] = joinMapKeys(instances)
+	}
+	if len(hosts) > 0 {
+		labels["host"] = joinMapKeys(hosts)
 	}
 
 	return []QueryResult{
@@ -157,6 +184,16 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 			},
 		},
 	}, nil
+}
+
+// joinMapKeys returns a sorted, comma-separated string of all keys in the map.
+func joinMapKeys(m map[string]bool) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, ",")
 }
 
 // LogEntry represents a single log line returned by VictoriaLogs.
@@ -207,7 +244,9 @@ func QueryLogs(ctx context.Context, endpoint, authType, authConfig string, param
 		return nil, fmt.Errorf("failed to create log query request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("log query auth: %w", err)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -312,7 +351,9 @@ func QueryLogHistogram(ctx context.Context, endpoint, authType, authConfig, expr
 		return nil, fmt.Errorf("failed to create histogram request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("histogram auth: %w", err)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -400,5 +441,5 @@ func QueryLogHistogram(ctx context.Context, endpoint, authType, authConfig, expr
 		return &LogHistogramResponse{Buckets: buckets, Total: total}, nil
 	}
 
-	return nil, fmt.Errorf("unsupported histogram response format: %s", string(body))
+	return nil, fmt.Errorf("victorialogs histogram: failed to parse response in any known format (tried timestamps+values, array, ndjson): %s", string(body))
 }

@@ -167,6 +167,10 @@ func (c *ZabbixChecker) CheckHealth(ctx context.Context, endpoint, authType, aut
 
 // zabbixAPIToken retrieves an API session token by logging in with username/password.
 // Returns the token string or an error. Used internally when token auth is not available.
+//
+// NOTE: Zabbix 7.0+ deprecates JSON-RPC user.login in favor of HTTP Authorization header.
+// Users on Zabbix 7.0+ should configure API token authentication ({"token":"..."}) in the
+// datasource auth_config instead of username/password, which avoids this deprecated code path.
 func zabbixAPIToken(ctx context.Context, apiURL, username, password string) (string, error) {
 	reqBody := zabbixRequest{
 		JSONRPC: "2.0",

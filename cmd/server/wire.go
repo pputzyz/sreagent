@@ -208,6 +208,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// --------------- Services ---------------
 	settingSvc := service.NewSystemSettingService(systemSettingRepo, zapLogger)
 	dsSvc := service.NewDataSourceService(dsRepo, zapLogger)
+	dsSvc.SetRuleCountFn(ruleRepo.CountByDataSourceID) // P1-11: cascade check on delete
 	ruleSvc := service.NewAlertRuleService(ruleRepo, alertRuleHistoryRepo, dsRepo, zapLogger)
 	ruleSvc.SetSystemSettingService(settingSvc)
 	authSvc := service.NewAuthService(userRepo, &cfg.JWT, settingSvc, zapLogger)

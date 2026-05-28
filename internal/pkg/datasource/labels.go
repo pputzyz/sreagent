@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // PromLabelResult is what Prometheus /api/v1/labels and /api/v1/label/{name}/values return.
@@ -49,22 +52,36 @@ func fetchPromLabels(ctx context.Context, endpoint, authType, authConfig string)
 
 	result := make(map[string][]string, len(names))
 
-	// Step 2: for each label name, fetch values
+	// Step 2: for each label name, fetch values concurrently (max 8 in-flight)
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(8)
+	var mu sync.Mutex
+
 	for _, name := range names {
-		url := fmt.Sprintf("%s/api/v1/label/%s/values", base, name)
-		body, status, err := httpGetBody(ctx, url, authType, authConfig)
-		if err != nil || status != 200 {
-			continue
-		}
-		var valResp PromLabelResult
-		if err := json.Unmarshal(body, &valResp); err != nil || valResp.Status != "success" {
-			continue
-		}
-		vals := valResp.Data
-		if len(vals) > 500 {
-			vals = vals[:500]
-		}
-		result[name] = vals
+		name := name
+		eg.Go(func() error {
+			url := fmt.Sprintf("%s/api/v1/label/%s/values", base, name)
+			body, status, err := httpGetBody(ctx, url, authType, authConfig)
+			if err != nil || status != 200 {
+				return nil // skip failed labels, don't abort the whole batch
+			}
+			var valResp PromLabelResult
+			if err := json.Unmarshal(body, &valResp); err != nil || valResp.Status != "success" {
+				return nil
+			}
+			vals := valResp.Data
+			if len(vals) > 500 {
+				vals = vals[:500]
+			}
+			mu.Lock()
+			result[name] = vals
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	return result, nil

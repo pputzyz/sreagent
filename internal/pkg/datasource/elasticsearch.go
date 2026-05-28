@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 )
@@ -49,7 +50,10 @@ func (c *ElasticsearchChecker) CheckHealth(ctx context.Context, endpoint, authTy
 			Message: fmt.Sprintf("failed to build search request: %v", err)}
 	}
 	req.Header.Set("Content-Type", "application/json")
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return HealthResult{Healthy: false, LatencyMs: -1,
+			Message: fmt.Sprintf("auth config error: %v", err)}
+	}
 
 	resp, err := httpClient.Do(req)
 	latency := time.Since(start).Milliseconds()
@@ -69,6 +73,25 @@ func (c *ElasticsearchChecker) CheckHealth(ctx context.Context, endpoint, authTy
 	if version != "" {
 		msg = fmt.Sprintf("Elasticsearch %s is healthy", version)
 	}
+
+	// ── Phase 3 (optional): verify auth credentials ────────────────────────
+	if authType == "basic" || authType == "bearer" {
+		authReq, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/_security/_authenticate", nil)
+		if err == nil {
+			if authErr := applyAuth(authReq, authType, authConfig); authErr == nil {
+				authResp, authErr := httpClient.Do(authReq)
+				if authErr == nil {
+					defer func() { _ = authResp.Body.Close() }()
+					if authResp.StatusCode == http.StatusUnauthorized || authResp.StatusCode == http.StatusForbidden {
+						return HealthResult{Healthy: false, LatencyMs: latency,
+							Message: fmt.Sprintf("authentication failed: HTTP %d", authResp.StatusCode), Version: version}
+					}
+					msg += " (credentials verified)"
+				}
+			}
+		}
+	}
+
 	return HealthResult{Healthy: true, LatencyMs: latency, Message: msg, Version: version}
 }
 
@@ -149,7 +172,9 @@ func ElasticsearchQueryLogs(ctx context.Context, endpoint, authType, authConfig 
 		return nil, fmt.Errorf("failed to create msearch request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-ndjson")
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("msearch auth: %w", err)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -191,7 +216,8 @@ func ElasticsearchQueryLogs(ctx context.Context, endpoint, authType, authConfig 
 	resp0 := msearchResp.Responses[0]
 	entries := make([]LogEntry, 0, len(resp0.Hits.Hits))
 
-	messageFields := []string{"log", "message", "msg", "_msg"}
+	// P2-10: Include ECS standard message fields
+	messageFields := []string{"log", "message", "msg", "_msg", "body", "event.message", "log.message"}
 
 	for _, hit := range resp0.Hits.Hits {
 		entry := LogEntry{
@@ -212,11 +238,12 @@ func ElasticsearchQueryLogs(ctx context.Context, endpoint, authType, authConfig 
 			}
 		}
 
-		// Extract message from common message-like fields
+		// Extract message from common message-like fields (P2-10: supports dot-path nested fields)
 		found := false
 		for _, mf := range messageFields {
-			if msg, ok := hit.Source[mf]; ok {
-				if s, ok := msg.(string); ok {
+			val := lookupNested(hit.Source, mf)
+			if val != nil {
+				if s, ok := val.(string); ok {
 					entry.Message = s
 					found = true
 					break
@@ -242,12 +269,18 @@ func ElasticsearchQueryLogs(ctx context.Context, endpoint, authType, authConfig 
 			entry.Labels[k] = v
 		}
 
-		// Fallback: if no message field found, use first string field
+		// Fallback: if no message field found, use first string field (P2-13: sorted alphabetically for determinism)
 		if !found {
-			for k, v := range hit.Source {
+			keys := make([]string, 0, len(hit.Source))
+			for k := range hit.Source {
 				if k == params.DateField {
 					continue
 				}
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				v := hit.Source[k]
 				if s, ok := v.(string); ok && len(s) > 0 && len(s) < 4096 {
 					entry.Message = s
 					delete(entry.Labels, k)
@@ -345,7 +378,9 @@ func ElasticsearchQueryHistogram(ctx context.Context, endpoint, authType, authCo
 		return nil, fmt.Errorf("failed to create histogram msearch request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-ndjson")
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("histogram msearch auth: %w", err)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -485,4 +520,22 @@ func extractFields(properties map[string]interface{}, prefix string, fields *[]F
 			extractFields(subProps, fullName, fields)
 		}
 	}
+}
+
+// lookupNested retrieves a value from a map using dot-separated path notation.
+// For example, lookupNested(m, "event.message") returns m["event"]["message"] if it exists.
+func lookupNested(m map[string]interface{}, path string) interface{} {
+	parts := strings.Split(path, ".")
+	var current interface{} = m
+	for _, part := range parts {
+		cm, ok := current.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		current, ok = cm[part]
+		if !ok {
+			return nil
+		}
+	}
+	return current
 }

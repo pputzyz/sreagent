@@ -554,6 +554,12 @@ func (e *Evaluator) syncRules() {
 			e.mu.RUnlock()
 
 			if exists {
+				// NOTE: Change detection relies solely on the Version field. The Version is
+				// incremented on every Update call (including batch status changes), so any
+				// modification made through the application layer is detected. However, direct
+				// database edits that bypass the application (e.g. manual SQL UPDATE) will not
+				// be picked up until the next full restart. This is an acceptable trade-off:
+				// the application guarantees version increment on all write paths.
 				oldVersion := existing.rule.Version
 				if oldVersion != rule.Version {
 					e.logger.Info("rule updated, restarting evaluator",

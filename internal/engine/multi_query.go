@@ -92,7 +92,8 @@ func (re *RuleEvaluator) executeQueryByRef(ctx context.Context, q model.RuleQuer
 	case "zabbix":
 		return datasource.ZabbixInstantQuery(ctx, ep, at, ac, q.Expr)
 	case "victorialogs":
-		return datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, q.Expr)
+		lookback := time.Duration(re.rule.EvalInterval) * time.Second
+		return datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, q.Expr, lookback)
 	default:
 		return re.queryClient.InstantQuery(ctx, ep, at, ac, q.Expr, time.Time{})
 	}

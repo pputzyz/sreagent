@@ -83,7 +83,9 @@ func httpGet(ctx context.Context, url, authType, authConfig string) error {
 	if err != nil {
 		return err
 	}
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return err
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
@@ -101,7 +103,9 @@ func httpGetBody(ctx context.Context, url, authType, authConfig string) ([]byte,
 	if err != nil {
 		return nil, 0, err
 	}
-	applyAuth(req, authType, authConfig)
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, 0, err
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, 0, err

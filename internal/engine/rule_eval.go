@@ -459,7 +459,8 @@ func (re *RuleEvaluator) executeQuery(ctx context.Context) ([]datasource.QueryRe
 	case "zabbix":
 		return datasource.ZabbixInstantQuery(ctx, ep, at, ac, expr)
 	case "victorialogs":
-		return datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, expr)
+		lookback := time.Duration(re.rule.EvalInterval) * time.Second
+		return datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, expr, lookback)
 	default:
 		// prometheus, victoriametrics and any future Prometheus-compatible sources
 		return re.queryClient.InstantQuery(ctx, ep, at, ac, expr, time.Time{})
@@ -625,7 +626,8 @@ func (re *RuleEvaluator) executeVarFillingBeforeQuery(ctx context.Context, vc *m
 			case "zabbix":
 				results, err = datasource.ZabbixInstantQuery(ctx, ep, at, ac, queryExpr)
 			case "victorialogs":
-				results, err = datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, queryExpr)
+				lookback := time.Duration(re.rule.EvalInterval) * time.Second
+				results, err = datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, queryExpr, lookback)
 			default:
 				results, err = re.queryClient.InstantQuery(ctx, ep, at, ac, queryExpr, time.Time{})
 			}
@@ -672,7 +674,8 @@ func (re *RuleEvaluator) executeVarFillingAfterQuery(ctx context.Context, vc *mo
 	case "zabbix":
 		allResults, err = datasource.ZabbixInstantQuery(ctx, ep, at, ac, broadExpr)
 	case "victorialogs":
-		allResults, err = datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, broadExpr)
+		lookback := time.Duration(re.rule.EvalInterval) * time.Second
+		allResults, err = datasource.VictoriaLogsInstantQuery(ctx, ep, at, ac, broadExpr, lookback)
 	default:
 		allResults, err = re.queryClient.InstantQuery(ctx, ep, at, ac, broadExpr, time.Time{})
 	}
