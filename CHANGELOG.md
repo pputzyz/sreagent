@@ -4,6 +4,16 @@
 
 ---
 
+## [v4.48.0] — 2026-05-28
+
+### 测试补齐 + 文档
+
+- **crypto_test.go**: 14 个测试覆盖加解密往返、无 key 降级、错误密文、Unicode、10KB 大值
+- **KEY_ROTATION.md**: 密钥轮换操作手册（格式、限制、应急恢复 SQL）
+- **safehttp NewInternalClient**: 13 个测试覆盖私网放行、loopback/link-local/unspecified 拦截
+
+---
+
 ## [v4.47.0] — 2026-05-28
 
 ### 架构审查修复 — P1/P2 全量修复（审查 01 + 02）

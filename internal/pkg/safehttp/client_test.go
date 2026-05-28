@@ -208,3 +208,152 @@ func Test_safeDialContext_blocks_metadata(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "SSRF protection")
 }
+
+// ---------------------------------------------------------------------------
+// NewInternalClient / safeDialContextInternal tests
+// ---------------------------------------------------------------------------
+
+func Test_safeDialContextInternal_allows_private_10(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "10.0.0.1:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	// Private IPs are allowed — connection may succeed or fail, but must NOT be SSRF
+	if err != nil {
+		assert.NotContains(t, err.Error(), "SSRF protection")
+	}
+}
+
+func Test_safeDialContextInternal_allows_private_172(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "172.16.0.1:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	if err != nil {
+		assert.NotContains(t, err.Error(), "SSRF protection")
+	}
+}
+
+func Test_safeDialContextInternal_allows_private_192(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "192.168.1.1:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	if err != nil {
+		assert.NotContains(t, err.Error(), "SSRF protection")
+	}
+}
+
+func Test_safeDialContextInternal_blocks_loopback(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "127.0.0.1:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+	assert.Contains(t, err.Error(), "loopback")
+}
+
+func Test_safeDialContextInternal_blocks_loopback_ipv6(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "[::1]:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+	assert.Contains(t, err.Error(), "loopback")
+}
+
+func Test_safeDialContextInternal_blocks_link_local(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "169.254.169.254:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+	assert.Contains(t, err.Error(), "link-local")
+}
+
+func Test_safeDialContextInternal_blocks_link_local_ipv6(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "[fe80::1]:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+	assert.Contains(t, err.Error(), "link-local")
+}
+
+func Test_safeDialContextInternal_blocks_unspecified_ipv4(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "0.0.0.0:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+	assert.Contains(t, err.Error(), "unspecified")
+}
+
+func Test_safeDialContextInternal_blocks_unspecified_ipv6(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = safeDialContextInternal(transport)
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "[::]:80")
+	if conn != nil {
+		_ = conn.Close()
+	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+	assert.Contains(t, err.Error(), "unspecified")
+}
+
+func Test_InternalClient_returns_valid_client(t *testing.T) {
+	client := NewInternalClient(5 * time.Second)
+	require.NotNil(t, client)
+	assert.NotNil(t, client.Transport)
+}
+
+func Test_InternalClient_blocks_localhost(t *testing.T) {
+	// httptest.NewServer binds to 127.0.0.1 — InternalClient must reject it
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewInternalClient(2 * time.Second)
+	_, err := client.Get(server.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+}
+
+func Test_InternalClient_blocks_metadata_endpoint(t *testing.T) {
+	client := NewInternalClient(2 * time.Second)
+
+	_, err := client.Get("http://169.254.169.254/latest/meta-data/")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SSRF protection")
+}
