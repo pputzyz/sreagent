@@ -122,7 +122,7 @@ func (nr *NoiseReducer) Evaluate(
 func (nr *NoiseReducer) ShouldSuppress(ctx context.Context, event *model.AlertEvent) (bool, string) {
 	var channelID uint
 	if chStr, ok := event.Labels["_channel_id"]; ok && chStr != "" {
-		fmt.Sscanf(chStr, "%d", &channelID)
+		_, _ = fmt.Sscanf(chStr, "%d", &channelID)
 	}
 	if channelID == 0 {
 		return false, ""

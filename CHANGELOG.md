@@ -4,6 +4,14 @@
 
 ---
 
+## [v4.45.1] — 2026-05-28
+
+### Bug 修复
+
+- **errcheck lint**: `noise_reducer.go` 中 `fmt.Sscanf` 返回值未检查，CI golangci-lint 失败
+
+---
+
 ## [v4.45.0] — 2026-05-28
 
 ### 架构修复 — 告警→通知→升级链路打通
