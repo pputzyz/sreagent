@@ -4,6 +4,48 @@
 
 ---
 
+## [v4.51.0] — 2026-05-29
+
+### 审查 04+05 — 通知管道 + 值班排班/升级策略 P0/P1/P2 全量修复
+
+**模块 05：Schedule + Escalation (2 P0 + 5 P1 + 6 P2)**
+
+Escalation Executor:
+- **P0-1**: 去重键加入 step 维度 — 多步骤升级各步独立通知（移除错误的跨路径 dedup，step 级去重由 INSERT IGNORE 处理）
+- **P1-1**: SLA breach 添加 TODO 说明产品决策待定
+- **P1-2**: 跨路径 dedup 键不匹配已移除
+- **P1-4**: 团队策略存在时跳过全局策略（避免双重升级）
+- **P2-4**: now 时间戳移至每页刷新
+
+Schedule Service:
+- **P0-2**: GetCurrentOnCallForAlert 优先检查 override（与 UI 路径一致）
+- **P1-3**: DeleteSchedule/DeleteEscalationPolicy 改用事务级联删除
+- **P2-2**: EscalationStep target 创建时校验 user/team/schedule 存在性
+- **P2-6**: UpdateSchedule 支持修改 TeamID
+
+**模块 04：Notification (4 P0 + 6 P1 + 7 P2)**
+
+Notification Media 安全:
+- **P0-1**: Config 字段 API 响应脱敏 + GET 端点加 manage 权限
+- **P0-4**: Tencent/Aliyun SMS 返回明确未实现错误（不再假成功）
+- **P1-1**: Webhook 响应增加业务错误码检查（Feishu/DingTalk/WeCom/Telegram/Slack）
+- **P1-3**: Script 媒体路径白名单校验
+
+NotifyRule 节流重构:
+- **P0-2**: RepeatInterval 按 fingerprint 维度节流（不再阻塞不同告警）
+- **P0-3**: MaxNotifications 按 fingerprint 维度计数（不再永久累计）
+- **P1-4**: 去重键加入 fire_count（resolved→re-firing 不被 4h TTL 吞掉）
+- **P1-5**: NotifyRecord 添加 fingerprint 字段 + 迁移 000080
+
+LarkBot 安全:
+- **P1-2**: HandleEvent fail-closed（无验签配置则拒绝）+ 防重放强制 timestamp
+- **P1-6**: /ack 拒绝未映射用户（不再回退 admin 归因）
+
+代码质量:
+- **P2-1/2**: sendHTTP 死代码清理 + defer-in-loop 修复 + variadic logger 改 required
+
+---
+
 ## [v4.50.0] — 2026-05-29
 
 ### Recording Rule + Datasource 变更回调修复

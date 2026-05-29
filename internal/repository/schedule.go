@@ -63,6 +63,26 @@ func (r *ScheduleRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.Schedule{}, id).Error
 }
 
+// DeleteCascade deletes a schedule and all its child records in a single transaction.
+// Order: shifts → overrides → participants → schedule.
+func (r *ScheduleRepository) DeleteCascade(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("schedule_id = ?", id).Delete(&model.OnCallShift{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("schedule_id = ?", id).Delete(&model.ScheduleOverride{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("schedule_id = ?", id).Delete(&model.ScheduleParticipant{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&model.Schedule{}, id).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 // ---------------------------------------------------------------------------
 // ScheduleParticipantRepository
 // ---------------------------------------------------------------------------
@@ -221,6 +241,19 @@ func (r *EscalationPolicyRepository) Update(ctx context.Context, policy *model.E
 
 func (r *EscalationPolicyRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.EscalationPolicy{}, id).Error
+}
+
+// DeleteCascade deletes an escalation policy and all its steps in a single transaction.
+func (r *EscalationPolicyRepository) DeleteCascade(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("policy_id = ?", id).Delete(&model.EscalationStep{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&model.EscalationPolicy{}, id).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // ---------------------------------------------------------------------------

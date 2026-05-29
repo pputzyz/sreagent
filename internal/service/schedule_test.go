@@ -586,7 +586,7 @@ func Test_GetCurrentOnCall_disabled_schedule(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	// Create a disabled schedule
 	schedule := &model.Schedule{
@@ -615,7 +615,7 @@ func Test_GetCurrentOnCall_no_participants(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	// Create an enabled schedule with no participants
 	schedule := &model.Schedule{
@@ -644,7 +644,7 @@ func Test_GetCurrentOnCall_with_participants(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	// Create users
 	user1 := testutil.SeedUser(t, db, "oncall-alice", model.RoleMember)
@@ -694,7 +694,7 @@ func Test_GetCurrentOnCall_with_active_override(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	user1 := testutil.SeedUser(t, db, "override-alice", model.RoleMember)
 	user2 := testutil.SeedUser(t, db, "override-bob", model.RoleMember)
@@ -750,7 +750,7 @@ func Test_GetCurrentOnCall_nonexistent_schedule(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	_, err := svc.GetCurrentOnCall(context.Background(), 99999)
 	require.Error(t, err)
@@ -763,7 +763,7 @@ func Test_GetCurrentOnCall_nonexistent_schedule(t *testing.T) {
 
 func Test_NewScheduleService_returns_non_nil(t *testing.T) {
 	logger := zap.NewNop()
-	svc := NewScheduleService(nil, nil, nil, nil, nil, nil, logger)
+	svc := NewScheduleService(nil, nil, nil, nil, nil, nil, nil, nil, logger)
 	assert.NotNil(t, svc)
 }
 
@@ -786,7 +786,7 @@ func Test_Schedule_OnCallShift_CRUD_DB(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	// Create a user
 	user := testutil.SeedUser(t, db, "shift-alice", model.RoleMember)
@@ -836,7 +836,7 @@ func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	// Create users
 	user1 := testutil.SeedUser(t, db, "weekly-alice", model.RoleMember)
@@ -941,7 +941,7 @@ func Test_Schedule_GetCurrentOnCall_DB(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	// Create a user
 	user := testutil.SeedUser(t, db, "oncall-db-user", model.RoleMember)
@@ -996,7 +996,7 @@ func Test_Schedule_OverridePriority_DB(t *testing.T) {
 	policyRepo := repository.NewEscalationPolicyRepository(db)
 	stepRepo := repository.NewEscalationStepRepository(db)
 
-	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, logger)
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
 	// Create two users
 	regularUser := testutil.SeedUser(t, db, "override-regular", model.RoleMember)

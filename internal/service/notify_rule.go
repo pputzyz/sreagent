@@ -279,18 +279,21 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 		}
 
 		// Check throttle
-		if s.isThrottled(ctx, rule, &nc) {
+		if s.isThrottled(ctx, rule, &nc, event.Fingerprint) {
 			s.logger.Debug("notification throttled",
 				zap.Uint("event_id", event.ID),
 				zap.Uint("rule_id", rule.ID),
 				zap.Uint("media_id", nc.MediaID),
+				zap.String("fingerprint", event.Fingerprint),
 			)
 			continue
 		}
 
 		// Dedup: skip if this event+media was already sent via either pipeline.
 		// Include event.Status so firing and resolved are not deduped against each other (M1).
-		dedupKey := BuildNotifyDedupKey(event.ID, nc.MediaID, event.Fingerprint, string(event.Status))
+		// Include FireCount so a genuine re-fire (firing->resolved->firing) gets a new dedup key
+		// and is not silently blocked by the 4h TTL of the previous fire cycle.
+		dedupKey := BuildNotifyDedupKeyV2(event.ID, nc.MediaID, event.Fingerprint, string(event.Status), event.FireCount)
 		if s.dedupSvc != nil && !s.dedupSvc.TrySend(ctx, dedupKey) {
 			s.logger.Debug("v2 notification deduped (redis)",
 				zap.Uint("event_id", event.ID),
@@ -346,11 +349,11 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 				zap.String("media_name", media.Name),
 				zap.Error(err),
 			)
-			s.createRecord(ctx, event.ID, media.ID, rule.ID, "failed", err.Error())
+			s.createRecord(ctx, event.ID, media.ID, rule.ID, event.Fingerprint, "failed", err.Error())
 			continue
 		}
 
-		s.createRecord(ctx, event.ID, media.ID, rule.ID, "sent", "")
+		s.createRecord(ctx, event.ID, media.ID, rule.ID, event.Fingerprint, "sent", "")
 	}
 
 	// 4. Fire callback if configured
@@ -515,14 +518,18 @@ func parseIntSafe(s string) int {
 
 // isThrottled checks whether a notification should be throttled based on the
 // rule's max notification cap and repeat interval.
-func (s *NotifyRuleService) isThrottled(ctx context.Context, rule *model.NotifyRule, nc *model.NotifyConfig) bool {
+// fingerprint scopes both checks to the specific alert instance, preventing
+// different alerts matching the same rule+media from blocking each other.
+func (s *NotifyRuleService) isThrottled(ctx context.Context, rule *model.NotifyRule, nc *model.NotifyConfig, fingerprint string) bool {
 	// Check max notification cap first (Nightingale NotifyMaxNumber pattern)
+	// Scoped per fingerprint so one alert reaching its cap doesn't silence the rule for all alerts.
 	if rule.MaxNotifications > 0 {
-		count, err := s.recordRepo.CountSentRecords(ctx, nc.MediaID, rule.ID)
+		count, err := s.recordRepo.CountSentByFingerprint(ctx, fingerprint, nc.MediaID, rule.ID)
 		if err == nil && count >= rule.MaxNotifications {
 			s.logger.Debug("notification throttled by max cap",
 				zap.Uint("rule_id", rule.ID),
 				zap.Uint("media_id", nc.MediaID),
+				zap.String("fingerprint", fingerprint),
 				zap.Int("sent_count", count),
 				zap.Int("max_notifications", rule.MaxNotifications),
 			)
@@ -535,8 +542,10 @@ func (s *NotifyRuleService) isThrottled(ctx context.Context, rule *model.NotifyR
 		return false
 	}
 
-	// Check the last sent record for this media + rule combination
-	lastRecord, err := s.recordRepo.GetLastSentRecord(ctx, nc.MediaID, rule.ID)
+	// Check the last sent record for this fingerprint + media + rule combination.
+	// Scoped per fingerprint so the repeat interval only applies to the same alert,
+	// not to different alerts that share the same rule+media.
+	lastRecord, err := s.recordRepo.GetLastSentByFingerprint(ctx, fingerprint, nc.MediaID, rule.ID)
 	if err != nil {
 		// No previous record found, not throttled
 		return false
@@ -548,13 +557,14 @@ func (s *NotifyRuleService) isThrottled(ctx context.Context, rule *model.NotifyR
 }
 
 // createRecord creates a notification record for audit and tracking.
-func (s *NotifyRuleService) createRecord(ctx context.Context, eventID, mediaID, ruleID uint, status, response string) {
+func (s *NotifyRuleService) createRecord(ctx context.Context, eventID, mediaID, ruleID uint, fingerprint, status, response string) {
 	record := &model.NotifyRecord{
-		EventID:   eventID,
-		ChannelID: mediaID, // Reusing ChannelID field to store media ID
-		PolicyID:  ruleID,  // Reusing PolicyID field to store rule ID
-		Status:    status,
-		Response:  response,
+		EventID:     eventID,
+		ChannelID:   mediaID,   // NOTE: column named channel_id but stores the notify media ID
+		PolicyID:    ruleID,    // NOTE: column named policy_id but stores the notify rule ID
+		Fingerprint: fingerprint,
+		Status:      status,
+		Response:    response,
 	}
 	if err := s.recordRepo.Create(ctx, record); err != nil {
 		s.logger.Error("failed to create notify record",

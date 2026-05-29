@@ -41,8 +41,39 @@ func NewNotifyMediaService(
 	}
 }
 
+// validateScriptPath checks that script media paths are under the allowed directory.
+func validateScriptPath(media *model.NotifyMedia) error {
+	if media.Type != model.MediaTypeScript {
+		return nil
+	}
+	if media.Config == "" {
+		return nil
+	}
+	var cfg struct {
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return nil // config parse errors are caught later in executeScript
+	}
+	if cfg.Path == "" {
+		return nil
+	}
+	allowedDir := "/opt/sreagent/scripts/"
+	if !strings.HasPrefix(cfg.Path, allowedDir) {
+		return apperr.WithMessage(apperr.ErrInvalidParam,
+			fmt.Sprintf("script path must be under %s", allowedDir))
+	}
+	if strings.Contains(cfg.Path, "..") {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "script path must not contain ..")
+	}
+	return nil
+}
+
 // Create creates a new notify media.
 func (s *NotifyMediaService) Create(ctx context.Context, media *model.NotifyMedia) error {
+	if err := validateScriptPath(media); err != nil {
+		return err
+	}
 	if err := s.repo.Create(ctx, media); err != nil {
 		s.logger.Error("failed to create notify media", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -71,6 +102,9 @@ func (s *NotifyMediaService) List(ctx context.Context, page, pageSize int) ([]mo
 
 // Update updates an existing notify media.
 func (s *NotifyMediaService) Update(ctx context.Context, media *model.NotifyMedia) error {
+	if err := validateScriptPath(media); err != nil {
+		return err
+	}
 	existing, err := s.repo.GetByID(ctx, media.ID)
 	if err != nil {
 		return apperr.ErrNotifyMediaNotFound
@@ -234,7 +268,7 @@ func (s *NotifyMediaService) sendLarkWebhook(ctx context.Context, media *model.N
 		return fmt.Errorf("failed to marshal lark payload: %w", err)
 	}
 
-	return s.doHTTPPostWithRetry(ctx, cfg.WebhookURL, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "lark_webhook")
 }
 
 // httpMediaConfig represents the JSON config for HTTP media.
@@ -260,22 +294,7 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 		method = "POST"
 	}
 
-	// Use rendered content as the body
 	reqBody := content
-
-	req, err := http.NewRequestWithContext(ctx, method, cfg.URL, strings.NewReader(reqBody))
-	if err != nil {
-		return fmt.Errorf("failed to create http request: %w", err)
-	}
-
-	// Set headers from config
-	for k, v := range cfg.Headers {
-		req.Header.Set(k, v)
-	}
-	// Default content type if not set
-	if req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
 
 	client := safehttp.NewSafeClient(30 * time.Second)
 	retryTimes := 3
@@ -305,10 +324,11 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
 			continue
 		}
-		defer func() { _ = resp.Body.Close() }()
+
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(resp.Body)
 			return fmt.Errorf("http request returned status %d: %s", resp.StatusCode, string(respBody))
 		}
 
@@ -472,10 +492,56 @@ func (s *NotifyMediaService) executeScript(ctx context.Context, media *model.Not
 	return nil
 }
 
+// checkWebhookResponse checks for business-level errors in webhook response bodies.
+// Many IM platforms return HTTP 200 with a non-zero error code in the JSON body.
+func checkWebhookResponse(body []byte, mediaType string) error {
+	switch mediaType {
+	case "lark", "feishu", "feishu_webhook", "feishu_card", "feishu_app", "lark_webhook":
+		var resp struct {
+			Code int    `json:"code"`
+			Msg  string `json:"msg"`
+		}
+		if json.Unmarshal(body, &resp) == nil && resp.Code != 0 {
+			return fmt.Errorf("feishu error %d: %s", resp.Code, resp.Msg)
+		}
+	case "dingtalk", "dingtalk_webhook", "wecom", "wecom_webhook", "wecom_app":
+		var resp struct {
+			ErrCode int    `json:"errcode"`
+			ErrMsg  string `json:"errmsg"`
+		}
+		if json.Unmarshal(body, &resp) == nil && resp.ErrCode != 0 {
+			return fmt.Errorf("dingtalk/wecom error %d: %s", resp.ErrCode, resp.ErrMsg)
+		}
+	case "telegram", "telegram_bot":
+		var resp struct {
+			OK          bool   `json:"ok"`
+			Description string `json:"description"`
+		}
+		if json.Unmarshal(body, &resp) == nil && !resp.OK {
+			return fmt.Errorf("telegram error: %s", resp.Description)
+		}
+	case "slack", "slack_webhook":
+		var resp struct {
+			OK    bool   `json:"ok"`
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(body, &resp) == nil && !resp.OK {
+			return fmt.Errorf("slack error: %s", resp.Error)
+		}
+	}
+	return nil
+}
+
 // doHTTPPostWithRetry sends an HTTP POST with retry on transport errors.
-// Only client.Do failures are retried; HTTP status errors (>=400) are returned immediately.
+// Only client.Do failures are retried; HTTP status errors (>=400) and business errors are returned immediately.
 // retryTimes defaults to 3, retryIntervalMs defaults to 100 if non-positive.
+// mediaType is used for business error checking; pass "" to skip.
 func (s *NotifyMediaService) doHTTPPostWithRetry(ctx context.Context, url, contentType string, body []byte, retryTimes, retryIntervalMs int) error {
+	return s.doHTTPPostWithRetryTyped(ctx, url, contentType, body, retryTimes, retryIntervalMs, "")
+}
+
+// doHTTPPostWithRetryTyped sends an HTTP POST with retry on transport errors, with media type for business error checking.
+func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, contentType string, body []byte, retryTimes, retryIntervalMs int, mediaType string) error {
 	if retryTimes <= 0 {
 		retryTimes = 3
 	}
@@ -504,11 +570,18 @@ func (s *NotifyMediaService) doHTTPPostWithRetry(ctx context.Context, url, conte
 			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
 			continue
 		}
-		defer func() { _ = resp.Body.Close() }()
+
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(resp.Body)
 			return fmt.Errorf("http post returned status %d: %s", resp.StatusCode, string(respBody))
+		}
+
+		if mediaType != "" {
+			if bizErr := checkWebhookResponse(respBody, mediaType); bizErr != nil {
+				return bizErr
+			}
 		}
 
 		return nil
@@ -556,7 +629,7 @@ func (s *NotifyMediaService) sendDingTalkWebhook(ctx context.Context, media *mod
 	if err != nil {
 		return fmt.Errorf("failed to marshal dingtalk payload: %w", err)
 	}
-	return s.doHTTPPostWithRetry(ctx, cfg.WebhookURL, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "dingtalk_webhook")
 }
 
 // --- WeCom Webhook ---
@@ -583,7 +656,7 @@ func (s *NotifyMediaService) sendWeComWebhook(ctx context.Context, media *model.
 	if err != nil {
 		return fmt.Errorf("failed to marshal wecom payload: %w", err)
 	}
-	return s.doHTTPPostWithRetry(ctx, cfg.WebhookURL, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "wecom_webhook")
 }
 
 // --- Slack Webhook ---
@@ -622,7 +695,7 @@ func (s *NotifyMediaService) sendSlackWebhook(ctx context.Context, media *model.
 	if err != nil {
 		return fmt.Errorf("failed to marshal slack payload: %w", err)
 	}
-	return s.doHTTPPostWithRetry(ctx, cfg.WebhookURL, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "slack_webhook")
 }
 
 // --- Discord Webhook ---
@@ -681,7 +754,7 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 		return fmt.Errorf("failed to marshal telegram payload: %w", err)
 	}
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", cfg.BotToken)
-	return s.doHTTPPostWithRetry(ctx, url, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, url, "application/json", body, 3, 100, "telegram_bot")
 }
 
 // --- Feishu Webhook (CN region, same API as Lark) ---
@@ -723,7 +796,7 @@ func (s *NotifyMediaService) sendFeishuWebhook(ctx context.Context, media *model
 	if err != nil {
 		return fmt.Errorf("failed to marshal feishu payload: %w", err)
 	}
-	return s.doHTTPPostWithRetry(ctx, cfg.WebhookURL, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "feishu_webhook")
 }
 
 // --- Feishu Interactive Card ---
@@ -777,7 +850,7 @@ func (s *NotifyMediaService) sendFeishuCard(ctx context.Context, media *model.No
 	if err != nil {
 		return fmt.Errorf("failed to marshal feishu card payload: %w", err)
 	}
-	return s.doHTTPPostWithRetry(ctx, cfg.WebhookURL, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "feishu_card")
 }
 
 // --- Feishu App (send via tenant_access_token) ---
@@ -862,11 +935,15 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
 			continue
 		}
-		defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
+
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(resp.Body)
 			return fmt.Errorf("feishu app returned status %d: %s", resp.StatusCode, string(respBody))
+		}
+		if bizErr := checkWebhookResponse(respBody, "feishu_app"); bizErr != nil {
+			return bizErr
 		}
 		return nil
 	}
@@ -974,11 +1051,15 @@ func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.Noti
 			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
 			continue
 		}
-		defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
+
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(resp.Body)
 			return fmt.Errorf("wecom app returned status %d: %s", resp.StatusCode, string(respBody))
+		}
+		if bizErr := checkWebhookResponse(respBody, "wecom_app"); bizErr != nil {
+			return bizErr
 		}
 		return nil
 	}
@@ -1083,150 +1164,14 @@ func (s *NotifyMediaService) sendPagerDuty(ctx context.Context, media *model.Not
 
 // --- Tencent SMS ---
 
-type tencentSMSConfig struct {
-	SecretID   string   `json:"secret_id"`
-	SecretKey  string   `json:"secret_key"`
-	SdkAppID   string   `json:"sdk_app_id"`
-	TemplateID string   `json:"template_id"`
-	SignName   string   `json:"sign_name"`
-	PhoneNumbers []string `json:"phone_numbers"`
-}
-
 func (s *NotifyMediaService) sendTencentSMS(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
-	var cfg tencentSMSConfig
-	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
-		return fmt.Errorf("invalid tencent sms config: %w", err)
-	}
-	if cfg.SecretID == "" || cfg.SecretKey == "" || len(cfg.PhoneNumbers) == 0 {
-		return fmt.Errorf("tencent sms secret_id, secret_key, or phone_numbers is empty")
-	}
-
-	// Tencent Cloud SMS API v3 - simplified implementation using their REST API
-	// In production, use the official Tencent Cloud SDK for proper signing
-	payload := map[string]interface{}{
-		"SmsSdkAppId": cfg.SdkAppID,
-		"SignName":    cfg.SignName,
-		"TemplateId":  cfg.TemplateID,
-		"PhoneNumberSet": cfg.PhoneNumbers,
-		"TemplateParamSet": []string{
-			data.AlertName,
-			strings.ToUpper(data.Severity),
-			data.Status,
-		},
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal tencent sms payload: %w", err)
-	}
-
-	retryTimes := 3
-	retryIntervalMs := 100
-	client := safehttp.NewSafeClient(30 * time.Second)
-	var lastErr error
-	for i := 0; i < retryTimes; i++ {
-		req, err := http.NewRequestWithContext(ctx, "POST", "https://sms.tencentcloudapi.com", bytes.NewReader(body))
-		if err != nil {
-			return fmt.Errorf("failed to create tencent sms request: %w", err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-TC-Action", "SendSms")
-		req.Header.Set("X-TC-Version", "2021-01-11")
-		req.Header.Set("X-TC-Region", "ap-guangzhou")
-		// Note: In production, implement TC3-HMAC-SHA256 signing
-		req.Header.Set("Authorization", fmt.Sprintf("TC3-HMAC-SHA256 Credential=%s", cfg.SecretID))
-
-		resp, err := client.Do(req)
-		if err != nil {
-			lastErr = fmt.Errorf("tencent sms request failed: %w", err)
-			s.logger.Warn("tencent sms transport error, retrying",
-				zap.Int("attempt", i+1),
-				zap.Int("max_attempts", retryTimes),
-				zap.Error(err),
-			)
-			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
-			continue
-		}
-		defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
-
-		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(resp.Body)
-			return fmt.Errorf("tencent sms returned status %d: %s", resp.StatusCode, string(respBody))
-		}
-		return nil
-	}
-
-	return lastErr
+	return fmt.Errorf("tencent_sms sender not yet implemented: requires TC3-HMAC-SHA256 signing. Use webhook or other channels instead")
 }
 
 // --- Aliyun SMS ---
 
-type aliyunSMSConfig struct {
-	AccessKeyID     string   `json:"access_key_id"`
-	AccessKeySecret string   `json:"access_key_secret"`
-	SignName        string   `json:"sign_name"`
-	TemplateCode    string   `json:"template_code"`
-	PhoneNumbers    []string `json:"phone_numbers"`
-}
-
 func (s *NotifyMediaService) sendAliyunSMS(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
-	var cfg aliyunSMSConfig
-	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
-		return fmt.Errorf("invalid aliyun sms config: %w", err)
-	}
-	if cfg.AccessKeyID == "" || cfg.AccessKeySecret == "" || len(cfg.PhoneNumbers) == 0 {
-		return fmt.Errorf("aliyun sms access_key_id, access_key_secret, or phone_numbers is empty")
-	}
-
-	// Aliyun SMS API - simplified implementation using their REST API
-	// In production, use the official Aliyun SDK for proper POP signing
-	templateParam, _ := json.Marshal(map[string]string{
-		"alert":  data.AlertName,
-		"level":  strings.ToUpper(data.Severity),
-		"status": data.Status,
-	})
-
-	payload := map[string]string{
-		"PhoneNumbers":  strings.Join(cfg.PhoneNumbers, ","),
-		"SignName":      cfg.SignName,
-		"TemplateCode":  cfg.TemplateCode,
-		"TemplateParam": string(templateParam),
-	}
-	body, _ := json.Marshal(payload)
-
-	retryTimes := 3
-	retryIntervalMs := 100
-	client := safehttp.NewSafeClient(30 * time.Second)
-	var lastErr error
-	for i := 0; i < retryTimes; i++ {
-		req, err := http.NewRequestWithContext(ctx, "POST", "https://dysmsapi.aliyuncs.com", bytes.NewReader(body))
-		if err != nil {
-			return fmt.Errorf("failed to create aliyun sms request: %w", err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		// Note: In production, implement Alibaba Cloud POP signing
-		req.Header.Set("Authorization", fmt.Sprintf("acs %s", cfg.AccessKeyID))
-
-		resp, err := client.Do(req)
-		if err != nil {
-			lastErr = fmt.Errorf("aliyun sms request failed: %w", err)
-			s.logger.Warn("aliyun sms transport error, retrying",
-				zap.Int("attempt", i+1),
-				zap.Int("max_attempts", retryTimes),
-				zap.Error(err),
-			)
-			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
-			continue
-		}
-		defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
-
-		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(resp.Body)
-			return fmt.Errorf("aliyun sms returned status %d: %s", resp.StatusCode, string(respBody))
-		}
-		return nil
-	}
-
-	return lastErr
+	return fmt.Errorf("aliyun_sms sender not yet implemented: requires Alibaba Cloud POP signing. Use webhook or other channels instead")
 }
 
 // --- Custom HTTP ---
@@ -1327,10 +1272,11 @@ func (s *NotifyMediaService) sendCustomHTTP(ctx context.Context, media *model.No
 			time.Sleep(time.Duration(retryInterval) * time.Millisecond)
 			continue
 		}
-		defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); _ = resp.Body.Close() }()
+
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(resp.Body)
 			return fmt.Errorf("custom_http returned status %d: %s", resp.StatusCode, string(respBody))
 		}
 

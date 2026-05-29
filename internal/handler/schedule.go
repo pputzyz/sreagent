@@ -53,6 +53,7 @@ type CreateScheduleRequest struct {
 // UpdateScheduleRequest is the request body for updating a schedule.
 type UpdateScheduleRequest struct {
 	Name         string             `json:"name" binding:"required"`
+	TeamID       *uint              `json:"team_id"`
 	Description  string             `json:"description"`
 	RotationType model.RotationType `json:"rotation_type" binding:"required"`
 	Timezone     string             `json:"timezone"`
@@ -236,6 +237,7 @@ func (h *ScheduleHandler) UpdateSchedule(c *gin.Context) {
 
 	schedule := &model.Schedule{
 		Name:         req.Name,
+		TeamID:       req.TeamID,
 		Description:  req.Description,
 		RotationType: req.RotationType,
 		Timezone:     req.Timezone,

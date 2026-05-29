@@ -149,7 +149,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 		webhooks.POST("/alertmanager", handlers.AlertEvent.WebhookReceive)
 	}
 
-	// Lark Bot callback (no auth - verified by token)
+	// Lark Bot callback (no auth middleware — verified by HMAC signature or token)
 	r.POST("/lark/event", handlers.LarkBot.EventCallback)
 
 	// Integration webhook receive endpoint (no auth — authenticated by token in URL)

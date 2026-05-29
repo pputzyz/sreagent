@@ -201,7 +201,6 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 		}
 	}
 
-	now := time.Now()
 	for {
 		events, err := e.eventRepo.ListFiringForEscalation(ctx, afterID, pageSize)
 		if err != nil {
@@ -212,6 +211,7 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 			break
 		}
 
+		now := time.Now() // refreshed per page (Bug 05-P2-4 fix)
 		ruleMap := e.batchLoadRules(ctx, events)
 
 		// Group events by team for concurrent processing (H3).
@@ -247,12 +247,15 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 		eg.SetLimit(8)
 
 		// Precompute merged policies per team to avoid repeated slice allocations.
+		// Bug 05-P1-4 fix: team-specific policies override global policies.
+		// If a team has its own policies, only those are used; otherwise fall back to global.
 		teamMergedPolicies := make(map[uint][]model.EscalationPolicy, len(teamBatches))
 		for teamID := range teamBatches {
-			merged := make([]model.EscalationPolicy, 0, len(globalPolicies)+len(teamPolicies[teamID]))
-			merged = append(merged, globalPolicies...)
-			merged = append(merged, teamPolicies[teamID]...)
-			teamMergedPolicies[teamID] = merged
+			if len(teamPolicies[teamID]) > 0 {
+				teamMergedPolicies[teamID] = teamPolicies[teamID]
+			} else {
+				teamMergedPolicies[teamID] = globalPolicies
+			}
 		}
 
 		for _, tb := range teamBatches {
@@ -356,6 +359,12 @@ func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.Al
 		zap.String("alert_name", event.AlertName),
 		zap.Int("sla_minutes", rule.AckSlaMinutes),
 	)
+
+	// TODO: SLA breach should trigger escalation/notification (Bug 05-P1-1).
+	// Currently only records timeline + logs warning. Product decision needed:
+	// - Option A: escalate to next step in the escalation policy
+	// - Option B: notify on-call user directly
+	// - Option C: keep as dashboard-only metric (current behavior)
 }
 
 // escalateEvent evaluates escalation policies and executes any due steps for the given event.
@@ -501,18 +510,10 @@ func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.Alert
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// Cross-path dedup: check if NotifyRule path already sent for this event.
-	if e.dedupSvc != nil {
-		dedupKey := service.BuildNotifyDedupKey(event.ID, 0, event.Fingerprint, string(event.Status))
-		if !e.dedupSvc.TrySend(ctx, dedupKey) {
-			e.logger.Info("escalation: notification already sent by notify rule, skipping",
-				zap.Uint("event_id", event.ID),
-				zap.String("policy", policy.Name),
-				zap.Int("step_order", step.StepOrder),
-			)
-			return nil
-		}
-	}
+	// NOTE: Cross-path dedup with NotifyRule was removed (Bug 05-P1-2).
+	// Step-level dedup is handled by escalation_step_executions INSERT IGNORE.
+	// NotifyRule and Escalation target different channels (group vs personal),
+	// so cross-path dedup keys never matched and was effectively a no-op.
 
 	// This note is also used as the dedup key in executedStepOrders — keep format in sync.
 	note := fmt.Sprintf("escalation policy '%s' step %d triggered (delay: %dm)",

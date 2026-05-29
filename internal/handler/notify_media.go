@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -17,17 +20,38 @@ type NotifyMediaHandler struct {
 }
 
 // NewNotifyMediaHandler creates a new NotifyMediaHandler.
-func NewNotifyMediaHandler(svc *service.NotifyMediaService, logger ...*zap.Logger) *NotifyMediaHandler {
-	l := zap.NewNop()
-	if len(logger) > 0 && logger[0] != nil {
-		l = logger[0]
-	}
-	return &NotifyMediaHandler{svc: svc, log: l}
+func NewNotifyMediaHandler(svc *service.NotifyMediaService, logger *zap.Logger) *NotifyMediaHandler {
+	return &NotifyMediaHandler{svc: svc, log: logger}
 }
 
 // SetAuditService injects the audit log service (called after construction to avoid circular DI).
 func (h *NotifyMediaHandler) SetAuditService(svc *service.AuditLogService) {
 	h.auditSvc = svc
+}
+
+// maskNotifyMediaConfig replaces sensitive fields in Config with asterisks before returning to the API.
+func maskNotifyMediaConfig(media *model.NotifyMedia) {
+	if media.Config == "" {
+		return
+	}
+	var cfg map[string]interface{}
+	if json.Unmarshal([]byte(media.Config), &cfg) != nil {
+		return
+	}
+	sensitiveKeys := []string{
+		"password", "secret", "token", "api_key", "apikey",
+		"access_key", "secret_key", "auth_token", "webhook_url", "smtp_password",
+	}
+	for _, sensitive := range sensitiveKeys {
+		for k := range cfg {
+			if strings.Contains(strings.ToLower(k), sensitive) {
+				cfg[k] = "********"
+			}
+		}
+	}
+	if masked, err := json.Marshal(cfg); err == nil {
+		media.Config = string(masked)
+	}
 }
 
 // CreateNotifyMediaRequest is the request body for creating a notify media.
@@ -92,6 +116,7 @@ func (h *NotifyMediaHandler) Create(c *gin.Context) {
 		})
 	}
 
+	maskNotifyMediaConfig(media)
 	Success(c, media)
 }
 
@@ -109,6 +134,7 @@ func (h *NotifyMediaHandler) Get(c *gin.Context) {
 		return
 	}
 
+	maskNotifyMediaConfig(media)
 	Success(c, media)
 }
 
@@ -122,6 +148,9 @@ func (h *NotifyMediaHandler) List(c *gin.Context) {
 		return
 	}
 
+	for i := range list {
+		maskNotifyMediaConfig(&list[i])
+	}
 	SuccessPage(c, list, total, pq.Page, pq.PageSize)
 }
 
@@ -174,6 +203,7 @@ func (h *NotifyMediaHandler) Update(c *gin.Context) {
 		})
 	}
 
+	maskNotifyMediaConfig(media)
 	Success(c, media)
 }
 

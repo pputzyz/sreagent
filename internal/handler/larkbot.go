@@ -35,7 +35,7 @@ func (h *LarkBotHandler) EventCallback(c *gin.Context) {
 		c.GetHeader("X-Lark-Request-Nonce"),
 	)
 	if err != nil {
-		Error(c, apperr.WithMessage(apperr.ErrMissingParam, err.Error()))
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, err.Error()))
 		return
 	}
 

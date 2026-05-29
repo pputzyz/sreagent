@@ -30,6 +30,8 @@ type ScheduleService struct {
 	shiftRepo       *repository.OnCallShiftRepository
 	policyRepo      *repository.EscalationPolicyRepository
 	stepRepo        *repository.EscalationStepRepository
+	userRepo        *repository.UserRepository
+	teamRepo        *repository.TeamRepository
 	logger          *zap.Logger
 }
 
@@ -40,6 +42,8 @@ func NewScheduleService(
 	shiftRepo *repository.OnCallShiftRepository,
 	policyRepo *repository.EscalationPolicyRepository,
 	stepRepo *repository.EscalationStepRepository,
+	userRepo *repository.UserRepository,
+	teamRepo *repository.TeamRepository,
 	logger *zap.Logger,
 ) *ScheduleService {
 	return &ScheduleService{
@@ -49,6 +53,8 @@ func NewScheduleService(
 		shiftRepo:       shiftRepo,
 		policyRepo:      policyRepo,
 		stepRepo:        stepRepo,
+		userRepo:        userRepo,
+		teamRepo:        teamRepo,
 		logger:          logger,
 	}
 }
@@ -99,6 +105,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule *model.Sc
 	}
 
 	existing.Name = schedule.Name
+	existing.TeamID = schedule.TeamID
 	existing.Description = schedule.Description
 	existing.RotationType = schedule.RotationType
 	existing.Timezone = schedule.Timezone
@@ -113,29 +120,14 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule *model.Sc
 	return nil
 }
 
-// DeleteSchedule deletes a schedule and its participants/overrides/shifts.
+// DeleteSchedule deletes a schedule and its participants/overrides/shifts atomically.
 func (s *ScheduleService) DeleteSchedule(ctx context.Context, id uint) error {
 	if _, err := s.scheduleRepo.GetByID(ctx, id); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
 	}
 
-	// M1: Clean up all child records. Order: shifts → overrides → participants → schedule.
-	if s.shiftRepo != nil {
-		if err := s.shiftRepo.DeleteByScheduleID(ctx, id); err != nil {
-			s.logger.Error("failed to delete shifts", zap.Error(err), zap.Uint("schedule_id", id))
-			return apperr.Wrap(apperr.ErrDatabase, err)
-		}
-	}
-	if err := s.overrideRepo.DeleteByScheduleID(ctx, id); err != nil {
-		s.logger.Error("failed to delete overrides", zap.Error(err), zap.Uint("schedule_id", id))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	if err := s.participantRepo.DeleteByScheduleID(ctx, id); err != nil {
-		s.logger.Error("failed to delete participants", zap.Error(err), zap.Uint("schedule_id", id))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	if err := s.scheduleRepo.Delete(ctx, id); err != nil {
-		s.logger.Error("failed to delete schedule", zap.Error(err), zap.Uint("schedule_id", id))
+	if err := s.scheduleRepo.DeleteCascade(ctx, id); err != nil {
+		s.logger.Error("failed to delete schedule (cascade)", zap.Error(err), zap.Uint("schedule_id", id))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return nil
@@ -411,7 +403,7 @@ func parseHandoffTime(s string) (hour, min int, err error) {
 
 // GetCurrentOnCallForAlert finds the on-call user for all enabled schedules
 // whose labels match the alert labels. Returns the first match found.
-// It checks severity filter on OnCallShift records when applicable.
+// Priority: override > shift > rotation (matches GetCurrentOnCall).
 func (s *ScheduleService) GetCurrentOnCallForAlert(ctx context.Context, alertLabels map[string]string) (*model.User, error) {
 	// List all schedules (unpaged - use a large page size)
 	schedules, _, err := s.scheduleRepo.List(ctx, 0, 1, 1000)
@@ -427,34 +419,50 @@ func (s *ScheduleService) GetCurrentOnCallForAlert(ctx context.Context, alertLab
 			continue
 		}
 
-		// Check OnCallShift records directly for severity-aware dispatch.
+		// 1. Check override first — overrides always take precedence.
+		override, err := s.overrideRepo.GetActiveOverride(ctx, schedule.ID, now)
+		if err == nil && override != nil {
+			return &override.User, nil
+		}
+
+		// 2. Check OnCallShift records for severity-aware dispatch.
 		if s.shiftRepo != nil {
 			shift, err := s.shiftRepo.GetCurrentShift(ctx, schedule.ID, now)
 			if err == nil && shift != nil {
-				// Verify severity filter if the shift specifies one.
 				if matchesSeverityFilter(shift.SeverityFilter, alertSeverity) {
 					return &shift.User, nil
 				}
-				// Shift exists but severity doesn't match - skip this schedule.
+				// Shift exists but severity doesn't match — skip this schedule.
 				continue
 			}
 		}
 
-		// Fall back to existing on-call logic (override → rotation).
-		result, err := s.GetCurrentOnCall(ctx, schedule.ID)
+		// 3. Fallback to rotation-based on-call (participants).
+		participants, err := s.participantRepo.ListByScheduleID(ctx, schedule.ID)
 		if err != nil {
-			s.logger.Warn("failed to get on-call for schedule",
+			s.logger.Warn("failed to list participants for schedule",
 				zap.Uint("schedule_id", schedule.ID),
 				zap.Error(err),
 			)
 			continue
 		}
-		if result != nil && result.User != nil {
-			// Apply schedule-level severity filter.
-			if matchesSeverityFilter(schedule.SeverityFilter, alertSeverity) {
-				return result.User, nil
-			}
+		if len(participants) == 0 {
+			continue
 		}
+
+		// Apply schedule-level severity filter.
+		if !matchesSeverityFilter(schedule.SeverityFilter, alertSeverity) {
+			continue
+		}
+
+		loc, locErr := time.LoadLocation(schedule.Timezone)
+		if locErr != nil {
+			loc = time.UTC
+		}
+		nowInLoc := now.In(loc)
+
+		index := s.calculateRotationIndex(&schedule, participants, nowInLoc)
+		return &participants[index].User, nil
 	}
 
 	return nil, nil
@@ -685,20 +693,14 @@ func (s *ScheduleService) UpdateEscalationPolicy(ctx context.Context, policy *mo
 	return nil
 }
 
-// DeleteEscalationPolicy deletes an escalation policy and its steps.
+// DeleteEscalationPolicy deletes an escalation policy and its steps atomically.
 func (s *ScheduleService) DeleteEscalationPolicy(ctx context.Context, id uint) error {
 	if _, err := s.policyRepo.GetByID(ctx, id); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "escalation policy not found")
 	}
 
-	// M9: Delete all associated steps in a single query instead of looping.
-	if err := s.stepRepo.DeleteByPolicyID(ctx, id); err != nil {
-		s.logger.Error("failed to delete escalation steps", zap.Error(err), zap.Uint("policy_id", id))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	if err := s.policyRepo.Delete(ctx, id); err != nil {
-		s.logger.Error("failed to delete escalation policy", zap.Error(err), zap.Uint("policy_id", id))
+	if err := s.policyRepo.DeleteCascade(ctx, id); err != nil {
+		s.logger.Error("failed to delete escalation policy (cascade)", zap.Error(err), zap.Uint("policy_id", id))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return nil
@@ -724,6 +726,11 @@ func (s *ScheduleService) CreateEscalationStep(ctx context.Context, step *model.
 		return err
 	}
 
+	// Validate that the referenced target entity exists.
+	if err := s.validateEscalationStepTarget(ctx, step.TargetType, step.TargetID); err != nil {
+		return err
+	}
+
 	if err := s.stepRepo.Create(ctx, step); err != nil {
 		s.logger.Error("failed to create escalation step", zap.Error(err), zap.Uint("policy_id", step.PolicyID))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -742,9 +749,12 @@ func (s *ScheduleService) ReplaceEscalationSteps(ctx context.Context, policyID u
 		return err
 	}
 
-	// Ensure each step references the correct policy.
+	// Ensure each step references the correct policy and validate target existence.
 	for i := range steps {
 		steps[i].PolicyID = policyID
+		if err := s.validateEscalationStepTarget(ctx, steps[i].TargetType, steps[i].TargetID); err != nil {
+			return err
+		}
 	}
 
 	if err := s.stepRepo.ReplaceByPolicyID(ctx, policyID, steps); err != nil {
@@ -768,6 +778,31 @@ func validateSchedule(schedule *model.Schedule) *apperr.AppError {
 	if schedule.Timezone != "" {
 		if _, err := time.LoadLocation(schedule.Timezone); err != nil {
 			return apperr.WithMessage(apperr.ErrBadRequest, "invalid timezone: "+schedule.Timezone)
+		}
+	}
+	return nil
+}
+
+// validateEscalationStepTarget checks that the referenced target entity exists in the DB.
+func (s *ScheduleService) validateEscalationStepTarget(ctx context.Context, targetType string, targetID uint) *apperr.AppError {
+	switch targetType {
+	case "user":
+		if s.userRepo != nil {
+			if _, err := s.userRepo.GetByID(ctx, targetID); err != nil {
+				return apperr.WithMessage(apperr.ErrNotFound, fmt.Sprintf("user %d not found", targetID))
+			}
+		}
+	case "team":
+		if s.teamRepo != nil {
+			if _, err := s.teamRepo.GetByID(ctx, targetID); err != nil {
+				return apperr.WithMessage(apperr.ErrNotFound, fmt.Sprintf("team %d not found", targetID))
+			}
+		}
+	case "schedule":
+		if s.scheduleRepo != nil {
+			if _, err := s.scheduleRepo.GetByID(ctx, targetID); err != nil {
+				return apperr.WithMessage(apperr.ErrNotFound, fmt.Sprintf("schedule %d not found", targetID))
+			}
 		}
 	}
 	return nil

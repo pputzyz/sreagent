@@ -45,3 +45,10 @@ func (d *NotificationDedupService) TrySend(ctx context.Context, key string) bool
 func BuildNotifyDedupKey(eventID uint, mediaID uint, fingerprint, status string) string {
 	return fmt.Sprintf("%d:%d:%s:%s", eventID, mediaID, fingerprint, status)
 }
+
+// BuildNotifyDedupKeyV2 creates a dedup key that includes fire_count so that
+// a genuine re-fire (firing->resolved->firing) gets a new dedup key and is not
+// silently blocked by the 4h TTL of the previous fire cycle.
+func BuildNotifyDedupKeyV2(eventID uint, mediaID uint, fingerprint, status string, fireCount int) string {
+	return fmt.Sprintf("v2:%d:%d:%s:%s:%d", eventID, mediaID, fingerprint, status, fireCount)
+}

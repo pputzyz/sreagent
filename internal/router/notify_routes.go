@@ -27,8 +27,8 @@ func (h *Handlers) registerNotifyRoutes(auth *gin.RouterGroup, manage, operate g
 	// Notify Media
 	notifyMedia := auth.Group("/notify-media")
 	{
-		notifyMedia.GET("", h.NotifyMedia.List)
-		notifyMedia.GET("/:id", h.NotifyMedia.Get)
+		notifyMedia.GET("", manage, h.NotifyMedia.List)
+		notifyMedia.GET("/:id", manage, h.NotifyMedia.Get)
 		notifyMedia.POST("", manage, middleware.RequirePerm("notify.write"), h.NotifyMedia.Create)
 		notifyMedia.PUT("/:id", manage, middleware.RequirePerm("notify.write"), h.NotifyMedia.Update)
 		notifyMedia.DELETE("/:id", manage, middleware.RequirePerm("notify.write"), h.NotifyMedia.Delete)

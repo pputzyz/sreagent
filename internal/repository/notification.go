@@ -99,6 +99,35 @@ func (r *NotifyRecordRepository) CountSentRecords(ctx context.Context, channelID
 	return int(count), err
 }
 
+// GetLastSentByFingerprint returns the most recent successfully sent notification record
+// for a specific fingerprint + media + notify-rule combination.
+// This scopes the repeat-interval throttle to individual alerts rather than
+// blocking all alerts that share the same media+rule.
+func (r *NotifyRecordRepository) GetLastSentByFingerprint(ctx context.Context, fingerprint string, channelID, policyID uint) (*model.NotifyRecord, error) {
+	var record model.NotifyRecord
+	err := r.db.WithContext(ctx).
+		Where("fingerprint = ? AND channel_id = ? AND policy_id = ? AND status = ?", fingerprint, channelID, policyID, "sent").
+		Order("created_at DESC").
+		First(&record).Error
+	if err != nil {
+		return nil, err
+	}
+	return &record, nil
+}
+
+// CountSentByFingerprint returns the total number of successfully sent notification records
+// for a specific fingerprint + media + notify-rule combination.
+// This scopes the max-notification cap to individual alerts rather than
+// silencing the rule permanently after N total sends.
+func (r *NotifyRecordRepository) CountSentByFingerprint(ctx context.Context, fingerprint string, channelID, policyID uint) (int, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.NotifyRecord{}).
+		Where("fingerprint = ? AND channel_id = ? AND policy_id = ? AND status = ?", fingerprint, channelID, policyID, "sent").
+		Count(&count).Error
+	return int(count), err
+}
+
 // severityMatches checks if the given severity is contained in the comma-separated severities string.
 func severityMatches(severities, severity string) bool {
 	// Parse the comma-separated list

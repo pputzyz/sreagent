@@ -55,21 +55,17 @@ func NewLarkBotService(settingSvc *SystemSettingService, eventSvc *AlertEventSer
 }
 
 // resolveUserID maps a Lark open_id to a DB user ID.
-// Falls back to systemUserID=1 when the mapping is not configured or the open_id is unknown.
-func (s *LarkBotService) resolveUserID(ctx context.Context, larkOpenID string) uint {
-	const systemUserID = 1
+// Returns an error if the user repo is not configured, the open_id is empty,
+// or the open_id is not mapped to any system user. No admin fallback.
+func (s *LarkBotService) resolveUserID(ctx context.Context, larkOpenID string) (uint, error) {
 	if s.userRepo == nil || larkOpenID == "" {
-		s.logger.Warn("lark user mapping not configured, falling back to system user",
-			zap.String("lark_open_id", larkOpenID))
-		return systemUserID
+		return 0, fmt.Errorf("lark user mapping not configured")
 	}
 	user, err := s.userRepo.GetByLarkUserID(ctx, larkOpenID)
 	if err != nil {
-		s.logger.Warn("lark user lookup failed, falling back to system user",
-			zap.String("lark_open_id", larkOpenID), zap.Error(err))
-		return systemUserID
+		return 0, fmt.Errorf("lark user %s not mapped to system user, please bind account first", larkOpenID)
 	}
-	return user.ID
+	return user.ID, nil
 }
 
 // loadConfig fetches the current Lark config from the DB.
@@ -190,15 +186,23 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte, signature
 		return map[string]string{"challenge": req.Challenge}, nil
 	}
 
+	// Fail-closed: require at least one verification method configured.
+	if cfg.EncryptKey == "" && cfg.VerificationToken == "" {
+		s.logger.Warn("lark event rejected: no verification configured (EncryptKey and VerificationToken both empty)")
+		return nil, fmt.Errorf("lark verification not configured")
+	}
+
 	// Anti-replay: reject requests with timestamps outside a ±5 minute window.
-	if timestamp != "" {
-		ts, err := strconv.ParseInt(timestamp, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid lark request timestamp")
-		}
-		if diff := time.Now().Unix() - ts; diff < -300 || diff > 300 {
-			return nil, fmt.Errorf("lark request timestamp out of acceptable window")
-		}
+	// Mandatory when verification is configured — empty timestamp is rejected.
+	if timestamp == "" {
+		return nil, fmt.Errorf("missing lark request timestamp")
+	}
+	ts, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid lark request timestamp")
+	}
+	if diff := time.Now().Unix() - ts; diff < -300 || diff > 300 {
+		return nil, fmt.Errorf("lark request timestamp out of acceptable window")
 	}
 
 	// Verify HMAC-SHA256 signature (preferred over plaintext token verification).
@@ -209,6 +213,9 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte, signature
 	} else if cfg.VerificationToken != "" && req.Header != nil && req.Header.Token != cfg.VerificationToken {
 		// Fallback: plaintext token verification when no encrypt key configured.
 		return nil, fmt.Errorf("invalid event token")
+	} else if cfg.EncryptKey != "" && signature == "" {
+		// EncryptKey configured but no signature provided — reject.
+		return nil, fmt.Errorf("missing lark event signature")
 	}
 
 	// Handle message events
@@ -389,10 +396,15 @@ func (s *LarkBotService) cmdOnCall(ctx context.Context, chatID string) error {
 }
 
 // cmdAck handles the /ack <alert_id> command.
-// Resolves the Lark sender's open_id to a DB user; falls back to systemUserID=1 if unmapped.
+// Resolves the Lark sender's open_id to a DB user; rejects if unmapped.
 func (s *LarkBotService) cmdAck(ctx context.Context, args []string, chatID, userID string) error {
 	if len(args) == 0 {
 		return s.SendMessage(ctx, chatID, "Usage: /ack <alert_id>")
+	}
+
+	operatorID, err := s.resolveUserID(ctx, userID)
+	if err != nil {
+		return s.SendMessage(ctx, chatID, "未绑定系统账号，请先在 SREAgent 中绑定 Lark 账号")
 	}
 
 	idStr := args[0]
@@ -401,7 +413,6 @@ func (s *LarkBotService) cmdAck(ctx context.Context, args []string, chatID, user
 		return s.SendMessage(ctx, chatID, fmt.Sprintf("Invalid alert ID: %s. Please provide a numeric alert ID.", idStr))
 	}
 
-	operatorID := s.resolveUserID(ctx, userID)
 	if err := s.eventSvc.Acknowledge(ctx, uint(alertID), operatorID); err != nil {
 		return s.SendMessage(ctx, chatID, fmt.Sprintf("Failed to acknowledge alert #%d: %v", alertID, err))
 	}
