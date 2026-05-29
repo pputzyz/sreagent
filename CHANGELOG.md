@@ -4,6 +4,14 @@
 
 ---
 
+## [v4.48.1] — 2026-05-28
+
+### Bug 修复
+
+- **errcheck lint**: `crypto_test.go` 中 `os.Setenv`/`os.Unsetenv` 返回值未检查
+
+---
+
 ## [v4.48.0] — 2026-05-28
 
 ### 测试补齐 + 文档

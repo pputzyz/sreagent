@@ -9,14 +9,14 @@ import (
 // setTestKey sets the SREAGENT_SECRET_KEY env var and resets the sync.Once
 // so that loadKey() picks up the new value for this test.
 func setTestKey(key string) {
-	os.Setenv("SREAGENT_SECRET_KEY", key)
+	_ = os.Setenv("SREAGENT_SECRET_KEY", key)
 	masterKey = nil
 	keyOnce = sync.Once{}
 }
 
 // cleanupKey unsets the env var and resets state so other tests start fresh.
 func cleanupKey() {
-	os.Unsetenv("SREAGENT_SECRET_KEY")
+	_ = os.Unsetenv("SREAGENT_SECRET_KEY")
 	masterKey = nil
 	keyOnce = sync.Once{}
 }
