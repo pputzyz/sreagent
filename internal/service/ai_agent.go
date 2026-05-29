@@ -405,6 +405,9 @@ func (s *AgentService) ListToolCalls(ctx context.Context, conversationID uint) (
 }
 
 // GetTask 获取任务详情
+// TODO: Tasks are stored in process memory only. Multi-instance deployments
+// cannot query tasks created on other instances. Migrate to Redis/DB-backed
+// storage so GetTask works across instances.
 func (s *AgentService) GetTask(id string) (*AgentTask, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

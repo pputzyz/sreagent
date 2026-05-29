@@ -1,6 +1,8 @@
 package router
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/middleware"
@@ -40,8 +42,13 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 	}
 
 	// AI — config is admin only, usage is for all
-	// Rate limit: 1 RPS, burst 10 for AI inference endpoints
+	// Rate limit: 1 RPS, burst 10 for AI inference endpoints (per-user, fallback to IP)
 	aiRL := middleware.RateLimit(func(c *gin.Context) string {
+		if id, exists := c.Get("user_id"); exists {
+			if uid, ok := id.(uint); ok && uid > 0 {
+				return fmt.Sprintf("ai:user:%d", uid)
+			}
+		}
 		return "ai:" + c.ClientIP()
 	}, 1, 10)
 	ai := auth.Group("/ai")

@@ -94,7 +94,7 @@ func (s *KnowledgeBaseService) SummarizeWithLLM(ctx context.Context, id uint) er
 }
 
 // IngestFromAlertEvent creates a knowledge document from a resolved alert event.
+// TODO: Implement alert-to-knowledge ingestion (P2.4)
 func (s *KnowledgeBaseService) IngestFromAlertEvent(ctx context.Context, event interface{}) error {
-	// Placeholder — will be implemented in P2.4
-	return nil
+	return fmt.Errorf("IngestFromAlertEvent not yet implemented")
 }

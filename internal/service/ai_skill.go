@@ -47,6 +47,9 @@ func (s *AISkillService) Update(skill *model.AISkill) error {
 	if err != nil {
 		return err
 	}
+	if existing.CreatedBy == "system" {
+		return fmt.Errorf("cannot modify built-in skills")
+	}
 	skill.CreatedBy = existing.CreatedBy
 	skill.CreatedAt = existing.CreatedAt
 	return s.repo.Update(skill)

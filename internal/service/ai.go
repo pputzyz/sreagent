@@ -54,7 +54,7 @@ func (s *AIService) ListTools() []*AITool {
 func NewAIService(settingSvc *SystemSettingService, logger *zap.Logger) *AIService {
 	return &AIService{
 		settingSvc: settingSvc,
-		client:     safehttp.NewSafeClient(30 * time.Second),
+		client:     safehttp.NewInternalClient(30 * time.Second),
 		logger:     logger,
 	}
 }

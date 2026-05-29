@@ -4,6 +4,26 @@
 
 ---
 
+## [v4.53.0] — 2026-05-29
+
+### 审查 07 — AI 全家桶 P1/P2 修复
+
+**AI 连接 (P1)**
+- **P1-1**: AI LLM 客户端改用 InternalClient（允许内网 LLM 端点 10.x/192.168.x）
+
+**AI 工具加固 (P2)**
+- **P2-1**: MCP 工具默认 IO:"write" / RiskLevel:1（保守安全策略）
+- **P2-3**: query_datasource 工具限制最大 24h 时间范围 + 结果截断 100 序列
+- **P2-4**: list_label_values 校验 labelKey 字符合法性（防路径注入）
+
+**AI 功能完善 (P2)**
+- **P2-2**: GetTask 添加多实例限制文档说明
+- **P2-5**: IngestFromAlertEvent 返回明确未实现错误
+- **P2-6**: AI 限流键从 per-IP 改为 per-userID
+- **P2-7**: AISkill Update 阻止修改内置 system 技能
+
+---
+
 ## [v4.52.0] — 2026-05-29
 
 ### 审查 06 — 协作 v2（incident 聚合 + 集成 + 噪声 + dispatch）P0/P1/P2 全量修复

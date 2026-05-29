@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -20,6 +21,23 @@ func marshalJSONOrError(v interface{}) string {
 		return fmt.Sprintf(`{"error":"json marshal failed: %s"}`, err.Error())
 	}
 	return string(data)
+}
+
+// AI tool guardrail limits to prevent LLM-generated queries from overwhelming datasources.
+const (
+	maxQueryRange   = 24 * time.Hour // max time range for AI-generated PromQL queries
+	minQueryStep    = 15             // minimum step in seconds
+	maxResultSeries = 100            // max series to return to the LLM
+)
+
+// validLabelKeyRe validates Prometheus label keys to prevent path injection.
+var validLabelKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func validateLabelKey(key string) error {
+	if !validLabelKeyRe.MatchString(key) {
+		return fmt.Errorf("invalid label key %q: must match [a-zA-Z_][a-zA-Z0-9_]*", key)
+	}
+	return nil
 }
 
 // AITool 定义一个可被 AI 调用的工具
@@ -166,6 +184,10 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				return "", fmt.Errorf("无效的时间范围格式 %q: %w", timeRange, err)
 			}
 
+			if duration > maxQueryRange {
+				return "", fmt.Errorf("查询时间范围 %v 超过 AI 工具允许的最大值 %v", timeRange, maxQueryRange)
+			}
+
 			end := time.Now()
 			start := end.Add(-duration)
 
@@ -183,7 +205,16 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				return fmt.Sprintf("查询失败: %v", err), nil
 			}
 
-			summary := fmt.Sprintf("查询结果: %d 条时间序列", len(resp.Series))
+			// Guardrail: truncate excessive series to protect LLM context
+			totalSeries := len(resp.Series)
+			if totalSeries > maxResultSeries {
+				resp.Series = resp.Series[:maxResultSeries]
+			}
+
+			summary := fmt.Sprintf("查询结果: %d 条时间序列", totalSeries)
+			if totalSeries > maxResultSeries {
+				summary += fmt.Sprintf("（已截断至前 %d 条）", maxResultSeries)
+			}
 			totalPoints := 0
 			for _, s := range resp.Series {
 				totalPoints += len(s.Values)
@@ -524,6 +555,9 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
 			dsID, _ := aiToolToUint(params["datasource_id"])
 			labelKey, _ := params["label_key"].(string)
+			if err := validateLabelKey(labelKey); err != nil {
+				return "", err
+			}
 			limit, _ := aiToolToInt(params["limit"])
 			if limit <= 0 {
 				limit = 100
@@ -585,7 +619,16 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				return fmt.Sprintf("即时查询失败: %v", err), nil
 			}
 
-			summary := fmt.Sprintf("查询结果: %d 条时间序列", len(resp.Series))
+			// Guardrail: truncate excessive series to protect LLM context
+			totalSeries := len(resp.Series)
+			if totalSeries > maxResultSeries {
+				resp.Series = resp.Series[:maxResultSeries]
+			}
+
+			summary := fmt.Sprintf("查询结果: %d 条时间序列", totalSeries)
+			if totalSeries > maxResultSeries {
+				summary += fmt.Sprintf("（已截断至前 %d 条）", maxResultSeries)
+			}
 			for i, s := range resp.Series {
 				if i >= 5 {
 					summary += fmt.Sprintf("\n... 还有 %d 条", len(resp.Series)-5)
@@ -849,7 +892,8 @@ func (r *AIToolRegistry) RegisterMCPTools(mcpSvc *MCPServerService) {
 				Name:        toolName,
 				Description: fmt.Sprintf("[MCP:%s] %s", srv.Name, toolDesc),
 				Parameters:  toolSchema,
-				IO:          "read",
+				IO:          "write",   // conservative default: MCP tools may be write/destructive
+				RiskLevel:   1,         // moderate risk until MCP annotations are available
 				Execute: func(execCtx context.Context, params map[string]interface{}) (string, error) {
 					client := NewMCPClient()
 					result, err := client.CallTool(execCtx, srvURL, srvHeaders, mcpToolName, params)
