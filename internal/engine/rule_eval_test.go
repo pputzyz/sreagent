@@ -215,3 +215,43 @@ func Test_AlertState_fields(t *testing.T) {
 	require.Equal(t, uint(123), state.EventID)
 	require.Equal(t, "TestAlert", state.Labels["alertname"])
 }
+
+// Test_buildCombinations_rejects_huge verifies that buildCombinations returns
+// an error when the cartesian product exceeds the 10,000 limit, preventing
+// an explosion of queries that would overwhelm the TSDB.
+func Test_buildCombinations_rejects_huge(t *testing.T) {
+	// 101 * 100 = 10,100 > 10,000
+	hosts := make([]string, 101)
+	for i := range hosts {
+		hosts[i] = "host" + string(rune('A'+i%26)) + string(rune('0'+i/26))
+	}
+	envs := make([]string, 100)
+	for i := range envs {
+		envs[i] = "env" + string(rune('A'+i%26)) + string(rune('0'+i/26))
+	}
+
+	paramNames := []string{"host", "env"}
+	varValues := map[string][]string{
+		"host": hosts,
+		"env":  envs,
+	}
+
+	result, err := buildCombinations(paramNames, varValues)
+	assert.Error(t, err, "buildCombinations must reject combinations exceeding 10,000")
+	assert.Nil(t, result, "result should be nil on error")
+	assert.Contains(t, err.Error(), "exceeds limit", "error should mention the limit")
+}
+
+// Test_buildCombinations_within_limit verifies that buildCombinations succeeds
+// when the total is within the 10,000 limit.
+func Test_buildCombinations_within_limit(t *testing.T) {
+	paramNames := []string{"host", "env"}
+	varValues := map[string][]string{
+		"host": {"a", "b"},
+		"env":  {"prod", "staging"},
+	}
+
+	result, err := buildCombinations(paramNames, varValues)
+	assert.NoError(t, err)
+	assert.Len(t, result, 4, "2*2 = 4 combinations")
+}

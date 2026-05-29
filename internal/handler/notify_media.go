@@ -6,9 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
-	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -30,12 +31,21 @@ func (h *NotifyMediaHandler) SetAuditService(svc *service.AuditLogService) {
 }
 
 // maskNotifyMediaConfig replaces sensitive fields in Config with asterisks before returning to the API.
+// If the config is encrypted, it is decrypted first so that masking can operate on the plaintext JSON.
 func maskNotifyMediaConfig(media *model.NotifyMedia) {
 	if media.Config == "" {
 		return
 	}
+	// Decrypt if encrypted, so downstream JSON unmarshal and masking work on plaintext.
+	config := media.Config
+	if crypto.IsEncrypted(config) {
+		if decrypted, err := crypto.DecryptString(config); err == nil {
+			config = decrypted
+		}
+		// If decryption fails, fall through with the raw value (mask will be a no-op).
+	}
 	var cfg map[string]interface{}
-	if json.Unmarshal([]byte(media.Config), &cfg) != nil {
+	if json.Unmarshal([]byte(config), &cfg) != nil {
 		return
 	}
 	sensitiveKeys := []string{

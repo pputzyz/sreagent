@@ -4,6 +4,28 @@
 
 ---
 
+## [v4.54.0] — 2026-05-29
+
+### 深度改进 + 回归测试补齐
+
+**深度改进（修复不彻底的项）**
+- NotifyMedia Config 存储层 AES 加密（Create/Update 加密，Send 透明解密）
+- Webhook 错误码覆盖补全（+PagerDuty +FlashDuty）
+- Agent 任务 Redis 持久化（跨实例可查询）
+- AlertV2Pipeline 架构文档化（fingerprint 级聚合决策）
+- Migration 000080 冲突修复 → 重编号 000101
+
+**回归测试补齐（17 个新测试）**
+- Module 01: Test_Update_toggles_IsEnabled, Test_decryptAuthConfig_error, Test_HealthCheck_partial
+- Module 02: Test_evaluateTriggerExp_fail_closed, Test_parseTriggerExp_var_to_var, Test_buildCombinations_limit
+- Module 03: Test_matchesInhibition_regex, Test_matchesInhibition_equal_labels_missing
+- Module 04: Test_isThrottled_per_fingerprint × 2
+- Module 05: Test_GetCurrentOnCallForAlert_override, Test_escalateEvent_team_overrides_global
+- Module 06: Test_aggregator_single_incident, Test_integration_fingerprint, Test_shared_channel_reset
+- Module 07: Test_callLLM_bounded_rounds, Test_ai_key_roundtrip, Test_query_range_limit
+
+---
+
 ## [v4.53.0] — 2026-05-29
 
 ### 审查 07 — AI 全家桶 P1/P2 修复

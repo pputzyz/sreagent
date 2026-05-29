@@ -15,6 +15,14 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// AgentRedisClient is the minimal Redis interface needed by AgentService.
+// Defined here to avoid import cycle (redis -> engine -> service).
+// Implemented by redis.Client.
+type AgentRedisClient interface {
+	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	Get(ctx context.Context, key string) (string, error)
+}
+
 // AgentStreamBus is the interface for distributed SSE via Redis Streams.
 // Defined here to avoid import cycle (redis -> engine -> service).
 // Implemented by redis.StreamBus.
@@ -77,6 +85,9 @@ type AgentService struct {
 	// 分布式 SSE：Redis StreamBus（nil = 回退到内存 channel）
 	streamBus AgentStreamBus
 
+	// Redis client for task state persistence (nil = no Redis fallback).
+	redisClient AgentRedisClient
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -107,6 +118,11 @@ func (s *AgentService) SetToolRegistry(reg *AIToolRegistry) {
 // SetStreamBus 注入分布式 SSE 总线（可选，nil 表示回退到内存 channel）
 func (s *AgentService) SetStreamBus(bus AgentStreamBus) {
 	s.streamBus = bus
+}
+
+// SetRedisClient 注入 Redis 客户端用于任务状态持久化（可选，nil 表示无 Redis 回退）
+func (s *AgentService) SetRedisClient(rc AgentRedisClient) {
+	s.redisClient = rc
 }
 
 // HasStreamBus reports whether a distributed StreamBus is configured.
@@ -234,6 +250,7 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 			s.mu.Unlock()
 			s.notifySubscribers(task)
 			s.finishStream(task)
+			s.persistTask(task)
 		}
 	}()
 
@@ -290,6 +307,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		task.CompletedAt = &now
 		s.notifySubscribers(task)
 		s.finishStream(task)
+		s.persistTask(task)
 		return task, err
 	}
 
@@ -335,6 +353,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 				task.CompletedAt = &now
 				s.notifySubscribers(task)
 				s.finishStream(task)
+				s.persistTask(task)
 				return task, nil
 			}
 			continue
@@ -358,6 +377,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 		task.CompletedAt = &now
 		s.notifySubscribers(task)
 		s.finishStream(task)
+		s.persistTask(task)
 		return task, nil
 	}
 
@@ -367,6 +387,7 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 	task.CompletedAt = &now
 	s.notifySubscribers(task)
 	s.finishStream(task)
+	s.persistTask(task)
 
 	s.logger.Info("Agent 任务完成", zap.String("id", task.ID))
 	return task, nil
@@ -405,14 +426,29 @@ func (s *AgentService) ListToolCalls(ctx context.Context, conversationID uint) (
 }
 
 // GetTask 获取任务详情
-// TODO: Tasks are stored in process memory only. Multi-instance deployments
-// cannot query tasks created on other instances. Migrate to Redis/DB-backed
-// storage so GetTask works across instances.
+// Checks in-memory first, then falls back to Redis for cross-instance task lookup.
 func (s *AgentService) GetTask(id string) (*AgentTask, bool) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-	task, ok := s.tasks[id]
-	return task, ok
+	task, exists := s.tasks[id]
+	s.mu.RUnlock()
+
+	if exists {
+		return task, true
+	}
+
+	// Fallback: check Redis for completed task state (cross-instance support).
+	if s.redisClient != nil {
+		key := fmt.Sprintf("ai:task:%s", id)
+		data, err := s.redisClient.Get(context.Background(), key)
+		if err == nil && data != "" {
+			var t AgentTask
+			if json.Unmarshal([]byte(data), &t) == nil {
+				return &t, true
+			}
+		}
+	}
+
+	return nil, false
 }
 
 // Subscribe 注册一个 SSE 订阅者，返回只读 channel
@@ -492,6 +528,24 @@ func (s *AgentService) finishStream(task *AgentTask) {
 
 // sseEventTask is the event type for full task snapshot updates.
 const sseEventTask = "task"
+
+// persistTask saves the final task state to Redis (24h TTL) for cross-instance GetTask lookups.
+func (s *AgentService) persistTask(task *AgentTask) {
+	if s.redisClient == nil {
+		return
+	}
+	key := fmt.Sprintf("ai:task:%s", task.ID)
+	data, err := json.Marshal(task)
+	if err != nil {
+		s.logger.Warn("failed to marshal task for Redis persistence",
+			zap.String("task_id", task.ID), zap.Error(err))
+		return
+	}
+	if err := s.redisClient.Set(context.Background(), key, data, 24*time.Hour); err != nil {
+		s.logger.Warn("failed to persist task to Redis",
+			zap.String("task_id", task.ID), zap.Error(err))
+	}
+}
 
 // copyTask 深拷贝任务，避免并发读写竞争
 func copyTask(task *AgentTask) *AgentTask {

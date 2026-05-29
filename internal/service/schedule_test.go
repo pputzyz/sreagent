@@ -758,6 +758,79 @@ func Test_GetCurrentOnCall_nonexistent_schedule(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// GetCurrentOnCallForAlert integration tests (require SREAGENT_TEST_DSN)
+// ---------------------------------------------------------------------------
+
+// Test_GetCurrentOnCallForAlert_override_priority verifies that when both an
+// active override and a regular shift exist for a schedule, the override user
+// takes priority in the alert dispatch path (GetCurrentOnCallForAlert).
+func Test_GetCurrentOnCallForAlert_override_priority(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	logger := testutil.TestLogger()
+	scheduleRepo := repository.NewScheduleRepository(db)
+	participantRepo := repository.NewScheduleParticipantRepository(db)
+	overrideRepo := repository.NewScheduleOverrideRepository(db)
+	shiftRepo := repository.NewOnCallShiftRepository(db)
+	policyRepo := repository.NewEscalationPolicyRepository(db)
+	stepRepo := repository.NewEscalationStepRepository(db)
+
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
+
+	// Create two users
+	regularUser := testutil.SeedUser(t, db, "alert-regular", model.RoleMember)
+	overrideUser := testutil.SeedUser(t, db, "alert-override", model.RoleMember)
+
+	// Create an enabled schedule
+	schedule := &model.Schedule{
+		Name:         "alert-override-priority",
+		RotationType: model.RotationDaily,
+		Timezone:     "UTC",
+		HandoffTime:  "09:00",
+		IsEnabled:    true,
+	}
+	require.NoError(t, svc.CreateSchedule(context.Background(), schedule))
+
+	// Add regular user as rotation participant
+	require.NoError(t, db.Create(&model.ScheduleParticipant{
+		ScheduleID: schedule.ID,
+		UserID:     regularUser.ID,
+		Position:   0,
+	}).Error)
+
+	// Create a shift for the regular user covering now
+	now := time.Now()
+	require.NoError(t, svc.CreateShift(context.Background(), &model.OnCallShift{
+		ScheduleID: schedule.ID,
+		UserID:     regularUser.ID,
+		StartTime:  now.Add(-3 * time.Hour),
+		EndTime:    now.Add(5 * time.Hour),
+		Source:     "rotation",
+	}))
+
+	// Create an active override for the override user covering now
+	require.NoError(t, svc.CreateOverride(context.Background(), &model.ScheduleOverride{
+		ScheduleID: schedule.ID,
+		UserID:     overrideUser.ID,
+		StartTime:  now.Add(-1 * time.Hour),
+		EndTime:    now.Add(2 * time.Hour),
+		Reason:     "covering for regular user",
+	}))
+
+	// GetCurrentOnCallForAlert should return the override user
+	alertLabels := map[string]string{"severity": "critical", "env": "production"}
+	result, err := svc.GetCurrentOnCallForAlert(context.Background(), alertLabels)
+	require.NoError(t, err)
+	require.NotNil(t, result, "should find an on-call user")
+	assert.Equal(t, overrideUser.ID, result.ID,
+		"override user should take priority over shift user in alert dispatch")
+}
+
+// ---------------------------------------------------------------------------
 // NewScheduleService constructor test
 // ---------------------------------------------------------------------------
 

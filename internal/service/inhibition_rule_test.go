@@ -221,6 +221,90 @@ func Test_matchesInhibition_labelmatch_operators(t *testing.T) {
 	})
 }
 
+// Test_matchesInhibition_supports_regex_source_match verifies that SourceMatch
+// with the =~ regex operator matches a firing event whose label value satisfies
+// the regex pattern. Uses "~warning|critical" to match severity=critical.
+func Test_matchesInhibition_supports_regex_source_match(t *testing.T) {
+	rule := &model.InhibitionRule{
+		SourceMatch: model.JSONLabels{"severity": "=~warning|critical"},
+		TargetMatch: model.JSONLabels{"team": "backend"},
+		EqualLabels: "",
+	}
+
+	target := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 100},
+		Status:    model.EventStatusFiring,
+		Labels:    model.JSONLabels{"team": "backend", "instance": "web-1"},
+	}
+
+	firingEvents := []model.AlertEvent{
+		{
+			BaseModel: model.BaseModel{ID: 1},
+			Status:    model.EventStatusFiring,
+			Labels:    model.JSONLabels{"severity": "critical", "alertname": "HighCPU"},
+		},
+	}
+
+	assert.True(t, matchesInhibition(rule, target, firingEvents),
+		"SourceMatch regex =~warning|critical should match severity=critical")
+}
+
+// Test_matchesInhibition_regex_source_no_match verifies that a regex SourceMatch
+// does NOT match when the firing event's label value does not satisfy the pattern.
+func Test_matchesInhibition_regex_source_no_match(t *testing.T) {
+	rule := &model.InhibitionRule{
+		SourceMatch: model.JSONLabels{"severity": "=~warning|critical"},
+		TargetMatch: model.JSONLabels{"team": "backend"},
+		EqualLabels: "",
+	}
+
+	target := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 100},
+		Status:    model.EventStatusFiring,
+		Labels:    model.JSONLabels{"team": "backend"},
+	}
+
+	firingEvents := []model.AlertEvent{
+		{
+			BaseModel: model.BaseModel{ID: 1},
+			Status:    model.EventStatusFiring,
+			Labels:    model.JSONLabels{"severity": "info", "alertname": "LowTraffic"},
+		},
+	}
+
+	assert.False(t, matchesInhibition(rule, target, firingEvents),
+		"SourceMatch regex =~warning|critical should NOT match severity=info")
+}
+
+// Test_matchesInhibition_equal_labels_both_missing_does_not_suppress verifies
+// that when EqualLabels specifies a label (e.g. "host") that is missing from
+// both the source and target alerts, the inhibition does NOT fire. Both sides
+// must have the label present with the same value for suppression to occur.
+func Test_matchesInhibition_equal_labels_both_missing_does_not_suppress(t *testing.T) {
+	rule := &model.InhibitionRule{
+		SourceMatch: model.JSONLabels{"alertname": "NodeDown"},
+		TargetMatch: model.JSONLabels{"team": "infra"},
+		EqualLabels: "host", // both source and target must have "host" with same value
+	}
+
+	target := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 100},
+		Status:    model.EventStatusFiring,
+		Labels:    model.JSONLabels{"team": "infra", "env": "production"}, // no "host"
+	}
+
+	firingEvents := []model.AlertEvent{
+		{
+			BaseModel: model.BaseModel{ID: 1},
+			Status:    model.EventStatusFiring,
+			Labels:    model.JSONLabels{"alertname": "NodeDown", "env": "production"}, // no "host"
+		},
+	}
+
+	assert.False(t, matchesInhibition(rule, target, firingEvents),
+		"should NOT suppress when EqualLabel 'host' is missing on both source and target")
+}
+
 // Test_parseEqualLabels verifies parsing of comma-separated label lists.
 func Test_parseEqualLabels(t *testing.T) {
 	tests := []struct {

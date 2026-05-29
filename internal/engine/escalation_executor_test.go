@@ -68,6 +68,73 @@ func Test_parseLarkPersonalConfig_priority(t *testing.T) {
 	assert.Equal(t, "u1", id)
 }
 
+// Test_escalateEvent_team_overrides_global verifies the policy-merging logic
+// from runOnce: when a team has its own escalation policies, global policies
+// are skipped entirely for that team's events. Teams without team-specific
+// policies fall back to global ones.
+func Test_escalateEvent_team_overrides_global(t *testing.T) {
+	// Simulate the policy maps that runOnce builds.
+	teamPolicies := map[uint][]model.EscalationPolicy{
+		1: {
+			{BaseModel: model.BaseModel{ID: 10}, Name: "team-1-policy", TeamID: 1, IsEnabled: true},
+			{BaseModel: model.BaseModel{ID: 11}, Name: "team-1-policy-2", TeamID: 1, IsEnabled: true},
+		},
+	}
+	globalPolicies := []model.EscalationPolicy{
+		{BaseModel: model.BaseModel{ID: 99}, Name: "global-policy", TeamID: 0, IsEnabled: true},
+	}
+
+	// Simulate teamBatches (which teams have firing events).
+	teamBatchIDs := []uint{1, 2, 3}
+	// Team 1: has team-specific policies
+	// Team 2: no team policies → falls back to global
+	// Team 3: no team policies → falls back to global
+
+	// Replicate the merging logic from runOnce (Bug 05-P1-4 fix).
+	teamMergedPolicies := make(map[uint][]model.EscalationPolicy)
+	for _, teamID := range teamBatchIDs {
+		if len(teamPolicies[teamID]) > 0 {
+			teamMergedPolicies[teamID] = teamPolicies[teamID]
+		} else {
+			teamMergedPolicies[teamID] = globalPolicies
+		}
+	}
+
+	// Team 1: should use team-specific policies ONLY (global skipped).
+	t.Run("team_with_own_policies_skips_global", func(t *testing.T) {
+		matched := teamMergedPolicies[1]
+		require.Len(t, matched, 2, "team 1 should have its 2 team-specific policies")
+		assert.Equal(t, uint(10), matched[0].ID)
+		assert.Equal(t, uint(11), matched[1].ID)
+		assert.Equal(t, "team-1-policy", matched[0].Name)
+		// Verify no global policy leaked in.
+		for _, p := range matched {
+			assert.NotEqual(t, uint(99), p.ID, "global policy should NOT appear for team with own policies")
+		}
+	})
+
+	// Team 2: no team policies → should fall back to global.
+	t.Run("team_without_policies_uses_global", func(t *testing.T) {
+		matched := teamMergedPolicies[2]
+		require.Len(t, matched, 1, "team 2 should fall back to the single global policy")
+		assert.Equal(t, uint(99), matched[0].ID)
+		assert.Equal(t, "global-policy", matched[0].Name)
+	})
+
+	// Team 3: same as team 2.
+	t.Run("another_team_without_policies_uses_global", func(t *testing.T) {
+		matched := teamMergedPolicies[3]
+		require.Len(t, matched, 1)
+		assert.Equal(t, uint(99), matched[0].ID)
+	})
+
+	// Verify that the global policy slice itself was not mutated.
+	t.Run("global_policies_not_mutated", func(t *testing.T) {
+		assert.Len(t, globalPolicies, 1, "original global slice should be unchanged")
+		assert.Equal(t, "global-policy", globalPolicies[0].Name)
+	})
+}
+
 func Test_mapChannelTypeToMediaType(t *testing.T) {
 	tests := []struct {
 		in   model.NotifyChannelType

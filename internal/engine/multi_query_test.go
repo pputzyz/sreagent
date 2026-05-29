@@ -3,8 +3,12 @@ package engine
 import (
 	"testing"
 
+	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInnerJoin(t *testing.T) {
@@ -217,6 +221,61 @@ func TestMergeResults_stores_B_value_label(t *testing.T) {
 	// Prefixed labels should exist
 	assert.Equal(t, "server1", merged.Labels["A_host"])
 	assert.Equal(t, "server1", merged.Labels["B_host"])
+}
+
+// Test_evaluateTriggerExp_fail_closed verifies that an invalid trigger expression
+// returns nil + error (fail-closed), never returning all results. This prevents
+// an alert storm caused by a malformed expression letting every series through.
+func Test_evaluateTriggerExp_fail_closed(t *testing.T) {
+	// Build a minimal RuleEvaluator with an invalid TriggerExp.
+	// evaluateTriggerExp only reads re.rule.TriggerExp — no DB/datasource needed.
+	re := &RuleEvaluator{
+		rule: &model.AlertRule{
+			TriggerExp: "totally invalid expression",
+		},
+		logger: zap.NewNop(),
+	}
+
+	results, err := re.evaluateTriggerExp([]datasource.QueryResult{
+		{Labels: map[string]string{"host": "web-1"}, Values: []datasource.DataPoint{{Value: 42}}},
+	})
+
+	assert.Error(t, err, "invalid trigger expression must return error")
+	assert.Nil(t, results, "fail-closed: nil results on parse failure, not all results")
+	assert.Contains(t, err.Error(), "invalid trigger expression", "error should mention invalid expression")
+}
+
+// Test_parseTriggerExp_var_to_var_standalone is a focused regression test for the
+// $A op $B pattern, ensuring isVarRef and rightRef are set correctly.
+func Test_parseTriggerExp_var_to_var_standalone(t *testing.T) {
+	tests := []struct {
+		name     string
+		exp      string
+		ref      string
+		op       string
+		rightRef string
+	}{
+		{"$A > $B", "$A > $B", "A", ">", "B"},
+		{"$A < $B", "$A < $B", "A", "<", "B"},
+		{"$A >= $B", "$A >= $B", "A", ">=", "B"},
+		{"$A <= $B", "$A <= $B", "A", "<=", "B"},
+		{"$A == $B", "$A == $B", "A", "==", "B"},
+		{"$A != $B", "$A != $B", "A", "!=", "B"},
+		{"$X > $Y", "$X > $Y", "X", ">", "Y"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseTriggerExp(tt.exp)
+			require.NoError(t, err, "parseTriggerExp should succeed for %q", tt.exp)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.ref, result.ref)
+			assert.Equal(t, tt.op, result.op)
+			assert.True(t, result.isVarRef, "isVarRef must be true for var-to-var")
+			assert.Equal(t, tt.rightRef, result.rightRef)
+			assert.Equal(t, float64(0), result.threshold, "threshold should be zero for var-to-var")
+		})
+	}
 }
 
 func TestExpandVarInExpr(t *testing.T) {

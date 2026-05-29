@@ -17,6 +17,18 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// Incident aggregation architecture:
+// The AlertV2Pipeline uses fingerprint-level incident aggregation via IncidentAggregator.
+// Each unique alert fingerprint maps to exactly one Incident.
+// The previous channel-level ensureIncident (which merged all alerts into one "bucket" incident)
+// was removed in v4.52.0 because it caused unrelated alerts to be merged into a single incident.
+//
+// Key behaviors:
+// - Same fingerprint -> same Incident (AlertCount incremented)
+// - Different fingerprint -> different Incident
+// - Resolution: when all events for a fingerprint resolve, Incident is closed
+// - ChannelID: determined by the alert's _channel_id label or defaultChannelID
+
 // v2PipelineDropped counts async tasks dropped due to full semaphore.
 var v2PipelineDropped int64
 

@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -74,6 +75,14 @@ func (s *NotifyMediaService) Create(ctx context.Context, media *model.NotifyMedi
 	if err := validateScriptPath(media); err != nil {
 		return err
 	}
+	// Encrypt config at rest if a secret key is configured.
+	if media.Config != "" {
+		if encrypted, err := crypto.EncryptString(media.Config); err != nil {
+			s.logger.Warn("failed to encrypt notify media config, storing plaintext", zap.Error(err))
+		} else {
+			media.Config = encrypted
+		}
+	}
 	if err := s.repo.Create(ctx, media); err != nil {
 		s.logger.Error("failed to create notify media", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -115,7 +124,13 @@ func (s *NotifyMediaService) Update(ctx context.Context, media *model.NotifyMedi
 	existing.Description = media.Description
 	existing.IsEnabled = media.IsEnabled
 	if media.Config != "" {
-		existing.Config = media.Config
+		// Encrypt config at rest if a secret key is configured.
+		if encrypted, err := crypto.EncryptString(media.Config); err != nil {
+			s.logger.Warn("failed to encrypt notify media config, storing plaintext", zap.Error(err))
+			existing.Config = media.Config
+		} else {
+			existing.Config = encrypted
+		}
 	}
 	if media.Variables != "" {
 		existing.Variables = media.Variables
@@ -151,12 +166,30 @@ func (s *NotifyMediaService) ListEnabled(ctx context.Context) ([]model.NotifyMed
 	return s.repo.ListEnabled(ctx)
 }
 
+// decryptNotifyMediaConfig decrypts the media config if it is encrypted.
+// Returns the decrypted config string. If decryption fails, returns the original value.
+func (s *NotifyMediaService) decryptNotifyMediaConfig(media *model.NotifyMedia) string {
+	if !crypto.IsEncrypted(media.Config) {
+		return media.Config
+	}
+	decrypted, err := crypto.DecryptString(media.Config)
+	if err != nil {
+		s.logger.Error("failed to decrypt notify media config",
+			zap.Uint("media_id", media.ID), zap.Error(err))
+		return media.Config // fall back to raw value so caller gets a parse error
+	}
+	return decrypted
+}
+
 // SendNotification dispatches a notification through the given media with rendered template content.
 func (s *NotifyMediaService) SendNotification(ctx context.Context, media *model.NotifyMedia, renderedContent string, data *TemplateData) error {
 	if !media.IsEnabled {
 		s.logger.Warn("skipping disabled media", zap.Uint("media_id", media.ID), zap.String("media_name", media.Name))
 		return nil
 	}
+
+	// Decrypt config if encrypted (transparent to send methods).
+	media.Config = s.decryptNotifyMediaConfig(media)
 
 	switch media.Type {
 	case model.MediaTypeLarkWebhook:
@@ -527,6 +560,35 @@ func checkWebhookResponse(body []byte, mediaType string) error {
 		}
 		if json.Unmarshal(body, &resp) == nil && !resp.OK {
 			return fmt.Errorf("slack error: %s", resp.Error)
+		}
+	case "pagerduty":
+		// PagerDuty Events API v2: success returns {"status":"success","message":"..."}.
+		// Errors return {"status":"invalid","message":"..."} or {"errors":["..."]}.
+		var resp struct {
+			Status  string   `json:"status"`
+			Message string   `json:"message"`
+			Errors  []string `json:"errors"`
+		}
+		if json.Unmarshal(body, &resp) == nil {
+			if resp.Status != "" && resp.Status != "success" {
+				msg := resp.Message
+				if msg == "" && len(resp.Errors) > 0 {
+					msg = strings.Join(resp.Errors, "; ")
+				}
+				return fmt.Errorf("pagerduty error (status=%s): %s", resp.Status, msg)
+			}
+		}
+	case "flashduty":
+		// FlashDuty integration API: success returns {"status":"ok"}.
+		// Errors return {"status":"error","message":"..."}.
+		var resp struct {
+			Status  string `json:"status"`
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(body, &resp) == nil {
+			if resp.Status != "" && resp.Status != "ok" {
+				return fmt.Errorf("flashduty error (status=%s): %s", resp.Status, resp.Message)
+			}
 		}
 	}
 	return nil
@@ -1120,7 +1182,7 @@ func (s *NotifyMediaService) sendFlashDuty(ctx context.Context, media *model.Not
 	if err != nil {
 		return fmt.Errorf("failed to marshal flashduty payload: %w", err)
 	}
-	return s.doHTTPPostWithRetry(ctx, cfg.IntegrationURL, "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.IntegrationURL, "application/json", body, 3, 100, "flashduty")
 }
 
 // --- PagerDuty ---
@@ -1159,7 +1221,7 @@ func (s *NotifyMediaService) sendPagerDuty(ctx context.Context, media *model.Not
 	if err != nil {
 		return fmt.Errorf("failed to marshal pagerduty payload: %w", err)
 	}
-	return s.doHTTPPostWithRetry(ctx, "https://events.pagerduty.com/v2/enqueue", "application/json", body, 3, 100)
+	return s.doHTTPPostWithRetryTyped(ctx, "https://events.pagerduty.com/v2/enqueue", "application/json", body, 3, 100, "pagerduty")
 }
 
 // --- Tencent SMS ---

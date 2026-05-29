@@ -403,6 +403,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			// Inject Redis StreamBus into AgentService for multi-instance SSE
 			streamBus := sredis.NewStreamBus(rc, zapLogger)
 			agentSvc.SetStreamBus(streamBus)
+			// Inject Redis client for task state persistence (cross-instance GetTask)
+			agentSvc.SetRedisClient(rc)
 			zapLogger.Info("redis connected, engine state persistence enabled, agent SSE stream bus enabled",
 				zap.String("addr", cfg.Redis.Addr()),
 			)
