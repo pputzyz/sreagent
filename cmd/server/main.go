@@ -239,38 +239,56 @@ func autoMigrate(db *gorm.DB) error {
 }
 
 func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
-	var count int64
-	db.Model(&model.User{}).Count(&count)
-	if count > 0 {
-		return
-	}
-
-	// SREAGENT_ADMIN_PASSWORD is mandatory — no weak fallback passwords allowed.
 	defaultPwd := os.Getenv("SREAGENT_ADMIN_PASSWORD")
 	if defaultPwd == "" {
+		// Check if admin user already exists; if so, skip silently
+		var count int64
+		db.Model(&model.User{}).Where("username = ?", "admin").Count(&count)
+		if count > 0 {
+			return
+		}
 		logger.Fatal("SREAGENT_ADMIN_PASSWORD environment variable must be set")
 	}
+
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(defaultPwd), bcrypt.DefaultCost)
 	if err != nil {
 		logger.Error("failed to hash password", zap.Error(err))
 		return
 	}
 
-	admin := &model.User{
-		Username:    "admin",
-		Password:    string(hashedPwd),
-		DisplayName: "Administrator",
-		Email:       "admin@sreagent.local",
-		Role:        model.RoleAdmin,
-		IsActive:    true,
-	}
-
-	if err := db.Create(admin).Error; err != nil {
-		logger.Error("failed to seed admin user", zap.Error(err))
+	// Check if admin user already exists
+	var admin model.User
+	if err := db.Where("username = ?", "admin").First(&admin).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Create new admin user
+			admin = model.User{
+				Username:    "admin",
+				Password:    string(hashedPwd),
+				DisplayName: "Administrator",
+				Email:       "admin@sreagent.local",
+				Role:        model.RoleAdmin,
+				IsActive:    true,
+			}
+			if err := db.Create(&admin).Error; err != nil {
+				logger.Error("failed to seed admin user", zap.Error(err))
+				return
+			}
+			logger.Info("seeded default admin user — change password immediately after first login")
+			return
+		}
+		logger.Error("failed to query admin user", zap.Error(err))
 		return
 	}
 
-	logger.Info("seeded default admin user — change password immediately after first login")
+	// Admin exists — check if password needs updating
+	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(defaultPwd)); err != nil {
+		// Password doesn't match env var → update it
+		if err := db.Model(&admin).Update("password", string(hashedPwd)).Error; err != nil {
+			logger.Error("failed to update admin password from SREAGENT_ADMIN_PASSWORD", zap.Error(err))
+			return
+		}
+		logger.Info("admin password updated from SREAGENT_ADMIN_PASSWORD environment variable")
+	}
 }
 
 func seedPresetRules(db *gorm.DB, logger *zap.Logger) {
