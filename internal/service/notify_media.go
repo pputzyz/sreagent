@@ -13,6 +13,7 @@ import (
 	"net/smtp"
 	"os/exec"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -27,8 +28,14 @@ import (
 
 // NotifyMediaService provides CRUD and notification dispatch for media backends.
 type NotifyMediaService struct {
-	repo   *repository.NotifyMediaRepository
-	logger *zap.Logger
+	repo        *repository.NotifyMediaRepository
+	logger      *zap.Logger
+	feishuTokenCache sync.Map // key: appID, value: *feishuTokenEntry
+}
+
+type feishuTokenEntry struct {
+	token     string
+	expiresAt time.Time
 }
 
 // NewNotifyMediaService creates a new NotifyMediaService.
@@ -1014,6 +1021,14 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 }
 
 func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, appSecret string) (string, error) {
+	// Check cache — refresh 60s before expiry to avoid stale tokens.
+	if cached, ok := s.feishuTokenCache.Load(appID); ok {
+		entry := cached.(*feishuTokenEntry)
+		if time.Now().Before(entry.expiresAt.Add(-60 * time.Second)) {
+			return entry.token, nil
+		}
+	}
+
 	payload := map[string]string{
 		"app_id":     appID,
 		"app_secret": appSecret,
@@ -1036,6 +1051,7 @@ func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, ap
 		Code              int    `json:"code"`
 		Msg               string `json:"msg"`
 		TenantAccessToken string `json:"tenant_access_token"`
+		Expire            int    `json:"expire"` // seconds until expiry
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
@@ -1043,6 +1059,17 @@ func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, ap
 	if result.Code != 0 {
 		return "", fmt.Errorf("feishu token error %d: %s", result.Code, result.Msg)
 	}
+
+	// Cache the token (default 2h if expire not provided)
+	ttl := time.Duration(result.Expire) * time.Second
+	if ttl <= 0 {
+		ttl = 2 * time.Hour
+	}
+	s.feishuTokenCache.Store(appID, &feishuTokenEntry{
+		token:     result.TenantAccessToken,
+		expiresAt: time.Now().Add(ttl),
+	})
+
 	return result.TenantAccessToken, nil
 }
 

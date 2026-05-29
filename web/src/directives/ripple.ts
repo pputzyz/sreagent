@@ -1,5 +1,7 @@
 import type { Directive } from 'vue'
 
+const RIPPLE_HANDLER_KEY = Symbol('_rippleHandler')
+
 /**
  * v-ripple — Click ripple effect directive.
  * On mousedown, creates a <span class="sre-ripple-wave"> that expands from the click point.
@@ -10,7 +12,7 @@ export const vRipple: Directive<HTMLElement> = {
     el.style.position = el.style.position || 'relative'
     el.style.overflow = el.style.overflow || 'hidden'
 
-    el.addEventListener('mousedown', (e: MouseEvent) => {
+    const handler = (e: MouseEvent) => {
       const rect = el.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
@@ -24,6 +26,18 @@ export const vRipple: Directive<HTMLElement> = {
       wave.addEventListener('animationend', () => {
         wave.remove()
       })
-    })
+    }
+
+    // Store handler reference for cleanup in unmounted
+    ;(el as any)[RIPPLE_HANDLER_KEY] = handler
+    el.addEventListener('mousedown', handler)
+  },
+
+  unmounted(el) {
+    const handler = (el as any)[RIPPLE_HANDLER_KEY]
+    if (handler) {
+      el.removeEventListener('mousedown', handler)
+      delete (el as any)[RIPPLE_HANDLER_KEY]
+    }
   },
 }

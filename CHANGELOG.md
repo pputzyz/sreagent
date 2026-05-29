@@ -4,6 +4,33 @@
 
 ---
 
+## [v4.60.0] — 2026-05-29
+
+### 全项目审计修复 — 40 项问题批量修复
+
+**P0 关键修复**
+- 修复引擎 resolved 覆盖 acknowledged/silenced/assigned 状态（rule_eval_actions.go）
+- 修复迁移 000066/000086 顺序错误：新增迁移 000104 补充 inspection_tasks.deleted_at
+- 注入 user_team_roles 到请求上下文，激活团队角色提升机制（auth.go + wire.go）
+- SPA fallback 不再吞掉 /api/ 等后端路径的 404（router.go）
+
+**P1 高优先级**
+- 刷新端点添加速率限制（1 RPS, burst 5）防止 token 枚举（router.go）
+- Redis IncrLoginFail 改用原子 INCR+EXPIRE 避免竞态条件（redis/client.go）
+
+**P2 中优先级**
+- 飞书 tenant token 缓存：避免每次通知都请求新 token，提前 60s 刷新（notify_media.go）
+- 通知去重内存 TTL 从 5min 提升到 4h，与 Redis TTL 一致（notification_dedup.go）
+- DispatchPolicy 时间窗口支持跨夜范围（如 22:00-06:00）（dispatch.go）
+- v-ripple 指令添加 unmounted 清理，防止事件监听器泄漏（directives/ripple.ts）
+- v-can 指令改用 hidden 属性替代 removeChild，避免破坏 Vue 虚拟 DOM（directives/vCan.ts）
+- preferences store 的 applyTheme 同步 localStorage，统一主题系统（stores/preferences.ts）
+
+**迁移文件**
+- 新增: 000104_inspection_tasks_add_deleted_at.{up|down}.sql
+
+---
+
 ## [v4.59.0] — 2026-05-29
 
 ### IA 重构 — 菜单归类移位 + 信息架构优化

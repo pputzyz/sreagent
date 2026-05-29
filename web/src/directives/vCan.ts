@@ -5,7 +5,8 @@
  *   v-can="'rules.create'"           — single permission
  *   v-can="['rules.create','rules.edit']" — any-of (OR)
  *
- * Elements are removed from DOM when the user lacks permission.
+ * Elements are hidden via display:none when the user lacks permission.
+ * Uses hidden attribute to avoid removing Vue-managed DOM nodes.
  */
 import type { Directive, DirectiveBinding } from 'vue'
 import { usePermissions } from '@/composables/usePermissions'
@@ -16,8 +17,11 @@ function check(el: HTMLElement, binding: DirectiveBinding<string | string[]>) {
   const ok = perms.length === 1 ? hasPerm(perms[0]) : hasAnyPerm(...perms)
 
   if (!ok) {
-    // Replace element with invisible placeholder to preserve layout flow
-    el.parentNode?.removeChild(el)
+    el.hidden = true
+    el.style.pointerEvents = 'none'
+  } else {
+    el.hidden = false
+    el.style.pointerEvents = ''
   }
 }
 

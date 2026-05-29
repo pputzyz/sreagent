@@ -180,7 +180,12 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 		return err
 	}
 
-	if event.Status == model.EventStatusClosed || event.Status == model.EventStatusResolved {
+	// Skip resolution if the event is already closed/resolved, or has been
+	// actively managed by a user (acknowledged/assigned/silenced).  The engine
+	// should not overwrite user-driven states.
+	switch event.Status {
+	case model.EventStatusClosed, model.EventStatusResolved,
+		model.EventStatusAcknowledged, model.EventStatusAssigned, model.EventStatusSilenced:
 		return nil
 	}
 

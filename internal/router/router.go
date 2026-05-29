@@ -163,7 +163,8 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 		// Public routes — login rate limited (5 RPS, burst 5, lockout after 5 failures for 15 min)
 		loginRL := middleware.LoginRateLimit(5, 5, 5, 15*time.Minute)
 		api.POST("/auth/login", loginRL, handlers.Auth.Login)
-		api.POST("/auth/refresh", handlers.Auth.Refresh)
+		refreshRL := middleware.RateLimit(func(c *gin.Context) string { return "refresh:" + c.ClientIP() }, 1, 5)
+		api.POST("/auth/refresh", refreshRL, handlers.Auth.Refresh)
 		api.GET("/auth/captcha", handlers.Auth.Captcha)
 
 		// OIDC routes (public — before JWT middleware)
@@ -234,6 +235,20 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 
 		r.NoRoute(func(c *gin.Context) {
 			reqPath := c.Request.URL.Path
+
+			// Never serve index.html for backend API paths — return proper 404 JSON.
+			if strings.HasPrefix(reqPath, "/api/") ||
+				strings.HasPrefix(reqPath, "/webhooks/") ||
+				strings.HasPrefix(reqPath, "/lark/") ||
+				reqPath == "/healthz" ||
+				reqPath == "/metrics" {
+				c.JSON(http.StatusNotFound, gin.H{
+					"code":    40400,
+					"message": "endpoint not found",
+				})
+				return
+			}
+
 			// If it looks like a static file request, try to serve it
 			if strings.Contains(reqPath, ".") {
 				filePath := path.Join(distPath, reqPath)

@@ -21,7 +21,7 @@ type notifDedup struct {
 func newNotifDedup() *notifDedup {
 	d := &notifDedup{
 		sent: make(map[string]time.Time),
-		ttl:  5 * time.Minute,
+		ttl:  4 * time.Hour, // match Redis dedup TTL to prevent inconsistency on Redis outage
 	}
 	go d.cleanup()
 	return d

@@ -247,11 +247,19 @@ func (s *DispatchService) isActiveNow(cfgJSON string, now time.Time) bool {
 		}
 	}
 
-	// Check time range
+	// Check time range (supports overnight ranges like 22:00-06:00)
 	if cfg.StartTime != "" && cfg.EndTime != "" {
 		hhmm := fmt.Sprintf("%02d:%02d", local.Hour(), local.Minute())
-		if hhmm < cfg.StartTime || hhmm >= cfg.EndTime {
-			return false
+		if cfg.StartTime <= cfg.EndTime {
+			// Normal range: e.g. 09:00-18:00
+			if hhmm < cfg.StartTime || hhmm >= cfg.EndTime {
+				return false
+			}
+		} else {
+			// Overnight range: e.g. 22:00-06:00 → active if >= 22:00 OR < 06:00
+			if hhmm < cfg.StartTime && hhmm >= cfg.EndTime {
+				return false
+			}
 		}
 	}
 	return true

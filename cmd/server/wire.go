@@ -87,6 +87,27 @@ type Dependencies struct {
 	appCancel context.CancelFunc // cancels background workers
 }
 
+// teamRoleAdapter implements middleware.TeamRoleQuerier using the team repository.
+type teamRoleAdapter struct {
+	teamRepo *repository.TeamRepository
+}
+
+func (a *teamRoleAdapter) ListTeamRoles(userID uint) ([]string, error) {
+	members, err := a.teamRepo.ListByUser(context.Background(), userID)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{})
+	var roles []string
+	for _, m := range members {
+		if _, ok := seen[m.Role]; !ok {
+			seen[m.Role] = struct{}{}
+			roles = append(roles, m.Role)
+		}
+	}
+	return roles, nil
+}
+
 // initDependencies creates all repositories, services, handlers, and engine
 // components. This is the single DI wiring function extracted from main.go.
 func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*Dependencies, error) {
@@ -112,6 +133,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	escalationStepRepo := repository.NewEscalationStepRepository(db)
 	stepExecRepo := repository.NewEscalationStepExecutionRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
+	// Wire team-role querier for RBAC team-role elevation in RequirePerm middleware.
+	middleware.TeamRoleQuerier = &teamRoleAdapter{teamRepo: teamRepo}
 	muteRuleRepo := repository.NewMuteRuleRepository(db)
 	inhibitionRuleRepo := repository.NewInhibitionRuleRepository(db)
 	alertRuleHistoryRepo := repository.NewAlertRuleHistoryRepository(db)

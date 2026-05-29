@@ -8,9 +8,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/config"
 )
+
+// TeamRoleQuerier abstracts the team repository for querying user team roles.
+// Injected at startup to avoid circular imports between middleware and repository.
+var TeamRoleQuerier interface {
+	// ListTeamRoles returns the team-level roles (e.g. "team_lead", "member")
+	// for the given user across all teams they belong to.
+	ListTeamRoles(userID uint) ([]string, error)
+}
 
 const (
 	// ContextKeyUserID is the key for user ID in gin context.
@@ -64,6 +73,17 @@ func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 		c.Set(ContextKeyUserID, claims.UserID)
 		c.Set(ContextKeyUsername, claims.Username)
 		c.Set(ContextKeyRole, claims.Role)
+
+		// Inject team-level roles for RequirePerm team-role elevation.
+		if TeamRoleQuerier != nil {
+			if teamRoles, err := TeamRoleQuerier.ListTeamRoles(claims.UserID); err == nil && len(teamRoles) > 0 {
+				c.Set("user_team_roles", teamRoles)
+			} else if err != nil {
+				// Log but don't block — fallback to global role only.
+				zap.L().Warn("failed to query team roles for user",
+					zap.Uint("user_id", claims.UserID), zap.Error(err))
+			}
+		}
 
 		c.Next()
 	}

@@ -46,7 +46,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     loaded.value = false
   }
 
-  // Apply theme to document
+  // Apply theme to document — syncs with App.vue's isDark toggle.
+  // App.vue is the single source of truth for theme; this writes the data-theme
+  // attribute for CSS selectors that use [data-theme].
   function applyTheme() {
     const theme = prefs.value.theme
     if (theme === 'auto') {
@@ -54,6 +56,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
       document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light')
     } else {
       document.documentElement.setAttribute('data-theme', theme)
+    }
+    // Sync localStorage so App.vue's isDark picks it up on next load
+    if (theme !== 'auto') {
+      localStorage.setItem('sre-theme', theme)
     }
   }
 
