@@ -65,7 +65,7 @@ onMounted(() => {
 function safeParse(json: string | null, fallback: boolean): boolean {
   try { return json ? JSON.parse(json) : fallback } catch { return fallback }
 }
-const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), false))
+const collapsed = ref(false)
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 const showPasswordModal = ref(false)
 const showAIChat = ref(false)

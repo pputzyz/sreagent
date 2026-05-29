@@ -68,6 +68,13 @@ const menuOptions = computed<MenuOption[]>(() => {
   return result
 })
 
+// Expand all sub-menus by default
+const defaultExpandedKeys = computed(() => {
+  return menuOptions.value
+    .filter(item => item.type === 'submenu' && item.children?.length)
+    .map(item => item.key as string)
+})
+
 // ===== Menu click handler =====
 
 function handleMenuUpdate(key: string) {
@@ -98,6 +105,7 @@ function handleMenuUpdate(key: string) {
           :collapsed-icon-size="22"
           :options="menuOptions"
           :value="activeKey"
+          :default-expanded-keys="defaultExpandedKeys"
           :indent="16"
           @update:value="handleMenuUpdate"
         />
