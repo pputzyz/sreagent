@@ -11,6 +11,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
+	"github.com/sreagent/sreagent/internal/service"
 )
 
 // MuteRuleChecker abstracts the mute rule service so the engine can check
@@ -23,15 +24,12 @@ type MuteRuleChecker interface {
 // isTimeWindowMuted checks if the current time falls within a mute rule's time window.
 // Supports: day-of-week filtering, start/end time range, timezone awareness.
 // This mirrors Nightingale's TimeSpanMuteStrategy at the engine level.
+//
+// NOTE: This logic duplicates service.MuteRuleService.isInTimeWindow.
+// See internal/service/mute_rule.go for the canonical version.
 func isTimeWindowMuted(muteRule *model.MuteRule, now time.Time) bool {
-	// Load timezone; fall back to Asia/Shanghai (project default) on error.
-	loc, err := time.LoadLocation(muteRule.Timezone)
-	if err != nil {
-		loc, _ = time.LoadLocation("Asia/Shanghai")
-		if loc == nil {
-			loc = time.Local
-		}
-	}
+	// Use shared timezone loader — consistent fallback across service and engine.
+	loc := service.LoadMuteTimezone(muteRule.Timezone)
 	nowLocal := now.In(loc)
 
 	// One-time window: if both StartTime and EndTime are set, check them.
@@ -90,6 +88,9 @@ func isTimeWindowMuted(muteRule *model.MuteRule, now time.Time) bool {
 
 // isMutedByRule checks if an alert event matches a single mute rule.
 // Combines: rule ID filter, label matching, severity filter, and time window.
+//
+// NOTE: This logic duplicates service.MuteRuleService.matchesRule.
+// See internal/service/mute_rule.go for the canonical version.
 func isMutedByRule(rule *model.MuteRule, eventLabels map[string]string, eventSeverity string, ruleID *uint, now time.Time) bool {
 	// 1. Check specific rule IDs if set.
 	if rule.RuleIDs != "" && ruleID != nil {
@@ -138,10 +139,17 @@ func isMutedByRule(rule *model.MuteRule, eventLabels map[string]string, eventSev
 }
 
 // severityOrder maps severity names to numeric priority (higher = more severe).
+// Includes legacy p0-p4 values for backward compatibility with historical data.
 var severityOrder = map[string]int{
 	"info":     1,
 	"warning":  2,
 	"critical": 3,
+	// Legacy severity levels
+	"p0": 4, // equivalent to critical or higher
+	"p1": 3,
+	"p2": 2, // equivalent to warning
+	"p3": 1,
+	"p4": 1, // equivalent to info
 }
 
 // severityRank returns the numeric rank for a severity string.
@@ -162,6 +170,8 @@ type LevelSuppressor struct {
 	activeSeverities map[uint]map[string]string
 	// Map of rule_id -> map of fingerprint -> last update time (for GC)
 	lastUpdates map[uint]map[string]time.Time
+	// Map of rule_id -> map of fingerprint -> last severity change time (for GC of long-firing alerts)
+	lastChanges map[uint]map[string]time.Time
 	mu          sync.RWMutex
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -175,6 +185,7 @@ func NewLevelSuppressor() *LevelSuppressor {
 	return &LevelSuppressor{
 		activeSeverities: make(map[uint]map[string]string),
 		lastUpdates:      make(map[uint]map[string]time.Time),
+		lastChanges:      make(map[uint]map[string]time.Time),
 	}
 }
 
@@ -227,6 +238,7 @@ func (s *LevelSuppressor) Start() {
 		s.ctx, s.cancel = context.WithCancel(context.Background())
 
 		go func() {
+			s.gc() // initial cleanup on startup
 			ticker := time.NewTicker(1 * time.Hour)
 			defer ticker.Stop()
 
@@ -249,24 +261,54 @@ func (s *LevelSuppressor) Stop() {
 	}
 }
 
-// gc removes entries whose lastUpdate is older than 24 hours.
+// gc removes stale entries. Two conditions trigger removal:
+//  1. lastUpdate older than 24h — entry has not been touched recently (resolved alerts).
+//  2. lastChange older than 7 days — severity hasn't changed in a week (long-firing alerts
+//     that are likely stale or forgotten). This prevents memory leaks for alerts that keep
+//     calling UpdateSeverity every eval cycle without ever resolving.
+//
 // Must be called with no locks held; acquires write lock internally.
 func (s *LevelSuppressor) gc() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	threshold := time.Now().Add(-24 * time.Hour)
+	now := time.Now()
+	updateThreshold := now.Add(-24 * time.Hour)
+	changeThreshold := now.Add(-7 * 24 * time.Hour)
 	removed := 0
 
 	for ruleID, fpMap := range s.lastUpdates {
 		for fp, lastUp := range fpMap {
-			if lastUp.Before(threshold) {
+			shouldGC := false
+
+			// Condition 1: not touched in 24h (resolved or abandoned)
+			if lastUp.Before(updateThreshold) {
+				shouldGC = true
+			}
+
+			// Condition 2: severity unchanged for 7 days (long-firing, likely stale)
+			if !shouldGC {
+				if lcMap, ok := s.lastChanges[ruleID]; ok {
+					if lastChange, exists := lcMap[fp]; exists && lastChange.Before(changeThreshold) {
+						shouldGC = true
+					}
+				}
+			}
+
+			if shouldGC {
 				delete(fpMap, fp)
 				// Also remove from activeSeverities
 				if sevMap, ok := s.activeSeverities[ruleID]; ok {
 					delete(sevMap, fp)
 					if len(sevMap) == 0 {
 						delete(s.activeSeverities, ruleID)
+					}
+				}
+				// Also remove from lastChanges
+				if lcMap, ok := s.lastChanges[ruleID]; ok {
+					delete(lcMap, fp)
+					if len(lcMap) == 0 {
+						delete(s.lastChanges, ruleID)
 					}
 				}
 				removed++
@@ -324,6 +366,7 @@ func (s *LevelSuppressor) UpdateSeverity(ruleID uint, fingerprint string, severi
 	if !ok {
 		fpMap[fingerprint] = severity
 		s.touchLastUpdate(ruleID, fingerprint)
+		s.touchLastChange(ruleID, fingerprint)
 		return
 	}
 
@@ -333,6 +376,7 @@ func (s *LevelSuppressor) UpdateSeverity(ruleID uint, fingerprint string, severi
 	if newOrder > existingOrder {
 		fpMap[fingerprint] = severity
 		s.touchLastUpdate(ruleID, fingerprint)
+		s.touchLastChange(ruleID, fingerprint)
 	}
 }
 
@@ -342,6 +386,7 @@ func (s *LevelSuppressor) RemoveRule(ruleID uint) {
 	defer s.mu.Unlock()
 	delete(s.activeSeverities, ruleID)
 	delete(s.lastUpdates, ruleID)
+	delete(s.lastChanges, ruleID)
 }
 
 // RemoveSeverity removes a severity record (when alert resolves).
@@ -368,6 +413,13 @@ func (s *LevelSuppressor) RemoveSeverity(ruleID uint, fingerprint string, severi
 			delete(s.lastUpdates, ruleID)
 		}
 	}
+	// Clean up lastChanges
+	if lcMap, ok := s.lastChanges[ruleID]; ok {
+		delete(lcMap, fingerprint)
+		if len(lcMap) == 0 {
+			delete(s.lastChanges, ruleID)
+		}
+	}
 	if len(fpMap) == 0 {
 		delete(s.activeSeverities, ruleID)
 	}
@@ -382,4 +434,15 @@ func (s *LevelSuppressor) touchLastUpdate(ruleID uint, fingerprint string) {
 		s.lastUpdates[ruleID] = luMap
 	}
 	luMap[fingerprint] = time.Now()
+}
+
+// touchLastChange records the current time as the last severity change for a rule+fingerprint.
+// Must be called with s.mu write lock held.
+func (s *LevelSuppressor) touchLastChange(ruleID uint, fingerprint string) {
+	lcMap, ok := s.lastChanges[ruleID]
+	if !ok {
+		lcMap = make(map[string]time.Time)
+		s.lastChanges[ruleID] = lcMap
+	}
+	lcMap[fingerprint] = time.Now()
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/handler"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -28,7 +29,7 @@ func Test_MuteRule_PreviewOne_InvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	// PreviewOne first calls GetIDParam, which fails before touching any service.
-	h := handler.NewMuteRuleHandler(nil, nil)
+	h := handler.NewMuteRuleHandler(nil, nil, zap.NewNop())
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -48,7 +49,7 @@ func Test_MuteRule_PreviewOne_InvalidID(t *testing.T) {
 func Test_MuteRule_Get_InvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := handler.NewMuteRuleHandler(nil, nil)
+	h := handler.NewMuteRuleHandler(nil, nil, zap.NewNop())
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -68,7 +69,7 @@ func Test_MuteRule_Get_InvalidID(t *testing.T) {
 func Test_MuteRule_Delete_InvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := handler.NewMuteRuleHandler(nil, nil)
+	h := handler.NewMuteRuleHandler(nil, nil, zap.NewNop())
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -85,7 +86,7 @@ func Test_MuteRule_Delete_InvalidID(t *testing.T) {
 func Test_MuteRule_BatchEnable_EmptyIDs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := handler.NewMuteRuleHandler(nil, nil)
+	h := handler.NewMuteRuleHandler(nil, nil, zap.NewNop())
 
 	body := []byte(`{"ids": []}`)
 	w := httptest.NewRecorder()
@@ -118,7 +119,7 @@ func Test_MuteRule_PreviewOne_NotFound(t *testing.T) {
 	muteSvc := service.NewMuteRuleService(muteRepo, logger)
 	eventSvc := service.NewAlertEventService(eventRepo, nil, nil, nil, nil, nil, logger)
 
-	h := handler.NewMuteRuleHandler(muteSvc, eventSvc)
+	h := handler.NewMuteRuleHandler(muteSvc, eventSvc, logger)
 
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

@@ -12,17 +12,18 @@ import (
 // InhibitionRuleHandler handles inhibition rule API requests.
 type InhibitionRuleHandler struct {
 	svc      *service.InhibitionRuleService
+	eventSvc *service.AlertEventService
 	auditSvc *service.AuditLogService
 	log      *zap.Logger
 }
 
 // NewInhibitionRuleHandler creates a new InhibitionRuleHandler.
-func NewInhibitionRuleHandler(svc *service.InhibitionRuleService, logger ...*zap.Logger) *InhibitionRuleHandler {
+func NewInhibitionRuleHandler(svc *service.InhibitionRuleService, eventSvc *service.AlertEventService, logger ...*zap.Logger) *InhibitionRuleHandler {
 	l := zap.NewNop()
 	if len(logger) > 0 && logger[0] != nil {
 		l = logger[0]
 	}
-	return &InhibitionRuleHandler{svc: svc, log: l}
+	return &InhibitionRuleHandler{svc: svc, eventSvc: eventSvc, log: l}
 }
 
 // SetAuditService injects the audit log service (called after construction to avoid circular DI).
@@ -61,6 +62,10 @@ func (h *InhibitionRuleHandler) Create(c *gin.Context) {
 		EqualLabels: req.EqualLabels,
 		IsEnabled:   req.IsEnabled,
 		CreatedBy:   userID,
+	}
+	if len(rule.SourceMatch) == 0 || len(rule.TargetMatch) == 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "inhibition rule requires non-empty source_match and target_match"))
+		return
 	}
 	if rule.SourceMatch == nil {
 		rule.SourceMatch = model.JSONLabels{}
@@ -189,4 +194,104 @@ func (h *InhibitionRuleHandler) Delete(c *gin.Context) {
 	}
 
 	Success(c, nil)
+}
+
+// InhibitionPreviewItem is the response item for a single inhibition rule preview.
+type InhibitionPreviewItem struct {
+	RuleID       uint              `json:"rule_id"`
+	RuleName     string            `json:"rule_name"`
+	TargetEvents []model.AlertEvent `json:"target_events"`
+	SourceEvents []model.AlertEvent `json:"source_events"`
+}
+
+// Preview returns a preview of which currently-firing alerts would be inhibited
+// by each enabled inhibition rule.
+// GET /api/v1/inhibition-rules/preview
+func (h *InhibitionRuleHandler) Preview(c *gin.Context) {
+	if h.eventSvc == nil {
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "alert event service not available"))
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Fetch all currently firing alerts (up to 500)
+	firingEvents, _, err := h.eventSvc.List(ctx, "firing", "", 1, 500)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	results, err := h.svc.Preview(ctx, firingEvents)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	items := make([]InhibitionPreviewItem, 0, len(results))
+	for _, r := range results {
+		items = append(items, InhibitionPreviewItem{
+			RuleID:       r.RuleID,
+			RuleName:     r.RuleName,
+			TargetEvents: r.TargetEvents,
+			SourceEvents: r.SourceEvents,
+		})
+	}
+
+	Success(c, items)
+}
+
+// PreviewOne returns the preview for a single inhibition rule.
+// GET /api/v1/inhibition-rules/:id/preview
+func (h *InhibitionRuleHandler) PreviewOne(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	if h.eventSvc == nil {
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "alert event service not available"))
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	rule, err := h.svc.GetByID(ctx, id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	// Fetch all currently firing alerts (up to 500)
+	firingEvents, _, err := h.eventSvc.List(ctx, "firing", "", 1, 500)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	item := InhibitionPreviewItem{
+		RuleID:       rule.ID,
+		RuleName:     rule.Name,
+		TargetEvents: []model.AlertEvent{},
+		SourceEvents: []model.AlertEvent{},
+	}
+	seen := make(map[uint]bool)
+	for j := range firingEvents {
+		target := &firingEvents[j]
+		for k := range firingEvents {
+			src := &firingEvents[k]
+			if src.ID == target.ID {
+				continue
+			}
+			if h.svc.MatchesInhibition(rule, target, firingEvents) && !seen[target.ID] {
+				item.TargetEvents = append(item.TargetEvents, *target)
+				item.SourceEvents = append(item.SourceEvents, *src)
+				seen[target.ID] = true
+				break
+			}
+		}
+	}
+
+	Success(c, item)
 }

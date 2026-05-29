@@ -4,6 +4,37 @@
 
 ---
 
+## [v4.49.0] — 2026-05-28
+
+### 审查 03 — mute + inhibition 模块 P0/P1/P2 全量修复
+
+**InhibitionRule (2 P0 + 2 P1 + 1 P2)**
+- **P0-1**: 标签匹配改用 `labelmatch.Match`（支持 `=~`/`!~`/`!=` 操作符）
+- **P0-2**: 空 SourceMatch/TargetMatch 拒绝创建
+- **P1-7**: 新增 Preview/PreviewOne 端点
+- **P1-9**: EqualLabels 双方都缺 label 时不触发抑制
+- **P2-3**: 抑制命中日志 Info→Debug
+
+**MuteRule (1 P0 + 5 P1 + 1 P2)**
+- **P0-2**: 空 matcher 拒绝创建（label+severity+rule_ids 全空）
+- **P1-3**: Update 改 partial update（不再 Save 全字段）
+- **P1-4**: rule_ids CSV 格式校验
+- **P1-5**: one-time + periodic 窗口互斥校验
+- **P1-6**: Preview 返回 truncated 标志
+- **P1-10**: timezone 字符串 LoadLocation 校验
+- **P2-1**: Handler constructor 改 required logger
+
+**Engine Suppression (1 P0 + 2 P1 + 4 P2)**
+- **P0-3**: Mute/Inhibition 规则 30s TTL 内存缓存（不再每次全表查询）
+- **P1-1**: timezone fallback 统一 `LoadMuteTimezone`（Asia/Shanghai 优先）
+- **P1-8**: GC 增加 7 天 lastChange 条件（长 firing 不泄漏）
+- **P2-2**: 重复代码交叉引用注释
+- **P2-4**: severityRank 扩展 p0-p4 映射
+- **P2-7**: DaysOfWeek 校验 1-7 范围
+- **P2-9**: 启动时立即 GC 一次
+
+---
+
 ## [v4.48.1] — 2026-05-28
 
 ### Bug 修复

@@ -157,47 +157,68 @@ func Test_matchesInhibition_equal_labels_enforced(t *testing.T) {
 		assert.False(t, matchesInhibition(rule, target, firingEvents),
 			"should NOT inhibit when EqualLabels values differ")
 	})
+
+	t.Run("equal_labels_both_missing", func(t *testing.T) {
+		// When both source and target lack the EqualLabel, they should NOT be
+		// considered equal — the label must be present on both sides.
+		target := &model.AlertEvent{
+			BaseModel: model.BaseModel{ID: 100},
+			Labels:    model.JSONLabels{"team": "backend"}, // no "env" label
+		}
+		firingEvents := []model.AlertEvent{
+			{
+				BaseModel: model.BaseModel{ID: 1},
+				Status:    model.EventStatusFiring,
+				Labels:    model.JSONLabels{"alertname": "DatabaseDown"}, // no "env" label
+			},
+		}
+		assert.False(t, matchesInhibition(rule, target, firingEvents),
+			"should NOT inhibit when EqualLabel is missing on both sides")
+	})
 }
 
-// Test_inhibitionLabelsMatch verifies the label matching helper.
-func Test_inhibitionLabelsMatch(t *testing.T) {
-	tests := []struct {
-		name     string
-		matchers model.JSONLabels
-		labels   model.JSONLabels
-		expected bool
-	}{
-		{
-			name:     "empty matchers always match",
-			matchers: model.JSONLabels{},
-			labels:   model.JSONLabels{"foo": "bar"},
-			expected: true,
-		},
-		{
-			name:     "all matchers present",
-			matchers: model.JSONLabels{"a": "1", "b": "2"},
-			labels:   model.JSONLabels{"a": "1", "b": "2", "c": "3"},
-			expected: true,
-		},
-		{
-			name:     "missing label",
-			matchers: model.JSONLabels{"a": "1", "b": "2"},
-			labels:   model.JSONLabels{"a": "1"},
-			expected: false,
-		},
-		{
-			name:     "value mismatch",
-			matchers: model.JSONLabels{"a": "1"},
-			labels:   model.JSONLabels{"a": "999"},
-			expected: false,
-		},
-	}
+// Test_matchesInhibition_labelmatch_operators verifies that InhibitionRule uses
+// labelmatch.Match which supports regex operators (=~, !~, !=, exact).
+func Test_matchesInhibition_labelmatch_operators(t *testing.T) {
+	t.Run("regex_match_source", func(t *testing.T) {
+		rule := &model.InhibitionRule{
+			SourceMatch: model.JSONLabels{"severity": "=~warning|critical"},
+			TargetMatch: model.JSONLabels{"team": "backend"},
+		}
+		target := &model.AlertEvent{
+			BaseModel: model.BaseModel{ID: 100},
+			Labels:    model.JSONLabels{"team": "backend"},
+		}
+		firingEvents := []model.AlertEvent{
+			{
+				BaseModel: model.BaseModel{ID: 1},
+				Status:    model.EventStatusFiring,
+				Labels:    model.JSONLabels{"severity": "critical"},
+			},
+		}
+		assert.True(t, matchesInhibition(rule, target, firingEvents),
+			"regex operator =~ should match source severity")
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, inhibitionLabelsMatch(tt.matchers, tt.labels))
-		})
-	}
+	t.Run("not_equal_operator", func(t *testing.T) {
+		rule := &model.InhibitionRule{
+			SourceMatch: model.JSONLabels{"severity": "!=info"},
+			TargetMatch: model.JSONLabels{"team": "backend"},
+		}
+		target := &model.AlertEvent{
+			BaseModel: model.BaseModel{ID: 100},
+			Labels:    model.JSONLabels{"team": "backend"},
+		}
+		firingEvents := []model.AlertEvent{
+			{
+				BaseModel: model.BaseModel{ID: 1},
+				Status:    model.EventStatusFiring,
+				Labels:    model.JSONLabels{"severity": "critical"},
+			},
+		}
+		assert.True(t, matchesInhibition(rule, target, firingEvents),
+			"!= operator should match when severity is not info")
+	})
 }
 
 // Test_parseEqualLabels verifies parsing of comma-separated label lists.

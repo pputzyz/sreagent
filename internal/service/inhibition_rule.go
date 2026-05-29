@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"strings"
+	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -15,11 +18,59 @@ import (
 type InhibitionRuleService struct {
 	repo   *repository.InhibitionRuleRepository
 	logger *zap.Logger
+
+	// Cache for enabled inhibition rules — avoids DB round-trip on every alert evaluation.
+	cacheMu  sync.RWMutex
+	cache    []model.InhibitionRule
+	cacheAt  time.Time
+	cacheTTL time.Duration
 }
 
 // NewInhibitionRuleService creates a new InhibitionRuleService.
 func NewInhibitionRuleService(repo *repository.InhibitionRuleRepository, logger *zap.Logger) *InhibitionRuleService {
-	return &InhibitionRuleService{repo: repo, logger: logger}
+	return &InhibitionRuleService{
+		repo:     repo,
+		logger:   logger,
+		cacheTTL: 30 * time.Second,
+	}
+}
+
+// listEnabledCached returns enabled inhibition rules from cache if fresh, otherwise reloads from DB.
+func (s *InhibitionRuleService) listEnabledCached(ctx context.Context) ([]model.InhibitionRule, error) {
+	s.cacheMu.RLock()
+	if s.cache != nil && time.Since(s.cacheAt) < s.cacheTTL {
+		result := make([]model.InhibitionRule, len(s.cache))
+		copy(result, s.cache)
+		s.cacheMu.RUnlock()
+		return result, nil
+	}
+	s.cacheMu.RUnlock()
+
+	// Double-check after acquiring write lock.
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	if s.cache != nil && time.Since(s.cacheAt) < s.cacheTTL {
+		result := make([]model.InhibitionRule, len(s.cache))
+		copy(result, s.cache)
+		return result, nil
+	}
+
+	rules, err := s.repo.FindAllEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.cache = rules
+	s.cacheAt = time.Now()
+	result := make([]model.InhibitionRule, len(rules))
+	copy(result, rules)
+	return result, nil
+}
+
+// InvalidateCache forces a reload on next access.
+func (s *InhibitionRuleService) InvalidateCache() {
+	s.cacheMu.Lock()
+	s.cache = nil
+	s.cacheMu.Unlock()
 }
 
 // Create inserts a new inhibition rule.
@@ -28,6 +79,7 @@ func (s *InhibitionRuleService) Create(ctx context.Context, rule *model.Inhibiti
 		s.logger.Error("failed to create inhibition rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	s.InvalidateCache()
 	return nil
 }
 
@@ -60,6 +112,7 @@ func (s *InhibitionRuleService) Update(ctx context.Context, rule *model.Inhibiti
 	if err := s.repo.Update(ctx, existing); err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	s.InvalidateCache()
 	return nil
 }
 
@@ -72,6 +125,7 @@ func (s *InhibitionRuleService) Delete(ctx context.Context, id uint) error {
 		s.logger.Error("failed to delete inhibition rule", zap.Error(err), zap.Uint("id", id))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	s.InvalidateCache()
 	return nil
 }
 
@@ -82,14 +136,14 @@ func (s *InhibitionRuleService) IsInhibited(
 	event *model.AlertEvent,
 	firingEvents []model.AlertEvent,
 ) bool {
-	rules, err := s.repo.FindAllEnabled(ctx)
+	rules, err := s.listEnabledCached(ctx)
 	if err != nil {
 		s.logger.Error("inhibition: failed to load rules", zap.Error(err))
 		return false
 	}
 	for i := range rules {
 		if matchesInhibition(&rules[i], event, firingEvents) {
-			s.logger.Info("alert inhibited",
+			s.logger.Debug("alert inhibited",
 				zap.String("alert_name", event.AlertName),
 				zap.String("inhibition_rule", rules[i].Name),
 			)
@@ -99,10 +153,70 @@ func (s *InhibitionRuleService) IsInhibited(
 	return false
 }
 
+// MatchesInhibition returns true if the given rule would suppress the target event
+// given the set of currently-firing events. Exported for handler-level preview use.
+func (s *InhibitionRuleService) MatchesInhibition(rule *model.InhibitionRule, target *model.AlertEvent, firingEvents []model.AlertEvent) bool {
+	return matchesInhibition(rule, target, firingEvents)
+}
+
+// InhibitionPreviewResult holds the preview result for a single inhibition rule.
+type InhibitionPreviewResult struct {
+	RuleID       uint              `json:"rule_id"`
+	RuleName     string            `json:"rule_name"`
+	TargetEvents []model.AlertEvent `json:"target_events"`
+	SourceEvents []model.AlertEvent `json:"source_events"`
+}
+
+// Preview returns a list of enabled inhibition rules paired with the target events
+// that would be suppressed and the source events that trigger the suppression.
+func (s *InhibitionRuleService) Preview(ctx context.Context, firingEvents []model.AlertEvent) ([]InhibitionPreviewResult, error) {
+	rules, err := s.listEnabledCached(ctx)
+	if err != nil {
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	var results []InhibitionPreviewResult
+	for _, rule := range rules {
+		result := InhibitionPreviewResult{
+			RuleID:       rule.ID,
+			RuleName:     rule.Name,
+			TargetEvents: []model.AlertEvent{},
+			SourceEvents: []model.AlertEvent{},
+		}
+		seen := make(map[uint]bool) // avoid duplicate target entries
+		for j := range firingEvents {
+			target := &firingEvents[j]
+			for k := range firingEvents {
+				src := &firingEvents[k]
+				if src.ID == target.ID {
+					continue
+				}
+				if matchesInhibition(&rule, target, firingEvents) && !seen[target.ID] {
+					result.TargetEvents = append(result.TargetEvents, *target)
+					result.SourceEvents = append(result.SourceEvents, *src)
+					seen[target.ID] = true
+					break
+				}
+			}
+		}
+		if len(result.TargetEvents) > 0 {
+			results = append(results, result)
+		}
+	}
+	return results, nil
+}
+
 // matchesInhibition returns true when the given inhibition rule causes event to be suppressed.
+// Uses labelmatch.Match for full operator support (exact, !=, =~, !~).
 func matchesInhibition(rule *model.InhibitionRule, target *model.AlertEvent, firingEvents []model.AlertEvent) bool {
+	// Convert target labels to map[string]string for labelmatch.
+	tgtLabels := make(map[string]string, len(target.Labels))
+	for k, v := range target.Labels {
+		tgtLabels[k] = v
+	}
+
 	// The target alert must match TargetMatch labels.
-	if !inhibitionLabelsMatch(rule.TargetMatch, target.Labels) {
+	if !labelmatch.Match(tgtLabels, rule.TargetMatch) {
 		return false
 	}
 
@@ -117,14 +231,24 @@ func matchesInhibition(rule *model.InhibitionRule, target *model.AlertEvent, fir
 		if src.Status == model.EventStatusResolved || src.Status == model.EventStatusClosed {
 			continue
 		}
-		if !inhibitionLabelsMatch(rule.SourceMatch, src.Labels) {
+
+		// Convert source labels to map[string]string for labelmatch.
+		srcLabels := make(map[string]string, len(src.Labels))
+		for k, v := range src.Labels {
+			srcLabels[k] = v
+		}
+		if !labelmatch.Match(srcLabels, rule.SourceMatch) {
 			continue
 		}
-		// If EqualLabels is specified, both source and target must have the same value for each.
+
+		// If EqualLabels is specified, both source and target must have the label present
+		// and have the same value. Labels missing on either side do NOT count as equal.
 		if len(equalFields) > 0 {
 			allEqual := true
 			for _, lbl := range equalFields {
-				if src.Labels[lbl] != target.Labels[lbl] {
+				srcVal, srcOK := src.Labels[lbl]
+				tgtVal, tgtOK := target.Labels[lbl]
+				if !srcOK || !tgtOK || srcVal != tgtVal {
 					allEqual = false
 					break
 				}
@@ -136,16 +260,6 @@ func matchesInhibition(rule *model.InhibitionRule, target *model.AlertEvent, fir
 		return true
 	}
 	return false
-}
-
-// inhibitionLabelsMatch returns true when all entries in matchers are found in labels.
-func inhibitionLabelsMatch(matchers model.JSONLabels, labels model.JSONLabels) bool {
-	for k, v := range matchers {
-		if labels[k] != v {
-			return false
-		}
-	}
-	return true
 }
 
 // parseEqualLabels splits a comma-separated label name list.

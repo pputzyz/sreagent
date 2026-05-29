@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,19 +20,131 @@ import (
 type MuteRuleService struct {
 	repo   *repository.MuteRuleRepository
 	logger *zap.Logger
+
+	// Cache for enabled mute rules — avoids DB round-trip on every alert evaluation.
+	cacheMu  sync.RWMutex
+	cache    []model.MuteRule
+	cacheAt  time.Time
+	cacheTTL time.Duration
 }
 
 // NewMuteRuleService creates a new MuteRuleService.
 func NewMuteRuleService(repo *repository.MuteRuleRepository, logger *zap.Logger) *MuteRuleService {
-	return &MuteRuleService{repo: repo, logger: logger}
+	return &MuteRuleService{
+		repo:     repo,
+		logger:   logger,
+		cacheTTL: 30 * time.Second,
+	}
+}
+
+// listEnabledCached returns enabled mute rules from cache if fresh, otherwise reloads from DB.
+func (s *MuteRuleService) listEnabledCached(ctx context.Context) ([]model.MuteRule, error) {
+	s.cacheMu.RLock()
+	if s.cache != nil && time.Since(s.cacheAt) < s.cacheTTL {
+		result := make([]model.MuteRule, len(s.cache))
+		copy(result, s.cache)
+		s.cacheMu.RUnlock()
+		return result, nil
+	}
+	s.cacheMu.RUnlock()
+
+	// Double-check after acquiring write lock.
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	if s.cache != nil && time.Since(s.cacheAt) < s.cacheTTL {
+		result := make([]model.MuteRule, len(s.cache))
+		copy(result, s.cache)
+		return result, nil
+	}
+
+	rules, err := s.repo.FindAllEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.cache = rules
+	s.cacheAt = time.Now()
+	result := make([]model.MuteRule, len(rules))
+	copy(result, rules)
+	return result, nil
+}
+
+// InvalidateCache forces a reload on next access.
+func (s *MuteRuleService) InvalidateCache() {
+	s.cacheMu.Lock()
+	s.cache = nil
+	s.cacheMu.Unlock()
+}
+
+// LoadMuteTimezone loads a timezone with a consistent fallback to Asia/Shanghai.
+// Used by both service (isInTimeWindow) and engine (isTimeWindowMuted) to avoid
+// divergent fallback behavior.
+func LoadMuteTimezone(name string) *time.Location {
+	if name == "" {
+		loc, _ := time.LoadLocation("Asia/Shanghai")
+		if loc != nil {
+			return loc
+		}
+		return time.Local
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		loc, _ = time.LoadLocation("Asia/Shanghai")
+		if loc != nil {
+			return loc
+		}
+		return time.Local
+	}
+	return loc
+}
+
+// validateDaysOfWeek checks that the DaysOfWeek CSV contains only values 1-7.
+func validateDaysOfWeek(csv string) error {
+	for _, d := range strings.Split(csv, ",") {
+		d = strings.TrimSpace(d)
+		if d == "" {
+			continue
+		}
+		day, err := strconv.Atoi(d)
+		if err != nil || day < 1 || day > 7 {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "days_of_week must be 1-7, got: "+d)
+		}
+	}
+	return nil
+}
+
+// validateRuleIDs checks that the CSV contains only valid positive integers.
+func validateRuleIDs(csv string) error {
+	ids := strings.Split(csv, ",")
+	for _, idStr := range ids {
+		idStr = strings.TrimSpace(idStr)
+		if idStr == "" {
+			continue
+		}
+		var id uint
+		if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id == 0 {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid rule_id: "+idStr)
+		}
+	}
+	return nil
 }
 
 // Create creates a new mute rule.
 func (s *MuteRuleService) Create(ctx context.Context, rule *model.MuteRule) error {
+	if rule.RuleIDs != "" {
+		if err := validateRuleIDs(rule.RuleIDs); err != nil {
+			return err
+		}
+	}
+	if rule.DaysOfWeek != "" {
+		if err := validateDaysOfWeek(rule.DaysOfWeek); err != nil {
+			return err
+		}
+	}
 	if err := s.repo.Create(ctx, rule); err != nil {
 		s.logger.Error("failed to create mute rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	s.InvalidateCache()
 	return nil
 }
 
@@ -50,6 +164,16 @@ func (s *MuteRuleService) List(ctx context.Context, page, pageSize int) ([]model
 
 // Update updates an existing mute rule.
 func (s *MuteRuleService) Update(ctx context.Context, rule *model.MuteRule) error {
+	if rule.RuleIDs != "" {
+		if err := validateRuleIDs(rule.RuleIDs); err != nil {
+			return err
+		}
+	}
+	if rule.DaysOfWeek != "" {
+		if err := validateDaysOfWeek(rule.DaysOfWeek); err != nil {
+			return err
+		}
+	}
 	existing, err := s.repo.GetByID(ctx, rule.ID)
 	if err != nil {
 		return apperr.ErrNotFound
@@ -72,6 +196,7 @@ func (s *MuteRuleService) Update(ctx context.Context, rule *model.MuteRule) erro
 		s.logger.Error("failed to update mute rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	s.InvalidateCache()
 	return nil
 }
 
@@ -84,6 +209,7 @@ func (s *MuteRuleService) Delete(ctx context.Context, id uint) error {
 		s.logger.Error("failed to delete mute rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	s.InvalidateCache()
 	return nil
 }
 
@@ -91,7 +217,7 @@ func (s *MuteRuleService) Delete(ctx context.Context, id uint) error {
 // It loads all enabled mute rules, checks label matching, time window, and severity filter.
 // Returns true if ANY mute rule matches.
 func (s *MuteRuleService) IsAlertMuted(ctx context.Context, event *model.AlertEvent) bool {
-	rules, err := s.repo.FindAllEnabled(ctx)
+	rules, err := s.listEnabledCached(ctx)
 	if err != nil {
 		s.logger.Error("failed to load mute rules", zap.Error(err))
 		return false
@@ -169,11 +295,7 @@ func (s *MuteRuleService) matchesRule(rule *model.MuteRule, event *model.AlertEv
 
 // isInTimeWindow checks if the current time falls within the mute rule's time window.
 func (s *MuteRuleService) isInTimeWindow(rule *model.MuteRule, now time.Time) bool {
-	// Load timezone
-	loc, err := time.LoadLocation(rule.Timezone)
-	if err != nil {
-		loc = time.Local
-	}
+	loc := LoadMuteTimezone(rule.Timezone)
 	nowLocal := now.In(loc)
 
 	// Check one-time window
@@ -235,7 +357,11 @@ func (s *MuteRuleService) BatchEnable(ctx context.Context, ids []uint) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.repo.BatchUpdateEnabled(ctx, ids, true)
+	if err := s.repo.BatchUpdateEnabled(ctx, ids, true); err != nil {
+		return err
+	}
+	s.InvalidateCache()
+	return nil
 }
 
 // BatchDisable disables multiple mute rules.
@@ -243,7 +369,11 @@ func (s *MuteRuleService) BatchDisable(ctx context.Context, ids []uint) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.repo.BatchUpdateEnabled(ctx, ids, false)
+	if err := s.repo.BatchUpdateEnabled(ctx, ids, false); err != nil {
+		return err
+	}
+	s.InvalidateCache()
+	return nil
 }
 
 // BatchDelete soft-deletes multiple mute rules.
@@ -251,5 +381,9 @@ func (s *MuteRuleService) BatchDelete(ctx context.Context, ids []uint) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.repo.BatchDelete(ctx, ids)
+	if err := s.repo.BatchDelete(ctx, ids); err != nil {
+		return err
+	}
+	s.InvalidateCache()
+	return nil
 }

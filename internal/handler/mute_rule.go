@@ -11,6 +11,34 @@ import (
 	"github.com/sreagent/sreagent/internal/service"
 )
 
+// validateMuteRuleRequest performs cross-field validation for create/update requests.
+func validateMuteRuleRequest(req *CreateMuteRuleRequest) error {
+	// Bug 1: empty matcher = mute all alerts (dangerous)
+	if len(req.MatchLabels) == 0 && req.Severities == "" && req.RuleIDs == "" {
+		return apperr.WithMessage(apperr.ErrInvalidParam,
+			"mute rule must specify at least one of: match_labels, severities, rule_ids")
+	}
+
+	// Bug 4: one-time and periodic windows are mutually exclusive
+	hasOneTime := req.StartTime != nil || req.EndTime != nil
+	hasPeriodic := req.PeriodicStart != "" || req.PeriodicEnd != ""
+	if hasOneTime && hasPeriodic {
+		return apperr.WithMessage(apperr.ErrInvalidParam,
+			"cannot specify both one-time (start_time/end_time) and periodic (periodic_start/periodic_end) windows")
+	}
+
+	// Bug 6: validate timezone
+	tz := req.Timezone
+	if tz == "" {
+		tz = "Asia/Shanghai"
+	}
+	if _, err := time.LoadLocation(tz); err != nil {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid timezone: "+tz)
+	}
+
+	return nil
+}
+
 // MuteRuleHandler handles mute rule API requests.
 type MuteRuleHandler struct {
 	svc      *service.MuteRuleService
@@ -20,12 +48,8 @@ type MuteRuleHandler struct {
 }
 
 // NewMuteRuleHandler creates a new MuteRuleHandler.
-func NewMuteRuleHandler(svc *service.MuteRuleService, eventSvc *service.AlertEventService, logger ...*zap.Logger) *MuteRuleHandler {
-	l := zap.NewNop()
-	if len(logger) > 0 && logger[0] != nil {
-		l = logger[0]
-	}
-	return &MuteRuleHandler{svc: svc, eventSvc: eventSvc, log: l}
+func NewMuteRuleHandler(svc *service.MuteRuleService, eventSvc *service.AlertEventService, logger *zap.Logger) *MuteRuleHandler {
+	return &MuteRuleHandler{svc: svc, eventSvc: eventSvc, log: logger}
 }
 
 // SetAuditService injects the audit log service.
@@ -54,6 +78,11 @@ func (h *MuteRuleHandler) Create(c *gin.Context) {
 	var req CreateMuteRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	if err := validateMuteRuleRequest(&req); err != nil {
+		Error(c, err)
 		return
 	}
 
@@ -141,6 +170,11 @@ func (h *MuteRuleHandler) Update(c *gin.Context) {
 	var req CreateMuteRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	if err := validateMuteRuleRequest(&req); err != nil {
+		Error(c, err)
 		return
 	}
 
@@ -245,11 +279,12 @@ func (h *MuteRuleHandler) Preview(c *gin.Context) {
 	}
 
 	// Fetch all currently firing alerts (up to 500)
-	firingEvents, _, err := h.eventSvc.List(ctx, "firing", "", 1, 500)
+	firingEvents, total, err := h.eventSvc.List(ctx, "firing", "", 1, 500)
 	if err != nil {
 		Error(c, err)
 		return
 	}
+	truncated := total > 500
 
 	now := time.Now()
 	result := make([]MutePreviewItem, 0, len(rules))
@@ -271,7 +306,11 @@ func (h *MuteRuleHandler) Preview(c *gin.Context) {
 		result = append(result, item)
 	}
 
-	Success(c, result)
+	Success(c, gin.H{
+		"preview":      result,
+		"total_firing": total,
+		"truncated":    truncated,
+	})
 }
 
 // PreviewOne returns the preview for a single mute rule.

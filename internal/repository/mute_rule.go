@@ -52,9 +52,22 @@ func (r *MuteRuleRepository) List(ctx context.Context, page, pageSize int) ([]mo
 	return list, total, nil
 }
 
-// Update updates an existing mute rule.
+// Update performs a column-level update to avoid full-row overwrite (last-writer-wins).
 func (r *MuteRuleRepository) Update(ctx context.Context, rule *model.MuteRule) error {
-	return r.db.WithContext(ctx).Save(rule).Error
+	return r.db.WithContext(ctx).Model(rule).Updates(map[string]interface{}{
+		"name":           rule.Name,
+		"description":    rule.Description,
+		"match_labels":   rule.MatchLabels,
+		"severities":     rule.Severities,
+		"start_time":     rule.StartTime,
+		"end_time":       rule.EndTime,
+		"periodic_start": rule.PeriodicStart,
+		"periodic_end":   rule.PeriodicEnd,
+		"days_of_week":   rule.DaysOfWeek,
+		"timezone":       rule.Timezone,
+		"rule_ids":       rule.RuleIDs,
+		"is_enabled":     rule.IsEnabled,
+	}).Error
 }
 
 // Delete deletes a mute rule by ID.

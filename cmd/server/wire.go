@@ -721,7 +721,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		AuditLog:         handler.NewAuditLogHandler(auditLogSvc),
 		SMTPSettings:     handler.NewSMTPSettingsHandler(settingSvc),
 		SecuritySettings: handler.NewSecuritySettingsHandler(settingSvc, &cfg.JWT),
-		InhibitionRule:   handler.NewInhibitionRuleHandler(inhibitionRuleSvc, zapLogger),
+		InhibitionRule:   handler.NewInhibitionRuleHandler(inhibitionRuleSvc, eventSvc, zapLogger),
 		Heartbeat:        handler.NewHeartbeatHandler(ruleSvc),
 		LabelRegistry:    handler.NewLabelRegistryHandler(labelRegistrySvc),
 		DashboardV2:      handler.NewDashboardV2Handler(dashboardV2Svc),

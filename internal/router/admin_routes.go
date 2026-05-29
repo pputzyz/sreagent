@@ -30,7 +30,9 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		inhibitions := auth.Group("/inhibition-rules")
 		{
 			inhibitions.GET("", h.InhibitionRule.List)
+			inhibitions.GET("/preview", h.InhibitionRule.Preview)
 			inhibitions.GET("/:id", h.InhibitionRule.Get)
+			inhibitions.GET("/:id/preview", operate, h.InhibitionRule.PreviewOne)
 			inhibitions.POST("", manage, middleware.RequirePerm("inhibition.write"), h.InhibitionRule.Create)
 			inhibitions.PUT("/:id", manage, middleware.RequirePerm("inhibition.write"), h.InhibitionRule.Update)
 			inhibitions.DELETE("/:id", manage, middleware.RequirePerm("inhibition.write"), h.InhibitionRule.Delete)

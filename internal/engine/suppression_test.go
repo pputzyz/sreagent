@@ -28,8 +28,28 @@ func Test_severityRank_known_severities(t *testing.T) {
 	}
 }
 
+func Test_severityRank_legacy_p0_p4(t *testing.T) {
+	tests := []struct {
+		severity string
+		expected int
+	}{
+		{"p0", 4},
+		{"p1", 3},
+		{"p2", 2},
+		{"p3", 1},
+		{"p4", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.severity, func(t *testing.T) {
+			assert.Equal(t, tt.expected, severityRank(tt.severity),
+				"legacy severity %q should map to rank %d", tt.severity, tt.expected)
+		})
+	}
+}
+
 func Test_severityRank_unknown_defaults_to_info(t *testing.T) {
-	unknown := []string{"debug", "error", "p0", "p1", "", "CRITICAL"}
+	unknown := []string{"debug", "error", "", "CRITICAL"}
 	for _, sev := range unknown {
 		t.Run(sev, func(t *testing.T) {
 			assert.Equal(t, 1, severityRank(sev), "unknown severity %q should default to 1", sev)
