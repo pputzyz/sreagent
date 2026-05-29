@@ -443,11 +443,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	)
 	escalationExecutor.Start()
 
-	// Inject Redis-backed dedup service (shared across notify rule + escalation paths)
+	// Inject Redis-backed dedup service into notify rule path
 	if redisClient != nil {
 		notifyDedupSvc := service.NewNotificationDedupService(redisClient.Raw(), zapLogger)
 		notifyRuleSvc.SetDedupService(notifyDedupSvc)
-		escalationExecutor.SetDedupService(notifyDedupSvc)
 	}
 
 	// Initialize and start the heartbeat checker
@@ -470,45 +469,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	var evaluator *engine.Evaluator
 
 	// Shared onAlert callback used by both the evaluator and heartbeat checker.
-	// Pipeline: inhibition → mute → bizgroup → group → notify.
+	// Pipeline: bizgroup → inhibition → mute → noise reduction → group → notify.
 	onAlertFn := func(ctx context.Context, event *model.AlertEvent) {
-		// 1. Check inhibition rules (suppress target alerts when source is firing).
-		var firingEvents []model.AlertEvent
-		if evaluator != nil {
-			firingEvents = evaluator.GetFiringAlertEvents()
-		} else {
-			firingEvents, _, _ = eventSvc.List(ctx, "firing", "", 1, 2000)
-		}
-		if inhibitionRuleSvc.IsInhibited(ctx, event, firingEvents) {
-			zapLogger.Info("alert inhibited by inhibition rule, skipping notification",
-				zap.Uint("event_id", event.ID),
-				zap.String("alert_name", event.AlertName),
-			)
-			return
-		}
-
-		// 2. Check mute rules.
-		if muteRuleSvc.IsAlertMuted(ctx, event) {
-			zapLogger.Info("alert muted, skipping notification",
-				zap.Uint("event_id", event.ID),
-				zap.String("alert_name", event.AlertName),
-			)
-			return
-		}
-
-		// 2.5. Noise reduction: check exclusion rules before notification.
-		if noiseReducer != nil {
-			if suppressed, reason := noiseReducer.ShouldSuppress(ctx, event); suppressed {
-				zapLogger.Info("alert excluded by noise reduction, skipping notification",
-					zap.Uint("event_id", event.ID),
-					zap.String("alert_name", event.AlertName),
-					zap.String("reason", reason),
-				)
-				return
-			}
-		}
-
-		// 3. Annotate event with matching BizGroup scope.
+		// 1. Annotate event with matching BizGroup scope (must be before
+		//    inhibition/mute so match_labels on biz_group can work).
 		if groups, err := bizGroupSvc.FindMatchingGroups(ctx, map[string]string(event.Labels)); err == nil && len(groups) > 0 {
 			g := groups[0] // most specific match
 			if event.Labels == nil {
@@ -526,7 +490,43 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			_ = eventRepo.UpdateLabels(ctx, event.ID, event.Labels)
 		}
 
-		// 4. Route notification (through group manager for group_wait/group_interval).
+		// 2. Check inhibition rules (suppress target alerts when source is firing).
+		var firingEvents []model.AlertEvent
+		if evaluator != nil {
+			firingEvents = evaluator.GetFiringAlertEvents()
+		} else {
+			firingEvents, _, _ = eventSvc.List(ctx, "firing", "", 1, 2000)
+		}
+		if inhibitionRuleSvc.IsInhibited(ctx, event, firingEvents) {
+			zapLogger.Info("alert inhibited by inhibition rule, skipping notification",
+				zap.Uint("event_id", event.ID),
+				zap.String("alert_name", event.AlertName),
+			)
+			return
+		}
+
+		// 3. Check mute rules.
+		if muteRuleSvc.IsAlertMuted(ctx, event) {
+			zapLogger.Info("alert muted, skipping notification",
+				zap.Uint("event_id", event.ID),
+				zap.String("alert_name", event.AlertName),
+			)
+			return
+		}
+
+		// 4. Noise reduction: check exclusion rules + flapping state before notification.
+		if noiseReducer != nil {
+			if suppressed, reason := noiseReducer.ShouldSuppressForNotify(ctx, event); suppressed {
+				zapLogger.Info("alert excluded by noise reduction, skipping notification",
+					zap.Uint("event_id", event.ID),
+					zap.String("alert_name", event.AlertName),
+					zap.String("reason", reason),
+				)
+				return
+			}
+		}
+
+		// 5. Route notification (through group manager for group_wait/group_interval).
 		if err := alertGroupMgr.ProcessEvent(ctx, event); err != nil {
 			zapLogger.Error("failed to route alert notification",
 				zap.Uint("event_id", event.ID),

@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
 	"sort"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
+	"github.com/sreagent/sreagent/internal/pkg/fingerprint"
 	"github.com/sreagent/sreagent/internal/pkg/metrics"
 )
 
@@ -392,37 +392,17 @@ func (re *RuleEvaluator) evaluate() {
 	}
 }
 
-// fpBuilderPool reuses strings.Builder allocations for fingerprint generation.
-var fpBuilderPool = sync.Pool{
-	New: func() interface{} {
-		return &strings.Builder{}
-	},
-}
-
 // generateFingerprint creates a unique fingerprint from label set.
+// Delegates to fingerprint.Compute after filtering out internal labels (double-underscore prefix/suffix).
 func generateFingerprint(labels map[string]string) string {
-	keys := make([]string, 0, len(labels))
-	for k := range labels {
-		// Skip internal labels
+	filtered := make(map[string]string, len(labels))
+	for k, v := range labels {
 		if strings.HasPrefix(k, "__") && strings.HasSuffix(k, "__") {
 			continue
 		}
-		keys = append(keys, k)
+		filtered[k] = v
 	}
-	sort.Strings(keys)
-
-	b := fpBuilderPool.Get().(*strings.Builder)
-	b.Reset()
-	for _, k := range keys {
-		b.WriteString(k)
-		b.WriteByte('=')
-		b.WriteString(labels[k])
-		b.WriteByte(',')
-	}
-
-	hash := md5.Sum([]byte(b.String()))
-	fpBuilderPool.Put(b)
-	return fmt.Sprintf("%x", hash)
+	return fingerprint.Compute(filtered)
 }
 
 // parseDuration parses a duration string like "5m", "1h", "30s".

@@ -151,6 +151,45 @@ func (nr *NoiseReducer) ShouldSuppress(ctx context.Context, event *model.AlertEv
 	return result.Excluded, result.ExcludeReason
 }
 
+// ShouldSuppressForNotify checks exclusion rules AND flapping silenced state
+// for the notification path. Unlike Evaluate, it does not record state changes
+// (those are handled by the pipeline path to avoid double-counting).
+func (nr *NoiseReducer) ShouldSuppressForNotify(ctx context.Context, event *model.AlertEvent) (bool, string) {
+	var channelID uint
+	if chStr, ok := event.Labels["_channel_id"]; ok && chStr != "" {
+		_, _ = fmt.Sscanf(chStr, "%d", &channelID)
+	}
+	if channelID == 0 {
+		channelID = nr.defaultChannelID // fallback for engine alerts
+	}
+	if channelID == 0 {
+		return false, ""
+	}
+
+	// Check exclusion rules first (same as ShouldSuppress)
+	if excluded, reason := nr.checkExclusion(ctx, channelID, event); excluded {
+		return true, reason
+	}
+
+	// Check flapping silenced state (read-only, no state change recording)
+	fp := event.Fingerprint
+	if fp == "" {
+		return false, ""
+	}
+
+	key := fmt.Sprintf("%d:%s", channelID, fp)
+
+	nr.flapMu.Lock()
+	fs, exists := nr.flapStates[key]
+	nr.flapMu.Unlock()
+
+	if exists && fs.Silenced && time.Now().Before(fs.SilentUntil) {
+		return true, fmt.Sprintf("flapping silenced until %s", fs.SilentUntil.Format(time.RFC3339))
+	}
+
+	return false, ""
+}
+
 // RecordResolution records a resolution event for flapping detection.
 func (nr *NoiseReducer) RecordResolution(channelID uint, alertKey string) {
 	nr.recordStateChange(channelID, alertKey)

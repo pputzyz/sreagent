@@ -35,7 +35,6 @@ type EscalationExecutor struct {
 	onCallShiftRepo      *repository.OnCallShiftRepository
 	larkSvc              *service.LarkService          // optional — enables lark_personal DM
 	settingSvc           *service.SystemSettingService // optional — enables personal email via global SMTP
-	dedupSvc             *service.NotificationDedupService // shared dedup with NotifyRule path
 	logger               *zap.Logger
 
 	interval  time.Duration
@@ -88,11 +87,6 @@ func (e *EscalationExecutor) SetInterval(d time.Duration) {
 	if d > 0 {
 		e.interval = d
 	}
-}
-
-// SetDedupService attaches a shared NotificationDedupService for cross-path dedup.
-func (e *EscalationExecutor) SetDedupService(svc *service.NotificationDedupService) {
-	e.dedupSvc = svc
 }
 
 // sendViaChannel adapts a v1 NotifyChannel to the v2 NotifyMediaService dispatch.

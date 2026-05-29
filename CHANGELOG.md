@@ -4,6 +4,24 @@
 
 ---
 
+## [v4.56.0] — 2026-05-29
+
+### 整改 Plan A 组 + C5 + 侧边栏默认展开
+
+**跨模块功能缺陷修复**
+- **A1**: biz_group 标签注入提到 inhibition/mute 检查之前（静默/抑制规则现在能看到 biz_group 标签）
+- **A2**: 新增 `ShouldSuppressForNotify` 方法（通知路径检查 flapping 静默态，不记录状态变更避免双计）
+- **A3**: 抽取 `pkg/fingerprint.Compute` 共享函数（引擎与集成各自内部一致，跨入口差异有文档说明）
+
+**代码质量**
+- **C5**: 移除 escalation dedupSvc 死注入（字段 + setter + wire 调用）
+
+**前端**
+- 侧边栏默认展开（pinned=true，持久化到 localStorage）
+- 密码重置端点 POST /api/v1/users/:id/reset-password
+
+---
+
 ## [v4.55.0] — 2026-05-29
 
 ### 审查 08 — 巡检 + 诊断 + 变更事件 P1/P2 全量修复

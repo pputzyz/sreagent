@@ -69,7 +69,8 @@ const collapsed = ref(safeParse(localStorage.getItem('sre-sider-collapsed'), fal
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 const showPasswordModal = ref(false)
 const showAIChat = ref(false)
-const pinned = ref(false)
+const pinned = ref(safeParse(localStorage.getItem('sre-sider-pinned'), true))
+watch(pinned, v => localStorage.setItem('sre-sider-pinned', JSON.stringify(v)))
 
 function toggleAIChat() {
   showAIChat.value = !showAIChat.value

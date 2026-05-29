@@ -687,6 +687,10 @@ func parseTime(s string) time.Time {
 // generateIntegrationFingerprint creates a deterministic fingerprint for a
 // synthetic alert event so that dedup, incident aggregation, and resolution
 // tracking work correctly for webhook-sourced alerts.
+//
+// Note: This fingerprint intentionally differs from the engine's fingerprint.Compute()
+// by including integrationID and title. This prevents webhook-synthesized events from
+// colliding with engine-evaluated events.
 func generateIntegrationFingerprint(integrationID uint, labels map[string]string, title string) string {
 	keys := make([]string, 0, len(labels))
 	for k := range labels {
