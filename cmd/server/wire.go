@@ -452,6 +452,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	if cfg.Engine.HeartbeatInterval > 0 {
 		heartbeatChecker.SetInterval(time.Duration(cfg.Engine.HeartbeatInterval) * time.Second)
 	}
+	heartbeatChecker.SetWorkerPool(alertWorkerPool)
 
 	// Initialize alert group manager (group_wait / group_interval)
 	alertGroupMgr := service.NewAlertGroupManager(
@@ -640,6 +641,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			heartbeatChecker.SetLeaderElection(leader)
 			d.Leader = leader
 		}
+
+		// Wire datasource change callback so endpoint updates trigger evaluator re-sync.
+		dsSvc.SetChangeCallback(evaluator)
 
 		evaluator.Start()
 

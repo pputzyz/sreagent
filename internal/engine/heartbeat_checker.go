@@ -26,12 +26,14 @@ type HeartbeatChecker struct {
 	timelineRepo *repository.AlertTimelineRepository
 	onAlert      func(ctx context.Context, event *model.AlertEvent)
 	leader       LeaderElection // optional; nil = always run
+	pool         *AlertWorkerPool // optional; nil = use fallback semaphore
 	logger       *zap.Logger
 
-	interval  time.Duration
-	stopCh    chan struct{}
-	startOnce sync.Once
-	stopOnce  sync.Once
+	interval    time.Duration
+	stopCh      chan struct{}
+	startOnce   sync.Once
+	stopOnce    sync.Once
+	fallbackSem chan struct{} // semaphore for onAlert when pool is nil (cap=16)
 }
 
 // NewHeartbeatChecker creates a HeartbeatChecker that runs every checkInterval.
@@ -48,6 +50,7 @@ func NewHeartbeatChecker(
 		logger:       logger,
 		interval:     60 * time.Second,
 		stopCh:       make(chan struct{}),
+		fallbackSem:  make(chan struct{}, 16),
 	}
 }
 
@@ -63,6 +66,11 @@ func (h *HeartbeatChecker) SetOnAlert(fn func(ctx context.Context, event *model.
 // When set, only the leader instance will run heartbeat checks.
 func (h *HeartbeatChecker) SetLeaderElection(le LeaderElection) {
 	h.leader = le
+}
+
+// SetWorkerPool sets the bounded goroutine pool for onAlert callbacks.
+func (h *HeartbeatChecker) SetWorkerPool(p *AlertWorkerPool) {
+	h.pool = p
 }
 
 // Start runs the heartbeat check loop in a background goroutine.
@@ -276,18 +284,32 @@ func (h *HeartbeatChecker) fireHeartbeatAlert(ctx context.Context, rule *model.A
 	// Use an independent context because the caller's ctx is cancelled after runOnce returns.
 	if h.onAlert != nil {
 		notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		go func() {
+		fn := func(ctx context.Context) {
 			defer notifyCancel()
-			defer func() {
-				if r := recover(); r != nil {
-					h.logger.Error("heartbeat: onAlert panic recovered",
-						zap.Any("recover", r),
-						zap.Uint("event_id", event.ID),
-					)
-				}
-			}()
-			h.onAlert(notifyCtx, event)
-		}()
+			h.onAlert(ctx, event)
+		}
+		if h.pool != nil {
+			if !h.pool.Submit(notifyCtx, fn) {
+				notifyCancel()
+				h.logger.Warn("heartbeat: worker pool full, onAlert deferred",
+					zap.Uint("event_id", event.ID),
+				)
+			}
+		} else {
+			// Fallback: use semaphore to limit concurrency
+			select {
+			case h.fallbackSem <- struct{}{}:
+				go func() {
+					defer func() { <-h.fallbackSem }()
+					fn(notifyCtx)
+				}()
+			default:
+				notifyCancel()
+				h.logger.Warn("heartbeat: fallback semaphore full, onAlert deferred",
+					zap.Uint("event_id", event.ID),
+				)
+			}
+		}
 	}
 }
 

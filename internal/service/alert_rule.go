@@ -131,6 +131,12 @@ func (s *AlertRuleService) Create(ctx context.Context, rule *model.AlertRule, so
 		return apperr.WithMessage(apperr.ErrInvalidParam, "either datasource_id or datasource_type must be provided")
 	}
 
+	// Validate multi-query: max 2 queries (N-way join not yet implemented)
+	if len(rule.Queries) > 2 {
+		return apperr.WithMessage(apperr.ErrInvalidParam,
+			"multi-query currently supports max 2 queries (N-way join not yet implemented)")
+	}
+
 	// AI-generated rules start as draft and disabled until the user activates them.
 	if source == "ai" {
 		rule.Status = model.RuleStatusDraft
@@ -188,6 +194,12 @@ func (s *AlertRuleService) Update(ctx context.Context, rule *model.AlertRule) er
 		if _, err := s.dsRepo.GetByID(ctx, *rule.DataSourceID); err != nil {
 			return apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("datasource ID %d not found", *rule.DataSourceID))
 		}
+	}
+
+	// Validate multi-query: max 2 queries (N-way join not yet implemented)
+	if len(rule.Queries) > 2 {
+		return apperr.WithMessage(apperr.ErrInvalidParam,
+			"multi-query currently supports max 2 queries (N-way join not yet implemented)")
 	}
 
 	existing.Name = rule.Name

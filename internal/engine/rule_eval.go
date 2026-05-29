@@ -81,7 +81,7 @@ func (re *RuleEvaluator) evaluate() {
 		// Multi-query mode: evaluate each query, join results, apply trigger expression
 		results, err = re.executeMultiQuery(ctx)
 		if err == nil && re.rule.TriggerExp != "" {
-			results = re.evaluateTriggerExp(results)
+			results, err = re.evaluateTriggerExp(results)
 		}
 	} else {
 		// Legacy single-expression mode (backward compatible)
@@ -593,7 +593,10 @@ func (re *RuleEvaluator) executeVarFillingBeforeQuery(ctx context.Context, vc *m
 	// Sort for deterministic order
 	sort.Strings(paramNames)
 
-	combinations := buildCombinations(paramNames, varValues)
+	combinations, err := buildCombinations(paramNames, varValues)
+	if err != nil {
+		return nil, err
+	}
 	if len(combinations) == 0 {
 		return nil, nil
 	}
@@ -726,10 +729,24 @@ func (re *RuleEvaluator) executeVarFillingAfterQuery(ctx context.Context, vc *mo
 // buildCombinations generates all permutations of parameter values.
 // For params ["host","env"] with values {"host":["a","b"], "env":["prod","staging"]},
 // returns [["a","prod"],["a","staging"],["b","prod"],["b","staging"]].
-func buildCombinations(paramNames []string, varValues map[string][]string) [][]string {
+//
+// A hard limit of maxCombinations (10,000) prevents cartesian product explosion
+// that could overwhelm the TSDB with queries.
+func buildCombinations(paramNames []string, varValues map[string][]string) ([][]string, error) {
 	if len(paramNames) == 0 {
-		return nil
+		return nil, nil
 	}
+
+	// Pre-check total combinations to prevent explosion.
+	const maxCombinations = 10000
+	total := 1
+	for _, p := range paramNames {
+		total *= len(varValues[p])
+		if total > maxCombinations {
+			return nil, fmt.Errorf("variable filling: %d combinations exceeds limit %d (params: %v)", total, maxCombinations, paramNames)
+		}
+	}
+
 	var result [][]string
 	combo := make([]string, len(paramNames))
 	var build func(depth int)
@@ -746,7 +763,7 @@ func buildCombinations(paramNames []string, varValues map[string][]string) [][]s
 		}
 	}
 	build(0)
-	return result
+	return result, nil
 }
 
 // removeVarLabelSelectors removes label selectors containing $var from the expression.

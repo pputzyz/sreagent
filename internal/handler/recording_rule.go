@@ -114,7 +114,10 @@ func (h *RecordingRuleHandler) Create(c *gin.Context) {
 			IP:           c.ClientIP(),
 		})
 	}
-	Success(c, rule)
+	Success(c, gin.H{
+		"rule": rule,
+		"warning": "Recording rules are in Phase 1: queries are validated and executed but results are NOT written back to the datasource as new time series. This is an experimental feature.",
+	})
 }
 
 // Update updates an existing recording rule.

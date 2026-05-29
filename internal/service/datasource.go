@@ -19,6 +19,13 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// DatasourceChangeCallback is called when a datasource is updated.
+// Implementors can use this to react to endpoint/config changes
+// (e.g. force the evaluator to re-sync rules for the affected datasource).
+type DatasourceChangeCallback interface {
+	OnDatasourceUpdated(dsID uint)
+}
+
 // DataSourceQuerier is the interface consumed by cross-cutting services
 // (ai_tools, diagnostic_workflow, rule_generator_dryrun) for datasource queries.
 type DataSourceQuerier interface {
@@ -36,6 +43,7 @@ type DataSourceService struct {
 	logger      *zap.Logger
 	queryClient *datasource.QueryClient
 	ruleCountFn func(ctx context.Context, dsID uint) (int64, error) // P1-11: optional cascade check
+	onChange    DatasourceChangeCallback // optional; notified on endpoint/config changes
 }
 
 func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Logger) *DataSourceService {
@@ -49,6 +57,13 @@ func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Log
 // SetRuleCountFn injects the function used to check alert rule references before deletion (P1-11).
 func (s *DataSourceService) SetRuleCountFn(fn func(ctx context.Context, dsID uint) (int64, error)) {
 	s.ruleCountFn = fn
+}
+
+// SetChangeCallback registers a callback that is invoked after a datasource
+// endpoint or config is updated. This allows the evaluator to force-sync
+// rules that reference the changed datasource.
+func (s *DataSourceService) SetChangeCallback(cb DatasourceChangeCallback) {
+	s.onChange = cb
 }
 
 // decryptAuthConfig decrypts the datasource's AuthConfig if it is encrypted.
@@ -247,6 +262,19 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 	if err := s.repo.Update(ctx, existing); err != nil {
 		s.logger.Error("failed to update datasource", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	// Notify evaluator if endpoint or auth config changed — rules may need
+	// to re-query the new endpoint on the next evaluation cycle.
+	endpointChanged := existing.Endpoint != ds.Endpoint
+	authChanged := existing.AuthConfig != ds.AuthConfig && ds.AuthConfig != ""
+	if s.onChange != nil && (endpointChanged || authChanged) {
+		s.logger.Info("datasource endpoint/auth changed, notifying evaluator",
+			zap.Uint("datasource_id", existing.ID),
+			zap.Bool("endpoint_changed", endpointChanged),
+			zap.Bool("auth_changed", authChanged),
+		)
+		s.onChange.OnDatasourceUpdated(existing.ID)
 	}
 
 	return nil

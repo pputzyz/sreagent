@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -89,6 +90,7 @@ type PerDatasourceEvaluator struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	log          *zap.Logger
+	addMu        sync.Mutex // protects AddRule to prevent orphan goroutines on concurrent calls
 }
 
 // NewPerDatasourceEvaluator creates a new per-datasource bucket.
@@ -104,7 +106,10 @@ func NewPerDatasourceEvaluator(parentCtx context.Context, dsID uint, log *zap.Lo
 
 // AddRule adds a rule to this bucket and starts its evaluator.
 // If ruleID already exists, stops the old one first.
+// Mutex-protected to prevent orphan goroutines from concurrent AddRule calls for the same ruleID.
 func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSource, deps evaluatorDeps) {
+	p.addMu.Lock()
+	defer p.addMu.Unlock()
 	if old, loaded := p.rules.LoadAndDelete(rule.ID); loaded {
 		old.(*RuleEvaluator).Stop()
 	}
@@ -227,6 +232,10 @@ type Evaluator struct {
 	firingCacheAt  time.Time
 	firingCacheMu  sync.RWMutex
 	firingCacheTTL time.Duration // default 5s
+
+	// forceSync is set by OnDatasourceUpdated to trigger a full sync on the
+	// next tick, ensuring rules pick up changed datasource endpoints.
+	forceSync atomic.Bool
 }
 
 // AlertWorkerPoolSubmiter is the subset of AlertWorkerPool used by the evaluator.
@@ -365,6 +374,17 @@ func (e *Evaluator) SetLabelRegistryRepository(repo *repository.LabelRegistryRep
 	e.labelRegistryRepo = repo
 }
 
+// OnDatasourceUpdated implements service.DatasourceChangeCallback.
+// When a datasource endpoint or auth config changes, this forces the evaluator
+// to re-sync all rules on the next tick, ensuring stale cached datasource
+// objects (with old endpoints) are replaced.
+func (e *Evaluator) OnDatasourceUpdated(dsID uint) {
+	e.forceSync.Store(true)
+	e.logger.Info("datasource updated, forcing rule re-sync on next tick",
+		zap.Uint("datasource_id", dsID),
+	)
+}
+
 // Start begins the evaluation loop:
 // 1. Load all enabled rules from DB
 // 2. Start a goroutine for each rule
@@ -498,6 +518,13 @@ func (e *Evaluator) shouldEvaluateRule(ruleID uint) bool {
 // syncRules loads rules from DB and starts/stops evaluators as needed.
 func (e *Evaluator) syncRules() {
 	ctx := context.Background()
+
+	// When a datasource endpoint changes, stop all evaluators so they are
+	// re-created with fresh datasource objects from the next DB load.
+	if e.forceSync.CompareAndSwap(true, false) {
+		e.logger.Info("forced sync triggered by datasource change — restarting all evaluators")
+		e.stopAllEvaluators()
+	}
 
 	var rules []model.AlertRule
 	if err := e.db.WithContext(ctx).

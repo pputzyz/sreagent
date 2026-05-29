@@ -53,6 +53,7 @@ type RedisLeaderElection struct {
 	isLeader  atomic.Bool
 	cancel    context.CancelFunc
 	startOnce sync.Once
+	wg        sync.WaitGroup
 }
 
 // NewRedisLeaderElection creates a new Redis-based leader election instance.
@@ -106,7 +107,11 @@ func (l *RedisLeaderElection) IsLeader() bool {
 func (l *RedisLeaderElection) Start(ctx context.Context) {
 	l.startOnce.Do(func() {
 		ctx, l.cancel = context.WithCancel(ctx)
-		go l.renewLoop(ctx)
+		l.wg.Add(1)
+		go func() {
+			defer l.wg.Done()
+			l.renewLoop(ctx)
+		}()
 	})
 }
 
@@ -173,10 +178,11 @@ func (l *RedisLeaderElection) Release(ctx context.Context) {
 	l.logger.Info("leader election: released leadership")
 }
 
-// Stop cancels the renewal loop and releases the lock.
+// Stop cancels the renewal loop, waits for it to exit, and releases the lock.
 func (l *RedisLeaderElection) Stop() {
 	if l.cancel != nil {
 		l.cancel()
 	}
+	l.wg.Wait() // wait for renewLoop to exit before releasing the lock
 	l.Release(context.Background())
 }

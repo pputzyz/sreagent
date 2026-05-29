@@ -4,6 +4,21 @@
 
 ---
 
+## [v4.50.0] — 2026-05-29
+
+### Recording Rule + Datasource 变更回调修复
+
+**Recording Rule (02-E)**
+- **P0-3 partial**: Create 接口返回 Phase 1 警告信息（查询已验证执行但结果未回写 TSDB）
+
+**Datasource 变更回调 (02-F)**
+- 新增 `DatasourceChangeCallback` 接口，DataSource 端点/认证变更时通知 Evaluator
+- `DataSourceService.Update` 检测 endpoint/auth_config 变化后触发回调
+- `Evaluator.OnDatasourceUpdated` 设置 `forceSync` 标志，下次 tick 强制全量重启所有 evaluator
+- `wire.go` 注入 `dsSvc.SetChangeCallback(evaluator)` 完成闭环
+
+---
+
 ## [v4.49.0] — 2026-05-28
 
 ### 审查 03 — mute + inhibition 模块 P0/P1/P2 全量修复
