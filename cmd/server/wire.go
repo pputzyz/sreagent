@@ -300,8 +300,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	agentSvc := service.NewAgentService(aiSvc, aiConvRepo, nil, zapLogger)
 
 	// AIOps Phase 2 services
-	diagnosticWorkflowSvc := service.NewDiagnosticWorkflowService(diagnosticWorkflowRepo, dsSvc, aiSvc, zapLogger)
 	changeEventSvc := service.NewChangeEventService(changeEventRepo, zapLogger)
+	diagnosticWorkflowSvc := service.NewDiagnosticWorkflowService(diagnosticWorkflowRepo, dsSvc, aiSvc, changeEventSvc, zapLogger)
 
 	// Inspection executor (scheduler created after engine block for Leader access)
 	inspectionExecutor := service.NewInspectionExecutor(inspectionRepo, agentSvc, zapLogger)

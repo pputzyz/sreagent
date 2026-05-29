@@ -4,6 +4,26 @@
 
 ---
 
+## [v4.55.0] — 2026-05-29
+
+### 审查 08 — 巡检 + 诊断 + 变更事件 P1/P2 全量修复
+
+**诊断工作流 (2 P1)**
+- **P1-1**: StartRun goroutine 改用 context.Background()（不再随 HTTP 请求取消）
+- **P1-2**: label_check 步骤实现真实标签比对（解析 ConditionExpr + 比对 TriggerLabels）
+
+**巡检 + 变更 (4 P2)**
+- **P2-1**: 巡检 webhook 改用 safehttp.NewSafeClient（SSRF 防护）
+- **P2-2**: 新增 change_correlation 诊断步骤类型（关联时间窗内变更事件）
+- **P2-3**: 不支持的步骤类型返回明确错误
+- **P2-4**: 巡检报告 findings schema 校验 + 默认值
+
+**回归测试（14 个新测试）**
+- diagnostic_workflow_test.go: 9 个测试（context 隔离 + label_check 全分支）
+- inspection_executor_test.go: 5 个测试（报告解析全分支）
+
+---
+
 ## [v4.54.0] — 2026-05-29
 
 ### 深度改进 + 回归测试补齐

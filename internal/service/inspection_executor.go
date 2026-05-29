@@ -52,6 +52,23 @@ type InspectionReport struct {
 
 var jsonBlockRe = regexp.MustCompile("(?s)```json\\s*(\\{.*?})\\s*```")
 
+// validateFinding fills defaults for missing fields in a parsed finding.
+func validateFinding(f InspectionFinding) InspectionFinding {
+	if f.Severity == "" {
+		f.Severity = "info"
+	}
+	if f.Category == "" {
+		f.Category = "general"
+	}
+	if f.Object == "" {
+		f.Object = "未指定对象"
+	}
+	if f.Detail == "" {
+		f.Detail = "无详细描述"
+	}
+	return f
+}
+
 // Run 执行一次巡检任务，返回 run ID 和可能的错误
 func (e *InspectionExecutor) Run(ctx context.Context, task *model.InspectionTask) (*model.InspectionRun, error) {
 	run := &model.InspectionRun{
@@ -142,6 +159,11 @@ func (e *InspectionExecutor) parseReport(output string) InspectionReport {
 		e.logger.Warn("解析巡检报告 JSON 失败", zap.Error(err))
 		report.Summary = truncateString(strings.TrimSpace(output), 500)
 		return report
+	}
+
+	// Validate and fill defaults for each finding
+	for i := range parsed.Findings {
+		parsed.Findings[i] = validateFinding(parsed.Findings[i])
 	}
 
 	return parsed

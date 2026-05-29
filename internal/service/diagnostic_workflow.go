@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -14,19 +16,21 @@ import (
 
 // DiagnosticWorkflowService manages diagnostic workflow templates and executions.
 type DiagnosticWorkflowService struct {
-	repo    *repository.DiagnosticWorkflowRepository
-	dsSvc   DataSourceQuerier
-	aiSvc   *AIService
-	logger  *zap.Logger
+	repo           *repository.DiagnosticWorkflowRepository
+	dsSvc          DataSourceQuerier
+	aiSvc          *AIService
+	changeEventSvc *ChangeEventService
+	logger         *zap.Logger
 }
 
 func NewDiagnosticWorkflowService(
 	repo *repository.DiagnosticWorkflowRepository,
 	dsSvc DataSourceQuerier,
 	aiSvc *AIService,
+	changeEventSvc *ChangeEventService,
 	logger *zap.Logger,
 ) *DiagnosticWorkflowService {
-	return &DiagnosticWorkflowService{repo: repo, dsSvc: dsSvc, aiSvc: aiSvc, logger: logger}
+	return &DiagnosticWorkflowService{repo: repo, dsSvc: dsSvc, aiSvc: aiSvc, changeEventSvc: changeEventSvc, logger: logger}
 }
 
 // --- Workflow CRUD ---
@@ -84,7 +88,7 @@ func (s *DiagnosticWorkflowService) StartRun(ctx context.Context, workflowID uin
 	}
 
 	// Execute steps asynchronously with a 30-minute timeout.
-	runCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	runCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	go func() {
 		defer cancel()
 		defer func() {
@@ -150,7 +154,7 @@ func (s *DiagnosticWorkflowService) executeRun(ctx context.Context, run *model.D
 			s.logger.Error("failed to create run step", zap.Uint("run_id", run.ID), zap.String("step_name", step.Name), zap.Error(err))
 		}
 
-		result, execErr := s.executeStep(ctx, &step)
+		result, execErr := s.executeStep(ctx, &step, wf.TriggerLabels)
 		stepEnd := time.Now()
 		runStep.CompletedAt = &stepEnd
 		runStep.DurationMs = stepEnd.Sub(stepStart).Milliseconds()
@@ -195,7 +199,8 @@ func (s *DiagnosticWorkflowService) executeRun(ctx context.Context, run *model.D
 }
 
 // executeStep executes a single diagnostic step.
-func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model.DiagnosticWorkflowStep) (string, error) {
+// triggerLabels are the workflow's trigger labels, used by label_check to compare against.
+func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model.DiagnosticWorkflowStep, triggerLabels model.JSONLabels) (string, error) {
 	switch step.StepType {
 	case "query":
 		if step.DatasourceID == nil || step.Expression == "" {
@@ -218,10 +223,65 @@ func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model
 		return summary, nil
 
 	case "label_check":
-		// Check label conditions against the data
-		return "标签检查通过", nil
+		// Parse expected labels from ConditionExpr (JSON: {"key":"value", ...})
+		var expected model.JSONLabels
+		if step.ConditionExpr != "" {
+			if err := json.Unmarshal([]byte(step.ConditionExpr), &expected); err != nil {
+				return "label_check: invalid condition_expr", fmt.Errorf("parse label_check condition_expr: %w", err)
+			}
+		}
+		if len(expected) == 0 {
+			return "label_check: no labels configured", nil
+		}
+
+		// Use trigger labels from the workflow context as actual labels.
+		actual := triggerLabels
+		if actual == nil {
+			actual = model.JSONLabels{}
+		}
+
+		// Check each expected label against actual labels.
+		var mismatches []string
+		for k, exp := range expected {
+			got, ok := actual[k]
+			if !ok {
+				mismatches = append(mismatches, fmt.Sprintf("%s: missing (expected %s)", k, exp))
+			} else if got != exp {
+				mismatches = append(mismatches, fmt.Sprintf("%s: got %s, expected %s", k, got, exp))
+			}
+		}
+
+		if len(mismatches) > 0 {
+			return fmt.Sprintf("label_check failed: %s", strings.Join(mismatches, "; ")), nil
+		}
+		return "label_check: all labels match", nil
+
+	case "change_correlation":
+		if s.changeEventSvc == nil {
+			return "change_correlation: 变更事件服务未配置", nil
+		}
+		// Query change events in a 30-minute window around the run start
+		windowEnd := time.Now()
+		windowStart := windowEnd.Add(-30 * time.Minute)
+		svcName := ""
+		if v, ok := triggerLabels["service"]; ok {
+			svcName = v
+		}
+		changes, err := s.changeEventSvc.FindByTimeWindow(ctx, svcName, windowStart, windowEnd)
+		if err != nil {
+			return "", fmt.Errorf("change_correlation 查询失败: %w", err)
+		}
+		if len(changes) == 0 {
+			return "change_correlation: 未发现相关变更", nil
+		}
+		summary := fmt.Sprintf("change_correlation: 发现 %d 条相关变更", len(changes))
+		for _, ch := range changes {
+			summary += fmt.Sprintf("\n- [%s] %s (%s at %s)", ch.ChangeType, ch.Description, ch.Source, ch.Timestamp.Format(time.RFC3339))
+		}
+		return summary, nil
 
 	default:
-		return fmt.Sprintf("步骤类型 %q 暂不支持自动执行", step.StepType), nil
+		return fmt.Sprintf("步骤类型 %q 暂不支持自动执行（当前仅支持 query, label_check, change_correlation）", step.StepType),
+			fmt.Errorf("unsupported step type: %s", step.StepType)
 	}
 }

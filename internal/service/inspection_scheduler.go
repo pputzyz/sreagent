@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -23,11 +24,12 @@ type LeaderChecker interface {
 
 // InspectionScheduler 管理巡检任务的定时调度
 type InspectionScheduler struct {
-	taskRepo *repository.InspectionRepository
-	executor *InspectionExecutor
-	leader   LeaderChecker
-	larkSvc  *LarkBotService
-	logger   *zap.Logger
+	taskRepo   *repository.InspectionRepository
+	executor   *InspectionExecutor
+	leader     LeaderChecker
+	larkSvc    *LarkBotService
+	httpClient *http.Client
+	logger     *zap.Logger
 
 	cron    *cron.Cron
 	mu      sync.Mutex
@@ -43,13 +45,14 @@ func NewInspectionScheduler(
 	logger *zap.Logger,
 ) *InspectionScheduler {
 	return &InspectionScheduler{
-		taskRepo: taskRepo,
-		executor: executor,
-		leader:   leader,
-		larkSvc:  larkSvc,
-		logger:   logger,
-		cron:     cron.New(cron.WithSeconds()),
-		entries:  make(map[uint]cron.EntryID),
+		taskRepo:   taskRepo,
+		executor:   executor,
+		leader:     leader,
+		larkSvc:    larkSvc,
+		httpClient: safehttp.NewSafeClient(10 * time.Second),
+		logger:     logger,
+		cron:       cron.New(cron.WithSeconds()),
+		entries:    make(map[uint]cron.EntryID),
 	}
 }
 
@@ -209,7 +212,7 @@ func (s *InspectionScheduler) notifyResult(task *model.InspectionTask, run *mode
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			req, _ := http.NewRequestWithContext(ctx, http.MethodPost, ch.URL, bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := s.httpClient.Do(req)
 			cancel()
 			if err != nil {
 				s.logger.Error("巡检结果 webhook 通知失败", zap.Uint("task_id", task.ID), zap.Error(err))

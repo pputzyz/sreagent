@@ -62,6 +62,7 @@ func SeedAlertRule(t *testing.T, db *gorm.DB, name string, dsID uint) *model.Ale
 func CleanupDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	tables := []string{
+		"diagnostic_run_steps", "diagnostic_runs", "diagnostic_workflow_steps", "diagnostic_workflows",
 		"alert_timelines", "alert_events", "alert_rule_histories",
 		"notify_records", "subscribe_rules", "notify_rules",
 		"mute_rules", "inhibition_rules", "alert_channels",
