@@ -258,6 +258,33 @@ func (s *UserService) ChangePassword(ctx context.Context, userID uint, oldPasswo
 	return nil
 }
 
+// ResetPassword force-resets a user's password without verifying the old password (admin only).
+func (s *UserService) ResetPassword(ctx context.Context, userID uint, newPassword string) error {
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+
+	user, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return apperr.ErrUserNotFound
+	}
+
+	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		s.logger.Error("failed to hash new password", zap.Error(err))
+		return apperr.Wrap(apperr.ErrInternal, err)
+	}
+
+	user.Password = string(hashedPwd)
+	if err := s.repo.Update(ctx, user); err != nil {
+		s.logger.Error("failed to reset password", zap.Error(err), zap.Uint("user_id", userID))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	s.logger.Info("user password reset by admin", zap.Uint("user_id", userID))
+	return nil
+}
+
 // Delete permanently removes a user. The built-in admin user (ID=1) cannot be deleted.
 func (s *UserService) Delete(ctx context.Context, id uint) error {
 	existing, err := s.repo.GetByID(ctx, id)

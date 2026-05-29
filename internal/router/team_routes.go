@@ -18,6 +18,7 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 		users.PUT("/:id", adminOnly, middleware.RequirePerm("user.write"), h.User.Update)
 		users.PATCH("/:id/active", adminOnly, middleware.RequirePerm("user.write"), h.User.ToggleActive)
 		users.PATCH("/:id/password", adminOnly, middleware.RequirePerm("user.write"), h.User.ChangePassword)
+		users.POST("/:id/reset-password", adminOnly, h.User.ResetPassword)
 		users.DELETE("/:id", adminOnly, middleware.RequirePerm("user.write"), h.User.DeleteUser)
 	}
 

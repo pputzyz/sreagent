@@ -259,6 +259,44 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	Success(c, nil)
 }
 
+// ResetPassword allows an admin to force-reset a user's password without knowing the old password.
+// POST /users/:id/reset-password
+func (h *UserHandler) ResetPassword(c *gin.Context) {
+	userID, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req struct {
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	h.log.Info("admin reset user password",
+		zap.Uint("admin_id", GetCurrentUserID(c)),
+		zap.Uint("target_user_id", userID),
+		zap.String("request_id", c.GetString("request_id")))
+
+	if err := h.svc.ResetPassword(c.Request.Context(), userID, req.NewPassword); err != nil {
+		Error(c, err)
+		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Username: GetCurrentUsername(c),
+			Action: model.AuditActionUpdate, ResourceType: model.AuditResourceUserPassword,
+			ResourceID: &userID, IP: c.ClientIP(),
+		})
+	}
+	Success(c, nil)
+}
+
 // CreateVirtualUserRequest is the request body for creating a virtual (non-human) user.
 type CreateVirtualUserRequest struct {
 	Username     string         `json:"username" binding:"required"`
