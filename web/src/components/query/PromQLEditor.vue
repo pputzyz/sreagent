@@ -30,8 +30,31 @@ const view = shallowRef<EditorView>()
 
 const promQLExt = new PromQLExtension()
 
+/** fetchFn that attaches JWT auth and forwards to the datasource proxy */
+function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const token = localStorage.getItem('token')
+  const headers = new Headers(init?.headers)
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  return fetch(input, { ...init, headers })
+}
+
+/** Configure remote completion from the datasource proxy endpoint */
+function configureRemoteCompletion(dsId: number | null | undefined) {
+  if (dsId) {
+    promQLExt.setComplete({
+      remote: {
+        url: `/api/v1/datasources/${dsId}/proxy`,
+        httpMethod: 'GET',
+        fetchFn: authFetch,
+      },
+    })
+  } else {
+    // No datasource — offline-only completion (functions, operators)
+    promQLExt.setComplete({})
+  }
+}
+
 function createExtensions() {
-  // Enable basic PromQL completion (keyword + function completion)
   promQLExt.activateCompletion(true)
   const exts = [
     history(),
@@ -57,17 +80,25 @@ function createExtensions() {
   return exts
 }
 
-onMounted(() => {
+function recreateView() {
   if (!editorRef.value) return
+  const doc = view.value ? view.value.state.doc.toString() : props.modelValue
+  view.value?.destroy()
+  view.value = undefined
   try {
     const state = EditorState.create({
-      doc: props.modelValue,
+      doc,
       extensions: createExtensions(),
     })
     view.value = new EditorView({ state, parent: editorRef.value })
   } catch (e) {
-    console.error('Failed to initialize PromQL editor:', e)
+    console.error('Failed to (re)create PromQL editor:', e)
   }
+}
+
+onMounted(() => {
+  configureRemoteCompletion(props.datasourceId)
+  recreateView()
 })
 
 onUnmounted(() => {
@@ -82,23 +113,9 @@ watch(() => props.modelValue, (val) => {
   }
 })
 
-watch(() => props.datasourceId, () => {
-  if (view.value) {
-    const doc = view.value.state.doc.toString()
-    view.value.destroy()
-    view.value = undefined
-    if (editorRef.value) {
-      try {
-        const state = EditorState.create({
-          doc,
-          extensions: createExtensions(),
-        })
-        view.value = new EditorView({ state, parent: editorRef.value })
-      } catch (e) {
-        console.error('Failed to recreate PromQL editor:', e)
-      }
-    }
-  }
+watch(() => props.datasourceId, (newId) => {
+  configureRemoteCompletion(newId)
+  recreateView()
 })
 </script>
 

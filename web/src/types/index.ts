@@ -33,7 +33,7 @@ export interface User {
   phone: string
   lark_user_id: string
   avatar: string
-  role: 'admin' | 'team_lead' | 'member' | 'viewer' | 'global_viewer'
+  role: 'admin' | 'team_lead' | 'member'
   is_active: boolean
   created_at: string
   user_type?: UserType

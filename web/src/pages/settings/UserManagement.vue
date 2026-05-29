@@ -85,7 +85,7 @@ const {
   handleSave,
 } = crud
 
-const filterRole = ref<'all' | 'admin' | 'team_lead' | 'member' | 'viewer'>('all')
+const filterRole = ref<'all' | 'admin' | 'team_lead' | 'member'>('all')
 const filterStatus = ref<'all' | 'active' | 'inactive'>('all')
 const firstLoad = ref(true)
 const passwordField = ref('')
@@ -102,7 +102,6 @@ const roleOptions = computed(() => [
   { label: t('settings.admin'), value: 'admin' as const },
   { label: t('settings.teamLead'), value: 'team_lead' as const },
   { label: t('settings.member'), value: 'member' as const },
-  { label: t('settings.viewer'), value: 'viewer' as const },
 ])
 
 function roleLabel(role: string): string {
@@ -110,7 +109,6 @@ function roleLabel(role: string): string {
     case 'admin': return t('settings.admin')
     case 'team_lead': return t('settings.teamLead')
     case 'member': return t('settings.member')
-    case 'viewer': return t('settings.viewer')
     default: return role
   }
 }
@@ -235,7 +233,6 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
           <NRadioButton value="admin">{{ t('settings.admin') }}</NRadioButton>
           <NRadioButton value="team_lead">{{ t('settings.teamLead') }}</NRadioButton>
           <NRadioButton value="member">{{ t('settings.member') }}</NRadioButton>
-          <NRadioButton value="viewer">{{ t('settings.viewer') }}</NRadioButton>
         </NRadioGroup>
       </div>
       <div class="filter-group">
@@ -432,7 +429,6 @@ const ellipsisIcon = () => h(NIcon, { component: EllipsisHorizontal })
 .user-role-chip[data-role="admin"]     { background: var(--sre-critical-soft); color: var(--sre-critical); }
 .user-role-chip[data-role="team_lead"] { background: var(--sre-warning-soft); color: var(--sre-warning); }
 .user-role-chip[data-role="member"]    { background: var(--sre-primary-soft); color: var(--sre-primary); }
-.user-role-chip[data-role="viewer"]    { background: var(--sre-bg-elevated); color: var(--sre-text-secondary); }
 .user-status {
   font-size: 11px; font-weight: 600;
   color: var(--sre-text-secondary);

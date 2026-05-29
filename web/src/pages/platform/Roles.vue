@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { Shield, ShieldCheck, ShieldAlert, Eye, Globe } from 'lucide-vue-next'
+import { Shield, ShieldCheck, ShieldAlert } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -59,32 +59,6 @@ const roles: RoleDef[] = [
       'rolesModule.permCreateResources',
       'rolesModule.permEditOwn',
       'rolesModule.permAcknowledgeAlerts',
-    ],
-  },
-  {
-    key: 'viewer',
-    nameKey: 'rolesModule.viewerName',
-    descKey: 'rolesModule.viewerDesc',
-    icon: Eye,
-    color: '#6b7280',
-    softBg: 'rgba(107, 114, 128, 0.08)',
-    perms: [
-      'rolesModule.permViewAssigned',
-      'rolesModule.permReadOnly',
-      'rolesModule.permNoConfig',
-    ],
-  },
-  {
-    key: 'global_viewer',
-    nameKey: 'rolesModule.globalViewerName',
-    descKey: 'rolesModule.globalViewerDesc',
-    icon: Globe,
-    color: '#8b5cf6',
-    softBg: 'rgba(139, 92, 246, 0.08)',
-    perms: [
-      'rolesModule.permViewAll',
-      'rolesModule.permReadOnly',
-      'rolesModule.permNoConfig',
     ],
   },
 ]

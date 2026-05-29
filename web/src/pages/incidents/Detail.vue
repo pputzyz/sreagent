@@ -5,6 +5,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NIcon, NDataTable, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi, alertV2Api } from '@/api'
+import { changeEventApi } from '@/api/change-event'
+import type { ChangeEvent } from '@/api/change-event'
 import type { Incident, IncidentTimeline, AlertV2, PostMortem, DispatchLog } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import SnoozeModal from '@/components/incident/SnoozeModal.vue'
@@ -17,7 +19,7 @@ import {
   ArrowBackOutline, SparklesOutline, VolumeOffOutline,
   TimeOutline, GitMergeOutline, PersonOutline,
   EllipsisHorizontal, RefreshOutline, ArrowUpCircleOutline,
-  AlertCircleOutline,
+  AlertCircleOutline, GitPullRequestOutline, PlayOutline,
 } from '@vicons/ionicons5'
 import QuickSilenceModal from '@/components/noise/QuickSilenceModal.vue'
 import { MdEditor } from 'md-editor-v3'
@@ -56,6 +58,10 @@ const pmAiLoading = ref(false)
 const showSnooze = ref(false)
 const showMerge = ref(false)
 const showReassign = ref(false)
+
+// Related changes
+const relatedChanges = shallowRef<ChangeEvent[]>([])
+const changesLoading = ref(false)
 
 function onSnoozeDone() { load() }
 function onMergeDone(targetId: number) { router.push(`/oncall/incidents/${targetId}`) }
@@ -112,6 +118,16 @@ async function load() {
   } catch (e: unknown) {
     message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally { loading.value = false }
+}
+
+async function loadRelatedChanges() {
+  changesLoading.value = true
+  try {
+    const res = await changeEventApi.list({ page: 1, page_size: 50 })
+    relatedChanges.value = res.data.data?.list ?? []
+  } catch {
+    relatedChanges.value = []
+  } finally { changesLoading.value = false }
 }
 
 async function doAction(action: 'acknowledge' | 'close' | 'reopen' | 'escalate') {
@@ -276,6 +292,7 @@ function actionLabel(action: string): string {
 onMounted(async () => {
   await load()
   await loadPostMortem()
+  await loadRelatedChanges()
 })
 </script>
 
@@ -353,6 +370,11 @@ onMounted(async () => {
             >
               <template #icon><n-icon :component="TimeOutline" /></template>
               {{ t('incident.snooze') }}
+            </n-button>
+
+            <n-button size="small" tertiary @click="router.push({ path: '/platform/diagnostic-workflows', query: { incident_id: String(incident.id) } })">
+              <template #icon><n-icon :component="PlayOutline" /></template>
+              {{ t('incident.startDiagnosis') }}
             </n-button>
 
             <n-button size="small" tertiary @click="showQuickSilence = true">
@@ -556,6 +578,35 @@ onMounted(async () => {
                 size="small"
                 striped
               />
+            </n-tab-pane>
+
+            <!-- Related Changes -->
+            <n-tab-pane name="changes" :tab="t('incident.relatedChanges')">
+              <n-spin :show="changesLoading">
+                <EmptyState
+                  v-if="!changesLoading && relatedChanges.length === 0"
+                  :icon="GitPullRequestOutline"
+                  :title="t('incident.noRelatedChanges')"
+                  size="sm"
+                />
+                <div v-else class="alert-rows">
+                  <div
+                    v-for="ev in relatedChanges" :key="ev.id"
+                    class="sre-row-card alert-row"
+                  >
+                    <span class="sre-dot" data-severity="info" />
+                    <span class="alert-title">{{ ev.description || ev.service }}</span>
+                    <span class="sre-meta-divider" />
+                    <n-tag size="small" :bordered="false">{{ ev.source }}</n-tag>
+                    <span class="sre-meta-divider" />
+                    <n-tag size="small" :bordered="false">{{ ev.change_type }}</n-tag>
+                    <span class="sre-meta-divider" />
+                    <span class="alert-meta tnum">{{ ev.author }}</span>
+                    <span class="sre-meta-divider" />
+                    <span class="alert-meta tnum">{{ formatTime(ev.timestamp || ev.created_at) }}</span>
+                  </div>
+                </div>
+              </n-spin>
             </n-tab-pane>
 
           </n-tabs>

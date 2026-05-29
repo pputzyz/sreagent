@@ -48,13 +48,6 @@ const roleFallbackPerms: Record<string, string[]> = {
     'incidents.view', 'incidents.create',
     'notifications.view', 'todos.manage',
   ],
-  viewer: [
-    'rules.view', 'events.view',
-    'schedules.view', 'channels.view',
-    'datasources.view', 'dashboards.view',
-    'incidents.view',
-    'notifications.view', 'todos.view',
-  ],
 }
 
 export function usePermissions() {

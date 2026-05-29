@@ -39,9 +39,10 @@ type NormalizedAlert struct {
 }
 
 // ---- Rate limiter (fixed-window counter, per integration) ----
-// Note: current implementation is a fixed-window counter, not a true token bucket.
-// Window boundaries may allow ~2x burst. For strict rate limiting, consider
-// golang.org/x/time/rate or a sliding window approach.
+// Note: current implementation uses separate fixed-window counters for
+// per-second and per-minute limits. Window boundaries may allow ~2x burst
+// (e.g. a burst at t=0.99s + t=1.01s consumes 2x per-second tokens).
+// For strict rate limiting, consider golang.org/x/time/rate (token bucket).
 
 type rateLimiter struct {
 	mu           sync.Mutex
@@ -64,6 +65,10 @@ func newRateLimiter(perSec, perMin int) *rateLimiter {
 	}
 }
 
+// Allow checks whether a request is within the per-second and per-minute
+// rate limits. Uses independent fixed-window counters: each counter resets
+// when its window expires, then decrements on every call. Returns false if
+// either budget is exhausted.
 func (rl *rateLimiter) Allow() bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()

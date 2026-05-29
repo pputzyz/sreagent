@@ -888,12 +888,26 @@ func (r *AIToolRegistry) RegisterMCPTools(mcpSvc *MCPServerService) {
 			toolDesc := tool.Description
 			toolSchema := tool.InputSchema
 
+			// Heuristic: infer IO/RiskLevel from description keywords when MCP
+			// protocol does not provide annotation fields.
+			ioType := "write"     // conservative default
+			riskLevel := int8(1)  // moderate risk default
+			descLower := strings.ToLower(toolDesc)
+			readHints := []string{"read", "list", "get", "query", "search", "fetch", "find", "show", "describe"}
+			for _, hint := range readHints {
+				if strings.Contains(descLower, hint) {
+					ioType = "read"
+					riskLevel = int8(0)
+					break
+				}
+			}
+
 			r.Register(&AITool{
 				Name:        toolName,
 				Description: fmt.Sprintf("[MCP:%s] %s", srv.Name, toolDesc),
 				Parameters:  toolSchema,
-				IO:          "write",   // conservative default: MCP tools may be write/destructive
-				RiskLevel:   1,         // moderate risk until MCP annotations are available
+				IO:          ioType,
+				RiskLevel:   riskLevel,
 				Execute: func(execCtx context.Context, params map[string]interface{}) (string, error) {
 					client := NewMCPClient()
 					result, err := client.CallTool(execCtx, srvURL, srvHeaders, mcpToolName, params)

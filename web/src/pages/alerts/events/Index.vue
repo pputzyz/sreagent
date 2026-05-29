@@ -61,7 +61,7 @@ const filterMemory = useFilterMemory('alert-events')
 filterMemory.bindRefs({ statusTab, search, severityFilter, ruleFilter, tagFilter, timePreset, customRange, viewMode })
 
 const canViewAll = computed(
-  () => authStore.user?.role === 'admin' || authStore.user?.role === 'global_viewer',
+  () => authStore.user?.role === 'admin' || authStore.user?.role === 'team_lead',
 )
 
 // ===== Paginated list =====

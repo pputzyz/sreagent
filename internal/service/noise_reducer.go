@@ -37,6 +37,11 @@ type NoiseReduceResult struct {
 // NoiseReducer applies a channel's noise reduction configuration to an
 // incoming alert event, returning a NoiseReduceResult that the caller
 // (AlertV2Pipeline) uses to decide what to do with the event.
+//
+// NOTE: flapStates and stormCounters are kept in-memory. For true
+// multi-instance consistency these should be moved to Redis; the in-memory
+// + GC approach is sufficient for single-instance deployments and prevents
+// unbounded memory growth.
 type NoiseReducer struct {
 	channelRepo      *repository.ChannelRepository
 	exclusionRepo    *repository.ExclusionRuleRepository
@@ -53,6 +58,10 @@ type NoiseReducer struct {
 	// In-memory storm tracker: key = "channelID", value = storm counter
 	stormMu      sync.Mutex
 	stormCounters map[string]*stormCounter
+
+	// GC goroutine lifecycle
+	gcTicker *time.Ticker
+	gcStop   chan struct{}
 }
 
 type flapState struct {
@@ -72,12 +81,66 @@ func NewNoiseReducer(
 	exclusionRepo *repository.ExclusionRuleRepository,
 	logger *zap.Logger,
 ) *NoiseReducer {
-	return &NoiseReducer{
+	nr := &NoiseReducer{
 		channelRepo:   channelRepo,
 		exclusionRepo: exclusionRepo,
 		logger:        logger,
 		flapStates:    make(map[string]*flapState),
 		stormCounters: make(map[string]*stormCounter),
+	}
+	nr.startGC()
+	return nr
+}
+
+// startGC launches a background goroutine that periodically evicts stale
+// flap-state entries (unchanged for >24 h). Storm counters already expire
+// via their rolling 1-minute window in checkStorm.
+func (nr *NoiseReducer) startGC() {
+	nr.gcTicker = time.NewTicker(10 * time.Minute)
+	nr.gcStop = make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-nr.gcTicker.C:
+				nr.gc()
+			case <-nr.gcStop:
+				return
+			}
+		}
+	}()
+}
+
+func (nr *NoiseReducer) gc() {
+	now := time.Now()
+	nr.flapMu.Lock()
+	defer nr.flapMu.Unlock()
+
+	for key, fs := range nr.flapStates {
+		// Remove entries whose last recorded change is older than 24 hours.
+		if len(fs.Changes) > 0 {
+			lastChange := fs.Changes[len(fs.Changes)-1]
+			if now.Sub(lastChange) > 24*time.Hour {
+				delete(nr.flapStates, key)
+			}
+		} else if fs.Silenced {
+			// Silenced entry with no changes — expire once silence window passed.
+			if now.After(fs.SilentUntil) {
+				delete(nr.flapStates, key)
+			}
+		} else {
+			// Empty, non-silenced entry — safe to remove.
+			delete(nr.flapStates, key)
+		}
+	}
+}
+
+// Stop terminates the background GC goroutine. Call this during shutdown.
+func (nr *NoiseReducer) Stop() {
+	if nr.gcTicker != nil {
+		nr.gcTicker.Stop()
+	}
+	if nr.gcStop != nil {
+		close(nr.gcStop)
 	}
 }
 

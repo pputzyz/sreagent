@@ -5,8 +5,8 @@ import {
   NModal, NForm, NFormItem, NInput, NSelect, NInputNumber, NTag, NEmpty,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { escalationApi, teamApi, userApi, scheduleApi } from '@/api'
-import type { EscalationPolicy, Team, User, Schedule } from '@/types'
+import { escalationApi, teamApi, userApi, scheduleApi, notifyMediaApi } from '@/api'
+import type { EscalationPolicy, Team, User, Schedule, NotifyMedia } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -22,6 +22,7 @@ const policies = ref<EscalationPolicy[]>([])
 const teams = ref<Team[]>([])
 const users = ref<User[]>([])
 const schedules = ref<Schedule[]>([])
+const channels = ref<NotifyMedia[]>([])
 
 // Modal state
 const showModal = ref(false)
@@ -54,14 +55,16 @@ async function fetchPolicies() {
 
 async function fetchSupportData() {
   try {
-    const [teamRes, userRes, schedRes] = await Promise.all([
+    const [teamRes, userRes, schedRes, chanRes] = await Promise.all([
       teamApi.list({ page: 1, page_size: 100 }),
       userApi.list({ page: 1, page_size: 100 }),
       scheduleApi.list({ page: 1, page_size: 100 }),
+      notifyMediaApi.list({ page: 1, page_size: 200 }),
     ])
     teams.value = teamRes.data.data?.list || []
     users.value = userRes.data.data?.list || []
     schedules.value = schedRes.data.data?.list || []
+    channels.value = chanRes.data.data?.list || []
   } catch { /* ignore */ }
 }
 
@@ -293,6 +296,15 @@ onMounted(() => {
             <n-input-number v-model:value="step.delay_minutes" :min="0" :max="1440" class="step-delay-input">
               <template #suffix>{{ t('common.minutes') }}</template>
             </n-input-number>
+          </n-form-item>
+          <n-form-item :label="t('escalation.notifyChannel')" label-placement="left" label-width="100">
+            <n-select
+              v-model:value="step.notify_channel_id"
+              :options="channels.map(c => ({ label: c.name, value: c.id }))"
+              clearable
+              filterable
+              :placeholder="t('escalation.notifyChannelPlaceholder')"
+            />
           </n-form-item>
         </div>
 

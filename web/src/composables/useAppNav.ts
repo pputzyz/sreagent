@@ -54,7 +54,6 @@ import {
   InformationCircleOutline,
   TerminalOutline,
   PlayOutline,
-  BookmarkOutline,
   GitPullRequestOutline,
   BookOutline,
 } from '@vicons/ionicons5'
@@ -111,7 +110,6 @@ export const iconColorMap = new Map<Component, string>([
   [ShieldOutline,           '#EF4444'], // red — security/alert
   [CallOutline,             '#10B981'], // emerald — contacts/phone
   [InformationCircleOutline, '#3B82F6'], // blue — site info
-  [BookmarkOutline,          '#14B8A6'], // teal — saved views
   [GitPullRequestOutline,    '#6366F1'], // indigo — change events
   [BookOutline,              '#64748B'], // slate — knowledge/docs
 ])
@@ -131,6 +129,7 @@ let _routeWatcherInstalled = false
 function resolveAppFromPath(path: string): AppKey {
   if (path === '/') return 'home'
   if (path.startsWith('/oncall'))   return 'oncall'
+  if (path.startsWith('/alert/datasources')) return 'platform'
   if (path.startsWith('/alert'))    return 'alert'
   if (path.startsWith('/platform')) return 'platform'
   if (path.startsWith('/ai'))       return 'platform'
@@ -176,7 +175,7 @@ export function useAppNav() {
         return [
           {
             items: [
-              { label: t('menu.overview'), key: '/oncall/overview', icon: HomeOutline },
+              { label: t('menu.oncallOverview'), key: '/oncall/overview', icon: HomeOutline },
               { label: t('myAlerts.title'), key: '/oncall/my-alerts', icon: AlertCircleOutline },
             ],
           },
@@ -239,7 +238,7 @@ export function useAppNav() {
         return [
           {
             items: [
-              { label: t('menu.overview'), key: '/alert/overview', icon: StatsChartOutline },
+              { label: t('menu.alertOverview'), key: '/alert/overview', icon: StatsChartOutline },
             ],
           },
           {
@@ -249,7 +248,7 @@ export function useAppNav() {
               items.push(
                 { label: t('menu.activeAlerts'),    key: '/alert/events', icon: FlashOutline },
                 { label: t('menu.alertHistory'),    key: '/alert/history', icon: TimeOutline },
-                { label: t('menu.presetRules'),     key: '/alert/presets', icon: LibraryOutline },
+                { label: t('menu.templateLibrary'), key: '/alert/template-library', icon: LibraryOutline },
                 { label: t('menu.inhibitionRules'), key: '/alert/suppression/inhibition', icon: VolumeMuteOutline },
               )
               if (authStore.canManage) {
@@ -274,7 +273,6 @@ export function useAppNav() {
               )
               if (authStore.canManage) {
                 items.push(
-                  { label: t('menu.datasources'),     key: '/alert/datasources', icon: ServerOutline },
                   { label: t('menu.esPatterns'),      key: '/alert/es-patterns', icon: SearchOutline },
                   { label: t('menu.eventPipelines'),  key: '/alert/event-pipelines', icon: GitBranchOutline },
                   { label: t('menu.builtinMetrics'),  key: '/alert/builtin-metrics', icon: StatsChartOutline },
@@ -283,12 +281,6 @@ export function useAppNav() {
               }
               return items
             })(),
-          },
-          {
-            items: [
-              { label: t('menu.savedViews'), key: '/alert/saved-views', icon: BookmarkOutline },
-              { label: t('menu.ruleTemplates'), key: '/alert/rule-templates', icon: CopyOutline },
-            ],
           },
         ]
 
@@ -331,7 +323,6 @@ export function useAppNav() {
           {
             items: [
               { label: t('menu.knowledge'), key: '/platform/knowledge', icon: BookOutline },
-              { label: t('menu.annotations'), key: '/platform/annotations', icon: BookmarkOutline },
             ],
           },
           {
@@ -340,6 +331,7 @@ export function useAppNav() {
               const items: MenuItem[] = []
               if (authStore.isAdmin) {
                 items.push(
+                  { label: t('menu.datasources'), key: '/alert/datasources', icon: ServerOutline },
                   { label: t('menu.smtp'),      key: '/platform/settings/smtp', icon: MailOutline },
                   { label: t('menu.larkBot'),    key: '/platform/settings/lark', icon: ChatbubbleEllipsesOutline },
                   { label: t('menu.aiConfig'),   key: '/platform/ai-config', icon: SparklesOutline },

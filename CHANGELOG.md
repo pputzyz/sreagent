@@ -4,6 +4,28 @@
 
 ---
 
+## [v4.58.0] — 2026-05-29
+
+### 整改总方案 — C 组 + F 组全量完成
+
+**C 组：后端技术债**
+- C3: MCP 工具 IO/RiskLevel 启发式映射（9 个 read-hint 关键词）
+- C4: Agent 任务 Redis 持久化（已确认完整）
+
+**F 组：前端修复（14 项）**
+- F3: team_lead 角色权限修复（8 个文件清理 phantom viewer/global_viewer 角色）
+- F1: 删除 2 个死页面（TeamChannelConfig.vue, VirtualUsers.vue）
+- F2: 通知中心去重（Index.vue 直接渲染 Rules，移除重复 tab）
+- F4: PromQL 远程补全（连接数据源代理，自动补全真实指标名/标签名）
+- F5: 模板库合并（预设规则 + 规则模板 → 统一 TemplateLibrary 页面）
+- F6: 故障详情页"发起诊断"按钮 + "相关变更"tab
+- F7: SavedViews/Annotations 从菜单移除（保留功能入口）
+- F8-1: 数据源菜单从 Alert 移到 Platform
+- F8-2: 三个"概览"改名（主页/告警概览/值班概览）
+- F8-3: 升级策略步骤表单补通知渠道选择器
+
+---
+
 ## [v4.57.0] — 2026-05-29
 
 ### B1 + B2 功能实现 — Recording Rule 写回 + Dispatch 延迟/重复

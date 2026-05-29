@@ -144,6 +144,9 @@ export default {
     systemConfig: 'System',
     // v3 navigation menu
     overview: 'Overview',
+    oncallOverview: 'On-Call Overview',
+    alertOverview: 'Alert Overview',
+    homepage: 'Homepage',
     statusPage: 'Status Page',
     postmortems: 'Post-Mortems',
     configCenter: 'Config Center',
@@ -194,6 +197,7 @@ export default {
     annotations: 'Annotations',
     savedViews: 'Saved Views',
     ruleTemplates: 'Rule Templates',
+    templateLibrary: 'Template Library',
   },
   header: {
     timezone: 'Timezone',
@@ -1442,6 +1446,8 @@ export default {
     targetType: 'Target Type',
     target: 'Notify Target',
     delay: 'Delay',
+    notifyChannel: 'Notify Channel',
+    notifyChannelPlaceholder: 'Select notification channel (optional)',
     noSteps: 'No escalation steps added yet',
     user: 'User',
     schedule: 'Schedule',
@@ -1507,8 +1513,6 @@ export default {
     admin: 'Admin',
     teamLead: 'Team Lead',
     member: 'Member',
-    viewer: 'Viewer',
-    viewerName: 'Viewer',
     active: 'Active',
     inactive: 'Inactive',
     changePassword: 'Change Password',
@@ -1669,7 +1673,7 @@ export default {
     oidcBehaviorDesc: 'Control how unknown users are handled when they authenticate for the first time.',
     oidcIssuerUrlHelp: 'The OIDC provider\'s Issuer URL. The system auto-fetches the Discovery document.',
     oidcRoleClaimHelp: 'JWT claim path containing user roles. Supports nested paths like realm_access.roles.',
-    oidcRoleMappingHelp: 'JSON object: keys are OIDC role names, values are system roles (admin/team_lead/member/viewer).',
+    oidcRoleMappingHelp: 'JSON object: keys are OIDC role names, values are system roles (admin/team_lead/member).',
     oidcRoleMappingExample: 'e.g. "sre-admin" → "admin", "sre-user" → "member"',
     oidcInvalidUrl: 'Enter a valid URL starting with https://',
     oidcInvalidJson: 'Enter a valid JSON object',
@@ -2288,6 +2292,9 @@ export default {
     dispatchAttempt: 'Attempt',
     dispatchNote: 'Note',
     dispatchTime: 'Time',
+    startDiagnosis: 'Start Diagnosis',
+    relatedChanges: 'Related Changes',
+    noRelatedChanges: 'No related changes',
   },
 
   // ===== v2: Alerts view =====
@@ -2536,17 +2543,13 @@ export default {
   // ===== Roles & Permissions =====
   rolesModule: {
     title: 'Roles & Permissions',
-    subtitle: 'Five built-in roles control user access to platform resources via the RBAC model',
+    subtitle: 'Three built-in roles control user access to platform resources via the RBAC model',
     adminName: 'Admin',
     adminDesc: 'Full system access — manage all resources and configuration',
     teamLeadName: 'Team Lead',
     teamLeadDesc: 'Manage team members and config, handle team-scoped alerts and incidents',
     memberName: 'Member',
     memberDesc: 'Create and manage own resources, respond to assigned alerts',
-    viewerName: 'Viewer',
-    viewerDesc: 'Read-only access to assigned resources, no modification allowed',
-    globalViewerName: 'Global Viewer',
-    globalViewerDesc: 'Read-only access to all resources, suitable for audit and monitoring',
     permManageUsers: 'Manage Users',
     permManageTeams: 'Manage Teams',
     permManageRoles: 'Manage Roles',
@@ -2557,10 +2560,6 @@ export default {
     permAcknowledgeAlerts: 'Acknowledge Alerts',
     permCreateResources: 'Create Resources',
     permEditOwn: 'Edit Own Resources',
-    permViewAssigned: 'View Assigned Resources',
-    permViewAll: 'View All Resources',
-    permReadOnly: 'Read Only',
-    permNoConfig: 'No Config Access',
     roleCount: '{n} roles',
     permissionCount: '{n} permissions',
   },
@@ -3497,5 +3496,13 @@ export default {
     severityCritical: 'Critical',
     severityWarning: 'Warning',
     severityInfo: 'Info',
+  },
+
+  // ── Template Library (merged presets + rule templates) ──
+  templateLibrary: {
+    builtinPresets: 'Built-in Presets',
+    myTemplates: 'My Templates',
+    title: 'Template Library',
+    subtitle: 'Browse and apply built-in presets and custom templates',
   },
 }
