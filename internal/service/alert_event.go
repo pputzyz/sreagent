@@ -12,6 +12,10 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// AlertEventFilter holds the parameters for filtering alert events.
+// Defined in service layer so handlers don't need to import repository.
+type AlertEventFilter = repository.AlertEventFilter
+
 const defaultDispatchConcurrency = 100
 
 // OnCallResolver is used by AlertEventService to find the current on-call person.

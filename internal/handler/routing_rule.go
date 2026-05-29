@@ -7,18 +7,17 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
 // RoutingRuleHandler manages routing rules for shared integrations.
 type RoutingRuleHandler struct {
-	repo     *repository.RoutingRuleRepository
+	svc      *service.RoutingRuleService
 	auditSvc *service.AuditLogService
 }
 
-func NewRoutingRuleHandler(repo *repository.RoutingRuleRepository) *RoutingRuleHandler {
-	return &RoutingRuleHandler{repo: repo}
+func NewRoutingRuleHandler(svc *service.RoutingRuleService) *RoutingRuleHandler {
+	return &RoutingRuleHandler{svc: svc}
 }
 
 // SetAuditService injects the audit log service (called after construction to avoid circular DI).
@@ -42,14 +41,13 @@ type updateRoutingRuleReq struct {
 }
 
 // ListByIntegration returns all routing rules for a shared integration.
-// GET /api/v1/routing-rules?integration_id=X
 func (h *RoutingRuleHandler) ListByIntegration(c *gin.Context) {
 	integID, err := strconv.ParseUint(c.Query("integration_id"), 10, 64)
 	if err != nil || integID == 0 {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "missing or invalid integration_id query param"))
 		return
 	}
-	rules, err := h.repo.ListByIntegration(c.Request.Context(), uint(integID))
+	rules, err := h.svc.ListByIntegration(c.Request.Context(), uint(integID))
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
@@ -58,7 +56,6 @@ func (h *RoutingRuleHandler) ListByIntegration(c *gin.Context) {
 }
 
 // Create adds a new routing rule.
-// POST /api/v1/routing-rules  (integration_id in body)
 func (h *RoutingRuleHandler) Create(c *gin.Context) {
 	var req createRoutingRuleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -76,11 +73,10 @@ func (h *RoutingRuleHandler) Create(c *gin.Context) {
 		Priority:        req.Priority,
 		IsEnabled:       req.IsEnabled,
 	}
-	if err := h.repo.Create(c.Request.Context(), rule); err != nil {
+	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
-
 	if h.auditSvc != nil {
 		uid := GetCurrentUserID(c)
 		h.auditSvc.Record(&model.AuditLog{
@@ -89,12 +85,10 @@ func (h *RoutingRuleHandler) Create(c *gin.Context) {
 			IP: c.ClientIP(),
 		})
 	}
-
 	Success(c, rule)
 }
 
 // Update modifies a routing rule.
-// PUT /api/v1/routing-rules/:id
 func (h *RoutingRuleHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -106,7 +100,7 @@ func (h *RoutingRuleHandler) Update(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
-	rule, err := h.repo.GetByID(c.Request.Context(), uint(id))
+	rule, err := h.svc.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
@@ -121,11 +115,10 @@ func (h *RoutingRuleHandler) Update(c *gin.Context) {
 	if req.IsEnabled != nil {
 		rule.IsEnabled = *req.IsEnabled
 	}
-	if err := h.repo.Update(c.Request.Context(), rule); err != nil {
+	if err := h.svc.Update(c.Request.Context(), rule); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
-
 	if h.auditSvc != nil {
 		uid := GetCurrentUserID(c)
 		rid := uint(id)
@@ -135,23 +128,20 @@ func (h *RoutingRuleHandler) Update(c *gin.Context) {
 			IP: c.ClientIP(),
 		})
 	}
-
 	Success(c, rule)
 }
 
 // Delete removes a routing rule.
-// DELETE /api/v1/routing-rules/:id
 func (h *RoutingRuleHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
 	}
-	if err := h.repo.Delete(c.Request.Context(), uint(id)); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), uint(id)); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
 		return
 	}
-
 	if h.auditSvc != nil {
 		uid := GetCurrentUserID(c)
 		rid := uint(id)
@@ -161,6 +151,5 @@ func (h *RoutingRuleHandler) Delete(c *gin.Context) {
 			IP: c.ClientIP(),
 		})
 	}
-
 	Success(c, nil)
 }

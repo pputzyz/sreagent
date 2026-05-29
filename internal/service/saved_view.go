@@ -10,6 +10,10 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// SavedViewListQuery holds optional filters for listing saved views.
+// Defined in service layer so handlers don't need to import repository.
+type SavedViewListQuery = repository.ListQuery
+
 // SavedViewService provides business logic for saved views.
 type SavedViewService struct {
 	repo   *repository.SavedViewRepository

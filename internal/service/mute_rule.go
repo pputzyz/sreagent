@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
-	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/muterule"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -76,25 +76,9 @@ func (s *MuteRuleService) InvalidateCache() {
 }
 
 // LoadMuteTimezone loads a timezone with a consistent fallback to Asia/Shanghai.
-// Used by both service (isInTimeWindow) and engine (isTimeWindowMuted) to avoid
-// divergent fallback behavior.
+// Delegates to muterule.LoadMuteTimezone — kept here for backward compatibility.
 func LoadMuteTimezone(name string) *time.Location {
-	if name == "" {
-		loc, _ := time.LoadLocation("Asia/Shanghai")
-		if loc != nil {
-			return loc
-		}
-		return time.Local
-	}
-	loc, err := time.LoadLocation(name)
-	if err != nil {
-		loc, _ = time.LoadLocation("Asia/Shanghai")
-		if loc != nil {
-			return loc
-		}
-		return time.Local
-	}
-	return loc
+	return muterule.LoadMuteTimezone(name)
 }
 
 // validateDaysOfWeek checks that the DaysOfWeek CSV contains only values 1-7.
@@ -240,116 +224,15 @@ func (s *MuteRuleService) IsAlertMuted(ctx context.Context, event *model.AlertEv
 	return false
 }
 
-// MatchesRule is the exported wrapper — used by the preview handler.
+// MatchesRule checks if a single mute rule matches an alert event.
+// Delegates to muterule.IsMutedByRule (shared with engine).
 func (s *MuteRuleService) MatchesRule(rule *model.MuteRule, event *model.AlertEvent, now time.Time) bool {
-	return s.matchesRule(rule, event, now)
+	return muterule.IsMutedByRule(rule, map[string]string(event.Labels), string(event.Severity), event.RuleID, now)
 }
 
-// matchesRule checks if a single mute rule matches an alert event.
+// matchesRule is the internal alias kept for readability in IsAlertMuted.
 func (s *MuteRuleService) matchesRule(rule *model.MuteRule, event *model.AlertEvent, now time.Time) bool {
-	// 1. Check specific rule IDs if set
-	if rule.RuleIDs != "" && event.RuleID != nil {
-		ruleIDs := strings.Split(rule.RuleIDs, ",")
-		matched := false
-		for _, idStr := range ruleIDs {
-			idStr = strings.TrimSpace(idStr)
-			if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
-				if uint(id) == *event.RuleID {
-					matched = true
-					break
-				}
-			}
-		}
-		if !matched {
-			return false
-		}
-	}
-
-	// 2. Check label matching (alert must match ALL labels in the mute rule)
-	if !labelmatch.Match(map[string]string(event.Labels), map[string]string(rule.MatchLabels)) {
-		return false
-	}
-
-	// 3. Check severity filter
-	if rule.Severities != "" {
-		sevs := strings.Split(rule.Severities, ",")
-		matched := false
-		for _, sev := range sevs {
-			if strings.TrimSpace(sev) == string(event.Severity) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
-	}
-
-	// 4. Check time window
-	if !s.isInTimeWindow(rule, now) {
-		return false
-	}
-
-	return true
-}
-
-// isInTimeWindow checks if the current time falls within the mute rule's time window.
-func (s *MuteRuleService) isInTimeWindow(rule *model.MuteRule, now time.Time) bool {
-	loc := LoadMuteTimezone(rule.Timezone)
-	nowLocal := now.In(loc)
-
-	// Check one-time window
-	if rule.StartTime != nil && rule.EndTime != nil {
-		if nowLocal.Before(*rule.StartTime) || nowLocal.After(*rule.EndTime) {
-			return false
-		}
-		return true
-	}
-
-	// Check periodic window
-	if rule.PeriodicStart != "" && rule.PeriodicEnd != "" {
-		// Check day of week if specified
-		if rule.DaysOfWeek != "" {
-			weekday := int(nowLocal.Weekday())
-			if weekday == 0 {
-				weekday = 7 // Sunday = 7
-			}
-			days := strings.Split(rule.DaysOfWeek, ",")
-			dayMatch := false
-			for _, d := range days {
-				if dayNum, err := strconv.Atoi(strings.TrimSpace(d)); err == nil {
-					if dayNum == weekday {
-						dayMatch = true
-						break
-					}
-				}
-			}
-			if !dayMatch {
-				return false
-			}
-		}
-
-		// Parse periodic times
-		start, errS := time.Parse("15:04", rule.PeriodicStart)
-		end, errE := time.Parse("15:04", rule.PeriodicEnd)
-		if errS != nil || errE != nil {
-			return false
-		}
-
-		currentMinutes := nowLocal.Hour()*60 + nowLocal.Minute()
-		startMinutes := start.Hour()*60 + start.Minute()
-		endMinutes := end.Hour()*60 + end.Minute()
-
-		if startMinutes <= endMinutes {
-			// Normal range: e.g., 02:00 - 06:00
-			return currentMinutes >= startMinutes && currentMinutes < endMinutes
-		}
-		// Overnight range: e.g., 22:00 - 06:00
-		return currentMinutes >= startMinutes || currentMinutes < endMinutes
-	}
-
-	// No time restriction - always active
-	return true
+	return s.MatchesRule(rule, event, now)
 }
 
 // BatchEnable enables multiple mute rules.

@@ -4,17 +4,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/sreagent/sreagent/internal/repository"
+	"github.com/sreagent/sreagent/internal/service"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 )
 
 type StatusSubscriptionHandler struct {
-	repo   *repository.StatusSubscriptionRepository
+	svc    *service.StatusSubscriptionService
 	logger *zap.Logger
 }
 
-func NewStatusSubscriptionHandler(repo *repository.StatusSubscriptionRepository, logger *zap.Logger) *StatusSubscriptionHandler {
-	return &StatusSubscriptionHandler{repo: repo, logger: logger}
+func NewStatusSubscriptionHandler(svc *service.StatusSubscriptionService, logger *zap.Logger) *StatusSubscriptionHandler {
+	return &StatusSubscriptionHandler{svc: svc, logger: logger}
 }
 
 type subscribeRequest struct {
@@ -27,13 +27,11 @@ func (h *StatusSubscriptionHandler) Subscribe(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid email"))
 		return
 	}
-
-	if err := h.repo.Subscribe(c.Request.Context(), req.Email); err != nil {
+	if err := h.svc.Subscribe(c.Request.Context(), req.Email); err != nil {
 		h.logger.Error("failed to subscribe", zap.String("email", req.Email), zap.Error(err))
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
 	}
-
 	Success(c, gin.H{"message": "subscribed successfully"})
 }
 
@@ -43,18 +41,16 @@ func (h *StatusSubscriptionHandler) Unsubscribe(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "email is required"))
 		return
 	}
-
-	if err := h.repo.Unsubscribe(c.Request.Context(), email); err != nil {
+	if err := h.svc.Unsubscribe(c.Request.Context(), email); err != nil {
 		h.logger.Error("failed to unsubscribe", zap.String("email", email), zap.Error(err))
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
 	}
-
 	Success(c, gin.H{"message": "unsubscribed successfully"})
 }
 
 func (h *StatusSubscriptionHandler) List(c *gin.Context) {
-	subs, err := h.repo.List(c.Request.Context())
+	subs, err := h.svc.List(c.Request.Context())
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return

@@ -150,6 +150,46 @@ func (c *Client) GetCaptcha(ctx context.Context, captchaID string) (string, erro
 	return val, nil
 }
 
+// --- Token blacklist helpers (for JWT revocation) ---
+
+const tokenBlacklistPrefix = "sreagent:token:blacklist:"
+
+// BlacklistToken adds a JWT token (by its jti/iat hash) to the blacklist with the given TTL.
+// The TTL should match the token's remaining expiry time.
+func (c *Client) BlacklistToken(ctx context.Context, tokenID string, ttl time.Duration) error {
+	return c.rdb.Set(ctx, tokenBlacklistPrefix+tokenID, "1", ttl).Err()
+}
+
+// IsTokenBlacklisted checks if a JWT token has been revoked.
+func (c *Client) IsTokenBlacklisted(ctx context.Context, tokenID string) (bool, error) {
+	return c.Exists(ctx, tokenBlacklistPrefix+tokenID)
+}
+
+// BlacklistUserTokens revokes all tokens for a user by setting a user-level
+// revocation marker. The middleware checks this marker against the token's IssuedAt.
+func (c *Client) BlacklistUserTokens(ctx context.Context, userID uint, revokedAt time.Time) error {
+	key := fmt.Sprintf("sreagent:token:revoke:user:%d", userID)
+	return c.rdb.Set(ctx, key, revokedAt.Unix(), 7*24*time.Hour).Err()
+}
+
+// GetUserTokenRevokedAt returns the timestamp at which all tokens for a user were revoked.
+// Returns zero time if no revocation marker exists.
+func (c *Client) GetUserTokenRevokedAt(ctx context.Context, userID uint) (time.Time, error) {
+	key := fmt.Sprintf("sreagent:token:revoke:user:%d", userID)
+	val, err := c.rdb.Get(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return time.Time{}, nil
+		}
+		return time.Time{}, err
+	}
+	ts, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Unix(ts, 0), nil
+}
+
 // --- Stream helpers (for alert event bus) ---
 
 const AlertEventStream = "sreagent:alert_events"

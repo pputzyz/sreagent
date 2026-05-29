@@ -235,7 +235,8 @@ type Evaluator struct {
 
 	// forceSync is set by OnDatasourceUpdated to trigger a full sync on the
 	// next tick, ensuring rules pick up changed datasource endpoints.
-	forceSync atomic.Bool
+	forceSync    atomic.Bool
+	forceSyncDSs sync.Map // map[uint]bool — specific datasource IDs to restart (empty = all)
 }
 
 // AlertWorkerPoolSubmiter is the subset of AlertWorkerPool used by the evaluator.
@@ -380,6 +381,7 @@ func (e *Evaluator) SetLabelRegistryRepository(repo *repository.LabelRegistryRep
 // objects (with old endpoints) are replaced.
 func (e *Evaluator) OnDatasourceUpdated(dsID uint) {
 	e.forceSync.Store(true)
+	e.forceSyncDSs.Store(dsID, true)
 	e.logger.Info("datasource updated, forcing rule re-sync on next tick",
 		zap.Uint("datasource_id", dsID),
 	)
@@ -519,11 +521,20 @@ func (e *Evaluator) shouldEvaluateRule(ruleID uint) bool {
 func (e *Evaluator) syncRules() {
 	ctx := context.Background()
 
-	// When a datasource endpoint changes, stop all evaluators so they are
-	// re-created with fresh datasource objects from the next DB load.
+	// When a datasource endpoint changes, stop only the evaluators for the
+	// affected datasource(s) so they are re-created with fresh objects.
 	if e.forceSync.CompareAndSwap(true, false) {
-		e.logger.Info("forced sync triggered by datasource change — restarting all evaluators")
-		e.stopAllEvaluators()
+		var affectedDSs []uint
+		e.forceSyncDSs.Range(func(k, _ any) bool {
+			affectedDSs = append(affectedDSs, k.(uint))
+			e.forceSyncDSs.Delete(k)
+			return true
+		})
+		if len(affectedDSs) > 0 {
+			e.logger.Info("forced sync triggered by datasource change — restarting affected evaluators",
+				zap.Uints("datasource_ids", affectedDSs))
+			e.stopEvaluatorsByDatasource(affectedDSs)
+		}
 	}
 
 	var rules []model.AlertRule
@@ -753,6 +764,40 @@ func (e *Evaluator) stopRuleEvaluator(ruleID uint) {
 		e.suppressor.RemoveRule(ruleID)
 	}
 	e.invalidateFiringCache()
+}
+
+// stopEvaluatorsByDatasource stops only the evaluators whose rules reference
+// the given datasource IDs.  Used for incremental forceSync.
+func (e *Evaluator) stopEvaluatorsByDatasource(dsIDs []uint) {
+	dsSet := make(map[uint]bool, len(dsIDs))
+	for _, id := range dsIDs {
+		dsSet[id] = true
+	}
+
+	e.mu.Lock()
+	toStop := make([]*RuleEvaluator, 0)
+	for ruleID, re := range e.evaluators {
+		if re.datasource != nil && dsSet[re.datasource.ID] {
+			delete(e.evaluators, ruleID)
+			toStop = append(toStop, re)
+		}
+	}
+	e.mu.Unlock()
+
+	for _, re := range toStop {
+		re.Stop()
+		if e.suppressor != nil {
+			e.suppressor.RemoveRule(re.rule.ID)
+		}
+	}
+
+	if len(toStop) > 0 {
+		e.logger.Info("stopped evaluators for affected datasources",
+			zap.Int("count", len(toStop)),
+			zap.Uints("datasource_ids", dsIDs),
+		)
+		e.invalidateFiringCache()
+	}
 }
 
 // stopAllEvaluators stops all running evaluators and clears the maps.

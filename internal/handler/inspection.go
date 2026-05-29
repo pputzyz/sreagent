@@ -11,24 +11,23 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
 // InspectionHandler handles inspection task and run API endpoints.
 type InspectionHandler struct {
-	taskRepo *repository.InspectionRepository
+	taskSvc  *service.InspectionService
 	schedSvc *service.InspectionScheduler
 	execSvc  *service.InspectionExecutor
 }
 
 // NewInspectionHandler creates a new InspectionHandler.
 func NewInspectionHandler(
-	taskRepo *repository.InspectionRepository,
+	taskSvc  *service.InspectionService,
 	schedSvc *service.InspectionScheduler,
 	execSvc *service.InspectionExecutor,
 ) *InspectionHandler {
-	return &InspectionHandler{taskRepo: taskRepo, schedSvc: schedSvc, execSvc: execSvc}
+	return &InspectionHandler{taskSvc: taskSvc, schedSvc: schedSvc, execSvc: execSvc}
 }
 
 // --- Task CRUD ---
@@ -40,7 +39,7 @@ func (h *InspectionHandler) ListTasks(c *gin.Context) {
 		enabled = &v
 	}
 
-	tasks, err := h.taskRepo.ListTasks(c.Request.Context(), enabled)
+	tasks, err := h.taskSvc.ListTasks(c.Request.Context(), enabled)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -56,7 +55,7 @@ func (h *InspectionHandler) GetTask(c *gin.Context) {
 		return
 	}
 
-	task, err := h.taskRepo.GetTask(c.Request.Context(), uint(id))
+	task, err := h.taskSvc.GetTask(c.Request.Context(), uint(id))
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -79,7 +78,7 @@ func (h *InspectionHandler) CreateTask(c *gin.Context) {
 	}
 	task.CreatedBy = uid
 
-	if err := h.taskRepo.CreateTask(c.Request.Context(), &task); err != nil {
+	if err := h.taskSvc.CreateTask(c.Request.Context(), &task); err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
 	}
@@ -101,7 +100,7 @@ func (h *InspectionHandler) UpdateTask(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.taskRepo.GetTask(c.Request.Context(), uint(id))
+	existing, err := h.taskSvc.GetTask(c.Request.Context(), uint(id))
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -112,7 +111,7 @@ func (h *InspectionHandler) UpdateTask(c *gin.Context) {
 		return
 	}
 
-	if err := h.taskRepo.UpdateTask(c.Request.Context(), existing); err != nil {
+	if err := h.taskSvc.UpdateTask(c.Request.Context(), existing); err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
 	}
@@ -136,7 +135,7 @@ func (h *InspectionHandler) DeleteTask(c *gin.Context) {
 		return
 	}
 
-	if err := h.taskRepo.DeleteTask(c.Request.Context(), uint(id)); err != nil {
+	if err := h.taskSvc.DeleteTask(c.Request.Context(), uint(id)); err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
 	}
@@ -160,7 +159,7 @@ func (h *InspectionHandler) ListRuns(c *gin.Context) {
 		taskID = &u
 	}
 
-	runs, total, err := h.taskRepo.ListRuns(c.Request.Context(), taskID, pq.Page, pq.PageSize)
+	runs, total, err := h.taskSvc.ListRuns(c.Request.Context(), taskID, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -176,7 +175,7 @@ func (h *InspectionHandler) GetRun(c *gin.Context) {
 		return
 	}
 
-	run, err := h.taskRepo.GetRun(c.Request.Context(), uint(id))
+	run, err := h.taskSvc.GetRun(c.Request.Context(), uint(id))
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -200,7 +199,7 @@ func (h *InspectionHandler) RunNow(c *gin.Context) {
 		return
 	}
 
-	task, err := h.taskRepo.GetTask(c.Request.Context(), uint(id))
+	task, err := h.taskSvc.GetTask(c.Request.Context(), uint(id))
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return

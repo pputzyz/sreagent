@@ -9,14 +9,13 @@ import (
 	"github.com/sreagent/sreagent/internal/engine/pipeline"
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
 // EventPipelineHandler handles event pipeline API requests.
 type EventPipelineHandler struct {
-	pipelineRepo *repository.EventPipelineRepository
-	execRepo     *repository.EventPipelineExecutionRepository
+	pipelineSvc *service.EventPipelineService
+	execSvc     *service.EventPipelineExecutionService
 	engine       *pipeline.Engine
 	eventSvc     *service.AlertEventService
 	auditSvc     *service.AuditLogService
@@ -25,8 +24,8 @@ type EventPipelineHandler struct {
 
 // NewEventPipelineHandler creates a new EventPipelineHandler.
 func NewEventPipelineHandler(
-	pipelineRepo *repository.EventPipelineRepository,
-	execRepo *repository.EventPipelineExecutionRepository,
+	pipelineSvc *service.EventPipelineService,
+	execSvc *service.EventPipelineExecutionService,
 	engine *pipeline.Engine,
 	eventSvc *service.AlertEventService,
 	logger ...*zap.Logger,
@@ -36,11 +35,11 @@ func NewEventPipelineHandler(
 		l = logger[0]
 	}
 	return &EventPipelineHandler{
-		pipelineRepo: pipelineRepo,
-		execRepo:     execRepo,
-		engine:       engine,
-		eventSvc:     eventSvc,
-		log:          l,
+		pipelineSvc: pipelineSvc,
+		execSvc:     execSvc,
+		engine:      engine,
+		eventSvc:    eventSvc,
+		log:         l,
 	}
 }
 
@@ -70,7 +69,7 @@ func (h *EventPipelineHandler) List(c *gin.Context) {
 		disabled = &v
 	}
 
-	list, total, err := h.pipelineRepo.List(c.Request.Context(), pq.Page, pq.PageSize, disabled, query)
+	list, total, err := h.pipelineSvc.List(c.Request.Context(), pq.Page, pq.PageSize, disabled, query)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
@@ -85,7 +84,7 @@ func (h *EventPipelineHandler) Get(c *gin.Context) {
 		Error(c, err)
 		return
 	}
-	p, err := h.pipelineRepo.GetByID(c.Request.Context(), id)
+	p, err := h.pipelineSvc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
 		return
@@ -120,7 +119,7 @@ func (h *EventPipelineHandler) Create(c *gin.Context) {
 	}
 	p.FE2DB()
 
-	if err := h.pipelineRepo.Create(c.Request.Context(), p); err != nil {
+	if err := h.pipelineSvc.Create(c.Request.Context(), p); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
 	}
@@ -148,7 +147,7 @@ func (h *EventPipelineHandler) Update(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.pipelineRepo.GetByID(c.Request.Context(), id)
+	existing, err := h.pipelineSvc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
 		return
@@ -176,7 +175,7 @@ func (h *EventPipelineHandler) Update(c *gin.Context) {
 	}
 	existing.FE2DB()
 
-	if err := h.pipelineRepo.Update(c.Request.Context(), existing); err != nil {
+	if err := h.pipelineSvc.Update(c.Request.Context(), existing); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
 	}
@@ -203,13 +202,13 @@ func (h *EventPipelineHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.pipelineRepo.GetByID(c.Request.Context(), id)
+	existing, err := h.pipelineSvc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
 		return
 	}
 
-	if err := h.pipelineRepo.Delete(c.Request.Context(), id); err != nil {
+	if err := h.pipelineSvc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
 	}
@@ -235,7 +234,7 @@ func (h *EventPipelineHandler) ListExecutions(c *gin.Context) {
 	}
 	pq := GetPageQuery(c)
 
-	list, total, err := h.execRepo.ListByPipelineID(c.Request.Context(), id, pq.Page, pq.PageSize)
+	list, total, err := h.execSvc.ListByPipelineID(c.Request.Context(), id, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
@@ -251,7 +250,7 @@ func (h *EventPipelineHandler) GetExecution(c *gin.Context) {
 		return
 	}
 
-	exec, err := h.execRepo.GetByID(c.Request.Context(), id)
+	exec, err := h.execSvc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
 		return
@@ -267,7 +266,7 @@ func (h *EventPipelineHandler) CleanExecutions(c *gin.Context) {
 		days = 30
 	}
 
-	affected, err := h.execRepo.CleanOlderThan(c.Request.Context(), days)
+	affected, err := h.execSvc.CleanOlderThan(c.Request.Context(), days)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInternal, err.Error()))
 		return
@@ -283,7 +282,7 @@ func (h *EventPipelineHandler) TryRun(c *gin.Context) {
 		return
 	}
 
-	p, err := h.pipelineRepo.GetByID(c.Request.Context(), id)
+	p, err := h.pipelineSvc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
 		return

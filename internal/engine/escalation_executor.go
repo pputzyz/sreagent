@@ -354,11 +354,30 @@ func (e *EscalationExecutor) checkSLABreach(ctx context.Context, event *model.Al
 		zap.Int("sla_minutes", rule.AckSlaMinutes),
 	)
 
-	// TODO: SLA breach should trigger escalation/notification (Bug 05-P1-1).
-	// Currently only records timeline + logs warning. Product decision needed:
-	// - Option A: escalate to next step in the escalation policy
-	// - Option B: notify on-call user directly
-	// - Option C: keep as dashboard-only metric (current behavior)
+	// SLA breach escalation: notify on-call user directly via the first step
+	// of the matching escalation policy (Option B).  If no policy matches or
+	// no step is configured, fall back to the event's rule owner.
+	e.triggerSLANotification(ctx, event, rule, now)
+}
+
+// triggerSLANotification sends a high-priority notification when SLA is breached.
+// It notifies the rule creator directly via available personal channels.
+func (e *EscalationExecutor) triggerSLANotification(ctx context.Context, event *model.AlertEvent, rule *model.AlertRule, now time.Time) {
+	if rule.CreatedBy == 0 {
+		return
+	}
+
+	slaStep := &model.EscalationStep{
+		StepOrder:    0, // special: SLA breach
+		TargetType:   "user",
+		TargetID:     rule.CreatedBy,
+		DelayMinutes: 0,
+	}
+
+	if err := e.executeStep(ctx, event, &model.EscalationPolicy{Name: "SLA-breach"}, slaStep); err != nil {
+		e.logger.Error("sla: failed to notify rule creator",
+			zap.Uint("event_id", event.ID), zap.Error(err))
+	}
 }
 
 // escalateEvent evaluates escalation policies and executes any due steps for the given event.

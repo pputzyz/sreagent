@@ -21,6 +21,14 @@ var TeamRoleQuerier interface {
 	ListTeamRoles(userID uint) ([]string, error)
 }
 
+// TokenRevocationChecker abstracts the Redis token blacklist for JWT revocation.
+// Injected at startup. When nil, token revocation checks are skipped.
+var TokenRevocationChecker interface {
+	// GetUserTokenRevokedAt returns the time all tokens for a user were revoked.
+	// Returns zero time if no revocation exists.
+	GetUserTokenRevokedAt(userID uint) time.Time
+}
+
 const (
 	// ContextKeyUserID is the key for user ID in gin context.
 	ContextKeyUserID   = "user_id"
@@ -67,6 +75,19 @@ func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 			})
 			c.Abort()
 			return
+		}
+
+		// Check token revocation — if the user was disabled/logout after token issuance.
+		if TokenRevocationChecker != nil && claims.IssuedAt != nil {
+			revokedAt := TokenRevocationChecker.GetUserTokenRevokedAt(claims.UserID)
+			if !revokedAt.IsZero() && claims.IssuedAt.Before(revokedAt) {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"code":    10102,
+					"message": "token has been revoked",
+				})
+				c.Abort()
+				return
+			}
 		}
 
 		// Set user info in context

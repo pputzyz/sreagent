@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -24,7 +23,7 @@ func NewAuditLogHandler(svc *service.AuditLogService) *AuditLogHandler {
 func (h *AuditLogHandler) List(c *gin.Context) {
 	pq := GetPageQuery(c)
 
-	f := repository.AuditLogFilter{}
+	f := service.AuditLogFilter{}
 
 	if v := c.Query("action"); v != "" {
 		f.Action = v

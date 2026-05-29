@@ -6,7 +6,6 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -62,7 +61,7 @@ type UpdateSavedViewRequest struct {
 func (h *SavedViewHandler) List(c *gin.Context) {
 	pq := GetPageQuery(c)
 
-	q := repository.ListQuery{
+	q := service.SavedViewListQuery{
 		Tab: c.Query("tab"),
 	}
 	if createdByStr := c.Query("created_by"); createdByStr != "" {

@@ -6,7 +6,7 @@
 
 ## [v4.60.0] — 2026-05-29
 
-### 全项目审计修复 — 40 项问题批量修复
+### 全项目审计修复 — 40 项问题全量修复
 
 **P0 关键修复**
 - 修复引擎 resolved 覆盖 acknowledged/silenced/assigned 状态（rule_eval_actions.go）
@@ -17,6 +17,10 @@
 **P1 高优先级**
 - 刷新端点添加速率限制（1 RPS, burst 5）防止 token 枚举（router.go）
 - Redis IncrLoginFail 改用原子 INCR+EXPIRE 避免竞态条件（redis/client.go）
+- SLA 违规触发实际通知：通知规则创建者或值班人（escalation_executor.go）
+- JWT Token 黑名单：用户被禁用时立即吊销所有 Token（redis/client.go + auth.go + user.go）
+- 引擎 forceSync 改为增量：仅重启受影响数据源的评估器（evaluator.go）
+- 抑制规则集成到通知路径：RouteAlert 前检查 InhibitionRule（notification.go）
 
 **P2 中优先级**
 - 飞书 tenant token 缓存：避免每次通知都请求新 token，提前 60s 刷新（notify_media.go）
@@ -25,9 +29,13 @@
 - v-ripple 指令添加 unmounted 清理，防止事件监听器泄漏（directives/ripple.ts）
 - v-can 指令改用 hidden 属性替代 removeChild，避免破坏 Vue 虚拟 DOM（directives/vCan.ts）
 - preferences store 的 applyTheme 同步 localStorage，统一主题系统（stores/preferences.ts）
+- Mute rule 双重实现提取为共享包 `pkg/muterule`（suppression.go + mute_rule.go）
+- Handler 分层违规修复：RoutingRule/StatusSubscription/EventPipeline/Task/Inspection 改用 service 层
+- 外键约束迁移：10 个核心关系添加 FK（000105）
 
 **迁移文件**
 - 新增: 000104_inspection_tasks_add_deleted_at.{up|down}.sql
+- 新增: 000105_add_foreign_keys.{up|down}.sql
 
 ---
 

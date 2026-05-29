@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"time"
 	"unicode"
 
 	"go.uber.org/zap"
@@ -39,13 +40,24 @@ func validatePassword(pwd string) error {
 	return nil
 }
 
+// TokenBlacklister abstracts token revocation on user disable.
+type TokenBlacklister interface {
+	BlacklistUserTokens(ctx context.Context, userID uint, revokedAt time.Time) error
+}
+
 type UserService struct {
-	repo   *repository.UserRepository
-	logger *zap.Logger
+	repo       *repository.UserRepository
+	blacklister TokenBlacklister // optional — nil when Redis is not configured
+	logger     *zap.Logger
 }
 
 func NewUserService(repo *repository.UserRepository, logger *zap.Logger) *UserService {
 	return &UserService{repo: repo, logger: logger}
+}
+
+// SetTokenBlacklister injects the Redis-backed token blacklister.
+func (s *UserService) SetTokenBlacklister(bl TokenBlacklister) {
+	s.blacklister = bl
 }
 
 // Create creates a new user with a hashed password.
@@ -219,6 +231,13 @@ func (s *UserService) ToggleActive(ctx context.Context, id uint, active bool) er
 	if err := s.repo.Update(ctx, existing); err != nil {
 		s.logger.Error("failed to toggle user active status", zap.Error(err), zap.Uint("user_id", id))
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	// When disabling a user, revoke all their outstanding tokens immediately.
+	if !active && s.blacklister != nil {
+		if err := s.blacklister.BlacklistUserTokens(ctx, id, time.Now()); err != nil {
+			s.logger.Warn("failed to blacklist tokens for disabled user", zap.Uint("user_id", id), zap.Error(err))
+		}
 	}
 
 	s.logger.Info("user active status toggled", zap.Uint("user_id", id), zap.Bool("is_active", active))

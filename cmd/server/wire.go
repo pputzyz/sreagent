@@ -108,6 +108,19 @@ func (a *teamRoleAdapter) ListTeamRoles(userID uint) ([]string, error) {
 	return roles, nil
 }
 
+// tokenRevocationAdapter implements middleware.TokenRevocationChecker using Redis.
+type tokenRevocationAdapter struct {
+	rc *sredis.Client
+}
+
+func (a *tokenRevocationAdapter) GetUserTokenRevokedAt(userID uint) time.Time {
+	ts, err := a.rc.GetUserTokenRevokedAt(context.Background(), userID)
+	if err != nil {
+		return time.Time{}
+	}
+	return ts
+}
+
 // initDependencies creates all repositories, services, handlers, and engine
 // components. This is the single DI wiring function extracted from main.go.
 func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*Dependencies, error) {
@@ -320,7 +333,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Status service
 	statusServiceSvc := service.NewStatusServiceService(statusServiceRepo, zapLogger)
 	statusSubRepo := repository.NewStatusSubscriptionRepository(db)
-	statusSubHandler := handler.NewStatusSubscriptionHandler(statusSubRepo, zapLogger)
+	statusSubSvc := service.NewStatusSubscriptionService(statusSubRepo)
+	statusSubHandler := handler.NewStatusSubscriptionHandler(statusSubSvc, zapLogger)
 
 	// Chat history service
 	chatHistorySvc := service.NewChatHistoryService(chatHistoryRepo)
@@ -441,6 +455,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			stateStore = sredis.NewRedisStateStore(rc, zapLogger)
 			// Inject Redis into AuthService for login rate limiting
 			authSvc.SetFailStore(rc)
+			// Inject Redis token revocation checker for JWT blacklist
+			middleware.TokenRevocationChecker = &tokenRevocationAdapter{rc: rc}
+			// Inject Redis token blacklister into UserService for user-disable revocation
+			userSvc.SetTokenBlacklister(rc)
 			// Inject Redis StreamBus into AgentService for multi-instance SSE
 			streamBus := sredis.NewStreamBus(rc, zapLogger)
 			agentSvc.SetStreamBus(streamBus)
@@ -788,7 +806,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		ExclusionRule:       handler.NewExclusionRuleHandler(exclusionRuleSvc),
 		DispatchPolicy:      handler.NewDispatchHandler(dispatchSvc),
 		Integration:         handler.NewIntegrationHandler(integrationSvc, zapLogger),
-		RoutingRule:         handler.NewRoutingRuleHandler(routingRuleRepo),
+		RoutingRule:         handler.NewRoutingRuleHandler(service.NewRoutingRuleService(routingRuleRepo)),
 		PostMortem:          handler.NewPostMortemHandler(postMortemSvc, aiSvc),
 		StatusService:       handler.NewStatusServiceHandler(statusServiceSvc),
 		PresetRule:          handler.NewPresetRuleHandler(presetRuleSvc),
@@ -801,10 +819,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		Knowledge:           handler.NewKnowledgeHandler(knowledgeSvc),
 		DiagnosticWorkflow:  handler.NewDiagnosticWorkflowHandler(diagnosticWorkflowSvc),
 		ChangeEvent:         handler.NewChangeEventHandler(changeEventSvc),
-		Inspection:          handler.NewInspectionHandler(inspectionRepo, inspectionSched, inspectionExecutor),
+		Inspection:          handler.NewInspectionHandler(service.NewInspectionService(inspectionRepo), inspectionSched, inspectionExecutor),
 		RecordingRule:       handler.NewRecordingRuleHandler(recordingRuleSvc, zapLogger),
 		BuiltinMetric:       handler.NewBuiltinMetricHandler(builtinMetricSvc, metricFilterSvc, zapLogger),
-		EventPipeline:       handler.NewEventPipelineHandler(eventPipelineRepo, eventPipelineExecRepo, pipelineEngine, eventSvc, zapLogger),
+		EventPipeline:       handler.NewEventPipelineHandler(service.NewEventPipelineService(eventPipelineRepo), service.NewEventPipelineExecutionService(eventPipelineExecRepo), pipelineEngine, eventSvc, zapLogger),
 		Annotation:          handler.NewAnnotationHandler(annotationSvc, zapLogger),
 		SavedView:           handler.NewSavedViewHandler(savedViewSvc, zapLogger),
 		MetricView:          handler.NewMetricViewHandler(metricViewSvc, zapLogger),
@@ -814,7 +832,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		ESIndexPattern:      handler.NewESIndexPatternHandler(esIndexPatternSvc, zapLogger),
 		SiteInfo:            handler.NewSiteInfoHandler(settingSvc),
 		TaskTpl:             handler.NewTaskTplHandler(taskTplSvc, zapLogger),
-		Task:                handler.NewTaskHandler(taskExecutor, taskRecordRepo, zapLogger),
+		Task:                handler.NewTaskHandler(taskExecutor, service.NewTaskRecordService(taskRecordRepo), zapLogger),
 		UserContact:         handler.NewUserContactHandler(userContactSvc, zapLogger),
 		BuiltinDashboard:    handler.NewBuiltinDashboardHandler(builtinDashboardSvc),
 		StatusSubscription:  statusSubHandler,

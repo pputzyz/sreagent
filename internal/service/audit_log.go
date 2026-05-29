@@ -9,6 +9,10 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// AuditLogFilter holds optional filter criteria for listing audit logs.
+// Defined in service layer so handlers don't need to import repository.
+type AuditLogFilter = repository.AuditLogFilter
+
 // maxAsyncAuditLogs caps concurrent async audit-log writes.
 const maxAsyncAuditLogs = 50
 

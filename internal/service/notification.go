@@ -14,10 +14,12 @@ import (
 // NotificationService is the notification routing engine.
 // It dispatches alert events through the v2 notify-rule pipeline.
 type NotificationService struct {
-	subscribeSvc  *SubscribeRuleService
-	notifyRuleSvc *NotifyRuleService
-	ruleRepo      *repository.AlertRuleRepository
-	logger        *zap.Logger
+	subscribeSvc    *SubscribeRuleService
+	notifyRuleSvc   *NotifyRuleService
+	ruleRepo        *repository.AlertRuleRepository
+	inhibitionSvc   *InhibitionRuleService // optional — inhibition check before routing
+	eventRepo       *repository.AlertEventRepository // optional — for fetching firing events
+	logger          *zap.Logger
 }
 
 // NewNotificationService creates a new NotificationService.
@@ -35,6 +37,16 @@ func NewNotificationService(
 	}
 }
 
+// SetInhibitionService injects the inhibition rule service for pre-routing checks.
+func (s *NotificationService) SetInhibitionService(svc *InhibitionRuleService) {
+	s.inhibitionSvc = svc
+}
+
+// SetAlertEventRepository injects the event repository for fetching firing events (inhibition check).
+func (s *NotificationService) SetAlertEventRepository(repo *repository.AlertEventRepository) {
+	s.eventRepo = repo
+}
+
 // RouteAlert is the main routing function. It finds matching notify rules by
 // alert labels/severity, processes each through the v2 pipeline (throttle,
 // dedup, template, media dispatch), and also processes user/team subscriptions.
@@ -46,6 +58,20 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 			zap.Time("silenced_until", *event.SilencedUntil),
 		)
 		return nil
+	}
+
+	// Inhibition check: suppress notification if a higher-priority alert is firing.
+	if s.inhibitionSvc != nil && s.eventRepo != nil {
+		firingEvents, _, err := s.eventRepo.List(ctx, "firing", "", 1, 500)
+		if err == nil && len(firingEvents) > 0 {
+			if s.inhibitionSvc.IsInhibited(ctx, event, firingEvents) {
+				s.logger.Info("notification inhibited by inhibition rule",
+					zap.Uint("event_id", event.ID),
+					zap.String("alert_name", event.AlertName),
+				)
+				return nil
+			}
+		}
 	}
 
 	// Resolve datasource_id from the event's alert rule for routing.

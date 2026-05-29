@@ -7,20 +7,19 @@ import (
 	"go.uber.org/zap"
 
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
 // TaskHandler handles task execution and record API endpoints.
 type TaskHandler struct {
 	executor *service.TaskExecutor
-	recRepo  *repository.TaskRecordRepository
+	recSvc   *service.TaskRecordService
 	logger   *zap.Logger
 }
 
 // NewTaskHandler creates a new TaskHandler.
-func NewTaskHandler(executor *service.TaskExecutor, recRepo *repository.TaskRecordRepository, logger *zap.Logger) *TaskHandler {
-	return &TaskHandler{executor: executor, recRepo: recRepo, logger: logger}
+func NewTaskHandler(executor *service.TaskExecutor, recSvc *service.TaskRecordService, logger *zap.Logger) *TaskHandler {
+	return &TaskHandler{executor: executor, recSvc: recSvc, logger: logger}
 }
 
 // Execute godoc
@@ -142,7 +141,7 @@ func (h *TaskHandler) ListRecords(c *gin.Context) {
 		}
 	}
 
-	list, total, err := h.recRepo.ListRecords(c.Request.Context(), tplID, eventID, status, pq.Page, pq.PageSize)
+	list, total, err := h.recSvc.ListRecords(c.Request.Context(), tplID, eventID, status, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -165,7 +164,7 @@ func (h *TaskHandler) GetRecord(c *gin.Context) {
 		return
 	}
 
-	record, err := h.recRepo.GetRecordByID(c.Request.Context(), id)
+	record, err := h.recSvc.GetRecordByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -188,7 +187,7 @@ func (h *TaskHandler) ListHostRecords(c *gin.Context) {
 		return
 	}
 
-	records, err := h.recRepo.ListHostRecords(c.Request.Context(), id)
+	records, err := h.recSvc.ListHostRecords(c.Request.Context(), id)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
@@ -211,7 +210,7 @@ func (h *TaskHandler) GetHostRecord(c *gin.Context) {
 		return
 	}
 
-	record, err := h.recRepo.GetHostRecordByID(c.Request.Context(), id)
+	record, err := h.recSvc.GetHostRecordByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return

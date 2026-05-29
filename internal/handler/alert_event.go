@@ -11,7 +11,6 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -38,7 +37,7 @@ func (h *AlertEventHandler) SetAuditService(svc *service.AuditLogService) {
 func (h *AlertEventHandler) List(c *gin.Context) {
 	pq := GetPageQuery(c)
 
-	filter := repository.AlertEventFilter{
+	filter := service.AlertEventFilter{
 		Status:   c.Query("status"),
 		Severity: c.Query("severity"),
 		ViewMode: c.Query("view_mode"),
@@ -384,7 +383,7 @@ func (h *AlertEventHandler) BatchClose(c *gin.Context) {
 // Export streams alert events as a CSV file.
 // GET /api/v1/alert-events/export?status=firing&severity=critical&start=RFC3339&end=RFC3339
 func (h *AlertEventHandler) Export(c *gin.Context) {
-	filter := repository.AlertEventFilter{
+	filter := service.AlertEventFilter{
 		Status:   c.Query("status"),
 		Severity: c.Query("severity"),
 		Page:     1,
