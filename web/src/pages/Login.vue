@@ -573,14 +573,14 @@ watch([() => form.value.username, () => form.value.password], () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--sre-warning, #F59E0B);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  background: var(--sre-success, #10B981);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
   animation: status-pulse 2s ease-in-out infinite;
 }
 
 @keyframes status-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-  50%      { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
 }
 
 /* ===== Light mode adjustments ===== */

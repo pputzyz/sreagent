@@ -131,8 +131,8 @@ func Test_decryptAuthConfig_returns_error_on_invalid_ciphertext(t *testing.T) {
 	// attempt the actual decryption rather than returning "key not configured").
 	// Use a valid 32-byte hex key for test purposes.
 	origKey := os.Getenv("SREAGENT_SECRET_KEY")
-	os.Setenv("SREAGENT_SECRET_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	defer os.Setenv("SREAGENT_SECRET_KEY", origKey)
+	_ = os.Setenv("SREAGENT_SECRET_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	defer func() { _ = os.Setenv("SREAGENT_SECRET_KEY", origKey) }()
 
 	// Create a minimal DataSourceService with a nop logger.
 	// decryptAuthConfig is unexported, so we test it through HealthCheck

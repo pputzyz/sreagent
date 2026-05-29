@@ -359,7 +359,7 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 		}
 
 		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("http request returned status %d: %s", resp.StatusCode, string(respBody))
@@ -634,7 +634,7 @@ func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, 
 		}
 
 		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("http post returned status %d: %s", resp.StatusCode, string(respBody))
@@ -999,7 +999,7 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 		}
 
 		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("feishu app returned status %d: %s", resp.StatusCode, string(respBody))
@@ -1115,7 +1115,7 @@ func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.Noti
 		}
 
 		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("wecom app returned status %d: %s", resp.StatusCode, string(respBody))
@@ -1336,7 +1336,7 @@ func (s *NotifyMediaService) sendCustomHTTP(ctx context.Context, media *model.No
 		}
 
 		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("custom_http returned status %d: %s", resp.StatusCode, string(respBody))
