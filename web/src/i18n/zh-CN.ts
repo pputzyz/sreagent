@@ -198,6 +198,9 @@ export default {
     savedViews: '保存的视图',
     ruleTemplates: '规则模板',
     templateLibrary: '模板库',
+    dataIngestion: '数据接入',
+    incidentSupport: '辅助工具',
+    faultHandling: '故障处理',
   },
   header: {
     timezone: '时区',

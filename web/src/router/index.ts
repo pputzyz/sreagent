@@ -26,12 +26,12 @@ const routes: RouteRecordRaw[] = [
       { path: 'oncall/incidents/:id', component: () => import('@/pages/incidents/Detail.vue'), meta: { title: 'route.incidentDetail' } },
       { path: 'oncall/status-page', component: () => import('@/pages/oncall/StatusPage.vue'), meta: { title: 'menu.statusPage' } },
       { path: 'oncall/postmortems', component: () => import('@/pages/incidents/PostMortems.vue'), meta: { title: 'menu.postmortems' } },
-      { path: 'oncall/integrations', component: () => import('@/pages/integrations/Index.vue'), meta: { title: 'menu.integrations', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/integrations', redirect: '/alert/integrations' },
       { path: 'oncall/schedule', component: () => import('@/pages/schedule/Index.vue'), meta: { title: 'menu.schedule', requiresRole: ['admin', 'team_lead'] } },
-      { path: 'oncall/my-alerts', component: () => import('@/pages/oncall/MyAlerts.vue'), meta: { title: 'myAlerts.title' } },
+      { path: 'oncall/my-alerts', redirect: '/alert/events' },
       { path: 'oncall/config/escalation-policies', component: () => import('@/pages/oncall/EscalationPolicies.vue'), meta: { title: 'menu.escalationPolicies' } },
       { path: 'oncall/config/notify-rules', redirect: '/oncall/notify/policies' },
-      { path: 'oncall/config/routing-rules', component: () => import('@/pages/integrations/RoutingRules.vue'), meta: { title: 'menu.routingRules', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/config/routing-rules', redirect: '/alert/routing-rules' },
       { path: 'oncall/config/biz-groups', component: () => import('@/pages/settings/BizGroups.vue'), meta: { title: 'menu.bizGroups', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/config/subscribe-rules', redirect: '/oncall/notify/subscriptions' },
 
@@ -70,6 +70,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/notify/templates', redirect: '/oncall/notify/templates' },
       { path: 'alert/notify/channels', redirect: '/oncall/notify/channels' },
       { path: 'alert/notify/subscriptions', redirect: '/oncall/notify/subscriptions' },
+
+      // ===== Alert — Data Ingestion (moved from oncall notify center) =====
+      { path: 'alert/integrations', component: () => import('@/pages/integrations/Index.vue'), meta: { title: 'menu.integrations', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'alert/routing-rules', component: () => import('@/pages/integrations/RoutingRules.vue'), meta: { title: 'menu.routingRules', requiresRole: ['admin', 'team_lead'] } },
 
       // ===== Platform =====
       { path: 'platform', redirect: '/platform/profile' },

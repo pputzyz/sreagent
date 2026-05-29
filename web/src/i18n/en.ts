@@ -198,6 +198,9 @@ export default {
     savedViews: 'Saved Views',
     ruleTemplates: 'Rule Templates',
     templateLibrary: 'Template Library',
+    dataIngestion: 'Data Ingestion',
+    incidentSupport: 'Support Tools',
+    faultHandling: 'Fault Handling',
   },
   header: {
     timezone: 'Timezone',

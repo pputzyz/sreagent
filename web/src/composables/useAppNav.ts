@@ -131,6 +131,11 @@ function resolveAppFromPath(path: string): AppKey {
   if (path.startsWith('/oncall'))   return 'oncall'
   if (path.startsWith('/alert/datasources')) return 'platform'
   if (path.startsWith('/alert'))    return 'alert'
+  // Items moved from platform to oncall "辅助工具" section
+  if (path.startsWith('/platform/inspections')) return 'oncall'
+  if (path.startsWith('/platform/diagnostic-workflows')) return 'oncall'
+  if (path.startsWith('/platform/change-events')) return 'oncall'
+  if (path === '/platform/knowledge') return 'oncall'
   if (path.startsWith('/platform')) return 'platform'
   if (path.startsWith('/ai'))       return 'platform'
   if (path.startsWith('/notifications')) return 'oncall'
@@ -176,11 +181,10 @@ export function useAppNav() {
           {
             items: [
               { label: t('menu.oncallOverview'), key: '/oncall/overview', icon: HomeOutline },
-              { label: t('myAlerts.title'), key: '/oncall/my-alerts', icon: AlertCircleOutline },
             ],
           },
           {
-            label: t('menu.channels'),
+            label: t('menu.faultHandling'),
             items: [
               { label: t('menu.channels'),       key: '/oncall/spaces', icon: ChatbubblesOutline },
               { label: t('menu.incidents'),       key: '/oncall/incidents', icon: AlertCircleOutline },
@@ -210,8 +214,6 @@ export function useAppNav() {
                   { label: t('menu.notifyPolicies'), key: '/oncall/notify/policies', icon: NotificationsOutline },
                   { label: t('menu.notifyChannels'), key: '/oncall/notify/channels', icon: SendOutline },
                   { label: t('menu.templates'),      key: '/oncall/notify/templates', icon: CopyOutline },
-                  { label: t('menu.integrations'),   key: '/oncall/integrations', icon: LinkOutline },
-                  { label: t('menu.routingRules'),   key: '/oncall/config/routing-rules', icon: GitBranchOutline },
                 )
               }
               items.push(
@@ -228,6 +230,21 @@ export function useAppNav() {
                   { label: t('menu.bizGroups'), key: '/oncall/config/biz-groups', icon: FolderOpenOutline },
                 )
               }
+              return items
+            })(),
+          },
+          {
+            label: t('menu.incidentSupport'),
+            items: (() => {
+              const items: MenuItem[] = []
+              if (authStore.canManage) {
+                items.push(
+                  { label: t('menu.inspection'), key: '/platform/inspections', icon: SearchOutline },
+                  { label: t('menu.diagnosticWorkflows'), key: '/platform/diagnostic-workflows', icon: GitBranchOutline },
+                  { label: t('menu.changeEvents'), key: '/platform/change-events', icon: GitPullRequestOutline },
+                )
+              }
+              items.push({ label: t('menu.knowledge'), key: '/platform/knowledge', icon: BookOutline })
               return items
             })(),
           },
@@ -256,6 +273,20 @@ export function useAppNav() {
                   { label: t('menu.alertRules'),    key: '/alert/rules', icon: ListOutline },
                   { label: t('menu.recordingRules'), key: '/alert/recording-rules', icon: PulseOutline },
                   { label: t('menu.muteRules'),     key: '/alert/suppression', icon: VolumeMuteOutline },
+                  { label: t('menu.eventPipelines'),  key: '/alert/event-pipelines', icon: GitBranchOutline },
+                )
+              }
+              return items
+            })(),
+          },
+          {
+            label: t('menu.dataIngestion'),
+            items: (() => {
+              const items: MenuItem[] = []
+              if (authStore.canManage) {
+                items.push(
+                  { label: t('menu.integrations'),   key: '/alert/integrations', icon: LinkOutline },
+                  { label: t('menu.routingRules'),   key: '/alert/routing-rules', icon: GitBranchOutline },
                 )
               }
               return items
@@ -267,15 +298,10 @@ export function useAppNav() {
               const items: MenuItem[] = []
               items.push(
                 { label: t('menu.dataQuery'),       key: '/alert/explore', icon: SearchOutline },
-                { label: t('menu.metricViews'),     key: '/alert/metric-views', icon: StatsChartOutline },
-                { label: t('menu.esExplorer'),      key: '/alert/es-explore', icon: SearchOutline },
-                { label: t('menu.builtinDashboards'), key: '/alert/dashboards/builtin', icon: LibraryOutline },
               )
               if (authStore.canManage) {
                 items.push(
                   { label: t('menu.esPatterns'),      key: '/alert/es-patterns', icon: SearchOutline },
-                  { label: t('menu.eventPipelines'),  key: '/alert/event-pipelines', icon: GitBranchOutline },
-                  { label: t('menu.builtinMetrics'),  key: '/alert/builtin-metrics', icon: StatsChartOutline },
                   { label: t('menu.dashboard'),       key: '/alert/dashboards', icon: PieChartOutline },
                 )
               }
@@ -311,19 +337,11 @@ export function useAppNav() {
                 items.push({ label: t('menu.audit'), key: '/platform/audit', icon: EyeOutline })
               }
               if (authStore.canManage) {
-                items.push({ label: t('menu.inspection'), key: '/platform/inspections', icon: SearchOutline })
                 items.push({ label: t('menu.taskTpls'), key: '/platform/task-tpls', icon: TerminalOutline })
-                items.push({ label: t('menu.diagnosticWorkflows'), key: '/platform/diagnostic-workflows', icon: GitBranchOutline })
-                items.push({ label: t('menu.changeEvents'), key: '/platform/change-events', icon: GitPullRequestOutline })
               }
               items.push({ label: t('menu.tasks'), key: '/platform/tasks', icon: PlayOutline })
               return items
             })(),
-          },
-          {
-            items: [
-              { label: t('menu.knowledge'), key: '/platform/knowledge', icon: BookOutline },
-            ],
           },
           {
             label: t('menu.systemSettings'),
