@@ -27,6 +27,7 @@ type RecordingRule struct {
 	DatasourceIDs string `json:"-" gorm:"column:datasource_ids;size:1024;not null;default:'[]'"`
 	CronPattern   string `json:"cron_pattern" gorm:"column:cron_pattern;size:64;not null;default:'@every 60s'"`
 	Disabled      int    `json:"disabled" gorm:"column:disabled;not null;default:0"`
+	WriteBack     int    `json:"write_back" gorm:"column:write_back;not null;default:1"` // 1=write results back to datasource, 0=disabled
 	AppendTags    string `json:"-" gorm:"column:append_tags;type:text"`
 	Note          string `json:"note" gorm:"column:note;size:1024;not null;default:''"`
 	QueryConfigs  string `json:"-" gorm:"column:query_configs;type:text"`

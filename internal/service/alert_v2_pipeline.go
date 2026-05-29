@@ -66,6 +66,10 @@ type AlertV2Pipeline struct {
 	// incidentAggregator bridges AlertEvent lifecycle to Incident management.
 	// Optional — when set, called on firing/resolved events.
 	incidentAggregator *IncidentAggregator
+
+	// scheduledDispatchSvc handles deferred/repeating dispatch notifications.
+	// Optional — when set, dispatch policies with delay/repeat are scheduled instead of immediate.
+	scheduledDispatchSvc *ScheduledDispatchService
 }
 
 // NewAlertV2Pipeline creates a new pipeline. Call SetDefaultChannelID before use.
@@ -99,6 +103,11 @@ func (p *AlertV2Pipeline) SetDispatchService(svc *DispatchService) {
 // SetIncidentAggregator attaches an IncidentAggregator for fingerprint-based incident tracking.
 func (p *AlertV2Pipeline) SetIncidentAggregator(agg *IncidentAggregator) {
 	p.incidentAggregator = agg
+}
+
+// SetScheduledDispatchService attaches a ScheduledDispatchService for deferred/repeating dispatch.
+func (p *AlertV2Pipeline) SetScheduledDispatchService(svc *ScheduledDispatchService) {
+	p.scheduledDispatchSvc = svc
 }
 
 // SetDefaultChannelID sets the collaboration channel ID to route alerts to.
@@ -247,22 +256,28 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 			p.logger.Warn("failed to find matching dispatch policy", zap.Error(err), zap.Uint("channel_id", channelID))
 		}
 		if policy != nil {
-			// Warn about unimplemented dispatch fields (delay/repeat/notify_mode)
-			if policy.DelaySeconds > 0 {
-				p.logger.Warn("dispatch policy delay_seconds not yet implemented, dispatching immediately",
-					zap.Uint("policy_id", policy.ID), zap.Int("delay", policy.DelaySeconds))
-			}
-			if policy.RepeatIntervalSeconds > 0 {
-				p.logger.Warn("dispatch policy repeat_interval not yet implemented",
-					zap.Uint("policy_id", policy.ID), zap.Int("repeat_interval", policy.RepeatIntervalSeconds))
-			}
-			if policy.MaxRepeats > 0 {
-				p.logger.Warn("dispatch policy max_repeats not yet implemented",
-					zap.Uint("policy_id", policy.ID), zap.Int("max_repeats", policy.MaxRepeats))
-			}
-			if policy.NotifyMode == "unified" {
-				p.logger.Warn("dispatch policy unified notify_mode not yet implemented, using personal_preference",
-					zap.Uint("policy_id", policy.ID))
+			// Schedule deferred/repeating dispatch if policy has delay or repeat configured
+			if p.scheduledDispatchSvc != nil && (policy.DelaySeconds > 0 || policy.RepeatIntervalSeconds > 0) {
+				dispatch := &model.ScheduledDispatch{
+					IncidentID:     0, // will be set by incident aggregator
+					EventID:        event.ID,
+					Fingerprint:    event.Fingerprint,
+					PolicyID:       policy.ID,
+					ChannelID:      channelID,
+					NotifyMode:     policy.NotifyMode,
+					DispatchAt:     time.Now().Add(time.Duration(policy.DelaySeconds) * time.Second),
+					RepeatCount:    0,
+					MaxRepeats:     policy.MaxRepeats,
+					RepeatInterval: policy.RepeatIntervalSeconds,
+					Status:         model.ScheduledDispatchPending,
+				}
+				if err := p.scheduledDispatchSvc.Schedule(ctx, dispatch); err != nil {
+					p.logger.Error("failed to schedule dispatch",
+						zap.Uint("policy_id", policy.ID),
+						zap.Uint("event_id", event.ID),
+						zap.Error(err),
+					)
+				}
 			}
 
 			// Propagate the dispatch policy's escalation policy to the event

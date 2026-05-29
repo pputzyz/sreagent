@@ -22,6 +22,10 @@ type IncidentService struct {
 	channelSvc *ChannelService
 	alertRepo  *repository.AlertRepository // optional, for merge alert migration
 	logger     *zap.Logger
+
+	// onStatusChange is called when an incident transitions to processing (ack) or closed.
+	// Used to cancel pending scheduled dispatches.
+	onStatusChange func(ctx context.Context, incidentID uint, newStatus model.IncidentStatus)
 }
 
 func NewIncidentService(repo *repository.IncidentRepository, channelSvc *ChannelService, logger *zap.Logger) *IncidentService {
@@ -31,6 +35,11 @@ func NewIncidentService(repo *repository.IncidentRepository, channelSvc *Channel
 // SetAlertRepository injects the alert repository for incident merge operations.
 func (s *IncidentService) SetAlertRepository(ar *repository.AlertRepository) {
 	s.alertRepo = ar
+}
+
+// SetOnStatusChange sets a callback that fires when an incident is acknowledged or closed.
+func (s *IncidentService) SetOnStatusChange(fn func(ctx context.Context, incidentID uint, newStatus model.IncidentStatus)) {
+	s.onStatusChange = fn
 }
 
 // validTransitions defines the allowed status transitions for incidents.
@@ -160,6 +169,11 @@ func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) erro
 		zap.L().Error("failed to acknowledge assignee", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
+	// Fire status change callback (cancels scheduled dispatches)
+	if s.onStatusChange != nil {
+		s.onStatusChange(ctx, id, model.IncidentStatusProcessing)
+	}
+
 	// Timeline
 	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
 		IncidentID: id,
@@ -198,6 +212,11 @@ func (s *IncidentService) Close(ctx context.Context, id, userID uint) error {
 	}
 	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusClosed, updates); err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	// Fire status change callback (cancels scheduled dispatches)
+	if s.onStatusChange != nil {
+		s.onStatusChange(ctx, id, model.IncidentStatusClosed)
 	}
 
 	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{

@@ -1,0 +1,20 @@
+CREATE TABLE scheduled_dispatches (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    incident_id BIGINT UNSIGNED NOT NULL,
+    event_id BIGINT UNSIGNED NOT NULL,
+    fingerprint VARCHAR(256) NOT NULL,
+    policy_id BIGINT UNSIGNED NOT NULL,
+    channel_id BIGINT UNSIGNED NOT NULL,
+    notify_mode VARCHAR(32) NOT NULL DEFAULT 'unified',
+    dispatch_at DATETIME NOT NULL,
+    repeat_count INT NOT NULL DEFAULT 0,
+    max_repeats INT NOT NULL DEFAULT 0,
+    repeat_interval INT NOT NULL DEFAULT 0,
+    status VARCHAR(32) NOT NULL DEFAULT 'pending',
+    last_error TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_dispatch_at (dispatch_at, status),
+    INDEX idx_incident (incident_id),
+    INDEX idx_fingerprint (fingerprint)
+)

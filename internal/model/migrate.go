@@ -45,6 +45,7 @@ func V2Models() []interface{} {
 		// Dispatch
 		&DispatchPolicy{},
 		&DispatchLog{},
+		&ScheduledDispatch{},
 		// Alert rule templates
 		&AlertRuleTemplate{},
 	}

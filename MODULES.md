@@ -445,6 +445,7 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 | **降噪引擎** NoiseReducer | service/noise_reducer.go | ✅ 生产就绪 | 排除规则 + 聚合 + 风暴预警 + 抖动检测 |
 | **排除规则** ExclusionRule | repo/service/handler/exclusion_rule.go | ✅ 生产就绪 | Per-channel 排除规则 CRUD |
 | **分派策略** DispatchPolicy | model/dispatch.go + repo/service/dispatch.go + handler/dispatch.go | ✅ 生产就绪 | 触发条件 + 延迟 + 重复 + 标签增强 + 升级绑定 + 分派日志查看 |
+| **定时调度** ScheduledDispatch | model/scheduled_dispatch.go + repo/service/scheduled_dispatch.go | ✅ 生产就绪 | 延迟调度 + 重复通知 + 确认/关闭自动取消 + 后台 worker |
 | **Webhook 集成** Integration | model/integration.go + repo/service/integration.go + handler/integration.go | ✅ 生产就绪 | Standard/AlertManager/Grafana 三格式 + Pipeline + 限流 100/s |
 | **路由规则** RoutingRule | model/integration.go + repo/integration.go | ✅ 生产就绪 | 共享集成的 label 路由 |
 | **故障复盘** PostMortem | model/incident.go + repo/service/handler/post_mortem.go | ✅ 生产就绪 | CRUD + AI 生成初稿 + 发布 |
@@ -468,6 +469,7 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 | 000031 | create_dispatch_policies | dispatch_policies |
 | 000032 | create_dispatch_logs | dispatch_logs |
 | 000033 | alert_rule_channel | ALTER alert_rules ADD channel_id |
+| 000103 | scheduled_dispatch | scheduled_dispatches |
 
 ---
 

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/prometheus/prompb"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -19,10 +20,8 @@ import (
 // RecordingRuleEngine executes recording rules on a cron schedule.
 // Each enabled rule runs independently via its own cron entry.
 // The engine reads PromQL from the rule, queries the datasource,
-// and records the execution outcome (success/failure/duration).
-//
-// Phase 1: validates queries and logs results.
-// Phase 2 (future): writes results back as new time series via remote-write.
+// and writes results back as new time series via remote_write (Phase 2).
+// Execution outcomes (success/failure/duration) are recorded for audit.
 type RecordingRuleEngine struct {
 	ruleRepo  *repository.RecordingRuleRepository
 	dsRepo    *repository.DataSourceRepository
@@ -293,17 +292,33 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 			zap.Int("series", len(results)),
 		)
 
-		// Phase 1 limitation: query is validated and execution recorded, but results
-		// are NOT written back to the datasource as new time series.
-		// Users expecting derived metrics (e.g. instance:cpu_usage:5m_avg) to appear
-		// in Prometheus will see "no data" — this is a known limitation until Phase 2
-		// implements remote-write support.
-		e.logger.Warn("recording rule: Phase 1 — query validated but results NOT written back to datasource",
-			zap.Uint("rule_id", rule.ID),
-			zap.String("name", rule.Name),
-			zap.String("metric", rule.Name),
-			zap.Int("series_count", len(results)),
-		)
+		// Write results back to the datasource as new time series (Phase 2).
+		if rule.WriteBack == 1 && len(results) > 0 {
+			series := convertToTimeSeries(rule.Name, rule.AppendTagsJSON, results)
+			writer := datasource.NewRemoteWriteClient(ds.Endpoint, ds.AuthType, ds.AuthConfig, 30*time.Second)
+			if err := writer.Write(ctx, series); err != nil {
+				e.logger.Error("recording rule: failed to write back",
+					zap.Uint("rule_id", rule.ID),
+					zap.String("name", rule.Name),
+					zap.String("datasource", ds.Name),
+					zap.Error(err),
+				)
+				lastErr = err
+				continue
+			}
+			e.logger.Info("recording rule: wrote back time series",
+				zap.Uint("rule_id", rule.ID),
+				zap.String("name", rule.Name),
+				zap.String("metric", rule.Name),
+				zap.String("datasource", ds.Name),
+				zap.Int("series_count", len(series)),
+			)
+		} else if rule.WriteBack == 0 {
+			e.logger.Debug("recording rule: write-back disabled, skipping",
+				zap.Uint("rule_id", rule.ID),
+				zap.String("name", rule.Name),
+			)
+		}
 	}
 
 	duration := time.Since(start)
@@ -343,5 +358,62 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 			zap.Error(err),
 		)
 	}
+}
+
+// convertToTimeSeries converts datasource query results into Prometheus remote_write TimeSeries.
+// The metricName becomes the __name__ label; original labels are preserved.
+// appendTags are added as extra labels (format: "key=value").
+func convertToTimeSeries(metricName string, appendTags []string, results []datasource.QueryResult) []prompb.TimeSeries {
+	series := make([]prompb.TimeSeries, 0, len(results))
+
+	for _, r := range results {
+		labels := []prompb.Label{
+			{Name: "__name__", Value: metricName},
+		}
+
+		// Preserve original labels (skip original __name__ since we override it).
+		for k, v := range r.Labels {
+			if k == "__name__" {
+				continue
+			}
+			labels = append(labels, prompb.Label{Name: k, Value: v})
+		}
+
+		// Append extra tags from the rule configuration.
+		for _, tag := range appendTags {
+			parts := splitTag(tag)
+			if len(parts) == 2 {
+				labels = append(labels, prompb.Label{Name: parts[0], Value: parts[1]})
+			}
+		}
+
+		// Convert each data point to a Sample.
+		samples := make([]prompb.Sample, 0, len(r.Values))
+		for _, dp := range r.Values {
+			samples = append(samples, prompb.Sample{
+				Value:     dp.Value,
+				Timestamp: dp.Timestamp.UnixMilli(),
+			})
+		}
+
+		if len(samples) > 0 {
+			series = append(series, prompb.TimeSeries{
+				Labels:  labels,
+				Samples: samples,
+			})
+		}
+	}
+
+	return series
+}
+
+// splitTag splits a "key=value" tag into [key, value]. Returns nil if invalid.
+func splitTag(tag string) []string {
+	for i := 0; i < len(tag); i++ {
+		if tag[i] == '=' {
+			return []string{tag[:i], tag[i+1:]}
+		}
+	}
+	return nil
 }
 

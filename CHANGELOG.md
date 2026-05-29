@@ -4,6 +4,43 @@
 
 ---
 
+## [v4.57.0] — 2026-05-29
+
+### B1 + B2 功能实现 — Recording Rule 写回 + Dispatch 延迟/重复
+
+**B1: Recording Rule Phase 2 — remote_write 回写**
+- RemoteWriteClient（snappy + protobuf + Prometheus remote_write 协议）
+- RunOnce 查询成功后自动写回数据源（metric 名 = rule.Name）
+- recording_rules 表新增 write_back 列（迁移: 000102）
+- 支持 Prometheus 和 VictoriaMetrics
+
+**B2: Dispatch Policy 延迟/重复/通知模式**
+- DelaySeconds > 0 → 延迟 N 秒后首次派发
+- RepeatIntervalSeconds > 0 → 每 N 秒重复通知
+- MaxRepeats=0 无限重复，MaxRepeats=N 限制次数
+- NotifyMode: unified（群组渠道）/ personal_preference（个人渠道）
+- Incident 确认/关闭自动取消待处理调度
+- 新增 scheduled_dispatches 表（迁移: 000103）
+- 后台 worker 每 30s 轮询到期调度项
+
+**新增文件**
+- `internal/pkg/datasource/remote_write.go`
+- `internal/model/scheduled_dispatch.go`
+- `internal/repository/scheduled_dispatch.go`
+- `internal/service/scheduled_dispatch.go`
+- 新增 `RemoteWriteClient`：通过 Prometheus remote_write 协议将 recording rule 查询结果写回数据源
+- `RunOnce` 执行后自动将结果转换为 `prompb.TimeSeries` 并通过 snappy 压缩的 protobuf 写入
+- 新增 `write_back` 字段（默认开启），支持按规则启停回写
+- 保留原始查询标签 + 支持 `append_tags` 附加标签
+
+**数据模型**
+- `recording_rules` 新增 `write_back` 列（迁移: 000102_recording_rule_write_back）
+
+**新增文件**
+- `internal/pkg/datasource/remote_write.go` — remote_write 客户端
+
+---
+
 ## [v4.56.0] — 2026-05-29
 
 ### 整改 Plan A 组 + C5 + 侧边栏默认展开

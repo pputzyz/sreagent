@@ -153,6 +153,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	userNotifyConfigRepo := repository.NewUserNotifyConfigRepository(db)
 	systemSettingRepo := repository.NewSystemSettingRepository(db)
 
+	// Scheduled dispatch repository
+	scheduledDispatchRepo := repository.NewScheduledDispatchRepository(db)
+
 	// Status service repository
 	statusServiceRepo := repository.NewStatusServiceRepository(db)
 
@@ -260,6 +263,21 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	exclusionRuleSvc := service.NewExclusionRuleService(exclusionRuleRepo, zapLogger)
 	noiseReducer := service.NewNoiseReducer(channelV2Repo, exclusionRuleRepo, zapLogger)
 	dispatchSvc := service.NewDispatchService(dispatchPolicyRepo, dispatchLogRepo, zapLogger)
+
+	// Scheduled dispatch service (deferred/repeating notifications from dispatch policies)
+	scheduledDispatchSvc := service.NewScheduledDispatchService(
+		scheduledDispatchRepo, dispatchPolicyRepo, eventRepo,
+		notifyMediaSvc, messageTemplateSvc, notifyMediaRepo, zapLogger,
+	)
+
+	// Cancel scheduled dispatches when incident is acknowledged or closed
+	incidentSvc.SetOnStatusChange(func(ctx context.Context, incID uint, _ model.IncidentStatus) {
+		if err := scheduledDispatchSvc.CancelByIncident(ctx, incID); err != nil {
+			zapLogger.Warn("failed to cancel scheduled dispatches on incident status change",
+				zap.Uint("incident_id", incID), zap.Error(err))
+		}
+	})
+
 	postMortemSvc := service.NewPostMortemService(postMortemRepo, incidentRepo, zapLogger)
 
 	// Dispatch services
@@ -545,6 +563,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	alertV2Pipeline.InitDefaultChannel(context.Background())
 	alertV2Pipeline.SetNoiseReducer(noiseReducer)
 	alertV2Pipeline.SetDispatchService(dispatchSvc)
+	alertV2Pipeline.SetScheduledDispatchService(scheduledDispatchSvc)
 
 	// Wire default channel ID into noise reducer so ShouldSuppress works for engine alerts
 	// (which don't carry _channel_id label).
@@ -561,6 +580,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Start the incident auto-close background worker.
 	incidentSvc.StartAutoCloseWorker(appCtx)
+
+	// Start the scheduled dispatch background worker.
+	scheduledDispatchSvc.StartWorker(appCtx)
 
 	// Wire the heartbeat checker into the notification pipeline.
 	heartbeatChecker.SetOnAlert(onAlertFn)
