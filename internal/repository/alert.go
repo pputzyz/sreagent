@@ -115,6 +115,25 @@ func (r *AlertRepository) LinkToIncident(ctx context.Context, alertID, incidentI
 		Update("incident_id", incidentID).Error
 }
 
+// BulkUpdateIncidentID moves all alerts from one incident to another.
+// Used during incident merge to migrate source alerts to the target.
+func (r *AlertRepository) BulkUpdateIncidentID(ctx context.Context, fromIncidentID, toIncidentID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Alert{}).
+		Where("incident_id = ?", fromIncidentID).
+		Update("incident_id", toIncidentID).Error
+}
+
+// CountByIncidentID returns the number of alerts linked to an incident.
+func (r *AlertRepository) CountByIncidentID(ctx context.Context, incidentID uint) (int, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Alert{}).
+		Where("incident_id = ?", incidentID).
+		Count(&count).Error
+	return int(count), err
+}
+
 // --- AlertEventV2 ---
 
 func (r *AlertRepository) CreateEvent(ctx context.Context, event *model.AlertEventV2) error {

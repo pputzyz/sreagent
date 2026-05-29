@@ -255,6 +255,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// v2 collaboration channel, incident, alert, noise-reduction & dispatch services
 	channelV2Svc := service.NewChannelService(channelV2Repo, zapLogger)
 	incidentSvc := service.NewIncidentService(incidentRepo, channelV2Svc, zapLogger)
+	incidentSvc.SetAlertRepository(alertV2Repo) // for incident merge alert migration
 	alertV2Svc := service.NewAlertV2Service(alertV2Repo, zapLogger)
 	exclusionRuleSvc := service.NewExclusionRuleService(exclusionRuleRepo, zapLogger)
 	noiseReducer := service.NewNoiseReducer(channelV2Repo, exclusionRuleRepo, zapLogger)
@@ -543,8 +544,12 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	alertV2Pipeline.SetNoiseReducer(noiseReducer)
 	alertV2Pipeline.SetDispatchService(dispatchSvc)
 
+	// Wire default channel ID into noise reducer so ShouldSuppress works for engine alerts
+	// (which don't carry _channel_id label).
+	noiseReducer.SetDefaultChannelID(alertV2Pipeline.GetDefaultChannelID())
+
 	// Incident aggregator: bridges AlertEvent fingerprint to Incident lifecycle.
-	incidentAggregator := service.NewIncidentAggregator(incidentSvc, eventRepo, incidentRepo, zapLogger)
+	incidentAggregator := service.NewIncidentAggregator(incidentSvc, eventRepo, incidentRepo, alertV2Pipeline.GetDefaultChannelID(), zapLogger)
 	alertV2Pipeline.SetIncidentAggregator(incidentAggregator)
 
 	onAlertFn = alertV2Pipeline.WrapOnAlert(onAlertFn)

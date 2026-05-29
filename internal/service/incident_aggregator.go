@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -13,23 +15,26 @@ import (
 // IncidentAggregator bridges AlertEvent lifecycle to Incident management.
 // When alerts fire/resolve, it automatically creates/updates/resolves incidents.
 type IncidentAggregator struct {
-	incidentSvc *IncidentService
-	eventRepo   *repository.AlertEventRepository
-	incidentRepo *repository.IncidentRepository
-	logger      *zap.Logger
+	incidentSvc    *IncidentService
+	eventRepo      *repository.AlertEventRepository
+	incidentRepo   *repository.IncidentRepository
+	defaultChannelID uint // injected from pipeline
+	logger         *zap.Logger
 }
 
 func NewIncidentAggregator(
 	incidentSvc *IncidentService,
 	eventRepo *repository.AlertEventRepository,
 	incidentRepo *repository.IncidentRepository,
+	defaultChannelID uint,
 	logger *zap.Logger,
 ) *IncidentAggregator {
 	return &IncidentAggregator{
-		incidentSvc:  incidentSvc,
-		eventRepo:    eventRepo,
-		incidentRepo: incidentRepo,
-		logger:       logger,
+		incidentSvc:    incidentSvc,
+		eventRepo:      eventRepo,
+		incidentRepo:   incidentRepo,
+		defaultChannelID: defaultChannelID,
+		logger:         logger,
 	}
 }
 
@@ -44,13 +49,22 @@ func (a *IncidentAggregator) OnEventFired(ctx context.Context, event *model.Aler
 	// Find open incident with matching fingerprint
 	existing, err := a.incidentRepo.FindOpenByFingerprint(ctx, event.Fingerprint)
 	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			// Transient DB error — do NOT create a duplicate incident
+			a.logger.Error("failed to find open incident by fingerprint",
+				zap.String("fingerprint", event.Fingerprint),
+				zap.Error(err),
+			)
+			return
+		}
 		// No existing incident — create a new one
 		inc := &model.Incident{
 			Title:       event.AlertName,
 			Description: event.Annotations["summary"],
 			Severity:    toIncidentSeverity(event.Severity),
 			Status:      model.IncidentStatusTriggered,
-			ChannelID:   1, // default channel
+			ChannelID:   a.defaultChannelID,
+			Fingerprint: event.Fingerprint,
 			Labels:      event.Labels,
 			TriggeredAt: event.FiredAt,
 			AlertCount:  1,

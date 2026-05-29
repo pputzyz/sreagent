@@ -108,6 +108,11 @@ func (s *DispatchService) ListLogsByIncident(ctx context.Context, incidentID uin
 	return list, nil
 }
 
+// CreateLog persists a dispatch log entry.
+func (s *DispatchService) CreateLog(ctx context.Context, log *model.DispatchLog) error {
+	return s.logRepo.Create(ctx, log)
+}
+
 func (s *DispatchService) Delete(ctx context.Context, id uint) error {
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		if err == gorm.ErrRecordNotFound {

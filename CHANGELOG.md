@@ -4,6 +4,33 @@
 
 ---
 
+## [v4.52.0] — 2026-05-29
+
+### 审查 06 — 协作 v2（incident 聚合 + 集成 + 噪声 + dispatch）P0/P1/P2 全量修复
+
+**Incident 聚合架构重构 (2 P0 + 3 P1 + 1 P2)**
+- **P0-1**: IncidentAggregator 创建 incident 时写入 Fingerprint（不再每次新建）
+- **P0-2**: 删除 ensureIncident 通道级路径，统一为 fingerprint 级聚合
+- **P1-1**: ensureIncident 已删除（通道级聚合不再竞争）
+- **P1-2**: Resolution 路径改走 aggregator.OnEventResolved（正确关闭 incident）
+- **P1-7**: aggregator 仅在 gorm.ErrRecordNotFound 时创建（DB 抖动不再误建）
+- **P2-3**: aggregator ChannelID 去硬编码，注入 defaultChannelID
+
+**集成正确性 (2 P1)**
+- **P1-3**: webhook 合成事件生成 fingerprint（integ:id|labels|title 的 MD5）
+- **P1-4**: shared 模式每条告警重置 channelID（不再跨告警残留）
+
+**噪声抑制 + Dispatch (2 P1 + 4 P2)**
+- **P1-5**: DispatchPolicy 未实现字段添加 warn 日志
+- **P1-6**: DispatchLog 写入（pipeline 应用策略后记录）
+- **P2-1**: NoiseReducer flap/storm 状态纯内存说明
+- **P2-2**: ShouldSuppress 回退 defaultChannelID（引擎告警排除规则生效）
+- **P2-4**: 集成限流注释更正为 fixed-window counter
+- **P2-5**: Incident Merge 迁移 source alerts 到 target
+- **P2-6**: 异步任务丢弃升级为 Error 日志 + 原子计数器
+
+---
+
 ## [v4.51.0] — 2026-05-29
 
 ### 审查 04+05 — 通知管道 + 值班排班/升级策略 P0/P1/P2 全量修复

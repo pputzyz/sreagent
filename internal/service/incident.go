@@ -20,11 +20,17 @@ const incidentAutoCloseInterval = 5 * time.Minute
 type IncidentService struct {
 	repo       *repository.IncidentRepository
 	channelSvc *ChannelService
+	alertRepo  *repository.AlertRepository // optional, for merge alert migration
 	logger     *zap.Logger
 }
 
 func NewIncidentService(repo *repository.IncidentRepository, channelSvc *ChannelService, logger *zap.Logger) *IncidentService {
 	return &IncidentService{repo: repo, channelSvc: channelSvc, logger: logger}
+}
+
+// SetAlertRepository injects the alert repository for incident merge operations.
+func (s *IncidentService) SetAlertRepository(ar *repository.AlertRepository) {
+	s.alertRepo = ar
 }
 
 // validTransitions defines the allowed status transitions for incidents.
@@ -326,7 +332,7 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	_, err = s.repo.GetByID(ctx, targetID)
+	target, err := s.repo.GetByID(ctx, targetID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return apperr.WithMessage(apperr.ErrIncidentNotFound, "target incident not found")
@@ -343,6 +349,23 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 	source.ClosedAt = &now
 	if err := s.repo.Update(ctx, source); err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	// Migrate alerts from source to target
+	if s.alertRepo != nil {
+		if err := s.alertRepo.BulkUpdateIncidentID(ctx, source.ID, target.ID); err != nil {
+			s.logger.Error("failed to migrate alerts during merge",
+				zap.Uint("source", sourceID), zap.Uint("target", targetID), zap.Error(err))
+		} else {
+			// Recount alerts on target
+			if count, err := s.alertRepo.CountByIncidentID(ctx, target.ID); err == nil {
+				target.AlertCount = count
+				if err := s.repo.Update(ctx, target); err != nil {
+					s.logger.Error("failed to update target alert count after merge",
+						zap.Uint("target", targetID), zap.Error(err))
+				}
+			}
+		}
 	}
 
 	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{

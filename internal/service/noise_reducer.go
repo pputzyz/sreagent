@@ -42,6 +42,10 @@ type NoiseReducer struct {
 	exclusionRepo    *repository.ExclusionRuleRepository
 	logger           *zap.Logger
 
+	// defaultChannelID is the fallback channel used when an alert event
+	// does not carry a _channel_id label (e.g. engine-fired alerts).
+	defaultChannelID uint
+
 	// In-memory flapping tracker: key = "channelID:alertKey", value = flap state
 	flapMu     sync.Mutex
 	flapStates map[string]*flapState
@@ -75,6 +79,11 @@ func NewNoiseReducer(
 		flapStates:    make(map[string]*flapState),
 		stormCounters: make(map[string]*stormCounter),
 	}
+}
+
+// SetDefaultChannelID sets the fallback channel ID for alerts without _channel_id label.
+func (nr *NoiseReducer) SetDefaultChannelID(id uint) {
+	nr.defaultChannelID = id
 }
 
 // Evaluate runs all noise reduction checks for an alert event in the given channel.
@@ -123,6 +132,9 @@ func (nr *NoiseReducer) ShouldSuppress(ctx context.Context, event *model.AlertEv
 	var channelID uint
 	if chStr, ok := event.Labels["_channel_id"]; ok && chStr != "" {
 		_, _ = fmt.Sscanf(chStr, "%d", &channelID)
+	}
+	if channelID == 0 {
+		channelID = nr.defaultChannelID // fallback for engine alerts
 	}
 	if channelID == 0 {
 		return false, ""

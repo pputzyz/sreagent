@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"crypto/md5"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -17,6 +20,9 @@ import (
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 )
+
+// integrationDropped counts async tasks dropped due to full semaphore.
+var integrationDropped int64
 
 // NormalizedAlert is a canonical representation of an inbound alert,
 // regardless of whether it came from standard/AlertManager/Grafana format.
@@ -32,7 +38,10 @@ type NormalizedAlert struct {
 	EndsAt      *time.Time
 }
 
-// ---- Rate limiter (token bucket, per integration) ----
+// ---- Rate limiter (fixed-window counter, per integration) ----
+// Note: current implementation is a fixed-window counter, not a true token bucket.
+// Window boundaries may allow ~2x burst. For strict rate limiting, consider
+// golang.org/x/time/rate or a sliding window approach.
 
 type rateLimiter struct {
 	mu           sync.Mutex
@@ -232,11 +241,16 @@ func (s *IntegrationService) ReceiveAlerts(ctx context.Context, token string, ra
 			return fmt.Errorf("list routing rules: %w", err)
 		}
 		for _, alert := range alerts {
+			// Reset to integration default each iteration to prevent stale channelID leaking
+			iterChannelID := uint(0)
+			if integ.ChannelID != nil {
+				iterChannelID = *integ.ChannelID
+			}
 			targetID := s.matchRoutingRule(rules, alert.Labels, string(alert.Severity))
 			if targetID > 0 {
-				channelID = targetID
+				iterChannelID = targetID
 			}
-			s.injectAndRoute(ctx, integ, alert, channelID)
+			s.injectAndRoute(ctx, integ, alert, iterChannelID)
 		}
 	} else {
 		for _, alert := range alerts {
@@ -252,7 +266,9 @@ func (s *IntegrationService) ReceiveAlerts(ctx context.Context, token string, ra
 			_ = s.repo.IncrTotalAlerts(context.Background(), integ.ID)
 		}()
 	default:
-		s.logger.Warn("dropping async integration counter increment, too many in flight")
+		total := atomic.AddInt64(&integrationDropped, 1)
+		s.logger.Error("dropping async integration counter increment, too many in flight",
+			zap.Int64("total_dropped", total))
 	}
 
 	return nil
@@ -292,14 +308,15 @@ func (s *IntegrationService) injectAndRoute(ctx context.Context, integ *model.In
 	}
 
 	syntheticEvent := &model.AlertEvent{
-		AlertName:    alert.Title,
-		Severity:     alert.Severity,
-		Status:       status,
-		Labels:       labels,
-		Annotations:  annotations,
-		Source:       string(integ.Type),
+		AlertName:   alert.Title,
+		Severity:    alert.Severity,
+		Status:      status,
+		Labels:      labels,
+		Annotations: annotations,
+		Source:      string(integ.Type),
+		Fingerprint: generateIntegrationFingerprint(integ.ID, alert.Labels, alert.Title),
 		GeneratorURL: alert.GeneratorURL,
-		FiredAt:      alert.StartsAt,
+		FiredAt:     alert.StartsAt,
 	}
 
 	select {
@@ -317,7 +334,11 @@ func (s *IntegrationService) injectAndRoute(ctx context.Context, integ *model.In
 			}
 		}()
 	default:
-		s.logger.Warn("dropping async integration pipeline task, too many in flight")
+		total := atomic.AddInt64(&integrationDropped, 1)
+		s.logger.Error("dropping async integration pipeline task, too many in flight",
+			zap.Int("capacity", maxAsyncIntegrationTasks),
+			zap.Int64("total_dropped", total),
+			zap.Uint("integration_id", integ.ID))
 	}
 }
 
@@ -661,4 +682,25 @@ func parseTime(s string) time.Time {
 		}
 	}
 	return time.Now()
+}
+
+// generateIntegrationFingerprint creates a deterministic fingerprint for a
+// synthetic alert event so that dedup, incident aggregation, and resolution
+// tracking work correctly for webhook-sourced alerts.
+func generateIntegrationFingerprint(integrationID uint, labels map[string]string, title string) string {
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "integ:%d|", integrationID)
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s=%s,", k, labels[k])
+	}
+	b.WriteString(title)
+
+	hash := md5.Sum([]byte(b.String()))
+	return fmt.Sprintf("%x", hash)
 }

@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -15,6 +16,9 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/repository"
 )
+
+// v2PipelineDropped counts async tasks dropped due to full semaphore.
+var v2PipelineDropped int64
 
 // AlertV2Pipeline is the bridge between the legacy alert engine and the v2
 // Alert → Incident data model. It is designed as a non-invasive hook:
@@ -90,6 +94,11 @@ func (p *AlertV2Pipeline) SetDefaultChannelID(id uint) {
 	p.defaultChannelID = id
 }
 
+// GetDefaultChannelID returns the default channel ID.
+func (p *AlertV2Pipeline) GetDefaultChannelID() uint {
+	return p.defaultChannelID
+}
+
 // InitDefaultChannel looks up (or creates) the default channel and caches its ID.
 func (p *AlertV2Pipeline) InitDefaultChannel(ctx context.Context) {
 	channels, err := p.channelRepo.ListActive(ctx)
@@ -139,7 +148,11 @@ func (p *AlertV2Pipeline) WrapOnAlert(
 				}
 			}()
 		default:
-			p.logger.Warn("dropping async v2 pipeline task, too many in flight")
+			total := atomic.AddInt64(&v2PipelineDropped, 1)
+			p.logger.Error("dropping async v2 pipeline task, too many in flight",
+				zap.Int("capacity", maxAsyncPipelineTasks),
+				zap.Int64("total_dropped", total),
+				zap.Uint("event_id", event.ID))
 		}
 	}
 }
@@ -222,6 +235,24 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 			p.logger.Warn("failed to find matching dispatch policy", zap.Error(err), zap.Uint("channel_id", channelID))
 		}
 		if policy != nil {
+			// Warn about unimplemented dispatch fields (delay/repeat/notify_mode)
+			if policy.DelaySeconds > 0 {
+				p.logger.Warn("dispatch policy delay_seconds not yet implemented, dispatching immediately",
+					zap.Uint("policy_id", policy.ID), zap.Int("delay", policy.DelaySeconds))
+			}
+			if policy.RepeatIntervalSeconds > 0 {
+				p.logger.Warn("dispatch policy repeat_interval not yet implemented",
+					zap.Uint("policy_id", policy.ID), zap.Int("repeat_interval", policy.RepeatIntervalSeconds))
+			}
+			if policy.MaxRepeats > 0 {
+				p.logger.Warn("dispatch policy max_repeats not yet implemented",
+					zap.Uint("policy_id", policy.ID), zap.Int("max_repeats", policy.MaxRepeats))
+			}
+			if policy.NotifyMode == "unified" {
+				p.logger.Warn("dispatch policy unified notify_mode not yet implemented, using personal_preference",
+					zap.Uint("policy_id", policy.ID))
+			}
+
 			// Propagate the dispatch policy's escalation policy to the event
 			// so the escalation executor can use it directly.
 			if policy.EscalationPolicyID != nil {
@@ -243,30 +274,31 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 					event.Labels[k] = v
 				}
 			}
+
+			// Write dispatch log entry (Bug 4)
+			if err := p.dispatchSvc.CreateLog(ctx, &model.DispatchLog{
+				DispatchPolicyID: policy.ID,
+				Status:           "applied",
+				Attempt:          1,
+				Note:             fmt.Sprintf("applied to event %d, channel %d", event.ID, channelID),
+			}); err != nil {
+				p.logger.Warn("failed to create dispatch log", zap.Error(err))
+			}
 		}
 	}
 
 	// 2. Upsert Alert record
-	alert, err := p.upsertAlert(ctx, alertKey, event, severity, eventStatus, channelID)
-	if err != nil {
+	if _, err := p.upsertAlert(ctx, alertKey, event, severity, eventStatus, channelID); err != nil {
 		return fmt.Errorf("upsert alert: %w", err)
 	}
 
-	// 3. Drive Incident lifecycle
-	if eventStatus == model.AlertEventV2StatusFiring {
-		if err := p.ensureIncident(ctx, alert, event); err != nil {
-			return fmt.Errorf("ensure incident: %w", err)
-		}
-		// 3a. Fingerprint-based incident aggregation (optional)
-		if p.incidentAggregator != nil {
+	// 3. Drive Incident lifecycle via fingerprint-level aggregator (canonical path).
+	// Channel-level ensureIncident is removed — the aggregator handles all
+	// incident creation, aggregation, and closing.
+	if p.incidentAggregator != nil {
+		if eventStatus == model.AlertEventV2StatusFiring {
 			p.incidentAggregator.OnEventFired(ctx, event)
-		}
-	} else {
-		if err := p.handleResolution(ctx, alert); err != nil {
-			return fmt.Errorf("handle resolution: %w", err)
-		}
-		// 3b. Fingerprint-based incident aggregation (optional)
-		if p.incidentAggregator != nil {
+		} else {
 			p.incidentAggregator.OnEventResolved(ctx, event)
 		}
 	}
@@ -359,145 +391,6 @@ func (p *AlertV2Pipeline) upsertAlert(
 	return existing, nil
 }
 
-// ensureIncident finds an open Incident for the alert's channel, or creates one.
-func (p *AlertV2Pipeline) ensureIncident(ctx context.Context, alert *model.Alert, event *model.AlertEvent) error {
-	if p.defaultChannelID == 0 {
-		return nil // no channel configured, skip
-	}
-
-	// If alert is already linked to an incident, nothing to do
-	if alert.IncidentID != nil {
-		return nil
-	}
-
-	// Look for an open (non-closed) incident in the same channel
-	openIncidents, _, err := p.incidentRepo.List(ctx, p.defaultChannelID, "triggered", "", "", 0, 1, 1)
-	if err != nil {
-		return err
-	}
-
-	// Also check processing incidents
-	if len(openIncidents) == 0 {
-		openIncidents, _, err = p.incidentRepo.List(ctx, p.defaultChannelID, "processing", "", "", 0, 1, 1)
-		if err != nil {
-			return err
-		}
-	}
-
-	var incident *model.Incident
-	if len(openIncidents) > 0 {
-		incident = &openIncidents[0]
-	} else {
-		// Create a new incident
-		now := time.Now()
-		incident = &model.Incident{
-			Title:       event.AlertName,
-			Description: descriptionFromLabels(event.Labels),
-			Severity:    incidentSeverityFrom(alert.Severity),
-			Status:      model.IncidentStatusTriggered,
-			ChannelID:   p.defaultChannelID,
-			Labels:      model.JSONLabels(event.Labels),
-			TriggeredAt: now,
-		}
-		if err := p.incidentRepo.Create(ctx, incident); err != nil {
-			return err
-		}
-
-		// Timeline: triggered
-		_ = p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
-			IncidentID: incident.ID,
-			Action:     model.IncidentActionTriggered,
-			Content:    "Incident auto-created from alert: " + event.AlertName,
-		})
-
-		p.logger.Info("alert_v2_pipeline: incident created",
-			zap.Uint("incident_id", incident.ID),
-			zap.String("alert", event.AlertName),
-		)
-	}
-
-	// Link alert → incident
-	if err := p.alertRepo.LinkToIncident(ctx, alert.ID, incident.ID); err != nil {
-		return err
-	}
-
-	// Update incident alert count
-	incident.AlertCount++
-	if err := p.incidentRepo.Update(ctx, incident); err != nil {
-		p.logger.Error("failed to update incident alert count", zap.Error(err), zap.Uint("incident_id", incident.ID))
-	}
-
-	// Timeline: alert merged
-	if err := p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
-		IncidentID: incident.ID,
-		Action:     model.IncidentActionAlertMerged,
-		Content:    "Alert merged: " + event.AlertName,
-	}); err != nil {
-		p.logger.Error("failed to add alert merged timeline", zap.Error(err), zap.Uint("incident_id", incident.ID))
-	}
-
-	return nil
-}
-
-// handleResolution checks whether all alerts for the incident have resolved,
-// and if so, auto-closes the incident (if follow_alert_close is enabled).
-func (p *AlertV2Pipeline) handleResolution(ctx context.Context, alert *model.Alert) error {
-	if alert.IncidentID == nil {
-		return nil
-	}
-
-	incident, err := p.incidentRepo.GetByID(ctx, *alert.IncidentID)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil
-		}
-		return err
-	}
-
-	if incident.Status == model.IncidentStatusClosed {
-		return nil
-	}
-
-	// Check channel's follow_alert_close setting
-	if incident.ChannelID > 0 {
-		ch, err := p.channelRepo.GetByID(ctx, incident.ChannelID)
-		if err == nil && !ch.FollowAlertClose {
-			return nil // channel configured to NOT auto-close
-		}
-	}
-
-	// Check if all linked alerts are resolved
-	firingAlerts, _, err := p.alertRepo.List(ctx, 0, *alert.IncidentID, string(model.AlertStatusFiring), "", "", 1, 1)
-	if err != nil {
-		return err
-	}
-	if len(firingAlerts) > 0 {
-		return nil // still have firing alerts
-	}
-
-	// All resolved — mark incident as recovered
-	now := time.Now()
-	updates := map[string]interface{}{
-		"is_recovered": true,
-		"resolved_at":  now,
-	}
-	if err := p.incidentRepo.UpdateStatus(ctx, incident.ID, model.IncidentStatusProcessing, updates); err != nil {
-		return err
-	}
-
-	_ = p.incidentRepo.AddTimeline(ctx, &model.IncidentTimeline{
-		IncidentID: incident.ID,
-		Action:     model.IncidentActionResolved,
-		Content:    "All related alerts have recovered",
-	})
-
-	p.logger.Info("alert_v2_pipeline: incident auto-resolved",
-		zap.Uint("incident_id", incident.ID),
-	)
-
-	return nil
-}
-
 // buildAlertKey generates a stable deduplication key for an alert event.
 // Key = md5(rule_id + datasource_id + sorted(labels))
 // Includes datasource_id to prevent cross-datasource key collisions
@@ -540,30 +433,4 @@ func mapSeverity(s model.AlertSeverity) model.AlertSeverity {
 	default:
 		return model.SeverityInfo
 	}
-}
-
-// incidentSeverityFrom maps alert severity to incident severity.
-func incidentSeverityFrom(s model.AlertSeverity) model.IncidentSeverity {
-	switch s {
-	case model.SeverityCritical:
-		return model.IncidentSeverityCritical
-	case model.SeverityWarning:
-		return model.IncidentSeverityWarning
-	default:
-		return model.IncidentSeverityInfo
-	}
-}
-
-// descriptionFromLabels builds a short description string from alert labels.
-func descriptionFromLabels(labels model.JSONLabels) string {
-	parts := make([]string, 0, 3)
-	for _, k := range []string{"instance", "job", "namespace", "cluster"} {
-		if v, ok := labels[k]; ok && v != "" {
-			parts = append(parts, k+"="+v)
-		}
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.Join(parts, ", ")
 }
