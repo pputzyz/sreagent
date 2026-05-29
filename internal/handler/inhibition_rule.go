@@ -18,12 +18,8 @@ type InhibitionRuleHandler struct {
 }
 
 // NewInhibitionRuleHandler creates a new InhibitionRuleHandler.
-func NewInhibitionRuleHandler(svc *service.InhibitionRuleService, eventSvc *service.AlertEventService, logger ...*zap.Logger) *InhibitionRuleHandler {
-	l := zap.NewNop()
-	if len(logger) > 0 && logger[0] != nil {
-		l = logger[0]
-	}
-	return &InhibitionRuleHandler{svc: svc, eventSvc: eventSvc, log: l}
+func NewInhibitionRuleHandler(svc *service.InhibitionRuleService, eventSvc *service.AlertEventService, logger *zap.Logger) *InhibitionRuleHandler {
+	return &InhibitionRuleHandler{svc: svc, eventSvc: eventSvc, log: logger}
 }
 
 // SetAuditService injects the audit log service (called after construction to avoid circular DI).
