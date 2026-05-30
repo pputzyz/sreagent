@@ -18,10 +18,11 @@ const incidentAutoCloseInterval = 5 * time.Minute
 
 // IncidentService provides business logic for incidents (故障).
 type IncidentService struct {
-	repo       *repository.IncidentRepository
-	channelSvc *ChannelService
-	alertRepo  *repository.AlertRepository // optional, for merge alert migration
-	logger     *zap.Logger
+	repo          *repository.IncidentRepository
+	channelSvc    *ChannelService
+	alertRepo     *repository.AlertRepository          // optional, for merge alert migration
+	escStepRepo   *repository.EscalationStepRepository // optional, for escalation upper-bound check
+	logger        *zap.Logger
 
 	// onStatusChange is called when an incident transitions to processing (ack) or closed.
 	// Used to cancel pending scheduled dispatches.
@@ -35,6 +36,11 @@ func NewIncidentService(repo *repository.IncidentRepository, channelSvc *Channel
 // SetAlertRepository injects the alert repository for incident merge operations.
 func (s *IncidentService) SetAlertRepository(ar *repository.AlertRepository) {
 	s.alertRepo = ar
+}
+
+// SetEscalationStepRepository injects the escalation step repository for escalation upper-bound checks.
+func (s *IncidentService) SetEscalationStepRepository(sr *repository.EscalationStepRepository) {
+	s.escStepRepo = sr
 }
 
 // SetOnStatusChange sets a callback that fires when an incident is acknowledged or closed.
@@ -287,6 +293,10 @@ func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 
 // Snooze puts an incident on hold until a specified time.
 func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until time.Time) error {
+	if until.Before(time.Now()) {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "snooze time must be in the future")
+	}
+
 	inc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -362,6 +372,10 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 
 // Merge merges a source incident into a target incident.
 func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID uint) error {
+	if sourceID == targetID {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "cannot merge incident into itself")
+	}
+
 	source, err := s.repo.GetByID(ctx, sourceID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -413,6 +427,16 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 		Content:    "Merged into another incident",
 	}); err != nil {
 		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", sourceID))
+	}
+
+	// Record timeline on the target incident so the merge is visible there too.
+	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+		IncidentID: targetID,
+		Action:     model.IncidentActionAlertMerged,
+		ActorID:    &userID,
+		Content:    fmt.Sprintf("Incident #%d merged into this incident", sourceID),
+	}); err != nil {
+		zap.L().Error("failed to add timeline on target", zap.Error(err), zap.Uint("incident_id", targetID))
 	}
 
 	s.logger.Info("incident merged", zap.Uint("source", sourceID), zap.Uint("target", targetID))
@@ -480,6 +504,14 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 
 	if err := validateActionAllowed("escalate", inc.Status); err != nil {
 		return err
+	}
+
+	// Upper-bound check: ensure we don't exceed the escalation policy's step count.
+	if s.escStepRepo != nil && inc.EscalationPolicyID != nil {
+		steps, err := s.escStepRepo.ListByPolicyID(ctx, *inc.EscalationPolicyID)
+		if err == nil && inc.CurrentEscalationStep >= len(steps) {
+			return apperr.WithMessage(apperr.ErrBusiness, "already at the last escalation step")
+		}
 	}
 
 	inc.CurrentEscalationStep++

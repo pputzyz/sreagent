@@ -241,6 +241,8 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			if strings.HasPrefix(reqPath, "/api/") ||
 				strings.HasPrefix(reqPath, "/webhooks/") ||
 				strings.HasPrefix(reqPath, "/lark/") ||
+				strings.HasPrefix(reqPath, "/heartbeat/") ||
+				strings.HasPrefix(reqPath, "/alert-action/") ||
 				reqPath == "/healthz" ||
 				reqPath == "/metrics" {
 				c.JSON(http.StatusNotFound, gin.H{

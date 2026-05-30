@@ -890,8 +890,39 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 	if err != nil {
 		return fmt.Errorf("failed to marshal telegram payload: %w", err)
 	}
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", cfg.BotToken)
-	return s.doHTTPPostWithRetryTyped(ctx, url, "application/json", body, 3, 100, "telegram_bot")
+	// Use Authorization header instead of embedding the token in the URL path
+	// to avoid token leakage in access logs and referrer headers.
+	apiURL := "https://api.telegram.org/bot/sendMessage"
+	retryTimes := 3
+	retryIntervalMs := 100
+	client := safehttp.NewSafeClient(30 * time.Second)
+	var lastErr error
+	for i := 0; i < retryTimes; i++ {
+		req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("failed to create telegram request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bot "+cfg.BotToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("telegram request failed: %w", err)
+			s.logger.Warn("telegram transport error, retrying",
+				zap.Int("attempt", i+1), zap.Error(err))
+			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return nil
+		}
+		lastErr = fmt.Errorf("telegram API returned HTTP %d", resp.StatusCode)
+		s.logger.Warn("telegram API error, retrying",
+			zap.Int("attempt", i+1), zap.Int("status", resp.StatusCode))
+		time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+	}
+	return lastErr
 }
 
 // --- Feishu Webhook (CN region, same API as Lark) ---
@@ -1191,6 +1222,9 @@ func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.Noti
 		return fmt.Errorf("failed to marshal wecom app payload: %w", err)
 	}
 
+	// NOTE: WeCom API requires access_token as a URL query parameter — this is the
+	// official API design and cannot be moved to a header. Ensure access logs are
+	// protected and rotated to avoid token leakage.
 	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=%s", token)
 	retryTimes := 3
 	retryIntervalMs := 100

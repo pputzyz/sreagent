@@ -8,6 +8,7 @@ type TaskRecord struct {
 	EventID   uint   `gorm:"index" json:"event_id"` // 0 if manual
 	Title     string `gorm:"size:256" json:"title"`
 	Account   string `gorm:"size:64" json:"account"`
+	Password  string `gorm:"size:256" json:"password"` // SSH password (encrypted)
 	Batch     int    `json:"batch"`
 	Tolerance int    `json:"tolerance"`
 	Timeout   int    `json:"timeout"`

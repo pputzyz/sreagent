@@ -154,6 +154,9 @@ func evaluateCondition(expr *conditionExpr, event *model.AlertEvent) bool {
 	case "!=":
 		return actual != expr.value
 	case "=~":
+		if len(expr.value) > maxRegexLength {
+			return false
+		}
 		re, err := regexp.Compile(expr.value)
 		if err != nil {
 			return false

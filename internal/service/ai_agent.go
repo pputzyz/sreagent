@@ -190,6 +190,16 @@ type planStep struct {
 
 // StartAgent 异步启动 Agent 任务，立即返回任务 ID，后台执行完成后前端轮询获取结果
 func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string) (*AgentTask, error) {
+	// Dedup: reject identical (user + query) submissions within the last 5 seconds.
+	s.mu.RLock()
+	for _, t := range s.tasks {
+		if t.UserID == userID && t.Query == query && time.Since(t.CreatedAt) < 5*time.Second {
+			s.mu.RUnlock()
+			return t, nil
+		}
+	}
+	s.mu.RUnlock()
+
 	task := &AgentTask{
 		ID:        uuid.New().String(),
 		UserID:    userID,

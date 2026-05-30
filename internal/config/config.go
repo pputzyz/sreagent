@@ -16,8 +16,14 @@ type Config struct {
 	OIDC              OIDCConfig     `mapstructure:"oidc"`
 	Log               LogConfig      `mapstructure:"log"`
 	Engine            EngineConfig   `mapstructure:"engine"`
+	Task              TaskConfig     `mapstructure:"task"`
 	MetricsToken      string         `mapstructure:"metrics_token"`
 	CORSAllowedOrigins string        `mapstructure:"cors_allowed_origins"`
+}
+
+// TaskConfig holds configuration for SSH-based task execution.
+type TaskConfig struct {
+	SSHKnownHostsFile string `mapstructure:"ssh_known_hosts_file"` // path to known_hosts file; defaults to /etc/ssh/ssh_known_hosts
 }
 
 // EngineConfig holds configuration for the native alert evaluator.
@@ -68,6 +74,13 @@ type DatabaseConfig struct {
 func (d *DatabaseConfig) DSN() string {
 	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local",
 		d.Username, d.Password, d.Host, d.Port, d.Database, d.Charset)
+}
+
+// SafeDSN returns the DSN with the password masked for safe logging.
+// Useful for startup logs and health-check endpoints.
+func (d *DatabaseConfig) SafeDSN() string {
+	return fmt.Sprintf("%s:****@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local",
+		d.Username, d.Host, d.Port, d.Database, d.Charset)
 }
 
 // MigrateDSN returns a DSN with multiStatements=true, required by
@@ -159,6 +172,18 @@ func Load(cfgFile string) (*Config, error) {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Validate JWT secret strength.
+	weakSecrets := map[string]bool{
+		"secret": true, "password": true, "changeme": true,
+		"your-secret-key": true, "jwt-secret": true, "sreagent": true,
+	}
+	if weakSecrets[strings.ToLower(cfg.JWT.Secret)] {
+		return nil, fmt.Errorf("JWT secret uses a well-known weak value; please set a strong, random secret")
+	}
+	if len(cfg.JWT.Secret) < 32 {
+		return nil, fmt.Errorf("JWT secret must be at least 32 bytes, got %d", len(cfg.JWT.Secret))
 	}
 
 	// Backward compatibility: legacy env var names without SREAGENT_ prefix.

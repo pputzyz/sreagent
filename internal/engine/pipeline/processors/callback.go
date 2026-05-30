@@ -11,6 +11,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/engine/pipeline"
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 func init() {
@@ -72,12 +73,11 @@ func (p *callbackProcessor) Process(ctx context.Context, event *model.AlertEvent
 		req.Header.Set(k, v)
 	}
 
-	client := &http.Client{
-		Timeout: time.Duration(p.Timeout) * time.Second,
-	}
+	client := safehttp.NewSafeClient(time.Duration(p.Timeout) * time.Second)
 	if p.SkipSSLVerify {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		// nolint:gosec
+		if st, ok := client.Transport.(*safehttp.SafeTransport); ok {
+			st.Transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		}
 	}
 

@@ -124,8 +124,17 @@ func (s *OIDCService) ExchangeAndLogin(ctx context.Context, code string) (token 
 	// Extract roles from the configurable claim path
 	role := s.extractRole(rawIDToken)
 
-	// Find or create user
-	user, err := s.findOrCreateUser(ctx, claims.Sub, claims.PreferredUsername, claims.Email, claims.Name, claims.Picture, role)
+	// Find or create user via shared SSO helpers
+	ssoInfo := &SSOUserInfo{
+		Subject:     claims.Sub,
+		Username:    claims.PreferredUsername,
+		DisplayName: claims.Name,
+		Email:       claims.Email,
+		Avatar:      claims.Picture,
+		Role:        role,
+		Source:      "oidc",
+	}
+	user, err := s.findOrCreateUser(ctx, ssoInfo)
 	if err != nil {
 		return "", 0, fmt.Errorf("oidc user provisioning: %w", err)
 	}
@@ -257,125 +266,39 @@ func (s *OIDCService) mapRole(oidcRoles []string, defaultRole model.Role) model.
 }
 
 // findOrCreateUser looks up the user by OIDC subject, then by email, then by username.
-// If auto_provision is enabled and no user is found, creates a new one.
-// If a user is found, updates their OIDC subject, display name, avatar, and role (from OIDC).
-func (s *OIDCService) findOrCreateUser(
-	ctx context.Context,
-	sub, preferredUsername, email, displayName, picture string,
-	role model.Role,
-) (*model.User, error) {
-	// 1. Try by OIDC subject (most reliable)
-	user, err := s.userRepo.GetByOIDCSubject(ctx, sub)
+// Delegates to shared LookupSSOUser / AutoCreateSSOUser helpers to avoid duplication
+// with LDAP and OAuth2 flows.
+func (s *OIDCService) findOrCreateUser(ctx context.Context, info *SSOUserInfo) (*model.User, error) {
+	user, err := LookupSSOUser(ctx, s.userRepo, info)
 	if err == nil {
-		// Update profile fields from OIDC
-		s.updateUserFromOIDC(ctx, user, displayName, email, picture, role)
+		// User found — update profile fields from OIDC claims
+		if UpdateUserFromSSO(user, info) {
+			if err := s.userRepo.Update(ctx, user); err != nil {
+				s.logger.Warn("failed to update user from OIDC claims",
+					zap.Uint("user_id", user.ID), zap.Error(err))
+			}
+		}
 		return user, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
-	// 2. Try by email (link existing account)
-	if email != "" {
-		user, err = s.userRepo.GetByEmail(ctx, email)
-		if err == nil {
-			// Link OIDC subject to existing account
-			user.OIDCSubject = sub
-			s.updateUserFromOIDC(ctx, user, displayName, email, picture, role)
-			return user, nil
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, err
-		}
-	}
-
-	// 3. Try by username (link existing account)
-	if preferredUsername != "" {
-		user, err = s.userRepo.GetByUsername(ctx, preferredUsername)
-		if err == nil {
-			user.OIDCSubject = sub
-			s.updateUserFromOIDC(ctx, user, displayName, email, picture, role)
-			return user, nil
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, err
-		}
-	}
-
-	// 4. Auto-provision new user
+	// Not found — auto-provision if allowed
 	if !s.oidcCfg.AutoProvision {
-		return nil, fmt.Errorf("user not found and auto_provision is disabled (sub=%s, email=%s)", sub, email)
+		return nil, fmt.Errorf("user not found and auto_provision is disabled (sub=%s, email=%s)", info.Subject, info.Email)
 	}
 
-	username := preferredUsername
-	if username == "" {
-		username = email
-	}
-	if username == "" {
-		username = sub
+	defaultRole := model.Role(s.oidcCfg.DefaultRole)
+	if defaultRole == "" {
+		defaultRole = model.RoleViewer
 	}
 
-	if displayName == "" {
-		displayName = username
-	}
-
-	newUser := &model.User{
-		Username:    username,
-		Password:    "", // OIDC users don't have a local password
-		DisplayName: displayName,
-		Email:       email,
-		Avatar:      picture,
-		Role:        role,
-		IsActive:    true,
-		UserType:    model.UserTypeHuman,
-		OIDCSubject: sub,
-	}
-
-	if err := s.userRepo.Create(ctx, newUser); err != nil {
-		return nil, fmt.Errorf("create oidc user: %w", err)
-	}
-
-	s.logger.Info("auto-provisioned OIDC user",
-		zap.Uint("user_id", newUser.ID),
-		zap.String("username", newUser.Username),
-		zap.String("email", newUser.Email),
-		zap.String("role", string(newUser.Role)),
-		zap.String("oidc_sub", sub),
-	)
-
-	return newUser, nil
+	return AutoCreateSSOUser(ctx, s.userRepo, info, defaultRole, s.logger)
 }
 
-// updateUserFromOIDC updates user profile fields from OIDC claims.
-func (s *OIDCService) updateUserFromOIDC(ctx context.Context, user *model.User, displayName, email, picture string, role model.Role) {
-	changed := false
-
-	if displayName != "" && user.DisplayName != displayName {
-		user.DisplayName = displayName
-		changed = true
-	}
-	if email != "" && user.Email != email {
-		user.Email = email
-		changed = true
-	}
-	if picture != "" && user.Avatar != picture {
-		user.Avatar = picture
-		changed = true
-	}
-	if user.Role != role {
-		user.Role = role
-		changed = true
-	}
-
-	if changed {
-		if err := s.userRepo.Update(ctx, user); err != nil {
-			s.logger.Warn("failed to update user from OIDC claims",
-				zap.Uint("user_id", user.ID),
-				zap.Error(err),
-			)
-		}
-	}
-}
+// updateUserFromOIDC is no longer needed — profile updates are handled by
+// UpdateUserFromSSO in sso_helper.go, called from findOrCreateUser.
 
 // Enabled returns whether OIDC is configured and active.
 func (s *OIDCService) Enabled() bool {

@@ -88,6 +88,9 @@ export default {
     importFailed: '导入失败',
     unknownError: '未知错误',
   },
+  error: {
+    renderError: '页面渲染出错',
+  },
   severity: {
     critical: '严重 (Critical)',
     warning: '警告 (Warning)',

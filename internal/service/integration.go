@@ -220,7 +220,7 @@ func (s *IntegrationService) ReceiveAlerts(ctx context.Context, token string, ra
 	// Rate limiting (4.8): 100/s 1000/min per integration
 	limiter := s.getLimiter(integ.ID)
 	if !limiter.Allow() {
-		return apperr.WithMessage(apperr.ErrBadRequest, "rate limit exceeded (100/s or 1000/min)")
+		return apperr.WithMessage(apperr.ErrRateLimitExceeded, "rate limit exceeded (100/s or 1000/min)")
 	}
 
 	// Normalise payload based on integration type (4.5/4.6)

@@ -63,6 +63,9 @@ func (s *InspectionScheduler) Start(ctx context.Context) error {
 		return fmt.Errorf("加载巡检任务失败: %w", err)
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, task := range tasks {
 		if err := s.addTask(task); err != nil {
 			s.logger.Error("注册巡检任务失败",

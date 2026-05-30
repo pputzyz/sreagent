@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"strings"
 
@@ -19,7 +20,8 @@ func NewMetricsHandler(metricsToken string) gin.HandlerFunc {
 		// If a metrics token is configured, require Bearer auth
 		if metricsToken != "" {
 			auth := c.GetHeader("Authorization")
-			if !strings.HasPrefix(auth, "Bearer ") || strings.TrimPrefix(auth, "Bearer ") != metricsToken {
+			token := strings.TrimPrefix(auth, "Bearer ")
+			if !strings.HasPrefix(auth, "Bearer ") || subtle.ConstantTimeCompare([]byte(token), []byte(metricsToken)) != 1 {
 				Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "unauthorized: invalid or missing metrics token"))
 				return
 			}

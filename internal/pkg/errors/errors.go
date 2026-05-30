@@ -36,6 +36,8 @@ func (e *AppError) HTTPStatus() int {
 		return http.StatusNotFound
 	case e.Code >= 10400 && e.Code < 10500:
 		return http.StatusConflict
+	case e.Code >= 10500 && e.Code < 10600:
+		return http.StatusTooManyRequests
 	case e.Code >= 40000 && e.Code < 40100:
 		return http.StatusUnauthorized
 	default:
@@ -91,6 +93,9 @@ var (
 	ErrDuplicateName     = &AppError{Code: 10401, Message: "name already taken"}
 	ErrInvalidTransition = &AppError{Code: 10402, Message: "invalid state transition"}
 	ErrVersionConflict   = &AppError{Code: 10403, Message: "version conflict, resource was modified by another request"}
+
+	// 10500-10599: Rate limit errors (HTTP 429)
+	ErrRateLimitExceeded = &AppError{Code: 10500, Message: "rate limit exceeded"}
 
 	// 50000+: Internal errors
 	ErrInternal    = &AppError{Code: 50000, Message: "internal server error"}

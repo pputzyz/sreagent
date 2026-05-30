@@ -97,6 +97,38 @@ func (c *zabbixTokenCache) put(apiURL, username, token string, ttl time.Duration
 	}
 }
 
+// cleanup removes all expired entries from the cache.
+func (c *zabbixTokenCache) cleanup() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := time.Now()
+	for key, ct := range c.tokens {
+		if now.After(ct.expires) {
+			delete(c.tokens, key)
+		}
+	}
+}
+
+// StartCleanup runs periodic cache cleanup until ctx is cancelled.
+// Typically called once at startup: go defaultZabbixTokenCache.StartCleanup(ctx, 10*time.Minute)
+func (c *zabbixTokenCache) StartCleanup(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.cleanup()
+		}
+	}
+}
+
+// StartZabbixCacheCleanup starts periodic cleanup of the global Zabbix token cache.
+func StartZabbixCacheCleanup(ctx context.Context, interval time.Duration) {
+	defaultZabbixTokenCache.StartCleanup(ctx, interval)
+}
+
 // CheckHealth calls apiinfo.version via JSON-RPC to verify the Zabbix API is reachable
 // and optionally tests auth credentials if configured (basic/token).
 func (c *ZabbixChecker) CheckHealth(ctx context.Context, endpoint, authType, authConfig string) HealthResult {
@@ -127,7 +159,7 @@ func (c *ZabbixChecker) CheckHealth(ctx context.Context, endpoint, authType, aut
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 
 	var zResp zabbixResponse
 	if err := json.Unmarshal(body, &zResp); err != nil {

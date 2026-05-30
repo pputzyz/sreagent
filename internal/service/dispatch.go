@@ -22,17 +22,19 @@ var templateRe = regexp.MustCompile(`\{\{([^}]+)\}\}`)
 
 // DispatchService manages dispatch policies for collaboration channels.
 type DispatchService struct {
-	repo    *repository.DispatchPolicyRepository
-	logRepo *repository.DispatchLogRepository
-	logger  *zap.Logger
+	repo        *repository.DispatchPolicyRepository
+	logRepo     *repository.DispatchLogRepository
+	channelRepo *repository.ChannelRepository
+	logger      *zap.Logger
 }
 
 func NewDispatchService(
 	repo *repository.DispatchPolicyRepository,
 	logRepo *repository.DispatchLogRepository,
+	channelRepo *repository.ChannelRepository,
 	logger *zap.Logger,
 ) *DispatchService {
-	return &DispatchService{repo: repo, logRepo: logRepo, logger: logger}
+	return &DispatchService{repo: repo, logRepo: logRepo, channelRepo: channelRepo, logger: logger}
 }
 
 // --- CRUD ---
@@ -40,6 +42,10 @@ func NewDispatchService(
 func (s *DispatchService) Create(ctx context.Context, p *model.DispatchPolicy) error {
 	if err := s.validatePolicy(p); err != nil {
 		return err
+	}
+	// Validate channel existence.
+	if _, err := s.channelRepo.GetByID(ctx, p.ChannelID); err != nil {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "channel not found")
 	}
 	if err := s.repo.Create(ctx, p); err != nil {
 		s.logger.Error("failed to create dispatch policy", zap.Error(err))

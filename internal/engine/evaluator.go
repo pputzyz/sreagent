@@ -234,6 +234,7 @@ type Evaluator struct {
 	perDSEval    bool               // feature flag: per-datasource bucket evaluation
 	leader     LeaderElection // optional; nil = single-instance mode (no election)
 	startOnce  sync.Once
+	stopOnce   sync.Once
 	wg         sync.WaitGroup
 
 	// Hash ring mode: distribute rules across multiple instances.
@@ -475,48 +476,44 @@ func (e *Evaluator) Start() {
 func (e *Evaluator) Stop() {
 	e.logger.Info("stopping alert evaluator")
 
-	select {
-	case <-e.stopCh:
-		// Already stopped
-		return
-	default:
+	e.stopOnce.Do(func() {
 		close(e.stopCh)
-	}
 
-	// Release leadership first — other instances can take over immediately
-	if e.leader != nil {
-		e.leader.Stop()
-	}
+		// Release leadership first — other instances can take over immediately
+		if e.leader != nil {
+			e.leader.Stop()
+		}
 
-	// Stop level suppressor GC
-	e.suppressor.Stop()
+		// Stop level suppressor GC
+		e.suppressor.Stop()
 
-	// Cancel the evaluator context so in-flight onAlert callbacks are cancelled.
-	if e.cancel != nil {
-		e.cancel()
-	}
+		// Cancel the evaluator context so in-flight onAlert callbacks are cancelled.
+		if e.cancel != nil {
+			e.cancel()
+		}
 
-	// Collect evaluator references under lock, then stop them after releasing the lock.
-	e.mu.Lock()
-	evals := make([]*RuleEvaluator, 0, len(e.evaluators))
-	for _, re := range e.evaluators {
-		evals = append(evals, re)
-	}
-	e.evaluators = make(map[uint]*RuleEvaluator) // clear map
-	e.mu.Unlock()
+		// Collect evaluator references under lock, then stop them after releasing the lock.
+		e.mu.Lock()
+		evals := make([]*RuleEvaluator, 0, len(e.evaluators))
+		for _, re := range e.evaluators {
+			evals = append(evals, re)
+		}
+		e.evaluators = make(map[uint]*RuleEvaluator) // clear map
+		e.mu.Unlock()
 
-	for _, re := range evals {
-		re.Stop()
-	}
+		for _, re := range evals {
+			re.Stop()
+		}
 
-	// Clean up per-datasource buckets
-	e.perDS.Range(func(k, v any) bool {
-		v.(*PerDatasourceEvaluator).Stop()
-		return true
+		// Clean up per-datasource buckets
+		e.perDS.Range(func(k, v any) bool {
+			v.(*PerDatasourceEvaluator).Stop()
+			return true
+		})
+
+		// Wait for background goroutines (e.g. sync loop) to exit
+		e.wg.Wait()
 	})
-
-	// Wait for background goroutines (e.g. sync loop) to exit
-	e.wg.Wait()
 
 	e.logger.Info("alert evaluator stopped")
 }

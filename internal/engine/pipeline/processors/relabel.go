@@ -11,6 +11,8 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 )
 
+const maxRegexLength = 1000
+
 func init() {
 	pipeline.Register("relabel", newRelabel)
 }
@@ -67,6 +69,14 @@ func newRelabel(config map[string]interface{}) (pipeline.Processor, error) {
 	return p, nil
 }
 
+// compileRegex validates regex length to prevent ReDoS, then compiles.
+func compileRegex(pattern string) (*regexp.Regexp, error) {
+	if len(pattern) > maxRegexLength {
+		return nil, fmt.Errorf("regex too long (%d chars, max %d)", len(pattern), maxRegexLength)
+	}
+	return regexp.Compile(pattern)
+}
+
 func (p *relabelProcessor) Process(ctx context.Context, event *model.AlertEvent) (*model.AlertEvent, string, error) {
 	if event.Labels == nil {
 		event.Labels = make(model.JSONLabels)
@@ -84,7 +94,7 @@ func (p *relabelProcessor) Process(ctx context.Context, event *model.AlertEvent)
 		if p.Regex == "" || p.TargetLabel == "" {
 			return event, "relabel: skipped (missing regex or target_label)", nil
 		}
-		re, err := regexp.Compile(p.Regex)
+		re, err := compileRegex(p.Regex)
 		if err != nil {
 			return event, "", fmt.Errorf("relabel: invalid regex %q: %w", p.Regex, err)
 		}
@@ -99,7 +109,7 @@ func (p *relabelProcessor) Process(ctx context.Context, event *model.AlertEvent)
 		if p.Regex == "" {
 			return event, "relabel: keep skipped (missing regex)", nil
 		}
-		re, err := regexp.Compile(p.Regex)
+		re, err := compileRegex(p.Regex)
 		if err != nil {
 			return event, "", fmt.Errorf("relabel: invalid regex %q: %w", p.Regex, err)
 		}
@@ -112,7 +122,7 @@ func (p *relabelProcessor) Process(ctx context.Context, event *model.AlertEvent)
 		if p.Regex == "" {
 			return event, "relabel: drop skipped (missing regex)", nil
 		}
-		re, err := regexp.Compile(p.Regex)
+		re, err := compileRegex(p.Regex)
 		if err != nil {
 			return event, "", fmt.Errorf("relabel: invalid regex %q: %w", p.Regex, err)
 		}
@@ -125,7 +135,7 @@ func (p *relabelProcessor) Process(ctx context.Context, event *model.AlertEvent)
 		if p.Regex == "" {
 			return event, "relabel: labelmap skipped (missing regex)", nil
 		}
-		re, err := regexp.Compile(p.Regex)
+		re, err := compileRegex(p.Regex)
 		if err != nil {
 			return event, "", fmt.Errorf("relabel: invalid regex %q: %w", p.Regex, err)
 		}
@@ -144,7 +154,7 @@ func (p *relabelProcessor) Process(ctx context.Context, event *model.AlertEvent)
 		if p.Regex == "" || p.TargetLabel == "" || p.Modulus == 0 {
 			return event, "relabel: hashmod skipped (missing config)", nil
 		}
-		re, err := regexp.Compile(p.Regex)
+		re, err := compileRegex(p.Regex)
 		if err != nil {
 			return event, "", fmt.Errorf("relabel: invalid regex %q: %w", p.Regex, err)
 		}

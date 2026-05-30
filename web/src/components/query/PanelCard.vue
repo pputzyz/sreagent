@@ -348,8 +348,11 @@ function renderMarkdown(md: string): string {
   // bold and italic
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
-  // links
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
+  // links — only allow http/https to prevent javascript: XSS
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_match, text, url) => {
+    const safeUrl = url.startsWith('http://') || url.startsWith('https://') ? url : '#'
+    return `<a href="${safeUrl}" target="_blank">${text}</a>`
+  })
   // unordered lists
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
   html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')

@@ -949,4 +949,39 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
   padding-top: 12px;
   border-top: var(--sre-hairline);
 }
+
+/* ===== Responsive: narrow screens ===== */
+@media (max-width: 768px) {
+  .ae-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ae-filter-row--inputs {
+    gap: 6px;
+  }
+  .ae-filter-sm,
+  .ae-filter-sev,
+  .ae-filter-rule,
+  .ae-filter-tag,
+  .ae-filter-search {
+    width: 100%;
+  }
+  .ae-view-mode {
+    margin-left: 0;
+  }
+  .event-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ec-status {
+    min-width: unset;
+  }
+  .ec-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .ae-selection-bar {
+    flex-wrap: wrap;
+  }
+}
 </style>

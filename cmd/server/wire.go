@@ -417,12 +417,14 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 
 	// v2 collaboration channel, incident, alert, noise-reduction & dispatch services
 	svcs.ChannelV2Svc = service.NewChannelService(repos.ChannelV2, zapLogger)
+	svcs.ChannelV2Svc.SetIncidentRepository(repos.Incident) // for active incident check on delete
 	svcs.IncidentSvc = service.NewIncidentService(repos.Incident, svcs.ChannelV2Svc, zapLogger)
-	svcs.IncidentSvc.SetAlertRepository(repos.AlertV2) // for incident merge alert migration
+	svcs.IncidentSvc.SetAlertRepository(repos.AlertV2)               // for incident merge alert migration
+	svcs.IncidentSvc.SetEscalationStepRepository(repos.EscalationStep) // for escalation upper-bound check
 	svcs.AlertV2Svc = service.NewAlertV2Service(repos.AlertV2, zapLogger)
 	svcs.ExclusionRuleSvc = service.NewExclusionRuleService(repos.ExclusionRule, zapLogger)
 	svcs.NoiseReducer = service.NewNoiseReducer(repos.ChannelV2, repos.ExclusionRule, zapLogger)
-	svcs.DispatchSvc = service.NewDispatchService(repos.DispatchPolicy, repos.DispatchLog, zapLogger)
+	svcs.DispatchSvc = service.NewDispatchService(repos.DispatchPolicy, repos.DispatchLog, repos.ChannelV2, zapLogger)
 
 	// Scheduled dispatch service (deferred/repeating notifications from dispatch policies)
 	svcs.ScheduledDispatchSvc = service.NewScheduledDispatchService(
@@ -508,7 +510,7 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 
 	// Task execution services
 	svcs.TaskTplSvc = service.NewTaskTplService(repos.TaskTpl, zapLogger)
-	svcs.TaskExecutor = service.NewTaskExecutor(repos.TaskTpl, repos.TaskRecord, zapLogger)
+	svcs.TaskExecutor = service.NewTaskExecutor(repos.TaskTpl, repos.TaskRecord, zapLogger, cfg.Task.SSHKnownHostsFile)
 
 	// Builtin metric services
 	svcs.BuiltinMetricSvc = service.NewBuiltinMetricService(repos.BuiltinMetric, zapLogger)
@@ -941,7 +943,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		SecuritySettings: handler.NewSecuritySettingsHandler(svcs.SettingSvc, &cfg.JWT),
 		InhibitionRule:   handler.NewInhibitionRuleHandler(svcs.InhibitionRuleSvc, svcs.EventSvc, zapLogger),
 		Heartbeat:        handler.NewHeartbeatHandler(svcs.RuleSvc),
-		LabelRegistry:    handler.NewLabelRegistryHandler(svcs.LabelRegistrySvc),
+		LabelRegistry:    handler.NewLabelRegistryHandler(svcs.LabelRegistrySvc, appCtx),
 		DashboardV2:      handler.NewDashboardV2Handler(svcs.DashboardV2Svc),
 		AlertRuleTemplate:   handler.NewAlertRuleTemplateHandler(svcs.TemplateSvc),
 		ChannelV2:           handler.NewChannelHandler(svcs.ChannelV2Svc),

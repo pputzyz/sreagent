@@ -44,9 +44,18 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// jwtAuthRevocationOnce ensures the "token revocation disabled" warning is logged
+// only once per process, not on every request.
+var jwtAuthRevocationOnce bool
+
 // JWTAuth returns a middleware that validates JWT tokens.
 func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if TokenRevocationChecker == nil && !jwtAuthRevocationOnce {
+			jwtAuthRevocationOnce = true
+			zap.L().Warn("token revocation checker is nil — revocation checks are DISABLED; " +
+				"tokens will remain valid until expiry even after user logout/disable")
+		}
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{

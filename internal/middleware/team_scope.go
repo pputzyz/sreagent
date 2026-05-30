@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 const (
@@ -52,8 +53,11 @@ func TeamScoped() gin.HandlerFunc {
 
 		teamIDs, err := TeamIDQuerier.ListUserTeamIDs(userID)
 		if err != nil {
-			// Log but don't block — fallback to no team filtering.
-			// The logger may not be in context yet; use zap directly.
+			// DB failure: log warning and set a flag so downstream handlers
+			// can detect that team-scoped filtering was not applied.
+			zap.L().Warn("team_scope: failed to query user team IDs, setting degraded flag",
+				zap.Uint("user_id", userID), zap.Error(err))
+			c.Set("team_scope_degraded", true)
 			c.Next()
 			return
 		}

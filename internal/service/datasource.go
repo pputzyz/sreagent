@@ -231,6 +231,10 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 		}
 	}
 
+	// Snapshot original values before mutation for change detection.
+	oldEndpoint := existing.Endpoint
+	oldAuthConfig := existing.AuthConfig
+
 	// Update fields
 	existing.Name = ds.Name
 	existing.Type = ds.Type
@@ -266,8 +270,8 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 
 	// Notify evaluator if endpoint or auth config changed — rules may need
 	// to re-query the new endpoint on the next evaluation cycle.
-	endpointChanged := existing.Endpoint != ds.Endpoint
-	authChanged := existing.AuthConfig != ds.AuthConfig && ds.AuthConfig != ""
+	endpointChanged := oldEndpoint != existing.Endpoint
+	authChanged := oldAuthConfig != existing.AuthConfig
 	if s.onChange != nil && (endpointChanged || authChanged) {
 		s.logger.Info("datasource endpoint/auth changed, notifying evaluator",
 			zap.Uint("datasource_id", existing.ID),

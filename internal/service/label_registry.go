@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -43,12 +44,28 @@ func NewLabelRegistryService(
 
 // SyncDatasource scrapes all label key/values from one Prometheus-compatible datasource.
 func (s *LabelRegistryService) SyncDatasource(ctx context.Context, ds *model.DataSource) error {
-	labels, err := datasource.FetchAllLabels(ctx, string(ds.Type), ds.Endpoint, ds.AuthType, ds.AuthConfig)
+	// Decrypt AuthConfig if encrypted so the datasource client receives plaintext credentials.
+	authConfig := ds.AuthConfig
+	if crypto.IsEncrypted(authConfig) {
+		decrypted, err := crypto.DecryptString(authConfig)
+		if err == nil {
+			authConfig = decrypted
+		}
+	}
+	labels, err := datasource.FetchAllLabels(ctx, string(ds.Type), ds.Endpoint, ds.AuthType, authConfig)
 	if err != nil {
 		return err
 	}
 	if len(labels) == 0 {
 		return nil
+	}
+
+	// Delete stale entries for this datasource before upserting fresh ones.
+	// This ensures labels removed upstream are cleaned up.
+	if err := s.repo.DeleteByDatasource(ctx, ds.ID); err != nil {
+		s.logger.Warn("label registry: failed to delete stale entries",
+			zap.Uint("ds_id", ds.ID), zap.Error(err))
+		// Continue with upsert even if delete fails — stale entries are better than no sync
 	}
 
 	now := time.Now()

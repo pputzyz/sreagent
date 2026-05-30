@@ -156,7 +156,9 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 	}
 
 	// P1-5: Warn if count hit the query limit — actual count may be higher
+	truncated := false
 	if count >= vlogsQueryLimit {
+		truncated = true
 		log.Printf("WARNING: VictoriaLogs query hit limit=%d, actual count may be higher for rule expression=%s", vlogsQueryLimit, expression)
 	}
 
@@ -182,6 +184,7 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 			Values: []DataPoint{
 				{Timestamp: now, Value: count},
 			},
+			Truncated: truncated,
 		},
 	}, nil
 }

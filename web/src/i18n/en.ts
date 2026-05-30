@@ -88,6 +88,9 @@ export default {
     importFailed: 'Import failed',
     unknownError: 'Unknown error',
   },
+  error: {
+    renderError: 'Render error',
+  },
   severity: {
     critical: 'Critical',
     warning: 'Warning',

@@ -13,12 +13,18 @@ import (
 
 // ChannelService provides business logic for collaboration channels (协作空间).
 type ChannelService struct {
-	repo   *repository.ChannelRepository
-	logger *zap.Logger
+	repo        *repository.ChannelRepository
+	incidentRepo *repository.IncidentRepository // optional, for active incident checks
+	logger      *zap.Logger
 }
 
 func NewChannelService(repo *repository.ChannelRepository, logger *zap.Logger) *ChannelService {
 	return &ChannelService{repo: repo, logger: logger}
+}
+
+// SetIncidentRepository injects the incident repository for active incident checks.
+func (s *ChannelService) SetIncidentRepository(ir *repository.IncidentRepository) {
+	s.incidentRepo = ir
 }
 
 // Create creates a new collaboration channel after validating uniqueness.
@@ -127,6 +133,14 @@ func (s *ChannelService) Delete(ctx context.Context, id uint) error {
 			return apperr.ErrCollabChannelNotFound
 		}
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	// Block deletion if there are active incidents in this channel.
+	if s.incidentRepo != nil {
+		count, err := s.incidentRepo.CountActiveByChannel(ctx, id)
+		if err == nil && count > 0 {
+			return apperr.WithMessage(apperr.ErrBusiness, "cannot delete channel with active incidents")
+		}
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {

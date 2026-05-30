@@ -22,6 +22,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/config"
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/pkg/dbmigrate"
 	"github.com/sreagent/sreagent/internal/router"
 )
@@ -82,6 +83,9 @@ func main() {
 
 	// Start label registry sync worker (cancels on shutdown via deps.appCtx)
 	go deps.LabelRegistrySvc.StartSyncWorker(deps.appCtx, 10*time.Minute)
+
+	// Start Zabbix token cache cleanup (removes expired entries periodically)
+	go datasource.StartZabbixCacheCleanup(deps.appCtx, 10*time.Minute)
 
 	// Setup router
 	r := router.Setup(cfg, deps.Handlers, zapLogger)
@@ -283,13 +287,18 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 		return
 	}
 
-	// Admin exists — check if password needs updating
+	// Admin exists — sync password from env var if it differs.
+	// DESIGN NOTE: The SREAGENT_ADMIN_PASSWORD env var is the source of truth for the
+	// admin password. On each startup, if the env var value differs from the stored hash,
+	// the stored password is updated to match. This ensures deployments that rotate the
+	// env var get the new password applied automatically. If you want to change the admin
+	// password independently (e.g. via the UI), clear the SREAGENT_ADMIN_PASSWORD env var
+	// after the desired password is set.
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(defaultPwd)); err != nil {
-		// Password doesn't match env var → update it
 		if err := db.Model(&admin).Update("password", string(hashedPwd)).Error; err != nil {
 			logger.Error("failed to update admin password from SREAGENT_ADMIN_PASSWORD", zap.Error(err))
 			return
 		}
-		logger.Info("admin password updated from SREAGENT_ADMIN_PASSWORD environment variable")
+		logger.Info("admin password synced from SREAGENT_ADMIN_PASSWORD environment variable")
 	}
 }

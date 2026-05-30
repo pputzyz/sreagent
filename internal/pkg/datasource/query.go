@@ -25,6 +25,7 @@ type QueryResult struct {
 	MetricName string
 	Labels     map[string]string
 	Values     []DataPoint
+	Truncated  bool // true when the result was capped by a query limit (e.g. VictoriaLogs)
 }
 
 // QueryClient executes PromQL queries against Prometheus-compatible APIs.

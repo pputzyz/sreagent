@@ -156,9 +156,9 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   <div class="app-shell">
     <!-- Error Boundary fallback -->
     <div v-if="capturedError" class="error-boundary">
-      <NResult status="error" title="页面渲染出错" :description="capturedError.message">
+      <NResult status="error" :title="t('error.renderError')" :description="capturedError.message">
         <template #footer>
-          <button class="error-reset-btn" @click="resetError">重试</button>
+          <button class="error-reset-btn" @click="resetError">{{ t('common.retry') }}</button>
         </template>
       </NResult>
     </div>

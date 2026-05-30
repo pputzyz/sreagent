@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -20,9 +21,10 @@ import (
 
 // TaskExecutor executes task templates against remote hosts via SSH.
 type TaskExecutor struct {
-	tplRepo  *repository.TaskTplRepository
-	recRepo  *repository.TaskRecordRepository
-	logger   *zap.Logger
+	tplRepo          *repository.TaskTplRepository
+	recRepo          *repository.TaskRecordRepository
+	logger           *zap.Logger
+	knownHostsFile   string // path to SSH known_hosts file
 }
 
 // NewTaskExecutor creates a new TaskExecutor.
@@ -30,11 +32,16 @@ func NewTaskExecutor(
 	tplRepo *repository.TaskTplRepository,
 	recRepo *repository.TaskRecordRepository,
 	logger *zap.Logger,
+	knownHostsFile string,
 ) *TaskExecutor {
+	if knownHostsFile == "" {
+		knownHostsFile = "/etc/ssh/ssh_known_hosts"
+	}
 	return &TaskExecutor{
-		tplRepo: tplRepo,
-		recRepo: recRepo,
-		logger:  logger,
+		tplRepo:        tplRepo,
+		recRepo:        recRepo,
+		logger:         logger,
+		knownHostsFile: knownHostsFile,
 	}
 }
 
@@ -80,6 +87,7 @@ func (e *TaskExecutor) ExecuteTask(ctx context.Context, req *ExecuteTaskRequest,
 		EventID:   req.EventID,
 		Title:     title,
 		Account:   tpl.Account,
+		Password:  tpl.Password,
 		Batch:     tpl.Batch,
 		Tolerance: tpl.Tolerance,
 		Timeout:   tpl.Timeout,
@@ -244,7 +252,17 @@ func (e *TaskExecutor) executeOnHost(ctx context.Context, record *model.TaskReco
 		timeout = 60
 	}
 
-	stdout, stderr, exitCode, err := e.runSSH(ctx, hr.Host, record.Account, record.Script, record.Args, time.Duration(timeout)*time.Second)
+	password := record.Password
+	if password == "" {
+		password = record.Account
+		e.logger.Warn("SSH password not set, falling back to account name as password — this is insecure",
+			zap.Uint("task_id", record.ID),
+			zap.String("host", hr.Host),
+			zap.String("account", record.Account),
+		)
+	}
+
+	stdout, stderr, exitCode, err := e.runSSH(ctx, hr.Host, record.Account, password, record.Script, record.Args, time.Duration(timeout)*time.Second)
 
 	hr.DurationMs = time.Since(start).Milliseconds()
 	hr.Stdout = stdout
@@ -269,8 +287,27 @@ func (e *TaskExecutor) executeOnHost(ctx context.Context, record *model.TaskReco
 	}
 }
 
+// loadKnownHosts reads the known_hosts file and returns a ssh.HostKeyCallback.
+// If the file does not exist or cannot be parsed, it falls back to
+// ssh.InsecureIgnoreHostKey and logs a warning.
+func (e *TaskExecutor) loadKnownHosts() ssh.HostKeyCallback {
+	callback, err := knownhosts.New(e.knownHostsFile)
+	if err != nil {
+		e.logger.Warn("SSH known_hosts file unavailable, falling back to insecure host key verification — this is vulnerable to MITM attacks",
+			zap.String("path", e.knownHostsFile),
+			zap.Error(err),
+		)
+		return ssh.InsecureIgnoreHostKey()
+	}
+
+	e.logger.Info("Loaded SSH known_hosts for host key verification",
+		zap.String("path", e.knownHostsFile),
+	)
+	return callback
+}
+
 // runSSH connects to a host via SSH and executes the script.
-func (e *TaskExecutor) runSSH(ctx context.Context, host, account, script, args string, timeout time.Duration) (stdout, stderr string, exitCode int, err error) {
+func (e *TaskExecutor) runSSH(ctx context.Context, host, account, password, script, args string, timeout time.Duration) (stdout, stderr string, exitCode int, err error) {
 	// Ensure host has a port
 	if _, _, splitErr := net.SplitHostPort(host); splitErr != nil {
 		host = host + ":22"
@@ -280,12 +317,9 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, script, args s
 	config := &ssh.ClientConfig{
 		User: account,
 		Auth: []ssh.AuthMethod{
-			// TODO: support key-based auth (ssh.PublicKeys) with key from config;
-			// for now use password auth with the account field as credential source.
-			ssh.Password(account),
+			ssh.Password(password),
 		},
-		// TODO: replace InsecureIgnoreHostKey with proper known_hosts verification
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: e.loadKnownHosts(),
 		Timeout:         10 * time.Second,
 	}
 

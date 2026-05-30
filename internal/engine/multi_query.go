@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 )
 
@@ -124,6 +125,11 @@ func (re *RuleEvaluator) executeQueryByRef(ctx context.Context, q model.RuleQuer
 	ep := ds.Endpoint
 	at := ds.AuthType
 	ac := ds.AuthConfig
+	if crypto.IsEncrypted(ac) {
+		if decrypted, err := crypto.DecryptString(ac); err == nil {
+			ac = decrypted
+		}
+	}
 
 	switch ds.Type {
 	case "zabbix":

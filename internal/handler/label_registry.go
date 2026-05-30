@@ -14,11 +14,12 @@ import (
 
 type LabelRegistryHandler struct {
 	svc         *service.LabelRegistryService
+	ctx         context.Context // server-level context, cancelled on shutdown
 	syncRunning atomic.Bool
 }
 
-func NewLabelRegistryHandler(svc *service.LabelRegistryService) *LabelRegistryHandler {
-	return &LabelRegistryHandler{svc: svc}
+func NewLabelRegistryHandler(svc *service.LabelRegistryService, ctx context.Context) *LabelRegistryHandler {
+	return &LabelRegistryHandler{svc: svc, ctx: ctx}
 }
 
 // GetValues godoc
@@ -59,8 +60,8 @@ func (h *LabelRegistryHandler) Sync(c *gin.Context) {
 	}
 	go func() {
 		defer h.syncRunning.Store(false)
-		// Use a detached context since the HTTP request returns immediately.
-		h.svc.SyncAll(context.Background())
+		// Use the server-level context so sync is cancelled on shutdown.
+		h.svc.SyncAll(h.ctx)
 	}()
 	Success(c, gin.H{"message": "sync triggered"})
 }

@@ -124,10 +124,9 @@ func (re *RuleEvaluator) gcStates() {
 		sl := v.(*stateLock)
 		sl.mu.Lock()
 		if sl.state != nil && sl.state.Status == "resolved" && !sl.state.ResolvedAt.IsZero() && sl.state.ResolvedAt.Before(threshold) {
-			sl.state = nil // Clear state under lock to avoid deleteState window race
+			sl.state = nil // Clear state under lock; leave stateLock in map to avoid lockState race
 			sl.mu.Unlock()
 			fp := k.(string)
-			re.deleteState(fp)
 			re.deletePersistedState(fp)
 			removed++
 			return true

@@ -10,7 +10,8 @@ type TaskTpl struct {
 	Batch     int    `gorm:"default:0" json:"batch"`     // 0=all at once
 	Tolerance int    `gorm:"default:0" json:"tolerance"` // allowed failures
 	Timeout   int    `gorm:"default:60" json:"timeout"`  // seconds
-	Account   string `gorm:"size:64" json:"account"`     // SSH account
+	Account   string `gorm:"size:64" json:"account"`     // SSH account (username)
+	Password  string `gorm:"size:256" json:"password"`   // SSH password (encrypted)
 	Pause     string `gorm:"size:256" json:"pause"`      // pause between batches
 	Hosts     string `gorm:"type:text" json:"hosts"`     // JSON array of host endpoints
 	Tags      string `gorm:"type:text" json:"tags"`      // JSON array

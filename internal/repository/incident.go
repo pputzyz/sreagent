@@ -195,6 +195,19 @@ func (r *IncidentRepository) FindOpenByFingerprint(ctx context.Context, fingerpr
 	return &inc, nil
 }
 
+// CountActiveByChannel returns the count of active (triggered/processing) incidents for a channel.
+func (r *IncidentRepository) CountActiveByChannel(ctx context.Context, channelID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Incident{}).
+		Where("channel_id = ? AND status IN ?", channelID, []string{
+			string(model.IncidentStatusTriggered),
+			string(model.IncidentStatusProcessing),
+		}).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *IncidentRepository) CountByStatus(ctx context.Context, channelID uint) (map[string]int64, error) {
 	type result struct {
 		Status string

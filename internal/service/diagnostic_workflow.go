@@ -154,7 +154,10 @@ func (s *DiagnosticWorkflowService) executeRun(ctx context.Context, run *model.D
 			s.logger.Error("failed to create run step", zap.Uint("run_id", run.ID), zap.String("step_name", step.Name), zap.Error(err))
 		}
 
-		result, execErr := s.executeStep(ctx, &step, wf.TriggerLabels)
+		// Per-step timeout: 5 minutes max to prevent a single step from blocking the entire run.
+		stepCtx, stepCancel := context.WithTimeout(ctx, 5*time.Minute)
+		result, execErr := s.executeStep(stepCtx, &step, wf.TriggerLabels)
+		stepCancel()
 		stepEnd := time.Now()
 		runStep.CompletedAt = &stepEnd
 		runStep.DurationMs = stepEnd.Sub(stepStart).Milliseconds()

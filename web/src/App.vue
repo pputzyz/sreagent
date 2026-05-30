@@ -8,9 +8,46 @@ import {
 } from 'naive-ui'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { ref, provide, watch, onMounted, computed } from 'vue'
+import { usePreferencesStore } from '@/stores/preferences'
 
-const savedTheme = localStorage.getItem('sre-theme')
-const isDark = ref(savedTheme ? savedTheme === 'dark' : false)
+const preferencesStore = usePreferencesStore()
+
+// Preferences store is the single source of truth for theme.
+// Resolve 'auto' via prefers-color-scheme media query.
+const isDark = ref(false)
+
+function resolveTheme(): boolean {
+  const theme = preferencesStore.prefs.theme
+  if (theme === 'auto') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  }
+  return theme === 'dark'
+}
+
+// Initialize from preferences (or localStorage fallback for pre-login)
+onMounted(() => {
+  if (preferencesStore.loaded) {
+    isDark.value = resolveTheme()
+  } else {
+    // Fallback for before preferences are loaded
+    const savedTheme = localStorage.getItem('sre-theme')
+    isDark.value = savedTheme === 'dark'
+  }
+})
+
+// Watch preferences store theme changes (single source of truth)
+watch(() => preferencesStore.prefs.theme, () => {
+  isDark.value = resolveTheme()
+})
+
+// Watch system color scheme changes for 'auto' mode
+const mql = window.matchMedia('(prefers-color-scheme: dark)')
+mql.addEventListener('change', () => {
+  if (preferencesStore.prefs.theme === 'auto') {
+    isDark.value = mql.matches
+  }
+})
+
 const theme = computed(() => isDark.value ? darkTheme : null)
 
 // --- v6.0 brand tokens (teal) ---
@@ -233,7 +270,11 @@ watch(isDark, (val) => {
   applyBodyClass(val)
 })
 
-provide('toggleTheme', () => { isDark.value = !isDark.value })
+// Toggle writes back to preferences store (single source of truth)
+provide('toggleTheme', () => {
+  const newTheme = isDark.value ? 'light' : 'dark'
+  preferencesStore.update({ theme: newTheme })
+})
 provide('isDark', isDark)
 </script>
 
