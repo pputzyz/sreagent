@@ -54,14 +54,15 @@ function computeRange(ms: number): TimeRange {
 }
 
 export function useTimeRange(defaultDuration = '1h') {
-  const defaultOpt = relativeTimeOptions.find(o => o.value === defaultDuration) || relativeTimeOptions.find(o => o.value === '1h')!
+  const relativeOptions = useRelativeTimeOptions()
+  const defaultOpt = relativeOptions.find(o => o.value === defaultDuration) || relativeOptions.find(o => o.value === '1h')!
   const timeRange = ref<TimeRange>(computeRange(defaultOpt.ms))
   const isRelative = ref(true)
   const relativeDuration = ref(defaultDuration)
   const autoRefreshInterval = ref<number | null>(null)
 
   function setRelative(duration: string) {
-    const opt = relativeTimeOptions.find(o => o.value === duration)
+    const opt = relativeOptions.find(o => o.value === duration)
     if (!opt) return
     isRelative.value = true
     relativeDuration.value = duration
@@ -75,7 +76,7 @@ export function useTimeRange(defaultDuration = '1h') {
 
   function refresh() {
     if (isRelative.value) {
-      const opt = relativeTimeOptions.find(o => o.value === relativeDuration.value)
+      const opt = relativeOptions.find(o => o.value === relativeDuration.value)
       if (opt) timeRange.value = computeRange(opt.ms)
     }
   }

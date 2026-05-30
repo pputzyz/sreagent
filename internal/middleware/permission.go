@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -13,13 +14,22 @@ import (
 // EnforceMode controls the behaviour of RequirePerm when a permission check fails.
 //   - "deny" (default): return 403 and abort the request.
 //   - "warn": log the denial but allow the request through (for gradual rollout).
-var EnforceMode = "deny"
+var enforceMode atomic.Value
+
+func init() {
+	enforceMode.Store("deny")
+}
 
 // SetEnforceMode sets the RBAC enforce mode. Valid values: "warn", "deny".
 func SetEnforceMode(mode string) {
 	if mode == "warn" || mode == "deny" {
-		EnforceMode = mode
+		enforceMode.Store(mode)
 	}
+}
+
+// getEnforceMode returns the current enforce mode.
+func getEnforceMode() string {
+	return enforceMode.Load().(string)
 }
 
 // OnPermissionDenied is an optional callback invoked when RequirePerm denies access.
@@ -41,7 +51,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get(ContextKeyRole)
 		if !exists {
-			if EnforceMode == "warn" {
+			if getEnforceMode() == "warn" {
 				if permLogger != nil {
 					permLogger.Warn("RBAC warn: no role in context",
 						zap.String("path", c.Request.URL.Path),
@@ -61,7 +71,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 
 		roleStr, ok := role.(string)
 		if !ok {
-			if EnforceMode == "warn" {
+			if getEnforceMode() == "warn" {
 				if permLogger != nil {
 					permLogger.Warn("RBAC warn: invalid role type in context",
 						zap.String("path", c.Request.URL.Path),
@@ -108,7 +118,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 			OnPermissionDenied(uid, perm, c.Request.URL.Path)
 		}
 
-		if EnforceMode == "warn" {
+		if getEnforceMode() == "warn" {
 			metrics.IncRBACWarn(perm, c.Request.URL.Path)
 			if permLogger != nil {
 				permLogger.Warn("RBAC warn: permission denied (request allowed)",

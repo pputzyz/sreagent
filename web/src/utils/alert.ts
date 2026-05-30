@@ -1,6 +1,26 @@
 import type { AlertSeverity, AlertEventStatus, AlertRuleStatus, DataSourceStatus, TimelineAction } from '@/types'
+import i18n from '@/i18n'
+
+const t = i18n.global.t
 
 // ===== Severity Helpers =====
+
+/**
+ * Return the i18n label for a severity level.
+ */
+export function severityLabel(sev: string): string {
+  const key: Record<string, string> = {
+    critical: 'severity.critical',
+    warning: 'severity.warning',
+    info: 'severity.info',
+    p0: 'severity.p0',
+    p1: 'severity.p1',
+    p2: 'severity.p2',
+    p3: 'severity.p3',
+    p4: 'severity.p4',
+  }
+  return key[sev] ? t(key[sev]) : sev
+}
 
 /**
  * Map alert severity to Naive UI NTag `type` prop.

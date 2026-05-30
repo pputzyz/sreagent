@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch, inject, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, inject, onMounted, onUnmounted, onErrorCaptured } from 'vue'
 import type { Ref } from 'vue'
-import { NIcon, NPopover, NPopselect } from 'naive-ui'
+import { NIcon, NPopover, NPopselect, NResult } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAppNav } from '@/composables/useAppNav'
 import { useCommandPalette } from '@/composables/useCommandPalette'
@@ -22,6 +22,15 @@ const { activeApp, switchApp, menuSections, activeMenuKey, pageTitle } = useAppN
 const { open: openPalette, registerAction } = useCommandPalette()
 
 const router = useRouter()
+
+// ===== Error Boundary =====
+const capturedError = ref<Error | null>(null)
+onErrorCaptured((err, instance, info) => {
+  console.error('[AppShell] Error captured:', err, info)
+  capturedError.value = err
+  return false // prevent further propagation
+})
+function resetError() { capturedError.value = null }
 
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
@@ -145,6 +154,15 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
 <template>
   <div class="app-shell">
+    <!-- Error Boundary fallback -->
+    <div v-if="capturedError" class="error-boundary">
+      <NResult status="error" title="页面渲染出错" :description="capturedError.message">
+        <template #footer>
+          <button class="error-reset-btn" @click="resetError">重试</button>
+        </template>
+      </NResult>
+    </div>
+    <template v-else>
     <a href="#main-content" class="skip-to-content">{{ t('a11y.skipToContent') }}</a>
     <!-- ===== Top Bar ===== -->
     <header class="topbar">
@@ -258,6 +276,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </svg>
       <span class="float-ai-label">{{ t('ai.askAI') }}</span>
     </button>
+    </template><!-- /v-else -->
   </div>
 </template>
 
@@ -417,6 +436,20 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   font-size: 13px;
   font-weight: 600;
 }
+
+/* ===== Error Boundary ===== */
+.error-boundary {
+  display: flex; align-items: center; justify-content: center;
+  height: 100vh; padding: 40px;
+  background: var(--sre-bg-page);
+}
+.error-reset-btn {
+  padding: 8px 24px; border: none; border-radius: var(--sre-radius-sm);
+  background: var(--sre-primary); color: #fff;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: opacity var(--sre-duration-fast) var(--sre-ease-out);
+}
+.error-reset-btn:hover { opacity: 0.85; }
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {

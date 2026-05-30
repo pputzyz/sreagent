@@ -1254,13 +1254,25 @@ func (s *NotifyMediaService) sendPagerDuty(ctx context.Context, media *model.Not
 // --- Tencent SMS ---
 
 func (s *NotifyMediaService) sendTencentSMS(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
-	return fmt.Errorf("tencent_sms sender not yet implemented: requires TC3-HMAC-SHA256 signing. Use webhook or other channels instead")
+	s.logger.Warn("SMS notification is not yet available",
+		zap.String("media_type", "tencent_sms"),
+		zap.String("media_name", media.Name),
+		zap.String("alert", data.AlertName),
+		zap.String("suggestion", "please use webhook (Lark/DingTalk/WeCom/Slack) or email channels instead"),
+	)
+	return fmt.Errorf("SMS notification is not yet available (Tencent SMS). Please configure a webhook or email channel instead")
 }
 
 // --- Aliyun SMS ---
 
 func (s *NotifyMediaService) sendAliyunSMS(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
-	return fmt.Errorf("aliyun_sms sender not yet implemented: requires Alibaba Cloud POP signing. Use webhook or other channels instead")
+	s.logger.Warn("SMS notification is not yet available",
+		zap.String("media_type", "aliyun_sms"),
+		zap.String("media_name", media.Name),
+		zap.String("alert", data.AlertName),
+		zap.String("suggestion", "please use webhook (Lark/DingTalk/WeCom/Slack) or email channels instead"),
+	)
+	return fmt.Errorf("SMS notification is not yet available (Aliyun SMS). Please configure a webhook or email channel instead")
 }
 
 // --- Custom HTTP ---

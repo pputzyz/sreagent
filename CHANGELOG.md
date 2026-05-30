@@ -33,6 +33,16 @@
 - Handler 分层违规修复：RoutingRule/StatusSubscription/EventPipeline/Task/Inspection 改用 service 层
 - 外键约束迁移：10 个核心关系添加 FK（000105）
 
+**P3 低优先级**
+- EnforceMode 改用 atomic.Value 保护并发安全（permission.go）
+- seedPresetRules 提取到独立文件 seed_presets.go（main.go 瘦身 370 行）
+- HTTP WriteTimeout 30s→120s + 新增 ReadHeaderTimeout 10s（main.go）
+- 全局错误边界：AppShell 添加 onErrorCaptured 防止白屏（AppShell.vue）
+- components/index.ts 补充 8 个公共组件 barrel export
+- severity.ts 合并到 alert.ts，保留 backward-compatible re-export
+- useTimeRange 内部停止使用 deprecated 变量
+- 新增 config.example.yaml 完整配置示例
+
 **迁移文件**
 - 新增: 000104_inspection_tasks_add_deleted_at.{up|down}.sql
 - 新增: 000105_add_foreign_keys.{up|down}.sql

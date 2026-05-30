@@ -1,0 +1,110 @@
+# SREAgent Configuration
+# Copy this file to configs/config.yaml (or config.yaml at project root) and adjust values.
+#
+# Environment variables with SREAGENT_ prefix override any value set here.
+# For example: SREAGENT_DATABASE_HOST=10.0.0.5 overrides database.host.
+
+# ---------------------------------------------------------------------------
+# Server
+# ---------------------------------------------------------------------------
+server:
+  host: "0.0.0.0"           # Listen address
+  port: 8080                 # Listen port
+  mode: "release"            # gin mode: debug | release | test
+  external_base: ""          # External base URL for notification links (e.g. https://sreagent.example.com)
+                              # Falls back to http://host:port when empty
+  webhook_secret: ""         # Shared secret for /webhooks/* endpoints; empty = disabled
+
+# ---------------------------------------------------------------------------
+# Database (MySQL 8)
+# Env overrides: SREAGENT_DATABASE_HOST, SREAGENT_DATABASE_PORT,
+#                SREAGENT_DATABASE_USERNAME, SREAGENT_DATABASE_PASSWORD
+# ---------------------------------------------------------------------------
+database:
+  driver: "mysql"
+  host: "127.0.0.1"
+  port: 3306
+  username: "sreagent"
+  password: ""               # Prefer SREAGENT_DATABASE_PASSWORD env var
+  database: "sreagent"
+  charset: "utf8mb4"
+  max_idle_conns: 10
+  max_open_conns: 100
+  max_lifetime: 3600         # Connection max lifetime in seconds
+
+# ---------------------------------------------------------------------------
+# Redis 7
+# Env overrides: SREAGENT_REDIS_HOST, SREAGENT_REDIS_PORT, SREAGENT_REDIS_PASSWORD
+# ---------------------------------------------------------------------------
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""               # Prefer SREAGENT_REDIS_PASSWORD env var
+  db: 0
+  pool_size: 20
+
+# ---------------------------------------------------------------------------
+# JWT
+# Env override: SREAGENT_JWT_SECRET
+# ---------------------------------------------------------------------------
+jwt:
+  secret: ""                 # Prefer SREAGENT_JWT_SECRET env var; auto-generated on first run if empty
+  expire: 86400              # Token TTL in seconds (default 24h)
+  issuer: "sreagent"
+
+# ---------------------------------------------------------------------------
+# OIDC / Keycloak SSO
+# When enabled, users can "Login with SSO" alongside local auth.
+# ---------------------------------------------------------------------------
+oidc:
+  enabled: false
+  issuer_url: ""             # e.g. https://keycloak.example.com/realms/sreagent
+  client_id: ""
+  client_secret: ""
+  redirect_url: ""           # e.g. https://sreagent.example.com/api/v1/auth/oidc/callback
+  scopes:                    # OAuth2 scopes to request
+    - "openid"
+    - "profile"
+    - "email"
+  role_claim: "realm_access.roles"   # JWT claim path for roles
+  role_mapping:              # Keycloak role -> SREAgent role
+    # sre-admin: "admin"
+    # sre-lead:  "team_lead"
+    # sre-member: "member"
+  default_role: "viewer"     # Role assigned when no mapping matches
+  auto_provision: true       # Automatically create user on first OIDC login
+
+# ---------------------------------------------------------------------------
+# Alert Engine (native evaluator)
+# ---------------------------------------------------------------------------
+engine:
+  enabled: true              # Master switch for the alert evaluation engine
+  sync_interval: 30          # How often to sync rules from DB (seconds)
+  per_datasource_eval: false # Per-datasource bucket evaluation (false = legacy global mode)
+  heartbeat_interval: 60     # Heartbeat check interval (seconds)
+  hash_ring_enabled: false   # Distribute rules across instances via consistent hash ring
+  hash_ring_replicas: 500    # Virtual nodes per physical node in the hash ring
+  instance_id: ""            # Unique ID for this instance (default: hostname:pid)
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+log:
+  level: "info"              # debug | info | warn | error
+  format: "json"             # json | console
+  output: "stdout"           # stdout | file
+  file: "logs/sreagent.log"  # Log file path (only when output=file)
+
+# ---------------------------------------------------------------------------
+# Metrics endpoint token
+# Env override: SREAGENT_METRICS_TOKEN (legacy: METRICS_TOKEN)
+# Protects GET /metrics; send as Authorization: Bearer <token>
+# ---------------------------------------------------------------------------
+metrics_token: ""
+
+# ---------------------------------------------------------------------------
+# CORS allowed origins (comma-separated)
+# Env override: SREAGENT_CORS_ALLOWED_ORIGINS (legacy: CORS_ALLOWED_ORIGINS)
+# Empty = allow all (development only); production should list exact origins.
+# ---------------------------------------------------------------------------
+cors_allowed_origins: ""

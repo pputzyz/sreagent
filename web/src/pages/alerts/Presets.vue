@@ -19,7 +19,7 @@ import {
   RocketOutline, LayersOutline,
 } from '@vicons/ionicons5'
 import { getErrorMessage } from '@/utils/format'
-import { severityLabel, severityType } from '@/utils/severity'
+import { severityLabel, getSeverityType } from '@/utils/alert'
 import { useAuthStore } from '@/stores/auth'
 
 const message = useMessage()
@@ -354,7 +354,7 @@ onMounted(() => {
               <div class="preset-desc" v-if="preset.description">{{ preset.description }}</div>
               <div class="preset-expr">{{ preset.expression }}</div>
               <div class="preset-meta">
-                <n-tag :type="severityType(preset.severity)" size="small" :bordered="false">
+                <n-tag :type="getSeverityType(preset.severity)" size="small" :bordered="false">
                   {{ severityLabel(preset.severity) }}
                 </n-tag>
                 <span v-if="preset.category" class="preset-meta-item">{{ preset.category }}</span>
@@ -585,7 +585,7 @@ onMounted(() => {
                       class="batch-preset-item"
                     >
                       <span class="batch-preset-name">{{ p.display_name || p.name }}</span>
-                      <n-tag :type="severityType(p.severity)" size="tiny" :bordered="false">
+                      <n-tag :type="getSeverityType(p.severity)" size="tiny" :bordered="false">
                         {{ severityLabel(p.severity) }}
                       </n-tag>
                     </n-checkbox>
