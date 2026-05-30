@@ -57,6 +57,19 @@ func (h *IncidentHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// --- Parameter validation ---
+	if len(req.Title) > 256 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "title must not exceed 256 characters"))
+		return
+	}
+	if req.Severity != "" {
+		sev := model.IncidentSeverity(req.Severity)
+		if !sev.IsValid() {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "severity must be one of: critical, warning, info"))
+			return
+		}
+	}
+
 	inc := &model.Incident{
 		Title:       req.Title,
 		Description: req.Description,

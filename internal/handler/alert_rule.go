@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -132,6 +133,28 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
+	}
+
+	// --- Parameter validation ---
+	if !req.Severity.IsValid() {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "severity must be one of: critical, warning, info, p0, p1, p2, p3, p4"))
+		return
+	}
+	if req.EvalInterval != 0 && (req.EvalInterval < 0 || req.EvalInterval > 86400) {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "eval_interval must be between 1 and 86400 seconds"))
+		return
+	}
+	if req.ForDuration != "" {
+		if _, err := time.ParseDuration(req.ForDuration); err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "for_duration must be a valid Go duration (e.g. 5m, 1h, 30s): "+err.Error()))
+			return
+		}
+	}
+	if req.RecoveryHold != "" {
+		if _, err := time.ParseDuration(req.RecoveryHold); err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "recovery_hold must be a valid Go duration (e.g. 5m, 1h): "+err.Error()))
+			return
+		}
 	}
 
 	// Default to active if caller did not specify a status.
@@ -265,6 +288,32 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c)
+
+	// --- Parameter validation (PATCH: only validate fields that are explicitly provided) ---
+	if req.Severity != nil && !req.Severity.IsValid() {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "severity must be one of: critical, warning, info, p0, p1, p2, p3, p4"))
+		return
+	}
+	if req.EvalInterval != nil && *req.EvalInterval < 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "eval_interval must not be negative"))
+		return
+	}
+	if req.EvalInterval != nil && *req.EvalInterval > 86400 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "eval_interval must not exceed 86400 seconds (1 day)"))
+		return
+	}
+	if req.ForDuration != nil && *req.ForDuration != "" {
+		if _, err := time.ParseDuration(*req.ForDuration); err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "for_duration must be a valid Go duration (e.g. 5m, 1h, 30s): "+err.Error()))
+			return
+		}
+	}
+	if req.RecoveryHold != nil && *req.RecoveryHold != "" {
+		if _, err := time.ParseDuration(*req.RecoveryHold); err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "recovery_hold must be a valid Go duration (e.g. 5m, 1h): "+err.Error()))
+			return
+		}
+	}
 
 	// Fetch existing rule so we only overwrite fields explicitly provided in JSON.
 	existing, err := h.svc.GetByID(c.Request.Context(), id)

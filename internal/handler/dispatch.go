@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
@@ -64,6 +66,20 @@ func (h *DispatchHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// --- Parameter validation ---
+	if err := validateJSONField(req.MatchConditions, "match_conditions"); err != nil {
+		Error(c, err)
+		return
+	}
+	if err := validateJSONField(req.ActiveTimeConfig, "active_time_config"); err != nil {
+		Error(c, err)
+		return
+	}
+	if err := validateJSONField(req.LabelEnhancementRules, "label_enhancement_rules"); err != nil {
+		Error(c, err)
+		return
+	}
+
 	notifyMode := req.NotifyMode
 	if notifyMode == "" {
 		notifyMode = "personal_preference"
@@ -124,6 +140,20 @@ func (h *DispatchHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// --- Parameter validation ---
+	if err := validateJSONField(req.MatchConditions, "match_conditions"); err != nil {
+		Error(c, err)
+		return
+	}
+	if err := validateJSONField(req.ActiveTimeConfig, "active_time_config"); err != nil {
+		Error(c, err)
+		return
+	}
+	if err := validateJSONField(req.LabelEnhancementRules, "label_enhancement_rules"); err != nil {
+		Error(c, err)
+		return
+	}
+
 	updates := &model.DispatchPolicy{
 		Name:                  req.Name,
 		Description:           req.Description,
@@ -177,4 +207,15 @@ func (h *DispatchHandler) Delete(c *gin.Context) {
 		return
 	}
 	Success(c, nil)
+}
+
+// validateJSONField checks that the given string is valid JSON when non-empty.
+func validateJSONField(value string, fieldName string) *apperr.AppError {
+	if value == "" {
+		return nil
+	}
+	if !json.Valid([]byte(value)) {
+		return apperr.WithMessage(apperr.ErrInvalidParam, fieldName+" must be valid JSON")
+	}
+	return nil
 }

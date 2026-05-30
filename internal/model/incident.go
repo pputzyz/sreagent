@@ -21,6 +21,15 @@ const (
 	IncidentSeverityInfo     IncidentSeverity = "info"
 )
 
+// IsValid returns true if the severity is a recognized value.
+func (s IncidentSeverity) IsValid() bool {
+	switch s {
+	case IncidentSeverityCritical, IncidentSeverityWarning, IncidentSeverityInfo:
+		return true
+	}
+	return false
+}
+
 // Incident represents a fault/problem that may aggregate multiple alerts.
 // It is the primary unit of work for on-call responders.
 // Modeled after FlashCat's "故障" concept.

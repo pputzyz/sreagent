@@ -432,7 +432,7 @@ func (re *RuleEvaluator) executeQuery(ctx context.Context) ([]datasource.QueryRe
 
 	ep := re.datasource.Endpoint
 	at := re.datasource.AuthType
-	ac := re.datasource.AuthConfig
+	ac := re.decryptedAuthConfig
 	expr := re.rule.Expression
 
 	switch re.datasource.Type {
@@ -563,7 +563,7 @@ func (re *RuleEvaluator) resolveVarValues(ctx context.Context, p model.VarParam)
 func (re *RuleEvaluator) executeVarFillingBeforeQuery(ctx context.Context, vc *model.VarConfig, varValues map[string][]string) ([]datasource.QueryResult, error) {
 	ep := re.datasource.Endpoint
 	at := re.datasource.AuthType
-	ac := re.datasource.AuthConfig
+	ac := re.decryptedAuthConfig
 
 	// Build all parameter combinations
 	paramNames := make([]string, 0, len(vc.Params))
@@ -646,7 +646,7 @@ func (re *RuleEvaluator) executeVarFillingBeforeQuery(ctx context.Context, vc *m
 func (re *RuleEvaluator) executeVarFillingAfterQuery(ctx context.Context, vc *model.VarConfig, varValues map[string][]string) ([]datasource.QueryResult, error) {
 	ep := re.datasource.Endpoint
 	at := re.datasource.AuthType
-	ac := re.datasource.AuthConfig
+	ac := re.decryptedAuthConfig
 
 	// Remove $var label selectors from the expression for the broad query
 	broadExpr := removeVarLabelSelectors(re.rule.Expression, vc.Params)

@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/pkg/hashring"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -54,6 +55,7 @@ type AlertState struct {
 type RuleEvaluator struct {
 	rule              *model.AlertRule
 	datasource        *model.DataSource
+	decryptedAuthConfig string // decrypted AuthConfig; never persisted back to DB
 	states            sync.Map // map[string]*stateLock, key is fingerprint — per-fp locking
 	db                *gorm.DB
 	eventRepo         *repository.AlertEventRepository
@@ -165,21 +167,34 @@ type evaluatorDeps struct {
 
 // newRuleEvaluatorFromDeps creates a RuleEvaluator from bundled deps.
 func newRuleEvaluatorFromDeps(rule *model.AlertRule, ds *model.DataSource, deps evaluatorDeps) *RuleEvaluator {
+	// Decrypt AuthConfig once at construction so every query uses plaintext
+	// without mutating the model (which would corrupt the DB on save).
+	ac := ds.AuthConfig
+	if crypto.IsEncrypted(ac) {
+		if plain, err := crypto.DecryptString(ac); err != nil {
+			deps.logger.Error("failed to decrypt datasource auth_config, queries may fail",
+				zap.Uint("datasource_id", ds.ID), zap.Error(err))
+		} else {
+			ac = plain
+		}
+	}
+
 	return &RuleEvaluator{
-		rule:              rule,
-		datasource:        ds,
-		db:                deps.db,
-		eventRepo:         deps.eventRepo,
-		queryClient:       deps.queryClient,
-		stateStore:        deps.stateStore,
-		suppressor:        deps.suppressor,
-		workerPool:        deps.workerPool,
-		onAlert:           deps.onAlert,
-		labelRegistryRepo: deps.labelRegistryRepo,
-		ctx:               deps.ctx,
-		stopCh:            make(chan struct{}),
-		logger:            deps.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
-		fallbackSem:       make(chan struct{}, 16),
+		rule:                rule,
+		datasource:          ds,
+		decryptedAuthConfig: ac,
+		db:                  deps.db,
+		eventRepo:           deps.eventRepo,
+		queryClient:         deps.queryClient,
+		stateStore:          deps.stateStore,
+		suppressor:          deps.suppressor,
+		workerPool:          deps.workerPool,
+		onAlert:             deps.onAlert,
+		labelRegistryRepo:   deps.labelRegistryRepo,
+		ctx:                 deps.ctx,
+		stopCh:              make(chan struct{}),
+		logger:              deps.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
+		fallbackSem:         make(chan struct{}, 16),
 	}
 }
 
@@ -712,22 +727,35 @@ func (e *Evaluator) resolveDatasources(ctx context.Context, rule *model.AlertRul
 
 // startRuleEvaluator creates and starts a goroutine for a single rule against a specific datasource.
 func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSource) {
+	// Decrypt AuthConfig once at construction so every query uses plaintext
+	// without mutating the model (which would corrupt the DB on save).
+	ac := ds.AuthConfig
+	if crypto.IsEncrypted(ac) {
+		if plain, err := crypto.DecryptString(ac); err != nil {
+			e.logger.Error("failed to decrypt datasource auth_config, queries may fail",
+				zap.Uint("datasource_id", ds.ID), zap.Error(err))
+		} else {
+			ac = plain
+		}
+	}
+
 	re := &RuleEvaluator{
-		rule:        rule,
-		datasource:  ds,
+		rule:                rule,
+		datasource:          ds,
+		decryptedAuthConfig: ac,
 		// states is zero-value sync.Map, ready to use
-		db:                e.db,
-		eventRepo:         e.eventRepo,
-		queryClient:       e.queryClient,
-		stateStore:        e.stateStore,
-		suppressor:        e.suppressor,
-		workerPool:        e.workerPool,
-		onAlert:           e.onAlert,
-		labelRegistryRepo: e.labelRegistryRepo,
-		ctx:               e.ctx,
-		stopCh:            make(chan struct{}),
-		logger:            e.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
-		fallbackSem:       make(chan struct{}, 16),
+		db:                  e.db,
+		eventRepo:           e.eventRepo,
+		queryClient:         e.queryClient,
+		stateStore:          e.stateStore,
+		suppressor:          e.suppressor,
+		workerPool:          e.workerPool,
+		onAlert:             e.onAlert,
+		labelRegistryRepo:   e.labelRegistryRepo,
+		ctx:                 e.ctx,
+		stopCh:              make(chan struct{}),
+		logger:              e.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
+		fallbackSem:         make(chan struct{}, 16),
 	}
 
 	e.mu.Lock()

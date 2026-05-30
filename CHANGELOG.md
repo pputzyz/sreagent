@@ -33,6 +33,13 @@
 - Handler 分层违规修复：RoutingRule/StatusSubscription/EventPipeline/Task/Inspection 改用 service 层
 - 外键约束迁移：10 个核心关系添加 FK（000105）
 
+**P2 深层修复**
+- 引擎 AuthConfig 解密：Zabbix/VictoriaLogs 数据源规则评估不再失败（evaluator.go + rule_eval.go）
+- Redis 限流：多实例部署共享登录限流状态（redis/rate_limit.go + middleware/rate_limit.go）
+- Batch N+1 修复：BatchEnable/BatchDisable/BatchDelete 改用单次 GetByIDs（alert_rule.go）
+- Handler 参数校验增强：alert_rule 严重等级/间隔/duration、incident 标题/等级、dispatch JSON 校验
+- initDependencies 拆分为 initRepositories + initServices（786→486 行）
+
 **P3 低优先级**
 - EnforceMode 改用 atomic.Value 保护并发安全（permission.go）
 - seedPresetRules 提取到独立文件 seed_presets.go（main.go 瘦身 370 行）
@@ -46,6 +53,8 @@
 **迁移文件**
 - 新增: 000104_inspection_tasks_add_deleted_at.{up|down}.sql
 - 新增: 000105_add_foreign_keys.{up|down}.sql
+- 新增: 000106_unify_datetime_precision.{up|down}.sql（15 表 DATETIME(3)）
+- 新增: 000107_unify_charset.{up|down}.sql（31 表 utf8mb4_unicode_ci）
 
 ---
 

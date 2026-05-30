@@ -324,12 +324,13 @@ func (s *AlertRuleService) BatchEnable(ctx context.Context, ids []uint) error {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	// Record history for each affected rule
-	for _, id := range ids {
-		rule, err := s.repo.GetByID(ctx, id)
-		if err != nil {
-			continue // rule may have been deleted between batch and history
-		}
-		s.recordHistory(ctx, rule, "updated")
+	rules, err := s.repo.GetByIDs(ctx, ids)
+	if err != nil {
+		s.logger.Error("failed to fetch rules for history recording", zap.Error(err))
+		return nil // batch succeeded; history is best-effort
+	}
+	for i := range rules {
+		s.recordHistory(ctx, &rules[i], "updated")
 	}
 	return nil
 }
@@ -344,12 +345,13 @@ func (s *AlertRuleService) BatchDisable(ctx context.Context, ids []uint) error {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	// Record history for each affected rule
-	for _, id := range ids {
-		rule, err := s.repo.GetByID(ctx, id)
-		if err != nil {
-			continue
-		}
-		s.recordHistory(ctx, rule, "updated")
+	rules, err := s.repo.GetByIDs(ctx, ids)
+	if err != nil {
+		s.logger.Error("failed to fetch rules for history recording", zap.Error(err))
+		return nil // batch succeeded; history is best-effort
+	}
+	for i := range rules {
+		s.recordHistory(ctx, &rules[i], "updated")
 	}
 	return nil
 }
@@ -360,12 +362,14 @@ func (s *AlertRuleService) BatchDelete(ctx context.Context, ids []uint) error {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "ids must not be empty")
 	}
 	// Record history before deletion (snapshot captured while rule still exists)
-	for _, id := range ids {
-		rule, err := s.repo.GetByID(ctx, id)
-		if err != nil {
-			continue
+	rules, err := s.repo.GetByIDs(ctx, ids)
+	if err != nil {
+		s.logger.Error("failed to fetch rules for history recording before delete", zap.Error(err))
+		// continue with deletion even if history fetch fails
+	} else {
+		for i := range rules {
+			s.recordHistory(ctx, &rules[i], "deleted")
 		}
-		s.recordHistory(ctx, rule, "deleted")
 	}
 	if err := s.repo.BatchDelete(ctx, ids); err != nil {
 		s.logger.Error("failed to batch delete alert rules", zap.Error(err))

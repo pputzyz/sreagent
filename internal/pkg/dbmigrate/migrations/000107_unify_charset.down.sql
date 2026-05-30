@@ -1,0 +1,3 @@
+-- No-op: reverting charset/collation changes is destructive and not reversible.
+-- All tables were already using utf8mb4 (MySQL 8 default), this migration only
+-- adds the explicit COLLATE=utf8mb4_unicode_ci for consistency.
