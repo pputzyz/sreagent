@@ -320,3 +320,181 @@ func TestEscalation_ListFiringForEscalation_CursorPagination(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, page3, 0)
 }
+
+// ---------------------------------------------------------------------------
+// SLA breach logic — pure unit tests (no DB required)
+// ---------------------------------------------------------------------------
+
+// Test_checkSLABreach_nil_ruleMap_returns_early verifies that checkSLABreach
+// returns immediately when ruleMap is nil (no rules loaded).
+func Test_checkSLABreach_nil_ruleMap_returns_early(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	event := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 1},
+		RuleID:    uintPtr(1),
+		FiredAt:   time.Now().Add(-10 * time.Minute),
+	}
+
+	// Should not panic and should not attempt any DB operations.
+	assert.NotPanics(t, func() {
+		e.checkSLABreach(context.Background(), event, nil, time.Now())
+	})
+}
+
+// Test_checkSLABreach_nil_ruleID_returns_early verifies that checkSLABreach
+// returns when the event has no RuleID.
+func Test_checkSLABreach_nil_ruleID_returns_early(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	event := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 1},
+		RuleID:    nil,
+		FiredAt:   time.Now().Add(-10 * time.Minute),
+	}
+	ruleMap := map[uint]*model.AlertRule{1: {AckSlaMinutes: 5}}
+
+	assert.NotPanics(t, func() {
+		e.checkSLABreach(context.Background(), event, ruleMap, time.Now())
+	})
+}
+
+// Test_checkSLABreach_rule_not_in_map_returns_early verifies that checkSLABreach
+// returns when the rule is not found in the map.
+func Test_checkSLABreach_rule_not_in_map_returns_early(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	event := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 1},
+		RuleID:    uintPtr(99),
+		FiredAt:   time.Now().Add(-10 * time.Minute),
+	}
+	ruleMap := map[uint]*model.AlertRule{
+		1: {AckSlaMinutes: 5},
+	}
+
+	assert.NotPanics(t, func() {
+		e.checkSLABreach(context.Background(), event, ruleMap, time.Now())
+	})
+}
+
+// Test_checkSLABreach_sla_disabled_returns_early verifies that checkSLABreach
+// returns when AckSlaMinutes is 0 (disabled).
+func Test_checkSLABreach_sla_disabled_returns_early(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	ruleID := uint(1)
+	event := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 1},
+		RuleID:    &ruleID,
+		FiredAt:   time.Now().Add(-10 * time.Minute),
+	}
+	ruleMap := map[uint]*model.AlertRule{
+		1: {AckSlaMinutes: 0}, // SLA disabled
+	}
+
+	assert.NotPanics(t, func() {
+		e.checkSLABreach(context.Background(), event, ruleMap, time.Now())
+	})
+}
+
+// Test_checkSLABreach_already_escalated_returns_early verifies that checkSLABreach
+// returns when SlaEscalatedAt is already set (prevents repeat fires).
+func Test_checkSLABreach_already_escalated_returns_early(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	ruleID := uint(1)
+	alreadyEscalated := time.Now().Add(-5 * time.Minute)
+	event := &model.AlertEvent{
+		BaseModel:      model.BaseModel{ID: 1},
+		RuleID:         &ruleID,
+		FiredAt:        time.Now().Add(-30 * time.Minute),
+		SlaEscalatedAt: &alreadyEscalated,
+	}
+	ruleMap := map[uint]*model.AlertRule{
+		1: {AckSlaMinutes: 5},
+	}
+
+	assert.NotPanics(t, func() {
+		e.checkSLABreach(context.Background(), event, ruleMap, time.Now())
+	})
+}
+
+// Test_checkSLABreach_within_sla_returns_early verifies that checkSLABreach
+// returns when the current time is still within the SLA window.
+func Test_checkSLABreach_within_sla_returns_early(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	ruleID := uint(1)
+	event := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 1},
+		RuleID:    &ruleID,
+		FiredAt:   time.Now().Add(-3 * time.Minute), // fired 3 min ago
+	}
+	ruleMap := map[uint]*model.AlertRule{
+		1: {AckSlaMinutes: 5}, // 5 min SLA
+	}
+	now := time.Now() // still within 5-min window
+
+	assert.NotPanics(t, func() {
+		e.checkSLABreach(context.Background(), event, ruleMap, now)
+	})
+}
+
+// Test_checkSLABreach_breach_detected_reaches_db_path verifies that when an
+// SLA breach is detected, the code proceeds to the DB write path (panics on
+// nil repo, confirming the breach logic was reached).
+func Test_checkSLABreach_breach_detected_reaches_db_path(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	ruleID := uint(1)
+	createdBy := uint(10)
+	event := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 1},
+		RuleID:    &ruleID,
+		FiredAt:   time.Now().Add(-30 * time.Minute), // fired 30 min ago
+		AlertName: "test-alert",
+		Severity:  model.SeverityCritical,
+	}
+	ruleMap := map[uint]*model.AlertRule{
+		1: {BaseModel: model.BaseModel{ID: 1}, Name: "test-rule", AckSlaMinutes: 5, CreatedBy: createdBy},
+	}
+	now := time.Now().Add(1 * time.Minute) // ensure we're past the deadline
+
+	// The breach is detected and the code reaches the DB write path (UpdateSLAEscalated).
+	// Since eventRepo is nil, this panics — confirming the breach logic was fully executed.
+	assert.Panics(t, func() {
+		e.checkSLABreach(context.Background(), event, ruleMap, now)
+	}, "SLA breach should trigger DB write path (panics on nil repo)")
+}
+
+// Test_checkSLABreach_sla_deadline_boundary tests the exact boundary of the SLA window.
+func Test_checkSLABreach_sla_deadline_boundary(t *testing.T) {
+	e := &EscalationExecutor{logger: testutil.TestLogger()}
+	ruleID := uint(1)
+
+	// Fired at T=0, SLA=5min → deadline at T=5min
+	firedAt := time.Date(2026, 5, 30, 12, 0, 0, 0, time.UTC)
+	event := &model.AlertEvent{
+		BaseModel: model.BaseModel{ID: 1},
+		RuleID:    &ruleID,
+		FiredAt:   firedAt,
+	}
+	ruleMap := map[uint]*model.AlertRule{
+		1: {AckSlaMinutes: 5},
+	}
+
+	// At T=4:59 → within SLA (should return early without triggering)
+	t.Run("just_before_deadline", func(t *testing.T) {
+		now := firedAt.Add(4*time.Minute + 59*time.Second)
+		assert.NotPanics(t, func() {
+			e.checkSLABreach(context.Background(), event, ruleMap, now)
+		})
+	})
+
+	// At T=5:00 → at deadline (should trigger breach path → panics on nil repo)
+	t.Run("at_deadline", func(t *testing.T) {
+		now := firedAt.Add(5 * time.Minute)
+		assert.Panics(t, func() {
+			e.checkSLABreach(context.Background(), event, ruleMap, now)
+		}, "at deadline should reach DB write path")
+	})
+}
+
+// Helper to create *uint from a value.
+func uintPtr(v uint) *uint {
+	return &v
+}

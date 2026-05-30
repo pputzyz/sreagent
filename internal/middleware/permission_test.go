@@ -241,3 +241,151 @@ func Test_EffectivePerms_highest_team_role_selected(t *testing.T) {
 	// team_lead also has events.manage
 	assert.True(t, perms["events.manage"], "team_lead permissions should be merged")
 }
+
+// ---------------------------------------------------------------------------
+// EnforceMode tests (deny vs warn)
+// ---------------------------------------------------------------------------
+
+// Test_RequirePerm_deny_mode_blocks_request verifies that in "deny" mode,
+// a permission-denied request is blocked with 403.
+func Test_RequirePerm_deny_mode_blocks_request(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+	SetEnforceMode("deny")
+
+	c, w := setupPermContext(t, "viewer", nil)
+	handler := RequirePerm("rules.delete")
+	handler(c)
+
+	assert.True(t, c.IsAborted(), "deny mode should abort the request")
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+// Test_RequirePerm_warn_mode_allows_denied_request verifies that in "warn" mode,
+// a permission-denied request is ALLOWED through (not blocked).
+func Test_RequirePerm_warn_mode_allows_denied_request(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+	SetEnforceMode("warn")
+
+	c, w := setupPermContext(t, "viewer", nil)
+	handler := RequirePerm("rules.delete")
+	handler(c)
+
+	assert.False(t, c.IsAborted(), "warn mode should NOT abort the request")
+	assert.Equal(t, http.StatusOK, w.Code, "warn mode should return 200")
+}
+
+// Test_RequirePerm_warn_mode_no_role_allows_request verifies that in "warn" mode,
+// a request with no role in context is allowed through.
+func Test_RequirePerm_warn_mode_no_role_allows_request(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+	SetEnforceMode("warn")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	// No role set
+
+	handler := RequirePerm("rules.view")
+	handler(c)
+
+	assert.False(t, c.IsAborted(), "warn mode should allow request with no role")
+}
+
+// Test_RequirePerm_warn_mode_invalid_role_allows_request verifies that in "warn" mode,
+// a request with an invalid role type is allowed through.
+func Test_RequirePerm_warn_mode_invalid_role_allows_request(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+	SetEnforceMode("warn")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	c.Set(ContextKeyRole, 12345) // int, not string
+
+	handler := RequirePerm("rules.view")
+	handler(c)
+
+	assert.False(t, c.IsAborted(), "warn mode should allow request with invalid role type")
+}
+
+// Test_RequirePerm_warn_mode_team_role_elevation_still_works verifies that
+// team-role elevation works correctly in warn mode.
+func Test_RequirePerm_warn_mode_team_role_elevation_still_works(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+	SetEnforceMode("warn")
+
+	// Member globally, team_lead in team → should pass rules.edit without warn
+	c, _ := setupPermContext(t, "member", []string{"team_lead"})
+	handler := RequirePerm("rules.edit")
+	handler(c)
+
+	assert.False(t, c.IsAborted(),
+		"team-role elevation should grant access in warn mode (no warn needed)")
+}
+
+// Test_SetEnforceMode_valid_values verifies that SetEnforceMode accepts
+// "warn" and "deny" and rejects other values.
+func Test_SetEnforceMode_valid_values(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+
+	SetEnforceMode("warn")
+	assert.Equal(t, "warn", getEnforceMode())
+
+	SetEnforceMode("deny")
+	assert.Equal(t, "deny", getEnforceMode())
+
+	// Invalid value should not change the mode.
+	SetEnforceMode("invalid")
+	assert.Equal(t, "deny", getEnforceMode(), "invalid value should not change the mode")
+}
+
+// Test_RequirePerm_deny_mode_team_lead_denied_admin_perm verifies that
+// team_lead is denied admin-only permissions in deny mode.
+func Test_RequirePerm_deny_mode_team_lead_denied_admin_perm(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+	SetEnforceMode("deny")
+
+	c, w := setupPermContext(t, "team_lead", nil)
+	handler := RequirePerm("users.manage")
+	handler(c)
+
+	assert.True(t, c.IsAborted(), "team_lead should be denied users.manage")
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+// Test_RequirePerm_warn_mode_callback_still_fires verifies that the
+// OnPermissionDenied callback fires even in warn mode.
+func Test_RequirePerm_warn_mode_callback_still_fires(t *testing.T) {
+	originalMode := getEnforceMode()
+	defer SetEnforceMode(originalMode)
+	SetEnforceMode("warn")
+
+	var mu sync.Mutex
+	var called bool
+
+	originalCallback := OnPermissionDenied
+	defer func() { OnPermissionDenied = originalCallback }()
+
+	OnPermissionDenied = func(userID uint, perm string, path string) {
+		mu.Lock()
+		defer mu.Unlock()
+		called = true
+	}
+
+	c, _ := setupPermContext(t, "viewer", nil)
+	handler := RequirePerm("rules.delete")
+	handler(c)
+
+	assert.False(t, c.IsAborted(), "warn mode should not abort")
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.True(t, called, "OnPermissionDenied callback should fire even in warn mode")
+}

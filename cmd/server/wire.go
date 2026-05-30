@@ -927,7 +927,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		AI:               handler.NewAIHandler(svcs.AISvc, svcs.SettingSvc, svcs.EventSvc, svcs.ChatHistorySvc),
 		LarkBot:          handler.NewLarkBotHandler(svcs.LarkBotSvc),
 		Engine:           engineHandler,
-		AlertAction:      handler.NewAlertActionHandler(svcs.EventSvc, repos.User, cfg.JWT.Secret, zapLogger),
+		AlertAction:      handler.NewAlertActionHandler(svcs.EventSvc, svcs.UserSvc, cfg.JWT.Secret, zapLogger),
 		MuteRule:         handler.NewMuteRuleHandler(svcs.MuteRuleSvc, svcs.EventSvc, zapLogger),
 		NotifyRule:       handler.NewNotifyRuleHandler(svcs.NotifyRuleSvc, zapLogger),
 		NotifyMedia:      handler.NewNotifyMediaHandler(svcs.NotifyMediaSvc, zapLogger),

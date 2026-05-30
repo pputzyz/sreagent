@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/middleware"
-	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -55,7 +54,7 @@ func (h *AlertActionHandler) resolveOperator(c *gin.Context, formName string) (u
 // AlertActionHandler handles no-auth alert action pages (linked from Lark cards).
 type AlertActionHandler struct {
 	eventSvc  *service.AlertEventService
-	userRepo  *repository.UserRepository
+	userRepo  service.UserLookupService
 	jwtSecret string
 	logger    *zap.Logger
 }
@@ -63,7 +62,7 @@ type AlertActionHandler struct {
 // NewAlertActionHandler creates a new AlertActionHandler.
 func NewAlertActionHandler(
 	eventSvc *service.AlertEventService,
-	userRepo *repository.UserRepository,
+	userRepo service.UserLookupService,
 	jwtSecret string,
 	logger *zap.Logger,
 ) *AlertActionHandler {

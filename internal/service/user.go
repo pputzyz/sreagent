@@ -93,9 +93,26 @@ func (s *UserService) Create(ctx context.Context, user *model.User) error {
 	return nil
 }
 
+// UserLookupService is a narrow interface used by handlers that only need to
+// look up users by ID or username (e.g. alert action pages).  *UserService
+// satisfies this interface.
+type UserLookupService interface {
+	GetByID(ctx context.Context, id uint) (*model.User, error)
+	GetByUsername(ctx context.Context, username string) (*model.User, error)
+}
+
 // GetByID retrieves a user by their ID.
 func (s *UserService) GetByID(ctx context.Context, id uint) (*model.User, error) {
 	user, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, apperr.ErrUserNotFound
+	}
+	return user, nil
+}
+
+// GetByUsername retrieves a user by their username.
+func (s *UserService) GetByUsername(ctx context.Context, username string) (*model.User, error) {
+	user, err := s.repo.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, apperr.ErrUserNotFound
 	}
