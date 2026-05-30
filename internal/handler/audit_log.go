@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,12 @@ func (h *AuditLogHandler) List(c *gin.Context) {
 
 	f := service.AuditLogFilter{}
 
+	if v := c.Query("user_id"); v != "" {
+		if uid, err := strconv.ParseUint(v, 10, 64); err == nil {
+			u := uint(uid)
+			f.UserID = &u
+		}
+	}
 	if v := c.Query("action"); v != "" {
 		f.Action = v
 	}

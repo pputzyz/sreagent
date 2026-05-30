@@ -224,7 +224,9 @@ func (r *EscalationPolicyRepository) ListByTeamID(ctx context.Context, teamID ui
 	if teamID > 0 {
 		query = query.Where("team_id = ?", teamID)
 	}
-	err := query.Order("id DESC").Preload("Team").Find(&list).Error
+	err := query.Order("id DESC").Preload("Team").Preload("Steps", func(db *gorm.DB) *gorm.DB {
+		return db.Order("step_order ASC")
+	}).Find(&list).Error
 	return list, err
 }
 

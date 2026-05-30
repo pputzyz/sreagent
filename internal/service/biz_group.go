@@ -176,6 +176,16 @@ func (s *BizGroupService) Delete(ctx context.Context, id uint) error {
 		return apperr.ErrBizGroupNotFound
 	}
 
+	// Prevent deleting a group that has children — re-parent or delete children first.
+	children, err := s.repo.ListByParentID(ctx, id)
+	if err != nil {
+		s.logger.Error("failed to check biz group children", zap.Error(err), zap.Uint("group_id", id))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if len(children) > 0 {
+		return apperr.WithMessage(apperr.ErrBadRequest, "cannot delete group with children; re-parent or delete children first")
+	}
+
 	if err := s.repo.Delete(ctx, id); err != nil {
 		s.logger.Error("failed to delete biz group", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)

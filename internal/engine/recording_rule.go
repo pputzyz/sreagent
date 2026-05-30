@@ -292,15 +292,30 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 			zap.Int("series", len(results)),
 		)
 
-		// Write results back to the datasource as new time series (Phase 2).
+		// Write results back as new time series.
+		// When WriteDatasourceID is configured in QueryConfig, write to that
+		// dedicated write datasource instead of the query source.
 		if rule.WriteBack == 1 && len(results) > 0 {
 			series := convertToTimeSeries(rule.Name, rule.AppendTagsJSON, results)
-			writer := datasource.NewRemoteWriteClient(ds.Endpoint, ds.AuthType, ds.AuthConfig, 30*time.Second)
+			writeDS := ds // default: write back to the same datasource
+			if len(rule.QueryConfigsJSON) > 0 && rule.QueryConfigsJSON[0].WriteDatasourceID > 0 {
+				writeDsID := uint(rule.QueryConfigsJSON[0].WriteDatasourceID)
+				if wds, wErr := e.dsRepo.GetByID(ctx, writeDsID); wErr != nil {
+					e.logger.Error("recording rule: failed to get write datasource, falling back to read datasource",
+						zap.Uint("rule_id", rule.ID),
+						zap.Uint("write_ds_id", writeDsID),
+						zap.Error(wErr),
+					)
+				} else {
+					writeDS = wds
+				}
+			}
+			writer := datasource.NewRemoteWriteClient(writeDS.Endpoint, writeDS.AuthType, writeDS.AuthConfig, 30*time.Second)
 			if err := writer.Write(ctx, series); err != nil {
 				e.logger.Error("recording rule: failed to write back",
 					zap.Uint("rule_id", rule.ID),
 					zap.String("name", rule.Name),
-					zap.String("datasource", ds.Name),
+					zap.String("datasource", writeDS.Name),
 					zap.Error(err),
 				)
 				lastErr = err
@@ -310,7 +325,7 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 				zap.Uint("rule_id", rule.ID),
 				zap.String("name", rule.Name),
 				zap.String("metric", rule.Name),
-				zap.String("datasource", ds.Name),
+				zap.String("datasource", writeDS.Name),
 				zap.Int("series_count", len(series)),
 			)
 		} else if rule.WriteBack == 0 {

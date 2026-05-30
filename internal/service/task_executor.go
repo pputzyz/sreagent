@@ -254,12 +254,17 @@ func (e *TaskExecutor) executeOnHost(ctx context.Context, record *model.TaskReco
 
 	password := record.Password
 	if password == "" {
-		password = record.Account
-		e.logger.Warn("SSH password not set, falling back to account name as password — this is insecure",
+		hr.Status = model.TaskStatusFail
+		hr.Stderr = "SSH password not configured for this task — refusing to connect with empty credentials"
+		e.logger.Error("SSH password not set, aborting execution",
 			zap.Uint("task_id", record.ID),
 			zap.String("host", hr.Host),
 			zap.String("account", record.Account),
 		)
+		if err := e.recRepo.UpdateHostRecord(ctx, hr); err != nil {
+			e.logger.Error("failed to update host record", zap.Error(err))
+		}
+		return
 	}
 
 	stdout, stderr, exitCode, err := e.runSSH(ctx, hr.Host, record.Account, password, record.Script, record.Args, time.Duration(timeout)*time.Second)

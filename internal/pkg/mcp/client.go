@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 const (
@@ -54,7 +56,7 @@ func NewClient(serverURL string, headers map[string]string) *Client {
 	return &Client{
 		serverURL: serverURL,
 		headers:   headers,
-		client:    &http.Client{Timeout: DefaultTimeout},
+		client:    safehttp.NewInternalClient(DefaultTimeout),
 		nextID:    1,
 	}
 }

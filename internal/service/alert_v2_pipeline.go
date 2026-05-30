@@ -325,6 +325,20 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 	if p.incidentAggregator != nil {
 		if eventStatus == model.AlertEventV2StatusFiring {
 			p.incidentAggregator.OnEventFired(ctx, event)
+
+			// Back-fill IncidentID on any scheduled dispatches that were created
+			// before the incident aggregator resolved the incident.
+			if p.scheduledDispatchSvc != nil && event.Fingerprint != "" {
+				if inc, err := p.incidentRepo.FindOpenByFingerprint(ctx, event.Fingerprint); err == nil && inc != nil {
+					if err := p.scheduledDispatchSvc.UpdateIncidentIDByFingerprint(ctx, event.Fingerprint, inc.ID); err != nil {
+						p.logger.Warn("failed to back-fill incident_id on scheduled dispatch",
+							zap.String("fingerprint", event.Fingerprint),
+							zap.Uint("incident_id", inc.ID),
+							zap.Error(err),
+						)
+					}
+				}
+			}
 		} else {
 			p.incidentAggregator.OnEventResolved(ctx, event)
 		}

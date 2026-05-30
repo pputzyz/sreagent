@@ -70,6 +70,12 @@ func (s *ScheduledDispatchService) CancelByIncident(ctx context.Context, inciden
 	return s.repo.CancelByIncident(ctx, incidentID)
 }
 
+// UpdateIncidentIDByFingerprint back-fills the incident_id on pending dispatches
+// that were created before the incident aggregator resolved the incident.
+func (s *ScheduledDispatchService) UpdateIncidentIDByFingerprint(ctx context.Context, fingerprint string, incidentID uint) error {
+	return s.repo.UpdateIncidentIDByFingerprint(ctx, fingerprint, incidentID)
+}
+
 // ProcessDueDispatches polls for due dispatches and sends notifications.
 // Called periodically by a background worker (every 30s).
 func (s *ScheduledDispatchService) ProcessDueDispatches(ctx context.Context) error {

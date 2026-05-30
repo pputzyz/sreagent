@@ -68,10 +68,11 @@ func (ScheduleOverride) TableName() string {
 // EscalationPolicy defines what happens when alerts are not acknowledged.
 type EscalationPolicy struct {
 	BaseModel
-	Name      string `json:"name" gorm:"size:128;not null"`
-	TeamID    uint   `json:"team_id" gorm:"index;not null"`
-	Team      Team   `json:"team,omitempty" gorm:"foreignKey:TeamID"`
-	IsEnabled bool   `json:"is_enabled" gorm:"default:true"`
+	Name      string          `json:"name" gorm:"size:128;not null"`
+	TeamID    uint            `json:"team_id" gorm:"index;not null"`
+	Team      Team            `json:"team,omitempty" gorm:"foreignKey:TeamID"`
+	IsEnabled bool            `json:"is_enabled" gorm:"default:true"`
+	Steps     []EscalationStep `json:"steps,omitempty" gorm:"foreignKey:PolicyID"`
 }
 
 func (EscalationPolicy) TableName() string {

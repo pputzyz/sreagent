@@ -67,8 +67,8 @@ func (qc *QueryClient) RangeQuery(ctx context.Context, endpoint, authType, authC
 
 	form := url.Values{}
 	form.Set("query", query)
-	form.Set("start", strconv.FormatInt(start.Unix(), 10))
-	form.Set("end", strconv.FormatInt(end.Unix(), 10))
+	form.Set("start", strconv.FormatFloat(float64(start.UnixMilli())/1000, 'f', -1, 64))
+	form.Set("end", strconv.FormatFloat(float64(end.UnixMilli())/1000, 'f', -1, 64))
 	form.Set("step", step)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(form.Encode()))

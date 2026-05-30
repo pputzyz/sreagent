@@ -32,7 +32,11 @@ type NotifyRuleService struct {
 	pipelineEngine *ppipeline.Engine
 	pipelineRepo   *repository.EventPipelineRepository
 	dedupSvc       *NotificationDedupService
-	logger         *zap.Logger
+	// userNotifyConfigRepo and teamRepo enable UserIDs/TeamIDs dispatch in NotifyConfig.
+	// Optional — when nil, UserIDs/TeamIDs are logged as warnings and skipped.
+	userNotifyConfigRepo *repository.UserNotifyConfigRepository
+	teamRepo             *repository.TeamRepository
+	logger               *zap.Logger
 }
 
 // SetPipelineEngine injects the event pipeline engine and repository.
@@ -44,6 +48,16 @@ func (s *NotifyRuleService) SetPipelineEngine(engine *ppipeline.Engine, repo *re
 // SetDedupService injects the Redis-backed notification dedup service.
 func (s *NotifyRuleService) SetDedupService(dedupSvc *NotificationDedupService) {
 	s.dedupSvc = dedupSvc
+}
+
+// SetUserNotifyConfigRepo injects the user notify config repository for UserIDs/TeamIDs dispatch.
+func (s *NotifyRuleService) SetUserNotifyConfigRepo(repo *repository.UserNotifyConfigRepository) {
+	s.userNotifyConfigRepo = repo
+}
+
+// SetTeamRepo injects the team repository for expanding TeamIDs to members.
+func (s *NotifyRuleService) SetTeamRepo(repo *repository.TeamRepository) {
+	s.teamRepo = repo
 }
 
 // NewNotifyRuleService creates a new NotifyRuleService.
@@ -354,6 +368,11 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 		}
 
 		s.createRecord(ctx, event.ID, media.ID, rule.ID, event.Fingerprint, "sent", "")
+
+		// Dispatch to UserIDs and TeamIDs personal notification channels.
+		if len(nc.UserIDs) > 0 || len(nc.TeamIDs) > 0 {
+			s.dispatchToUsersAndTeams(ctx, event, rule, &nc, renderedContent, templateData)
+		}
 	}
 
 	// 4. Fire callback if configured
@@ -362,6 +381,83 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 	}
 
 	return nil
+}
+
+// dispatchToUsersAndTeams sends notifications to users specified by UserIDs and
+// to all members of teams specified by TeamIDs. Each user's personal
+// UserNotifyConfig entries are used to determine which channels to send through.
+// If the required repositories are not injected, a warning is logged and the
+// dispatch is skipped.
+func (s *NotifyRuleService) dispatchToUsersAndTeams(
+	ctx context.Context,
+	event *model.AlertEvent,
+	rule *model.NotifyRule,
+	nc *model.NotifyConfig,
+	renderedContent string,
+	templateData *TemplateData,
+) {
+	// Collect all target user IDs.
+	allUserIDs := make(map[uint]struct{})
+	for _, uid := range nc.UserIDs {
+		allUserIDs[uid] = struct{}{}
+	}
+
+	// Expand TeamIDs to member user IDs.
+	if len(nc.TeamIDs) > 0 && s.teamRepo != nil {
+		for _, tid := range nc.TeamIDs {
+			members, err := s.teamRepo.ListMembers(ctx, tid)
+			if err != nil {
+				s.logger.Warn("failed to list team members for UserIDs/TeamIDs dispatch",
+					zap.Uint("team_id", tid), zap.Error(err))
+				continue
+			}
+			for _, m := range members {
+				allUserIDs[m.UserID] = struct{}{}
+			}
+		}
+	} else if len(nc.TeamIDs) > 0 && s.teamRepo == nil {
+		s.logger.Warn("TeamIDs specified but team repository not injected, skipping team expansion",
+			zap.Uints("team_ids", nc.TeamIDs))
+	}
+
+	if len(allUserIDs) == 0 {
+		return
+	}
+
+	// Look up each user's personal notification configs and send.
+	if s.userNotifyConfigRepo == nil {
+		s.logger.Warn("UserIDs/TeamIDs specified but user_notify_config repository not injected, skipping personal dispatch",
+			zap.Any("user_ids", nc.UserIDs), zap.Any("team_ids", nc.TeamIDs))
+		return
+	}
+
+	for uid := range allUserIDs {
+		cfgs, err := s.userNotifyConfigRepo.ListByUserID(ctx, uid)
+		if err != nil {
+			s.logger.Warn("failed to load user notify config",
+				zap.Uint("user_id", uid), zap.Error(err))
+			continue
+		}
+		for _, cfg := range cfgs {
+			if !cfg.IsEnabled {
+				continue
+			}
+			// Send via the user's configured channel.
+			// cfg.MediaType is like "lark_personal", "email", etc.
+			// We send the rendered content directly — personal channels use the
+			// same template already rendered for the rule's notify config.
+			if err := s.mediaSvc.SendByUserConfig(ctx, &cfg, renderedContent, templateData); err != nil {
+				s.logger.Error("failed to send personal notification",
+					zap.Uint("user_id", uid),
+					zap.String("media_type", cfg.MediaType),
+					zap.Error(err),
+				)
+				s.createRecord(ctx, event.ID, 0, rule.ID, event.Fingerprint, "failed", err.Error())
+			} else {
+				s.createRecord(ctx, event.ID, 0, rule.ID, event.Fingerprint, "sent", "")
+			}
+		}
+	}
 }
 
 // runPipeline executes the event processing pipeline defined in the rule.

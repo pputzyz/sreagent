@@ -156,6 +156,8 @@ func (re *RuleEvaluator) evaluate() {
 						zap.String("fingerprint", fp),
 						zap.String("severity", severity),
 					)
+					state.Status = "pending"
+					state.ActiveAt = now
 					sl.state = state
 					re.persistState(fp, state)
 				} else if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
@@ -163,6 +165,8 @@ func (re *RuleEvaluator) evaluate() {
 						zap.String("fingerprint", fp),
 						zap.Uint("mute_rule_id", muteID),
 					)
+					state.Status = "pending"
+					state.ActiveAt = now
 					sl.state = state
 					re.persistState(fp, state)
 				} else {

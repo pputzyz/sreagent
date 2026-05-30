@@ -241,6 +241,37 @@ func (s *NotifyMediaService) SendNotification(ctx context.Context, media *model.
 	}
 }
 
+// SendByUserConfig sends a notification via a user's personal UserNotifyConfig.
+// It constructs a synthetic NotifyMedia from the user config and delegates to
+// SendNotification. This enables UserIDs/TeamIDs dispatch in notify rules.
+func (s *NotifyMediaService) SendByUserConfig(ctx context.Context, cfg *model.UserNotifyConfig, renderedContent string, data *TemplateData) error {
+	if !cfg.IsEnabled {
+		return nil
+	}
+
+	// Map UserNotifyConfig.MediaType to NotifyMediaType.
+	var mediaType model.NotifyMediaType
+	switch cfg.MediaType {
+	case "lark_personal":
+		mediaType = model.MediaTypeFeishuApp
+	case "email":
+		mediaType = model.MediaTypeEmail
+	case "webhook":
+		mediaType = model.MediaTypeHTTP
+	default:
+		return fmt.Errorf("unsupported user notify media type: %s", cfg.MediaType)
+	}
+
+	synthetic := &model.NotifyMedia{
+		Name:      fmt.Sprintf("user-%d-%s", cfg.UserID, cfg.MediaType),
+		Type:      mediaType,
+		Config:    cfg.Config,
+		IsEnabled: true,
+	}
+
+	return s.SendNotification(ctx, synthetic, renderedContent, data)
+}
+
 // TestMedia sends a test notification through the given media.
 func (s *NotifyMediaService) TestMedia(ctx context.Context, id uint) error {
 	media, err := s.repo.GetByID(ctx, id)

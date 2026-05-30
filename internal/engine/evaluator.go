@@ -106,17 +106,35 @@ func NewPerDatasourceEvaluator(parentCtx context.Context, dsID uint, log *zap.Lo
 	}
 }
 
+// ruleVersion pairs a rule version with its evaluator for change detection.
+type ruleVersion struct {
+	version   int
+	evaluator *RuleEvaluator
+}
+
 // AddRule adds a rule to this bucket and starts its evaluator.
-// If ruleID already exists, stops the old one first.
-// Mutex-protected to prevent orphan goroutines from concurrent AddRule calls for the same ruleID.
+// If ruleID already exists with the same Version, it is a no-op (preserving
+// in-flight state). If the Version changed, the old evaluator is stopped first.
+// Mutex-protected to prevent orphan goroutines from concurrent AddRule calls
+// for the same ruleID.
 func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSource, deps evaluatorDeps) {
 	p.addMu.Lock()
 	defer p.addMu.Unlock()
-	if old, loaded := p.rules.LoadAndDelete(rule.ID); loaded {
-		old.(*RuleEvaluator).Stop()
+	if old, loaded := p.rules.Load(rule.ID); loaded {
+		rv := old.(*ruleVersion)
+		if rv.version == rule.Version {
+			return // same version — no change, keep running evaluator
+		}
+		// Version changed — stop old evaluator before creating new one
+		p.rules.Delete(rule.ID)
+		rv.evaluator.Stop()
+		p.log.Info("rule version changed, restarting evaluator",
+			zap.Uint("rule_id", rule.ID),
+			zap.Int("old_version", rv.version),
+			zap.Int("new_version", rule.Version))
 	}
 	ev := newRuleEvaluatorFromDeps(rule, ds, deps)
-	p.rules.Store(rule.ID, ev)
+	p.rules.Store(rule.ID, &ruleVersion{version: rule.Version, evaluator: ev})
 	go ev.Run()
 	p.log.Info("rule added to datasource bucket",
 		zap.Uint("rule_id", rule.ID),
@@ -126,7 +144,7 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 // RemoveRule stops a rule's evaluator in this bucket.
 func (p *PerDatasourceEvaluator) RemoveRule(ruleID uint) {
 	if v, loaded := p.rules.LoadAndDelete(ruleID); loaded {
-		v.(*RuleEvaluator).Stop()
+		v.(*ruleVersion).evaluator.Stop()
 		p.log.Info("rule removed from datasource bucket", zap.Uint("rule_id", ruleID))
 	}
 }
@@ -135,7 +153,7 @@ func (p *PerDatasourceEvaluator) RemoveRule(ruleID uint) {
 func (p *PerDatasourceEvaluator) Stop() {
 	p.cancel()
 	p.rules.Range(func(k, v any) bool {
-		v.(*RuleEvaluator).Stop()
+		v.(*ruleVersion).evaluator.Stop()
 		return true
 	})
 	p.log.Info("datasource bucket stopped", zap.Uint("datasource_id", p.DatasourceID))
@@ -552,7 +570,7 @@ func (e *Evaluator) syncRules() {
 	var rules []model.AlertRule
 	if err := e.db.WithContext(ctx).
 		Preload("DataSource").
-		Where("status = ?", model.RuleStatusActive).
+		Where("status = ? AND (rule_type IS NULL OR rule_type <> ?)", model.RuleStatusActive, model.RuleTypeHeartbeat).
 		Find(&rules).Error; err != nil {
 		e.logger.Error("failed to load alert rules for sync", zap.Error(err))
 		return
@@ -793,6 +811,7 @@ func (e *Evaluator) stopRuleEvaluator(ruleID uint) {
 
 // stopEvaluatorsByDatasource stops only the evaluators whose rules reference
 // the given datasource IDs.  Used for incremental forceSync.
+// Handles both legacy evaluators map and per-datasource buckets.
 func (e *Evaluator) stopEvaluatorsByDatasource(dsIDs []uint) {
 	dsSet := make(map[uint]bool, len(dsIDs))
 	for _, id := range dsIDs {
@@ -813,6 +832,18 @@ func (e *Evaluator) stopEvaluatorsByDatasource(dsIDs []uint) {
 		re.Stop()
 		if e.suppressor != nil {
 			e.suppressor.RemoveRule(re.rule.ID)
+		}
+	}
+
+	// Also stop and remove per-datasource buckets for affected datasource IDs
+	// so they are re-created with fresh datasource objects on the next sync.
+	if e.perDSEval {
+		for _, dsID := range dsIDs {
+			if v, loaded := e.perDS.LoadAndDelete(dsID); loaded {
+				v.(*PerDatasourceEvaluator).Stop()
+				e.logger.Info("stopped per-datasource bucket for affected datasource",
+					zap.Uint("datasource_id", dsID))
+			}
 		}
 	}
 

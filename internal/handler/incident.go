@@ -27,7 +27,7 @@ type CreateIncidentRequest struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
 	Severity    string `json:"severity"`
-	ChannelID   uint   `json:"channel_id" binding:"required"`
+	ChannelID   uint   `json:"channel_id"`
 	AssignedTo  *uint  `json:"assigned_to"`
 }
 

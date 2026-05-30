@@ -75,7 +75,7 @@ func (r *BizGroupRepository) ListAll(ctx context.Context) ([]model.BizGroup, err
 func (r *BizGroupRepository) ListTree(ctx context.Context) ([]model.BizGroup, error) {
 	var list []model.BizGroup
 	err := r.db.WithContext(ctx).
-		Order("parent_id ASC NULLS FIRST, id ASC").
+		Order("parent_id IS NULL DESC, parent_id ASC, id ASC").
 		Find(&list).Error
 	return list, err
 }

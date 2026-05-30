@@ -186,17 +186,14 @@ func (s *InhibitionRuleService) Preview(ctx context.Context, firingEvents []mode
 		seen := make(map[uint]bool) // avoid duplicate target entries
 		for j := range firingEvents {
 			target := &firingEvents[j]
-			for k := range firingEvents {
-				src := &firingEvents[k]
-				if src.ID == target.ID {
-					continue
-				}
-				if matchesInhibition(&rule, target, firingEvents) && !seen[target.ID] {
-					result.TargetEvents = append(result.TargetEvents, *target)
-					result.SourceEvents = append(result.SourceEvents, *src)
-					seen[target.ID] = true
-					break
-				}
+			if seen[target.ID] {
+				continue
+			}
+			src := findMatchingSource(&rule, target, firingEvents)
+			if src != nil {
+				result.TargetEvents = append(result.TargetEvents, *target)
+				result.SourceEvents = append(result.SourceEvents, *src)
+				seen[target.ID] = true
 			}
 		}
 		if len(result.TargetEvents) > 0 {
@@ -204,6 +201,59 @@ func (s *InhibitionRuleService) Preview(ctx context.Context, firingEvents []mode
 		}
 	}
 	return results, nil
+}
+
+// findMatchingSource returns the first source event from firingEvents that causes
+// the target to be suppressed by the given inhibition rule, or nil if no match.
+// This is used by Preview to show the correct source event.
+func findMatchingSource(rule *model.InhibitionRule, target *model.AlertEvent, firingEvents []model.AlertEvent) *model.AlertEvent {
+	// Convert target labels to map[string]string for labelmatch.
+	tgtLabels := make(map[string]string, len(target.Labels))
+	for k, v := range target.Labels {
+		tgtLabels[k] = v
+	}
+
+	// The target alert must match TargetMatch labels.
+	if !labelmatch.Match(tgtLabels, rule.TargetMatch) {
+		return nil
+	}
+
+	equalFields := parseEqualLabels(rule.EqualLabels)
+
+	for i := range firingEvents {
+		src := &firingEvents[i]
+		if src.ID == target.ID {
+			continue
+		}
+		if src.Status == model.EventStatusResolved || src.Status == model.EventStatusClosed {
+			continue
+		}
+
+		srcLabels := make(map[string]string, len(src.Labels))
+		for k, v := range src.Labels {
+			srcLabels[k] = v
+		}
+		if !labelmatch.Match(srcLabels, rule.SourceMatch) {
+			continue
+		}
+
+		if len(equalFields) > 0 {
+			allEqual := true
+			for _, lbl := range equalFields {
+				srcVal, srcOK := src.Labels[lbl]
+				tgtVal, tgtOK := target.Labels[lbl]
+				if !srcOK || !tgtOK || srcVal != tgtVal {
+					allEqual = false
+					break
+				}
+			}
+			if !allEqual {
+				continue
+			}
+		}
+		return src
+	}
+	return nil
 }
 
 // matchesInhibition returns true when the given inhibition rule causes event to be suppressed.

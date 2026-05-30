@@ -34,7 +34,7 @@ type CreateIntegrationRequest struct {
 	ChannelID              *uint  `json:"channel_id"`
 	PipelineConfig         string `json:"pipeline_config"`
 	LabelEnhancementConfig string `json:"label_enhancement_config"`
-	IsEnabled              bool   `json:"is_enabled"`
+	IsEnabled              *bool  `json:"is_enabled"`
 }
 
 // List returns integrations, optionally filtered by channel.
@@ -81,6 +81,11 @@ func (h *IntegrationHandler) Create(c *gin.Context) {
 		zap.String("type", req.Type),
 		zap.String("request_id", c.GetString("request_id")))
 
+	isEnabled := true // default to enabled
+	if req.IsEnabled != nil {
+		isEnabled = *req.IsEnabled
+	}
+
 	integ := &model.Integration{
 		Name:                   req.Name,
 		Description:            req.Description,
@@ -89,7 +94,7 @@ func (h *IntegrationHandler) Create(c *gin.Context) {
 		ChannelID:              req.ChannelID,
 		PipelineConfig:         req.PipelineConfig,
 		LabelEnhancementConfig: req.LabelEnhancementConfig,
-		IsEnabled:              req.IsEnabled,
+		IsEnabled:              isEnabled,
 	}
 
 	if err := h.svc.Create(c.Request.Context(), integ); err != nil {
@@ -137,9 +142,19 @@ func (h *IntegrationHandler) Update(c *gin.Context) {
 	updates := &model.Integration{
 		Name:                   req.Name,
 		Description:            req.Description,
-		IsEnabled:              req.IsEnabled,
 		PipelineConfig:         req.PipelineConfig,
 		LabelEnhancementConfig: req.LabelEnhancementConfig,
+	}
+	if req.IsEnabled != nil {
+		updates.IsEnabled = *req.IsEnabled
+	} else {
+		// Preserve existing IsEnabled when not explicitly provided.
+		existing, err := h.svc.GetByID(c.Request.Context(), id)
+		if err != nil {
+			Error(c, err)
+			return
+		}
+		updates.IsEnabled = existing.IsEnabled
 	}
 	integ, err := h.svc.Update(c.Request.Context(), id, updates)
 	if err != nil {

@@ -46,7 +46,7 @@ func (c *Client) connectSSE(ctx context.Context) (string, error) {
 	}
 
 	// Use a longer timeout for the SSE connection itself
-	httpClient := &http.Client{Timeout: 60 * time.Second}
+	httpClient := c.client
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("SSE connect: %w", err)

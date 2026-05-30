@@ -193,6 +193,12 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			})
 		}
 
+		// Status page public endpoints (no auth — read-only for external status pages)
+		if handlers.StatusService != nil {
+			api.GET("/status-services", handlers.StatusService.List)
+			api.GET("/status-services/:id", handlers.StatusService.Get)
+		}
+
 		// ----- Authenticated routes (JWT required) -----
 		auth := api.Group("")
 		auth.Use(middleware.JWTAuth(&cfg.JWT))

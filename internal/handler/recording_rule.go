@@ -83,6 +83,11 @@ func (h *RecordingRuleHandler) Create(c *gin.Context) {
 
 	userID := GetCurrentUserID(c)
 
+	writeBack := 1 // default: write results back to datasource
+	if req.WriteBack != nil {
+		writeBack = *req.WriteBack
+	}
+
 	rule := &model.RecordingRule{
 		GroupID:           req.GroupID,
 		Name:              req.Name,
@@ -90,6 +95,7 @@ func (h *RecordingRuleHandler) Create(c *gin.Context) {
 		DatasourceIDsJSON: req.DatasourceIDs,
 		CronPattern:       req.CronPattern,
 		Disabled:          req.Disabled,
+		WriteBack:         writeBack,
 		AppendTagsJSON:    req.AppendTags,
 		Note:              req.Note,
 		QueryConfigsJSON:  req.QueryConfigs,
@@ -148,10 +154,14 @@ func (h *RecordingRuleHandler) Update(c *gin.Context) {
 		DatasourceIDsJSON: req.DatasourceIDs,
 		CronPattern:       req.CronPattern,
 		Disabled:          req.Disabled,
+		WriteBack:         existing.WriteBack, // preserve existing by default
 		AppendTagsJSON:    req.AppendTags,
 		Note:              req.Note,
 		QueryConfigsJSON:  req.QueryConfigs,
 		UpdatedBy:         strconv.FormatUint(uint64(userID), 10),
+	}
+	if req.WriteBack != nil {
+		input.WriteBack = *req.WriteBack
 	}
 	if input.CronPattern == "" {
 		input.CronPattern = "@every 60s"
@@ -278,6 +288,7 @@ type CreateRecordingRuleRequest struct {
 	DatasourceIDs []int64            `json:"datasource_ids"`
 	CronPattern   string             `json:"cron_pattern"`
 	Disabled      int                `json:"disabled"`
+	WriteBack     *int               `json:"write_back"`
 	AppendTags    []string           `json:"append_tags"`
 	Note          string             `json:"note"`
 	QueryConfigs  []model.QueryConfig `json:"query_configs"`
@@ -289,6 +300,7 @@ type UpdateRecordingRuleRequest struct {
 	DatasourceIDs []int64            `json:"datasource_ids"`
 	CronPattern   string             `json:"cron_pattern"`
 	Disabled      int                `json:"disabled"`
+	WriteBack     *int               `json:"write_back"`
 	AppendTags    []string           `json:"append_tags"`
 	Note          string             `json:"note"`
 	QueryConfigs  []model.QueryConfig `json:"query_configs"`

@@ -52,7 +52,7 @@ func (r *AlertRuleRepository) List(ctx context.Context, severity, status, groupN
 		query = query.Where("name LIKE ? OR display_name LIKE ? OR expression LIKE ?", kw, kw, kw)
 	}
 	if datasourceID != nil {
-		query = query.Where("datasource_id = ?", *datasourceID)
+		query = query.Where("data_source_id = ?", *datasourceID)
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -130,7 +130,7 @@ func (r *AlertRuleRepository) ListByTeamIDs(ctx context.Context, teamIDs []uint,
 		query = query.Where("name LIKE ? OR display_name LIKE ? OR expression LIKE ?", kw, kw, kw)
 	}
 	if datasourceID != nil {
-		query = query.Where("datasource_id = ?", *datasourceID)
+		query = query.Where("data_source_id = ?", *datasourceID)
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -171,7 +171,7 @@ func (r *AlertRuleRepository) UpdateVersion(ctx context.Context, rule *model.Ale
 			"name":                  rule.Name,
 			"display_name":          rule.DisplayName,
 			"description":           rule.Description,
-			"datasource_id":         rule.DataSourceID,
+			"data_source_id":         rule.DataSourceID,
 			"datasource_type":       rule.DatasourceType,
 			"expression":            rule.Expression,
 			"for_duration":          rule.ForDuration,

@@ -66,6 +66,25 @@ func (r *ScheduledDispatchRepository) ScheduleNext(ctx context.Context, id uint,
 		}).Error
 }
 
+// UpdateIncidentID sets the incident_id on a scheduled dispatch entry.
+// Called after incident aggregation resolves the actual incident ID.
+func (r *ScheduledDispatchRepository) UpdateIncidentID(ctx context.Context, dispatchID uint, incidentID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.ScheduledDispatch{}).
+		Where("id = ?", dispatchID).
+		Update("incident_id", incidentID).Error
+}
+
+// UpdateIncidentIDByFingerprint sets the incident_id on all pending dispatches
+// matching the given fingerprint. Called after incident aggregation when we know
+// the fingerprint but not the specific dispatch ID.
+func (r *ScheduledDispatchRepository) UpdateIncidentIDByFingerprint(ctx context.Context, fingerprint string, incidentID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.ScheduledDispatch{}).
+		Where("fingerprint = ? AND incident_id = 0 AND status = ?", fingerprint, model.ScheduledDispatchPending).
+		Update("incident_id", incidentID).Error
+}
+
 // CancelByIncident cancels all pending dispatches for an incident.
 // Called when an incident is acknowledged or closed.
 func (r *ScheduledDispatchRepository) CancelByIncident(ctx context.Context, incidentID uint) error {

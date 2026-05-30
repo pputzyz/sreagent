@@ -100,16 +100,18 @@ type GenerateShiftsRequest struct {
 
 // CreateEscalationPolicyRequest is the request body for creating an escalation policy.
 type CreateEscalationPolicyRequest struct {
-	Name      string `json:"name" binding:"required"`
-	TeamID    uint   `json:"team_id" binding:"required"`
-	IsEnabled *bool  `json:"is_enabled"`
+	Name      string                  `json:"name" binding:"required"`
+	TeamID    uint                    `json:"team_id" binding:"required"`
+	IsEnabled *bool                   `json:"is_enabled"`
+	Steps     []model.EscalationStep  `json:"steps"`
 }
 
 // UpdateEscalationPolicyRequest is the request body for updating an escalation policy.
 type UpdateEscalationPolicyRequest struct {
-	Name      string `json:"name" binding:"required"`
-	TeamID    uint   `json:"team_id" binding:"required"`
-	IsEnabled *bool  `json:"is_enabled"`
+	Name      string                  `json:"name" binding:"required"`
+	TeamID    uint                    `json:"team_id" binding:"required"`
+	IsEnabled *bool                   `json:"is_enabled"`
+	Steps     []model.EscalationStep  `json:"steps"`
 }
 
 // ---------------------------------------------------------------------------
@@ -472,6 +474,14 @@ func (h *ScheduleHandler) CreateEscalationPolicy(c *gin.Context) {
 		return
 	}
 
+	// Replace escalation steps if provided.
+	if len(req.Steps) > 0 {
+		if err := h.svc.ReplaceEscalationSteps(c.Request.Context(), policy.ID, req.Steps); err != nil {
+			Error(c, err)
+			return
+		}
+	}
+
 	if h.auditSvc != nil {
 		uid := GetCurrentUserID(c)
 		h.auditSvc.Record(&model.AuditLog{
@@ -560,6 +570,14 @@ func (h *ScheduleHandler) UpdateEscalationPolicy(c *gin.Context) {
 	if err := h.svc.UpdateEscalationPolicy(c.Request.Context(), policy); err != nil {
 		Error(c, err)
 		return
+	}
+
+	// Replace escalation steps if provided.
+	if len(req.Steps) > 0 {
+		if err := h.svc.ReplaceEscalationSteps(c.Request.Context(), id, req.Steps); err != nil {
+			Error(c, err)
+			return
+		}
 	}
 
 	if h.auditSvc != nil {

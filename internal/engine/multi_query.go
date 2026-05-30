@@ -41,6 +41,13 @@ func (re *RuleEvaluator) executeMultiQuery(ctx context.Context) ([]datasource.Qu
 		return nil, fmt.Errorf("no queries defined for multi-query rule")
 	}
 
+	// Fail-closed: multi-query rules must have a trigger expression to filter
+	// results. Without it, all joined results would be treated as firing events,
+	// which would cause an alert storm on every evaluation cycle.
+	if strings.TrimSpace(re.rule.TriggerExp) == "" {
+		return nil, fmt.Errorf("multi-query rule requires TriggerExp to filter results; without it all results would fire as alerts")
+	}
+
 	if len(queries) > 2 {
 		re.logger.Warn("multi-query: more than 2 queries defined; only the first 2 are used for joins (N-way join not yet implemented)",
 			zap.Int("query_count", len(queries)),
@@ -124,10 +131,15 @@ func (re *RuleEvaluator) executeQueryByRef(ctx context.Context, q model.RuleQuer
 
 	ep := ds.Endpoint
 	at := ds.AuthType
-	ac := ds.AuthConfig
-	if crypto.IsEncrypted(ac) {
-		if decrypted, err := crypto.DecryptString(ac); err == nil {
-			ac = decrypted
+	var ac string
+	if ds.ID == re.datasource.ID {
+		ac = re.decryptedAuthConfig
+	} else {
+		ac = ds.AuthConfig
+		if crypto.IsEncrypted(ac) {
+			if decrypted, err := crypto.DecryptString(ac); err == nil {
+				ac = decrypted
+			}
 		}
 	}
 
