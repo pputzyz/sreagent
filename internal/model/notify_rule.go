@@ -28,7 +28,10 @@ type NotifyRule struct {
 	MaxNotifications int `json:"max_notifications" gorm:"default:0"`   // 0 = unlimited; caps total sent notifications per rule+media
 	// Callback URL (optional, called when event is processed)
 	CallbackURL string `json:"callback_url" gorm:"size:512"`
-	CreatedBy   uint   `json:"created_by" gorm:"index"`
+	// GroupAggregate: when true, all events in a notification group flush are
+	// aggregated into a single notification instead of one per event.
+	GroupAggregate bool `json:"group_aggregate" gorm:"default:false"`
+	CreatedBy      uint `json:"created_by" gorm:"index"`
 }
 
 func (NotifyRule) TableName() string {

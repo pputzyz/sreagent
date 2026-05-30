@@ -139,6 +139,27 @@ func severityTemplate(severity string) string {
 	}
 }
 
+// SeverityTemplate is the exported version of severityTemplate for use by other packages.
+func SeverityTemplate(severity string) string {
+	return severityTemplate(severity)
+}
+
+// SeverityRank returns a numeric rank for severity comparison (higher = more severe).
+func SeverityRank(sev string) int {
+	switch strings.ToLower(sev) {
+	case "critical":
+		return 4
+	case "error":
+		return 3
+	case "warning":
+		return 2
+	case "info":
+		return 1
+	default:
+		return 0
+	}
+}
+
 // severityEmoji returns an emoji indicator for the severity level.
 func severityEmoji(severity string) string {
 	switch strings.ToLower(severity) {
@@ -420,6 +441,166 @@ func BuildEnrichedAlertCard(
 			Header: CardHeader{
 				Title:    CardText{Tag: "plain_text", Content: headerContent},
 				Template: template,
+			},
+			Elements: elements,
+		},
+	}
+}
+
+// BuildWebhookCard builds a rich interactive card for webhook delivery (Lark/Feishu).
+// Unlike BuildEnrichedAlertCard, it omits action buttons (webhooks cannot receive callbacks)
+// and includes the rendered content as a primary text block.
+// If analysis is non-nil, the AI analysis section is appended.
+// If platformURL is non-empty, a "View in SREAgent" link button is included.
+func BuildWebhookCard(
+	alertName string,
+	severity string,
+	status string,
+	labels map[string]string,
+	annotations map[string]string,
+	firedAt time.Time,
+	renderedContent string,
+	analysis *AIAnalysisResult,
+	platformURL string,
+) *CardMessage {
+	tmpl := severityTemplate(severity)
+	emoji := severityEmoji(severity)
+
+	headerContent := fmt.Sprintf("%s [%s] %s", emoji, strings.ToUpper(severity), alertName)
+
+	// Status section
+	statusText := "告警中"
+	if strings.ToLower(status) == "resolved" {
+		statusText = "已恢复"
+	} else if strings.ToLower(status) == "acknowledged" {
+		statusText = "已确认"
+	}
+
+	elements := []interface{}{
+		// Basic info
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("**状态:** %s\n**级别:** %s\n**触发时间:** %s", statusText, severity, firedAt.Format("2006-01-02 15:04:05")),
+		},
+		CardDivider{Tag: "hr"},
+	}
+
+	// Rendered content (from the notification template)
+	if renderedContent != "" {
+		elements = append(elements,
+			CardMarkdown{
+				Tag:     "markdown",
+				Content: renderedContent,
+			},
+			CardDivider{Tag: "hr"},
+		)
+	}
+
+	// Labels section
+	var labelsBuilder strings.Builder
+	for k, v := range labels {
+		if k == "alertname" || k == "severity" {
+			continue
+		}
+		fmt.Fprintf(&labelsBuilder, "%s: %s\n", k, v)
+	}
+	labelsText := labelsBuilder.String()
+	if labelsText == "" {
+		labelsText = "_无额外标签_"
+	}
+	elements = append(elements,
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("📋 **标签**\n%s", labelsText),
+		},
+		CardDivider{Tag: "hr"},
+	)
+
+	// Annotations/description section
+	var annotationsBuilder strings.Builder
+	for k, v := range annotations {
+		fmt.Fprintf(&annotationsBuilder, "**%s:** %s\n", k, v)
+	}
+	annotationsText := annotationsBuilder.String()
+	if annotationsText == "" {
+		annotationsText = "_无描述_"
+	}
+	elements = append(elements,
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("📝 **描述**\n%s", annotationsText),
+		},
+	)
+
+	// AI Analysis section (only if analysis is provided)
+	if analysis != nil {
+		var aiContent strings.Builder
+		aiContent.WriteString("🤖 **AI 分析**\n\n")
+
+		if analysis.Summary != "" {
+			fmt.Fprintf(&aiContent, "**摘要:** %s\n\n", analysis.Summary)
+		}
+
+		if len(analysis.ProbableCauses) > 0 {
+			aiContent.WriteString("**可能原因:**\n")
+			for i, cause := range analysis.ProbableCauses {
+				fmt.Fprintf(&aiContent, "%d. %s\n", i+1, cause)
+			}
+			aiContent.WriteString("\n")
+		}
+
+		if analysis.Impact != "" {
+			fmt.Fprintf(&aiContent, "**影响范围:** %s\n\n", analysis.Impact)
+		}
+
+		if len(analysis.RecommendedSteps) > 0 {
+			aiContent.WriteString("**建议操作:**\n")
+			for i, step := range analysis.RecommendedSteps {
+				fmt.Fprintf(&aiContent, "%d. %s\n", i+1, step)
+			}
+		}
+
+		elements = append(elements,
+			CardDivider{Tag: "hr"},
+			CardMarkdown{
+				Tag:     "markdown",
+				Content: aiContent.String(),
+			},
+		)
+	}
+
+	// Footer with source info
+	elements = append(elements,
+		CardDivider{Tag: "hr"},
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("_SREAgent · %s_", firedAt.Format("2006-01-02 15:04:05")),
+		},
+	)
+
+	// Platform link button (read-only, no action buttons for webhooks)
+	if platformURL != "" {
+		elements = append(elements,
+			CardAction{
+				Tag: "action",
+				Actions: []interface{}{
+					CardButton{
+						Tag:  "button",
+						Text: CardText{Tag: "plain_text", Content: "📊 查看详情"},
+						URL:  platformURL,
+						Type: "primary",
+					},
+				},
+			},
+		)
+	}
+
+	return &CardMessage{
+		MsgType: "interactive",
+		Card: Card{
+			Header: CardHeader{
+				Title:    CardText{Tag: "plain_text", Content: headerContent},
+				Template: tmpl,
 			},
 			Elements: elements,
 		},

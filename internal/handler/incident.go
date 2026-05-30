@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
@@ -127,7 +128,12 @@ func (h *IncidentHandler) List(c *gin.Context) {
 	severity := c.Query("severity")
 	query := c.Query("query")
 
-	list, total, err := h.svc.List(c.Request.Context(), channelID, status, severity, query, assignedTo, pq.Page, pq.PageSize)
+	// Team-scoped listing: admin sees all, non-admin sees only own team's incidents.
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == "admin"
+	teamIDs := middleware.GetUserTeamIDs(c)
+
+	list, total, err := h.svc.ListScoped(c.Request.Context(), isAdmin, teamIDs, channelID, status, severity, query, assignedTo, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, err)
 		return

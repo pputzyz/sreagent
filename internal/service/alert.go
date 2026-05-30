@@ -47,7 +47,7 @@ func (s *AlertV2Service) List(ctx context.Context, channelID, incidentID uint, s
 }
 
 // ListEvents returns paginated events for an alert.
-func (s *AlertV2Service) ListEvents(ctx context.Context, alertID uint, page, pageSize int) ([]model.AlertEventV2, int64, error) {
+func (s *AlertV2Service) ListEvents(ctx context.Context, alertID uint, page, pageSize int) ([]model.ViewAlertEvent, int64, error) {
 	// Verify alert exists
 	_, err := s.repo.GetByID(ctx, alertID)
 	if err != nil {

@@ -142,6 +142,25 @@ func (s *IncidentService) List(ctx context.Context, channelID uint, status, seve
 	return list, total, nil
 }
 
+// ListScoped returns paginated incidents with team-level data isolation.
+// If isAdmin is true, the regular List is called (no filtering).
+// Otherwise, only incidents whose channel belongs to the given teamIDs are returned.
+// When teamIDs is empty for a non-admin user, an empty result is returned.
+func (s *IncidentService) ListScoped(ctx context.Context, isAdmin bool, teamIDs []uint, channelID uint, status, severity, query string, assignedTo uint, page, pageSize int) ([]model.Incident, int64, error) {
+	if isAdmin {
+		return s.List(ctx, channelID, status, severity, query, assignedTo, page, pageSize)
+	}
+	if len(teamIDs) == 0 {
+		return []model.Incident{}, 0, nil
+	}
+	list, total, err := s.repo.ListByTeamIDs(ctx, teamIDs, channelID, status, severity, query, assignedTo, page, pageSize)
+	if err != nil {
+		s.logger.Error("failed to list incidents (scoped)", zap.Error(err))
+		return nil, 0, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return list, total, nil
+}
+
 // Acknowledge marks the incident as processing and records the ack.
 func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) error {
 	inc, err := s.repo.GetByID(ctx, id)

@@ -25,10 +25,13 @@ func (s AlertEventStatus) IsValid() bool {
 }
 
 // AlertEvent represents an instance of an alert firing.
+// This is the unified model that serves both the v1 engine lifecycle
+// (firing → acknowledged → assigned → silenced → resolved → closed)
+// and the v2 pipeline snapshot events (linked to an Alert via AlertID).
 type AlertEvent struct {
 	BaseModel
 	// Fingerprint for deduplication (hash of labels + rule)
-	Fingerprint string           `json:"fingerprint" gorm:"size:64;uniqueIndex;not null"`
+	Fingerprint string           `json:"fingerprint" gorm:"size:64;index;not null"`
 	RuleID      *uint            `json:"rule_id" gorm:"index"`
 	Rule        *AlertRule       `json:"rule,omitempty" gorm:"foreignKey:RuleID"`
 	AlertName   string           `json:"alert_name" gorm:"size:256;not null;index"`
@@ -70,6 +73,12 @@ type AlertEvent struct {
 	// via dispatch policy matching. When set, the escalation executor will prefer
 	// this policy over team/global matching.
 	EscalationPolicyID *uint `json:"escalation_policy_id,omitempty" gorm:"index"`
+	// --- v2 pipeline fields (unified from alert_events_v2) ---
+	// AlertID links this event to a v2 Alert record. Nil for pure v1 engine events.
+	AlertID *uint  `json:"alert_id,omitempty" gorm:"index"`
+	Alert   *Alert `json:"alert,omitempty" gorm:"foreignKey:AlertID"`
+	// Value is the metric value at evaluation time (v2 pipeline events).
+	Value float64 `json:"value" gorm:"default:0"`
 }
 
 func (AlertEvent) TableName() string {
@@ -108,4 +117,44 @@ type AlertTimeline struct {
 
 func (AlertTimeline) TableName() string {
 	return "alert_timelines"
+}
+
+// ViewAlertEvent is the API response type for the v2 alert events endpoint.
+// It mirrors the old AlertEventV2 JSON shape so the frontend does not need changes.
+type ViewAlertEvent struct {
+	ID            uint              `json:"id"`
+	AlertID       uint              `json:"alert_id"`
+	EventStatus   AlertEventV2Status `json:"event_status"`
+	EventSeverity AlertSeverity     `json:"event_severity"`
+	Labels        JSONLabels        `json:"labels"`
+	Annotations   JSONLabels        `json:"annotations"`
+	Value         float64           `json:"value"`
+	Timestamp     time.Time         `json:"timestamp"`
+	Fingerprint   string            `json:"fingerprint"`
+	CreatedAt     time.Time         `json:"created_at"`
+}
+
+// ToViewAlertEvent converts an AlertEvent to the ViewAlertEvent API response format.
+func (e *AlertEvent) ToViewAlertEvent() ViewAlertEvent {
+	v := ViewAlertEvent{
+		ID:            e.ID,
+		EventSeverity: e.Severity,
+		Labels:        e.Labels,
+		Annotations:   e.Annotations,
+		Value:         e.Value,
+		Timestamp:     e.FiredAt,
+		Fingerprint:   e.Fingerprint,
+		CreatedAt:     e.CreatedAt,
+	}
+	if e.AlertID != nil {
+		v.AlertID = *e.AlertID
+	}
+	// Map lifecycle status to v2 firing/resolved
+	switch e.Status {
+	case EventStatusResolved, EventStatusClosed:
+		v.EventStatus = AlertEventV2StatusResolved
+	default:
+		v.EventStatus = AlertEventV2StatusFiring
+	}
+	return v
 }

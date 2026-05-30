@@ -22,6 +22,7 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/lark"
 	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -280,32 +281,112 @@ func (s *NotifyMediaService) sendLarkWebhook(ctx context.Context, media *model.N
 		return fmt.Errorf("lark webhook_url is empty")
 	}
 
-	// Build a simple text card payload
+	// Convert AI analysis if available
+	var aiResult *lark.AIAnalysisResult
+	if data.AIAnalysis != nil {
+		aiResult = &lark.AIAnalysisResult{
+			Summary:          data.AIAnalysis.Summary,
+			ProbableCauses:   data.AIAnalysis.ProbableCauses,
+			Impact:           data.AIAnalysis.Impact,
+			RecommendedSteps: data.AIAnalysis.RecommendedSteps,
+		}
+	}
+
+	card := lark.BuildWebhookCard(
+		data.AlertName,
+		data.Severity,
+		data.Status,
+		data.Labels,
+		data.Annotations,
+		data.FiredAt,
+		content,
+		aiResult,
+		"", // no platform URL for webhook path
+	)
+
 	payload := map[string]interface{}{
 		"msg_type": "interactive",
-		"card": map[string]interface{}{
-			"header": map[string]interface{}{
-				"title": map[string]interface{}{
-					"tag":     "plain_text",
-					"content": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
-				},
-				"template": severityToLarkColor(data.Severity),
-			},
-			"elements": []interface{}{
-				map[string]interface{}{
-					"tag": "div",
-					"text": map[string]interface{}{
-						"tag":     "lark_md",
-						"content": content,
-					},
-				},
-			},
-		},
+		"card":     card.Card,
 	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal lark payload: %w", err)
+	}
+
+	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "lark_webhook")
+}
+
+// SendAggregatedLarkCard sends a single Lark card containing multiple alert events.
+// Used when group_aggregate is enabled on a notify rule.
+func (s *NotifyMediaService) SendAggregatedLarkCard(ctx context.Context, media *model.NotifyMedia, events []*model.AlertEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+	var cfg larkWebhookConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil {
+		return fmt.Errorf("invalid lark webhook config: %w", err)
+	}
+	if cfg.WebhookURL == "" {
+		return fmt.Errorf("lark webhook_url is empty")
+	}
+
+	// Determine the highest severity for the card header color.
+	maxSev := "info"
+	for _, ev := range events {
+		if lark.SeverityRank(string(ev.Severity)) > lark.SeverityRank(maxSev) {
+			maxSev = string(ev.Severity)
+		}
+	}
+
+	// Build markdown rows for each event.
+	var sb strings.Builder
+	for i, ev := range events {
+		sevTag := strings.ToUpper(string(ev.Severity))
+		labelParts := make([]string, 0, 3)
+		cnt := 0
+		for k, v := range ev.Labels {
+			if cnt >= 3 {
+				break
+			}
+			labelParts = append(labelParts, k+"="+v)
+			cnt++
+		}
+		labelStr := ""
+		if len(labelParts) > 0 {
+			labelStr = "  (" + strings.Join(labelParts, ", ") + ")"
+		}
+		fmt.Fprintf(&sb, "**%d.** [%s] %s%s\n", i+1, sevTag, ev.AlertName, labelStr)
+	}
+
+	header := fmt.Sprintf("🔔 %d Alerts Firing", len(events))
+
+	elements := []interface{}{
+		lark.CardMarkdown{
+			Tag:     "markdown",
+			Content: sb.String(),
+		},
+		lark.CardDivider{Tag: "hr"},
+		lark.CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("_SREAgent · Group Aggregate · %s_", time.Now().Format("2006-01-02 15:04:05")),
+		},
+	}
+
+	card := &lark.CardMessage{
+		MsgType: "interactive",
+		Card: lark.Card{
+			Header: lark.CardHeader{
+				Title:    lark.CardText{Tag: "plain_text", Content: header},
+				Template: lark.SeverityTemplate(maxSev),
+			},
+			Elements: elements,
+		},
+	}
+
+	body, err := json.Marshal(card)
+	if err != nil {
+		return fmt.Errorf("failed to marshal aggregated lark card: %w", err)
 	}
 
 	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "lark_webhook")
@@ -659,19 +740,6 @@ func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, 
 	return lastErr
 }
 
-// severityToLarkColor maps alert severity to Lark card header template color.
-func severityToLarkColor(severity string) string {
-	switch strings.ToLower(severity) {
-	case "critical":
-		return "red"
-	case "warning":
-		return "orange"
-	case "info":
-		return "blue"
-	default:
-		return "grey"
-	}
-}
 
 // --- DingTalk Webhook ---
 
@@ -840,26 +908,33 @@ func (s *NotifyMediaService) sendFeishuWebhook(ctx context.Context, media *model
 	if cfg.WebhookURL == "" {
 		return fmt.Errorf("feishu webhook_url is empty")
 	}
+
+	// Convert AI analysis if available
+	var aiResult *lark.AIAnalysisResult
+	if data.AIAnalysis != nil {
+		aiResult = &lark.AIAnalysisResult{
+			Summary:          data.AIAnalysis.Summary,
+			ProbableCauses:   data.AIAnalysis.ProbableCauses,
+			Impact:           data.AIAnalysis.Impact,
+			RecommendedSteps: data.AIAnalysis.RecommendedSteps,
+		}
+	}
+
+	card := lark.BuildWebhookCard(
+		data.AlertName,
+		data.Severity,
+		data.Status,
+		data.Labels,
+		data.Annotations,
+		data.FiredAt,
+		content,
+		aiResult,
+		"", // no platform URL for webhook path
+	)
+
 	payload := map[string]interface{}{
 		"msg_type": "interactive",
-		"card": map[string]interface{}{
-			"header": map[string]interface{}{
-				"title": map[string]interface{}{
-					"tag":     "plain_text",
-					"content": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
-				},
-				"template": severityToLarkColor(data.Severity),
-			},
-			"elements": []interface{}{
-				map[string]interface{}{
-					"tag": "div",
-					"text": map[string]interface{}{
-						"tag":     "lark_md",
-						"content": content,
-					},
-				},
-			},
-		},
+		"card":     card.Card,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -882,38 +957,33 @@ func (s *NotifyMediaService) sendFeishuCard(ctx context.Context, media *model.No
 	if cfg.WebhookURL == "" {
 		return fmt.Errorf("feishu card webhook_url is empty")
 	}
+
+	// Convert AI analysis if available
+	var aiResult *lark.AIAnalysisResult
+	if data.AIAnalysis != nil {
+		aiResult = &lark.AIAnalysisResult{
+			Summary:          data.AIAnalysis.Summary,
+			ProbableCauses:   data.AIAnalysis.ProbableCauses,
+			Impact:           data.AIAnalysis.Impact,
+			RecommendedSteps: data.AIAnalysis.RecommendedSteps,
+		}
+	}
+
+	card := lark.BuildWebhookCard(
+		data.AlertName,
+		data.Severity,
+		data.Status,
+		data.Labels,
+		data.Annotations,
+		data.FiredAt,
+		content,
+		aiResult,
+		"", // no platform URL for webhook path
+	)
+
 	payload := map[string]interface{}{
 		"msg_type": "interactive",
-		"card": map[string]interface{}{
-			"header": map[string]interface{}{
-				"title": map[string]interface{}{
-					"tag":     "plain_text",
-					"content": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
-				},
-				"template": severityToLarkColor(data.Severity),
-			},
-			"elements": []interface{}{
-				map[string]interface{}{
-					"tag": "div",
-					"text": map[string]interface{}{
-						"tag":     "lark_md",
-						"content": content,
-					},
-				},
-				map[string]interface{}{
-					"tag": "hr",
-				},
-				map[string]interface{}{
-					"tag": "note",
-					"elements": []interface{}{
-						map[string]interface{}{
-							"tag":     "plain_text",
-							"content": fmt.Sprintf("SREAgent · %s · %s", data.Source, data.FiredAt.Format("2006-01-02 15:04:05")),
-						},
-					},
-				},
-			},
-		},
+		"card":     card.Card,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -950,25 +1020,29 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 		ridType = "chat_id"
 	}
 
-	card := map[string]interface{}{
-		"header": map[string]interface{}{
-			"title": map[string]interface{}{
-				"tag":     "plain_text",
-				"content": fmt.Sprintf("[%s] %s", strings.ToUpper(data.Severity), data.AlertName),
-			},
-			"template": severityToLarkColor(data.Severity),
-		},
-		"elements": []interface{}{
-			map[string]interface{}{
-				"tag": "div",
-				"text": map[string]interface{}{
-					"tag":     "lark_md",
-					"content": content,
-				},
-			},
-		},
+	// Convert AI analysis if available
+	var aiResult *lark.AIAnalysisResult
+	if data.AIAnalysis != nil {
+		aiResult = &lark.AIAnalysisResult{
+			Summary:          data.AIAnalysis.Summary,
+			ProbableCauses:   data.AIAnalysis.ProbableCauses,
+			Impact:           data.AIAnalysis.Impact,
+			RecommendedSteps: data.AIAnalysis.RecommendedSteps,
+		}
 	}
-	cardJSON, _ := json.Marshal(card)
+
+	richCard := lark.BuildWebhookCard(
+		data.AlertName,
+		data.Severity,
+		data.Status,
+		data.Labels,
+		data.Annotations,
+		data.FiredAt,
+		content,
+		aiResult,
+		"", // no platform URL for app path
+	)
+	cardJSON, _ := json.Marshal(richCard.Card)
 
 	payload := map[string]interface{}{
 		"receive_id": cfg.ReceiveID,

@@ -58,6 +58,39 @@
 
 ---
 
+### 架构演进 — 5 大改进
+
+**数据级团队隔离**
+- team_scope 中间件自动加载用户团队 ID 到 context
+- alert_rule / incident 的 ListScoped 按团队过滤，admin 绕过
+- 路由层注册 TeamScoped 中间件
+
+**AlertEvent v1/v2 模型统一**
+- AlertEvent 新增 AlertID + Value 字段，吸收 v2 能力
+- 迁移 000108 将 alert_events_v2 数据合并到 alert_events
+- ViewAlertEvent API 响应类型保持向后兼容
+- AlertV2Pipeline 改写 alert_events 而非 alert_events_v2
+
+**通知分组聚合**
+- NotifyRule 新增 group_aggregate 字段
+- AlertGroupManager.flushGroup 支持批量路由
+- SendAggregatedLarkCard：同组告警合并为一张飞书卡片
+
+**飞书卡片增强**
+- BuildWebhookCard 统一卡片构建（标签/注释/AI 分析/严重等级颜色）
+- 所有 4 条飞书发送路径（webhook/card/app/bot）使用相同富卡片
+
+**测试覆盖提升**
+- auth_test.go：12 个测试（登录/刷新/限流/签名验证）
+- alert_rule_test.go：9 个测试（批量操作/版本冲突/CRUD）
+- notify_rule_test.go：6 个测试（标签匹配/严重等级/去重）
+
+**迁移文件**
+- 新增: 000108_unify_alert_events_v2.{up|down}.sql
+- 新增: 000108_notify_rule_group_aggregate.{up|down}.sql
+
+---
+
 ## [v4.59.0] — 2026-05-29
 
 ### IA 重构 — 菜单归类移位 + 信息架构优化

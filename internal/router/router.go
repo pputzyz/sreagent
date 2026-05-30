@@ -196,6 +196,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 		// ----- Authenticated routes (JWT required) -----
 		auth := api.Group("")
 		auth.Use(middleware.JWTAuth(&cfg.JWT))
+		auth.Use(middleware.TeamScoped())
 		{
 			// --- Role shorthand for readability ---
 			adminOnly := middleware.RequireRole("admin")

@@ -397,15 +397,22 @@ func (p *AlertV2Pipeline) upsertAlert(
 		existing = newAlert
 	}
 
-	// Append event record
-	ev := &model.AlertEventV2{
-		AlertID:       existing.ID,
-		EventStatus:   status,
-		EventSeverity: severity,
-		Labels:        event.Labels,
-		Annotations:   event.Annotations,
-		Timestamp:     now,
-		Fingerprint:   event.Fingerprint,
+	// Append event record to the unified alert_events table.
+	// Map v2 status to v1 lifecycle status.
+	v1Status := model.EventStatusFiring
+	if status == model.AlertEventV2StatusResolved {
+		v1Status = model.EventStatusResolved
+	}
+	ev := &model.AlertEvent{
+		AlertID:     &existing.ID,
+		AlertName:   event.AlertName,
+		Severity:    severity,
+		Status:      v1Status,
+		Labels:      event.Labels,
+		Annotations: event.Annotations,
+		FiredAt:     now,
+		Fingerprint: event.Fingerprint,
+		Source:      event.Source,
 	}
 	if err := p.alertRepo.CreateEvent(ctx, ev); err != nil {
 		p.logger.Error("alert_v2_pipeline: failed to create event record",

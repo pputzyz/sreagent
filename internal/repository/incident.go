@@ -71,6 +71,44 @@ func (r *IncidentRepository) List(ctx context.Context, channelID uint, status, s
 	return list, total, nil
 }
 
+// ListByTeamIDs is like List but restricted to incidents whose channel belongs to
+// one of the given team IDs. Uses a subquery on the channels table.
+func (r *IncidentRepository) ListByTeamIDs(ctx context.Context, teamIDs []uint, channelID uint, status, severity, query string, assignedTo uint, page, pageSize int) ([]model.Incident, int64, error) {
+	var list []model.Incident
+	var total int64
+
+	q := r.db.WithContext(ctx).Model(&model.Incident{}).
+		Where("channel_id IN (SELECT id FROM channels WHERE team_id IN ? AND deleted_at IS NULL)", teamIDs)
+	if channelID > 0 {
+		q = q.Where("channel_id = ?", channelID)
+	}
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	if severity != "" {
+		q = q.Where("severity = ?", severity)
+	}
+	if assignedTo > 0 {
+		q = q.Where("assigned_to = ?", assignedTo)
+	}
+	if query != "" {
+		like := "%" + query + "%"
+		q = q.Where("title LIKE ? OR description LIKE ?", like, like)
+	}
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := q.Preload("Channel").Preload("AssignedUser").
+		Offset(offset).Limit(pageSize).Order("id DESC").Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
+}
+
 func (r *IncidentRepository) Update(ctx context.Context, inc *model.Incident) error {
 	return r.db.WithContext(ctx).Save(inc).Error
 }

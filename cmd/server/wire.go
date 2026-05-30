@@ -108,6 +108,19 @@ func (a *teamRoleAdapter) ListTeamRoles(userID uint) ([]string, error) {
 	return roles, nil
 }
 
+// ListUserTeamIDs implements middleware.TeamIDQuerier.
+func (a *teamRoleAdapter) ListUserTeamIDs(userID uint) ([]uint, error) {
+	members, err := a.teamRepo.ListByUser(context.Background(), userID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uint, 0, len(members))
+	for _, m := range members {
+		ids = append(ids, m.TeamID)
+	}
+	return ids, nil
+}
+
 // tokenRevocationAdapter implements middleware.TokenRevocationChecker using Redis.
 type tokenRevocationAdapter struct {
 	rc *sredis.Client
@@ -558,7 +571,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// --------------- Repositories ---------------
 	repos := initRepositories(db)
 	// Wire team-role querier for RBAC team-role elevation in RequirePerm middleware.
-	middleware.TeamRoleQuerier = &teamRoleAdapter{teamRepo: repos.Team}
+	teamAdapter := &teamRoleAdapter{teamRepo: repos.Team}
+	middleware.TeamRoleQuerier = teamAdapter
+	// Wire team-ID querier for team-scoped data isolation middleware.
+	middleware.TeamIDQuerier = teamAdapter
 
 	// --------------- Services ---------------
 	svcs := initServices(repos, db, cfg, zapLogger, nil) // Redis injected below
@@ -646,6 +662,10 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		repos.Rule,
 		zapLogger,
 	)
+	// Enable aggregated batch routing for rules with group_aggregate=true.
+	alertGroupMgr.WithBatchRouteFunc(func(ctx context.Context, events []*model.AlertEvent) error {
+		return svcs.NotifySvc.RouteAggregatedAlerts(ctx, events)
+	})
 
 	// Evaluator pointer — declared here so the onAlertFn closure can capture it.
 	var evaluator *engine.Evaluator

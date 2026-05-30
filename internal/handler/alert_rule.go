@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/pkg/upload"
@@ -260,7 +261,12 @@ func (h *AlertRuleHandler) List(c *gin.Context) {
 		}
 	}
 
-	list, total, err := h.svc.List(c.Request.Context(), severity, status, groupName, category, keyword, datasourceID, pq.Page, pq.PageSize)
+	// Team-scoped listing: admin sees all, non-admin sees only own team's rules.
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == "admin"
+	teamIDs := middleware.GetUserTeamIDs(c)
+
+	list, total, err := h.svc.ListScoped(c.Request.Context(), isAdmin, teamIDs, severity, status, groupName, category, keyword, datasourceID, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, err)
 		return

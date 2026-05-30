@@ -27,14 +27,15 @@ type alertGroup struct {
 // after group_wait (first batch) or group_interval (subsequent batches),
 // implementing Alertmanager-style notification grouping.
 type AlertGroupManager struct {
-	groups    map[string]*alertGroup
-	mu        sync.RWMutex
-	routeFunc func(ctx context.Context, event *model.AlertEvent) error
-	ruleRepo  *repository.AlertRuleRepository
-	logger    *zap.Logger
-	stopCh    chan struct{}
-	stopped   bool
-	serverCtx context.Context // server lifecycle context for timer callbacks
+	groups        map[string]*alertGroup
+	mu            sync.RWMutex
+	routeFunc     func(ctx context.Context, event *model.AlertEvent) error
+	batchRouteFunc func(ctx context.Context, events []*model.AlertEvent) error // optional: aggregated batch routing
+	ruleRepo      *repository.AlertRuleRepository
+	logger        *zap.Logger
+	stopCh        chan struct{}
+	stopped       bool
+	serverCtx     context.Context // server lifecycle context for timer callbacks
 }
 
 // NewAlertGroupManager creates a new AlertGroupManager.
@@ -57,6 +58,13 @@ func NewAlertGroupManager(
 // WithServerContext sets the server lifecycle context for timer-based flushes.
 func (m *AlertGroupManager) WithServerContext(ctx context.Context) {
 	m.serverCtx = ctx
+}
+
+// WithBatchRouteFunc sets an optional batch routing function for aggregated notifications.
+// When set, flushGroup will call this function with all events in the group instead of
+// routing each event individually through routeFunc.
+func (m *AlertGroupManager) WithBatchRouteFunc(fn func(ctx context.Context, events []*model.AlertEvent) error) {
+	m.batchRouteFunc = fn
 }
 
 // ProcessEvent is the main entry point. For firing events it buffers them
@@ -125,7 +133,9 @@ func (m *AlertGroupManager) ProcessEvent(ctx context.Context, event *model.Alert
 	return nil
 }
 
-// flushGroup dispatches all buffered events in a group through routeFunc.
+// flushGroup dispatches all buffered events in a group.
+// If batchRouteFunc is set, it sends the entire batch at once (for aggregated notifications).
+// Otherwise it falls back to per-event routing via routeFunc.
 func (m *AlertGroupManager) flushGroup(key string) {
 	m.mu.RLock()
 	g, exists := m.groups[key]
@@ -153,6 +163,19 @@ func (m *AlertGroupManager) flushGroup(key string) {
 	flushCtx, cancel := context.WithTimeout(m.serverCtx, 30*time.Second)
 	defer cancel()
 
+	// Use batch routing if available — the downstream decides per-rule aggregation.
+	if m.batchRouteFunc != nil {
+		if err := m.batchRouteFunc(flushCtx, events); err != nil {
+			m.logger.Error("failed to route aggregated alert batch",
+				zap.String("group_key", key),
+				zap.Int("event_count", len(events)),
+				zap.Error(err),
+			)
+		}
+		return
+	}
+
+	// Fallback: route each event individually.
 	for _, event := range events {
 		if err := m.routeFunc(flushCtx, event); err != nil {
 			m.logger.Error("failed to route grouped alert",
@@ -232,8 +255,12 @@ func (m *AlertGroupManager) Stop() {
 				zap.String("group_key", key),
 				zap.Int("event_count", len(events)),
 			)
-			for _, event := range events {
-				_ = m.routeFunc(m.serverCtx, event)
+			if m.batchRouteFunc != nil {
+				_ = m.batchRouteFunc(m.serverCtx, events)
+			} else {
+				for _, event := range events {
+					_ = m.routeFunc(m.serverCtx, event)
+				}
 			}
 		}
 	}

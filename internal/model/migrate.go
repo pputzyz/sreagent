@@ -29,7 +29,7 @@ func V2Models() []interface{} {
 	return []interface{}{
 		// Alerts v2
 		&Alert{},
-		&AlertEventV2{},
+		// AlertEventV2 removed — unified into alert_events (migration 000108)
 		// Channels (collaboration spaces)
 		&Channel{},
 		&ChannelExclusionRule{},

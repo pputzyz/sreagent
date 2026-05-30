@@ -22,6 +22,7 @@ type AlertRuleOperator interface {
 	Create(ctx context.Context, rule *model.AlertRule, source string) error
 	GetByID(ctx context.Context, id uint) (*model.AlertRule, error)
 	List(ctx context.Context, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error)
+	ListScoped(ctx context.Context, isAdmin bool, teamIDs []uint, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error)
 	Update(ctx context.Context, rule *model.AlertRule) error
 	Delete(ctx context.Context, id uint) error
 	UpdateStatus(ctx context.Context, id uint, status model.AlertRuleStatus) error
@@ -167,6 +168,21 @@ func (s *AlertRuleService) GetByID(ctx context.Context, id uint) (*model.AlertRu
 
 func (s *AlertRuleService) List(ctx context.Context, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error) {
 	return s.repo.List(ctx, severity, status, groupName, category, keyword, datasourceID, page, pageSize)
+}
+
+// ListScoped returns paginated alert rules with team-level data isolation.
+// If isAdmin is true, the regular List is called (no filtering).
+// Otherwise, only rules belonging to the given teamIDs are returned.
+// When teamIDs is empty for a non-admin user, an empty result is returned.
+func (s *AlertRuleService) ListScoped(ctx context.Context, isAdmin bool, teamIDs []uint, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error) {
+	if isAdmin {
+		return s.repo.List(ctx, severity, status, groupName, category, keyword, datasourceID, page, pageSize)
+	}
+	if len(teamIDs) == 0 {
+		// Non-admin user with no team membership — return empty result.
+		return []model.AlertRule{}, 0, nil
+	}
+	return s.repo.ListByTeamIDs(ctx, teamIDs, severity, status, groupName, category, keyword, datasourceID, page, pageSize)
 }
 
 // ListCategories returns all distinct non-empty category values.

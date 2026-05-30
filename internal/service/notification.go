@@ -156,6 +156,64 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 	return nil
 }
 
+// RouteAggregatedAlerts routes a batch of grouped events through the notification pipeline.
+// This is called by AlertGroupManager.flushGroup when the batch route function is configured.
+// It delegates to NotifyRuleService.ProcessEventBatch which handles per-rule aggregation logic.
+func (s *NotificationService) RouteAggregatedAlerts(ctx context.Context, events []*model.AlertEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	if len(events) == 1 {
+		// Single event — use the normal routing path.
+		return s.RouteAlert(ctx, events[0])
+	}
+
+	s.logger.Info("routing aggregated alert batch",
+		zap.Int("event_count", len(events)),
+		zap.String("first_alert", events[0].AlertName),
+	)
+
+	if s.notifyRuleSvc != nil {
+		if err := s.notifyRuleSvc.ProcessEventBatch(ctx, events); err != nil {
+			s.logger.Error("failed to process event batch",
+				zap.Int("event_count", len(events)),
+				zap.Error(err),
+			)
+			return err
+		}
+	}
+
+	// Subscription pipeline: route each event individually (subscriptions are per-user).
+	if s.subscribeSvc != nil && s.notifyRuleSvc != nil {
+		for _, event := range events {
+			subscriptions, err := s.subscribeSvc.FindSubscriptions(ctx, event)
+			if err != nil {
+				s.logger.Error("failed to find matching subscriptions for batch event",
+					zap.Uint("event_id", event.ID),
+					zap.Error(err),
+				)
+				continue
+			}
+			for _, sub := range subscriptions {
+				if sub.NotifyRuleID == 0 {
+					continue
+				}
+				eventCopy := shallowCopyEvent(event)
+				if err := s.notifyRuleSvc.ProcessEvent(ctx, eventCopy, sub.NotifyRuleID); err != nil {
+					s.logger.Error("failed to process batch event through subscribed notify rule",
+						zap.Uint("event_id", event.ID),
+						zap.Uint("subscribe_rule_id", sub.ID),
+						zap.Error(err),
+					)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // shallowCopyEvent creates a shallow copy of the event with deep-copied labels/annotations.
 // This prevents relabel steps in one notify rule from contaminating subsequent rules.
 func shallowCopyEvent(event *model.AlertEvent) *model.AlertEvent {

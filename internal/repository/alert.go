@@ -134,26 +134,35 @@ func (r *AlertRepository) CountByIncidentID(ctx context.Context, incidentID uint
 	return int(count), err
 }
 
-// --- AlertEventV2 ---
+// --- AlertEventV2 (unified into alert_events) ---
 
-func (r *AlertRepository) CreateEvent(ctx context.Context, event *model.AlertEventV2) error {
+// CreateEvent inserts a v2 pipeline event into the unified alert_events table.
+func (r *AlertRepository) CreateEvent(ctx context.Context, event *model.AlertEvent) error {
 	return r.db.WithContext(ctx).Create(event).Error
 }
 
-func (r *AlertRepository) ListEvents(ctx context.Context, alertID uint, page, pageSize int) ([]model.AlertEventV2, int64, error) {
-	var list []model.AlertEventV2
+// ListEvents returns paginated v2 pipeline events for an alert,
+// read from the unified alert_events table (where alert_id is set).
+func (r *AlertRepository) ListEvents(ctx context.Context, alertID uint, page, pageSize int) ([]model.ViewAlertEvent, int64, error) {
+	var list []model.AlertEvent
 	var total int64
 
-	q := r.db.WithContext(ctx).Model(&model.AlertEventV2{}).Where("alert_id = ?", alertID)
+	q := r.db.WithContext(ctx).Model(&model.AlertEvent{}).Where("alert_id = ?", alertID)
 
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	if err := q.Offset(offset).Limit(pageSize).Order("timestamp DESC").Find(&list).Error; err != nil {
+	if err := q.Offset(offset).Limit(pageSize).Order("fired_at DESC").Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 
-	return list, total, nil
+	// Convert to view model
+	views := make([]model.ViewAlertEvent, len(list))
+	for i := range list {
+		views[i] = list[i].ToViewAlertEvent()
+	}
+
+	return views, total, nil
 }

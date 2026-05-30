@@ -770,3 +770,139 @@ func (s *NotifyRuleService) BatchCreate(ctx context.Context, rules []*model.Noti
 	}
 	return nil
 }
+
+// ProcessEventBatch processes a batch of events through matching notify rules.
+// For rules with GroupAggregate=true, it sends a single aggregated notification per media.
+// For rules with GroupAggregate=false, it falls back to per-event processing.
+// This is called by the AlertGroupManager when flushing a notification group.
+func (s *NotifyRuleService) ProcessEventBatch(ctx context.Context, events []*model.AlertEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	// Use the first event to find matching rules (grouped events share similar labels).
+	representative := events[0]
+
+	// Resolve datasource_id from the representative event's alert rule.
+	var dataSourceID *uint
+	if representative.RuleID != nil && *representative.RuleID > 0 && s.alertRuleRepo != nil {
+		if r, err := s.alertRuleRepo.GetByID(ctx, *representative.RuleID); err == nil {
+			dataSourceID = r.DataSourceID
+		}
+	}
+
+	rules, err := s.FindMatchingRules(ctx, representative, dataSourceID)
+	if err != nil {
+		return fmt.Errorf("failed to find matching notify rules for batch: %w", err)
+	}
+
+	for _, rule := range rules {
+		if rule.GroupAggregate {
+			// Aggregated path: send one notification for the whole batch.
+			if err := s.processAggregatedRule(ctx, &rule, events); err != nil {
+				s.logger.Error("failed to process aggregated rule",
+					zap.Uint("rule_id", rule.ID),
+					zap.Int("event_count", len(events)),
+					zap.Error(err),
+				)
+			}
+		} else {
+			// Per-event path: delegate to existing ProcessEvent for each event.
+			for _, event := range events {
+				eventCopy := shallowCopyEvent(event)
+				if err := s.ProcessEvent(ctx, eventCopy, rule.ID); err != nil {
+					s.logger.Error("failed to process event in batch (non-aggregated)",
+						zap.Uint("event_id", event.ID),
+						zap.Uint("rule_id", rule.ID),
+						zap.Error(err),
+					)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// processAggregatedRule dispatches a single aggregated notification for all events
+// in the batch through the given notify rule's configured media.
+func (s *NotifyRuleService) processAggregatedRule(ctx context.Context, rule *model.NotifyRule, events []*model.AlertEvent) error {
+	if !rule.IsEnabled {
+		return nil
+	}
+
+	var notifyConfigs []model.NotifyConfig
+	if rule.NotifyConfigs != "" {
+		if err := json.Unmarshal([]byte(rule.NotifyConfigs), &notifyConfigs); err != nil {
+			return fmt.Errorf("invalid notify_configs: %w", err)
+		}
+	}
+	if len(notifyConfigs) == 0 {
+		return nil
+	}
+
+	// Collect unique media IDs from the notify configs.
+	mediaMap := make(map[uint]*model.NotifyMedia)
+	for _, nc := range notifyConfigs {
+		if nc.Severity != "" {
+			// Check if any event matches this severity filter.
+			matched := false
+			for _, ev := range events {
+				if nc.Severity == string(ev.Severity) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		if !isInTimeRanges(time.Now(), nc.TimeRanges) {
+			continue
+		}
+
+		if _, exists := mediaMap[nc.MediaID]; !exists {
+			media, err := s.mediaRepo.GetByID(ctx, nc.MediaID)
+			if err != nil {
+				s.logger.Error("failed to load notify media for aggregated batch",
+					zap.Uint("media_id", nc.MediaID),
+					zap.Error(err),
+				)
+				continue
+			}
+			mediaMap[nc.MediaID] = media
+		}
+	}
+
+	// Send one aggregated notification per unique media.
+	for mediaID, media := range mediaMap {
+		if err := s.mediaSvc.SendAggregatedLarkCard(ctx, media, events); err != nil {
+			s.logger.Error("failed to send aggregated notification",
+				zap.Uint("media_id", mediaID),
+				zap.String("media_name", media.Name),
+				zap.Int("event_count", len(events)),
+				zap.Error(err),
+			)
+			// Create failure records for each event.
+			for _, ev := range events {
+				s.createRecord(ctx, ev.ID, mediaID, rule.ID, ev.Fingerprint, "failed", err.Error())
+			}
+			continue
+		}
+
+		s.logger.Info("aggregated notification sent",
+			zap.Uint("media_id", mediaID),
+			zap.String("media_name", media.Name),
+			zap.Int("event_count", len(events)),
+			zap.Uint("rule_id", rule.ID),
+		)
+
+		// Create success records for each event.
+		for _, ev := range events {
+			s.createRecord(ctx, ev.ID, mediaID, rule.ID, ev.Fingerprint, "sent", "")
+		}
+	}
+
+	return nil
+}

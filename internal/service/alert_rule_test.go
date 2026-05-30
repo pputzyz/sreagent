@@ -165,3 +165,166 @@ func Test_GetByID_nonexistent_returns_error(t *testing.T) {
 	_, err := svc.GetByID(context.Background(), 999999)
 	assert.Error(t, err, "should return error for non-existent rule")
 }
+
+// ---------------------------------------------------------------------------
+// BatchEnable / BatchDisable tests
+// ---------------------------------------------------------------------------
+
+// Test_BatchEnable_Success verifies that BatchEnable sets all rules to active status.
+func Test_BatchEnable_Success(t *testing.T) {
+	svc, db := setupAlertRuleService(t)
+	ds := seedDataSource(t, db, "prometheus-batch-enable", model.DSTypePrometheus)
+
+	r1 := &model.AlertRule{
+		Name: "batch-enable-1", DataSourceID: &ds.ID,
+		Expression: "a", Severity: model.SeverityWarning, Status: model.RuleStatusDisabled,
+	}
+	r2 := &model.AlertRule{
+		Name: "batch-enable-2", DataSourceID: &ds.ID,
+		Expression: "b", Severity: model.SeverityWarning, Status: model.RuleStatusDisabled,
+	}
+	require.NoError(t, svc.Create(context.Background(), r1, "manual"))
+	require.NoError(t, svc.Create(context.Background(), r2, "manual"))
+
+	err := svc.BatchEnable(context.Background(), []uint{r1.ID, r2.ID})
+	require.NoError(t, err)
+
+	fetched1, err := svc.GetByID(context.Background(), r1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.RuleStatusActive, fetched1.Status, "rule 1 should be active after batch enable")
+
+	fetched2, err := svc.GetByID(context.Background(), r2.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.RuleStatusActive, fetched2.Status, "rule 2 should be active after batch enable")
+}
+
+// Test_BatchDisable_Success verifies that BatchDisable sets all rules to disabled status.
+func Test_BatchDisable_Success(t *testing.T) {
+	svc, db := setupAlertRuleService(t)
+	ds := seedDataSource(t, db, "prometheus-batch-disable", model.DSTypePrometheus)
+
+	r1 := &model.AlertRule{
+		Name: "batch-disable-1", DataSourceID: &ds.ID,
+		Expression: "a", Severity: model.SeverityWarning, Status: model.RuleStatusActive,
+	}
+	r2 := &model.AlertRule{
+		Name: "batch-disable-2", DataSourceID: &ds.ID,
+		Expression: "b", Severity: model.SeverityWarning, Status: model.RuleStatusActive,
+	}
+	require.NoError(t, svc.Create(context.Background(), r1, "manual"))
+	require.NoError(t, svc.Create(context.Background(), r2, "manual"))
+
+	err := svc.BatchDisable(context.Background(), []uint{r1.ID, r2.ID})
+	require.NoError(t, err)
+
+	fetched1, err := svc.GetByID(context.Background(), r1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.RuleStatusDisabled, fetched1.Status, "rule 1 should be disabled after batch disable")
+
+	fetched2, err := svc.GetByID(context.Background(), r2.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.RuleStatusDisabled, fetched2.Status, "rule 2 should be disabled after batch disable")
+}
+
+// Test_BatchEnable_EmptyIDs_ReturnsError verifies that BatchEnable with an
+// empty slice returns an error.
+func Test_BatchEnable_EmptyIDs_ReturnsError(t *testing.T) {
+	svc, _ := setupAlertRuleService(t)
+
+	err := svc.BatchEnable(context.Background(), []uint{})
+	assert.Error(t, err, "should fail with empty IDs")
+}
+
+// Test_BatchDisable_EmptyIDs_ReturnsError verifies that BatchDisable with an
+// empty slice returns an error.
+func Test_BatchDisable_EmptyIDs_ReturnsError(t *testing.T) {
+	svc, _ := setupAlertRuleService(t)
+
+	err := svc.BatchDisable(context.Background(), []uint{})
+	assert.Error(t, err, "should fail with empty IDs")
+}
+
+// ---------------------------------------------------------------------------
+// Update version conflict (optimistic lock) tests
+// ---------------------------------------------------------------------------
+
+// Test_Update_VersionConflict verifies that an update fails with ErrVersionConflict
+// when the rule has been modified concurrently (version mismatch).
+func Test_Update_VersionConflict(t *testing.T) {
+	svc, db := setupAlertRuleService(t)
+	ds := seedDataSource(t, db, "prometheus-vconflict", model.DSTypePrometheus)
+	rule := testutil.SeedAlertRule(t, db, "conflict-rule", ds.ID)
+
+	// Simulate a concurrent modification: read the rule twice
+	ruleCopy := *rule
+
+	// First update succeeds
+	ruleCopy.Name = "first-update"
+	err := svc.Update(context.Background(), &ruleCopy)
+	require.NoError(t, err)
+
+	// Second update with stale version should fail
+	rule.Name = "second-update"
+	err = svc.Update(context.Background(), rule)
+	assert.Error(t, err, "should fail with version conflict")
+	assert.Contains(t, err.Error(), "version conflict")
+}
+
+// Test_Update_NonexistentRule_ReturnsNotFound verifies that updating a rule
+// that does not exist returns ErrRuleNotFound.
+func Test_Update_NonexistentRule_ReturnsNotFound(t *testing.T) {
+	svc, _ := setupAlertRuleService(t)
+
+	rule := &model.AlertRule{
+		BaseModel:  model.BaseModel{ID: 999999},
+		Name:       "ghost",
+		Expression: "up == 0",
+		Severity:   model.SeverityWarning,
+	}
+	err := svc.Update(context.Background(), rule)
+	assert.Error(t, err, "should fail for non-existent rule")
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// Test_Create_DuplicateName verifies that creating two rules with the same name
+// is rejected by the unique index constraint.
+func Test_Create_DuplicateName(t *testing.T) {
+	svc, db := setupAlertRuleService(t)
+	ds := seedDataSource(t, db, "prometheus-dup", model.DSTypePrometheus)
+
+	r1 := &model.AlertRule{
+		Name: "unique-name", DataSourceID: &ds.ID,
+		Expression: "a", Severity: model.SeverityWarning, Status: model.RuleStatusActive,
+	}
+	require.NoError(t, svc.Create(context.Background(), r1, "manual"))
+
+	r2 := &model.AlertRule{
+		Name: "unique-name", DataSourceID: &ds.ID,
+		Expression: "b", Severity: model.SeverityWarning, Status: model.RuleStatusActive,
+	}
+	err := svc.Create(context.Background(), r2, "manual")
+	assert.Error(t, err, "should fail with duplicate name")
+}
+
+// Test_Delete_existing_rule verifies that deleting a rule succeeds and
+// subsequent GetByID returns not found.
+func Test_Delete_existing_rule(t *testing.T) {
+	svc, db := setupAlertRuleService(t)
+	ds := seedDataSource(t, db, "prometheus-delete", model.DSTypePrometheus)
+	rule := testutil.SeedAlertRule(t, db, "delete-me", ds.ID)
+
+	err := svc.Delete(context.Background(), rule.ID)
+	require.NoError(t, err)
+
+	_, err = svc.GetByID(context.Background(), rule.ID)
+	assert.Error(t, err, "should return error after deletion")
+}
+
+// Test_Delete_nonexistent_rule verifies that deleting a non-existent rule
+// returns an error.
+func Test_Delete_nonexistent_rule(t *testing.T) {
+	svc, _ := setupAlertRuleService(t)
+
+	err := svc.Delete(context.Background(), 999999)
+	assert.Error(t, err, "should fail for non-existent rule")
+}

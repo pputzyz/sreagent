@@ -106,6 +106,45 @@ func (r *AlertRuleRepository) GetByHeartbeatToken(ctx context.Context, token str
 	return &rule, nil
 }
 
+// ListByTeamIDs is like List but restricted to rules whose team_id is in teamIDs.
+// When teamIDs is empty, returns no results (the caller should guard against this).
+func (r *AlertRuleRepository) ListByTeamIDs(ctx context.Context, teamIDs []uint, severity, status, groupName, category, keyword string, datasourceID *uint, page, pageSize int) ([]model.AlertRule, int64, error) {
+	var list []model.AlertRule
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.AlertRule{}).Where("team_id IN ?", teamIDs)
+	if severity != "" {
+		query = query.Where("severity = ?", severity)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if groupName != "" {
+		query = query.Where("group_name = ?", groupName)
+	}
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+	if keyword != "" {
+		kw := "%" + keyword + "%"
+		query = query.Where("name LIKE ? OR display_name LIKE ? OR expression LIKE ?", kw, kw, kw)
+	}
+	if datasourceID != nil {
+		query = query.Where("datasource_id = ?", *datasourceID)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Offset(offset).Limit(pageSize).Order("id DESC").Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
+}
+
 // ListCategories returns all distinct non-empty category values.
 func (r *AlertRuleRepository) ListCategories(ctx context.Context) ([]string, error) {
 	var categories []string
