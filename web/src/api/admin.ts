@@ -193,13 +193,6 @@ export const auditLogApi = {
   }) => request.get<ApiResponse<PageData<AuditLog>>>('/audit-logs', { params }),
 }
 
-// ===== User Notify Config API =====
-export const userNotifyConfigApi = {
-  list: () => request.get<ApiResponse<{ id: number; user_id: number; media_type: string; config: string; is_enabled: boolean }[]>>('/me/notify-configs'),
-  upsert: (data: { media_type?: string; config?: string; is_enabled?: boolean }) => request.put<ApiResponse<{ id: number; user_id: number; media_type: string; config: string; is_enabled: boolean }>>('/me/notify-configs', data),
-  deleteByType: (mediaType: string) => request.delete<ApiResponse<null>>(`/me/notify-configs/${mediaType}`),
-}
-
 // ===== Lark Bot API =====
 export const larkBotApi = {
   getConfig: () =>
@@ -292,7 +285,7 @@ export const smtpSettingsApi = {
   getConfig: () =>
     request.get<ApiResponse<{
       smtp_host: string; smtp_port: number; smtp_tls: boolean
-      username: string; password: string; from: string; from_name?: string; enabled: boolean
+      username: string; password: string; from: string; enabled: boolean
     }>>('/settings/smtp'),
 
   updateConfig: (data: {

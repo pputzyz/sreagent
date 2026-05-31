@@ -33,6 +33,7 @@ async function saveProvider() {
   if (form.enabled) {
     if (!form.host?.trim()) { message.warning(t('settings.ldapHost')); return }
     if (!form.base_dn?.trim()) { message.warning(t('settings.ldapBaseDn')); return }
+    if (!form.bind_password?.trim()) { message.warning(t('settings.ldapBindPasswordEmpty') || 'Bind password is empty — LDAP authentication may fail') }
   }
   savingProvider.value = true
   try {

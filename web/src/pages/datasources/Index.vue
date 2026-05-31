@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, h, type Ref } from 'vue'
-import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, NDrawer, NDrawerContent, NDataTable, useMessage } from 'naive-ui'
+import { NButton, NIcon, NInput, NRadioGroup, NRadioButton, NDropdown, NModal, NForm, NFormItem, NSelect, NGrid, NGi, NSwitch, NInputNumber, NSpace, NDrawer, NDrawerContent, NDataTable, NPagination, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import type { DataSource, DataSourceType, DataSourceStatus } from '@/types'
@@ -105,6 +105,9 @@ const crud = useCrudPage<DataSource>({
 const {
   loading,
   items: rawDatasources,
+  total,
+  page,
+  pageSize,
   search,
   showModal,
   modalTitle,
@@ -330,6 +333,16 @@ onMounted(fetchList)
               </NButton>
             </NDropdown>
           </div>
+        </div>
+
+        <div v-if="total > pageSize" class="ds-pagination">
+          <NPagination
+            v-model:page="page"
+            :page-size="pageSize"
+            :item-count="total"
+            :page-slot="7"
+            @update:page="fetchList"
+          />
         </div>
       </div>
 
@@ -577,5 +590,11 @@ onMounted(fetchList)
   padding: 80px 0;
   display: flex;
   justify-content: center;
+}
+
+.ds-pagination {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

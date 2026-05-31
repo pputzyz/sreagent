@@ -8,8 +8,6 @@ import type {
   AlertTimeline,
   AlertChannel,
   AlertGroupItem,
-  QueryResponse,
-  LogEntry,
 } from '@/types'
 
 // ===== Alert Rule API =====
@@ -145,14 +143,3 @@ export const engineApi = {
     request.get<ApiResponse<{ running: boolean; total_rules: number; active_alerts: number; uptime: string; is_leader: boolean }>>('/engine/status'),
 }
 
-// ===== Expression Test / Query =====
-export const expressionApi = {
-  query: (datasourceId: number, data: { expression: string; time?: number }) =>
-    request.post<ApiResponse<QueryResponse>>(`/datasources/${datasourceId}/query`, data),
-
-  rangeQuery: (datasourceId: number, data: { expression: string; start: number; end: number; step: string }) =>
-    request.post<ApiResponse<QueryResponse>>(`/datasources/${datasourceId}/query-range`, data),
-
-  logQuery: (datasourceId: number, data: { expression: string; start: number; end: number; limit?: number }) =>
-    request.post<ApiResponse<{ entries: LogEntry[]; total: number; truncated: boolean }>>(`/datasources/${datasourceId}/log-query`, data),
-}

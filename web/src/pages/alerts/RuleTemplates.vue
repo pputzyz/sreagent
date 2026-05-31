@@ -1,3 +1,4 @@
+<!-- DEPRECATED: This page is orphaned. Route redirects to /alert/template-library. -->
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, h, watch } from 'vue'
 import { useI18n } from 'vue-i18n'

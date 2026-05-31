@@ -12,7 +12,7 @@ func (h *Handlers) registerBuiltinMetricRoutes(auth *gin.RouterGroup, adminOnly,
 		bm.GET("", h.BuiltinMetric.List)
 		bm.GET("/:id", h.BuiltinMetric.Get)
 		bm.POST("", manage, middleware.RequirePerm("metrics.write"), h.BuiltinMetric.Create)
-		bm.PUT("", manage, middleware.RequirePerm("metrics.write"), h.BuiltinMetric.Update)
+		bm.PUT("/:id", manage, middleware.RequirePerm("metrics.write"), h.BuiltinMetric.Update)
 		bm.POST("/delete", manage, middleware.RequirePerm("metrics.write"), h.BuiltinMetric.Delete)
 		bm.GET("/types", h.BuiltinMetric.Types)
 		bm.GET("/collectors", h.BuiltinMetric.Collectors)

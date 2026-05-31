@@ -1,3 +1,4 @@
+<!-- DEPRECATED: This page is orphaned. Route redirects to /alert/events. -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'

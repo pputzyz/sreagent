@@ -62,8 +62,8 @@ export const builtinMetricApi = {
   create: (data: Partial<BuiltinMetric>) =>
     request.post<ApiResponse<BuiltinMetric>>('/builtin-metrics', data),
 
-  update: (data: Partial<BuiltinMetric>) =>
-    request.put<ApiResponse<null>>('/builtin-metrics', data),
+  update: (id: number, data: Partial<BuiltinMetric>) =>
+    request.put<ApiResponse<null>>(`/builtin-metrics/${id}`, data),
 
   delete: (ids: number[]) =>
     request.post<ApiResponse<null>>('/builtin-metrics/delete', { ids }),

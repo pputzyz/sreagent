@@ -125,7 +125,7 @@ func main() {
 	deps.Shutdown()
 
 	// Shutdown HTTP server (drain in-flight requests)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {

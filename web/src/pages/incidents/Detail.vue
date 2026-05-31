@@ -175,12 +175,15 @@ async function loadRelatedChanges() {
   } finally { changesLoading.value = false }
 }
 
+const actionLoading = ref(false)
+
 async function doAction(action: 'acknowledge' | 'close' | 'reopen' | 'escalate') {
+  actionLoading.value = true
   try {
     await incidentApi[action](incidentId.value)
     message.success(t('common.success'))
     await load()
-  } catch (e: unknown) { message.error(getErrorMessage(e) || t('common.failed')) }
+  } catch (e: unknown) { message.error(getErrorMessage(e) || t('common.failed')) } finally { actionLoading.value = false }
 }
 
 async function submitComment() {
@@ -401,17 +404,17 @@ onUnmounted(() => {
           <div class="action-bar">
             <n-button
               v-if="incident.status === 'triggered'"
-              type="primary" size="small" @click="doAction('acknowledge')"
+              type="primary" size="small" :loading="actionLoading" :disabled="actionLoading" @click="doAction('acknowledge')"
             >{{ t('incident.acknowledge') }}</n-button>
 
             <n-button
               v-if="incident.status !== 'closed'"
-              size="small" @click="doAction('close')"
+              size="small" :loading="actionLoading" :disabled="actionLoading" @click="doAction('close')"
             >{{ t('incident.close') }}</n-button>
 
             <n-button
               v-if="incident.status === 'closed'"
-              size="small" @click="doAction('reopen')"
+              size="small" :loading="actionLoading" :disabled="actionLoading" @click="doAction('reopen')"
             >{{ t('incident.reopen') }}</n-button>
 
             <n-button
@@ -545,11 +548,12 @@ onUnmounted(() => {
               </ol>
 
               <div class="comment-box">
-                <textarea
-                  v-model="commentText"
-                  class="comment-input"
-                  rows="3"
+                <n-input
+                  v-model:value="commentText"
+                  type="textarea"
+                  :rows="3"
                   :placeholder="t('incident.commentPlaceholder')"
+                  class="comment-input"
                 />
                 <div class="comment-actions">
                   <n-button

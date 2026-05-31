@@ -98,13 +98,19 @@ func (h *BuiltinMetricHandler) Create(c *gin.Context) {
 
 // Update updates an existing builtin metric.
 func (h *BuiltinMetricHandler) Update(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
+		return
+	}
+
 	var req UpdateBuiltinMetricRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
-	existing, err := h.svc.GetByID(c.Request.Context(), req.ID)
+	existing, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
 		return
@@ -305,7 +311,6 @@ type CreateBuiltinMetricRequest struct {
 }
 
 type UpdateBuiltinMetricRequest struct {
-	ID             uint                   `json:"id" binding:"required"`
 	Collector      string                 `json:"collector"`
 	Typ            string                 `json:"typ"`
 	Name           string                 `json:"name" binding:"required"`

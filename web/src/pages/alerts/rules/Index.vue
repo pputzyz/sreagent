@@ -95,6 +95,7 @@ const batchLoading = ref(false)
 const activeCategory = ref('')
 const categories = ref<string[]>([])
 const categoryCounts = ref<Record<string, number>>({})
+const categoriesLoading = ref(false)
 
 // ─── Modals ───
 const showFormModal = ref(false)
@@ -184,10 +185,11 @@ watch(loading, (isLoading) => {
 })
 
 async function fetchCategories() {
+  categoriesLoading.value = true
   try {
     const { data } = await alertRuleApi.listCategories()
     categories.value = data.data || []
-  } catch (e) { console.warn('[AlertRules] Failed to fetch categories:', e) }
+  } catch (e) { console.warn('[AlertRules] Failed to fetch categories:', e) } finally { categoriesLoading.value = false }
 }
 
 function handleCategoryChange(cat: string) {
@@ -444,26 +446,28 @@ onUnmounted(() => {
       <!-- Sidebar: categories -->
       <aside class="cat-aside">
         <div class="sre-label-eyebrow cat-eyebrow">{{ t('alert.category') }}</div>
-        <button
-          type="button"
-          class="cat-item"
-          :class="{ active: activeCategory === '' }"
-          @click="handleCategoryChange('')"
-        >
-          <span class="cat-name">{{ t('alert.allCategories') }}</span>
-          <span class="cat-count tnum">{{ allCount }}</span>
-        </button>
-        <button
-          v-for="cat in categories"
-          :key="cat"
-          type="button"
-          class="cat-item"
-          :class="{ active: activeCategory === cat }"
-          @click="handleCategoryChange(cat)"
-        >
-          <span class="cat-name">{{ cat }}</span>
-          <span class="cat-count tnum">{{ categoryCounts[cat] ?? '' }}</span>
-        </button>
+        <n-spin :show="categoriesLoading" size="small">
+          <button
+            type="button"
+            class="cat-item"
+            :class="{ active: activeCategory === '' }"
+            @click="handleCategoryChange('')"
+          >
+            <span class="cat-name">{{ t('alert.allCategories') }}</span>
+            <span class="cat-count tnum">{{ allCount }}</span>
+          </button>
+          <button
+            v-for="cat in categories"
+            :key="cat"
+            type="button"
+            class="cat-item"
+            :class="{ active: activeCategory === cat }"
+            @click="handleCategoryChange(cat)"
+          >
+            <span class="cat-name">{{ cat }}</span>
+            <span class="cat-count tnum">{{ categoryCounts[cat] ?? '' }}</span>
+          </button>
+        </n-spin>
       </aside>
 
       <!-- Main column -->

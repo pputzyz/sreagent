@@ -25,7 +25,7 @@ database:
   host: "127.0.0.1"
   port: 3306
   username: "sreagent"
-  password: ""               # Prefer SREAGENT_DATABASE_PASSWORD env var
+  password: "CHANGE_ME"      # Prefer SREAGENT_DATABASE_PASSWORD env var — required for production
   database: "sreagent"
   charset: "utf8mb4"
   max_idle_conns: 10
@@ -48,7 +48,7 @@ redis:
 # Env override: SREAGENT_JWT_SECRET
 # ---------------------------------------------------------------------------
 jwt:
-  secret: ""                 # Prefer SREAGENT_JWT_SECRET env var; auto-generated on first run if empty
+  secret: "CHANGE_ME_TO_A_RANDOM_32_BYTE_HEX_STRING_OR_SET_ENV_VAR"  # Prefer SREAGENT_JWT_SECRET env var; must be >= 32 bytes
   expire: 86400              # Token TTL in seconds (default 24h)
   issuer: "sreagent"
 

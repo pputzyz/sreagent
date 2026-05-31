@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, h, watch, type Ref } from 'vue'
-import { useMessage, useDialog, NDropdown } from 'naive-ui'
+import { useMessage, useDialog, NDropdown, NPagination } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { notifyRuleApi, notifyMediaApi } from '@/api'
 import type { NotifyRule, NotifyMedia } from '@/types'
@@ -83,6 +83,9 @@ const crud = useCrudPage<NotifyRule>({
 const {
   loading,
   items: rules,
+  total,
+  page,
+  pageSize,
   search,
   showModal,
   modalTitle,
@@ -372,6 +375,16 @@ onMounted(fetchList)
       </li>
     </ul>
 
+    <div v-if="total > pageSize" class="pagination-wrap">
+      <n-pagination
+        v-model:page="page"
+        :page-size="pageSize"
+        :item-count="total"
+        :page-slot="7"
+        @update:page="fetchList"
+      />
+    </div>
+
     <n-modal v-model:show="showModal" preset="card" :title="modalTitle" :bordered="false" class="rules-modal">
       <n-form label-placement="top">
         <n-grid :x-gap="12" :cols="2">
@@ -554,4 +567,10 @@ onMounted(fetchList)
 .test-result-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .test-result-name { font-size: 13px; color: var(--sre-text-primary); min-width: 120px; }
 .test-result-error { font-size: 12px; color: var(--sre-danger, #ef4444); flex: 1; }
+
+.pagination-wrap {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
 </style>

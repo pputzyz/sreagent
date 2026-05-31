@@ -150,7 +150,7 @@ async function handleSave() {
   }
   try {
     if (drawerMode.value === 'edit' && m.id) {
-      await builtinMetricApi.update(m)
+      await builtinMetricApi.update(m.id!, m)
       message.success(t('common.savedSuccess'))
     } else {
       await builtinMetricApi.create(m)

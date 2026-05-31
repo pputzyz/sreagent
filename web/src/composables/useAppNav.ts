@@ -358,12 +358,19 @@ export function useAppNav() {
             label: t('menu.systemSettings'),
             items: (() => {
               const items: MenuItem[] = []
-              if (authStore.isAdmin) {
+              // Datasources: route allows admin + team_lead (manage)
+              if (authStore.canManage) {
                 items.push(
                   { label: t('menu.datasources'), key: '/alert/datasources', icon: ServerOutline },
+                )
+              }
+              if (authStore.isAdmin) {
+                items.push(
                   { label: t('menu.smtp'),      key: '/platform/settings/smtp', icon: MailOutline },
                   { label: t('menu.larkBot'),    key: '/platform/settings/lark', icon: ChatbubbleEllipsesOutline },
                   { label: t('menu.aiConfig'),   key: '/platform/ai-config', icon: SparklesOutline },
+                  // AI Agent: route allows all roles, sidebar shows admin-only intentionally.
+                  // Backend enforces per-conversation RBAC; admin controls feature availability.
                   { label: t('menu.aiAgent'),    key: '/ai/agent', icon: HardwareChipOutline },
                   { label: t('menu.siteInfo'),   key: '/platform/settings/site-info', icon: InformationCircleOutline },
                   { label: t('menu.security'),   key: '/platform/settings/security', icon: ShieldOutline },

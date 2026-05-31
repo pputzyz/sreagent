@@ -69,7 +69,7 @@ const prefs = reactive<UserPreferences>({
   theme: 'auto',
   language: 'zh-CN',
   timezone: 'Asia/Shanghai',
-  default_time_range: '24h',
+  default_time_range: '1h',
   notification_severities: '["critical","warning"]',
   ai_chat_mode: 'sidebar',
 })
