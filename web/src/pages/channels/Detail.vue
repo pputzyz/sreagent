@@ -42,6 +42,11 @@ const saving = ref(false)
 const starring = ref(false)
 const lastTriggerEl = ref<HTMLElement | null>(null)
 
+function openEditModal() {
+  lastTriggerEl.value = document.activeElement as HTMLElement
+  showEditModal.value = true
+}
+
 const editForm = ref<{
   name: string
   description: string
@@ -264,7 +269,7 @@ onMounted(async () => {
               <n-icon :component="channel?.is_starred ? Star : StarOutline" />
             </template>
           </n-button>
-          <n-button size="small" @click="lastTriggerEl = window.document.activeElement as HTMLElement; showEditModal = true">
+          <n-button size="small" @click="openEditModal()">
             <template #icon><n-icon :component="CreateOutline" /></template>
             {{ t('common.edit') }}
           </n-button>
