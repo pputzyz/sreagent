@@ -1,19 +1,8 @@
-import { ref, watch, computed, type Ref } from 'vue'
+import { ref, watch, onUnmounted, computed, type Ref } from 'vue'
 import { datasourceApi } from '@/api'
 import { computeTimeStep } from '@/utils/timeStep'
 import type { VariableConfig } from '@/types/dashboard'
 import type { TimeRange } from '@/types/query'
-
-// FE3-8: TODO — SSE-based real-time variable value updates
-// Currently variables are resolved on-demand (dashboard load, time range change).
-// For long-lived dashboards, variable options may become stale.
-// Plan:
-//  1. Backend: Add SSE endpoint GET /api/v1/variables/stream that pushes updates
-//     when label values change (e.g., new series appear in Prometheus).
-//  2. Frontend: Connect to SSE in useVariable, update options map on events.
-//  3. Only subscribe for query-type variables with a refresh_interval config.
-//  4. Add a configurable interval (default 60s) per variable to balance freshness vs load.
-//  5. Graceful fallback: if SSE disconnects, fall back to current poll-on-demand behavior.
 
 const ALL_SENTINEL = '__all'
 
@@ -30,11 +19,17 @@ export interface AdhocFilter {
   value: string
 }
 
-// FE3-8: BLOCKED — Real-time variable updates via SSE requires backend SSE endpoint.
-// Cannot implement without backend support (GET /api/v1/variables/stream).
+export interface UseVariableOptions {
+  /** Enable SSE-based live variable updates (default: false). */
+  liveUpdate?: boolean
+  /** SSE update interval in seconds (default: 30). */
+  liveUpdateInterval?: number
+}
+
 export function useVariable(
   variables: Ref<VariableConfig[]>,
   timeRange: Ref<TimeRange>,
+  options?: UseVariableOptions,
 ) {
   const states = ref<Map<string, VariableState>>(new Map())
   const adhocFilters = ref<Map<string, AdhocFilter[]>>(new Map())
@@ -235,6 +230,11 @@ export function useVariable(
         // custom / textbox: keep existing options
       }
     }
+
+    // After initial resolution, subscribe to SSE for live updates (opt-in)
+    if (liveEnabled) {
+      subscribeAllVariables()
+    }
   }
 
   // Escape special regex characters in a string
@@ -336,7 +336,144 @@ export function useVariable(
     }
   }
 
+  // ─── SSE Live Variable Updates ───────────────────────────────────
+  const liveEnabled = options?.liveUpdate ?? false
+  const liveInterval = options?.liveUpdateInterval ?? 30
+
+  const sseConnections = new Map<string, EventSource>()
+  const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+  /**
+   * Subscribe to SSE stream for a single query-type variable.
+   * Updates the variable's options in real-time as events arrive.
+   * Returns an unsubscribe function.
+   */
+  function subscribeToVariable(name: string): () => void {
+    const initState = states.value.get(name)
+    if (!initState || initState.config.type !== 'query' || !initState.config.datasourceId) {
+      return () => {} // noop — not a subscribable variable
+    }
+    const dsId = initState.config.datasourceId
+    const expr = initState.config.query || ''
+    const regex = initState.config.regex
+
+    // Tear down any existing connection for this variable
+    unsubscribeVariable(name)
+
+    let retryCount = 0
+    const maxRetries = 5
+
+    function connect() {
+      const params = new URLSearchParams({
+        datasource_id: String(dsId),
+        expression: expr,
+        interval: String(liveInterval),
+      })
+      if (regex) {
+        params.set('regex', regex)
+      }
+
+      const url = `/api/v1/datasources/variables/stream?${params.toString()}`
+      const es = new EventSource(url)
+      sseConnections.set(name, es)
+
+      es.onmessage = (event) => {
+        retryCount = 0 // reset on successful message
+        try {
+          const data = JSON.parse(event.data)
+          if (data.error) {
+            console.warn(`[useVariable] SSE error for "${name}":`, data.error)
+            return
+          }
+          if (Array.isArray(data.value)) {
+            // Re-fetch state — the map may have been replaced by initStates
+            const curState = states.value.get(name)
+            if (!curState) return
+
+            const rawOptions = data.value as string[]
+            curState.options = buildOptions(rawOptions, curState.config)
+
+            // Auto-select if current value is no longer valid
+            if (curState.config.multi) {
+              const current = Array.isArray(curState.value) ? curState.value : [curState.value]
+              const valid = current.filter(v => curState.options.includes(v))
+              if (valid.length === 0 && curState.options.length > 0) {
+                curState.value = curState.options[0] === ALL_SENTINEL ? [ALL_SENTINEL] : [curState.options[0]]
+              }
+            } else if (curState.options.length > 0 && !curState.options.includes(curState.value as string)) {
+              curState.value = curState.options[0]
+            }
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
+
+      es.onerror = () => {
+        es.close()
+        sseConnections.delete(name)
+        // Reconnect with exponential backoff
+        if (retryCount < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
+          retryCount++
+          const timer = setTimeout(connect, delay)
+          reconnectTimers.set(name, timer)
+        } else {
+          console.warn(`[useVariable] SSE max retries reached for "${name}", falling back to on-demand resolution`)
+        }
+      }
+    }
+
+    connect()
+
+    return () => unsubscribeVariable(name)
+  }
+
+  /** Tear down the SSE connection for a single variable. */
+  function unsubscribeVariable(name: string) {
+    const es = sseConnections.get(name)
+    if (es) {
+      es.close()
+      sseConnections.delete(name)
+    }
+    const timer = reconnectTimers.get(name)
+    if (timer) {
+      clearTimeout(timer)
+      reconnectTimers.delete(name)
+    }
+  }
+
+  /** Subscribe to SSE for all query-type variables. */
+  function subscribeAllVariables() {
+    for (const [name, state] of states.value) {
+      if (state.config.type === 'query' && state.config.datasourceId) {
+        subscribeToVariable(name)
+      }
+    }
+  }
+
+  /** Tear down all SSE connections. */
+  function unsubscribeAllVariables() {
+    for (const name of sseConnections.keys()) {
+      unsubscribeVariable(name)
+    }
+  }
+
+  // Re-subscribe when variables config changes (if live mode is on)
+  if (liveEnabled) {
+    watch(variables, () => {
+      unsubscribeAllVariables()
+      // Delay slightly to let initStates complete
+      setTimeout(subscribeAllVariables, 100)
+    }, { deep: true })
+  }
+
   watch(variables, initStates, { immediate: true, deep: true })
+
+  // Clean up SSE connections when the component unmounts
+  onUnmounted(() => {
+    unsubscribeAllVariables()
+  })
 
   const variableList = computed(() =>
     Array.from(states.value.values())
@@ -352,6 +489,8 @@ export function useVariable(
     setMultiValue,
     addAdhocFilter,
     removeAdhocFilter,
+    subscribeToVariable,
+    unsubscribeAllVariables,
   }
 }
 

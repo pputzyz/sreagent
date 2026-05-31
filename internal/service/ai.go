@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -893,6 +894,290 @@ func (s *AIService) chatAnthropic(ctx context.Context, cfg AIConfig, systemPromp
 	}
 
 	return anthropicResp.Content[0].Text, nil
+}
+
+// ---- Streaming types ----
+
+// chatCompletionRequestStream extends chatCompletionRequest with stream flag.
+type chatCompletionRequestStream struct {
+	Model       string                   `json:"model"`
+	Messages    []ChatMessage            `json:"messages"`
+	Tools       []map[string]interface{} `json:"tools,omitempty"`
+	Temperature *float64                 `json:"temperature,omitempty"`
+	MaxTokens   *int                     `json:"max_tokens,omitempty"`
+	TopP        *float64                 `json:"top_p,omitempty"`
+	Stream      bool                     `json:"stream"`
+}
+
+// openAIStreamChunk represents a single SSE chunk from OpenAI-compatible streaming API.
+type openAIStreamChunk struct {
+	Choices []struct {
+		Delta struct {
+			Content string `json:"content"`
+		} `json:"delta"`
+		FinishReason *string `json:"finish_reason"`
+	} `json:"choices"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// anthropicStreamEvent represents a single SSE event from Anthropic streaming API.
+type anthropicStreamEvent struct {
+	Type  string `json:"type"`
+	Delta *struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"delta,omitempty"`
+	ContentBlock *struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"content_block,omitempty"`
+	Error *struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
+}
+
+// ChatStream sends a multi-turn conversation to the LLM with streaming enabled.
+// For each chunk received from the LLM, onChunk is called with the text delta.
+// Returns the full assembled response when streaming completes.
+func (s *AIService) ChatStream(ctx context.Context, systemPrompt string, history []ChatMessage, userMessage string, onChunk func(chunk string)) (string, error) {
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to load AI config: %w", err)
+	}
+	if !cfg.Enabled {
+		return "", fmt.Errorf("AI is not enabled")
+	}
+
+	history = trimHistory(systemPrompt, history, userMessage, cfg.ContextMaxChars)
+
+	if cfg.Provider == "anthropic" {
+		return s.chatStreamAnthropic(ctx, cfg, systemPrompt, history, userMessage, onChunk)
+	}
+	return s.chatStreamOpenAI(ctx, cfg, systemPrompt, history, userMessage, onChunk)
+}
+
+// chatStreamOpenAI streams a chat completion from an OpenAI-compatible API.
+func (s *AIService) chatStreamOpenAI(ctx context.Context, cfg AIConfig, systemPrompt string, history []ChatMessage, userMessage string, onChunk func(chunk string)) (string, error) {
+	messages := make([]ChatMessage, 0, 1+len(history)+1)
+	messages = append(messages, ChatMessage{Role: "system", Content: systemPrompt})
+	messages = append(messages, history...)
+	messages = append(messages, ChatMessage{Role: "user", Content: userMessage})
+
+	reqBody := chatCompletionRequestStream{
+		Model:    cfg.Model,
+		Messages: messages,
+		Stream:   true,
+	}
+	if cfg.Temperature > 0 {
+		reqBody.Temperature = &cfg.Temperature
+	}
+	if cfg.MaxTokens > 0 {
+		reqBody.MaxTokens = &cfg.MaxTokens
+	}
+	if cfg.TopP > 0 && cfg.TopP < 1.0 {
+		reqBody.TopP = &cfg.TopP
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	baseURL := strings.TrimRight(cfg.BaseURL, "/")
+	url := baseURL + "/chat/completions"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to call AI API: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
+		return "", fmt.Errorf("AI API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
+	}
+
+	var full strings.Builder
+	reader := newSSEReader(resp.Body)
+	for reader.Scan() {
+		line := reader.Text()
+		if line == "" {
+			continue
+		}
+		// OpenAI streaming sends "data: [DONE]" to signal end
+		if line == "[DONE]" {
+			break
+		}
+
+		var chunk openAIStreamChunk
+		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
+			continue // skip malformed chunks
+		}
+		if chunk.Error != nil {
+			return full.String(), fmt.Errorf("AI API streaming error: %s", chunk.Error.Message)
+		}
+		if len(chunk.Choices) > 0 {
+			delta := chunk.Choices[0].Delta.Content
+			if delta != "" {
+				full.WriteString(delta)
+				onChunk(delta)
+			}
+		}
+	}
+	return full.String(), nil
+}
+
+// chatStreamAnthropic streams a chat completion from the Anthropic Messages API.
+func (s *AIService) chatStreamAnthropic(ctx context.Context, cfg AIConfig, systemPrompt string, history []ChatMessage, userMessage string, onChunk func(chunk string)) (string, error) {
+	maxTokens := cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = anthropicDefaultMaxTokens
+	}
+
+	messages := make([]ChatMessage, 0, len(history)+1)
+	messages = append(messages, history...)
+	messages = append(messages, ChatMessage{Role: "user", Content: userMessage})
+
+	reqBody := anthropicRequest{
+		Model:     cfg.Model,
+		MaxTokens: maxTokens,
+		System:    systemPrompt,
+		Messages:  messages,
+	}
+	if cfg.Temperature > 0 {
+		reqBody.Temperature = &cfg.Temperature
+	}
+	if cfg.TopP > 0 && cfg.TopP < 1.0 {
+		reqBody.TopP = &cfg.TopP
+	}
+
+	// Anthropic streaming requires "stream": true as a top-level field.
+	// We marshal the base struct and inject the stream field.
+	baseBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal anthropic request: %w", err)
+	}
+	var bodyMap map[string]json.RawMessage
+	if err := json.Unmarshal(baseBytes, &bodyMap); err != nil {
+		return "", fmt.Errorf("failed to unmarshal anthropic request: %w", err)
+	}
+	bodyMap["stream"] = json.RawMessage("true")
+	bodyBytes, err := json.Marshal(bodyMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal anthropic stream request: %w", err)
+	}
+
+	baseURL := strings.TrimRight(cfg.BaseURL, "/")
+	if baseURL == "" {
+		baseURL = "https://api.anthropic.com"
+	}
+	url := baseURL + "/v1/messages"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create anthropic request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", cfg.APIKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to call Anthropic API: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
+		return "", fmt.Errorf("anthropic API returned status %d: %s", resp.StatusCode, truncateResp(respBody, 200))
+	}
+
+	var full strings.Builder
+	reader := newSSEReader(resp.Body)
+	for reader.Scan() {
+		line := reader.Text()
+		if line == "" {
+			continue
+		}
+
+		var event anthropicStreamEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			continue
+		}
+		if event.Error != nil {
+			return full.String(), fmt.Errorf("anthropic streaming error: %s", event.Error.Message)
+		}
+		if event.Type == "message_stop" {
+			break
+		}
+		if event.Type == "content_block_delta" && event.Delta != nil {
+			text := event.Delta.Text
+			if text != "" {
+				full.WriteString(text)
+				onChunk(text)
+			}
+		}
+	}
+	return full.String(), nil
+}
+
+// sseReader reads Server-Sent Events from an io.Reader, extracting the data field.
+// It handles the SSE protocol: "data: ..." lines, event delimiters, and multi-line data.
+type sseReader struct {
+	scanner *bufio.Scanner
+	text    string
+}
+
+func newSSEReader(r io.Reader) *sseReader {
+	return &sseReader{scanner: bufio.NewScanner(r)}
+}
+
+// Scan advances to the next SSE data block. Returns false when the stream ends.
+func (r *sseReader) Scan() bool {
+	var dataLines []string
+	for r.scanner.Scan() {
+		line := r.scanner.Text()
+		// Empty line signals end of an event
+		if line == "" {
+			if len(dataLines) > 0 {
+				r.text = strings.Join(dataLines, "\n")
+				return true
+			}
+			continue
+		}
+		// Skip event/id/retry/comment lines
+		if strings.HasPrefix(line, "event:") || strings.HasPrefix(line, "id:") || strings.HasPrefix(line, "retry:") || strings.HasPrefix(line, ":") {
+			continue
+		}
+		if strings.HasPrefix(line, "data: ") {
+			dataLines = append(dataLines, strings.TrimPrefix(line, "data: "))
+		} else if strings.HasPrefix(line, "data:") {
+			dataLines = append(dataLines, strings.TrimPrefix(line, "data:"))
+		}
+	}
+	// Handle final event without trailing newline
+	if len(dataLines) > 0 {
+		r.text = strings.Join(dataLines, "\n")
+		return true
+	}
+	return false
+}
+
+// Text returns the data content of the current SSE event.
+func (r *sseReader) Text() string {
+	return r.text
 }
 
 // defaultSystemPrompt is used by callLLM for general-purpose SRE assistance.

@@ -94,5 +94,6 @@ declare module 'vue' {
     VariableEditor: typeof import('./components/dashboard/VariableEditor.vue')['default']
     VariableEditorItem: typeof import('./components/dashboard/VariableEditorItem.vue')['default']
     ViewSelect: typeof import('./components/query/ViewSelect.vue')['default']
+    VisualQueryBuilder: typeof import('./components/query/VisualQueryBuilder.vue')['default']
   }
 }

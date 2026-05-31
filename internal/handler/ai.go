@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,6 +29,108 @@ func NewAIHandler(aiSvc *service.AIService, settingSvc *service.SystemSettingSer
 var systemPrompts = map[string]string{
 	"alert":   "你是一位资深 SRE 助手，擅长分析告警、定位根因、推荐 SOP。用中文回答，简洁专业。",
 	"general": "你是一位友好的 AI 助手，可以回答任何问题。用中文回答。",
+}
+
+// ChatStream handles SSE streaming chat conversations.
+// It returns a text/event-stream response where each chunk is sent as:
+//
+//	data: {"content":"..."}\n\n
+//
+// The final event is:
+//
+//	data: [DONE]\n\n
+//
+// On error:
+//
+//	data: {"error":"..."}\n\n
+func (h *AIHandler) ChatStream(c *gin.Context) {
+	var req struct {
+		Mode    string `json:"mode" binding:"required"`
+		Message string `json:"message" binding:"required,max=4000"`
+		Context string `json:"context,omitempty"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	systemPrompt, ok := systemPrompts[req.Mode]
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid mode: must be alert or general"))
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+
+	// Load recent history (20 messages) for context
+	historyMsgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, req.Mode)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to load chat history: "+err.Error()))
+		return
+	}
+
+	history := make([]service.ChatMessage, 0, len(historyMsgs))
+	if len(historyMsgs) > 20 {
+		historyMsgs = historyMsgs[len(historyMsgs)-20:]
+	}
+	for _, msg := range historyMsgs {
+		history = append(history, service.ChatMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	// Set SSE headers
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+	c.Status(http.StatusOK)
+
+	// Flush helper
+	flusher, canFlush := c.Writer.(http.Flusher)
+
+	// sendSSE writes an SSE data frame to the response.
+	sendSSE := func(data string) {
+		_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", data)
+		if canFlush {
+			flusher.Flush()
+		}
+	}
+
+	// Stream from LLM
+	var fullReply string
+	fullReply, err = h.aiSvc.ChatStream(c.Request.Context(), systemPrompt, history, req.Message, func(chunk string) {
+		payload, _ := json.Marshal(gin.H{"content": chunk})
+		sendSSE(string(payload))
+	})
+
+	if err != nil {
+		// If nothing was streamed yet, send the error as an SSE event
+		errPayload, _ := json.Marshal(gin.H{"error": err.Error()})
+		sendSSE(string(errPayload))
+		sendSSE("[DONE]")
+		return
+	}
+
+	// Send final done signal
+	sendSSE("[DONE]")
+
+	// Save chat history after streaming completes (non-blocking best-effort)
+	ctx := c.Request.Context()
+	_ = h.chatHistorySvc.Save(ctx, &model.ChatHistory{
+		UserID:  userID,
+		Mode:    req.Mode,
+		Role:    "user",
+		Content: req.Message,
+		Context: req.Context,
+	})
+	_ = h.chatHistorySvc.Save(ctx, &model.ChatHistory{
+		UserID:  userID,
+		Mode:    req.Mode,
+		Role:    "assistant",
+		Content: fullReply,
+	})
 }
 
 // Chat handles multi-turn chat conversations.

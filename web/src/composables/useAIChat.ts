@@ -20,18 +20,141 @@ export function useAIChat() {
   const mode = ref<ChatMode>('general')
   const error = ref<string | null>(null)
   const lastFailedInput = ref<string | null>(null)
+  const streamingContent = ref<string>('')
+  const streaming = ref(false)
+  let abortController: AbortController | null = null
 
   // FE6-7: Chat history pagination state
   const historyPageSize = 50
   const hasMoreHistory = ref(false)
   const loadingMore = ref(false)
 
-  // FE6-4: BLOCKED — SSE streaming requires backend SSE endpoint (POST /api/v1/ai/chat/stream).
-  // Cannot implement frontend streaming without backend support.
-  // When backend is ready, plan:
-  //  1. Use fetch() with ReadableStream reader (not EventSource, since POST)
-  //  2. Push partial content to the last assistant message as chunks arrive
-  //  3. Add AbortController support for cancel mid-stream
+  /** Cancel an in-progress stream */
+  function cancelStream() {
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+  }
+
+  /**
+   * Send a message using SSE streaming.
+   * Uses fetch() + ReadableStream (not EventSource, since we need POST with body).
+   * Falls back to synchronous chat if streaming fails.
+   */
+  async function sendMessageStream(text: string, context?: string): Promise<boolean> {
+    const token = localStorage.getItem('token')
+    if (!token) return false
+
+    abortController = new AbortController()
+    streaming.value = true
+    streamingContent.value = ''
+
+    // Push an empty assistant message that we'll fill incrementally
+    const assistantMsg: ChatMessage = {
+      mode: mode.value,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    }
+    messages.value.push(assistantMsg)
+
+    try {
+      const resp = await fetch('/api/v1/ai/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mode: mode.value, message: text, context }),
+        signal: abortController.signal,
+      })
+
+      if (!resp.ok) {
+        // Remove the empty assistant message on non-OK response
+        messages.value.pop()
+        return false
+      }
+
+      const reader = resp.body?.getReader()
+      if (!reader) {
+        messages.value.pop()
+        return false
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullContent = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          const data = trimmed.slice(6)
+
+          if (data === '[DONE]') {
+            break
+          }
+
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.error) {
+              error.value = parsed.error
+              break
+            }
+            if (parsed.content) {
+              fullContent += parsed.content
+              streamingContent.value = fullContent
+              // Update the assistant message in-place
+              const lastMsg = messages.value[messages.value.length - 1]
+              if (lastMsg && lastMsg.role === 'assistant') {
+                lastMsg.content = fullContent
+              }
+            }
+          } catch {
+            // Skip malformed JSON chunks
+          }
+        }
+      }
+
+      // If we got no content at all, treat as failure
+      if (!fullContent) {
+        messages.value.pop()
+        return false
+      }
+
+      return true
+    } catch (e: unknown) {
+      // AbortError means user cancelled — keep whatever content we have
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        if (!streamingContent.value) {
+          messages.value.pop()
+        }
+        return !!streamingContent.value
+      }
+      // Remove empty assistant message on other errors
+      if (!streamingContent.value) {
+        messages.value.pop()
+      }
+      return false
+    } finally {
+      streaming.value = false
+      streamingContent.value = ''
+      abortController = null
+    }
+  }
+
+  /**
+   * Send a message with streaming first, falling back to synchronous chat.
+   */
   async function sendMessage(text: string, context?: string) {
     if (!text.trim() || loading.value) return
     const userMsg: ChatMessage = {
@@ -46,7 +169,13 @@ export function useAIChat() {
     loading.value = true
     error.value = null
     lastFailedInput.value = null
+
     try {
+      // Try streaming first
+      const streamOk = await sendMessageStream(text, context)
+      if (streamOk) return
+
+      // Fallback to synchronous chat
       const resp = await aiChatApi.send({ mode: mode.value, message: text, context })
       messages.value.push({
         mode: mode.value,
@@ -139,7 +268,8 @@ export function useAIChat() {
 
   return {
     messages, loading, mode, error, lastFailedInput,
-    hasMoreHistory, loadingMore,
-    sendMessage, retryLast, loadHistory, loadMore, clearHistory, switchMode,
+    hasMoreHistory, loadingMore, streamingContent, streaming,
+    sendMessage, sendMessageStream, cancelStream,
+    retryLast, loadHistory, loadMore, clearHistory, switchMode,
   }
 }

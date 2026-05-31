@@ -17,11 +17,12 @@ import {
 } from 'naive-ui'
 import {
   TimeOutline, TrashOutline, DownloadOutline, AlertCircleOutline,
-  AddOutline, CloseCircleOutline,
+  AddOutline, CloseCircleOutline, SwapHorizontalOutline,
 } from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
 import { formatTime } from '@/utils/format'
 import PromQLEditor from './PromQLEditor.vue'
+import VisualQueryBuilder from './VisualQueryBuilder.vue'
 import LogsQLEditor from './LogsQLEditor.vue'
 import LogHistogram from './LogHistogram.vue'
 import MetricChartControls from './MetricChartControls.vue'
@@ -64,6 +65,8 @@ const selectedDsId = ref<number | null>(null)
 const expression = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
+type QueryMode = 'code' | 'visual'
+const queryMode = ref<QueryMode>('code')
 const logEntries = ref<LogEntry[]>([])
 const metricData = ref<QueryResponse | null>(null)  // range query results (Graph tab)
 const instantData = ref<QueryResponse | null>(null)  // instant query results (Table tab)
@@ -647,7 +650,27 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
     <!-- Editor + Execute (Nightingale: flex gap-[8px] side-by-side) -->
     <div v-if="selectedDsId != null" class="editor-row">
       <div class="editor-input-wrap">
-        <PromQLEditor v-if="!isLogs" v-model="expression" :datasource-id="selectedDsId" :placeholder="t('query.promqlPlaceholder')" @execute="run" />
+        <!-- Code / Visual toggle (only for metrics tab) -->
+        <div v-if="!isLogs" class="query-mode-toggle">
+          <NButtonGroup size="tiny">
+            <NButton
+              :type="queryMode === 'code' ? 'primary' : 'default'"
+              :secondary="queryMode !== 'code'"
+              @click="queryMode = 'code'"
+            >
+              Code
+            </NButton>
+            <NButton
+              :type="queryMode === 'visual' ? 'primary' : 'default'"
+              :secondary="queryMode !== 'visual'"
+              @click="queryMode = 'visual'"
+            >
+              Visual
+            </NButton>
+          </NButtonGroup>
+        </div>
+        <PromQLEditor v-if="!isLogs && queryMode === 'code'" v-model="expression" :datasource-id="selectedDsId" :placeholder="t('query.promqlPlaceholder')" @execute="run" />
+        <VisualQueryBuilder v-else-if="!isLogs && queryMode === 'visual'" v-model="expression" :datasource-id="selectedDsId" />
         <LogsQLEditor v-else v-model="expression" :datasource-id="selectedDsId" :placeholder="t('query.logQueryPlaceholder')" @execute="run" />
       </div>
       <div class="editor-actions">
@@ -937,6 +960,9 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
   display: flex;
   gap: 8px;
   margin-bottom: 8px;
+}
+.query-mode-toggle {
+  margin-bottom: 6px;
 }
 .editor-input-wrap {
   flex: 1;

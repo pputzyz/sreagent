@@ -60,6 +60,7 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 		ai.GET("/config", adminOnly, h.AI.GetConfig)
 		ai.PUT("/config", adminOnly, h.AI.UpdateConfig)
 		ai.POST("/chat", aiRL, h.AI.Chat)
+		ai.POST("/chat/stream", aiRL, h.AI.ChatStream)
 		ai.GET("/history", h.AI.GetHistory)
 		ai.DELETE("/history", h.AI.ClearHistory)
 		ai.GET("/modules", adminOnly, h.AI.GetModules)

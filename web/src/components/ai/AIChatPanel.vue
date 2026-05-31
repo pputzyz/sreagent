@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import { NDrawer, NDrawerContent, NButton, NIcon, NInput, NPopconfirm } from 'naive-ui'
-import { Trash2, Send, RefreshCw, Maximize2, Minimize2 } from 'lucide-vue-next'
+import { Trash2, Send, RefreshCw, Maximize2, Minimize2, Square } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAIChat } from '@/composables/useAIChat'
 import AIChatMessage from './AIChatMessage.vue'
@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { messages, loading, error, lastFailedInput, hasMoreHistory, loadingMore, sendMessage, retryLast, loadHistory, loadMore, clearHistory } = useAIChat()
+const { messages, loading, error, lastFailedInput, hasMoreHistory, loadingMore, streaming, sendMessage, cancelStream, retryLast, loadHistory, loadMore, clearHistory } = useAIChat()
 
 const inputText = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
@@ -201,6 +201,19 @@ onMounted(() => {
             />
           </div>
           <n-button
+            v-if="streaming"
+            type="error"
+            quaternary
+            @click="cancelStream"
+            class="chat-send-btn"
+            title="Stop generating"
+          >
+            <template #icon>
+              <n-icon :component="Square" />
+            </template>
+          </n-button>
+          <n-button
+            v-else
             type="primary"
             :loading="loading"
             :disabled="!inputText.trim()"

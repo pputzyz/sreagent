@@ -12,6 +12,8 @@ func (h *Handlers) registerDatasourceRoutes(auth *gin.RouterGroup, adminOnly, ma
 	ds := auth.Group("/datasources")
 	{
 		ds.GET("", h.DataSource.List)
+		// SSE: real-time variable value stream (must be before /:id to avoid wildcard conflict)
+		ds.GET("/variables/stream", h.DataSource.VariableStreamSSE)
 		ds.GET("/:id", h.DataSource.Get)
 		ds.POST("", adminOnly, middleware.RequirePerm("datasource.write"), h.DataSource.Create)
 		ds.PUT("/:id", adminOnly, middleware.RequirePerm("datasource.write"), h.DataSource.Update)

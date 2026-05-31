@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -679,4 +681,107 @@ func (h *DataSourceHandler) GetESFields(c *gin.Context) {
 	}
 
 	Success(c, fields)
+}
+
+// VariableStreamSSE streams real-time variable values via SSE.
+// GET /api/v1/datasources/variables/stream?datasource_id=1&expression=up&interval=30&regex=.*
+//
+// Each SSE message: data: {"variable":"name","value":"val","timestamp":"RFC3339"}\n\n
+// On error:         data: {"error":"..."}\n\n
+func (h *DataSourceHandler) VariableStreamSSE(c *gin.Context) {
+	dsIDStr := c.Query("datasource_id")
+	if dsIDStr == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "datasource_id is required"))
+		return
+	}
+	var dsID uint
+	if _, err := fmt.Sscanf(dsIDStr, "%d", &dsID); err != nil || dsID == 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "datasource_id must be a positive integer"))
+		return
+	}
+
+	expression := c.Query("expression")
+	if expression == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "expression is required"))
+		return
+	}
+
+	intervalSec := 30
+	if v := c.Query("interval"); v != "" {
+		if n, err := fmt.Sscanf(v, "%d", &intervalSec); err != nil || n != 1 || intervalSec < 5 {
+			intervalSec = 30
+		}
+	}
+	intervalSec = int(math.Min(float64(intervalSec), 3600)) // cap at 1 hour
+
+	regexFilter := c.Query("regex")
+
+	// SSE headers
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	// Send initial values immediately
+	h.sendVariableSnapshot(c, dsID, expression, regexFilter)
+
+	ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-ticker.C:
+			h.sendVariableSnapshot(c, dsID, expression, regexFilter)
+			if c.IsAborted() {
+				return
+			}
+		}
+	}
+}
+
+// sendVariableSnapshot executes the datasource query and writes SSE data.
+func (h *DataSourceHandler) sendVariableSnapshot(c *gin.Context, dsID uint, expression, regexFilter string) {
+	result, err := h.svc.QueryDatasource(c.Request.Context(), dsID, expression, time.Time{})
+	if err != nil {
+		errData, _ := json.Marshal(map[string]string{"error": err.Error()})
+		fmt.Fprintf(c.Writer, "data: %s\n\n", errData)
+		c.Writer.Flush()
+		return
+	}
+
+	// Build the value list from series labels
+	var values []string
+	for _, s := range result.Series {
+		for k, v := range s.Labels {
+			if k != "__name__" {
+				values = append(values, v)
+				break // take first non-__name__ label
+			}
+		}
+	}
+
+	// Apply optional regex filter
+	if regexFilter != "" {
+		re, err := regexp.Compile(regexFilter)
+		if err == nil {
+			filtered := values[:0]
+			for _, v := range values {
+				if re.MatchString(v) {
+					filtered = append(filtered, v)
+				}
+			}
+			values = filtered
+		}
+	}
+
+	payload := map[string]interface{}{
+		"variable":  expression,
+		"value":     values,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(payload)
+	fmt.Fprintf(c.Writer, "data: %s\n\n", data)
+	c.Writer.Flush()
 }
