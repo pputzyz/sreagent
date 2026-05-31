@@ -119,11 +119,11 @@ func (h *Handlers) registerSettingRoutes(auth *gin.RouterGroup, adminOnly, manag
 	}
 
 	// Status Page services (状态页面)
+	// GET endpoints are registered as public (no-auth) in router.go for external status pages.
+	// Only write operations (POST/PUT/DELETE) are registered here under auth.
 	if h.StatusService != nil {
 		statusSvc := auth.Group("/status-services")
 		{
-			statusSvc.GET("", h.StatusService.List)
-			statusSvc.GET("/:id", h.StatusService.Get)
 			statusSvc.POST("", adminOnly, h.StatusService.Create)
 			statusSvc.PUT("/:id", adminOnly, h.StatusService.Update)
 			statusSvc.DELETE("/:id", adminOnly, h.StatusService.Delete)
