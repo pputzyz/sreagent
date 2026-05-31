@@ -7,6 +7,7 @@ import (
 	"time"
 
 	mcppkg "github.com/sreagent/sreagent/internal/pkg/mcp"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 // MCPTool represents a tool discovered from an MCP server.
@@ -35,10 +36,10 @@ type MCPClient struct {
 	httpClient *http.Client
 }
 
-// NewMCPClient creates a new MCPClient with a 30s timeout.
+// NewMCPClient creates a new MCPClient with SSRF protection and a 30s timeout.
 func NewMCPClient() *MCPClient {
 	return &MCPClient{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: safehttp.NewInternalClient(30 * time.Second),
 	}
 }
 

@@ -119,7 +119,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/annotations', component: () => import('@/pages/platform/Annotations.vue'), meta: { title: 'menu.annotations' } },
 
       // ===== Catch-all 404 =====
-      { path: ':pathMatch(.*)*', redirect: '/alert/events' },
+      { path: ':pathMatch(.*)*', component: () => import('@/pages/NotFound.vue'), meta: { title: 'notFound.title' } },
     ],
   },
 ]

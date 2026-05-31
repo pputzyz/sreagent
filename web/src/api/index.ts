@@ -6,7 +6,6 @@ export {
   alertGroupsApi,
   alertExportApi,
   engineApi,
-  templateApi,
 } from './alert'
 
 // ===== Notification domain =====
@@ -144,7 +143,7 @@ export { savedViewApi } from './saved-views'
 export type { SavedViewApiItem, SavedViewCreate, SavedViewUpdate } from './saved-views'
 
 // ===== Alert Rule Templates =====
-export { alertRuleTemplateApi } from './alert-rule-template'
+export { alertRuleTemplateApi, alertRuleTemplateApi as templateApi } from './alert-rule-template'
 export type { AlertRuleTemplate, CreateAlertRuleTemplateRequest, UpdateAlertRuleTemplateRequest } from './alert-rule-template'
 
 // ===== Inspection =====

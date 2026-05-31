@@ -22,6 +22,10 @@ const (
 )
 
 var (
+	// EncryptionEnabled is true when SREAGENT_SECRET_KEY is set and valid.
+	// Callers can check this to decide whether to encrypt at rest.
+	EncryptionEnabled bool
+
 	masterKey []byte
 	keyOnce   sync.Once
 )
@@ -44,6 +48,7 @@ func loadKey() []byte {
 			return
 		}
 		masterKey = key
+		EncryptionEnabled = true
 	})
 	return masterKey
 }

@@ -117,14 +117,16 @@ export function useCrudPage<T extends { id: number }>(
   const dialog = useDialog()
   const { t } = useI18n()
 
-  const pageSize = options.pageSize ?? 100
-
   // List state
   const loading = ref(false)
   const items = ref<T[]>([]) as Ref<T[]>
   const total = ref(0)
   const page = ref(1)
+  const pageSize = ref(options.pageSize ?? 100)
   const search = ref('')
+
+  // Incrementing request ID to discard stale responses on rapid page/filter changes
+  let requestId = 0
 
   // Modal state
   const showModal = ref(false)
@@ -136,16 +138,19 @@ export function useCrudPage<T extends { id: number }>(
   // ---- List ----
 
   async function fetchList() {
+    const id = ++requestId
     loading.value = true
     try {
-      const { data } = await options.api.list({ page: page.value, page_size: pageSize })
+      const { data } = await options.api.list({ page: page.value, page_size: pageSize.value })
+      if (id !== requestId) return // stale response, discard
       const pageData = normalizePageData<T>(data.data)
       items.value = pageData.list
       total.value = pageData.total
     } catch (err: unknown) {
+      if (id !== requestId) return // stale response, discard
       message.error(getErrorMessage(err))
     } finally {
-      loading.value = false
+      if (id === requestId) loading.value = false
     }
   }
 
@@ -229,16 +234,13 @@ export function useCrudPage<T extends { id: number }>(
     })
   }
 
-  // FE3-6: Batch delete with confirmation showing count
+  // FE3-6: Batch delete with parallel execution via Promise.allSettled
   async function handleBatchDelete(ids: number[]) {
-    let successCount = 0
-    for (const id of ids) {
-      try {
-        await options.api.delete(id)
-        successCount++
-      } catch (err: unknown) {
-        message.error(getErrorMessage(err))
-      }
+    const results = await Promise.allSettled(ids.map((id) => options.api.delete(id)))
+    const successCount = results.filter((r) => r.status === 'fulfilled').length
+    const failCount = results.length - successCount
+    if (failCount > 0) {
+      message.error(t('common.deleteFailed') || `${failCount} deletions failed`)
     }
     if (successCount > 0) {
       const msg = options.i18nKeys.deleted ? t(options.i18nKeys.deleted) : t('common.deleteSuccess')
@@ -264,7 +266,7 @@ export function useCrudPage<T extends { id: number }>(
     items,
     total,
     page,
-    pageSize: ref(pageSize),
+    pageSize,
     search,
     showModal,
     modalTitle,

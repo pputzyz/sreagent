@@ -652,6 +652,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		repos.Rule,
 		zapLogger,
 	)
+	escalationExecutor.SetTemplateService(svcs.MessageTemplateSvc)
 	escalationExecutor.Start()
 
 	// Inject Redis-backed dedup service into notify rule path
@@ -1196,12 +1197,15 @@ func (d *Dependencies) Shutdown() {
 	// 5. Wait for in-flight worker pool tasks to complete
 	d.AlertWorkerPool.Wait()
 
-	// 6. Cancel app-level context (label registry sync worker, incident auto-close)
+	// 6. Stop notification dedup cleanup goroutine
+	service.StopRouteDedup()
+
+	// 7. Cancel app-level context (label registry sync worker, incident auto-close)
 	if d.appCancel != nil {
 		d.appCancel()
 	}
 
-	// 7. Close Redis connection
+	// 8. Close Redis connection
 	if d.RedisClient != nil {
 		if err := d.RedisClient.Close(); err != nil {
 			zapLogger.Warn("failed to close redis connection", zap.Error(err))

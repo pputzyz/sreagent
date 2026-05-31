@@ -31,7 +31,7 @@ export interface IngestChangeEventRequest {
 }
 
 export const changeEventApi = {
-  list: (params?: { page?: number; page_size?: number; service?: string; environment?: string; source?: string }) =>
+  list: (params?: { page?: number; page_size?: number; service?: string; environment?: string; source?: string; incident_id?: number }) =>
     request.get<ApiResponse<PageData<ChangeEvent>>>('/change-events', { params }),
   get: (id: number) =>
     request.get<ApiResponse<ChangeEvent>>(`/change-events/${id}`),

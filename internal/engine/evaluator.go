@@ -151,10 +151,19 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 // RemoveRule stops a rule's evaluator in this bucket and cleans up suppressor entries.
 func (p *PerDatasourceEvaluator) RemoveRule(ruleID uint) {
 	if v, loaded := p.rules.LoadAndDelete(ruleID); loaded {
-		v.(*ruleVersion).evaluator.Stop()
+		ev := v.(*ruleVersion).evaluator
+		ev.Stop()
 		// B4-7: Clean up suppressor entries to prevent memory leak
 		if p.suppressor != nil {
 			p.suppressor.RemoveRule(ruleID)
+		}
+		// Clean up persisted alert states in Redis to prevent stale state
+		// from being loaded if the rule is re-added later.
+		if ev.stateStore != nil {
+			if err := ev.stateStore.DeleteRuleStates(context.Background(), ruleID); err != nil {
+				p.log.Warn("failed to delete rule states from state store on RemoveRule",
+					zap.Uint("rule_id", ruleID), zap.Error(err))
+			}
 		}
 		p.log.Info("rule removed from datasource bucket", zap.Uint("rule_id", ruleID))
 	}

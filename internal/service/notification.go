@@ -57,6 +57,12 @@ func (s *NotificationService) SetMuteRuleService(svc *MuteRuleService) {
 // alert labels/severity, processes each through the v2 pipeline (throttle,
 // dedup, template, media dispatch), and also processes user/team subscriptions.
 //
+// NOTE: EscalationPolicyID on the event is NOT checked here. Escalation is
+// handled separately by the EscalationExecutor, which periodically scans
+// firing events and dispatches escalation steps based on the matched policy's
+// delay schedule. This separation keeps the notification path (immediate)
+// distinct from the escalation path (delayed, policy-driven).
+//
 // TODO (B5-10): There is no global concurrency cap on notification dispatch.
 // During a mass-firing event (hundreds of alerts), this could overwhelm
 // downstream media APIs (Lark, webhook endpoints). Consider adding a global

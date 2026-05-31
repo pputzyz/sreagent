@@ -1051,9 +1051,10 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 	if err != nil {
 		return fmt.Errorf("failed to marshal telegram payload: %w", err)
 	}
-	// Use Authorization header instead of embedding the token in the URL path
-	// to avoid token leakage in access logs and referrer headers.
-	apiURL := "https://api.telegram.org/bot/sendMessage"
+	// Telegram Bot API requires the token in the URL path. Authorization header
+	// is NOT supported by Telegram's Bot API — the token must be part of the URL.
+	// NOTE: Ensure access logs are protected and rotated to avoid token leakage.
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", cfg.BotToken)
 	retryTimes := 3
 	retryIntervalMs := 100
 	backoffMultipliers := []int{1, 5, 20} // 100ms, 500ms, 2000ms
@@ -1065,7 +1066,6 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 			return fmt.Errorf("failed to create telegram request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bot "+cfg.BotToken)
 
 		resp, err := client.Do(req)
 		if err != nil {

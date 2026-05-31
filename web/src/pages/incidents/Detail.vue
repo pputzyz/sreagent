@@ -168,7 +168,7 @@ watch(() => incident.value?.status, () => {
 async function loadRelatedChanges() {
   changesLoading.value = true
   try {
-    const res = await changeEventApi.list({ page: 1, page_size: 50 })
+    const res = await changeEventApi.list({ page: 1, page_size: 50, incident_id: incidentId.value })
     relatedChanges.value = res.data.data?.list ?? []
   } catch {
     relatedChanges.value = []

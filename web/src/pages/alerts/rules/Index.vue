@@ -373,6 +373,8 @@ const selectedIndex = ref(-1)
 function handleKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+  // Skip keyboard shortcuts when any modal/drawer is open
+  if (showFormModal.value || showImportModal.value || showAIModal.value) return
   const list = rules.value
   if (!list.length) return
 

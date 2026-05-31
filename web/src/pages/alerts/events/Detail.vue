@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -73,8 +73,12 @@ const severityLabel = computed(() => (event.value?.severity ?? '').toString().to
 const statusKey = computed(() => event.value?.status ?? 'firing')
 const statusLabel = computed(() => (event.value ? t(getStatusLabelKey(event.value.status)) : ''))
 
-// ── Duration ──
+// ── Duration (live-updating every second) ──
+const timeTick = ref(0)
+let tickTimer: ReturnType<typeof setInterval> | null = null
+
 const eventDuration = computed(() => {
+  void timeTick.value // depend on tick for re-evaluation
   if (!event.value) return '—'
   const firedAt = new Date(event.value.fired_at).getTime()
   if (event.value.status === 'resolved' || event.value.status === 'closed') {
@@ -125,7 +129,9 @@ function timelineDotSeverity(action: string): string {
 
 // ── Copy ──
 function copyText(value: string, hint = t('common.copied')) {
-  navigator.clipboard.writeText(value).then(() => message.success(hint))
+  navigator.clipboard.writeText(value).then(() => message.success(hint)).catch(() => {
+    message.error(t('common.copyFailed') || 'Copy failed')
+  })
 }
 
 // ── API ──
@@ -284,7 +290,14 @@ function gotoRule() {
   if (event.value?.rule_id) router.push(`/alert/rules/${event.value.rule_id}`)
 }
 
-onMounted(() => { fetchEvent(); fetchTimeline() })
+onMounted(() => {
+  fetchEvent(); fetchTimeline()
+  tickTimer = setInterval(() => { timeTick.value++ }, 1000)
+})
+
+onUnmounted(() => {
+  if (tickTimer) { clearInterval(tickTimer); tickTimer = null }
+})
 </script>
 
 <template>

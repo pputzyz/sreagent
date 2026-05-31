@@ -35,6 +35,7 @@ type EscalationExecutor struct {
 	onCallShiftRepo      *repository.OnCallShiftRepository
 	larkSvc              *service.LarkService          // optional — enables lark_personal DM
 	settingSvc           *service.SystemSettingService // optional — enables personal email via global SMTP
+	templateSvc          *service.MessageTemplateService // optional — enables template rendering
 	logger               *zap.Logger
 
 	interval  time.Duration
@@ -82,6 +83,12 @@ func NewEscalationExecutor(
 	}
 }
 
+// SetTemplateService injects the message template service for rendering
+// notification content through the standard template system.
+func (e *EscalationExecutor) SetTemplateService(svc *service.MessageTemplateService) {
+	e.templateSvc = svc
+}
+
 // SetInterval overrides the default 60-second check interval.
 func (e *EscalationExecutor) SetInterval(d time.Duration) {
 	if d > 0 {
@@ -90,6 +97,8 @@ func (e *EscalationExecutor) SetInterval(d time.Duration) {
 }
 
 // sendViaChannel adapts a v1 NotifyChannel to the v2 NotifyMediaService dispatch.
+// When a template service is configured, it renders the message through the
+// standard template system; otherwise it falls back to a basic format string.
 func (e *EscalationExecutor) sendViaChannel(ctx context.Context, event *model.AlertEvent, channel *model.NotifyChannel) error {
 	mediaType := mapChannelTypeToMediaType(channel.Type)
 	media := &model.NotifyMedia{
@@ -98,17 +107,23 @@ func (e *EscalationExecutor) sendViaChannel(ctx context.Context, event *model.Al
 		Config:    channel.Config,
 		IsEnabled: true,
 	}
-	data := &service.TemplateData{
-		AlertName:   event.AlertName,
-		Severity:    string(event.Severity),
-		Status:      string(event.Status),
-		Labels:      map[string]string(event.Labels),
-		Annotations: map[string]string(event.Annotations),
-		FiredAt:     event.FiredAt,
-		EventID:     event.ID,
-		Source:      event.Source,
+	data := service.EventToTemplateData(event, nil, nil, nil)
+
+	var rendered string
+	if e.templateSvc != nil {
+		// Use the default template format with the standard template system.
+		defaultContent := fmt.Sprintf("[{{.Severity | upper}}] {{.AlertName}} - {{.Status}}\n\nLabels: {{range $k, $v := .Labels}}{{$k}}={{$v}} {{end}}\nFiredAt: {{.FiredAt.Format \"2006-01-02 15:04:05\"}}")
+		result, err := e.templateSvc.RenderContent(ctx, defaultContent, data)
+		if err != nil {
+			e.logger.Warn("escalation: template render failed, falling back to basic format",
+				zap.Uint("event_id", event.ID), zap.Error(err))
+			rendered = fmt.Sprintf("[%s] %s - %s", event.Severity, event.AlertName, event.Status)
+		} else {
+			rendered = result
+		}
+	} else {
+		rendered = fmt.Sprintf("[%s] %s - %s", event.Severity, event.AlertName, event.Status)
 	}
-	rendered := fmt.Sprintf("[%s] %s - %s", event.Severity, event.AlertName, event.Status)
 	return e.notifyMediaSvc.SendNotification(ctx, media, rendered, data)
 }
 

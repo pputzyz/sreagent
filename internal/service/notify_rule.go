@@ -808,6 +808,14 @@ func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string
 			continue
 		}
 
+		if resp.StatusCode >= 400 {
+			s.logger.Warn("callback returned client error (not retried)",
+				zap.String("url", callbackURL),
+				zap.Int("status", resp.StatusCode),
+				zap.Int("attempt", attempt),
+			)
+		}
+
 		s.logger.Info("callback fired",
 			zap.String("url", callbackURL),
 			zap.Int("status", resp.StatusCode),

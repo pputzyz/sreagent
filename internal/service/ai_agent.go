@@ -473,7 +473,7 @@ func (s *AgentService) runTaskWithToolCalling(ctx context.Context, task *AgentTa
 		"如果需要多个工具，按需逐步调用。最终回答格式：\n1. 简要总结\n2. 关键发现\n3. 建议的后续行动（如有）"
 
 	// Execute tool-calling loop
-	result, err := s.RunUntilDone(ctx, task.UserID, systemPrompt, task.Query, nil, agentMaxSteps)
+	result, err := s.RunUntilDone(ctx, task.UserID, systemPrompt, sanitizeUserQuery(task.Query), nil, agentMaxSteps)
 	if err != nil {
 		task.Status = "failed"
 		task.Error = fmt.Sprintf("tool-calling 执行失败: %v", err)

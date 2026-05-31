@@ -60,7 +60,11 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		return
 	}
 
-	userID := GetCurrentUserID(c)
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 
 	// Load recent history (20 messages) for context
 	historyMsgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, req.Mode)
@@ -151,7 +155,11 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		return
 	}
 
-	userID := GetCurrentUserID(c)
+	userID, ok2 := GetCurrentUserIDOK(c)
+	if !ok2 {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 
 	// Load recent history (20 messages) for context
 	historyMsgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, req.Mode)
@@ -215,7 +223,11 @@ func (h *AIHandler) GetHistory(c *gin.Context) {
 		return
 	}
 
-	userID := GetCurrentUserID(c)
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 
 	msgs, err := h.chatHistorySvc.GetHistory(c.Request.Context(), userID, mode)
 	if err != nil {
@@ -234,7 +246,11 @@ func (h *AIHandler) ClearHistory(c *gin.Context) {
 		return
 	}
 
-	userID := GetCurrentUserID(c)
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "user not authenticated"))
+		return
+	}
 
 	if err := h.chatHistorySvc.ClearHistory(c.Request.Context(), userID, mode); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, "failed to clear chat history: "+err.Error()))

@@ -8,7 +8,6 @@ import type {
   AlertTimeline,
   AlertChannel,
   AlertGroupItem,
-  AlertRuleTemplate,
   QueryResponse,
   LogEntry,
 } from '@/types'
@@ -156,28 +155,4 @@ export const expressionApi = {
 
   logQuery: (datasourceId: number, data: { expression: string; start: number; end: number; limit?: number }) =>
     request.post<ApiResponse<{ entries: LogEntry[]; total: number; truncated: boolean }>>(`/datasources/${datasourceId}/log-query`, data),
-}
-
-// ===== Alert Rule Template API =====
-export const templateApi = {
-  list: (params?: { page?: number; page_size?: number; category?: string; search?: string }) =>
-    request.get<ApiResponse<PageData<AlertRuleTemplate>>>('/alert-rule-templates', { params }),
-
-  get: (id: number) =>
-    request.get<ApiResponse<AlertRuleTemplate>>(`/alert-rule-templates/${id}`),
-
-  create: (data: Partial<AlertRuleTemplate>) =>
-    request.post<ApiResponse<AlertRuleTemplate>>('/alert-rule-templates', data),
-
-  update: (id: number, data: Partial<AlertRuleTemplate>) =>
-    request.put<ApiResponse<AlertRuleTemplate>>(`/alert-rule-templates/${id}`, data),
-
-  delete: (id: number) =>
-    request.delete<ApiResponse<null>>(`/alert-rule-templates/${id}`),
-
-  listCategories: () =>
-    request.get<ApiResponse<string[]>>('/alert-rule-templates/categories'),
-
-  apply: (id: number, overrides: Partial<AlertRule>) =>
-    request.post<ApiResponse<AlertRuleTemplate>>(`/alert-rule-templates/${id}/apply`, overrides),
 }

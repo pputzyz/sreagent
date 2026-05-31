@@ -140,6 +140,10 @@ const createForm = ref({
   channel_id: 0,
 })
 
+function resetCreateForm() {
+  createForm.value = { title: '', description: '', severity: 'warning', channel_id: 0 }
+}
+
 const SEVERITY_COLORS: Record<string, string> = {
   critical: 'var(--sre-critical)',
   warning: 'var(--sre-warning)',
@@ -449,6 +453,7 @@ const hasFilters = computed(() =>
       preset="card"
       :bordered="false"
       class="create-modal"
+      @after-leave="resetCreateForm"
     >
       <n-form label-placement="top" size="small">
         <n-form-item :label="t('incident.name')" required>

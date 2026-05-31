@@ -13,7 +13,7 @@ import {
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { useI18n } from 'vue-i18n'
-import { alertRuleApi, datasourceApi, templateApi, labelRegistryApi } from '@/api'
+import { alertRuleApi, datasourceApi, alertRuleTemplateApi, labelRegistryApi } from '@/api'
 import type { AlertRule, AlertRuleType, DataSource, AlertSeverity, DataSourceType, QueryResponse } from '@/types'
 import { kvArrayToRecord, getErrorMessage } from '@/utils/format'
 import { formatValue } from '@/utils/valueFormatter'
@@ -322,14 +322,14 @@ function severityLabel(sev: string) {
 async function fetchTemplates() {
   templateLoading.value = true
   try {
-    const res = await templateApi.list({
+    const res = await alertRuleTemplateApi.list({
       category: templateCategory.value || undefined,
       search: templateSearch.value || undefined,
       page: 1,
       page_size: 50,
     })
     templates.value = res.data.data.list || []
-    templateCategories.value = (await templateApi.listCategories()).data.data || []
+    templateCategories.value = (await alertRuleTemplateApi.listCategories()).data.data || []
   } catch { /* ignore */ }
   finally { templateLoading.value = false }
 }
@@ -367,7 +367,7 @@ async function saveAsTemplate() {
     category: form.category,
   }
   try {
-    await templateApi.create(payload)
+    await alertRuleTemplateApi.create(payload)
     message.success(t('alert.templateSaved'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err) || t('common.saveFailed'))
