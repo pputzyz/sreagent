@@ -264,7 +264,7 @@ onMounted(async () => {
               <n-icon :component="channel?.is_starred ? Star : StarOutline" />
             </template>
           </n-button>
-          <n-button size="small" @click="lastTriggerEl = document.activeElement as HTMLElement; showEditModal = true">
+          <n-button size="small" @click="lastTriggerEl = window.document.activeElement as HTMLElement; showEditModal = true">
             <template #icon><n-icon :component="CreateOutline" /></template>
             {{ t('common.edit') }}
           </n-button>
