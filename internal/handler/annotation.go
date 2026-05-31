@@ -173,6 +173,19 @@ func (h *AnnotationHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// Ownership check: only creator or admin can update.
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == string(model.RoleAdmin)
+	if existing.CreatedBy != userID && !isAdmin {
+		Error(c, apperr.ErrForbidden)
+		return
+	}
+
 	var req UpdateAnnotationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
@@ -217,6 +230,24 @@ func (h *AnnotationHandler) Delete(c *gin.Context) {
 	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, err)
+		return
+	}
+
+	// Ownership check: only creator or admin can delete.
+	existing, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	userID, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == string(model.RoleAdmin)
+	if existing.CreatedBy != userID && !isAdmin {
+		Error(c, apperr.ErrForbidden)
 		return
 	}
 

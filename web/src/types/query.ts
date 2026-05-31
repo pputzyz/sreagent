@@ -49,7 +49,7 @@ export interface RelativeTimeOption {
 export interface LogEntry {
   timestamp: string
   message: string
-  labels: Record<string, unknown>
+  labels: Record<string, string>
 }
 
 /** Response from log query API */

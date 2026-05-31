@@ -364,10 +364,12 @@ func (s *AgentService) runTaskPlanExecute(ctx context.Context, task *AgentTask) 
 	// 第 1 步：规划
 	steps, err := s.planSteps(ctx, task.Query)
 	if err != nil {
+		s.mu.Lock()
 		task.Status = "failed"
 		task.Error = fmt.Sprintf("规划失败: %v", err)
 		now := time.Now()
 		task.CompletedAt = &now
+		s.mu.Unlock()
 		s.notifySubscribers(task)
 		s.finishStream(task)
 		s.persistTask(task)
@@ -383,24 +385,30 @@ func (s *AgentService) runTaskPlanExecute(ctx context.Context, task *AgentTask) 
 		)
 	}
 
+	s.mu.Lock()
 	task.Steps = steps
 	task.Status = "executing"
+	s.mu.Unlock()
 	s.notifySubscribers(task)
 	s.logger.Info("Agent 规划完成", zap.String("id", task.ID), zap.Int("steps", len(steps)))
 
 	// 第 2 步：逐步执行
 	for i := range task.Steps {
 		step := &task.Steps[i]
+		s.mu.Lock()
 		step.Status = "running"
+		s.mu.Unlock()
 		s.notifySubscribers(task)
 		startTime := time.Now()
 
 		err := s.executeStep(ctx, task, step)
+		s.mu.Lock()
 		step.Duration = time.Since(startTime).Milliseconds()
 
 		if err != nil {
 			step.Status = "failed"
 			step.Result = fmt.Sprintf("执行失败: %v", err)
+			s.mu.Unlock()
 			s.notifySubscribers(task)
 			s.logger.Warn("Agent 步骤失败",
 				zap.String("task_id", task.ID),
@@ -410,10 +418,12 @@ func (s *AgentService) runTaskPlanExecute(ctx context.Context, task *AgentTask) 
 
 			// 让 LLM 决定是否跳过
 			if !s.shouldContinue(ctx, task, i) {
+				s.mu.Lock()
 				task.Status = "failed"
 				task.Error = fmt.Sprintf("步骤 %d 失败且无法恢复: %v", step.Index, err)
 				now := time.Now()
 				task.CompletedAt = &now
+				s.mu.Unlock()
 				s.notifySubscribers(task)
 				s.finishStream(task)
 				s.persistTask(task)
@@ -423,6 +433,7 @@ func (s *AgentService) runTaskPlanExecute(ctx context.Context, task *AgentTask) 
 		}
 
 		step.Status = "completed"
+		s.mu.Unlock()
 		s.notifySubscribers(task)
 		s.logger.Info("Agent 步骤完成",
 			zap.String("task_id", task.ID),
@@ -434,20 +445,24 @@ func (s *AgentService) runTaskPlanExecute(ctx context.Context, task *AgentTask) 
 	// 第 3 步：汇总
 	summary, err := s.summarize(ctx, task)
 	if err != nil {
+		s.mu.Lock()
 		task.Status = "failed"
 		task.Error = fmt.Sprintf("汇总失败: %v", err)
 		now := time.Now()
 		task.CompletedAt = &now
+		s.mu.Unlock()
 		s.notifySubscribers(task)
 		s.finishStream(task)
 		s.persistTask(task)
 		return task, nil
 	}
 
+	s.mu.Lock()
 	task.Result = summary
 	task.Status = "completed"
 	now := time.Now()
 	task.CompletedAt = &now
+	s.mu.Unlock()
 	s.notifySubscribers(task)
 	s.finishStream(task)
 	s.persistTask(task)
@@ -465,7 +480,9 @@ func (s *AgentService) runTaskWithToolCalling(ctx context.Context, task *AgentTa
 	defer cancel()
 
 	s.logger.Info("Agent 任务开始 (tool-calling)", zap.String("id", task.ID), zap.String("query", task.Query))
+	s.mu.Lock()
 	task.Status = "executing"
+	s.mu.Unlock()
 	s.notifySubscribers(task)
 
 	// Build system prompt for the SRE agent
@@ -475,10 +492,12 @@ func (s *AgentService) runTaskWithToolCalling(ctx context.Context, task *AgentTa
 	// Execute tool-calling loop
 	result, err := s.RunUntilDone(ctx, task.UserID, systemPrompt, sanitizeUserQuery(task.Query), nil, agentMaxSteps)
 	if err != nil {
+		s.mu.Lock()
 		task.Status = "failed"
 		task.Error = fmt.Sprintf("tool-calling 执行失败: %v", err)
 		now := time.Now()
 		task.CompletedAt = &now
+		s.mu.Unlock()
 		s.notifySubscribers(task)
 		s.finishStream(task)
 		s.persistTask(task)
@@ -486,9 +505,9 @@ func (s *AgentService) runTaskWithToolCalling(ctx context.Context, task *AgentTa
 	}
 
 	// Convert tool call records to AgentStep for task representation
-	task.Steps = make([]AgentStep, len(result.ToolCalls))
+	steps := make([]AgentStep, len(result.ToolCalls))
 	for i, rec := range result.ToolCalls {
-		task.Steps[i] = AgentStep{
+		steps[i] = AgentStep{
 			Index:       i + 1,
 			Description: fmt.Sprintf("调用工具 %s", rec.ToolName),
 			Tool:        rec.ToolName,
@@ -497,11 +516,14 @@ func (s *AgentService) runTaskWithToolCalling(ctx context.Context, task *AgentTa
 		}
 	}
 
+	s.mu.Lock()
+	task.Steps = steps
 	task.ConversationID = result.ConversationID
 	task.Result = result.FinalAnswer
 	task.Status = "completed"
 	now := time.Now()
 	task.CompletedAt = &now
+	s.mu.Unlock()
 	s.notifySubscribers(task)
 	s.finishStream(task)
 	s.persistTask(task)
@@ -545,13 +567,14 @@ func (s *AgentService) ListToolCalls(ctx context.Context, conversationID uint) (
 
 // GetTask 获取任务详情
 // Checks in-memory first, then falls back to Redis for cross-instance task lookup.
+// Returns a deep copy to prevent data races from concurrent reads.
 func (s *AgentService) GetTask(id string) (*AgentTask, bool) {
 	s.mu.RLock()
 	task, exists := s.tasks[id]
 	s.mu.RUnlock()
 
 	if exists {
-		return task, true
+		return copyTask(task), true
 	}
 
 	// Fallback: check Redis for completed task state (cross-instance support).

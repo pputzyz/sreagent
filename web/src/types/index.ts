@@ -382,21 +382,14 @@ export interface AlertChannel {
   created_at: string
 }
 
-// ===== User Notify Config =====
-export interface UserNotifyConfig {
-  id: number
-  user_id: number
-  media_type: 'lark_personal' | 'email' | 'webhook'
-  config: string
-  is_enabled: boolean
-}
-
 // ===== Engine Status =====
 export interface EngineStatus {
   running: boolean
   total_rules: number
   active_alerts: number
   uptime: string
+  is_leader: boolean
+  hash_ring_mode: boolean
 }
 
 // ===== Dashboard =====
@@ -675,24 +668,8 @@ export interface RoutingRule {
   updated_at: string
 }
 
-// ===== Alert Rule Template =====
-export interface AlertRuleTemplate {
-  id: number
-  name: string
-  description: string
-  category: string
-  group_name: string
-  severity: AlertSeverity
-  rule_type: AlertRuleType
-  expression: string
-  for_duration: string
-  labels: Record<string, string>
-  annotations: Record<string, string>
-  datasource_type: DataSourceType
-  is_builtin: boolean
-  created_at: string
-  updated_at: string
-}
+// ===== Alert Rule Template (canonical definition in @/api/alert-rule-template) =====
+export type { AlertRuleTemplate } from '@/api/alert-rule-template'
 
 // ===== Exclusion Rule =====
 export interface ExclusionRule {
@@ -822,28 +799,8 @@ export interface UserPreferences {
   updated_at?: string
 }
 
-// ===== Team Notify Channel =====
-export interface TeamNotifyChannel {
-  id: number
-  team_id: number
-  media_id: number
-  media_name?: string
-  media_type?: string
-  is_default: boolean
-  created_at?: string
-  updated_at?: string
-}
-
-export interface UserTeamNotifyPref {
-  id: number
-  team_id: number
-  media_id: number
-  media_name?: string
-  team_name?: string
-  is_muted: boolean
-  created_at?: string
-  updated_at?: string
-}
+// ===== Team Notify Channel (canonical definition in @/api/team-notify-channel) =====
+export type { TeamNotifyChannel, UserTeamNotifyPref } from '@/api/team-notify-channel'
 
 // ===== Preset Rules & AI Modules =====
 export * from './preset-rule'

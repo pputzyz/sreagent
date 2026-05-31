@@ -8,6 +8,7 @@ export interface AlertRuleTemplate {
   name: string
   description: string
   datasource_type: string
+  rule_type: string
   expression: string
   for_duration: string
   severity: string

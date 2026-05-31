@@ -25,7 +25,7 @@ const (
 // This avoids an import cycle between service -> pkg/redis -> engine -> service.
 type LoginFailStore interface {
 	GetLoginFailCount(ctx context.Context, username string) (int64, error)
-	IncrLoginFail(ctx context.Context, username string, ttl time.Duration)
+	IncrLoginFail(ctx context.Context, username string, ttl time.Duration) error
 	ClearLoginFail(ctx context.Context, username string) error
 }
 
@@ -67,7 +67,9 @@ func (s *AuthService) RecordLoginFail(ctx context.Context, username string) {
 	if s.failStore == nil {
 		return
 	}
-	s.failStore.IncrLoginFail(ctx, username, LoginFailWindow)
+	if err := s.failStore.IncrLoginFail(ctx, username, LoginFailWindow); err != nil {
+		s.logger.Warn("login rate limit: failed to increment redis counter", zap.Error(err))
+	}
 }
 
 // ClearLoginFailures removes the login-failure counter on successful login.

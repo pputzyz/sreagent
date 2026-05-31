@@ -308,12 +308,15 @@ func (s *DashboardStatsService) GetMTTRStats(ctx context.Context, hours int) (*M
 	defer cancel()
 
 	var rows []row
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`severity,
 			CASE WHEN acked_at    IS NOT NULL THEN TIMESTAMPDIFF(SECOND, fired_at, acked_at)    END AS ack_seconds,
 			CASE WHEN resolved_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, fired_at, resolved_at) END AS resp_seconds`).
 		Where("fired_at >= ? AND deleted_at IS NULL", since).
-		Scan(&rows)
+		Scan(&rows).Error; err != nil {
+		s.logger.Error("mttr_stats query failed", zap.Error(err))
+		return nil, err
+	}
 
 	var allAck, allResp []float64
 	perSev := map[string]*struct{ ack, resp []float64 }{}
@@ -387,24 +390,30 @@ func (s *DashboardStatsService) GetMTTRTrend(ctx context.Context, days int) ([]M
 	}
 
 	var mttaRows []ackRow
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`DATE(fired_at) AS date,
 			AVG(TIMESTAMPDIFF(SECOND, fired_at, acked_at)) AS avg_sec,
 			COUNT(acked_at) AS cnt`).
 		Where("fired_at >= ? AND acked_at IS NOT NULL AND deleted_at IS NULL", since).
 		Group("DATE(fired_at)").
 		Order("date").
-		Scan(&mttaRows)
+		Scan(&mttaRows).Error; err != nil {
+		s.logger.Error("mttr_trend mtta query failed", zap.Error(err))
+		return nil, err
+	}
 
 	var mttrRows []ackRow
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`DATE(fired_at) AS date,
 			AVG(TIMESTAMPDIFF(SECOND, fired_at, resolved_at)) AS avg_sec,
 			COUNT(resolved_at) AS cnt`).
 		Where("fired_at >= ? AND resolved_at IS NOT NULL AND deleted_at IS NULL", since).
 		Group("DATE(fired_at)").
 		Order("date").
-		Scan(&mttrRows)
+		Scan(&mttrRows).Error; err != nil {
+		s.logger.Error("mttr_trend mttr query failed", zap.Error(err))
+		return nil, err
+	}
 
 	points := map[string]*MTTRTrendPoint{}
 	for _, r := range mttaRows {
@@ -455,16 +464,22 @@ func (s *DashboardStatsService) GetAlertTrend(ctx context.Context, days int) ([]
 	}
 
 	var firedRows []dateCount
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, COUNT(*) AS cnt").
 		Where("fired_at >= ? AND deleted_at IS NULL", since).
-		Group("DATE(fired_at)").Order("date").Scan(&firedRows)
+		Group("DATE(fired_at)").Order("date").Scan(&firedRows).Error; err != nil {
+		s.logger.Error("alert_trend fired query failed", zap.Error(err))
+		return nil, err
+	}
 
 	var resolvedRows []dateCount
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(resolved_at) AS date, COUNT(*) AS cnt").
 		Where("resolved_at >= ? AND resolved_at IS NOT NULL AND deleted_at IS NULL", since).
-		Group("DATE(resolved_at)").Order("date").Scan(&resolvedRows)
+		Group("DATE(resolved_at)").Order("date").Scan(&resolvedRows).Error; err != nil {
+		s.logger.Error("alert_trend resolved query failed", zap.Error(err))
+		return nil, err
+	}
 
 	resolvedMap := map[string]int64{}
 	for _, r := range resolvedRows {
@@ -494,13 +509,16 @@ func (s *DashboardStatsService) GetTopRules(ctx context.Context, days, limit int
 	defer cancel()
 
 	var items []TopRuleItem
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("rule_id, alert_name, COUNT(*) AS count").
 		Where("fired_at >= ? AND deleted_at IS NULL", since).
 		Group("rule_id, alert_name").
 		Order("count DESC").
 		Limit(limit).
-		Scan(&items)
+		Scan(&items).Error; err != nil {
+		s.logger.Error("top_rules query failed", zap.Error(err))
+		return nil, err
+	}
 	return items, nil
 }
 
@@ -520,12 +538,15 @@ func (s *DashboardStatsService) GetSeverityHistory(ctx context.Context, days int
 		Cnt      int64
 	}
 	var rows []row
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, severity, COUNT(*) AS cnt").
 		Where("fired_at >= ? AND deleted_at IS NULL", since).
 		Group("DATE(fired_at), severity").
 		Order("date").
-		Scan(&rows)
+		Scan(&rows).Error; err != nil {
+		s.logger.Error("severity_history query failed", zap.Error(err))
+		return nil, err
+	}
 
 	dateMap := map[string]map[string]int64{}
 	for _, r := range rows {
@@ -566,12 +587,15 @@ func (s *DashboardStatsService) ExportReport(ctx context.Context, startDate, end
 		Cnt      int64
 	}
 	var sevRows []sevDayRow
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, severity, COUNT(*) AS cnt").
 		Where("fired_at BETWEEN ? AND ? AND deleted_at IS NULL", startTS, endTS).
 		Group("DATE(fired_at), severity").
 		Order("date").
-		Scan(&sevRows)
+		Scan(&sevRows).Error; err != nil {
+		s.logger.Error("export_report sev_rows query failed", zap.Error(err))
+		return nil, err
+	}
 
 	// Per-day resolved counts
 	type dayCount struct {
@@ -579,11 +603,14 @@ func (s *DashboardStatsService) ExportReport(ctx context.Context, startDate, end
 		Cnt  int64
 	}
 	var resolvedRows []dayCount
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(resolved_at) AS date, COUNT(*) AS cnt").
 		Where("resolved_at BETWEEN ? AND ? AND deleted_at IS NULL", startTS, endTS).
 		Group("DATE(resolved_at)").
-		Scan(&resolvedRows)
+		Scan(&resolvedRows).Error; err != nil {
+		s.logger.Error("export_report resolved_rows query failed", zap.Error(err))
+		return nil, err
+	}
 
 	// Per-day MTTA / MTTR (mean)
 	type ttaRow struct {
@@ -591,14 +618,20 @@ func (s *DashboardStatsService) ExportReport(ctx context.Context, startDate, end
 		AvgSec *float64
 	}
 	var mttaRows, mttrRows []ttaRow
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, AVG(TIMESTAMPDIFF(SECOND, fired_at, acked_at)) AS avg_sec").
 		Where("fired_at BETWEEN ? AND ? AND acked_at IS NOT NULL AND deleted_at IS NULL", startTS, endTS).
-		Group("DATE(fired_at)").Scan(&mttaRows)
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+		Group("DATE(fired_at)").Scan(&mttaRows).Error; err != nil {
+		s.logger.Error("export_report mtta query failed", zap.Error(err))
+		return nil, err
+	}
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select("DATE(fired_at) AS date, AVG(TIMESTAMPDIFF(SECOND, fired_at, resolved_at)) AS avg_sec").
 		Where("fired_at BETWEEN ? AND ? AND resolved_at IS NOT NULL AND deleted_at IS NULL", startTS, endTS).
-		Group("DATE(fired_at)").Scan(&mttrRows)
+		Group("DATE(fired_at)").Scan(&mttrRows).Error; err != nil {
+		s.logger.Error("export_report mttr query failed", zap.Error(err))
+		return nil, err
+	}
 
 	// Top rules in range
 	type topRuleRow struct {
@@ -609,7 +642,7 @@ func (s *DashboardStatsService) ExportReport(ctx context.Context, startDate, end
 		Info      int64
 	}
 	var topRows []topRuleRow
-	s.db.WithContext(ctx).Model(&model.AlertEvent{}).
+	if err := s.db.WithContext(ctx).Model(&model.AlertEvent{}).
 		Select(`alert_name,
 			COUNT(*) AS cnt,
 			SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) AS critical,
@@ -617,7 +650,10 @@ func (s *DashboardStatsService) ExportReport(ctx context.Context, startDate, end
 			SUM(CASE WHEN severity='info'     THEN 1 ELSE 0 END) AS info`).
 		Where("fired_at BETWEEN ? AND ? AND deleted_at IS NULL", startTS, endTS).
 		Group("alert_name").Order("cnt DESC").Limit(20).
-		Scan(&topRows)
+		Scan(&topRows).Error; err != nil {
+		s.logger.Error("export_report top_rules query failed", zap.Error(err))
+		return nil, err
+	}
 
 	// Merge into day-keyed maps
 	dayMap := map[string]*ExportDaySummary{}
@@ -700,7 +736,7 @@ func (s *DashboardStatsService) ChannelStats(ctx context.Context, days int) ([]C
 		Scan(&rows).Error
 	if err != nil {
 		s.logger.Error("channel_stats query failed", zap.Error(err))
-		return []ChannelStatsRow{}, nil
+		return nil, err
 	}
 	return rows, nil
 }
@@ -733,7 +769,7 @@ func (s *DashboardStatsService) TeamStats(ctx context.Context, days int) ([]Team
 		Scan(&rows).Error
 	if err != nil {
 		s.logger.Error("team_stats query failed", zap.Error(err))
-		return []TeamStatsRow{}, nil
+		return nil, err
 	}
 	return rows, nil
 }
@@ -762,7 +798,7 @@ func (s *DashboardStatsService) IncidentTrend(ctx context.Context, days int) ([]
 		Scan(&rows).Error
 	if err != nil {
 		s.logger.Error("incident_trend query failed", zap.Error(err))
-		return []IncidentTrendPoint{}, nil
+		return nil, err
 	}
 
 	pointMap := make(map[string]*IncidentTrendPoint)

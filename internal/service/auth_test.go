@@ -147,7 +147,7 @@ func (m *mockFailStore) GetLoginFailCount(_ context.Context, _ string) (int64, e
 	return m.count, m.err
 }
 
-func (m *mockFailStore) IncrLoginFail(_ context.Context, _ string, _ time.Duration) {}
+func (m *mockFailStore) IncrLoginFail(_ context.Context, _ string, _ time.Duration) error { return nil }
 
 func (m *mockFailStore) ClearLoginFail(_ context.Context, _ string) error { return nil }
 

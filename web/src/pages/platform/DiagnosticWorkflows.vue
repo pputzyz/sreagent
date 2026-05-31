@@ -755,7 +755,7 @@ onMounted(() => {
               v-model:value="runIncidentId"
               :min="0"
               style="width: 100%"
-              placeholder="Optional"
+              :placeholder="t('common.optional')"
             />
           </n-form-item>
         </n-form>
@@ -772,7 +772,7 @@ onMounted(() => {
 
     <!-- ===== Run Detail Drawer ===== -->
     <n-drawer v-model:show="showRunDetail" :width="600">
-      <n-drawer-content :title="runDetail ? `Run #${runDetail.id}` : ''">
+      <n-drawer-content :title="runDetail ? t('diagnostic.runDetail', { id: runDetail.id }) : ''">
         <template v-if="runDetail">
           <div class="run-detail-meta">
             <div class="meta-row">

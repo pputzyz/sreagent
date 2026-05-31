@@ -243,7 +243,7 @@ async function handleDelete(id: number) {
                 @click="autoRefresh = !autoRefresh"
               >
                 <template #icon><Activity :size="14" /></template>
-                {{ autoRefresh ? '30s' : t('common.refresh') }}
+                {{ autoRefresh ? t('statusPageModule.autoRefreshLabel') : t('common.refresh') }}
               </NButton>
             </div>
           </div>

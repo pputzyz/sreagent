@@ -167,12 +167,20 @@ func Load(cfgFile string) (*Config, error) {
 	_ = viper.BindEnv("cors_allowed_origins", "SREAGENT_CORS_ALLOWED_ORIGINS")
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to read config: %w", err)
+		}
+		// Config file not found — continue with env-var-only configuration.
 	}
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Defaults for fields that have no zero-value sentinel.
+	if cfg.Database.Charset == "" {
+		cfg.Database.Charset = "utf8mb4"
 	}
 
 	// Validate JWT secret strength.

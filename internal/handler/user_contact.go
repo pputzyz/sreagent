@@ -31,7 +31,7 @@ type ContactRequest struct {
 func (h *UserContactHandler) List(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 
@@ -48,7 +48,7 @@ func (h *UserContactHandler) List(c *gin.Context) {
 func (h *UserContactHandler) Create(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 
@@ -77,7 +77,7 @@ func (h *UserContactHandler) Create(c *gin.Context) {
 func (h *UserContactHandler) Update(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 
@@ -116,7 +116,7 @@ func (h *UserContactHandler) Update(c *gin.Context) {
 func (h *UserContactHandler) Delete(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 
@@ -138,7 +138,7 @@ func (h *UserContactHandler) Delete(c *gin.Context) {
 func (h *UserContactHandler) SetDefault(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 
@@ -160,7 +160,7 @@ func (h *UserContactHandler) SetDefault(c *gin.Context) {
 func (h *UserContactHandler) Verify(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 
@@ -193,7 +193,7 @@ func (h *UserContactHandler) Verify(c *gin.Context) {
 func (h *UserContactHandler) ConfirmVerify(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 

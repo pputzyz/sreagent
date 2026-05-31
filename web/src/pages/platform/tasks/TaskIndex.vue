@@ -39,7 +39,7 @@ async function fetchRecords() {
   loading.value = true
   try {
     const params: Record<string, unknown> = { page: page.value, page_size: pageSize.value }
-    if (statusFilter.value >= 0) {
+    if (statusFilter.value !== null && statusFilter.value >= 0) {
       params.status = statusFilter.value
     }
     const resp = await taskApi.list(params)

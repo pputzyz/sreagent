@@ -39,7 +39,7 @@ export const alertRuleApi = {
   importRules: (file: File, datasourceId?: number) => {
     const formData = new FormData()
     formData.append('file', file)
-    if (datasourceId) formData.append('datasource_id', String(datasourceId))
+    if (datasourceId !== undefined && datasourceId !== null) formData.append('datasource_id', String(datasourceId))
     return request.post<ApiResponse<{ total: number; success: number; failed: number; errors: string[] }>>('/alert-rules/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
@@ -123,6 +123,11 @@ export const alertGroupsApi = {
 
 // ===== Alert Export API =====
 export const alertExportApi = {
+  /**
+   * Returns a URL string for CSV export. This is intentional — the caller
+   * navigates the browser to this URL to trigger a file download, rather than
+   * making an XHR request (which would require manual blob handling).
+   */
   exportCSV: (params?: {
     status?: string; severity?: string; view_mode?: string
     start?: string; end?: string

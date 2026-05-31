@@ -39,7 +39,7 @@ export const esIndexPatternApi = {
     request.post<ApiResponse<ESIndexPattern>>('/es-index-patterns', data),
 
   update: (id: number, data: UpdateESIndexPatternRequest) =>
-    request.put<ApiResponse<null>>(`/es-index-patterns/${id}`, data),
+    request.put<ApiResponse<ESIndexPattern>>(`/es-index-patterns/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/es-index-patterns/${id}`),

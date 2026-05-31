@@ -251,7 +251,7 @@ onMounted(() => {
         <n-form-item :label="t('escalation.team')">
           <n-select
             v-model:value="form.team_id"
-            :options="teams.map(t => ({ label: t.name, value: t.id }))"
+            :options="teams.map(team => ({ label: team.name, value: team.id }))"
             clearable
             :placeholder="t('escalation.teamPlaceholder')"
           />
@@ -285,7 +285,7 @@ onMounted(() => {
             <n-select
               v-else-if="step.target_type === 'team'"
               v-model:value="step.target_id"
-              :options="teams.map(t => ({ label: t.name, value: t.id }))"
+              :options="teams.map(team => ({ label: team.name, value: team.id }))"
               filterable
             />
             <n-select

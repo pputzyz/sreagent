@@ -72,7 +72,7 @@ export const recordingRuleApi = {
     request.post<ApiResponse<RecordingRule>>('/recording-rules', data),
 
   update: (id: number, data: UpdateRecordingRuleRequest) =>
-    request.put<ApiResponse<null>>(`/recording-rules/${id}`, data),
+    request.put<ApiResponse<RecordingRule>>(`/recording-rules/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/recording-rules/${id}`),

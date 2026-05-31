@@ -88,6 +88,7 @@ export default {
     updateFailed: 'Update Failed',
     importFailed: 'Import failed',
     unknownError: 'Unknown error',
+    optional: 'Optional',
   },
   error: {
     renderError: 'Render error',
@@ -2554,6 +2555,7 @@ export default {
     serviceNamePlaceholder: 'Enter service name',
     serviceDescPlaceholder: 'Enter service description (optional)',
     serviceUrlPlaceholder: 'Enter URL (optional)',
+    autoRefreshLabel: '30s',
   },
 
   // ===== Roles & Permissions =====
@@ -3370,6 +3372,7 @@ export default {
     statusRunning: 'Running',
     statusCompleted: 'Completed',
     statusFailed: 'Failed',
+    runDetail: 'Run #{id}',
   },
   changeEvents: {
     title: 'Change Events',

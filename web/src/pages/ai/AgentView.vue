@@ -27,6 +27,9 @@ const isPolling = computed(() => {
   return !!eventSource && !!task.value && (task.value.status === 'planning' || task.value.status === 'executing')
 })
 
+// 防止主动关闭后 onerror 误触轮询回退
+let stopped = false
+
 // 执行 Agent
 async function handleRun() {
   if (!query.value.trim()) return
@@ -55,6 +58,7 @@ async function handleRun() {
 // SSE 实时推送（替代 2s 轮询）
 function startSSE(taskId: string) {
   stopSSE()
+  stopped = false
   const url = `/api/v1/ai/agent/stream/${taskId}`
   const es = new EventSource(url)
 
@@ -72,6 +76,8 @@ function startSSE(taskId: string) {
 
   es.onerror = () => {
     stopSSE()
+    // 主动关闭时不回退到轮询
+    if (stopped) return
     // 连接断开时回退到轮询
     if (task.value && (task.value.status === 'planning' || task.value.status === 'executing')) {
       startPollingFallback(task.value.id)
@@ -118,6 +124,7 @@ function stopPollingFallback() {
 }
 
 function stopSSE() {
+  stopped = true
   if (eventSource) {
     eventSource.close()
     eventSource = null

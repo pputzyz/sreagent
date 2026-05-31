@@ -39,7 +39,7 @@ export const mcpServerApi = {
     request.post<ApiResponse<MCPServer>>('/mcp-servers', data),
 
   update: (id: number, data: UpdateMCPServerRequest) =>
-    request.put<ApiResponse<null>>(`/mcp-servers/${id}`, data),
+    request.put<ApiResponse<MCPServer>>(`/mcp-servers/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/mcp-servers/${id}`),

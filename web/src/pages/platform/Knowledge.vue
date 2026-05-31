@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog } from 'naive-ui'
 import {
@@ -105,10 +105,18 @@ function handlePageSizeChange(ps: number) {
   fetchDocs()
 }
 
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 function handleSearch() {
-  page.value = 1
-  fetchDocs()
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    fetchDocs()
+  }, 300)
 }
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 function handleSourceFilterChange(val: string) {
   sourceFilter.value = val || null

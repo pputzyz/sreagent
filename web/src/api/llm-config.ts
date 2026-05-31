@@ -57,7 +57,7 @@ export const llmConfigApi = {
     request.post<ApiResponse<LLMConfig>>('/llm-configs', data),
 
   update: (id: number, data: UpdateLLMConfigRequest) =>
-    request.put<ApiResponse<null>>(`/llm-configs/${id}`, data),
+    request.put<ApiResponse<LLMConfig>>(`/llm-configs/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/llm-configs/${id}`),

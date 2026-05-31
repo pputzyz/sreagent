@@ -34,7 +34,7 @@ export const knowledgeApi = {
     request.post<ApiResponse<KnowledgeDocument>>('/knowledge', data),
 
   update: (id: number, data: UpdateKnowledgeRequest) =>
-    request.put<ApiResponse<null>>(`/knowledge/${id}`, data),
+    request.put<ApiResponse<KnowledgeDocument>>(`/knowledge/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/knowledge/${id}`),

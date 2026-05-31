@@ -106,16 +106,22 @@ func RunMigrations(db *sql.DB, dbName string, logger *zap.Logger) error {
 	// of the app image, this lets the service come back up without manual
 	// DB surgery.
 	if version, dirty, verErr := m.Version(); verErr == nil && dirty {
-		target := int(version) - 1
-		if target < 0 {
-			target = 0
-		}
-		logger.Warn("database migrations in dirty state, auto-forcing to previous clean version",
-			zap.Uint("dirty_version", version),
-			zap.Int("forced_to", target),
-		)
-		if ferr := m.Force(target); ferr != nil {
-			return fmt.Errorf("dbmigrate: force clean version: %w", ferr)
+		if version <= 1 {
+			// At version 0 or 1, forcing to a "previous clean version" is
+			// meaningless (there is nothing to roll back to). Let the normal
+			// migration step-through below handle the recovery.
+			logger.Warn("database migrations in dirty state at low version — skipping force recovery, will retry in step-through",
+				zap.Uint("dirty_version", version),
+			)
+		} else {
+			target := int(version) - 1
+			logger.Warn("database migrations in dirty state, auto-forcing to previous clean version",
+				zap.Uint("dirty_version", version),
+				zap.Int("forced_to", target),
+			)
+			if ferr := m.Force(target); ferr != nil {
+				return fmt.Errorf("dbmigrate: force clean version: %w", ferr)
+			}
 		}
 	}
 

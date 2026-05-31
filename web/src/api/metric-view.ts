@@ -49,7 +49,7 @@ export const metricViewApi = {
     request.post<ApiResponse<MetricView>>('/metric-views', data),
 
   update: (id: number, data: UpdateMetricViewRequest) =>
-    request.put<ApiResponse<null>>(`/metric-views/${id}`, data),
+    request.put<ApiResponse<MetricView>>(`/metric-views/${id}`, data),
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/metric-views/${id}`),

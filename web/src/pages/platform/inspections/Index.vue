@@ -253,8 +253,8 @@ async function fetchRuns() {
   try {
     const { data } = await inspectionApi.listRuns({ page: 1, page_size: 50 })
     runs.value = data.data?.list || []
-  } catch {
-    // ignore
+  } catch (e) {
+    message.error(getErrorMessage(e))
   } finally {
     runsLoading.value = false
   }

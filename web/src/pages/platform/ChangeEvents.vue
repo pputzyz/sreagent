@@ -203,7 +203,7 @@ function confirmDelete(ev: ChangeEvent) {
 // ─── Helpers ───
 function riskLevelTag(level: string): 'success' | 'warning' | 'error' | 'default' {
   if (level === 'critical') return 'error'
-  if (level === 'high') return 'warning'
+  if (level === 'high') return 'error'
   if (level === 'medium') return 'warning'
   return 'default'
 }

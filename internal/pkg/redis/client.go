@@ -96,12 +96,13 @@ func LoginFailKey(username string) string {
 
 // IncrLoginFail atomically increments the login-failure counter for a username.
 // Uses Redis INCR + EXPIRE to avoid race conditions under concurrent requests.
-func (c *Client) IncrLoginFail(ctx context.Context, username string, ttl time.Duration) {
+func (c *Client) IncrLoginFail(ctx context.Context, username string, ttl time.Duration) error {
 	key := LoginFailKey(username)
 	pipe := c.rdb.Pipeline()
 	pipe.Incr(ctx, key)
 	pipe.Expire(ctx, key, ttl)
-	_, _ = pipe.Exec(ctx)
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 // GetLoginFailCount returns the current login-failure count for a username.

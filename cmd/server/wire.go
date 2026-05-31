@@ -844,8 +844,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			const ringTTL = 30 * time.Second
 			const ringRefresh = 10 * time.Second
 
-			ctx := context.Background()
-			rdb.Set(ctx, ringPrefix+instanceID, "1", ringTTL)
+			rdb.Set(appCtx, ringPrefix+instanceID, "1", ringTTL)
 
 			go func() {
 				ticker := time.NewTicker(ringRefresh)
@@ -854,9 +853,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 					select {
 					case <-ticker.C:
 						// Refresh own registration
-						rdb.Set(ctx, ringPrefix+instanceID, "1", ringTTL)
+						rdb.Set(appCtx, ringPrefix+instanceID, "1", ringTTL)
 						// Discover all active instances
-						keys, err := rdb.Keys(ctx, ringPrefix+"*").Result()
+						keys, err := rdb.Keys(appCtx, ringPrefix+"*").Result()
 						if err != nil {
 							zapLogger.Warn("hash ring: failed to discover instances", zap.Error(err))
 							continue
@@ -866,7 +865,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 							newRing.Add(k[len(ringPrefix):])
 						}
 						evaluator.UpdateHashRing(newRing)
-					case <-ctx.Done():
+					case <-appCtx.Done():
 						return
 					}
 				}

@@ -88,6 +88,7 @@ export default {
     updateFailed: '更新失败',
     importFailed: '导入失败',
     unknownError: '未知错误',
+    optional: '可选',
   },
   error: {
     renderError: '页面渲染出错',
@@ -1994,6 +1995,7 @@ export default {
     serviceNamePlaceholder: '请输入服务名称',
     serviceDescPlaceholder: '请输入服务描述（可选）',
     serviceUrlPlaceholder: '请输入链接地址（可选）',
+    autoRefreshLabel: '30秒',
   },
   // Roles & Permissions
   rolesModule: {
@@ -3389,6 +3391,7 @@ export default {
     statusRunning: '执行中',
     statusCompleted: '已完成',
     statusFailed: '失败',
+    runDetail: '执行 #{id}',
   },
   changeEvents: {
     title: '变更事件',

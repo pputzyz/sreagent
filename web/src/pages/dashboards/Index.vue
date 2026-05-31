@@ -107,8 +107,10 @@ function handleExport(dash: DashboardV2) {
   const a = document.createElement('a')
   a.href = url
   a.download = `${dash.name}.json`
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 100)
   message.success(t('dashboardV2.exportSuccess'))
 }
 

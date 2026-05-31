@@ -27,7 +27,7 @@ type userTeamNotifyPrefReq struct {
 func (h *UserTeamNotifyPrefHandler) Upsert(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 	var req userTeamNotifyPrefReq
@@ -51,7 +51,7 @@ func (h *UserTeamNotifyPrefHandler) Upsert(c *gin.Context) {
 func (h *UserTeamNotifyPrefHandler) List(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 	prefs, err := h.svc.ListByUser(c.Request.Context(), userID)
@@ -65,7 +65,7 @@ func (h *UserTeamNotifyPrefHandler) List(c *gin.Context) {
 func (h *UserTeamNotifyPrefHandler) Delete(c *gin.Context) {
 	userID, ok := GetCurrentUserIDOK(c)
 	if !ok {
-		Error(c, apperr.ErrUnauth)
+		Error(c, apperr.ErrUnauthorized)
 		return
 	}
 	id, err := GetIDParam(c, "id")

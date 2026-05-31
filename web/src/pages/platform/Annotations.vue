@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog } from 'naive-ui'
 import {
@@ -80,10 +80,18 @@ function handlePageSizeChange(ps: number) {
   fetchAnnotations()
 }
 
+let dashboardFilterTimer: ReturnType<typeof setTimeout> | null = null
 function handleDashboardFilter() {
-  page.value = 1
-  fetchAnnotations()
+  if (dashboardFilterTimer) clearTimeout(dashboardFilterTimer)
+  dashboardFilterTimer = setTimeout(() => {
+    page.value = 1
+    fetchAnnotations()
+  }, 300)
 }
+
+onBeforeUnmount(() => {
+  if (dashboardFilterTimer) clearTimeout(dashboardFilterTimer)
+})
 
 // --- CRUD ---
 function openCreate() {
