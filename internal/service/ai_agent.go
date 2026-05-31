@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -676,13 +677,13 @@ func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *A
 		}
 		return fmt.Errorf("工具 %q 执行失败: %w", step.Tool, err)
 	}
-	step.Result = result
+	step.Result = sanitizeToolResult(result)
 
 	// 更新调用记录
 	if callID > 0 {
 		if updateErr := s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
 			ID:         callID,
-			Result:     truncateString(result, 5000),
+			Result:     truncateString(sanitizeToolResult(result), 5000),
 			Status:     "completed",
 			DurationMs: step.Duration,
 		}); updateErr != nil {
@@ -808,7 +809,7 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 				StepIndex:      i + 1,
 				ToolName:       rec.ToolName,
 				Parameters:     rec.Params,
-				Result:         rec.Result,
+				Result:         sanitizeToolResult(rec.Result),
 				Status:         "completed",
 			}
 			if err := s.convRepo.CreateToolCall(ctx, call); err != nil {
@@ -851,4 +852,29 @@ func (s *AgentService) summarize(ctx context.Context, task *AgentTask) (string, 
 	}
 
 	return s.aiSvc.callLLMWithSystem(ctx, cfg, systemPrompt, userMsg)
+}
+
+// sanitizeToolResult strips sensitive patterns (API keys, passwords, tokens, etc.)
+// from tool results before they are stored in the DB or sent to the LLM.
+// This prevents accidental leakage of credentials through AI conversations.
+func sanitizeToolResult(s string) string {
+	if s == "" {
+		return s
+	}
+	// Patterns to redact: key=value, JSON "key":"value", and common env-style assignments.
+	// Match case-insensitively for robustness.
+	sensitivePatterns := []string{
+		`(?i)(api[_-]?key|apikey)\s*[:=]\s*["']?([^\s"'}{,]+)`,
+		`(?i)(secret|secret[_-]?key)\s*[:=]\s*["']?([^\s"'}{,]+)`,
+		`(?i)(password|passwd|pwd)\s*[:=]\s*["']?([^\s"'}{,]+)`,
+		`(?i)(token|access[_-]?token|auth[_-]?token|bearer)\s*[:=]\s*["']?([^\s"'}{,]+)`,
+		`(?i)(private[_-]?key)\s*[:=]\s*["']?([^\s"'}{,]+)`,
+		`(?i)(credential)\s*[:=]\s*["']?([^\s"'}{,]+)`,
+	}
+	result := s
+	for _, pattern := range sensitivePatterns {
+		re := regexp.MustCompile(pattern)
+		result = re.ReplaceAllString(result, "${1}=***REDACTED***")
+	}
+	return result
 }

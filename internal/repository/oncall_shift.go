@@ -119,3 +119,18 @@ func (r *OnCallShiftRepository) DeleteByScheduleAndTimeRange(ctx context.Context
 		Where("schedule_id = ? AND start_time >= ? AND start_time < ?", scheduleID, start, end).
 		Delete(&model.OnCallShift{}).Error
 }
+
+// HasOverlapShift checks if any shift exists for the given schedule that overlaps the time range.
+// excludeID can be set to exclude a specific shift (used during updates).
+func (r *OnCallShiftRepository) HasOverlapShift(ctx context.Context, scheduleID uint, start, end time.Time, excludeID uint) (bool, error) {
+	var count int64
+	query := r.db.WithContext(ctx).Model(&model.OnCallShift{}).
+		Where("schedule_id = ? AND start_time < ? AND end_time > ?", scheduleID, end, start)
+	if excludeID > 0 {
+		query = query.Where("id != ?", excludeID)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

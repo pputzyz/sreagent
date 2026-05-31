@@ -28,11 +28,11 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 		teams.GET("", h.Team.List)
 		teams.GET("/:id", h.Team.Get)
 		teams.GET("/:id/members", h.Team.ListMembers)
-		teams.POST("", manage, middleware.RequirePerm("team.write"), h.Team.Create)
-		teams.PUT("/:id", manage, middleware.RequirePerm("team.write"), h.Team.Update)
-		teams.DELETE("/:id", manage, middleware.RequirePerm("team.write"), h.Team.Delete)
-		teams.POST("/:id/members", manage, middleware.RequirePerm("team.write"), h.Team.AddMember)
-		teams.DELETE("/:id/members/:uid", manage, middleware.RequirePerm("team.write"), h.Team.RemoveMember)
+		teams.POST("", manage, middleware.RequirePerm("teams.manage"), h.Team.Create)
+		teams.PUT("/:id", manage, middleware.RequirePerm("teams.manage"), h.Team.Update)
+		teams.DELETE("/:id", manage, middleware.RequirePerm("teams.manage"), h.Team.Delete)
+		teams.POST("/:id/members", manage, middleware.RequirePerm("teams.manage"), h.Team.AddMember)
+		teams.DELETE("/:id/members/:uid", manage, middleware.RequirePerm("teams.manage"), h.Team.RemoveMember)
 	}
 
 	// Business Groups

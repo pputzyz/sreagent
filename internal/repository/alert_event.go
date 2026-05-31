@@ -13,8 +13,10 @@ import (
 type AlertEventFilter struct {
 	Status    string
 	Severity  string
-	ViewMode  string // "mine" | "unassigned" | "all"
-	UserID    uint   // current user ID (for "mine" mode)
+	AlertName string    // FE4-1: partial match on alert_name (LIKE %value%)
+	RuleID    *uint     // FE4-4: exact match on rule_id
+	ViewMode  string    // "mine" | "unassigned" | "all"
+	UserID    uint      // current user ID (for "mine" mode)
 	StartTime *time.Time
 	EndTime   *time.Time
 	Page      int
@@ -167,6 +169,12 @@ func (r *AlertEventRepository) ListWithFilter(ctx context.Context, filter AlertE
 	}
 	if filter.EndTime != nil {
 		query = query.Where("fired_at <= ?", filter.EndTime)
+	}
+	if filter.AlertName != "" {
+		query = query.Where("alert_name LIKE ?", "%"+filter.AlertName+"%")
+	}
+	if filter.RuleID != nil {
+		query = query.Where("rule_id = ?", *filter.RuleID)
 	}
 
 	switch filter.ViewMode {

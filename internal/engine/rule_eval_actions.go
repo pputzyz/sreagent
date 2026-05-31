@@ -103,6 +103,12 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 
 	state.EventID = event.ID
 
+	// B1-2: Passively record labels into the label registry so non-Prometheus
+	// datasources (Zabbix, VictoriaLogs, etc.) also get autocomplete values.
+	if re.onLabelRecord != nil {
+		re.onLabelRecord(re.datasource.ID, state.Labels)
+	}
+
 	re.logger.Info("alert fired",
 		zap.Uint("event_id", event.ID),
 		zap.String("alert_name", re.rule.Name),

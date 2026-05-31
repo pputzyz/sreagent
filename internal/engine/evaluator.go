@@ -64,6 +64,7 @@ type RuleEvaluator struct {
 	suppressor        *LevelSuppressor
 	workerPool        AlertWorkerPoolSubmiter // optional bounded goroutine pool
 	onAlert           func(ctx context.Context, event *model.AlertEvent)
+	onLabelRecord     func(datasourceID uint, labels map[string]string) // passive label recording for all DS types
 	labelRegistryRepo *repository.LabelRegistryRepository // optional; for variable filling
 	ctx               context.Context // cancelled when evaluator stops
 	stopCh            chan struct{}
@@ -178,6 +179,7 @@ type evaluatorDeps struct {
 	suppressor       *LevelSuppressor
 	workerPool       AlertWorkerPoolSubmiter
 	onAlert          func(ctx context.Context, event *model.AlertEvent)
+	onLabelRecord    func(datasourceID uint, labels map[string]string)
 	labelRegistryRepo *repository.LabelRegistryRepository
 	ctx              context.Context
 	logger           *zap.Logger
@@ -208,6 +210,7 @@ func newRuleEvaluatorFromDeps(rule *model.AlertRule, ds *model.DataSource, deps 
 		suppressor:          deps.suppressor,
 		workerPool:          deps.workerPool,
 		onAlert:             deps.onAlert,
+		onLabelRecord:       deps.onLabelRecord,
 		labelRegistryRepo:   deps.labelRegistryRepo,
 		ctx:                 deps.ctx,
 		stopCh:              make(chan struct{}),
@@ -239,6 +242,7 @@ type Evaluator struct {
 	workerPool   AlertWorkerPoolSubmiter // optional bounded goroutine pool
 	evaluators        map[uint]*RuleEvaluator // key: rule ID
 	onAlert           func(ctx context.Context, event *model.AlertEvent)
+	onLabelRecord     func(datasourceID uint, labels map[string]string) // passive label recording for all DS types
 	labelRegistryRepo *repository.LabelRegistryRepository // optional; for variable filling
 	suppressor        *LevelSuppressor
 	mu           sync.RWMutex
@@ -346,6 +350,7 @@ func (e *Evaluator) buildEvaluatorDeps() evaluatorDeps {
 		suppressor:        e.suppressor,
 		workerPool:        e.workerPool,
 		onAlert:           e.onAlert,
+		onLabelRecord:     e.onLabelRecord,
 		labelRegistryRepo: e.labelRegistryRepo,
 		ctx:               e.ctx,
 		logger:            e.logger,
@@ -386,6 +391,13 @@ func (e *Evaluator) listDSBuckets() []*PerDatasourceEvaluator {
 // SetOnAlert sets the callback function called when a new alert event is created.
 func (e *Evaluator) SetOnAlert(fn func(ctx context.Context, event *model.AlertEvent)) {
 	e.onAlert = fn
+}
+
+// SetLabelRecorder sets the callback for passive label recording from alert events.
+// This enables label registry population for non-Prometheus datasources (Zabbix, VictoriaLogs, etc.)
+// that cannot be scraped via /api/v1/label/*/values.
+func (e *Evaluator) SetLabelRecorder(fn func(datasourceID uint, labels map[string]string)) {
+	e.onLabelRecord = fn
 }
 
 // SetStateStore sets the optional state persistence store.
@@ -766,6 +778,7 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 		suppressor:          e.suppressor,
 		workerPool:          e.workerPool,
 		onAlert:             e.onAlert,
+		onLabelRecord:       e.onLabelRecord,
 		labelRegistryRepo:   e.labelRegistryRepo,
 		ctx:                 e.ctx,
 		stopCh:              make(chan struct{}),

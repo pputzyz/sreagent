@@ -162,23 +162,24 @@ func TestEscalation_StepExecRepo_InsertIgnore_ThenMarkSuccess(t *testing.T) {
 	repo := repository.NewEscalationStepExecutionRepository(db)
 	ctx := context.Background()
 
-	inserted, err := repo.InsertIgnore(ctx, 100, 1)
+	// Dedup key: (event_id=100, policy_id=10, step_order=1)
+	inserted, err := repo.InsertIgnore(ctx, 100, 10, 1)
 	require.NoError(t, err)
 	assert.True(t, inserted, "first insert should succeed")
 
 	// Second insert should be ignored (dedup).
-	inserted, err = repo.InsertIgnore(ctx, 100, 1)
+	inserted, err = repo.InsertIgnore(ctx, 100, 10, 1)
 	require.NoError(t, err)
 	assert.False(t, inserted, "duplicate insert should be ignored")
 
 	// HasExecuted should be false (status=pending).
-	executed, err := repo.HasExecuted(ctx, 100, 1)
+	executed, err := repo.HasExecuted(ctx, 100, 10, 1)
 	require.NoError(t, err)
 	assert.False(t, executed)
 
 	// MarkSuccess.
-	require.NoError(t, repo.MarkSuccess(ctx, 100, 1))
-	executed, err = repo.HasExecuted(ctx, 100, 1)
+	require.NoError(t, repo.MarkSuccess(ctx, 100, 10, 1))
+	executed, err = repo.HasExecuted(ctx, 100, 10, 1)
 	require.NoError(t, err)
 	assert.True(t, executed)
 }
@@ -189,25 +190,26 @@ func TestEscalation_StepExecRepo_MarkFailed_Retry(t *testing.T) {
 	repo := repository.NewEscalationStepExecutionRepository(db)
 	ctx := context.Background()
 
-	inserted, err := repo.InsertIgnore(ctx, 200, 2)
+	// Dedup key: (event_id=200, policy_id=20, step_order=2)
+	inserted, err := repo.InsertIgnore(ctx, 200, 20, 2)
 	require.NoError(t, err)
 	assert.True(t, inserted)
 
 	// Mark as failed.
-	require.NoError(t, repo.MarkFailed(ctx, 200, 2))
-	executed, err := repo.HasExecuted(ctx, 200, 2)
+	require.NoError(t, repo.MarkFailed(ctx, 200, 20, 2))
+	executed, err := repo.HasExecuted(ctx, 200, 20, 2)
 	require.NoError(t, err)
 	assert.False(t, executed, "failed should not count as executed")
 
 	// Delete and re-insert (retry path).
-	require.NoError(t, repo.DeleteByEventAndStep(ctx, 200, 2))
-	inserted, err = repo.InsertIgnore(ctx, 200, 2)
+	require.NoError(t, repo.DeleteByEventAndStep(ctx, 200, 20, 2))
+	inserted, err = repo.InsertIgnore(ctx, 200, 20, 2)
 	require.NoError(t, err)
 	assert.True(t, inserted, "re-insert after delete should succeed")
 
 	// Now mark success.
-	require.NoError(t, repo.MarkSuccess(ctx, 200, 2))
-	executed, err = repo.HasExecuted(ctx, 200, 2)
+	require.NoError(t, repo.MarkSuccess(ctx, 200, 20, 2))
+	executed, err = repo.HasExecuted(ctx, 200, 20, 2)
 	require.NoError(t, err)
 	assert.True(t, executed)
 }
@@ -223,7 +225,8 @@ func TestEscalation_StepExecRepo_ConcurrentInsertIgnore(t *testing.T) {
 
 	for i := 0; i < goroutines; i++ {
 		go func() {
-			inserted, err := repo.InsertIgnore(ctx, 300, 3)
+			// Dedup key: (event_id=300, policy_id=30, step_order=3)
+			inserted, err := repo.InsertIgnore(ctx, 300, 30, 3)
 			require.NoError(t, err)
 			results <- inserted
 		}()

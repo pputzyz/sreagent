@@ -113,6 +113,9 @@ func ElasticsearchQueryLogs(ctx context.Context, endpoint, authType, authConfig 
 	if params.Index == "" {
 		return nil, fmt.Errorf("elasticsearch index is required")
 	}
+	if err := validateESIndexName(params.Index); err != nil {
+		return nil, err
+	}
 	if params.DateField == "" {
 		params.DateField = "@timestamp"
 	}
@@ -322,6 +325,9 @@ func ElasticsearchQueryHistogram(ctx context.Context, endpoint, authType, authCo
 	if params.Index == "" {
 		return nil, fmt.Errorf("elasticsearch index is required")
 	}
+	if err := validateESIndexName(params.Index); err != nil {
+		return nil, err
+	}
 	if params.DateField == "" {
 		params.DateField = "@timestamp"
 	}
@@ -520,6 +526,23 @@ func extractFields(properties map[string]interface{}, prefix string, fields *[]F
 			extractFields(subProps, fullName, fields)
 		}
 	}
+}
+
+// validateESIndexName rejects Elasticsearch index names that could match
+// unintended indices or be used for path traversal. Wildcards (* ?) and
+// leading dashes (which ES interprets as negation in multi-index patterns)
+// are disallowed.
+func validateESIndexName(index string) error {
+	if index == "" {
+		return fmt.Errorf("elasticsearch index is required")
+	}
+	if strings.HasPrefix(index, "-") {
+		return fmt.Errorf("elasticsearch index name must not start with '-': %s", index)
+	}
+	if strings.ContainsAny(index, "*?") {
+		return fmt.Errorf("elasticsearch index name must not contain wildcards (* or ?): %s", index)
+	}
+	return nil
 }
 
 // lookupNested retrieves a value from a map using dot-separated path notation.

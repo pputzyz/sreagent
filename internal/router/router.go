@@ -199,6 +199,12 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			api.GET("/status-services/:id", handlers.StatusService.Get)
 		}
 
+		// Status page subscription public endpoints (no auth — email subscribe/unsubscribe)
+		if handlers.StatusSubscription != nil {
+			api.POST("/status-subscriptions", handlers.StatusSubscription.Subscribe)
+			api.DELETE("/status-subscriptions", handlers.StatusSubscription.Unsubscribe)
+		}
+
 		// ----- Authenticated routes (JWT required) -----
 		auth := api.Group("")
 		auth.Use(middleware.JWTAuth(&cfg.JWT))

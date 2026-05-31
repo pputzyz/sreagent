@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
@@ -26,12 +26,21 @@ import {
 const { t } = useI18n()
 const message = useMessage()
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const viewMode = ref<'all' | 'mine'>('all')
 const statusFilter = ref<string>('')
 const severityFilter = ref<string>('')
 const searchQuery = ref('')
+
+// FE1-5: Apply query params from overview drill-down
+onMounted(() => {
+  if (route.query.status) statusFilter.value = String(route.query.status)
+  if (route.query.severity) severityFilter.value = String(route.query.severity)
+  if (route.query.search) searchQuery.value = String(route.query.search)
+  fetchList()
+})
 
 const {
   loading,
@@ -176,7 +185,6 @@ const hasFilters = computed(() =>
   statusFilter.value !== '' || severityFilter.value !== '' || searchQuery.value.trim() !== '' || viewMode.value === 'mine'
 )
 
-onMounted(fetchList)
 </script>
 
 <template>

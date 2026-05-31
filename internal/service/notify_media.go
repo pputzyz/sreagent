@@ -451,6 +451,7 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 	client := safehttp.NewSafeClient(30 * time.Second)
 	retryTimes := 3
 	retryIntervalMs := 100
+	backoffMultipliers := []int{1, 5, 20} // 100ms, 500ms, 2000ms
 	var lastErr error
 	for i := 0; i < retryTimes; i++ {
 		req, err := http.NewRequestWithContext(ctx, method, cfg.URL, strings.NewReader(reqBody))
@@ -473,7 +474,11 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 				zap.String("url", cfg.URL),
 				zap.Error(err),
 			)
-			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+			multiplier := backoffMultipliers[len(backoffMultipliers)-1]
+			if i < len(backoffMultipliers) {
+				multiplier = backoffMultipliers[i]
+			}
+			time.Sleep(time.Duration(retryIntervalMs*multiplier) * time.Millisecond)
 			continue
 		}
 
@@ -722,6 +727,7 @@ func (s *NotifyMediaService) doHTTPPostWithRetry(ctx context.Context, url, conte
 }
 
 // doHTTPPostWithRetryTyped sends an HTTP POST with retry on transport errors, with media type for business error checking.
+// Uses exponential backoff: 100ms, 500ms, 2000ms (base * 1, base * 5, base * 20).
 func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, contentType string, body []byte, retryTimes, retryIntervalMs int, mediaType string) error {
 	if retryTimes <= 0 {
 		retryTimes = 3
@@ -729,6 +735,9 @@ func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, 
 	if retryIntervalMs <= 0 {
 		retryIntervalMs = 100
 	}
+
+	// Exponential backoff multipliers: 1x, 5x, 20x, 20x, ...
+	backoffMultipliers := []int{1, 5, 20}
 
 	var lastErr error
 	for i := 0; i < retryTimes; i++ {
@@ -748,7 +757,11 @@ func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, 
 				zap.String("url", url),
 				zap.Error(err),
 			)
-			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+			multiplier := backoffMultipliers[len(backoffMultipliers)-1]
+			if i < len(backoffMultipliers) {
+				multiplier = backoffMultipliers[i]
+			}
+			time.Sleep(time.Duration(retryIntervalMs*multiplier) * time.Millisecond)
 			continue
 		}
 
@@ -926,6 +939,7 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 	apiURL := "https://api.telegram.org/bot/sendMessage"
 	retryTimes := 3
 	retryIntervalMs := 100
+	backoffMultipliers := []int{1, 5, 20} // 100ms, 500ms, 2000ms
 	client := safehttp.NewSafeClient(30 * time.Second)
 	var lastErr error
 	for i := 0; i < retryTimes; i++ {
@@ -941,7 +955,11 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 			lastErr = fmt.Errorf("telegram request failed: %w", err)
 			s.logger.Warn("telegram transport error, retrying",
 				zap.Int("attempt", i+1), zap.Error(err))
-			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+			multiplier := backoffMultipliers[len(backoffMultipliers)-1]
+			if i < len(backoffMultipliers) {
+				multiplier = backoffMultipliers[i]
+			}
+			time.Sleep(time.Duration(retryIntervalMs*multiplier) * time.Millisecond)
 			continue
 		}
 		resp.Body.Close()
@@ -951,7 +969,11 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 		lastErr = fmt.Errorf("telegram API returned HTTP %d", resp.StatusCode)
 		s.logger.Warn("telegram API error, retrying",
 			zap.Int("attempt", i+1), zap.Int("status", resp.StatusCode))
-		time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+		multiplier := backoffMultipliers[len(backoffMultipliers)-1]
+		if i < len(backoffMultipliers) {
+			multiplier = backoffMultipliers[i]
+		}
+		time.Sleep(time.Duration(retryIntervalMs*multiplier) * time.Millisecond)
 	}
 	return lastErr
 }
@@ -1119,6 +1141,7 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 	url := fmt.Sprintf("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=%s", ridType)
 	retryTimes := 3
 	retryIntervalMs := 100
+	backoffMultipliers := []int{1, 5, 20} // 100ms, 500ms, 2000ms
 	client := safehttp.NewSafeClient(30 * time.Second)
 	var lastErr error
 	for i := 0; i < retryTimes; i++ {
@@ -1137,7 +1160,11 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 				zap.Int("max_attempts", retryTimes),
 				zap.Error(err),
 			)
-			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+			multiplier := backoffMultipliers[len(backoffMultipliers)-1]
+			if i < len(backoffMultipliers) {
+				multiplier = backoffMultipliers[i]
+			}
+			time.Sleep(time.Duration(retryIntervalMs*multiplier) * time.Millisecond)
 			continue
 		}
 
@@ -1259,6 +1286,7 @@ func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.Noti
 	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=%s", token)
 	retryTimes := 3
 	retryIntervalMs := 100
+	backoffMultipliers := []int{1, 5, 20} // 100ms, 500ms, 2000ms
 	client := safehttp.NewSafeClient(30 * time.Second)
 	var lastErr error
 	for i := 0; i < retryTimes; i++ {
@@ -1276,7 +1304,11 @@ func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.Noti
 				zap.Int("max_attempts", retryTimes),
 				zap.Error(err),
 			)
-			time.Sleep(time.Duration(retryIntervalMs) * time.Millisecond)
+			multiplier := backoffMultipliers[len(backoffMultipliers)-1]
+			if i < len(backoffMultipliers) {
+				multiplier = backoffMultipliers[i]
+			}
+			time.Sleep(time.Duration(retryIntervalMs*multiplier) * time.Millisecond)
 			continue
 		}
 

@@ -835,6 +835,8 @@ export default {
     selected: '已选',
     deselectAll: '取消全选',
     selectAllPage: '全选本页',
+    selectAllN: '全选 {n} 条',
+    crossPageActive: '跨页选择',
     items: '条',
     ruleLabel: '规则:',
     datasourceLabel: '数据源:',

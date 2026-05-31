@@ -69,13 +69,20 @@ func (re *RuleEvaluator) loadPersistedState() {
 	)
 }
 
-// stateTTL returns the TTL for persisted state entries (3x eval interval).
+// stateTTL returns the TTL for persisted state entries.
+// Uses max(1 hour, 10x eval interval) to survive longer crash-recovery windows.
+// Previous 3x interval (e.g. 180s for 60s eval) was too aggressive — a brief
+// restart would lose all firing state and cause duplicate alerts.
 func (re *RuleEvaluator) stateTTL() time.Duration {
 	interval := time.Duration(re.rule.EvalInterval) * time.Second
 	if interval <= 0 {
 		interval = 60 * time.Second
 	}
-	return 3 * interval
+	ttl := 10 * interval
+	if ttl < time.Hour {
+		ttl = time.Hour
+	}
+	return ttl
 }
 
 // persistState saves a state entry to the StateStore (if configured).

@@ -143,6 +143,15 @@ async function refresh() {
 function onRangeChange(v: 1 | 7 | 30) { range.value = v; refresh() }
 function cycleRange() { range.value = range.value === 1 ? 7 : range.value === 7 ? 30 : 1; refresh() }
 
+function goActiveAlerts() {
+  const preset = range.value === 1 ? '24h' : range.value === 7 ? '7d' : '30d'
+  router.push({ path: '/alert/events', query: { time_preset: preset, status_tab: 'firing' } })
+}
+
+function goResolvedToday() {
+  router.push({ path: '/alert/events', query: { status_tab: 'resolved', time_preset: '24h' } })
+}
+
 onMounted(refresh)
 </script>
 
@@ -245,7 +254,7 @@ onMounted(refresh)
           </div>
         </div>
         <div class="kpi-stack">
-          <div class="kpi-row">
+          <div class="kpi-row kpi-clickable" role="button" tabindex="0" :aria-label="t('dashboard.activeAlerts')" @click="goActiveAlerts" @keydown.enter="goActiveAlerts">
             <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-critical), var(--sre-rose-light))"><n-icon :component="PulseOutline" :size="16" color="#fff" /></div>
             <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-critical)">{{ formatNumber(stats.active_alerts) }}</div><div class="kpi-label">{{ t('dashboard.activeAlerts') }}</div></div>
           </div>
@@ -257,7 +266,7 @@ onMounted(refresh)
             <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-info), var(--sre-sky))"><n-icon :component="CheckmarkCircleOutline" :size="16" color="#fff" /></div>
             <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-info)">{{ formatMMSS(mttrStats.mttr?.p50 ?? -1) }}</div><div class="kpi-label">{{ t('dashboard.mttr') }}</div></div>
           </div>
-          <div class="kpi-row">
+          <div class="kpi-row kpi-clickable" role="button" tabindex="0" :aria-label="t('dashboard.resolvedToday')" @click="goResolvedToday" @keydown.enter="goResolvedToday">
             <div class="kpi-icon" style="background: linear-gradient(135deg, var(--sre-lavender), var(--sre-violet-light))"><n-icon :component="CheckmarkCircleOutline" :size="16" color="#fff" /></div>
             <div class="kpi-info"><div class="kpi-value" style="color: var(--sre-lavender)">{{ formatNumber(stats.resolved_today) }}</div><div class="kpi-label">{{ t('dashboard.resolvedToday') }}</div></div>
           </div>
@@ -622,6 +631,16 @@ onMounted(refresh)
 .kpi-row:hover {
   background: var(--sre-primary-soft);
   transform: translateX(2px);
+}
+
+.kpi-clickable {
+  cursor: pointer;
+}
+
+.kpi-clickable:hover {
+  background: var(--sre-primary-soft);
+  transform: translateX(4px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .kpi-icon {

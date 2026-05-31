@@ -143,6 +143,15 @@ func (s *ScheduleService) SetParticipants(ctx context.Context, scheduleID uint, 
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
 	}
 
+	// Validate that all user IDs exist.
+	if s.userRepo != nil {
+		for _, uid := range userIDs {
+			if _, err := s.userRepo.GetByID(ctx, uid); err != nil {
+				return apperr.WithMessage(apperr.ErrNotFound, fmt.Sprintf("user %d not found", uid))
+			}
+		}
+	}
+
 	// Delete existing participants
 	if err := s.participantRepo.DeleteByScheduleID(ctx, scheduleID); err != nil {
 		s.logger.Error("failed to delete existing participants", zap.Error(err), zap.Uint("schedule_id", scheduleID))
@@ -193,8 +202,25 @@ func (s *ScheduleService) CreateOverride(ctx context.Context, override *model.Sc
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
 	}
 
+	// Validate that the override user exists.
+	if s.userRepo != nil {
+		if _, err := s.userRepo.GetByID(ctx, override.UserID); err != nil {
+			return apperr.WithMessage(apperr.ErrNotFound, fmt.Sprintf("user %d not found", override.UserID))
+		}
+	}
+
 	if !override.EndTime.After(override.StartTime) {
 		return apperr.WithMessage(apperr.ErrBadRequest, "end_time must be after start_time")
+	}
+
+	// Check for overlapping overrides in the same schedule.
+	overlap, err := s.overrideRepo.HasOverlapOverride(ctx, override.ScheduleID, override.StartTime, override.EndTime)
+	if err != nil {
+		s.logger.Error("failed to check override overlap", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if overlap {
+		return apperr.WithMessage(apperr.ErrBadRequest, "override overlaps with an existing override in this schedule")
 	}
 
 	if err := s.overrideRepo.Create(ctx, override); err != nil {
@@ -432,8 +458,7 @@ func (s *ScheduleService) GetCurrentOnCallForAlert(ctx context.Context, alertLab
 				if matchesSeverityFilter(shift.SeverityFilter, alertSeverity) {
 					return &shift.User, nil
 				}
-				// Shift exists but severity doesn't match — skip this schedule.
-				continue
+				// Shift exists but severity doesn't match — fall through to rotation fallback.
 			}
 		}
 
@@ -513,6 +538,17 @@ func (s *ScheduleService) CreateShift(ctx context.Context, shift *model.OnCallSh
 	if !shift.EndTime.After(shift.StartTime) {
 		return apperr.WithMessage(apperr.ErrBadRequest, "end_time must be after start_time")
 	}
+
+	// Check for overlapping shifts in the same schedule.
+	overlap, err := s.shiftRepo.HasOverlapShift(ctx, shift.ScheduleID, shift.StartTime, shift.EndTime, 0)
+	if err != nil {
+		s.logger.Error("failed to check shift overlap", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if overlap {
+		return apperr.WithMessage(apperr.ErrBadRequest, "shift overlaps with an existing shift in this schedule")
+	}
+
 	if err := s.shiftRepo.Create(ctx, shift); err != nil {
 		s.logger.Error("failed to create shift", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -529,6 +565,17 @@ func (s *ScheduleService) UpdateShift(ctx context.Context, shift *model.OnCallSh
 	if !shift.EndTime.After(shift.StartTime) {
 		return apperr.WithMessage(apperr.ErrBadRequest, "end_time must be after start_time")
 	}
+
+	// Check for overlapping shifts excluding the current one.
+	overlap, err := s.shiftRepo.HasOverlapShift(ctx, existing.ScheduleID, shift.StartTime, shift.EndTime, shift.ID)
+	if err != nil {
+		s.logger.Error("failed to check shift overlap", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if overlap {
+		return apperr.WithMessage(apperr.ErrBadRequest, "shift overlaps with an existing shift in this schedule")
+	}
+
 	existing.UserID = shift.UserID
 	existing.StartTime = shift.StartTime
 	existing.EndTime = shift.EndTime

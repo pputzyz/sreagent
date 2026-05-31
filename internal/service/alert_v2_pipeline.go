@@ -28,6 +28,12 @@ import (
 // - Different fingerprint -> different Incident
 // - Resolution: when all events for a fingerprint resolve, Incident is closed
 // - ChannelID: determined by the alert's _channel_id label or defaultChannelID
+//
+// TODO: AlertChannel (label-matched routing to notification media) is configured via
+// AlertChannelService.FindMatchingChannels but is NOT consulted by this pipeline.
+// Currently, notification routing is handled entirely by NotifyRuleService.ProcessEvent.
+// To integrate AlertChannel into the pipeline, call FindMatchingChannels in process()
+// and use the matched channels to set channelID or drive media dispatch directly.
 
 // v2PipelineDropped counts async tasks dropped due to full semaphore.
 var v2PipelineDropped int64
@@ -250,12 +256,17 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 	}
 
 	// 1. Apply dispatch policy label enhancements (3.6)
+	// matchedPolicy is saved so we can create the DispatchLog after the incident
+	// is resolved (DispatchLog.IncidentID must be non-zero).
+	var matchedPolicy *model.DispatchPolicy
 	if p.dispatchSvc != nil && channelID > 0 && len(event.Labels) > 0 {
 		policy, err := p.dispatchSvc.FindMatchingPolicy(ctx, channelID, model.JSONLabels(event.Labels), string(event.Severity))
 		if err != nil {
 			p.logger.Warn("failed to find matching dispatch policy", zap.Error(err), zap.Uint("channel_id", channelID))
 		}
 		if policy != nil {
+			matchedPolicy = policy
+
 			// Schedule deferred/repeating dispatch if policy has delay or repeat configured
 			if p.scheduledDispatchSvc != nil && (policy.DelaySeconds > 0 || policy.RepeatIntervalSeconds > 0) {
 				dispatch := &model.ScheduledDispatch{
@@ -301,16 +312,6 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 					event.Labels[k] = v
 				}
 			}
-
-			// Write dispatch log entry (Bug 4)
-			if err := p.dispatchSvc.CreateLog(ctx, &model.DispatchLog{
-				DispatchPolicyID: policy.ID,
-				Status:           "applied",
-				Attempt:          1,
-				Note:             fmt.Sprintf("applied to event %d, channel %d", event.ID, channelID),
-			}); err != nil {
-				p.logger.Warn("failed to create dispatch log", zap.Error(err))
-			}
 		}
 	}
 
@@ -336,6 +337,22 @@ func (p *AlertV2Pipeline) process(ctx context.Context, event *model.AlertEvent) 
 							zap.Uint("incident_id", inc.ID),
 							zap.Error(err),
 						)
+					}
+
+					// B7-2 fix: Create DispatchLog with the resolved IncidentID
+					// (previously created with IncidentID=0 before the incident existed).
+					if matchedPolicy != nil && p.dispatchSvc != nil {
+						if err := p.dispatchSvc.CreateLog(ctx, &model.DispatchLog{
+							IncidentID:       inc.ID,
+							DispatchPolicyID: matchedPolicy.ID,
+							Status:           "applied",
+							Attempt:          1,
+							Note:             fmt.Sprintf("applied to event %d, channel %d", event.ID, channelID),
+						}); err != nil {
+							p.logger.Warn("failed to create dispatch log",
+								zap.Uint("incident_id", inc.ID),
+								zap.Error(err))
+						}
 					}
 				}
 			}

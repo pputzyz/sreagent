@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -9,6 +10,22 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/repository"
 )
+
+// recordingRuleAllowedFields is the allowlist for UpdateFields.
+// Only these columns may be updated via the partial-update endpoint.
+var recordingRuleAllowedFields = map[string]bool{
+	"name":          true,
+	"prom_ql":       true,
+	"datasource_ids": true,
+	"cron_pattern":  true,
+	"disabled":      true,
+	"write_back":    true,
+	"append_tags":   true,
+	"note":          true,
+	"query_configs": true,
+	"updated_by":    true,
+	"updated_at":    true,
+}
 
 type RecordingRuleService struct {
 	repo   *repository.RecordingRuleRepository
@@ -61,6 +78,12 @@ func (s *RecordingRuleService) Update(ctx context.Context, existing *model.Recor
 }
 
 func (s *RecordingRuleService) UpdateFields(ctx context.Context, id uint, fields map[string]interface{}) error {
+	// Validate that all requested fields are in the allowlist.
+	for key := range fields {
+		if !recordingRuleAllowedFields[key] {
+			return fmt.Errorf("field %q is not allowed for partial update", key)
+		}
+	}
 	fields["updated_at"] = time.Now()
 	return s.repo.UpdateFields(ctx, id, fields)
 }

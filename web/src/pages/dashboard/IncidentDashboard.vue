@@ -96,7 +96,7 @@ const kpis = computed(() => {
   return [
     { label: t('dashboardV2.activeIncidents'), value: s.active_incidents ?? 0, tone: 'critical' as const, icon: BugOutline, route: '/oncall/incidents?status=triggered' },
     { label: t('dashboardV2.closedToday'), value: s.closed_today ?? 0, tone: 'success' as const, icon: CheckmarkCircleOutline },
-    { label: t('dashboardV2.criticalActive'), value: s.critical_active ?? 0, tone: 'critical' as const, icon: AlertCircleOutline },
+    { label: t('dashboardV2.criticalActive'), value: s.critical_active ?? 0, tone: 'critical' as const, icon: AlertCircleOutline, route: '/oncall/incidents?severity=critical' },
     { label: t('dashboardV2.avgMTTR'), value: formatSeconds(s.avg_mttr_seconds), tone: 'info' as const, icon: TimerOutline },
     { label: t('dashboardV2.totalPostMortems'), value: s.total_post_mortems ?? 0, tone: 'info' as const, icon: DocumentTextOutline, sub: `${s.published_post_mortems ?? 0} ${t('dashboardV2.published')}` },
   ]

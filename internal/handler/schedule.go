@@ -101,7 +101,7 @@ type GenerateShiftsRequest struct {
 // CreateEscalationPolicyRequest is the request body for creating an escalation policy.
 type CreateEscalationPolicyRequest struct {
 	Name      string                  `json:"name" binding:"required"`
-	TeamID    uint                    `json:"team_id" binding:"required"`
+	TeamID    uint                    `json:"team_id"` // 0 = global policy (no team)
 	IsEnabled *bool                   `json:"is_enabled"`
 	Steps     []model.EscalationStep  `json:"steps"`
 }
@@ -109,7 +109,7 @@ type CreateEscalationPolicyRequest struct {
 // UpdateEscalationPolicyRequest is the request body for updating an escalation policy.
 type UpdateEscalationPolicyRequest struct {
 	Name      string                  `json:"name" binding:"required"`
-	TeamID    uint                    `json:"team_id" binding:"required"`
+	TeamID    uint                    `json:"team_id"` // 0 = global policy (no team)
 	IsEnabled *bool                   `json:"is_enabled"`
 	Steps     []model.EscalationStep  `json:"steps"`
 }

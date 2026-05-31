@@ -149,18 +149,11 @@ func (re *RuleEvaluator) evaluate() {
 			}
 
 			if forDuration <= 0 {
-				// Immediately fire — check suppression and time-window mute first
+				// Immediately fire — check time-window mute first.
+				// B4-3: ShouldSuppress is skipped because each rule has a single
+				// severity, making cross-severity suppression a no-op.
 				severity := string(re.rule.Severity)
-				if re.suppressor != nil && re.suppressor.ShouldSuppress(re.rule.ID, fp, severity) {
-					re.logger.Debug("alert suppressed by higher severity",
-						zap.String("fingerprint", fp),
-						zap.String("severity", severity),
-					)
-					state.Status = "pending"
-					state.ActiveAt = now
-					sl.state = state
-					re.persistState(fp, state)
-				} else if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
+				if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
 					re.logger.Debug("alert muted by time-window rule at engine level",
 						zap.String("fingerprint", fp),
 						zap.Uint("mute_rule_id", muteID),
@@ -212,12 +205,8 @@ func (re *RuleEvaluator) evaluate() {
 				if time.Since(state.ActiveAt) >= forDuration {
 					now := time.Now()
 					severity := string(re.rule.Severity)
-					if re.suppressor != nil && re.suppressor.ShouldSuppress(re.rule.ID, fp, severity) {
-						re.logger.Debug("pending alert suppressed by higher severity",
-							zap.String("fingerprint", fp),
-							zap.String("severity", severity),
-						)
-					} else if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
+					// B4-3: ShouldSuppress is skipped (single-severity per rule).
+					if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
 						re.logger.Debug("pending alert muted by time-window rule at engine level",
 							zap.String("fingerprint", fp),
 							zap.Uint("mute_rule_id", muteID),
@@ -244,12 +233,8 @@ func (re *RuleEvaluator) evaluate() {
 				now := time.Now()
 				severity := string(re.rule.Severity)
 				if forDuration <= 0 {
-					if re.suppressor != nil && re.suppressor.ShouldSuppress(re.rule.ID, fp, severity) {
-						re.logger.Debug("re-fired alert suppressed by higher severity",
-							zap.String("fingerprint", fp),
-							zap.String("severity", severity),
-						)
-					} else if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
+					// B4-3: ShouldSuppress is skipped (single-severity per rule).
+					if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
 						re.logger.Debug("re-fired alert muted by time-window rule at engine level",
 							zap.String("fingerprint", fp),
 							zap.Uint("mute_rule_id", muteID),

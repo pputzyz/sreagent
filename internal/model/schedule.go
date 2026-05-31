@@ -68,10 +68,10 @@ func (ScheduleOverride) TableName() string {
 // EscalationPolicy defines what happens when alerts are not acknowledged.
 type EscalationPolicy struct {
 	BaseModel
-	Name      string          `json:"name" gorm:"size:128;not null"`
-	TeamID    uint            `json:"team_id" gorm:"index;not null"`
-	Team      Team            `json:"team,omitempty" gorm:"foreignKey:TeamID"`
-	IsEnabled bool            `json:"is_enabled" gorm:"default:true"`
+	Name      string           `json:"name" gorm:"size:128;not null"`
+	TeamID    uint             `json:"team_id" gorm:"index"` // 0 = global policy (no team)
+	Team      *Team            `json:"team,omitempty" gorm:"foreignKey:TeamID"`
+	IsEnabled bool             `json:"is_enabled" gorm:"default:true"`
 	Steps     []EscalationStep `json:"steps,omitempty" gorm:"foreignKey:PolicyID"`
 }
 
@@ -96,10 +96,13 @@ func (EscalationStep) TableName() string {
 
 // EscalationStepExecution records that an escalation step has been executed for an event.
 // Used for atomic dedup via INSERT IGNORE.
+// Dedup key is (event_id, policy_id, step_order) — stable across step ID regeneration
+// when ReplaceEscalationSteps deletes and re-creates steps.
 type EscalationStepExecution struct {
 	ID         uint      `json:"id" gorm:"primaryKey"`
 	EventID    uint      `json:"event_id" gorm:"index;not null"`
-	StepID     uint      `json:"step_id" gorm:"not null"`
+	PolicyID   uint      `json:"policy_id" gorm:"not null"`
+	StepOrder  int       `json:"step_order" gorm:"not null"`
 	Status     string    `json:"status" gorm:"size:20;not null;default:pending"` // pending/success/failed
 	ExecutedAt time.Time `json:"executed_at" gorm:"not null;default:CURRENT_TIMESTAMP(3)"`
 }

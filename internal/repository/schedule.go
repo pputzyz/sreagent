@@ -345,17 +345,19 @@ func NewEscalationStepExecutionRepository(db *gorm.DB) *EscalationStepExecutionR
 // InsertIgnore atomically records a step execution using INSERT IGNORE.
 // Returns true if the row was inserted (i.e., this is the first execution).
 // The row is inserted with status='pending'.
-func (r *EscalationStepExecutionRepository) InsertIgnore(ctx context.Context, eventID, stepID uint) (bool, error) {
+// Dedup key: (event_id, policy_id, step_order) — stable across step ID regeneration.
+func (r *EscalationStepExecutionRepository) InsertIgnore(ctx context.Context, eventID, policyID uint, stepOrder int) (bool, error) {
 	exec := &model.EscalationStepExecution{
 		EventID:    eventID,
-		StepID:     stepID,
+		PolicyID:   policyID,
+		StepOrder:  stepOrder,
 		Status:     "pending",
 		ExecutedAt: time.Now(),
 	}
-	// INSERT IGNORE: if the unique key (event_id, step_id) already exists, the row is silently ignored.
+	// INSERT IGNORE: if the unique key (event_id, policy_id, step_order) already exists, the row is silently ignored.
 	result := r.db.WithContext(ctx).Exec(
-		"INSERT IGNORE INTO escalation_step_executions (event_id, step_id, status, executed_at) VALUES (?, ?, ?, ?)",
-		exec.EventID, exec.StepID, exec.Status, exec.ExecutedAt,
+		"INSERT IGNORE INTO escalation_step_executions (event_id, policy_id, step_order, status, executed_at) VALUES (?, ?, ?, ?, ?)",
+		exec.EventID, exec.PolicyID, exec.StepOrder, exec.Status, exec.ExecutedAt,
 	)
 	if result.Error != nil {
 		return false, result.Error
@@ -365,10 +367,10 @@ func (r *EscalationStepExecutionRepository) InsertIgnore(ctx context.Context, ev
 
 // HasExecuted checks if a step has already been successfully executed for an event.
 // Only returns true for status='success', allowing failed steps to be retried.
-func (r *EscalationStepExecutionRepository) HasExecuted(ctx context.Context, eventID, stepID uint) (bool, error) {
+func (r *EscalationStepExecutionRepository) HasExecuted(ctx context.Context, eventID, policyID uint, stepOrder int) (bool, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&model.EscalationStepExecution{}).
-		Where("event_id = ? AND step_id = ? AND status = ?", eventID, stepID, "success").
+		Where("event_id = ? AND policy_id = ? AND step_order = ? AND status = ?", eventID, policyID, stepOrder, "success").
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -376,24 +378,35 @@ func (r *EscalationStepExecutionRepository) HasExecuted(ctx context.Context, eve
 }
 
 // MarkSuccess updates a step execution record to status='success'.
-func (r *EscalationStepExecutionRepository) MarkSuccess(ctx context.Context, eventID, stepID uint) error {
+func (r *EscalationStepExecutionRepository) MarkSuccess(ctx context.Context, eventID, policyID uint, stepOrder int) error {
 	return r.db.WithContext(ctx).
 		Model(&model.EscalationStepExecution{}).
-		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Where("event_id = ? AND policy_id = ? AND step_order = ?", eventID, policyID, stepOrder).
 		Update("status", "success").Error
 }
 
 // MarkFailed updates a step execution record to status='failed'.
-func (r *EscalationStepExecutionRepository) MarkFailed(ctx context.Context, eventID, stepID uint) error {
+func (r *EscalationStepExecutionRepository) MarkFailed(ctx context.Context, eventID, policyID uint, stepOrder int) error {
 	return r.db.WithContext(ctx).
 		Model(&model.EscalationStepExecution{}).
-		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Where("event_id = ? AND policy_id = ? AND step_order = ?", eventID, policyID, stepOrder).
 		Update("status", "failed").Error
 }
 
 // DeleteByEventAndStep removes a step execution record so it can be retried on the next cycle.
-func (r *EscalationStepExecutionRepository) DeleteByEventAndStep(ctx context.Context, eventID, stepID uint) error {
+func (r *EscalationStepExecutionRepository) DeleteByEventAndStep(ctx context.Context, eventID, policyID uint, stepOrder int) error {
 	return r.db.WithContext(ctx).
-		Where("event_id = ? AND step_id = ?", eventID, stepID).
+		Where("event_id = ? AND policy_id = ? AND step_order = ?", eventID, policyID, stepOrder).
 		Delete(&model.EscalationStepExecution{}).Error
+}
+
+// HasOverlapOverride checks if any override exists for the given schedule that overlaps the time range.
+func (r *ScheduleOverrideRepository) HasOverlapOverride(ctx context.Context, scheduleID uint, start, end time.Time) (bool, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.ScheduleOverride{}).
+		Where("schedule_id = ? AND start_time < ? AND end_time > ?", scheduleID, end, start).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

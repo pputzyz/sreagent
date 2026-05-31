@@ -826,6 +826,8 @@ export default {
     selected: 'Selected',
     deselectAll: 'Deselect All',
     selectAllPage: 'Select All Page',
+    selectAllN: 'Select all {n} items',
+    crossPageActive: 'Cross-page',
     items: 'items',
     ruleLabel: 'Rule:',
     datasourceLabel: 'Source:',

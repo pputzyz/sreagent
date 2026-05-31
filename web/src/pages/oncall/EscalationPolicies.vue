@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// TODO(FE3-1): Refactor to use useCrudPage composable — this page manually reimplements
+// loading/modal/form/save/delete patterns that useCrudPage already provides.
+// The nested-steps form logic is unique, but list + create/edit/delete can use the composable.
 import { ref, onMounted, h } from 'vue'
 import {
   useMessage, useDialog, NButton, NDataTable, NIcon, NSpace, NPopconfirm,

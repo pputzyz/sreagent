@@ -38,11 +38,32 @@ func (h *AlertEventHandler) List(c *gin.Context) {
 	pq := GetPageQuery(c)
 
 	filter := service.AlertEventFilter{
-		Status:   c.Query("status"),
-		Severity: c.Query("severity"),
-		ViewMode: c.Query("view_mode"),
-		Page:     pq.Page,
-		PageSize: pq.PageSize,
+		Status:    c.Query("status"),
+		Severity:  c.Query("severity"),
+		AlertName: c.Query("alert_name"), // FE4-1: wire frontend search to backend
+		ViewMode:  c.Query("view_mode"),
+		Page:      pq.Page,
+		PageSize:  pq.PageSize,
+	}
+
+	// FE4-2/4-3: Wire time range params from frontend filter bar
+	if startStr := c.Query("start_time"); startStr != "" {
+		if t, err := time.Parse(time.RFC3339, startStr); err == nil {
+			filter.StartTime = &t
+		}
+	}
+	if endStr := c.Query("end_time"); endStr != "" {
+		if t, err := time.Parse(time.RFC3339, endStr); err == nil {
+			filter.EndTime = &t
+		}
+	}
+
+	// FE4-4: Wire rule_id filter
+	if ruleStr := c.Query("rule_id"); ruleStr != "" {
+		if rid, err := strconv.ParseUint(ruleStr, 10, 64); err == nil {
+			ruleID := uint(rid)
+			filter.RuleID = &ruleID
+		}
 	}
 
 	// user_id param overrides current user (admin use); default to current user.

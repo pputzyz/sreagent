@@ -219,6 +219,11 @@ export function useAppNav() {
               items.push(
                 { label: t('menu.subscriptions'), key: '/oncall/notify/subscriptions', icon: MailOutline },
               )
+              if (authStore.canManage) {
+                items.push(
+                  { label: t('menu.alertChannels'), key: '/oncall/notify/alert-channels', icon: SendOutline },
+                )
+              }
               return items
             })(),
           },
@@ -340,6 +345,7 @@ export function useAppNav() {
                 items.push({ label: t('menu.taskTpls'), key: '/platform/task-tpls', icon: TerminalOutline })
               }
               items.push({ label: t('menu.tasks'), key: '/platform/tasks', icon: PlayOutline })
+              items.push({ label: t('menu.annotations'), key: '/platform/annotations', icon: CopyOutline })
               return items
             })(),
           },

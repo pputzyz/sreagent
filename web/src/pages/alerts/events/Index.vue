@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   useMessage,
   NButton,
@@ -35,6 +35,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 
 const router = useRouter()
+const route = useRoute()
 const message = useMessage()
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -43,6 +44,8 @@ const { hasPerm } = usePermissions()
 // ===== State =====
 const firstLoad = ref(true)
 const selected = ref<Set<number>>(new Set())
+const crossPageActive = ref(false)
+const crossPageLoading = ref(false)
 
 // ===== Filters =====
 type StatusTab = 'all' | 'firing' | 'acked' | 'resolved'
@@ -59,6 +62,16 @@ const viewMode = ref<AlertViewMode>('mine')
 // Persist filter state to localStorage
 const filterMemory = useFilterMemory('alert-events')
 filterMemory.bindRefs({ statusTab, search, severityFilter, ruleFilter, tagFilter, timePreset, customRange, viewMode })
+
+// Apply drill-down query params (override saved filters)
+const queryPreset = route.query.time_preset as string | undefined
+const queryStatus = route.query.status_tab as string | undefined
+if (queryPreset && ['1h', '6h', '24h', '7d', '30d'].includes(queryPreset)) {
+  timePreset.value = queryPreset
+}
+if (queryStatus && ['all', 'firing', 'acked', 'resolved'].includes(queryStatus)) {
+  statusTab.value = queryStatus as StatusTab
+}
 
 const canViewAll = computed(
   () => authStore.user?.role === 'admin' || authStore.user?.role === 'team_lead',
@@ -82,6 +95,7 @@ const {
       status: statusFilterArray(),
       severity: severityFilter.value ? [severityFilter.value] : undefined,
       alert_name: search.value || undefined,
+      rule_id: ruleFilter.value ?? undefined, // FE4-4: server-side filter
       view_mode: viewMode.value,
       ...tr,
     }
@@ -91,12 +105,12 @@ const {
   },
 })
 
-// Client-side filters applied on top of server results
+// FE4-6 KNOWN LIMITATION: tagFilter is applied client-side on the current page
+// only.  This means pagination total does not reflect this filter.
+// To fix properly, label-key filtering should be sent as server-side query params.
 const filteredEvents = computed(() => {
   let list = events.value
-  if (ruleFilter.value != null) {
-    list = list.filter((e) => e.rule_id === ruleFilter.value)
-  }
+  // FE4-4: rule_id is now a server-side filter — no client-side filtering needed
   if (tagFilter.value.trim()) {
     const [k, v] = tagFilter.value.split('=').map((s) => s.trim())
     if (k) {
@@ -306,6 +320,7 @@ function toggleSelect(id: number) {
 }
 function clearSelection() {
   selected.value = new Set()
+  crossPageActive.value = false
 }
 
 // ===== Navigation =====
@@ -375,11 +390,43 @@ function toggleSelectAll() {
     const next = new Set(selected.value)
     filteredEvents.value.forEach((e) => next.delete(e.id))
     selected.value = next
+    crossPageActive.value = false
   } else {
     const next = new Set(selected.value)
     filteredEvents.value.forEach((e) => next.add(e.id))
     selected.value = next
   }
+}
+
+async function selectAllAcrossPages() {
+  crossPageLoading.value = true
+  try {
+    const tr = getTimeRange()
+    const params: Record<string, unknown> = {
+      page: 1,
+      page_size: total.value || 10000,
+      status: statusFilterArray(),
+      severity: severityFilter.value ? [severityFilter.value] : undefined,
+      alert_name: search.value || undefined,
+      view_mode: viewMode.value,
+      ...tr,
+    }
+    const { data } = await alertEventApi.list(params as never)
+    const allItems = data.data?.list || []
+    const next = new Set<number>()
+    allItems.forEach((e: AlertEvent) => next.add(e.id))
+    selected.value = next
+    crossPageActive.value = true
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  } finally {
+    crossPageLoading.value = false
+  }
+}
+
+function clearCrossPageSelection() {
+  crossPageActive.value = false
+  selected.value = new Set()
 }
 
 // ===== Export =====
@@ -541,6 +588,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     <transition name="ae-fade">
       <div v-if="selected.size > 0" class="ae-selection-bar" role="toolbar" :aria-label="t('alert.batchActions')">
         <span class="ae-selection-count tnum">{{ selected.size }} {{ t('alert.selected') }}</span>
+        <span v-if="crossPageActive" class="ae-crosspage-badge">{{ t('alert.crossPageActive') }}</span>
         <NButton size="small" type="primary" :loading="batchLoading" @click="batchAck">
           {{ t('alert.batchAck') }}
         </NButton>
@@ -563,9 +611,19 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         type="checkbox"
         class="ec-check"
         :checked="allOnPageSelected"
+        :aria-label="allOnPageSelected ? t('alert.deselectAll') : t('alert.selectAllPage')"
         @change="toggleSelectAll"
       />
       <span class="ae-selectall-label">{{ allOnPageSelected ? t('alert.deselectAll') : t('alert.selectAllPage') }}</span>
+      <span v-if="!crossPageActive && total > filteredEvents.length" class="ae-selectall-cross">
+        <span class="sre-meta-divider"></span>
+        <NButton
+          text
+          size="tiny"
+          :loading="crossPageLoading"
+          @click="selectAllAcrossPages"
+        >{{ t('alert.selectAllN', { n: total }) }}</NButton>
+      </span>
       <span class="sre-meta-divider"></span>
       <span class="tnum">{{ total }} {{ t('alert.items') }}</span>
     </div>
@@ -597,6 +655,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
             type="checkbox"
             class="ec-check"
             :checked="selected.has(ev.id)"
+            :aria-label="`${t('alert.selectAlert')} ${ev.alert_name}`"
             @click.stop
             @change="toggleSelect(ev.id)"
           />
@@ -798,6 +857,19 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
 }
 .ae-selectall-label {
   cursor: pointer;
+}
+.ae-selectall-cross {
+  display: inline-flex;
+  align-items: center;
+}
+.ae-crosspage-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sre-primary);
+  background: var(--sre-primary-soft);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-right: 4px;
 }
 
 /* ===== Event list ===== */

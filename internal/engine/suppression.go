@@ -47,6 +47,12 @@ func severityRank(sev string) int {
 // When multiple conditions in a rule trigger simultaneously,
 // only the highest severity fires; lower severities are suppressed.
 // It also provides engine-level time-window mute checking (Nightingale TimeSpanMuteStrategy equivalent).
+//
+// B4-3 LIMITATION: In the current single-severity-per-rule model, ShouldSuppress
+// is effectively dead code — it always compares equal severity ranks and returns
+// false. The engine skips those calls to avoid lock contention. The suppressor
+// still provides value via IsMutedByAnyRule (time-window muting) and the
+// UpdateSeverity/RemoveSeverity bookkeeping for future multi-severity support.
 type LevelSuppressor struct {
 	// Map of rule_id -> map of fingerprint -> highest severity firing
 	activeSeverities map[uint]map[string]string
@@ -211,6 +217,13 @@ func (s *LevelSuppressor) gc() {
 
 // ShouldSuppress returns true if this alert should be suppressed
 // because a higher severity alert is already firing for the same fingerprint.
+//
+// KNOWN LIMITATION: In the current data model each AlertRule has a single
+// Severity field, so for a given (ruleID, fingerprint) the severity is always
+// the same. This means ShouldSuppress always compares equal ranks and never
+// actually suppresses. The method is retained for forward-compatibility with
+// potential multi-severity rules, but callers in rule_eval.go skip the check
+// to avoid unnecessary lock contention.
 func (s *LevelSuppressor) ShouldSuppress(ruleID uint, fingerprint string, severity string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

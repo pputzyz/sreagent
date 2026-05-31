@@ -397,6 +397,10 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	svcs.ScheduleSvc = service.NewScheduleService(repos.Schedule, repos.Participant, repos.Override, repos.OnCallShift, repos.EscalationPolicy, repos.EscalationStep, repos.User, repos.Team, zapLogger)
 	svcs.MuteRuleSvc = service.NewMuteRuleService(repos.MuteRule, zapLogger)
 	svcs.InhibitionRuleSvc = service.NewInhibitionRuleService(repos.InhibitionRule, zapLogger)
+
+	// Wire inhibition check into notify rule service (B4-2: pre-dispatch inhibition)
+	svcs.NotifyRuleSvc.SetInhibitionService(svcs.InhibitionRuleSvc)
+	svcs.NotifyRuleSvc.SetAlertEventRepository(repos.Event)
 	svcs.BizGroupSvc = service.NewBizGroupService(repos.BizGroup, zapLogger)
 
 	// Label registry service
@@ -792,6 +796,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		evaluator.SetOnAlert(onAlertFn)
 		evaluator.SetMuteRuleRepository(repos.MuteRule)
 		evaluator.SetLabelRegistryRepository(repos.LabelRegistry)
+		evaluator.SetLabelRecorder(svcs.LabelRegistrySvc.RecordFromLabels)
 
 		if cfg.Engine.HashRingEnabled && redisClient != nil {
 			// Hash ring mode: distribute rules across instances

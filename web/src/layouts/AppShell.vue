@@ -177,8 +177,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </div>
 
       <div class="topbar-end">
-        <!-- Notification Bell -->
-        <NotificationBell />
+        <!-- Notification Bell — aria-live for screen readers -->
+        <div aria-live="polite" aria-atomic="true" class="topbar-notification-area">
+          <NotificationBell />
+        </div>
 
         <!-- Clock -->
         <n-popover v-model:show="showTzPanel" trigger="click" placement="bottom-end" :show-arrow="false" style="padding:0">
@@ -250,7 +252,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
             <slot name="actions" />
           </div>
         </div>
-        <div class="main-content" :data-app="activeApp">
+        <div class="main-content" :data-app="activeApp" aria-live="polite" aria-atomic="false">
           <router-view v-slot="{ Component, route }">
             <Transition name="page" mode="out-in">
               <component :is="Component" :key="route.path" />

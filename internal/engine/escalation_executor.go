@@ -448,35 +448,39 @@ func (e *EscalationExecutor) processPolicySteps(ctx context.Context, event *mode
 		}
 
 		// Atomic dedup: INSERT IGNORE ensures only one goroutine executes this step.
+		// Dedup key: (event_id, policy_id, step_order) — stable across step ID regeneration.
 		if e.stepExecRepo != nil {
-			inserted, err := e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
+			inserted, err := e.stepExecRepo.InsertIgnore(ctx, event.ID, policy.ID, step.StepOrder)
 			if err != nil {
 				e.logger.Error("escalation: failed to check step execution",
 					zap.Uint("event_id", event.ID),
-					zap.Uint("step_id", step.ID),
+					zap.Uint("policy_id", policy.ID),
+					zap.Int("step_order", step.StepOrder),
 					zap.Error(err),
 				)
 				continue
 			}
 			if !inserted {
 				// Already executed or in-progress — check if it failed and needs retry (H2).
-				executed, err := e.stepExecRepo.HasExecuted(ctx, event.ID, step.ID)
+				executed, err := e.stepExecRepo.HasExecuted(ctx, event.ID, policy.ID, step.StepOrder)
 				if err != nil {
 					e.logger.Error("escalation: failed to check step execution status",
-						zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
+						zap.Uint("event_id", event.ID), zap.Uint("policy_id", policy.ID),
+						zap.Int("step_order", step.StepOrder), zap.Error(err))
 					continue
 				}
 				if executed {
 					continue // successfully done
 				}
 				// Status is 'pending' or 'failed' — allow retry by deleting the old record.
-				if err := e.stepExecRepo.DeleteByEventAndStep(ctx, event.ID, step.ID); err != nil {
+				if err := e.stepExecRepo.DeleteByEventAndStep(ctx, event.ID, policy.ID, step.StepOrder); err != nil {
 					e.logger.Error("escalation: failed to delete stale step exec",
-						zap.Uint("event_id", event.ID), zap.Uint("step_id", step.ID), zap.Error(err))
+						zap.Uint("event_id", event.ID), zap.Uint("policy_id", policy.ID),
+						zap.Int("step_order", step.StepOrder), zap.Error(err))
 					continue
 				}
 				// Re-insert with fresh 'pending' status.
-				inserted, err = e.stepExecRepo.InsertIgnore(ctx, event.ID, step.ID)
+				inserted, err = e.stepExecRepo.InsertIgnore(ctx, event.ID, policy.ID, step.StepOrder)
 				if err != nil || !inserted {
 					continue
 				}
@@ -500,7 +504,7 @@ func (e *EscalationExecutor) processPolicySteps(ctx context.Context, event *mode
 			)
 			// H2: Mark as failed so it can be retried next cycle.
 			if e.stepExecRepo != nil {
-				_ = e.stepExecRepo.MarkFailed(ctx, event.ID, step.ID)
+				_ = e.stepExecRepo.MarkFailed(ctx, event.ID, policy.ID, step.StepOrder)
 			}
 			// Record failure in timeline.
 			_ = e.recordTimeline(ctx, event.ID, fmt.Sprintf(
@@ -510,7 +514,7 @@ func (e *EscalationExecutor) processPolicySteps(ctx context.Context, event *mode
 		} else {
 			// H2: Mark as success.
 			if e.stepExecRepo != nil {
-				_ = e.stepExecRepo.MarkSuccess(ctx, event.ID, step.ID)
+				_ = e.stepExecRepo.MarkSuccess(ctx, event.ID, policy.ID, step.StepOrder)
 			}
 			metrics.IncEscalationSteps(policyIDStr, "success")
 		}

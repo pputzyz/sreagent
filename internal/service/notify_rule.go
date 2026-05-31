@@ -36,7 +36,11 @@ type NotifyRuleService struct {
 	// Optional — when nil, UserIDs/TeamIDs are logged as warnings and skipped.
 	userNotifyConfigRepo *repository.UserNotifyConfigRepository
 	teamRepo             *repository.TeamRepository
-	logger               *zap.Logger
+	// inhibitionSvc is an optional inhibition check before dispatching notifications.
+	inhibitionSvc *InhibitionRuleService
+	// eventRepo is required by the inhibition check to fetch currently-firing events.
+	eventRepo *repository.AlertEventRepository
+	logger    *zap.Logger
 }
 
 // SetPipelineEngine injects the event pipeline engine and repository.
@@ -58,6 +62,16 @@ func (s *NotifyRuleService) SetUserNotifyConfigRepo(repo *repository.UserNotifyC
 // SetTeamRepo injects the team repository for expanding TeamIDs to members.
 func (s *NotifyRuleService) SetTeamRepo(repo *repository.TeamRepository) {
 	s.teamRepo = repo
+}
+
+// SetInhibitionService injects the inhibition rule service for pre-dispatch checks.
+func (s *NotifyRuleService) SetInhibitionService(svc *InhibitionRuleService) {
+	s.inhibitionSvc = svc
+}
+
+// SetAlertEventRepository injects the event repository for inhibition checks.
+func (s *NotifyRuleService) SetAlertEventRepository(repo *repository.AlertEventRepository) {
+	s.eventRepo = repo
 }
 
 // NewNotifyRuleService creates a new NotifyRuleService.
@@ -166,6 +180,22 @@ func (s *NotifyRuleService) Delete(ctx context.Context, id uint) error {
 // ProcessEvent processes an alert event through a notify rule's pipeline
 // and dispatches notifications via the configured media.
 func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.AlertEvent, notifyRuleID uint) error {
+	// 0. Inhibition check: suppress notification if a higher-priority alert is firing.
+	// Mirrors the check in NotificationService.RouteAlert for direct ProcessEvent callers.
+	if s.inhibitionSvc != nil && s.eventRepo != nil {
+		firingEvents, _, err := s.eventRepo.List(ctx, "firing", "", 1, 500)
+		if err == nil && len(firingEvents) > 0 {
+			if s.inhibitionSvc.IsInhibited(ctx, event, firingEvents) {
+				s.logger.Info("notification inhibited by inhibition rule (notify_rule)",
+					zap.Uint("event_id", event.ID),
+					zap.String("alert_name", event.AlertName),
+					zap.Uint("rule_id", notifyRuleID),
+				)
+				return nil
+			}
+		}
+	}
+
 	// 1. Load the notify rule
 	rule, err := s.ruleRepo.GetByID(ctx, notifyRuleID)
 	if err != nil {
@@ -388,6 +418,13 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 // UserNotifyConfig entries are used to determine which channels to send through.
 // If the required repositories are not injected, a warning is logged and the
 // dispatch is skipped.
+//
+// TODO: TeamNotifyChannel (team-level notification media) is configured via
+// TeamNotifyChannelService but is NOT consulted here. Currently, team dispatch
+// expands TeamIDs to members and sends via each member's personal UserNotifyConfig.
+// To honor team-level channels, query TeamNotifyChannelService.ListByTeam for each
+// team and send through the team's configured media (especially IsDefault=true).
+// This requires injecting TeamNotifyChannelService into NotifyRuleService.
 func (s *NotifyRuleService) dispatchToUsersAndTeams(
 	ctx context.Context,
 	event *model.AlertEvent,
