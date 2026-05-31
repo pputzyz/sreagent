@@ -136,6 +136,10 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	})
 
 	// Health check (no auth)
+	// TODO (B1-18): Add rate limiting to this endpoint to prevent abuse.
+	// Currently unprotected — a flood of /healthz requests could consume
+	// server resources. Consider adding middleware.RateLimit or a dedicated
+	// health-check limiter (e.g. 100 req/s per IP).
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})

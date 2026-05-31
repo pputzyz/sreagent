@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"math/rand"
+	"math/big"
+	mrand "math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -150,12 +152,23 @@ func (h *AuthHandler) Captcha(c *gin.Context) {
 
 // --- Captcha helpers ---
 
+// cryptoRandIntn returns a cryptographically secure random int in [0, n).
+func cryptoRandIntn(n int) int {
+	nBig := big.NewInt(int64(n))
+	result, err := rand.Int(rand.Reader, nBig)
+	if err != nil {
+		// Fallback should never happen; rand.Reader uses OS CSPRNG.
+		return 0
+	}
+	return int(result.Int64())
+}
+
 // generateMathCaptcha creates a simple arithmetic expression and returns
 // (display string, answer string).  e.g. ("3 + 7", "10")
+// Uses crypto/rand so the captcha answer is unpredictable.
 func generateMathCaptcha() (string, string) {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	a := r.Intn(20) + 1
-	b := r.Intn(20) + 1
+	a := cryptoRandIntn(20) + 1
+	b := cryptoRandIntn(20) + 1
 
 	operators := []struct {
 		symbol string
@@ -165,7 +178,7 @@ func generateMathCaptcha() (string, string) {
 		{"-", func(x, y int) int { return x - y }},
 		{"*", func(x, y int) int { return x * y }},
 	}
-	op := operators[r.Intn(len(operators))]
+	op := operators[cryptoRandIntn(len(operators))]
 
 	// Ensure subtraction does not produce negative results
 	if op.symbol == "-" && a < b {
@@ -180,7 +193,7 @@ func generateMathCaptcha() (string, string) {
 // renderCaptchaSVG renders a math expression as a simple inline SVG image
 // with colored noise lines. Returns the raw SVG string (caller base64-encodes).
 func renderCaptchaSVG(expr string) string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	width := 150
 	height := 50
 

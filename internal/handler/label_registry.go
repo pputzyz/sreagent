@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -30,7 +31,11 @@ func (h *LabelRegistryHandler) GetValues(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "key is required"))
 		return
 	}
-	dsIDs := parseDatasourceIDs(c.Query("datasource_id"))
+	dsIDs, err := parseDatasourceIDs(c.Query("datasource_id"))
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
 	values, err := h.svc.GetValues(c.Request.Context(), key, dsIDs)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
@@ -42,7 +47,11 @@ func (h *LabelRegistryHandler) GetValues(c *gin.Context) {
 // GetKeys godoc
 // GET /label-registry/keys?datasource_id=1,2
 func (h *LabelRegistryHandler) GetKeys(c *gin.Context) {
-	dsIDs := parseDatasourceIDs(c.Query("datasource_id"))
+	dsIDs, err := parseDatasourceIDs(c.Query("datasource_id"))
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
 	keys, err := h.svc.GetKeys(c.Request.Context(), dsIDs)
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrDatabase, err.Error()))
@@ -66,16 +75,26 @@ func (h *LabelRegistryHandler) Sync(c *gin.Context) {
 	Success(c, gin.H{"message": "sync triggered"})
 }
 
-func parseDatasourceIDs(raw string) []uint {
+// parseDatasourceIDs parses a comma-separated list of datasource IDs.
+// Returns an error if any value is not a valid positive integer (B1-15).
+func parseDatasourceIDs(raw string) ([]uint, error) {
 	if raw == "" {
-		return nil
+		return nil, nil
 	}
 	var ids []uint
 	for _, s := range strings.Split(raw, ",") {
 		s = strings.TrimSpace(s)
-		if v, err := strconv.ParseUint(s, 10, 64); err == nil {
-			ids = append(ids, uint(v))
+		if s == "" {
+			continue
 		}
+		v, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid datasource_id %q: must be a positive integer", s)
+		}
+		if v == 0 {
+			return nil, fmt.Errorf("invalid datasource_id: must be > 0")
+		}
+		ids = append(ids, uint(v))
 	}
-	return ids
+	return ids, nil
 }

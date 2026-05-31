@@ -190,6 +190,10 @@ func (s *NotifyMediaService) decryptNotifyMediaConfig(media *model.NotifyMedia) 
 }
 
 // SendNotification dispatches a notification through the given media with rendered template content.
+// TODO(B5-14): Add circuit breaker for downstream webhook/notification failures.
+// When a media endpoint returns repeated transport errors or 5xx responses,
+// circuit-break it for a configurable cooldown period to avoid cascading failures.
+// Consider github.com/sony/gobreaker or a simple sliding-window counter per media ID.
 func (s *NotifyMediaService) SendNotification(ctx context.Context, media *model.NotifyMedia, renderedContent string, data *TemplateData) error {
 	if !media.IsEnabled {
 		s.logger.Warn("skipping disabled media", zap.Uint("media_id", media.ID), zap.String("media_name", media.Name))

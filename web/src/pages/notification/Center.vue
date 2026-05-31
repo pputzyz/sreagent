@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NButton, NIcon, NRadioGroup, NRadioButton, NSpin, NEmpty, NTag, NPagination } from 'naive-ui'
 import { useRouter } from 'vue-router'
@@ -89,7 +89,32 @@ function typeColor(type: string): 'error' | 'warning' | 'info' | 'default' {
   return 'default'
 }
 
-onMounted(fetchList)
+// Auto-refresh polling (FE6-3)
+const POLL_INTERVAL = 30_000 // 30 seconds
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(() => {
+    if (!loading.value) fetchList()
+  }, POLL_INTERVAL)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+onMounted(() => {
+  fetchList()
+  startPolling()
+})
+
+onUnmounted(() => {
+  stopPolling()
+})
 </script>
 
 <template>

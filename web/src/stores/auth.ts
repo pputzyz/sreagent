@@ -6,6 +6,7 @@ import { resetCommandPalette } from '@/composables/useCommandPalette'
 import { resetAIModule } from '@/composables/useAIModule'
 import { resetAIChat } from '@/composables/useAIChat'
 import { resetPermissions, usePermissions } from '@/composables/usePermissions'
+import { clearAllFilterMemories } from '@/composables/useFilterMemory'
 import type { User } from '@/types'
 
 interface LoginPayload {
@@ -81,6 +82,8 @@ export const useAuthStore = defineStore('auth', () => {
     resetAIModule()
     resetAIChat()
     resetPermissions()
+    // Clear persisted filter state (FE3-4)
+    clearAllFilterMemories()
   }
 
   return {

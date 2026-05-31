@@ -13,7 +13,12 @@ import (
 )
 
 // IncidentAggregator bridges AlertEvent lifecycle to Incident management.
-// When alerts fire/resolve, it automatically creates/updates/resolves incidents.
+// When alerts fire/resolve, it automatically creates/updates/resolved incidents.
+//
+// B7-11 NOTE: Incident dedup relies solely on Fingerprint (a hash of alert labels).
+// Hash collision probability is negligible (~2^-128 for SHA-256), but if two unrelated
+// alerts ever produce the same fingerprint, they would be merged into one incident.
+// If this becomes a concern, add a secondary check comparing the full label map.
 type IncidentAggregator struct {
 	incidentSvc    *IncidentService
 	eventRepo      *repository.AlertEventRepository

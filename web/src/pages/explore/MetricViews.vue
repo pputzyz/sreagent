@@ -12,6 +12,7 @@
 import { ref, computed, watch, onMounted, shallowRef, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { useMessage } from 'naive-ui'
 import {
   NSelect, NButton, NIcon, NSpin, NEmpty, NDrawer, NDrawerContent,
   NDescriptions, NDescriptionsItem, NTag, NDivider,
@@ -19,6 +20,7 @@ import {
 import {
   RefreshOutline, TimeOutline, BookmarkOutline,
   TrashOutline, AddOutline, SearchOutline, ArrowBackOutline,
+  CopyOutline,
 } from '@vicons/ionicons5'
 import { datasourceApi } from '@/api'
 import MetricLabelSelector from '@/components/query/MetricLabelSelector.vue'
@@ -27,6 +29,7 @@ import type { DataSource, QueryResponse } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
+const message = useMessage()
 
 // ===== Datasources =====
 const datasources = ref<DataSource[]>([])
@@ -366,6 +369,19 @@ function goToExplore() {
   }
 }
 
+// ===== Share URL (FE5-4) =====
+function copyShareUrl() {
+  if (!selectedDsId.value || !queryExpression.value) return
+  const url = new URL(window.location.origin + '/alert/explore')
+  url.searchParams.set('ds', String(selectedDsId.value))
+  url.searchParams.set('expr', queryExpression.value)
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    message.success(t('common.copied') || 'URL copied')
+  }).catch(() => {
+    message.error(t('common.failed'))
+  })
+}
+
 // ===== Init =====
 watch(selectedDsId, () => {
   selectedMetric.value = ''
@@ -417,6 +433,10 @@ onMounted(async () => {
       <div class="mv-header-actions">
         <NButton size="small" quaternary @click="fetchChartData" :disabled="!queryExpression.trim()">
           <template #icon><NIcon><RefreshOutline /></NIcon></template>
+        </NButton>
+        <NButton size="small" quaternary @click="copyShareUrl" :disabled="!queryExpression.trim()">
+          <template #icon><NIcon><CopyOutline /></NIcon></template>
+          {{ t('common.share') || 'Share' }}
         </NButton>
         <NButton size="small" quaternary @click="goToExplore" :disabled="!queryExpression.trim()">
           <template #icon><NIcon><SearchOutline /></NIcon></template>

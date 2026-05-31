@@ -10,6 +10,7 @@
         clearable
         size="small"
         style="flex: 1"
+        :status="keyStatus(idx).status"
         @update:value="(v: string) => { item.key = v || ''; emitUpdate(); $emit('keyChange', idx, v || '') }"
       />
       <n-input
@@ -17,6 +18,8 @@
         v-model:value="item.key"
         :placeholder="resolvedKeyPlaceholder"
         size="small"
+        :status="keyStatus(idx).status"
+        :maxlength="maxKeyLength"
         @update:value="emitUpdate"
       />
       <n-select
@@ -35,6 +38,7 @@
         v-model:value="item.value"
         :placeholder="resolvedValuePlaceholder"
         size="small"
+        :maxlength="maxValueLength"
         @update:value="emitUpdate"
       />
       <n-button size="small" quaternary type="error" @click="removeItem(idx)">
@@ -68,12 +72,18 @@ const props = withDefaults(defineProps<{
   addLabel?: string
   keyOptions?: string[]
   valueOptions?: string[]
+  maxKeyLength?: number
+  maxValueLength?: number
+  disallowDuplicateKeys?: boolean
 }>(), {
   keyPlaceholder: '',
   valuePlaceholder: '',
   addLabel: '',
   keyOptions: undefined,
   valueOptions: undefined,
+  maxKeyLength: 128,
+  maxValueLength: 512,
+  disallowDuplicateKeys: true,
 })
 
 const resolvedKeyPlaceholder = computed(() => props.keyPlaceholder || t('common.key'))
@@ -109,6 +119,9 @@ function getValueSelectOptions() {
 }
 
 function addItem() {
+  // Prevent adding when the last row has an empty key
+  const last = props.modelValue[props.modelValue.length - 1]
+  if (last && !last.key.trim()) return
   const updated = [...props.modelValue, { key: '', value: '' }]
   emit('update:modelValue', updated)
 }
@@ -120,6 +133,20 @@ function removeItem(index: number) {
 
 function emitUpdate() {
   emit('update:modelValue', [...props.modelValue])
+}
+
+/** Returns validation feedback for a given row index. */
+function keyStatus(idx: number): { status?: 'error'; feedback?: string } {
+  const item = props.modelValue[idx]
+  if (!item) return {}
+  const key = item.key.trim()
+  if (!key) return { status: 'error', feedback: '' }
+  if (props.maxKeyLength && key.length > props.maxKeyLength) return { status: 'error', feedback: '' }
+  if (props.disallowDuplicateKeys) {
+    const dup = props.modelValue.some((other, i) => i !== idx && other.key.trim() === key)
+    if (dup) return { status: 'error', feedback: '' }
+  }
+  return {}
 }
 </script>
 

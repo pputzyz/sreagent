@@ -3,8 +3,8 @@ import { ref, onMounted, computed, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { channelV2Api } from '@/api'
-import type { Channel, ChannelStatus, ChannelAccessLevel } from '@/types'
+import { channelV2Api, teamApi } from '@/api'
+import type { Channel, ChannelStatus, ChannelAccessLevel, Team } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { usePaginatedList } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -28,8 +28,17 @@ function onSearchInput() {
   searchTimer = setTimeout(() => fetchList(), 300)
 }
 const statusFilter = ref<'' | 'active' | 'disabled'>('')
+const teamFilter = ref<number | null>(null)
+const teams = ref<Team[]>([])
 const sortBy = ref<'recent' | 'created' | 'name' | 'incidents'>('recent')
 const viewMode = ref<'card' | 'list'>('card')
+
+async function loadTeams() {
+  try {
+    const res = await teamApi.list({ page: 1, page_size: 200 })
+    teams.value = res.data.data?.list || []
+  } catch { teams.value = [] }
+}
 
 const {
   loading,
@@ -45,6 +54,7 @@ const {
     const params: Record<string, unknown> = {}
     if (searchQuery.value) params.query = searchQuery.value
     if (statusFilter.value) params.status = statusFilter.value
+    if (teamFilter.value) params.team_id = teamFilter.value
     return params
   },
   onError: (err: unknown) => {
@@ -154,6 +164,10 @@ const statusOptions = computed(() => [
   { label: t('common.disabled'), value: 'disabled' },
 ])
 
+const teamOptions = computed(() =>
+  teams.value.map(team => ({ label: team.name, value: team.id }))
+)
+
 const sortOptions = computed(() => [
   { label: t('channel.recentActivity'), value: 'recent' },
   { label: t('channel.createdTime'), value: 'created' },
@@ -201,7 +215,10 @@ function fmtMetric(val: number | string | undefined | null): string {
   return String(val)
 }
 
-onMounted(fetchList)
+onMounted(() => {
+  fetchList()
+  loadTeams()
+})
 </script>
 
 <template>
@@ -235,6 +252,16 @@ onMounted(fetchList)
           {{ opt.label }}
         </n-radio-button>
       </n-radio-group>
+
+      <n-select
+        v-model:value="teamFilter"
+        :options="teamOptions"
+        size="medium"
+        clearable
+        :placeholder="t('channel.teamFilter')"
+        class="filter-team"
+        @update:value="fetchList"
+      />
 
       <n-select
         v-model:value="sortBy"
@@ -425,6 +452,7 @@ onMounted(fetchList)
   border-radius: 8px;
 }
 .filter-search { width: 280px; flex: 0 0 auto; }
+.filter-team { width: 160px; }
 .filter-sort { width: 160px; }
 .view-toggle { display: flex; gap: 4px; margin-left: auto; }
 

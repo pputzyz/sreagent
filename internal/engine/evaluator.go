@@ -90,6 +90,7 @@ func (re *RuleEvaluator) Stop() {
 type PerDatasourceEvaluator struct {
 	DatasourceID uint
 	rules        sync.Map // map[uint]*RuleEvaluator, key is ruleID
+	suppressor   *LevelSuppressor // shared; used to clean up entries on rule removal
 	ctx          context.Context
 	cancel       context.CancelFunc
 	log          *zap.Logger
@@ -121,6 +122,10 @@ type ruleVersion struct {
 func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSource, deps evaluatorDeps) {
 	p.addMu.Lock()
 	defer p.addMu.Unlock()
+	// Store suppressor reference for cleanup in Stop/RemoveRule (B4-7 fix)
+	if p.suppressor == nil && deps.suppressor != nil {
+		p.suppressor = deps.suppressor
+	}
 	if old, loaded := p.rules.Load(rule.ID); loaded {
 		rv := old.(*ruleVersion)
 		if rv.version == rule.Version {
@@ -142,19 +147,28 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 		zap.String("rule_name", rule.Name))
 }
 
-// RemoveRule stops a rule's evaluator in this bucket.
+// RemoveRule stops a rule's evaluator in this bucket and cleans up suppressor entries.
 func (p *PerDatasourceEvaluator) RemoveRule(ruleID uint) {
 	if v, loaded := p.rules.LoadAndDelete(ruleID); loaded {
 		v.(*ruleVersion).evaluator.Stop()
+		// B4-7: Clean up suppressor entries to prevent memory leak
+		if p.suppressor != nil {
+			p.suppressor.RemoveRule(ruleID)
+		}
 		p.log.Info("rule removed from datasource bucket", zap.Uint("rule_id", ruleID))
 	}
 }
 
-// Stop stops the entire bucket (all rule evaluators exit).
+// Stop stops the entire bucket (all rule evaluators exit) and cleans up suppressor entries.
 func (p *PerDatasourceEvaluator) Stop() {
 	p.cancel()
 	p.rules.Range(func(k, v any) bool {
+		ruleID := k.(uint)
 		v.(*ruleVersion).evaluator.Stop()
+		// B4-7: Clean up suppressor entries to prevent memory leak
+		if p.suppressor != nil {
+			p.suppressor.RemoveRule(ruleID)
+		}
 		return true
 	})
 	p.log.Info("datasource bucket stopped", zap.Uint("datasource_id", p.DatasourceID))

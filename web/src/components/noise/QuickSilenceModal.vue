@@ -24,6 +24,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const message = useMessage()
 const saving = ref(false)
+const triggerEl = ref<HTMLElement | null>(null)
 
 // Duration presets in minutes
 const durationPresets = computed(() => [
@@ -46,6 +47,7 @@ const labelSelections = ref<{ key: string; value: string; selected: boolean }[]>
 
 watch(() => props.show, (v) => {
   if (!v) return
+  triggerEl.value = document.activeElement as HTMLElement
   // Reset on open
   selectedDuration.value = 60
   customMinutes.value = 60
@@ -116,6 +118,7 @@ async function create() {
     style="width:460px"
     :bordered="false"
     @update:show="$emit('update:show', $event)"
+    @after-leave="triggerEl?.focus()"
   >
     <n-form label-placement="top" size="small">
 

@@ -25,8 +25,12 @@ type Schedule struct {
 	// These rotation fields are used only for auto-generation of OnCallShift records.
 	HandoffTime string `json:"handoff_time" gorm:"size:8;default:09:00"`
 	// Handoff day for weekly rotation (0=Sunday, 1=Monday, ...)
-	HandoffDay int  `json:"handoff_day" gorm:"default:1"`
-	IsEnabled  bool `json:"is_enabled" gorm:"default:true"`
+	HandoffDay int `json:"handoff_day" gorm:"default:1"`
+	// B11-11: Period length in days for custom rotation type.
+	// Only used when RotationType=custom. Defaults to 1 (daily).
+	// For daily rotation this is always 1; for weekly it is always 7.
+	RotationPeriodDays int  `json:"rotation_period_days" gorm:"default:1"`
+	IsEnabled          bool `json:"is_enabled" gorm:"default:true"`
 	// Default severity filter for the entire schedule.
 	// Empty string = all severities; "critical" = only critical; "critical,warning" = both.
 	SeverityFilter string `json:"severity_filter" gorm:"size:128"`

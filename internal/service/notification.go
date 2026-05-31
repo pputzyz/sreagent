@@ -56,6 +56,12 @@ func (s *NotificationService) SetMuteRuleService(svc *MuteRuleService) {
 // RouteAlert is the main routing function. It finds matching notify rules by
 // alert labels/severity, processes each through the v2 pipeline (throttle,
 // dedup, template, media dispatch), and also processes user/team subscriptions.
+//
+// TODO (B5-10): There is no global concurrency cap on notification dispatch.
+// During a mass-firing event (hundreds of alerts), this could overwhelm
+// downstream media APIs (Lark, webhook endpoints). Consider adding a global
+// semaphore (e.g. buffered channel of size 50) that limits concurrent
+// ProcessEvent calls across all rules and subscriptions.
 func (s *NotificationService) RouteAlert(ctx context.Context, event *model.AlertEvent) error {
 	// Skip notification for silenced alerts
 	if event.Status == model.EventStatusSilenced && event.SilencedUntil != nil && event.SilencedUntil.After(time.Now()) {

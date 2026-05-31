@@ -2,7 +2,7 @@
 import { ref, shallowRef, onMounted, computed, h, inject } from 'vue'
 import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMessage, NIcon, NDataTable, NTag } from 'naive-ui'
+import { useMessage, NIcon, NDataTable, NTag, NSelect } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi, alertV2Api } from '@/api'
 import { changeEventApi } from '@/api/change-event'
@@ -44,6 +44,17 @@ const loading = ref(false)
 const activeTab = ref('overview')
 const commentText = ref('')
 const submittingComment = ref(false)
+
+// Timeline action filter (FE1-7: severity/action filter for timeline)
+const timelineActionFilter = ref<string | null>(null)
+const timelineActionOptions = computed(() => {
+  const actions = new Set(timeline.value.map(e => e.action))
+  return Array.from(actions).map(a => ({ label: actionLabel(a), value: a }))
+})
+const filteredTimeline = computed(() => {
+  if (!timelineActionFilter.value) return timeline.value
+  return timeline.value.filter(e => e.action === timelineActionFilter.value)
+})
 
 // Quick silence
 const showQuickSilence = ref(false)
@@ -460,15 +471,25 @@ onMounted(async () => {
 
             <!-- Timeline -->
             <n-tab-pane name="timeline" :tab="t('incident.timeline')">
+              <div class="tl-filter-bar">
+                <n-select
+                  v-model:value="timelineActionFilter"
+                  :options="timelineActionOptions"
+                  size="small"
+                  clearable
+                  :placeholder="t('common.all')"
+                  class="tl-action-filter"
+                />
+              </div>
               <EmptyState
-                v-if="!timeline.length"
+                v-if="!filteredTimeline.length"
                 :icon="TimeOutline"
                 :title="t('incident.noTimeline')"
                 :description="t('incident.noEvents')"
                 size="sm"
               />
-              <ol v-else class="tl-list">
-                <li v-for="entry in timeline" :key="entry.id" class="tl-item">
+              <ol v-else class="tl-list" :aria-label="t('incident.timeline')">
+                <li v-for="entry in filteredTimeline" :key="entry.id" class="tl-item">
                   <span class="tl-dot" :data-action="timelineActionColor(entry.action)" />
                   <div class="tl-body">
                     <div class="tl-line">
@@ -662,7 +683,7 @@ onMounted(async () => {
 
           <section class="side-card">
             <div class="sre-label-eyebrow card-eyebrow">{{ t('incident.timelineBrief') }}</div>
-            <ol v-if="timeline.length" class="brief-list">
+            <ol v-if="timeline.length" class="brief-list" :aria-label="t('incident.timelineBrief')">
               <li v-for="e in timeline.slice(0, 5)" :key="e.id" class="brief-item">
                 <span class="brief-dot" :data-action="timelineActionColor(e.action)" />
                 <div class="brief-body">
@@ -893,6 +914,15 @@ onMounted(async () => {
 }
 .alert-status.s-firing { color: var(--sre-critical); background: var(--sre-critical-soft); }
 .alert-status.s-resolved { color: var(--sre-success); background: var(--sre-success-soft); }
+
+/* Timeline filter */
+.tl-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.tl-action-filter { width: 180px; }
 
 /* Timeline */
 .tl-list {

@@ -243,6 +243,10 @@ func parseDataPoint(raw []interface{}) (DataPoint, error) {
 // ProxyGet proxies an HTTP GET request to the target datasource endpoint.
 // Used for label/metric queries to support PromQL autocompletion.
 func (qc *QueryClient) ProxyGet(ctx context.Context, endpoint, authType, authConfig, path string, params map[string]string) ([]byte, error) {
+	// B1-19: Validate path parameter to prevent SSRF via path traversal.
+	if err := validateProxyPath(path); err != nil {
+		return nil, fmt.Errorf("invalid proxy path: %w", err)
+	}
 	apiURL := strings.TrimRight(endpoint, "/") + path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
@@ -276,4 +280,21 @@ func (qc *QueryClient) ProxyGet(ctx context.Context, endpoint, authType, authCon
 	}
 
 	return body, nil
+}
+
+// validateProxyPath validates the path parameter for ProxyGet to prevent SSRF.
+// The path must start with "/" and must not contain path traversal sequences (B1-19).
+func validateProxyPath(path string) error {
+	if path == "" {
+		return fmt.Errorf("path must not be empty")
+	}
+	if !strings.HasPrefix(path, "/") {
+		return fmt.Errorf("path must start with /")
+	}
+	// Reject any path containing "/.." as a path component (traversal attempt).
+	// This blocks "/../", "/..", and encoded variants after URL normalization.
+	if strings.Contains(path, "/..") {
+		return fmt.Errorf("path must not contain traversal sequences (/..)")
+	}
+	return nil
 }

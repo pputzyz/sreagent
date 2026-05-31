@@ -27,6 +27,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
       console.warn('Failed to load preferences, using defaults', e)
     } finally {
       loaded.value = true
+      // Start OS theme listener if in auto mode (FE8-4)
+      if (prefs.value.theme === 'auto') {
+        startOsThemeListener()
+      }
     }
   }
 
@@ -63,6 +67,26 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
+  // Listen for OS theme changes when in auto mode (FE8-4)
+  let osThemeMedia: MediaQueryList | null = null
+  let osThemeHandler: ((e: MediaQueryListEvent) => void) | null = null
+
+  function startOsThemeListener() {
+    stopOsThemeListener()
+    if (prefs.value.theme !== 'auto') return
+    osThemeMedia = window.matchMedia('(prefers-color-scheme: dark)')
+    osThemeHandler = () => applyTheme()
+    osThemeMedia.addEventListener('change', osThemeHandler)
+  }
+
+  function stopOsThemeListener() {
+    if (osThemeMedia && osThemeHandler) {
+      osThemeMedia.removeEventListener('change', osThemeHandler)
+    }
+    osThemeMedia = null
+    osThemeHandler = null
+  }
+
   // Apply language to i18n
   function applyLanguage(locale: { value: string }) {
     if (prefs.value.language) {
@@ -71,7 +95,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   // Watch theme changes
-  watch(() => prefs.value.theme, applyTheme)
+  watch(() => prefs.value.theme, (theme) => {
+    applyTheme()
+    if (theme === 'auto') {
+      startOsThemeListener()
+    } else {
+      stopOsThemeListener()
+    }
+  })
 
   return {
     prefs,

@@ -105,3 +105,18 @@ export function useFilterMemory(pageKey: string, debounceMs = 300) {
 
   return { restore, restoreAll, save, bindRefs, clear }
 }
+
+/**
+ * Clear ALL stored filter memories across all pages.
+ * Call this on logout to prevent stale filter state leaking between users.
+ */
+export function clearAllFilterMemories() {
+  const keysToRemove: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith(STORAGE_PREFIX)) {
+      keysToRemove.push(key)
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k))
+}

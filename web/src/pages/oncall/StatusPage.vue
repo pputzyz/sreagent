@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch, type Component } from 'vue'
+import { ref, computed, onMounted, onUnmounted, reactive, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NSpin, NModal, NForm, NFormItem, NSelect, NInputNumber, NPopconfirm } from 'naive-ui'
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server, Settings, Plus, Pencil, Trash2 } from 'lucide-vue-next'
@@ -15,6 +15,31 @@ const submitting = ref(false)
 const services = ref<StatusServiceItem[]>([])
 const loading = ref(true)
 const firstLoad = ref(true)
+
+// Auto-refresh (FE1-10)
+const autoRefresh = ref(false)
+const AUTO_REFRESH_INTERVAL = 30_000 // 30 seconds
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+function startAutoRefresh() {
+  stopAutoRefresh()
+  if (!autoRefresh.value) return
+  autoRefreshTimer = setInterval(() => {
+    loadServices()
+  }, AUTO_REFRESH_INTERVAL)
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+}
+
+watch(autoRefresh, (val) => {
+  if (val) startAutoRefresh()
+  else stopAutoRefresh()
+})
 
 watch(loading, (isLoading) => {
   if (!isLoading) firstLoad.value = false
@@ -64,6 +89,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 
 const allOperational = computed(() => services.value.length > 0 && services.value.every(s => s.status === 'operational'))
@@ -205,6 +234,16 @@ async function handleDelete(id: number) {
               <NButton size="small" quaternary @click="openManage">
                 <template #icon><Settings :size="14" /></template>
                 {{ t('statusPageModule.manageServices') }}
+              </NButton>
+              <NButton
+                size="small"
+                :type="autoRefresh ? 'primary' : 'default'"
+                :secondary="autoRefresh"
+                quaternary
+                @click="autoRefresh = !autoRefresh"
+              >
+                <template #icon><Activity :size="14" /></template>
+                {{ autoRefresh ? '30s' : t('common.refresh') }}
               </NButton>
             </div>
           </div>

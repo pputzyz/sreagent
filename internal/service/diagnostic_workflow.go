@@ -284,6 +284,10 @@ func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model
 		return summary, nil
 
 	default:
+		// TODO (B8-9): Currently only 3 step types are supported (query, label_check,
+		// change_correlation). Consider adding: "log_query" (VictoriaLogs/ES log search),
+		// "ai_analysis" (LLM-based root cause analysis), "http_probe" (endpoint reachability),
+		// "metric_correlation" (cross-metric correlation), and "conditional_branch" (if/else).
 		return fmt.Sprintf("步骤类型 %q 暂不支持自动执行（当前仅支持 query, label_check, change_correlation）", step.StepType),
 			fmt.Errorf("unsupported step type: %s", step.StepType)
 	}

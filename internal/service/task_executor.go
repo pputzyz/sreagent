@@ -382,7 +382,15 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, password, scri
 
 // sanitizeSSHArgs rejects args that contain shell metacharacters to prevent injection.
 func sanitizeSSHArgs(args string) error {
-	dangerous := []string{";", "|", "&", "`", "$(", "\n", "\r"}
+	dangerous := []string{
+		";", "|", "&", "`", "$(", "\n", "\r",
+		// Redirection operators
+		">>", "<<", ">", "<",
+		// Brace expansion
+		"{", "}",
+		// History expansion and comment
+		"!", "#",
+	}
 	for _, d := range dangerous {
 		if strings.Contains(args, d) {
 			return fmt.Errorf("argument contains unsafe character %q", d)

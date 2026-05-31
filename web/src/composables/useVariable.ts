@@ -179,6 +179,9 @@ export function useVariable(
   }
 
   // Resolve all variables sequentially (for chained dependency support)
+  // TODO(FE3-5): Add cycle detection for chained variable dependencies.
+  // Current sequential resolution handles A->B->C correctly but will infinite-loop
+  // on A->B->A cycles. Implement topological sort or max-depth guard.
   let resolveSeq = 0
   async function resolveAll() {
     const seq = ++resolveSeq
@@ -217,6 +220,9 @@ export function useVariable(
   }
 
   // Core replacement logic on a raw string with a given states map
+  // TODO(FE4-8): Current single-pass replacement doesn't handle nested $var references
+  // (e.g., $A resolves to "${B}-suffix" but $B won't be expanded). Consider multi-pass
+  // resolution with cycle detection and max-depth guard (e.g., 5 passes).
   function replaceInString(input: string, stateMap: Map<string, VariableState>): string {
     let result = input
     for (const [name, state] of stateMap) {

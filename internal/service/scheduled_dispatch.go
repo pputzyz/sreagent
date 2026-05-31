@@ -11,6 +11,11 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// defaultMaxRepeats is the safety cap applied when max_repeats=0 (unlimited).
+// Prevents infinite notification spam from misconfigured dispatch policies.
+// 100 repeats at a typical 5-minute interval = ~8 hours of notifications.
+const defaultMaxRepeats = 100
+
 // ScheduledDispatchService manages deferred and repeating notification dispatches.
 // A background worker calls ProcessDueDispatches periodically to send pending items.
 type ScheduledDispatchService struct {
@@ -45,6 +50,13 @@ func NewScheduledDispatchService(
 
 // Schedule creates a scheduled dispatch entry for deferred/repeating notification.
 func (s *ScheduledDispatchService) Schedule(ctx context.Context, d *model.ScheduledDispatch) error {
+	// B7-10: Apply safety cap for unlimited repeats (max_repeats=0)
+	if d.MaxRepeats == 0 && d.RepeatInterval > 0 {
+		d.MaxRepeats = defaultMaxRepeats
+		s.logger.Info("max_repeats=0 with repeat_interval; applying default cap",
+			zap.Int("cap", defaultMaxRepeats),
+		)
+	}
 	if err := s.repo.Create(ctx, d); err != nil {
 		s.logger.Error("failed to create scheduled dispatch",
 			zap.Uint("incident_id", d.IncidentID),

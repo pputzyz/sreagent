@@ -43,6 +43,7 @@ const showSilenceModal = ref(false)
 const silenceDuration = ref(60)
 const silenceReason = ref('')
 const silenceSaving = ref(false)
+const lastTriggerEl = ref<HTMLElement | null>(null)
 const silenceDurationOptions = [
   { label: '30m', value: 30 }, { label: '1h', value: 60 },
   { label: '2h', value: 120 }, { label: '6h', value: 360 },
@@ -188,6 +189,7 @@ async function handleClose() {
 }
 
 function openSilenceModal() {
+  lastTriggerEl.value = document.activeElement as HTMLElement
   silenceDuration.value = 60; silenceReason.value = ''; showSilenceModal.value = true
 }
 
@@ -203,6 +205,7 @@ async function handleSilence() {
 }
 
 function openAssignModal() {
+  lastTriggerEl.value = document.activeElement as HTMLElement
   assignUserId.value = null; assignNote.value = ''; showAssignModal.value = true
   if (users.value.length === 0) fetchUsers()
 }
@@ -412,7 +415,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
           <!-- Timeline -->
           <n-tab-pane name="timeline" :tab="t('alert.timeline')">
             <section class="evt-section">
-              <ol class="evt-timeline" v-if="timeline.length">
+              <ol class="evt-timeline" v-if="timeline.length" :aria-label="t('alert.timeline')">
                 <li v-for="item in timeline" :key="item.id" class="evt-tl-item">
                   <span class="evt-tl-dot sre-dot" :data-severity="timelineDotSeverity(item.action)" />
                   <div class="evt-tl-body">
@@ -610,7 +613,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
     </div>
 
     <!-- Silence Modal -->
-    <n-modal v-model:show="showSilenceModal" preset="card" :title="t('alert.silence')" style="width: 480px" :bordered="false">
+    <n-modal v-model:show="showSilenceModal" preset="card" :title="t('alert.silence')" style="width: 480px" :bordered="false" @after-leave="lastTriggerEl?.focus()">
       <n-form label-placement="top">
         <n-form-item :label="t('alert.silenceDuration')">
           <n-radio-group v-model:value="silenceDuration">
@@ -632,7 +635,7 @@ onMounted(() => { fetchEvent(); fetchTimeline() })
     </n-modal>
 
     <!-- Assign Modal -->
-    <n-modal v-model:show="showAssignModal" preset="card" :title="t('alert.assign')" style="width: 480px" :bordered="false">
+    <n-modal v-model:show="showAssignModal" preset="card" :title="t('alert.assign')" style="width: 480px" :bordered="false" @after-leave="lastTriggerEl?.focus()">
       <n-form label-placement="top">
         <n-form-item :label="t('alert.assignTo')">
           <n-select v-model:value="assignUserId" :options="userOptions" :placeholder="t('alert.selectUser')" filterable />

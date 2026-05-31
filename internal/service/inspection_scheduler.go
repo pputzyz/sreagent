@@ -3,9 +3,13 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -138,12 +142,28 @@ func (s *InspectionScheduler) addTask(task model.InspectionTask) error {
 }
 
 // runWithLeaderCheck 检查 leader 后执行巡检
+// B8-6: Re-fetches task from DB to avoid using a stale snapshot from registration time.
 func (s *InspectionScheduler) runWithLeaderCheck(task *model.InspectionTask) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	if s.leader != nil && !s.leader.IsLeader() {
 		s.logger.Debug("非 leader 节点，跳过巡检", zap.Uint("task_id", task.ID))
+		return
+	}
+
+	// B8-6: Re-fetch task from DB to pick up any updates since registration.
+	freshTask, err := s.taskRepo.GetTask(ctx, task.ID)
+	if err != nil {
+		s.logger.Error("巡检任务重新加载失败，使用缓存快照",
+			zap.Uint("task_id", task.ID), zap.Error(err))
+		// Fall through with stale task — better to run with old config than skip entirely.
+	} else {
+		task = freshTask
+	}
+
+	if !task.Enabled {
+		s.logger.Debug("巡检任务已禁用，跳过执行", zap.Uint("task_id", task.ID))
 		return
 	}
 
@@ -215,6 +235,15 @@ func (s *InspectionScheduler) notifyResult(task *model.InspectionTask, run *mode
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			req, _ := http.NewRequestWithContext(ctx, http.MethodPost, ch.URL, bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
+
+			// HMAC-SHA256 signing for webhook payload integrity verification (B8-12).
+			// If SREAGENT_WEBHOOK_SECRET is set, compute HMAC and attach X-Signature-256 header.
+			if secret := os.Getenv("SREAGENT_WEBHOOK_SECRET"); secret != "" {
+				mac := hmac.New(sha256.New, []byte(secret))
+				mac.Write(body)
+				sig := hex.EncodeToString(mac.Sum(nil))
+				req.Header.Set("X-Signature-256", "sha256="+sig)
+			}
 			resp, err := s.httpClient.Do(req)
 			cancel()
 			if err != nil {

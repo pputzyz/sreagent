@@ -111,6 +111,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule *model.Sc
 	existing.Timezone = schedule.Timezone
 	existing.HandoffTime = schedule.HandoffTime
 	existing.HandoffDay = schedule.HandoffDay
+	existing.RotationPeriodDays = schedule.RotationPeriodDays
 	existing.IsEnabled = schedule.IsEnabled
 
 	if err := s.scheduleRepo.Update(ctx, existing); err != nil {
@@ -379,30 +380,40 @@ func (s *ScheduleService) calculateRotationIndex(
 	return calendarDayIndex(ref, now, periodDays, numParticipants)
 }
 
-// calendarDayIndex computes the rotation index using calendar day arithmetic (H1: DST-safe).
-// It counts the number of period boundaries between ref and now in the given timezone.
+// calendarDayIndex computes the rotation index using O(1) calendar day arithmetic.
+// DST-safe: compares dates at midnight in the reference timezone to avoid DST offset errors.
+// B11-10: Replaced O(n) linear scan with O(1) day-diff arithmetic.
 func calendarDayIndex(ref, now time.Time, periodDays, numParticipants int) int {
-	if numParticipants == 0 {
+	if numParticipants == 0 || periodDays <= 0 {
 		return 0
 	}
-	// Count calendar days between ref and now by iterating period boundaries.
-	periods := 0
-	cursor := ref
-	for !cursor.After(now) {
-		cursor = cursor.AddDate(0, 0, periodDays)
-		if !cursor.After(now) {
-			periods++
-		}
+	// Normalize both dates to midnight in the same timezone for DST-safe day counting.
+	loc := ref.Location()
+	refDate := time.Date(ref.Year(), ref.Month(), ref.Day(), 0, 0, 0, 0, loc)
+	nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	// Count calendar days between the two dates.
+	// time.Sub on midnight-normalized dates gives exact calendar day difference.
+	daysDiff := int(nowDate.Sub(refDate).Hours() / 24)
+	if daysDiff < 0 {
+		return 0
 	}
+	periods := daysDiff / periodDays
 	return periods % numParticipants
 }
 
 // rotationPeriodDays returns the period length in days for the given rotation type.
+// B11-11: For custom rotation, uses the RotationPeriodDays field (defaults to 1).
 func rotationPeriodDays(schedule *model.Schedule) int {
 	switch schedule.RotationType {
 	case model.RotationWeekly:
 		return 7
-	default: // daily, custom
+	case model.RotationCustom:
+		if schedule.RotationPeriodDays > 0 {
+			return schedule.RotationPeriodDays
+		}
+		return 1 // default: daily
+	default: // daily
 		return 1
 	}
 }
@@ -712,11 +723,22 @@ func (s *ScheduleService) GetEscalationPolicyByID(ctx context.Context, id uint) 
 	return policy, nil
 }
 
-// ListEscalationPolicies returns escalation policies, optionally filtered by team.
+// ListEscalationPolicies returns escalation policies for a specific team.
+// teamID=0 returns only global policies (no team).
 func (s *ScheduleService) ListEscalationPolicies(ctx context.Context, teamID uint) ([]model.EscalationPolicy, error) {
 	list, err := s.policyRepo.ListByTeamID(ctx, teamID)
 	if err != nil {
 		s.logger.Error("failed to list escalation policies", zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return list, nil
+}
+
+// ListAllEscalationPolicies returns all escalation policies regardless of team.
+func (s *ScheduleService) ListAllEscalationPolicies(ctx context.Context) ([]model.EscalationPolicy, error) {
+	list, err := s.policyRepo.ListAllPolicies(ctx)
+	if err != nil {
+		s.logger.Error("failed to list all escalation policies", zap.Error(err))
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return list, nil

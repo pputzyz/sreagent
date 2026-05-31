@@ -103,8 +103,10 @@ func (h *OIDCHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	// For SPA: redirect to frontend with token as URL fragment (not query param for security)
-	// The frontend will extract the token from the fragment and store it.
+	// B10-6 SECURITY: URL fragment is used (not query param) so the token is never
+	// sent to the server in the Referer header. However, it IS visible in browser
+	// history. For higher security, use the POST /api/v1/auth/oidc/token endpoint
+	// (CallbackJSON) which returns the token in the response body instead.
 	redirectURL := "/#oidc_token=" + token + "&expires_in=" + strconv.Itoa(expiresIn)
 	c.Redirect(http.StatusFound, redirectURL)
 }

@@ -268,6 +268,13 @@ func (s *OIDCService) mapRole(oidcRoles []string, defaultRole model.Role) model.
 // findOrCreateUser looks up the user by OIDC subject, then by email, then by username.
 // Delegates to shared LookupSSOUser / AutoCreateSSOUser helpers to avoid duplication
 // with LDAP and OAuth2 flows.
+//
+// B10-7 DESIGN NOTE: When an existing local account is linked to an OIDC identity
+// (matched by email or username), the local password is NOT changed or disabled.
+// The user retains the ability to log in with both OIDC and their local password.
+// This is intentional for gradual SSO migration, but administrators should be aware
+// that password-based login remains available. To enforce OIDC-only login, disable
+// password authentication in system settings or reset the user's password to a random value.
 func (s *OIDCService) findOrCreateUser(ctx context.Context, info *SSOUserInfo) (*model.User, error) {
 	user, err := LookupSSOUser(ctx, s.userRepo, info)
 	if err == nil {

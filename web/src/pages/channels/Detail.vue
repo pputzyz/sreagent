@@ -40,6 +40,7 @@ const activeTab = ref('incidents')
 const showEditModal = ref(false)
 const saving = ref(false)
 const starring = ref(false)
+const lastTriggerEl = ref<HTMLElement | null>(null)
 
 const editForm = ref<{
   name: string
@@ -263,7 +264,7 @@ onMounted(async () => {
               <n-icon :component="channel?.is_starred ? Star : StarOutline" />
             </template>
           </n-button>
-          <n-button size="small" @click="showEditModal = true">
+          <n-button size="small" @click="lastTriggerEl = document.activeElement as HTMLElement; showEditModal = true">
             <template #icon><n-icon :component="CreateOutline" /></template>
             {{ t('common.edit') }}
           </n-button>
@@ -463,6 +464,7 @@ onMounted(async () => {
       preset="card"
       class="ch-modal-edit"
       :bordered="false"
+      @after-leave="lastTriggerEl?.focus()"
     >
       <n-form label-placement="top" size="small">
         <n-form-item :label="t('channel.name')" required>

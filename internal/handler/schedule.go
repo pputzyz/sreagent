@@ -518,15 +518,27 @@ func (h *ScheduleHandler) GetEscalationPolicy(c *gin.Context) {
 }
 
 // ListEscalationPolicies returns escalation policies, optionally filtered by team.
+// B11-9: team_id=0 returns only global policies; omit team_id to get all policies.
 func (h *ScheduleHandler) ListEscalationPolicies(c *gin.Context) {
-	var teamID uint
-	if tidStr := c.Query("team_id"); tidStr != "" {
-		if tid, err := strconv.ParseUint(tidStr, 10, 64); err == nil {
-			teamID = uint(tid)
+	tidStr := c.Query("team_id")
+	if tidStr == "" {
+		// No team_id filter — return all policies
+		list, err := h.svc.ListAllEscalationPolicies(c.Request.Context())
+		if err != nil {
+			Error(c, err)
+			return
 		}
+		Success(c, list)
+		return
 	}
 
-	list, err := h.svc.ListEscalationPolicies(c.Request.Context(), teamID)
+	tid, err := strconv.ParseUint(tidStr, 10, 64)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid team_id"))
+		return
+	}
+
+	list, err := h.svc.ListEscalationPolicies(c.Request.Context(), uint(tid))
 	if err != nil {
 		Error(c, err)
 		return

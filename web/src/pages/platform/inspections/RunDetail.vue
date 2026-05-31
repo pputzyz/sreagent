@@ -6,7 +6,7 @@ import {
   NButton, NIcon, NCard, NTag, NSpace, NDataTable, NSpin,
   useMessage,
 } from 'naive-ui'
-import { ArrowBackOutline } from '@vicons/ionicons5'
+import { ArrowBackOutline, DownloadOutline } from '@vicons/ionicons5'
 import { inspectionApi } from '@/api/inspection'
 import type { InspectionRun, InspectionFinding } from '@/api/inspection'
 import { getErrorMessage } from '@/utils/format'
@@ -66,6 +66,19 @@ async function fetchRun() {
 }
 
 onMounted(fetchRun)
+
+// Export report as markdown file (FE7-5)
+function exportReport() {
+  if (!run.value?.report_markdown) return
+  const blob = new Blob([run.value.report_markdown], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `inspection-report-${run.value.id}.md`
+  a.click()
+  URL.revokeObjectURL(url)
+  message.success(t('common.success'))
+}
 </script>
 
 <template>
@@ -77,6 +90,17 @@ onMounted(fetchRun)
       </NButton>
       <h2 style="margin: 0; font-size: 18px">{{ t('inspection.reportTitle', { id: route.params.id }) }}</h2>
       <NTag v-if="run" :type="statusType" size="small">{{ run.status }}</NTag>
+      <div style="margin-left: auto;">
+        <NButton
+          v-if="run?.report_markdown"
+          size="small"
+          quaternary
+          @click="exportReport"
+        >
+          <template #icon><NIcon><DownloadOutline /></NIcon></template>
+          {{ t('common.export') || 'Export' }}
+        </NButton>
+      </div>
     </div>
 
     <NSpin v-if="loading" />

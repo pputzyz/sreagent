@@ -58,6 +58,7 @@ export default {
     apply: '应用',
     copy: '复制',
     copied: '已复制',
+    share: '分享',
     copyFailed: '复制失败',
     justNow: '刚刚',
     secsAgo: '{n} 秒前',
@@ -2177,6 +2178,7 @@ export default {
     edit: '编辑',
     delete: '删除',
     unassignedTeam: '未分配团队',
+    teamFilter: '按团队筛选',
     // noise reduction
     noiseTab: '降噪配置',
     aggregation: '聚合规则',

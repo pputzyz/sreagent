@@ -218,13 +218,25 @@ func (r *EscalationPolicyRepository) GetByIDs(ctx context.Context, ids []uint) (
 	return policies, err
 }
 
+// ListByTeamID returns escalation policies filtered by team.
+// B11-9: teamID semantics — 0 returns only global policies (team_id=0).
+// Use ListAllPolicies() to get all policies regardless of team.
 func (r *EscalationPolicyRepository) ListByTeamID(ctx context.Context, teamID uint) ([]model.EscalationPolicy, error) {
 	var list []model.EscalationPolicy
 	query := r.db.WithContext(ctx).Model(&model.EscalationPolicy{})
-	if teamID > 0 {
-		query = query.Where("team_id = ?", teamID)
-	}
+	// B11-9: Always filter by team_id. teamID=0 matches global policies (team_id=0).
+	query = query.Where("team_id = ?", teamID)
 	err := query.Order("id DESC").Preload("Team").Preload("Steps", func(db *gorm.DB) *gorm.DB {
+		return db.Order("step_order ASC")
+	}).Find(&list).Error
+	return list, err
+}
+
+// ListAllPolicies returns all escalation policies regardless of team.
+// Use ListByTeamID(0) to get only global policies.
+func (r *EscalationPolicyRepository) ListAllPolicies(ctx context.Context) ([]model.EscalationPolicy, error) {
+	var list []model.EscalationPolicy
+	err := r.db.WithContext(ctx).Order("id DESC").Preload("Team").Preload("Steps", func(db *gorm.DB) *gorm.DB {
 		return db.Order("step_order ASC")
 	}).Find(&list).Error
 	return list, err
@@ -316,6 +328,11 @@ func (r *EscalationStepRepository) BatchLoadByPolicyIDs(ctx context.Context, pol
 
 // ReplaceByPolicyID replaces all steps for a policy in a single transaction.
 // Uses CreateInBatches to avoid N individual INSERT statements.
+//
+// B6-8 NOTE: This uses delete-then-recreate, which changes step IDs.
+// This is safe because EscalationStepExecution uses (event_id, policy_id, step_order)
+// as its dedup key — NOT step.ID. The dedup key is stable across step ID regeneration.
+// If external systems ever need stable step IDs, switch to UPSERT (ON DUPLICATE KEY UPDATE).
 func (r *EscalationStepRepository) ReplaceByPolicyID(ctx context.Context, policyID uint, steps []model.EscalationStep) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("policy_id = ?", policyID).Delete(&model.EscalationStep{}).Error; err != nil {
