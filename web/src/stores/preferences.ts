@@ -3,14 +3,15 @@ import { ref, watch } from 'vue'
 import type { UserPreferences } from '@/types'
 import { authApi } from '@/api'
 
-// FE8-10: TODO — User-configurable accent color beyond teal
-// Currently the primary/accent color is hardcoded to teal (#0D9488).
-// Plan:
-//  1. Add accent_color field to UserPreferences type (e.g., 'teal' | 'blue' | 'purple' | 'orange' | 'rose').
-//  2. Define a palette map: { teal: '#0D9488', blue: '#3B82F6', purple: '#8B5CF6', orange: '#F59E0B', rose: '#F43F5E' }
-//  3. On preference change, set CSS custom properties: --sre-primary, --sre-primary-soft, --sre-primary-ring.
-//  4. Add a color picker section in user profile/settings page.
-//  5. Persist to backend via preferences API.
+// FE8-10: Accent color palette and application logic
+export const ACCENT_COLORS: Record<string, { primary: string; soft: string; ring: string }> = {
+  teal:   { primary: '#0D9488', soft: 'rgba(13,148,136,0.10)', ring: 'rgba(13,148,136,0.25)' },
+  blue:   { primary: '#3B82F6', soft: 'rgba(59,130,246,0.10)', ring: 'rgba(59,130,246,0.25)' },
+  purple: { primary: '#8B5CF6', soft: 'rgba(139,92,246,0.10)', ring: 'rgba(139,92,246,0.25)' },
+  orange: { primary: '#F59E0B', soft: 'rgba(245,158,11,0.10)', ring: 'rgba(245,158,11,0.25)' },
+  rose:   { primary: '#F43F5E', soft: 'rgba(244,63,94,0.10)',  ring: 'rgba(244,63,94,0.25)' },
+  green:  { primary: '#10B981', soft: 'rgba(16,185,129,0.10)', ring: 'rgba(16,185,129,0.25)' },
+}
 
 const defaultPrefs: UserPreferences = {
   user_id: 0,
@@ -20,6 +21,7 @@ const defaultPrefs: UserPreferences = {
   default_time_range: '1h',
   notification_severities: 'critical,warning',
   ai_chat_mode: 'sidebar',
+  accent_color: 'teal',
 }
 
 export const usePreferencesStore = defineStore('preferences', () => {
@@ -96,6 +98,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
     osThemeHandler = null
   }
 
+  // FE8-10: Apply accent color to CSS custom properties
+  function applyAccentColor() {
+    const color = prefs.value.accent_color || 'teal'
+    const palette = ACCENT_COLORS[color] || ACCENT_COLORS.teal
+    document.documentElement.style.setProperty('--sre-primary', palette.primary)
+    document.documentElement.style.setProperty('--sre-primary-soft', palette.soft)
+    document.documentElement.style.setProperty('--sre-ring', palette.ring)
+  }
+
   // Apply language to i18n
   function applyLanguage(locale: { value: string }) {
     if (prefs.value.language) {
@@ -113,6 +124,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   })
 
+  // Watch accent color changes
+  watch(() => prefs.value.accent_color, () => {
+    applyAccentColor()
+  })
+
   return {
     prefs,
     loaded,
@@ -120,6 +136,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     update,
     reset,
     applyTheme,
+    applyAccentColor,
     applyLanguage,
   }
 })

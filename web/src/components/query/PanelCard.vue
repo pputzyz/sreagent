@@ -60,6 +60,31 @@ function openInExplore() {
   })
 }
 
+// FE4-13: Copy panel link to clipboard
+const linkCopied = ref(false)
+function copyPanelLink() {
+  const url = new URL(window.location.href)
+  // Add panel-specific query params
+  if (props.panel.id) url.searchParams.set('panel', String(props.panel.id))
+  const target = props.panel.targets?.[0]
+  if (target?.datasourceId) url.searchParams.set('ds', String(target.datasourceId))
+  if (target?.expression) url.searchParams.set('expr', target.expression)
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    linkCopied.value = true
+    setTimeout(() => { linkCopied.value = false }, 2000)
+  }).catch(() => {
+    // Fallback: select a temporary textarea
+    const ta = document.createElement('textarea')
+    ta.value = url.toString()
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    linkCopied.value = true
+    setTimeout(() => { linkCopied.value = false }, 2000)
+  })
+}
+
 const series = ref<QueryResponse['series']>([])
 const resultType = ref<'vector' | 'matrix' | 'logs' | null>(null)
 
@@ -425,6 +450,15 @@ onMounted(fetchData)
         @click="openInExplore"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </button>
+      <!-- FE4-13: Copy panel link -->
+      <button
+        class="panel-fs-btn"
+        :title="linkCopied ? 'Copied!' : 'Copy link'"
+        @click="copyPanelLink"
+      >
+        <svg v-if="!linkCopied" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
       </button>
       <span v-if="error" class="panel-error">{{ error }}</span>
     </div>

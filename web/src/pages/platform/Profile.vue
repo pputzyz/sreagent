@@ -4,6 +4,7 @@ import { useMessage, NForm, NFormItem, NInput, NButton, NSpin, NTabs, NTabPane, 
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { usePreferencesStore, ACCENT_COLORS } from '@/stores/preferences'
 import { authApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -13,6 +14,7 @@ const message = useMessage()
 const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
+const prefsStore = usePreferencesStore()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -93,6 +95,12 @@ const chatModeOptions = [
   { label: 'Modal', value: 'modal' },
   { label: 'Inline', value: 'inline' },
 ]
+
+const accentColorOptions = Object.entries(ACCENT_COLORS).map(([key, val]) => ({
+  label: key.charAt(0).toUpperCase() + key.slice(1),
+  value: key,
+  color: val.primary,
+}))
 
 onMounted(async () => {
   loading.value = true
@@ -181,6 +189,7 @@ async function handleSavePrefs() {
   prefsSaving.value = true
   try {
     await authApi.updatePreferences({ ...prefs })
+    prefsStore.applyAccentColor()
     message.success(t('common.saved'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err) || t('common.saveFailed'))
@@ -289,6 +298,23 @@ async function handleSavePrefs() {
               <n-form-item :label="t('profile.aiChatMode')">
                 <n-select v-model:value="prefs.ai_chat_mode" :options="chatModeOptions" />
               </n-form-item>
+              <!-- FE8-10: Accent color picker -->
+              <n-form-item :label="t('profile.accentColor')">
+                <div class="accent-color-grid">
+                  <button
+                    v-for="opt in accentColorOptions"
+                    :key="opt.value"
+                    class="accent-color-btn"
+                    :class="{ 'accent-color-btn--active': (prefs.accent_color || 'teal') === opt.value }"
+                    :style="{ '--swatch-color': opt.color }"
+                    :title="opt.label"
+                    @click="prefs.accent_color = opt.value"
+                  >
+                    <span class="accent-swatch" />
+                    <span class="accent-label">{{ opt.label }}</span>
+                  </button>
+                </div>
+              </n-form-item>
               <n-form-item>
                 <n-button type="primary" :loading="prefsSaving" @click="handleSavePrefs">
                   {{ t('common.save') }}
@@ -379,5 +405,43 @@ async function handleSavePrefs() {
   .avatar-presets-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+/* FE8-10: Accent color picker */
+.accent-color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.accent-color-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 2px solid transparent;
+  border-radius: var(--sre-radius-md);
+  background: var(--sre-bg-elevated);
+  cursor: pointer;
+  transition: all 150ms var(--sre-ease-out);
+}
+.accent-color-btn:hover {
+  border-color: var(--sre-border-strong);
+}
+.accent-color-btn--active {
+  border-color: var(--swatch-color);
+  background: var(--sre-primary-soft);
+}
+.accent-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--swatch-color);
+  flex-shrink: 0;
+}
+.accent-label {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+  text-transform: capitalize;
 }
 </style>

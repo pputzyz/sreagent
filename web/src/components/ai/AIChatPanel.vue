@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { messages, loading, error, lastFailedInput, sendMessage, retryLast, loadHistory, clearHistory } = useAIChat()
+const { messages, loading, error, lastFailedInput, hasMoreHistory, loadingMore, sendMessage, retryLast, loadHistory, loadMore, clearHistory } = useAIChat()
 
 const inputText = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
@@ -129,6 +129,17 @@ onMounted(() => {
 
       <div class="chat-body">
         <div ref="messageListRef" class="chat-messages">
+          <div v-if="hasMoreHistory" class="chat-load-more">
+            <n-button
+              size="tiny"
+              quaternary
+              :loading="loadingMore"
+              @click="loadMore"
+            >
+              {{ t('ai.loadMore') || 'Load earlier messages' }}
+            </n-button>
+          </div>
+
           <AIChatMessage
             v-for="(msg, idx) in messages"
             :key="msg.id || idx"
@@ -271,6 +282,12 @@ onMounted(() => {
   overflow-y: auto;
   padding: 4px 0;
   min-height: 0;
+}
+
+.chat-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
 }
 
 .chat-loading {

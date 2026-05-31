@@ -7,22 +7,47 @@ import { notificationCenterApi } from '@/api'
 
 const router = useRouter()
 const unreadCount = ref(0)
+const previousCount = ref(0)
 let interval: ReturnType<typeof setInterval> | null = null
+let audioCtx: AudioContext | null = null
 
-// FE6-8: TODO — Sound notification on new alerts
-// Currently the bell polls every 30s and updates the badge count silently.
-// Plan:
-//  1. Track previous unreadCount; on increase, play a short notification sound.
-//  2. Add a user preference (in preferences store) to enable/disable sound:
-//     - notification_sound: 'none' | 'subtle' | 'default'
-//  3. Use Web Audio API or a preloaded <audio> element for low-latency playback.
-//  4. Respect browser autoplay policy: only play after user interaction.
-//  5. Provide a "Test sound" button in notification settings.
+// FE6-8: Notification sound using Web Audio API
+// Respects user preference in localStorage: sre.notification.sound ('on' | 'off', default 'on')
+function isSoundEnabled(): boolean {
+  return localStorage.getItem('sre.notification.sound') !== 'off'
+}
+
+function playNotificationSound() {
+  if (!isSoundEnabled()) return
+  try {
+    if (!audioCtx) audioCtx = new AudioContext()
+    const ctx = audioCtx
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.15, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.3)
+  } catch {
+    // Audio not available (e.g., autoplay policy blocked)
+  }
+}
 
 async function fetchCount() {
   try {
     const { data } = await notificationCenterApi.unreadCount()
-    unreadCount.value = data.data?.count || 0
+    const newCount = data.data?.count || 0
+    // Play sound when count increases (skip first load)
+    if (previousCount.value > 0 && newCount > previousCount.value) {
+      playNotificationSound()
+    }
+    previousCount.value = newCount
+    unreadCount.value = newCount
   } catch {
     // ignore
   }
@@ -39,6 +64,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (interval) clearInterval(interval)
+  if (audioCtx) {
+    audioCtx.close().catch(() => {})
+    audioCtx = null
+  }
 })
 </script>
 

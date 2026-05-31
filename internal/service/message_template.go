@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"text/template"
+	"html/template"
 	"time"
 
 	"go.uber.org/zap"
@@ -174,12 +174,12 @@ func (s *MessageTemplateService) RenderTemplate(ctx context.Context, templateID 
 // RenderContent renders a Go template string with the given data.
 // A 5-second timeout prevents CPU exhaustion from malicious or buggy templates.
 //
-// SECURITY (B5-11): Uses text/template which does NOT auto-escape HTML.
-// This is acceptable for plain-text channels (SMS, webhook JSON) but poses
-// an XSS risk when the output is rendered as HTML (Lark rich cards, email).
-// TODO: Switch to html/template for HTML-rendering media channels, or add
-// a per-channel "content_type" field that selects the template engine.
-// In the meantime, user-supplied data in templates should be treated as untrusted.
+// SECURITY (B5-19): Uses html/template which auto-escapes HTML in template actions.
+// This prevents XSS when the output is rendered as HTML (Lark rich cards, email).
+// Template functions like `unescaped` and `safeHtml` return template.HTML which
+// html/template treats as pre-escaped safe content — these still work correctly.
+// For plain-text channels (SMS, webhook JSON) the escaping is harmless (no HTML entities
+// appear in normal alert data).
 func (s *MessageTemplateService) RenderContent(ctx context.Context, content string, data *TemplateData) (string, error) {
 	funcMap := tplx.TemplateFuncMap
 

@@ -972,6 +972,7 @@ export default {
     timezone: 'Timezone',
     defaultTimeRange: 'Default Time Range',
     aiChatMode: 'AI Chat Mode',
+    accentColor: 'Accent Color',
     invalidEmail: 'Please enter a valid email',
   },
   notification: {
@@ -2231,6 +2232,10 @@ export default {
     // Actions
     acknowledge: 'Acknowledge',
     close: 'Close',
+    bulkClose: 'Bulk Close',
+    bulkAcknowledge: 'Bulk Acknowledge',
+    bulkConfirmMsg: 'Are you sure you want to perform this action on {count} incident(s)?',
+    selectedCount: '{count} selected',
     reopen: 'Reopen',
     snooze: 'Snooze',
     reassign: 'Reassign',
@@ -2429,6 +2434,7 @@ export default {
     send: 'Send',
     clear: 'Clear',
     clearConfirm: 'Clear all chat history?',
+    loadMore: 'Load earlier messages',
     retry: 'Retry',
     askAI: 'Ask AI',
     thinking: 'Thinking…',

@@ -37,17 +37,9 @@ const router = useRouter()
 // datasources that don't support the Prometheus series API (e.g., Zabbix).
 // Cache metric names per datasource to avoid repeated fetches.
 
-// FE5-6: Visual PromQL Builder Mode — PLANNED
-// A visual query builder that constructs PromQL without writing raw text.
-// Architecture:
-//  1. Metric selector: dropdown populated from datasourceApi.metricNames()
-//  2. Label filters: key-value pair editor with autocomplete from labelKeys/labelValues
-//  3. Aggregation: function picker (sum, avg, min, max, count, etc.) with by/without clause
-//  4. Functions: rate/irate/increase/delta with range vector input
-//  5. Binary operations: arithmetic between queries
-//  6. Toggle between visual and code mode (visual generates code, code parses to visual)
-// Requires: PromQL parser (e.g., lezer-promql) for code-to-visual conversion.
-// Estimated effort: 3-5 days.
+// FE5-6: BLOCKED — Visual PromQL Builder Mode is a complex feature (3-5 days).
+// Requires: PromQL parser library (e.g., lezer-promql) for code-to-visual conversion.
+// Deferred to a future release. Current text-based query input remains the primary interface.
 
 // --- Datasources (shared) ---
 const datasources = ref<DataSource[]>([])

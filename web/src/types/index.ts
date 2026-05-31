@@ -817,6 +817,7 @@ export interface UserPreferences {
   default_time_range: string
   notification_severities: string
   ai_chat_mode: 'sidebar' | 'modal' | 'inline'
+  accent_color?: string
   created_at?: string
   updated_at?: string
 }

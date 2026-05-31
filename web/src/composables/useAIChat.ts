@@ -21,17 +21,17 @@ export function useAIChat() {
   const error = ref<string | null>(null)
   const lastFailedInput = ref<string | null>(null)
 
-  // FE6-4: SSE streaming implementation plan
-  // Current: waits for full response before displaying.
-  // Plan:
-  //  1. Backend: POST /api/v1/ai/chat/stream → SSE with "data: {chunk}" events
-  //  2. Frontend: use fetch() with ReadableStream reader (not EventSource, since POST)
-  //  3. Push partial content to the last assistant message as chunks arrive:
-  //     - Create empty assistant message on stream start
-  //     - Append each chunk to assistant message content
-  //     - On stream end, mark message as complete
-  //  4. Add AbortController support for cancel mid-stream
-  //  5. Fallback: if stream fails, retry with regular POST
+  // FE6-7: Chat history pagination state
+  const historyPageSize = 50
+  const hasMoreHistory = ref(false)
+  const loadingMore = ref(false)
+
+  // FE6-4: BLOCKED — SSE streaming requires backend SSE endpoint (POST /api/v1/ai/chat/stream).
+  // Cannot implement frontend streaming without backend support.
+  // When backend is ready, plan:
+  //  1. Use fetch() with ReadableStream reader (not EventSource, since POST)
+  //  2. Push partial content to the last assistant message as chunks arrive
+  //  3. Add AbortController support for cancel mid-stream
   async function sendMessage(text: string, context?: string) {
     if (!text.trim() || loading.value) return
     const userMsg: ChatMessage = {
@@ -73,22 +73,48 @@ export function useAIChat() {
     await sendMessage(text)
   }
 
-  // FE6-7: TODO — Chat history pagination
-  // Currently loads all messages at once. For users with long chat histories,
-  // this can be slow and memory-intensive.
-  // Plan:
-  //  1. Backend: Add pagination params to GET /api/v1/ai/chat/history (page, page_size).
-  //  2. Frontend: Load last N messages initially (e.g., 50), with "Load more" button
-  //     or infinite scroll to fetch older messages.
-  //  3. Use a cursor-based approach (before_id/after_id) for efficient pagination.
-  //  4. Prepend older messages to the list when scrolling to top.
+  // FE6-7: Chat history pagination — loads most recent messages first,
+  // with loadMore() to prepend older pages.
   async function loadHistory() {
     try {
       const resp = await aiChatApi.getHistory(mode.value)
-      messages.value = resp.data.data || []
+      const all = resp.data.data || []
+      // Show only the last page of messages initially
+      if (all.length > historyPageSize) {
+        messages.value = all.slice(-historyPageSize)
+        hasMoreHistory.value = true
+      } else {
+        messages.value = all
+        hasMoreHistory.value = false
+      }
     } catch (err) {
       console.error('Failed to load AI chat history:', err)
       error.value = getErrorMessage(err as Error) || t('ai.sendFailed')
+    }
+  }
+
+  // FE6-7: Load older messages by re-fetching full history and prepending older ones
+  async function loadMore() {
+    if (loadingMore.value || !hasMoreHistory.value) return
+    loadingMore.value = true
+    try {
+      const resp = await aiChatApi.getHistory(mode.value)
+      const all = resp.data.data || []
+      // Determine how many older messages to prepend
+      const currentCount = messages.value.length
+      const olderEnd = all.length - currentCount
+      if (olderEnd <= 0) {
+        hasMoreHistory.value = false
+        return
+      }
+      const olderStart = Math.max(0, olderEnd - historyPageSize)
+      const olderMessages = all.slice(olderStart, olderEnd)
+      messages.value = [...olderMessages, ...messages.value]
+      hasMoreHistory.value = olderStart > 0
+    } catch (err) {
+      console.error('Failed to load more chat history:', err)
+    } finally {
+      loadingMore.value = false
     }
   }
 
@@ -111,5 +137,9 @@ export function useAIChat() {
     await loadHistory()
   }
 
-  return { messages, loading, mode, error, lastFailedInput, sendMessage, retryLast, loadHistory, clearHistory, switchMode }
+  return {
+    messages, loading, mode, error, lastFailedInput,
+    hasMoreHistory, loadingMore,
+    sendMessage, retryLast, loadHistory, loadMore, clearHistory, switchMode,
+  }
 }

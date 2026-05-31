@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { incidentApi } from '@/api'
 import type { Incident } from '@/types'
@@ -25,6 +25,7 @@ import {
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -34,16 +35,64 @@ const statusFilter = ref<string>('')
 const severityFilter = ref<string>('')
 const searchQuery = ref('')
 
-// FE1-13: TODO — Incident list bulk actions
-// Plan:
-//  1. Add checkbox column to incident list rows for multi-select.
-//  2. Add "Select all" toggle in the filter bar.
-//  3. Show a floating action bar when items are selected:
-//     - Bulk close (POST /api/v1/incidents/bulk-close { ids: number[] })
-//     - Bulk assign (POST /api/v1/incidents/bulk-assign { ids: number[], user_id: number })
-//     - Bulk acknowledge (POST /api/v1/incidents/bulk-acknowledge { ids: number[] })
-//  4. Backend: Add bulk endpoints that accept array of IDs.
-//  5. Confirmation dialog before destructive bulk operations.
+// FE1-13: Bulk actions state
+const selectedIncidents = ref<Set<number>>(new Set())
+const bulkLoading = ref(false)
+
+function toggleSelect(id: number) {
+  const s = new Set(selectedIncidents.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  selectedIncidents.value = s
+}
+
+function toggleSelectAll() {
+  if (selectedIncidents.value.size === incidents.value.length) {
+    selectedIncidents.value = new Set()
+  } else {
+    selectedIncidents.value = new Set(incidents.value.map(i => i.id))
+  }
+}
+
+function clearSelection() {
+  selectedIncidents.value = new Set()
+}
+
+const allSelected = computed(() =>
+  incidents.value.length > 0 && selectedIncidents.value.size === incidents.value.length
+)
+
+function confirmBulkAction(action: 'close' | 'acknowledge') {
+  const count = selectedIncidents.value.size
+  if (count === 0) return
+  const label = action === 'close' ? t('incident.bulkClose') : t('incident.bulkAcknowledge')
+  dialog.warning({
+    title: label,
+    content: t('incident.bulkConfirmMsg', { count }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: () => executeBulkAction(action),
+  })
+}
+
+async function executeBulkAction(action: 'close' | 'acknowledge') {
+  const ids = Array.from(selectedIncidents.value)
+  bulkLoading.value = true
+  try {
+    if (action === 'close') {
+      await incidentApi.bulkClose(ids)
+    } else {
+      await incidentApi.bulkAcknowledge(ids)
+    }
+    message.success(t('common.success'))
+    clearSelection()
+    await fetchList()
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e) || t('common.failed'))
+  } finally {
+    bulkLoading.value = false
+  }
+}
 
 // FE1-5: Apply query params from overview drill-down
 onMounted(() => {
@@ -253,6 +302,16 @@ const hasFilters = computed(() =>
 
       <div class="filter-spacer" />
 
+      <n-checkbox
+        v-if="incidents.length > 0"
+        :checked="allSelected"
+        :indeterminate="selectedIncidents.size > 0 && !allSelected"
+        @update:checked="toggleSelectAll"
+        class="select-all-checkbox"
+      >
+        {{ t('common.selectAll') || 'Select all' }}
+      </n-checkbox>
+
       <n-input
         v-model:value="searchQuery"
         :placeholder="t('common.search')"
@@ -280,12 +339,17 @@ const hasFilters = computed(() =>
           v-for="row in incidents"
           :key="row.id"
           class="incident-row"
-          :class="{ 'is-closed': row.status === 'closed' }"
-          @click="gotoDetail(row.id)"
+          :class="{ 'is-closed': row.status === 'closed', 'is-selected': selectedIncidents.has(row.id) }"
         >
-          <span class="status-bar" :data-severity="row.severity" />
+          <n-checkbox
+            :checked="selectedIncidents.has(row.id)"
+            class="row-checkbox"
+            @update:checked="toggleSelect(row.id)"
+            @click.stop
+          />
+          <span class="status-bar" :data-severity="row.severity" @click="gotoDetail(row.id)" />
 
-          <div class="row-body">
+          <div class="row-body" @click="gotoDetail(row.id)">
             <div class="row-line-1">
               <span class="dot dot-lg" :data-severity="row.severity" />
               <span class="incident-title">{{ row.title }}</span>
@@ -345,6 +409,33 @@ const hasFilters = computed(() =>
         />
       </div>
     </n-spin>
+
+    <!-- FE1-13: Floating bulk action bar -->
+    <Transition name="bulk-bar">
+      <div v-if="selectedIncidents.size > 0" class="bulk-action-bar">
+        <span class="bulk-count">
+          {{ t('incident.selectedCount', { count: selectedIncidents.size }) || `${selectedIncidents.size} selected` }}
+        </span>
+        <n-button
+          size="small"
+          :loading="bulkLoading"
+          @click="confirmBulkAction('acknowledge')"
+        >
+          {{ t('incident.bulkAcknowledge') || 'Bulk Acknowledge' }}
+        </n-button>
+        <n-button
+          size="small"
+          type="warning"
+          :loading="bulkLoading"
+          @click="confirmBulkAction('close')"
+        >
+          {{ t('incident.bulkClose') || 'Bulk Close' }}
+        </n-button>
+        <n-button size="small" quaternary @click="clearSelection">
+          {{ t('common.cancel') }}
+        </n-button>
+      </div>
+    </Transition>
 
     <!-- Create Modal -->
     <n-modal
@@ -567,5 +658,49 @@ const hasFilters = computed(() =>
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+
+/* FE1-13: Bulk actions */
+.row-checkbox {
+  flex-shrink: 0;
+  margin-right: 8px;
+  z-index: 1;
+}
+.incident-row.is-selected {
+  border-color: var(--sre-primary);
+  background: var(--sre-primary-soft, rgba(var(--sre-primary-rgb, 13,148,136), 0.06));
+}
+.select-all-checkbox {
+  flex-shrink: 0;
+}
+.bulk-action-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--sre-bg-card);
+  border: 1px solid var(--sre-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  z-index: 100;
+}
+.bulk-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+  white-space: nowrap;
+}
+.bulk-bar-enter-active,
+.bulk-bar-leave-active {
+  transition: all 0.2s ease;
+}
+.bulk-bar-enter-from,
+.bulk-bar-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(12px);
 }
 </style>

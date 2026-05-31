@@ -705,6 +705,20 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			_ = repos.Event.UpdateLabels(ctx, event.ID, event.Labels)
 		}
 
+		// B8-15: Ingest resolved events into the knowledge base (async, non-blocking).
+		if event.Status == model.EventStatusResolved || event.Status == model.EventStatusClosed {
+			if svcs.KnowledgeSvc != nil {
+				go func(ev *model.AlertEvent) {
+					bgCtx, bgCancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer bgCancel()
+					if err := svcs.KnowledgeSvc.IngestFromAlertEvent(bgCtx, ev); err != nil {
+						zapLogger.Warn("knowledge ingestion failed for resolved event",
+							zap.Uint("event_id", ev.ID), zap.Error(err))
+					}
+				}(event)
+			}
+		}
+
 		// 2. Check inhibition rules (suppress target alerts when source is firing).
 		var firingEvents []model.AlertEvent
 		if evaluator != nil {

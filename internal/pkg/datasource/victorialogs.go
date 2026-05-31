@@ -207,6 +207,102 @@ func joinMapKeys(m map[string]bool) string {
 	return strings.Join(keys, ",")
 }
 
+// VictoriaLogsStatsQuery executes a LogsQL query with `| stats count()` appended,
+// which returns a single JSON object with the count — much more efficient than
+// fetching all NDJSON lines and counting client-side.
+//
+// VictoriaLogs API: POST /select/logsql/query
+// Response format: single JSON object — {"count": 12345}
+//
+// This is the optimized path for alert rules that only need a count of matching
+// log entries. The expression should NOT already contain a `| stats` pipe.
+func VictoriaLogsStatsQuery(ctx context.Context, endpoint, authType, authConfig, expression string, lookback time.Duration) ([]QueryResult, error) {
+	if lookback <= 0 {
+		lookback = 5 * time.Minute
+	}
+
+	apiURL := strings.TrimRight(endpoint, "/") + "/select/logsql/query"
+
+	// Append stats pipe to the expression for server-side counting.
+	statsQuery := expression + " | stats count()"
+
+	now := time.Now()
+	form := url.Values{}
+	form.Set("query", statsQuery)
+	form.Set("start", now.Add(-lookback).Format(time.RFC3339))
+	form.Set("end", now.Format(time.RFC3339))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stats query request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err := applyAuth(req, authType, authConfig); err != nil {
+		return nil, fmt.Errorf("stats query auth: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("stats query request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+		return nil, fmt.Errorf("stats query returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse the single JSON object response: {"count": 12345}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read stats query response: %w", err)
+	}
+
+	var statsResp struct {
+		Count float64 `json:"count"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(body), &statsResp); err != nil {
+		// Fallback: try NDJSON format (some VictoriaLogs versions may return NDJSON)
+		scanner := bufio.NewScanner(bytes.NewReader(body))
+		scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+		for scanner.Scan() {
+			line := bytes.TrimSpace(scanner.Bytes())
+			if len(line) == 0 {
+				continue
+			}
+			if err := json.Unmarshal(line, &statsResp); err == nil {
+				break
+			}
+		}
+		if statsResp.Count == 0 {
+			return nil, fmt.Errorf("stats query: failed to parse response: %s", truncateBody(body, 512))
+		}
+	}
+
+	labels := make(map[string]string, 3)
+	labels["__logsql__"] = "true"
+	labels["query"] = expression
+	labels["stats"] = "count"
+
+	return []QueryResult{
+		{
+			MetricName: "logsql_stats_count",
+			Labels:     labels,
+			Values: []DataPoint{
+				{Timestamp: now, Value: statsResp.Count},
+			},
+		},
+	}, nil
+}
+
+// truncateBody truncates a byte slice to maxLen for error messages.
+func truncateBody(body []byte, maxLen int) string {
+	if len(body) <= maxLen {
+		return string(body)
+	}
+	return string(body[:maxLen]) + "... (truncated)"
+}
+
 // LogEntry represents a single log line returned by VictoriaLogs.
 type LogEntry struct {
 	Timestamp time.Time              `json:"timestamp"`

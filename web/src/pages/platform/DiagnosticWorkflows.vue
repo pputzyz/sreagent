@@ -6,8 +6,12 @@ import {
   NButton, NIcon, NTag, NSwitch, NDrawer, NDrawerContent,
   NForm, NFormItem, NInput, NInputNumber, NSelect, NSpace, NDataTable,
   NPagination, NEmpty, NTabs, NTabPane, NCollapse, NCollapseItem,
+  NTimeline, NTimelineItem, NProgress,
 } from 'naive-ui'
-import { AddOutline, SearchOutline, PlayOutline, TrashOutline } from '@vicons/ionicons5'
+import {
+  AddOutline, SearchOutline, PlayOutline, TrashOutline, SwapVerticalOutline,
+  CheckmarkCircleOutline, CloseCircleOutline, TimeOutline, EllipseOutline,
+} from '@vicons/ionicons5'
 import type { DataTableColumns } from 'naive-ui'
 import { diagnosticApi } from '@/api/diagnostic'
 import type { DiagnosticWorkflow, DiagnosticWorkflowStep, DiagnosticRun, DiagnosticRunStep } from '@/api/diagnostic'
@@ -258,15 +262,54 @@ async function handleStartRun() {
 }
 
 // ─── Steps editor ───
-// FE7-8: Step drag-to-reorder — PLANNED
-// Implement drag-and-drop reordering for workflow steps using:
-//  1. HTML5 Drag and Drop API or a library like @vueuse/integrations (useDraggable)
-//  2. Add drag handle (grip icon) to each step card header
-//  3. On drop, reorder steps array and update step_order values
-//  4. Visual feedback: drag ghost, drop indicator line
-//  5. Touch support for mobile: use pointer events fallback
-// Alternative: add move-up/move-down arrow buttons (simpler, accessibility-friendly)
-// Estimated effort: 1-2 days.
+// FE7-8: Drag-and-drop reordering for workflow steps
+const dragIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+
+function onDragStart(idx: number, e: DragEvent) {
+  dragIndex.value = idx
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(idx))
+  }
+}
+
+function onDragOver(idx: number, e: DragEvent) {
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  dragOverIndex.value = idx
+}
+
+function onDragLeave() {
+  dragOverIndex.value = null
+}
+
+function onDrop(idx: number, e: DragEvent) {
+  e.preventDefault()
+  dragOverIndex.value = null
+  if (dragIndex.value === null || dragIndex.value === idx) return
+  const arr = [...steps.value]
+  const [moved] = arr.splice(dragIndex.value, 1)
+  arr.splice(idx, 0, moved)
+  // Update step_order
+  arr.forEach((s, i) => { s.step_order = i + 1 })
+  steps.value = arr
+  dragIndex.value = null
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+  dragOverIndex.value = null
+}
+
+function moveStep(idx: number, direction: -1 | 1) {
+  const target = idx + direction
+  if (target < 0 || target >= steps.value.length) return
+  const arr = [...steps.value]
+  ;[arr[idx], arr[target]] = [arr[target], arr[idx]]
+  arr.forEach((s, i) => { s.step_order = i + 1 })
+  steps.value = arr
+}
 
 function addStep() {
   steps.value.push({
@@ -287,15 +330,26 @@ function removeStep(index: number) {
 }
 
 // ─── Run detail ───
-// FE7-10: TODO — Visual workflow execution timeline
-// Currently run steps are displayed as a flat list of cards.
-// Plan:
-//  1. Replace the flat list with a vertical timeline component (Naive UI NTimeline).
-//  2. Each step shows: step name, status icon (pending/running/pass/fail), duration bar.
-//  3. Color-code steps: green (pass), red (fail), yellow (running), gray (pending).
-//  4. Add a horizontal progress bar at the top showing overall completion percentage.
-//  5. For failed steps, expand to show error details and suggested remediation.
-//  6. Optional: animated transitions when steps change status (via SSE or polling).
+// FE7-10: Timeline visualization for run results
+function stepTimelineType(status: string): 'success' | 'warning' | 'error' | 'info' {
+  if (status === 'completed') return 'success'
+  if (status === 'running') return 'warning'
+  if (status === 'failed') return 'error'
+  return 'info'
+}
+
+function stepTimelineIcon(status: string) {
+  if (status === 'completed') return CheckmarkCircleOutline
+  if (status === 'failed') return CloseCircleOutline
+  if (status === 'running') return TimeOutline
+  return EllipseOutline
+}
+
+const runProgress = computed(() => {
+  if (!runDetailSteps.value.length) return 0
+  const done = runDetailSteps.value.filter(s => s.status === 'completed' || s.status === 'failed').length
+  return Math.round((done / runDetailSteps.value.length) * 100)
+})
 
 async function openRunDetail(run: DiagnosticRun) {
   try {
@@ -618,12 +672,32 @@ onMounted(() => {
           <n-collapse>
             <n-collapse-item :title="t('diagnostic.steps') + ` (${steps.length})`" name="steps">
               <div class="steps-list">
-                <div v-for="(step, idx) in steps" :key="idx" class="step-card">
+                <div
+                  v-for="(step, idx) in steps"
+                  :key="idx"
+                  class="step-card"
+                  :class="{ 'step-drag-over': dragOverIndex === idx, 'step-dragging': dragIndex === idx }"
+                  draggable="true"
+                  @dragstart="onDragStart(idx, $event)"
+                  @dragover="onDragOver(idx, $event)"
+                  @dragleave="onDragLeave"
+                  @drop="onDrop(idx, $event)"
+                  @dragend="onDragEnd"
+                >
                   <div class="step-header">
+                    <n-icon :component="SwapVerticalOutline" class="drag-handle" size="14" />
                     <span class="step-order">#{{ idx + 1 }}</span>
-                    <n-button size="tiny" quaternary type="error" @click="removeStep(idx)">
-                      {{ t('common.remove') }}
-                    </n-button>
+                    <div class="step-header-actions">
+                      <n-button size="tiny" quaternary :disabled="idx === 0" @click="moveStep(idx, -1)">
+                        &uarr;
+                      </n-button>
+                      <n-button size="tiny" quaternary :disabled="idx === steps.length - 1" @click="moveStep(idx, 1)">
+                        &darr;
+                      </n-button>
+                      <n-button size="tiny" quaternary type="error" @click="removeStep(idx)">
+                        {{ t('common.remove') }}
+                      </n-button>
+                    </div>
                   </div>
                   <n-form label-placement="top" size="small">
                     <div style="display: flex; gap: 12px;">
@@ -730,22 +804,41 @@ onMounted(() => {
           </div>
 
           <div style="margin-top: 16px;">
-            <div class="sre-label-eyebrow" style="margin-bottom: 8px;">{{ t('diagnostic.steps') }}</div>
+            <div class="sre-label-eyebrow" style="margin-bottom: 8px;">
+              {{ t('diagnostic.steps') }}
+              <span v-if="runDetailSteps.length > 0" style="margin-left: 8px; font-size: 11px; color: var(--sre-text-tertiary);">
+                {{ runProgress }}%
+              </span>
+            </div>
+            <n-progress
+              v-if="runDetailSteps.length > 0"
+              :percentage="runProgress"
+              :show-indicator="false"
+              :height="4"
+              style="margin-bottom: 16px;"
+            />
             <div v-if="runDetailSteps.length === 0" style="color: var(--sre-text-tertiary); font-size: 13px;">
               {{ t('common.noData') }}
             </div>
-            <div v-for="step in runDetailSteps" :key="step.id" class="run-step-card">
-              <div class="run-step-header">
-                <span class="step-order">#{{ step.step_order }}</span>
-                <span class="run-step-name">{{ step.step_name }}</span>
-                <n-tag size="tiny" :type="stepStatusTag(step.status)" :bordered="false">
-                  {{ step.status }}
-                </n-tag>
-                <span class="run-step-duration">{{ step.duration_ms }}ms</span>
-              </div>
-              <div v-if="step.result" class="run-step-result">{{ step.result }}</div>
-              <div v-if="step.error" class="run-step-error">{{ step.error }}</div>
-            </div>
+            <n-timeline v-else>
+              <n-timeline-item
+                v-for="step in runDetailSteps"
+                :key="step.id"
+                :type="stepTimelineType(step.status)"
+                :icon="stepTimelineIcon(step.status)"
+              >
+                <div class="run-step-header">
+                  <span class="step-order">#{{ step.step_order }}</span>
+                  <span class="run-step-name">{{ step.step_name }}</span>
+                  <n-tag size="tiny" :type="stepStatusTag(step.status)" :bordered="false">
+                    {{ step.status }}
+                  </n-tag>
+                  <span class="run-step-duration">{{ step.duration_ms }}ms</span>
+                </div>
+                <div v-if="step.result" class="run-step-result">{{ step.result }}</div>
+                <div v-if="step.error" class="run-step-error">{{ step.error }}</div>
+              </n-timeline-item>
+            </n-timeline>
           </div>
         </template>
       </n-drawer-content>
@@ -785,12 +878,34 @@ onMounted(() => {
   border: var(--sre-hairline);
   border-radius: 8px;
   background: var(--sre-bg-elevated, rgba(255, 255, 255, 0.02));
+  transition: border-color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.step-card.step-drag-over {
+  border-color: var(--sre-primary);
+  border-style: dashed;
+}
+.step-card.step-dragging {
+  opacity: 0.5;
+}
+.drag-handle {
+  cursor: grab;
+  color: var(--sre-text-tertiary);
+  flex-shrink: 0;
+}
+.drag-handle:active {
+  cursor: grabbing;
 }
 .step-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 8px;
+}
+.step-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
 }
 .step-order {
   font-family: var(--sre-font-mono, monospace);

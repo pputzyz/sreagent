@@ -981,6 +981,7 @@ export default {
     timezone: '时区',
     defaultTimeRange: '默认时间范围',
     aiChatMode: 'AI 对话模式',
+    accentColor: '主题色',
     invalidEmail: '请输入有效的邮箱地址',
   },
   notification: {
@@ -2310,6 +2311,10 @@ export default {
     // Actions
     acknowledge: '认领',
     close: '关闭',
+    bulkClose: '批量关闭',
+    bulkAcknowledge: '批量认领',
+    bulkConfirmMsg: '确定要对 {count} 个事件执行此操作吗？',
+    selectedCount: '已选择 {count} 项',
     reopen: '重新打开',
     snooze: '暂缓',
     reassign: '重新分派',
@@ -2508,6 +2513,7 @@ export default {
     send: '发送',
     clear: '清空',
     clearConfirm: '确定要清空对话历史吗？',
+    loadMore: '加载更早的消息',
     retry: '重试',
     askAI: '问 AI',
     thinking: '思考中…',

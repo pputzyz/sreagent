@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -70,28 +71,27 @@ type sseSubscriber struct {
 
 // AgentService manages AI Agent tasks with two execution models:
 //
-// Execution Model A — Plan-then-Execute (runTask / StartAgent / RunAgent):
+// Execution Model A — Plan-then-Execute ("plan-execute"):
 //   1. LLM generates a full execution plan (JSON steps) upfront via planSteps
 //   2. Steps are executed sequentially via executeStep (tool.Execute)
 //   3. LLM summarizes all results via summarize
 //   Used by: StartAgent (async), RunAgent (sync)
 //
-// Execution Model B — Tool-Calling Loop (RunUntilDone):
+// Execution Model B — Tool-Calling Loop ("tool-calling", DEFAULT):
 //   1. LLM receives tools as OpenAI function definitions
 //   2. LLM autonomously decides which tools to call in a loop (callLLMWithToolsCustom)
 //   3. Loop continues until LLM produces a final text answer (no more tool_calls)
-//   Used by: RunUntilDone (direct chat with tool access)
+//   Used by: RunUntilDone (direct chat with tool access), StartAgent (async via feature flag)
 //
-// TODO(B8-14): These two models should be unified. Model A duplicates tool execution
-// logic (step planning, error handling, result truncation) that Model B handles more
-// elegantly via the LLM's native tool-calling ability. The recommended path forward is
-// to migrate Model A to use Model B's tool-calling loop internally, with the plan-step
-// prompt serving as the initial system instruction.
+// Feature flag: SREAGENT_AGENT_MODEL
+//   - "tool-calling" (default): StartAgent uses Model B's tool-calling loop internally
+//   - "plan-execute": StartAgent uses Model A's plan-then-execute approach
 type AgentService struct {
-	aiSvc    *AIService
-	toolReg  *AIToolRegistry
-	convRepo *repository.AIConversationRepository
-	logger   *zap.Logger
+	aiSvc      *AIService
+	toolReg    *AIToolRegistry
+	convRepo   *repository.AIConversationRepository
+	logger     *zap.Logger
+	agentModel string // "tool-calling" (default) or "plan-execute"
 
 	// 内存任务存储（用于快速轮询，DB 用于持久化）
 	mu    sync.RWMutex
@@ -114,11 +114,27 @@ type AgentService struct {
 // NewAgentService 创建 Agent 服务
 func NewAgentService(aiSvc *AIService, convRepo *repository.AIConversationRepository, toolReg *AIToolRegistry, logger *zap.Logger) *AgentService {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// B8-20: Feature flag for agent execution model.
+	// "tool-calling" (default) — Model B: LLM autonomously decides tool calls in a loop.
+	// "plan-execute" — Model A: LLM generates a full plan upfront, then executes sequentially.
+	agentModel := os.Getenv("SREAGENT_AGENT_MODEL")
+	if agentModel == "" {
+		agentModel = "tool-calling"
+	}
+	if agentModel != "tool-calling" && agentModel != "plan-execute" {
+		logger.Warn("invalid SREAGENT_AGENT_MODEL value, defaulting to tool-calling",
+			zap.String("value", agentModel))
+		agentModel = "tool-calling"
+	}
+	logger.Info("agent execution model configured", zap.String("model", agentModel))
+
 	s := &AgentService{
 		aiSvc:       aiSvc,
 		toolReg:     toolReg,
 		convRepo:    convRepo,
 		logger:      logger,
+		agentModel:  agentModel,
 		tasks:       make(map[string]*AgentTask),
 		subscribers: make(map[string][]*sseSubscriber),
 		ctx:         ctx,
@@ -325,12 +341,25 @@ func (s *AgentService) RunAgent(ctx context.Context, userID uint, query string) 
 }
 
 // runTask 执行已创建的任务（核心逻辑）
+// Dispatches to the appropriate execution model based on SREAGENT_AGENT_MODEL.
 func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask, error) {
+	// B8-20: Dispatch to the configured execution model.
+	if s.agentModel == "tool-calling" {
+		return s.runTaskWithToolCalling(ctx, task)
+	}
+	return s.runTaskPlanExecute(ctx, task)
+}
+
+// runTaskPlanExecute executes a task using Model A — Plan-then-Execute.
+// 1. LLM generates a full execution plan (JSON steps) upfront via planSteps
+// 2. Steps are executed sequentially via executeStep (tool.Execute)
+// 3. LLM summarizes all results via summarize
+func (s *AgentService) runTaskPlanExecute(ctx context.Context, task *AgentTask) (*AgentTask, error) {
 	// 总超时
 	ctx, cancel := context.WithTimeout(ctx, agentTotalTimeout)
 	defer cancel()
 
-	s.logger.Info("Agent 任务开始", zap.String("id", task.ID), zap.String("query", task.Query))
+	s.logger.Info("Agent 任务开始 (plan-execute)", zap.String("id", task.ID), zap.String("query", task.Query))
 
 	// 第 1 步：规划
 	steps, err := s.planSteps(ctx, task.Query)
@@ -424,6 +453,61 @@ func (s *AgentService) runTask(ctx context.Context, task *AgentTask) (*AgentTask
 	s.persistTask(task)
 
 	s.logger.Info("Agent 任务完成", zap.String("id", task.ID))
+	return task, nil
+}
+
+// runTaskWithToolCalling executes a task using Model B — Tool-Calling Loop.
+// The LLM autonomously decides which tools to call in a loop until it produces
+// a final text answer. This preserves the async task lifecycle (SSE updates,
+// persistence) while using the more elegant tool-calling approach.
+func (s *AgentService) runTaskWithToolCalling(ctx context.Context, task *AgentTask) (*AgentTask, error) {
+	ctx, cancel := context.WithTimeout(ctx, agentTotalTimeout)
+	defer cancel()
+
+	s.logger.Info("Agent 任务开始 (tool-calling)", zap.String("id", task.ID), zap.String("query", task.Query))
+	task.Status = "executing"
+	s.notifySubscribers(task)
+
+	// Build system prompt for the SRE agent
+	systemPrompt := "你是 SRE 运维助手。请根据用户查询，自主调用可用工具获取信息，然后给出简洁的中文回答。" +
+		"如果需要多个工具，按需逐步调用。最终回答格式：\n1. 简要总结\n2. 关键发现\n3. 建议的后续行动（如有）"
+
+	// Execute tool-calling loop
+	result, err := s.RunUntilDone(ctx, task.UserID, systemPrompt, task.Query, nil, agentMaxSteps)
+	if err != nil {
+		task.Status = "failed"
+		task.Error = fmt.Sprintf("tool-calling 执行失败: %v", err)
+		now := time.Now()
+		task.CompletedAt = &now
+		s.notifySubscribers(task)
+		s.finishStream(task)
+		s.persistTask(task)
+		return task, nil
+	}
+
+	// Convert tool call records to AgentStep for task representation
+	task.Steps = make([]AgentStep, len(result.ToolCalls))
+	for i, rec := range result.ToolCalls {
+		task.Steps[i] = AgentStep{
+			Index:       i + 1,
+			Description: fmt.Sprintf("调用工具 %s", rec.ToolName),
+			Tool:        rec.ToolName,
+			Status:      "completed",
+			Result:      truncateString(rec.Result, 500),
+		}
+	}
+
+	task.ConversationID = result.ConversationID
+	task.Result = result.FinalAnswer
+	task.Status = "completed"
+	now := time.Now()
+	task.CompletedAt = &now
+	s.notifySubscribers(task)
+	s.finishStream(task)
+	s.persistTask(task)
+
+	s.logger.Info("Agent 任务完成 (tool-calling)", zap.String("id", task.ID),
+		zap.Int("tool_calls", len(result.ToolCalls)))
 	return task, nil
 }
 

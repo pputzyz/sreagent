@@ -83,6 +83,13 @@ export const incidentApi = {
   close: (id: number) =>
     request.post<ApiResponse<null>>(`/incidents/${id}/close`),
 
+  // FE1-13: Bulk operations
+  bulkAcknowledge: (ids: number[]) =>
+    request.post<ApiResponse<null>>('/incidents/bulk-acknowledge', { ids }),
+
+  bulkClose: (ids: number[]) =>
+    request.post<ApiResponse<null>>('/incidents/bulk-close', { ids }),
+
   reopen: (id: number) =>
     request.post<ApiResponse<null>>(`/incidents/${id}/reopen`),
 

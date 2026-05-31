@@ -30,14 +30,8 @@ export interface AdhocFilter {
   value: string
 }
 
-// TODO(FE3-8): Real-time variable updates via SSE.
-// Currently, variables are resolved once on mount and when timeRange changes (polling via watch).
-// For dashboards with high-cardinality query variables that change frequently, consider:
-//  1. SSE endpoint on the backend that streams variable option changes (e.g., new label values)
-//  2. Frontend EventSource listener that updates options reactively without full re-query
-//  3. Debounced re-resolution on SSE events to avoid excessive re-renders
-//  4. Per-variable SSE subscription (only for query-type variables with a refresh_interval config)
-// This would reduce API polling overhead and provide near-instant variable option updates.
+// FE3-8: BLOCKED — Real-time variable updates via SSE requires backend SSE endpoint.
+// Cannot implement without backend support (GET /api/v1/variables/stream).
 export function useVariable(
   variables: Ref<VariableConfig[]>,
   timeRange: Ref<TimeRange>,
