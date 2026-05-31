@@ -746,7 +746,7 @@ func (h *DataSourceHandler) sendVariableSnapshot(c *gin.Context, dsID uint, expr
 	result, err := h.svc.QueryDatasource(c.Request.Context(), dsID, expression, time.Time{})
 	if err != nil {
 		errData, _ := json.Marshal(map[string]string{"error": err.Error()})
-		fmt.Fprintf(c.Writer, "data: %s\n\n", errData)
+		_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", errData)
 		c.Writer.Flush()
 		return
 	}
@@ -782,6 +782,6 @@ func (h *DataSourceHandler) sendVariableSnapshot(c *gin.Context, dsID uint, expr
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 	data, _ := json.Marshal(payload)
-	fmt.Fprintf(c.Writer, "data: %s\n\n", data)
+	_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", data)
 	c.Writer.Flush()
 }

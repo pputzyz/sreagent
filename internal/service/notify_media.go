@@ -1078,7 +1078,7 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 			time.Sleep(time.Duration(retryIntervalMs*multiplier) * time.Millisecond)
 			continue
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		}

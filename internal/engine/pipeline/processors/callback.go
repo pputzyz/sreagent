@@ -77,7 +77,8 @@ func (p *callbackProcessor) Process(ctx context.Context, event *model.AlertEvent
 	if p.SkipSSLVerify {
 		// nolint:gosec
 		if st, ok := client.Transport.(*safehttp.SafeTransport); ok {
-			st.Transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+			// nolint:gosec
+			st.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		}
 	}
 

@@ -132,17 +132,17 @@ func (s *KnowledgeBaseService) IngestFromAlertEvent(ctx context.Context, event *
 
 	// Build content from event metadata
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Alert: %s\n", event.AlertName))
-	sb.WriteString(fmt.Sprintf("Severity: %s\n", event.Severity))
-	sb.WriteString(fmt.Sprintf("Status: %s\n", event.Status))
-	sb.WriteString(fmt.Sprintf("Fired At: %s\n", event.FiredAt.Format(time.RFC3339)))
+	fmt.Fprintf(&sb, "Alert: %s\n", event.AlertName)
+	fmt.Fprintf(&sb, "Severity: %s\n", event.Severity)
+	fmt.Fprintf(&sb, "Status: %s\n", event.Status)
+	fmt.Fprintf(&sb, "Fired At: %s\n", event.FiredAt.Format(time.RFC3339))
 	if event.ResolvedAt != nil {
-		sb.WriteString(fmt.Sprintf("Resolved At: %s\n", event.ResolvedAt.Format(time.RFC3339)))
+		fmt.Fprintf(&sb, "Resolved At: %s\n", event.ResolvedAt.Format(time.RFC3339))
 		duration := event.ResolvedAt.Sub(event.FiredAt)
-		sb.WriteString(fmt.Sprintf("Duration: %s\n", duration.Round(time.Second)))
+		fmt.Fprintf(&sb, "Duration: %s\n", duration.Round(time.Second))
 	}
 	if event.FireCount > 1 {
-		sb.WriteString(fmt.Sprintf("Fire Count: %d\n", event.FireCount))
+		fmt.Fprintf(&sb, "Fire Count: %d\n", event.FireCount)
 	}
 	if labelStr != "" {
 		sb.WriteString(labelStr + "\n")
