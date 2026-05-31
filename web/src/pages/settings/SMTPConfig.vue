@@ -143,11 +143,8 @@ onMounted(() => load())
           <h3 class="sre-config-section-title">{{ t('settings.smtpSenderSection') }}</h3>
           <p class="sre-config-section-desc">{{ t('settings.smtpSenderDesc') }}</p>
           <div class="sre-config-form-grid">
-            <NFormItem :label="t('smtp.from')" :required="form.enabled">
+            <NFormItem :label="t('smtp.from')" :required="form.enabled" class="full-row">
               <NInput v-model:value="form.from" :placeholder="t('smtp.fromPlaceholder')" />
-            </NFormItem>
-            <NFormItem :label="t('settings.smtpFromName')">
-              <NInput v-model:value="form.from_name" :placeholder="t('settings.smtpFromNamePlaceholder')" />
             </NFormItem>
           </div>
           <div class="section-footer">

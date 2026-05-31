@@ -18,7 +18,7 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 		users.PUT("/:id", adminOnly, middleware.RequirePerm("user.write"), h.User.Update)
 		users.PATCH("/:id/active", adminOnly, middleware.RequirePerm("user.write"), h.User.ToggleActive)
 		users.PATCH("/:id/password", adminOnly, middleware.RequirePerm("user.write"), h.User.ResetPassword)
-		users.POST("/:id/reset-password", adminOnly, h.User.ResetPassword)
+		users.POST("/:id/reset-password", adminOnly, middleware.RequirePerm("user.write"), h.User.ResetPassword)
 		users.DELETE("/:id", adminOnly, middleware.RequirePerm("user.write"), h.User.DeleteUser)
 	}
 
@@ -42,11 +42,11 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 		bizGroups.GET("/tree", h.BizGroup.ListTree)
 		bizGroups.GET("/:id", h.BizGroup.Get)
 		bizGroups.GET("/:id/members", h.BizGroup.ListMembers)
-		bizGroups.POST("", manage, h.BizGroup.Create)
-		bizGroups.PUT("/:id", manage, h.BizGroup.Update)
-		bizGroups.DELETE("/:id", manage, h.BizGroup.Delete)
-		bizGroups.POST("/:id/members", manage, h.BizGroup.AddMember)
-		bizGroups.DELETE("/:id/members/:uid", manage, h.BizGroup.RemoveMember)
+		bizGroups.POST("", manage, middleware.RequirePerm("teams.manage"), h.BizGroup.Create)
+		bizGroups.PUT("/:id", manage, middleware.RequirePerm("teams.manage"), h.BizGroup.Update)
+		bizGroups.DELETE("/:id", manage, middleware.RequirePerm("teams.manage"), h.BizGroup.Delete)
+		bizGroups.POST("/:id/members", manage, middleware.RequirePerm("teams.manage"), h.BizGroup.AddMember)
+		bizGroups.DELETE("/:id/members/:uid", manage, middleware.RequirePerm("teams.manage"), h.BizGroup.RemoveMember)
 	}
 
 	// User Contacts (self-service, any authenticated user)

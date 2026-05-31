@@ -45,15 +45,15 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			chv2.GET("", h.ChannelV2.List)
 			chv2.GET("/:id", h.ChannelV2.Get)
-			chv2.POST("", manage, h.ChannelV2.Create)
-			chv2.PUT("/:id", manage, h.ChannelV2.Update)
-			chv2.DELETE("/:id", manage, h.ChannelV2.Delete)
+			chv2.POST("", manage, middleware.RequirePerm("channels.write"), h.ChannelV2.Create)
+			chv2.PUT("/:id", manage, middleware.RequirePerm("channels.write"), h.ChannelV2.Update)
+			chv2.DELETE("/:id", manage, middleware.RequirePerm("channels.write"), h.ChannelV2.Delete)
 			chv2.POST("/:id/star", h.ChannelV2.Star)
 			chv2.DELETE("/:id/star", h.ChannelV2.Unstar)
 			// Noise reduction config
 			if h.ExclusionRule != nil {
 				chv2.GET("/:id/exclusion-rules", h.ExclusionRule.List)
-				chv2.POST("/:id/exclusion-rules", manage, h.ExclusionRule.Create)
+				chv2.POST("/:id/exclusion-rules", manage, middleware.RequirePerm("exclusion.write"), h.ExclusionRule.Create)
 			}
 			// Dispatch policies
 			if h.DispatchPolicy != nil {
@@ -67,8 +67,8 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 	if h.ExclusionRule != nil {
 		excl := auth.Group("/exclusion-rules")
 		{
-			excl.PUT("/:id", manage, h.ExclusionRule.Update)
-			excl.DELETE("/:id", manage, h.ExclusionRule.Delete)
+			excl.PUT("/:id", manage, middleware.RequirePerm("exclusion.write"), h.ExclusionRule.Update)
+			excl.DELETE("/:id", manage, middleware.RequirePerm("exclusion.write"), h.ExclusionRule.Delete)
 		}
 	}
 
@@ -96,7 +96,7 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 
 	// Alertmanager config import (import receivers as channels + inhibit_rules)
 	if h.AlertmanagerImport != nil {
-		auth.POST("/integrations/import-alertmanager", manage, h.AlertmanagerImport.Import)
+		auth.POST("/integrations/import-alertmanager", manage, middleware.RequirePerm("integration.write"), h.AlertmanagerImport.Import)
 	}
 
 	// Routing rules
@@ -104,9 +104,9 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		rr := auth.Group("/routing-rules")
 		{
 			rr.GET("", h.RoutingRule.ListByIntegration) // ?integration_id=X
-			rr.POST("", manage, h.RoutingRule.Create)   // body: integration_id
-			rr.PUT("/:id", manage, h.RoutingRule.Update)
-			rr.DELETE("/:id", manage, h.RoutingRule.Delete)
+			rr.POST("", manage, middleware.RequirePerm("routing.write"), h.RoutingRule.Create)   // body: integration_id
+			rr.PUT("/:id", manage, middleware.RequirePerm("routing.write"), h.RoutingRule.Update)
+			rr.DELETE("/:id", manage, middleware.RequirePerm("routing.write"), h.RoutingRule.Delete)
 		}
 	}
 
@@ -116,7 +116,7 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			incidents.GET("", h.IncidentV2.List)
 			incidents.GET("/:id", h.IncidentV2.Get)
-			incidents.POST("", manage, h.IncidentV2.Create)
+			incidents.POST("", manage, middleware.RequirePerm("incident.write"), h.IncidentV2.Create)
 			incidents.GET("/:id/timeline", h.IncidentV2.GetTimeline)
 			incidents.POST("/:id/acknowledge", operate, h.IncidentV2.Acknowledge)
 			incidents.POST("/:id/close", operate, h.IncidentV2.Close)
@@ -137,7 +137,7 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			if h.PostMortem != nil {
 				incidents.GET("/:id/post-mortem", h.PostMortem.Get)
 				incidents.PUT("/:id/post-mortem", operate, h.PostMortem.Update)
-				incidents.POST("/:id/post-mortem/publish", manage, h.PostMortem.Publish)
+				incidents.POST("/:id/post-mortem/publish", manage, middleware.RequirePerm("incident.write"), h.PostMortem.Publish)
 				incidents.POST("/:id/post-mortem/ai-generate", operate, pmRL, h.PostMortem.AIGenerate)
 				incidents.POST("/:id/post-mortem/ai-summary", operate, pmRL, h.PostMortem.AISummary)
 			}
@@ -155,9 +155,9 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			kb.GET("", h.Knowledge.List)
 			kb.GET("/:id", h.Knowledge.Get)
-			kb.POST("", manage, h.Knowledge.Create)
-			kb.PUT("/:id", manage, h.Knowledge.Update)
-			kb.DELETE("/:id", manage, h.Knowledge.Delete)
+			kb.POST("", manage, middleware.RequirePerm("knowledge.write"), h.Knowledge.Create)
+			kb.PUT("/:id", manage, middleware.RequirePerm("knowledge.write"), h.Knowledge.Update)
+			kb.DELETE("/:id", manage, middleware.RequirePerm("knowledge.write"), h.Knowledge.Delete)
 			kb.POST("/search", h.Knowledge.Search)
 			kb.POST("/:id/helpful", operate, h.Knowledge.Helpful)
 		}
@@ -169,10 +169,10 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			diag.GET("", h.DiagnosticWorkflow.List)
 			diag.GET("/:id", h.DiagnosticWorkflow.Get)
-			diag.POST("", manage, h.DiagnosticWorkflow.Create)
-			diag.PUT("/:id", manage, h.DiagnosticWorkflow.Update)
-			diag.DELETE("/:id", manage, h.DiagnosticWorkflow.Delete)
-			diag.PUT("/:id/steps", manage, h.DiagnosticWorkflow.ReplaceSteps)
+			diag.POST("", manage, middleware.RequirePerm("diagnostic.write"), h.DiagnosticWorkflow.Create)
+			diag.PUT("/:id", manage, middleware.RequirePerm("diagnostic.write"), h.DiagnosticWorkflow.Update)
+			diag.DELETE("/:id", manage, middleware.RequirePerm("diagnostic.write"), h.DiagnosticWorkflow.Delete)
+			diag.PUT("/:id/steps", manage, middleware.RequirePerm("diagnostic.write"), h.DiagnosticWorkflow.ReplaceSteps)
 			diag.POST("/:id/run", operate, h.DiagnosticWorkflow.StartRun)
 			diag.POST("/match", operate, h.DiagnosticWorkflow.MatchWorkflows)
 		}
@@ -190,8 +190,8 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			changes.GET("", h.ChangeEvent.List)
 			changes.GET("/:id", h.ChangeEvent.Get)
-			changes.POST("", manage, h.ChangeEvent.Ingest)
-			changes.DELETE("/:id", manage, h.ChangeEvent.Delete)
+			changes.POST("", manage, middleware.RequirePerm("change.write"), h.ChangeEvent.Ingest)
+			changes.DELETE("/:id", manage, middleware.RequirePerm("change.write"), h.ChangeEvent.Delete)
 		}
 	}
 

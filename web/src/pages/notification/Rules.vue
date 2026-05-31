@@ -222,7 +222,7 @@ function summarizeMedia(r: NotifyRule): string[] {
 
 async function toggleEnabled(row: NotifyRule, val: boolean) {
   try {
-    await notifyRuleApi.update(row.id, { ...row, is_enabled: val })
+    await notifyRuleApi.update(row.id, { is_enabled: val })
     rules.value = rules.value.map(r => r.id === row.id ? { ...r, is_enabled: val } : r)
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }

@@ -558,21 +558,21 @@ func (s *SystemSettingService) SaveLarkConfig(ctx context.Context, cfg LarkConfi
 		return enc, nil
 	}
 
-	if cfg.AppSecret != "" {
+	if cfg.AppSecret != "" && cfg.AppSecret != "********" {
 		enc, err := encryptField(groupLark, "app_secret", cfg.AppSecret)
 		if err != nil {
 			return err
 		}
 		kv["app_secret"] = enc
 	}
-	if cfg.EncryptKey != "" {
+	if cfg.EncryptKey != "" && cfg.EncryptKey != "********" {
 		enc, err := encryptField(groupLark, "encrypt_key", cfg.EncryptKey)
 		if err != nil {
 			return err
 		}
 		kv["encrypt_key"] = enc
 	}
-	if cfg.VerificationToken != "" {
+	if cfg.VerificationToken != "" && cfg.VerificationToken != "********" {
 		enc, err := encryptField(groupLark, "verification_token", cfg.VerificationToken)
 		if err != nil {
 			return err

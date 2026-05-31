@@ -116,8 +116,8 @@ func (e *Evaluator) collectAllEvaluators() []*RuleEvaluator {
 			return true
 		}
 		bucket.rules.Range(func(_, rv any) bool {
-			if re, ok := rv.(*RuleEvaluator); ok {
-				evals = append(evals, re)
+			if rv2, ok := rv.(*ruleVersion); ok {
+				evals = append(evals, rv2.evaluator)
 			}
 			return true
 		})

@@ -19,7 +19,7 @@ const defaultPrefs: UserPreferences = {
   language: 'zh-CN',
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
   default_time_range: '1h',
-  notification_severities: 'critical,warning',
+  notification_severities: '["critical","warning"]',
   ai_chat_mode: 'sidebar',
   accent_color: 'teal',
 }

@@ -540,11 +540,6 @@ func (e *Evaluator) Stop() {
 		// Stop level suppressor GC
 		e.suppressor.Stop()
 
-		// Cancel the evaluator context so in-flight onAlert callbacks are cancelled.
-		if e.cancel != nil {
-			e.cancel()
-		}
-
 		// Collect evaluator references under lock, then stop them after releasing the lock.
 		e.mu.Lock()
 		evals := make([]*RuleEvaluator, 0, len(e.evaluators))
@@ -556,6 +551,12 @@ func (e *Evaluator) Stop() {
 
 		for _, re := range evals {
 			re.Stop()
+		}
+
+		// Cancel the evaluator context AFTER stopping evaluators so that
+		// in-flight operations can finish gracefully before context is cancelled.
+		if e.cancel != nil {
+			e.cancel()
 		}
 
 		// Clean up per-datasource buckets

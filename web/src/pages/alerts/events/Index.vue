@@ -311,6 +311,7 @@ async function batchCloseAction() {
 async function batchSilence() {
   const ids = Array.from(selected.value)
   if (!ids.length) return
+  batchLoading.value = true
   try {
     await Promise.all(
       ids.map((id) =>
@@ -322,7 +323,7 @@ async function batchSilence() {
     fetchList()
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
-  }
+  } finally { batchLoading.value = false }
 }
 
 function rowActions(ev: AlertEvent) {

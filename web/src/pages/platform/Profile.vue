@@ -190,6 +190,8 @@ async function handleSavePrefs() {
   try {
     await authApi.updatePreferences({ ...prefs })
     prefsStore.applyAccentColor()
+    prefsStore.applyTheme()
+    prefsStore.applyLanguage({ value: prefs.language })
     message.success(t('common.saved'))
   } catch (err: unknown) {
     message.error(getErrorMessage(err) || t('common.saveFailed'))

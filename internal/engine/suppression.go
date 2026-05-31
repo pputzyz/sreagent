@@ -66,6 +66,11 @@ type LevelSuppressor struct {
 	logger      *zap.Logger
 	startOnce   sync.Once
 	muteChecker MuteRuleChecker // optional; nil = skip engine-level mute checks
+	// Mute rule cache — avoids hitting the DB on every evaluation cycle.
+	muteRulesCache    []model.MuteRule
+	muteRulesCacheAt  time.Time
+	muteRulesCacheMu  sync.RWMutex
+	muteRulesCacheTTL time.Duration // default 30s if zero
 }
 
 // NewLevelSuppressor creates a new LevelSuppressor.
@@ -96,11 +101,8 @@ func (s *LevelSuppressor) IsMutedByAnyRule(ctx context.Context, eventLabels map[
 		return false, 0
 	}
 
-	rules, err := s.muteChecker.FindEnabled(ctx)
-	if err != nil {
-		if s.logger != nil {
-			s.logger.Error("failed to load mute rules for engine check", zap.Error(err))
-		}
+	rules := s.getCachedMuteRules(ctx)
+	if len(rules) == 0 {
 		return false, 0
 	}
 
@@ -117,6 +119,42 @@ func (s *LevelSuppressor) IsMutedByAnyRule(ctx context.Context, eventLabels map[
 		}
 	}
 	return false, 0
+}
+
+// getCachedMuteRules returns mute rules from the TTL cache, refreshing from DB on miss.
+func (s *LevelSuppressor) getCachedMuteRules(ctx context.Context) []model.MuteRule {
+	ttl := s.muteRulesCacheTTL
+	if ttl == 0 {
+		ttl = 30 * time.Second
+	}
+
+	s.muteRulesCacheMu.RLock()
+	if s.muteRulesCache != nil && time.Since(s.muteRulesCacheAt) < ttl {
+		rules := s.muteRulesCache
+		s.muteRulesCacheMu.RUnlock()
+		return rules
+	}
+	s.muteRulesCacheMu.RUnlock()
+
+	// Cache miss — refresh under write lock with double-check.
+	s.muteRulesCacheMu.Lock()
+	defer s.muteRulesCacheMu.Unlock()
+	if s.muteRulesCache != nil && time.Since(s.muteRulesCacheAt) < ttl {
+		return s.muteRulesCache
+	}
+
+	rules, err := s.muteChecker.FindEnabled(ctx)
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Error("failed to load mute rules for engine check", zap.Error(err))
+		}
+		// Return stale cache on error if available.
+		return s.muteRulesCache
+	}
+
+	s.muteRulesCache = rules
+	s.muteRulesCacheAt = time.Now()
+	return rules
 }
 
 // Start launches the background GC goroutine that removes stale entries every hour.

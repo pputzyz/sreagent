@@ -49,7 +49,7 @@ func (h *OIDCHandler) LoginRedirect(c *gin.Context) {
 
 	// Store state in a secure cookie for CSRF protection
 	c.SetSameSite(http.SameSiteLaxMode)
-	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	secure := c.Request.TLS != nil
 	c.SetCookie("oidc_state", state, 300, "/", "", secure, true)
 
 	c.Redirect(http.StatusFound, authURL)
@@ -78,7 +78,7 @@ func (h *OIDCHandler) Callback(c *gin.Context) {
 	}
 
 	// Clear the state cookie
-	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	secure := c.Request.TLS != nil
 	c.SetCookie("oidc_state", "", -1, "/", "", secure, true)
 
 	// Check for error from IdP
@@ -141,7 +141,7 @@ func (h *OIDCHandler) CallbackJSON(c *gin.Context) {
 		return
 	}
 	// Clear the state cookie
-	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	secure := c.Request.TLS != nil
 	c.SetCookie("oidc_state", "", -1, "/", "", secure, true)
 
 	token, expiresIn, err := h.svc.ExchangeAndLogin(c.Request.Context(), req.Code)

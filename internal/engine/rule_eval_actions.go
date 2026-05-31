@@ -154,6 +154,10 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 // using a single targeted UPDATE, avoiding a prior SELECT round-trip.
 func (re *RuleEvaluator) updateFiringEvent(state *AlertState) {
 	if state.EventID == 0 {
+		re.logger.Warn("updateFiringEvent called with EventID=0, skipping — event was never created",
+			zap.String("status", state.Status),
+			zap.Uint("rule_id", re.rule.ID),
+		)
 		return
 	}
 

@@ -16,7 +16,7 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 		rules.GET("", h.AlertRule.List)
 		rules.GET("/:id", h.AlertRule.Get)
 		rules.GET("/categories", h.AlertRule.ListCategories)
-		rules.GET("/export", h.AlertRule.Export)
+		rules.GET("/export", manage, h.AlertRule.Export)
 		rules.GET("/label-validation-preview", manage, h.AlertRule.LabelValidationPreview)
 		rules.POST("", manage, middleware.RequirePerm("rules.write"), h.AlertRule.Create)
 		rules.PUT("/:id", manage, middleware.RequirePerm("rules.write"), h.AlertRule.Update)
@@ -36,10 +36,10 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 			templates.GET("", h.AlertRuleTemplate.List)
 			templates.GET("/categories", h.AlertRuleTemplate.ListCategories)
 			templates.GET("/:id", h.AlertRuleTemplate.Get)
-			templates.POST("", manage, h.AlertRuleTemplate.Create)
-			templates.PUT("/:id", manage, h.AlertRuleTemplate.Update)
-			templates.DELETE("/:id", manage, h.AlertRuleTemplate.Delete)
-			templates.POST("/:id/apply", manage, h.AlertRuleTemplate.Apply)
+			templates.POST("", manage, middleware.RequirePerm("rules.write"), h.AlertRuleTemplate.Create)
+			templates.PUT("/:id", manage, middleware.RequirePerm("rules.write"), h.AlertRuleTemplate.Update)
+			templates.DELETE("/:id", manage, middleware.RequirePerm("rules.write"), h.AlertRuleTemplate.Delete)
+			templates.POST("/:id/apply", manage, middleware.RequirePerm("rules.write"), h.AlertRuleTemplate.Apply)
 		}
 	}
 
@@ -50,10 +50,10 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 			presets.GET("", h.PresetRule.List)
 			presets.GET("/categories", h.PresetRule.Categories)
 			presets.GET("/:id", h.PresetRule.Get)
-			presets.POST("/:id/apply", manage, h.PresetRule.Apply)
-			presets.POST("/batch-apply", manage, h.PresetRule.BatchApply)
-			presets.POST("/import", manage, h.PresetRule.Import)
-			presets.DELETE("/:id", manage, h.PresetRule.Delete)
+			presets.POST("/:id/apply", manage, middleware.RequirePerm("rules.write"), h.PresetRule.Apply)
+			presets.POST("/batch-apply", manage, middleware.RequirePerm("rules.write"), h.PresetRule.BatchApply)
+			presets.POST("/import", manage, middleware.RequirePerm("rules.write"), h.PresetRule.Import)
+			presets.DELETE("/:id", manage, middleware.RequirePerm("rules.write"), h.PresetRule.Delete)
 		}
 	}
 

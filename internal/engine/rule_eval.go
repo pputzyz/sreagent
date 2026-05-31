@@ -212,13 +212,19 @@ func (re *RuleEvaluator) evaluate() {
 							zap.Uint("mute_rule_id", muteID),
 						)
 					} else {
-						state.Status = "firing"
 						state.FiredAt = now
-						state.Revision++
 						if re.suppressor != nil {
 							re.suppressor.UpdateSeverity(re.rule.ID, fp, severity)
 						}
 						re.createAlertEvent(state, model.EventStatusFiring)
+						if state.EventID == 0 {
+							// DB write failed — state was reverted to "pending" inside createAlertEvent.
+							state.Status = "pending"
+							state.FiredAt = time.Time{}
+						} else {
+							state.Status = "firing"
+							state.Revision++
+						}
 						re.persistState(fp, state)
 					}
 				}
@@ -346,11 +352,17 @@ func (re *RuleEvaluator) evaluate() {
 			sl.state = newState
 			re.persistState(noDataFP, newState)
 		} else if sl.state.Status == "pending" && time.Since(sl.state.ActiveAt) >= noDataDuration {
-			sl.state.Status = "firing"
 			sl.state.FiredAt = now
-			sl.state.Revision++
 			re.createAlertEvent(sl.state, model.EventStatusFiring)
-			metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "nodata")
+			if sl.state.EventID == 0 {
+				// DB write failed — state was reverted to "pending" inside createAlertEvent.
+				sl.state.Status = "pending"
+				sl.state.FiredAt = time.Time{}
+			} else {
+				sl.state.Status = "firing"
+				sl.state.Revision++
+				metrics.IncAlertsEvaluated(strconv.FormatUint(uint64(re.rule.ID), 10), "nodata")
+			}
 			re.persistState(noDataFP, sl.state)
 		}
 

@@ -34,6 +34,11 @@ const viewMode = ref<'all' | 'mine'>('all')
 const statusFilter = ref<string>('')
 const severityFilter = ref<string>('')
 const searchQuery = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+function onSearchUpdate() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => fetchList(), 300)
+}
 
 // FE1-13: Bulk actions state
 const selectedIncidents = ref<Set<number>>(new Set())
@@ -318,7 +323,7 @@ const hasFilters = computed(() =>
         clearable
         size="small"
         class="search-box"
-        @update:value="fetchList"
+        @update:value="onSearchUpdate"
       >
         <template #prefix><n-icon :component="SearchOutline" /></template>
       </n-input>

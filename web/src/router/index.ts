@@ -139,6 +139,7 @@ router.beforeEach((to, _from, next) => {
     const oidcToken = params.get('oidc_token')
     if (oidcToken) {
       localStorage.setItem('token', oidcToken)
+      useAuthStore().setToken(oidcToken)
       // Clear the hash fragment
       window.history.replaceState(null, '', '/')
       next({ path: '/', replace: true })
@@ -150,6 +151,7 @@ router.beforeEach((to, _from, next) => {
   const oidcTokenQuery = to.query.oidc_token as string | undefined
   if (oidcTokenQuery) {
     localStorage.setItem('token', oidcTokenQuery)
+    useAuthStore().setToken(oidcTokenQuery)
     next({ path: '/', replace: true })
     return
   }
@@ -161,6 +163,7 @@ router.beforeEach((to, _from, next) => {
     const oauth2Token = params.get('oauth2_token')
     if (oauth2Token) {
       localStorage.setItem('token', oauth2Token)
+      useAuthStore().setToken(oauth2Token)
       window.history.replaceState(null, '', '/')
       next({ path: '/', replace: true })
       return

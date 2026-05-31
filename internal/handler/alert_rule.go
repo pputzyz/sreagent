@@ -647,11 +647,21 @@ func (h *AlertRuleHandler) Export(c *gin.Context) {
 	category := c.Query("category")
 	format := c.Query("format")
 
+	// Team-scoped listing: admin sees all, non-admin sees only own team's rules.
+	currentRole, _ := c.Get("role")
+	isAdmin := currentRole == "admin"
+	teamIDs := middleware.GetUserTeamIDs(c)
+
 	// Fetch all rules (using a large page size to get all)
-	list, _, err := h.svc.List(c.Request.Context(), "", "", groupName, category, "", nil, 1, 10000)
+	list, _, err := h.svc.ListScoped(c.Request.Context(), isAdmin, teamIDs, "", "", groupName, category, "", nil, 1, 10000)
 	if err != nil {
 		Error(c, err)
 		return
+	}
+
+	// Mask heartbeat tokens before export
+	for i := range list {
+		list[i] = list[i].MaskHeartbeatToken()
 	}
 
 	// Group rules by GroupName

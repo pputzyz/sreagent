@@ -191,21 +191,8 @@ func (s *NotifyRuleService) Delete(ctx context.Context, id uint) error {
 // ProcessEvent processes an alert event through a notify rule's pipeline
 // and dispatches notifications via the configured media.
 func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.AlertEvent, notifyRuleID uint) error {
-	// 0. Inhibition check: suppress notification if a higher-priority alert is firing.
-	// Mirrors the check in NotificationService.RouteAlert for direct ProcessEvent callers.
-	if s.inhibitionSvc != nil && s.eventRepo != nil {
-		firingEvents, _, err := s.eventRepo.List(ctx, "firing", "", 1, 500)
-		if err == nil && len(firingEvents) > 0 {
-			if s.inhibitionSvc.IsInhibited(ctx, event, firingEvents) {
-				s.logger.Info("notification inhibited by inhibition rule (notify_rule)",
-					zap.Uint("event_id", event.ID),
-					zap.String("alert_name", event.AlertName),
-					zap.Uint("rule_id", notifyRuleID),
-				)
-				return nil
-			}
-		}
-	}
+	// NOTE: Inhibition check is performed upstream in NotificationService.RouteAlert
+	// before calling ProcessEvent, so it is not duplicated here.
 
 	// B4-5: Mute rule check — suppress notification if any active mute rule matches.
 	if s.muteSvc != nil && s.muteSvc.IsAlertMuted(ctx, event) {

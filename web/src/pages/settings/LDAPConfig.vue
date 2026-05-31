@@ -25,6 +25,8 @@ const defaultRoleOptions = computed(() => [
   { label: t('settings.admin'), value: 'admin' },
   { label: t('settings.teamLead'), value: 'team_lead' },
   { label: t('settings.member'), value: 'member' },
+  { label: t('settings.viewer') || 'Viewer', value: 'viewer' },
+  { label: t('settings.globalViewer') || 'Global Viewer', value: 'global_viewer' },
 ])
 
 async function saveProvider() {

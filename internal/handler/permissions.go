@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/pkg/rbac"
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -24,7 +25,7 @@ func (h *PermissionsHandler) GetMyPermissions(c *gin.Context) {
 		return
 	}
 
-	role, _ := c.Get("user_role")
+	role, _ := c.Get(middleware.ContextKeyRole)
 	roleStr, _ := role.(string)
 
 	// Get team-level roles and merge with global role

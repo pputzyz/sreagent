@@ -46,6 +46,7 @@ func (h *UserPreferenceHandler) Update(c *gin.Context) {
 		DefaultTimeRange       *string `json:"default_time_range"`
 		NotificationSeverities *string `json:"notification_severities"`
 		AIChatMode             *string `json:"ai_chat_mode"`
+		AccentColor            *string `json:"accent_color"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
@@ -76,6 +77,9 @@ func (h *UserPreferenceHandler) Update(c *gin.Context) {
 	}
 	if req.AIChatMode != nil {
 		pref.AIChatMode = *req.AIChatMode
+	}
+	if req.AccentColor != nil {
+		pref.AccentColor = *req.AccentColor
 	}
 
 	if err := h.svc.Update(c.Request.Context(), pref); err != nil {

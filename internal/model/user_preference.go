@@ -10,6 +10,7 @@ type UserPreference struct {
 	DefaultTimeRange       string `json:"default_time_range" gorm:"size:16;default:24h"`       // 1h | 6h | 24h | 7d | 30d
 	NotificationSeverities string `json:"notification_severities" gorm:"type:json"` // JSON array
 	AIChatMode             string `json:"ai_chat_mode" gorm:"size:16;default:sidebar"`         // sidebar | modal | inline
+	AccentColor            string `json:"accent_color" gorm:"size:16;default:''"`               // hex color e.g. #18a058
 }
 
 func (UserPreference) TableName() string {

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/smtp"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -1444,11 +1445,14 @@ func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.Noti
 }
 
 func (s *NotifyMediaService) getWeComAccessToken(ctx context.Context, corpID, corpSecret string) (string, error) {
-	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=%s&corpsecret=%s", corpID, corpSecret)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	form := url.Values{}
+	form.Set("corpid", corpID)
+	form.Set("corpsecret", corpSecret)
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://qyapi.weixin.qq.com/cgi-bin/gettoken", strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := safehttp.NewSafeClient(15 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {

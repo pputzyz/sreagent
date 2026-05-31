@@ -43,10 +43,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /** Accept a token from OIDC callback redirect */
+  /** Accept a token from OIDC/OAuth2 callback redirect */
   function setToken(oidcToken: string) {
     token.value = oidcToken
     localStorage.setItem('token', oidcToken)
+    fetchProfile()
   }
 
   async function fetchProfile() {
