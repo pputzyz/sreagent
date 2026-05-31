@@ -34,6 +34,17 @@ const statusFilter = ref<string>('')
 const severityFilter = ref<string>('')
 const searchQuery = ref('')
 
+// FE1-13: TODO — Incident list bulk actions
+// Plan:
+//  1. Add checkbox column to incident list rows for multi-select.
+//  2. Add "Select all" toggle in the filter bar.
+//  3. Show a floating action bar when items are selected:
+//     - Bulk close (POST /api/v1/incidents/bulk-close { ids: number[] })
+//     - Bulk assign (POST /api/v1/incidents/bulk-assign { ids: number[], user_id: number })
+//     - Bulk acknowledge (POST /api/v1/incidents/bulk-acknowledge { ids: number[] })
+//  4. Backend: Add bulk endpoints that accept array of IDs.
+//  5. Confirmation dialog before destructive bulk operations.
+
 // FE1-5: Apply query params from overview drill-down
 onMounted(() => {
   if (route.query.status) statusFilter.value = String(route.query.status)

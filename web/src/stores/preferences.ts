@@ -3,6 +3,15 @@ import { ref, watch } from 'vue'
 import type { UserPreferences } from '@/types'
 import { authApi } from '@/api'
 
+// FE8-10: TODO — User-configurable accent color beyond teal
+// Currently the primary/accent color is hardcoded to teal (#0D9488).
+// Plan:
+//  1. Add accent_color field to UserPreferences type (e.g., 'teal' | 'blue' | 'purple' | 'orange' | 'rose').
+//  2. Define a palette map: { teal: '#0D9488', blue: '#3B82F6', purple: '#8B5CF6', orange: '#F59E0B', rose: '#F43F5E' }
+//  3. On preference change, set CSS custom properties: --sre-primary, --sre-primary-soft, --sre-primary-ring.
+//  4. Add a color picker section in user profile/settings page.
+//  5. Persist to backend via preferences API.
+
 const defaultPrefs: UserPreferences = {
   user_id: 0,
   theme: 'auto',

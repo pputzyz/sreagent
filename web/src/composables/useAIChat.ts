@@ -73,6 +73,15 @@ export function useAIChat() {
     await sendMessage(text)
   }
 
+  // FE6-7: TODO — Chat history pagination
+  // Currently loads all messages at once. For users with long chat histories,
+  // this can be slow and memory-intensive.
+  // Plan:
+  //  1. Backend: Add pagination params to GET /api/v1/ai/chat/history (page, page_size).
+  //  2. Frontend: Load last N messages initially (e.g., 50), with "Load more" button
+  //     or infinite scroll to fetch older messages.
+  //  3. Use a cursor-based approach (before_id/after_id) for efficient pagination.
+  //  4. Prepend older messages to the list when scrolling to top.
   async function loadHistory() {
     try {
       const resp = await aiChatApi.getHistory(mode.value)

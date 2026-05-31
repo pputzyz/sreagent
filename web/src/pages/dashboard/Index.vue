@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { shallowRef, computed, onMounted, onUnmounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, NButton, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { dashboardApi } from '@/api'
@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/utils/format'
 import type { DashboardStats, MTTRStats, AlertTrendPoint, TopRuleItem } from '@/types'
 import {
   RefreshOutline, PulseOutline, TimerOutline, CheckmarkCircleOutline,
+  SearchOutline,
 } from '@vicons/ionicons5'
 
 const message = useMessage()
@@ -287,6 +288,10 @@ onMounted(refresh)
           <div v-for="r in topRules" :key="r.alert_name" class="rule-item" role="button" tabindex="0" :aria-label="`${r.alert_name}: ${r.count}`" @click="router.push('/alert/rules')" @keydown.enter="router.push('/alert/rules')">
             <span class="rule-status active"></span>
             <div class="rule-info"><div class="rule-name">{{ r.alert_name }}</div></div>
+            <!-- FE4-12: Drill-down to alert events filtered by this rule -->
+            <n-button v-if="r.rule_id" quaternary circle size="tiny" :title="t('query.openInExplore') || 'Open in Explore'" @click.stop="router.push({ path: '/alert/events', query: { rule_id: String(r.rule_id) } })">
+              <template #icon><n-icon :component="SearchOutline" :size="12" /></template>
+            </n-button>
             <span class="rule-fire">{{ r.count }}</span>
           </div>
         </div>

@@ -4,6 +4,17 @@ import { computeTimeStep } from '@/utils/timeStep'
 import type { VariableConfig } from '@/types/dashboard'
 import type { TimeRange } from '@/types/query'
 
+// FE3-8: TODO — SSE-based real-time variable value updates
+// Currently variables are resolved on-demand (dashboard load, time range change).
+// For long-lived dashboards, variable options may become stale.
+// Plan:
+//  1. Backend: Add SSE endpoint GET /api/v1/variables/stream that pushes updates
+//     when label values change (e.g., new series appear in Prometheus).
+//  2. Frontend: Connect to SSE in useVariable, update options map on events.
+//  3. Only subscribe for query-type variables with a refresh_interval config.
+//  4. Add a configurable interval (default 60s) per variable to balance freshness vs load.
+//  5. Graceful fallback: if SSE disconnects, fall back to current poll-on-demand behavior.
+
 const ALL_SENTINEL = '__all'
 
 export interface VariableState {
@@ -19,6 +30,14 @@ export interface AdhocFilter {
   value: string
 }
 
+// TODO(FE3-8): Real-time variable updates via SSE.
+// Currently, variables are resolved once on mount and when timeRange changes (polling via watch).
+// For dashboards with high-cardinality query variables that change frequently, consider:
+//  1. SSE endpoint on the backend that streams variable option changes (e.g., new label values)
+//  2. Frontend EventSource listener that updates options reactively without full re-query
+//  3. Debounced re-resolution on SSE events to avoid excessive re-renders
+//  4. Per-variable SSE subscription (only for query-type variables with a refresh_interval config)
+// This would reduce API polling overhead and provide near-instant variable option updates.
 export function useVariable(
   variables: Ref<VariableConfig[]>,
   timeRange: Ref<TimeRange>,

@@ -9,6 +9,16 @@ const router = useRouter()
 const unreadCount = ref(0)
 let interval: ReturnType<typeof setInterval> | null = null
 
+// FE6-8: TODO — Sound notification on new alerts
+// Currently the bell polls every 30s and updates the badge count silently.
+// Plan:
+//  1. Track previous unreadCount; on increase, play a short notification sound.
+//  2. Add a user preference (in preferences store) to enable/disable sound:
+//     - notification_sound: 'none' | 'subtle' | 'default'
+//  3. Use Web Audio API or a preloaded <audio> element for low-latency playback.
+//  4. Respect browser autoplay policy: only play after user interaction.
+//  5. Provide a "Test sound" button in notification settings.
+
 async function fetchCount() {
   try {
     const { data } = await notificationCenterApi.unreadCount()

@@ -287,6 +287,16 @@ function removeStep(index: number) {
 }
 
 // ─── Run detail ───
+// FE7-10: TODO — Visual workflow execution timeline
+// Currently run steps are displayed as a flat list of cards.
+// Plan:
+//  1. Replace the flat list with a vertical timeline component (Naive UI NTimeline).
+//  2. Each step shows: step name, status icon (pending/running/pass/fail), duration bar.
+//  3. Color-code steps: green (pass), red (fail), yellow (running), gray (pending).
+//  4. Add a horizontal progress bar at the top showing overall completion percentage.
+//  5. For failed steps, expand to show error details and suggested remediation.
+//  6. Optional: animated transitions when steps change status (via SSE or polling).
+
 async function openRunDetail(run: DiagnosticRun) {
   try {
     const resp = await diagnosticApi.getRun(run.id)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import { ref, onMounted, watch, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
@@ -44,6 +44,32 @@ const targetTypeOptions = [
   { label: t('inspection.targetGlobal'), value: 'global' },
   { label: t('inspection.targetBizGroup'), value: 'biz_group' },
 ]
+
+// FE7-9: Cron scheduling preview — show next 5 runs
+const cronPreview = ref<string[]>([])
+const cronPreviewLoading = ref(false)
+let cronPreviewTimer: ReturnType<typeof setTimeout> | null = null
+
+function debouncedCronPreview() {
+  if (cronPreviewTimer) clearTimeout(cronPreviewTimer)
+  cronPreviewTimer = setTimeout(fetchCronPreview, 500)
+}
+
+async function fetchCronPreview() {
+  const expr = form.value.cron_expr?.trim()
+  if (!expr) { cronPreview.value = []; return }
+  cronPreviewLoading.value = true
+  try {
+    const { data } = await inspectionApi.validateCron(expr)
+    cronPreview.value = (data.data?.next_runs || []).slice(0, 5)
+  } catch {
+    cronPreview.value = []
+  } finally {
+    cronPreviewLoading.value = false
+  }
+}
+
+watch(() => form.value.cron_expr, debouncedCronPreview)
 
 // --- Table columns ---
 const taskColumns = [
@@ -148,7 +174,9 @@ function cloneTask(task: InspectionTask) {
     output_channels: task.output_channels || '[{"type":"lark_bot"}]',
     enabled: false,
   }
+  cronPreview.value = []
   showModal.value = true
+  fetchCronPreview()
 }
 
 function openCreate() {
@@ -163,7 +191,9 @@ function openCreate() {
     output_channels: '[{"type":"lark_bot"}]',
     enabled: true,
   }
+  cronPreview.value = []
   showModal.value = true
+  fetchCronPreview()
 }
 
 function openEdit(task: InspectionTask) {
@@ -178,7 +208,9 @@ function openEdit(task: InspectionTask) {
     output_channels: task.output_channels || '[{"type":"lark_bot"}]',
     enabled: task.enabled,
   }
+  cronPreview.value = []
   showModal.value = true
+  fetchCronPreview()
 }
 
 async function handleSubmit() {
@@ -328,6 +360,22 @@ onMounted(() => {
         </NFormItem>
         <NFormItem :label="t('inspection.cronRule')" required>
           <CronInput v-model="form.cron_expr" />
+        </NFormItem>
+        <!-- FE7-9: Cron scheduling preview -->
+        <NFormItem v-if="cronPreview.length > 0 || cronPreviewLoading" :label="t('inspection.nextRuns') || 'Next runs'">
+          <div v-if="cronPreviewLoading" style="font-size: 12px; color: var(--sre-text-tertiary);">
+            {{ t('common.loading') }}
+          </div>
+          <div v-else style="display: flex; flex-direction: column; gap: 4px;">
+            <div
+              v-for="(run, idx) in cronPreview"
+              :key="idx"
+              style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sre-text-secondary);"
+            >
+              <NIcon :component="TimeOutline" :size="12" />
+              <span>{{ new Date(run).toLocaleString() }}</span>
+            </div>
+          </div>
         </NFormItem>
         <NFormItem :label="t('inspection.targetType')">
           <NSelect v-model:value="form.target_type" :options="targetTypeOptions" />

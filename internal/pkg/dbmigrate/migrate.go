@@ -235,6 +235,11 @@ func ValidateMigrationSequence(logger *zap.Logger) {
 	}
 	for v, count := range seen {
 		if count > 2 {
+			// KNOWN: Version 000080 has two up+down pairs (000080_notify_max_notifications and
+			// 000080_step_exec_dedup_by_order). This cannot be renamed because both migrations
+			// have already been applied in production — renaming would cause re-execution or
+			// schema_migrations table mismatch. The duplicate is safe because each migration
+			// modifies different tables (notify_rules vs escalation_step_executions).
 			logger.Warn("dbmigrate: duplicate migration version detected — this may cause unpredictable behavior",
 				zap.Int("version", v),
 				zap.Int("file_count", count),

@@ -7,11 +7,13 @@ import { LineChart, BarChart, PieChart, GaugeChart, ScatterChart } from 'echarts
 import { TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { datasourceApi } from '@/api'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { PanelConfig, PanelTarget } from '@/types/dashboard'
 import type { QueryResponse } from '@/types'
 
 const { t } = useI18n()
+const router = useRouter()
 
 use([CanvasRenderer, LineChart, BarChart, PieChart, GaugeChart, ScatterChart, TooltipComponent, LegendComponent, GridComponent])
 
@@ -44,6 +46,20 @@ function onFullscreenChange() {
 
 onMounted(() => document.addEventListener('fullscreenchange', onFullscreenChange))
 onUnmounted(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
+
+// FE4-12: Open panel query in Explore
+function openInExplore() {
+  const target = props.panel.targets?.[0]
+  if (!target?.datasourceId || !target?.expression?.trim()) return
+  router.push({
+    path: '/alert/explore',
+    query: {
+      datasource_id: String(target.datasourceId),
+      expression: target.expression,
+    },
+  })
+}
+
 const series = ref<QueryResponse['series']>([])
 const resultType = ref<'vector' | 'matrix' | 'logs' | null>(null)
 
@@ -400,6 +416,15 @@ onMounted(fetchData)
       <button class="panel-fs-btn" :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'" @click="toggleFullscreen">
         <svg v-if="!isFullscreen" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
         <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h3a2 2 0 012 2v3m4-5h3a2 2 0 002-2V9M15 3v3a2 2 0 002 2h3M4 10V7a2 2 0 012-2h3"/></svg>
+      </button>
+      <!-- FE4-12: Open panel query in Explore -->
+      <button
+        v-if="panel.targets?.[0]?.datasourceId && panel.targets?.[0]?.expression"
+        class="panel-fs-btn"
+        title="Open in Explore"
+        @click="openInExplore"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       </button>
       <span v-if="error" class="panel-error">{{ error }}</span>
     </div>
