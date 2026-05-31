@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, h, shallowRef } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, h, shallowRef } from 'vue'
 import { NDataTable, NEmpty, NSpin as NSpinComponent } from 'naive-ui'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -15,6 +15,8 @@ const { t } = useI18n()
 
 use([CanvasRenderer, LineChart, BarChart, PieChart, GaugeChart, ScatterChart, TooltipComponent, LegendComponent, GridComponent])
 
+// FE4-11: timeRange is the global dashboard time range, passed from parent.
+// All panels in a dashboard share the same timeRange instance, ensuring sync.
 const props = defineProps<{
   panel: PanelConfig
   timeRange: { start: number; end: number }
@@ -22,6 +24,26 @@ const props = defineProps<{
 
 const loading = ref(false)
 const error = ref('')
+
+// FE4-10: Fullscreen mode
+const cardRef = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
+
+function toggleFullscreen() {
+  if (!cardRef.value) return
+  if (!document.fullscreenElement) {
+    cardRef.value.requestFullscreen().catch(() => {})
+  } else {
+    document.exitFullscreen().catch(() => {})
+  }
+}
+
+function onFullscreenChange() {
+  isFullscreen.value = !!document.fullscreenElement
+}
+
+onMounted(() => document.addEventListener('fullscreenchange', onFullscreenChange))
+onUnmounted(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
 const series = ref<QueryResponse['series']>([])
 const resultType = ref<'vector' | 'matrix' | 'logs' | null>(null)
 
@@ -371,10 +393,14 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <div class="panel-card">
+  <div ref="cardRef" class="panel-card" :class="{ 'panel-fullscreen': isFullscreen }">
     <div class="panel-card-header">
       <span class="panel-title">{{ panel.title || t('query.panel') }}</span>
       <NSpinComponent v-if="loading" :size="14" />
+      <button class="panel-fs-btn" :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'" @click="toggleFullscreen">
+        <svg v-if="!isFullscreen" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+        <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h3a2 2 0 012 2v3m4-5h3a2 2 0 002-2V9M15 3v3a2 2 0 002 2h3M4 10V7a2 2 0 012-2h3"/></svg>
+      </button>
       <span v-if="error" class="panel-error">{{ error }}</span>
     </div>
     <div class="panel-card-body">
@@ -452,6 +478,28 @@ onMounted(fetchData)
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+.panel-card.panel-fullscreen {
+  border-radius: 0;
+  height: 100vh;
+}
+.panel-fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--sre-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.panel-fs-btn:hover {
+  background: var(--sre-bg-hover);
+  color: var(--sre-primary);
 }
 .panel-card-header {
   display: flex;

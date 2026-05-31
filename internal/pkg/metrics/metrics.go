@@ -128,6 +128,14 @@ var (
 		},
 		[]string{"status"},
 	)
+
+	// incidentAutoCloseTotal counts incidents closed by the auto-close worker.
+	incidentAutoCloseTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "sreagent_incident_auto_close_total",
+			Help: "Total number of incidents auto-closed due to timeout",
+		},
+	)
 )
 
 func init() {
@@ -145,6 +153,7 @@ func init() {
 	prometheus.MustRegister(statePersistFailuresTotal)
 	prometheus.MustRegister(workerPoolDroppedTotal)
 	prometheus.MustRegister(scheduledDispatchTotal)
+	prometheus.MustRegister(incidentAutoCloseTotal)
 }
 
 // IncAlertsEvaluated increments the alert evaluation counter.
@@ -244,4 +253,9 @@ func IncWorkerPoolDropped() {
 // status is one of: "dispatched", "failed", "cancelled", "expired".
 func IncScheduledDispatch(status string) {
 	scheduledDispatchTotal.WithLabelValues(status).Inc()
+}
+
+// IncIncidentAutoClose increments the incident auto-close counter.
+func IncIncidentAutoClose() {
+	incidentAutoCloseTotal.Inc()
 }

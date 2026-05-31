@@ -13,15 +13,17 @@ import (
 // within a short TTL window.  This prevents duplicate notifications when the
 // same alert event matches both a NotifyRule and a SubscribeRule.
 type notifDedup struct {
-	mu   sync.Mutex
-	sent map[string]time.Time
-	ttl  time.Duration
+	mu     sync.Mutex
+	sent   map[string]time.Time
+	ttl    time.Duration
+	logger *zap.Logger
 }
 
-func newNotifDedup() *notifDedup {
+func newNotifDedup(logger *zap.Logger) *notifDedup {
 	d := &notifDedup{
-		sent: make(map[string]time.Time),
-		ttl:  4 * time.Hour, // match Redis dedup TTL to prevent inconsistency on Redis outage
+		sent:   make(map[string]time.Time),
+		ttl:    4 * time.Hour, // match Redis dedup TTL to prevent inconsistency on Redis outage
+		logger: logger,
 	}
 	go d.cleanup()
 	return d
@@ -31,7 +33,7 @@ func newNotifDedup() *notifDedup {
 func (d *notifDedup) cleanup() {
 	defer func() {
 		if r := recover(); r != nil {
-			zap.L().Error("notifDedup cleanup panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+			d.logger.Error("notifDedup cleanup panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
 		}
 	}()
 	ticker := time.NewTicker(1 * time.Minute)
@@ -50,7 +52,7 @@ func (d *notifDedup) cleanup() {
 
 // routeDedup prevents duplicate notifications from being dispatched within
 // a short time window (e.g. when both notify rules and subscriptions match).
-var routeDedup = newNotifDedup()
+var routeDedup = newNotifDedup(zap.L())
 
 // TrySend returns true if this notification key hasn't been sent recently,
 // and records it.  Returns false if the key was already seen within the TTL.

@@ -1,10 +1,10 @@
 package service
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/repository"
 
 	"go.uber.org/zap"
@@ -48,7 +48,7 @@ func (s *AISkillService) Update(skill *model.AISkill) error {
 		return err
 	}
 	if existing.CreatedBy == "system" {
-		return fmt.Errorf("cannot modify built-in skills")
+		return apperr.WithMessage(apperr.ErrBusiness, "cannot modify built-in skills")
 	}
 	skill.CreatedBy = existing.CreatedBy
 	skill.CreatedAt = existing.CreatedAt
@@ -61,7 +61,7 @@ func (s *AISkillService) Delete(id uint) error {
 		return err
 	}
 	if existing.CreatedBy == "system" {
-		return fmt.Errorf("cannot delete builtin skill")
+		return apperr.WithMessage(apperr.ErrBusiness, "cannot delete builtin skill")
 	}
 	return s.repo.Delete(id)
 }

@@ -206,12 +206,32 @@ func (s *ScheduledDispatchService) sendUnified(
 	return s.mediaSvc.SendNotification(ctx, media, content, data)
 }
 
+// CleanupExpiredDispatches marks pending dispatches older than 24 hours as expired.
+// Called periodically by the background worker to prevent stale dispatch accumulation.
+func (s *ScheduledDispatchService) CleanupExpiredDispatches(ctx context.Context) {
+	olderThan := time.Now().Add(-24 * time.Hour)
+	count, err := s.repo.MarkExpired(ctx, olderThan)
+	if err != nil {
+		s.logger.Error("failed to mark expired dispatches", zap.Error(err))
+		return
+	}
+	if count > 0 {
+		metrics.IncScheduledDispatch("expired")
+		s.logger.Info("expired stale dispatches",
+			zap.Int64("count", count),
+			zap.Time("older_than", olderThan),
+		)
+	}
+}
+
 // StartWorker starts the background worker that processes due dispatches.
 // Stops when ctx is cancelled.
 func (s *ScheduledDispatchService) StartWorker(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
+		cleanupTicker := time.NewTicker(10 * time.Minute)
+		defer cleanupTicker.Stop()
 		s.logger.Info("scheduled dispatch worker started")
 		for {
 			select {
@@ -219,6 +239,8 @@ func (s *ScheduledDispatchService) StartWorker(ctx context.Context) {
 				if err := s.ProcessDueDispatches(ctx); err != nil {
 					s.logger.Error("scheduled dispatch worker error", zap.Error(err))
 				}
+			case <-cleanupTicker.C:
+				s.CleanupExpiredDispatches(ctx)
 			case <-ctx.Done():
 				s.logger.Info("scheduled dispatch worker stopped")
 				return

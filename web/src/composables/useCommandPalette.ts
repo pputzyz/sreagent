@@ -7,6 +7,8 @@ export interface PaletteItem {
   label: string
   hint?: string
   group: 'navigate' | 'action' | 'recent'
+  /** FE8-7: Sub-category for grouping within action section (e.g., 'settings', 'navigation') */
+  category?: string
   icon?: string     // ionicons5 name string — rendered by caller
   action: () => void
 }

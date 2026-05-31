@@ -10,6 +10,7 @@ const (
 	ScheduledDispatchDispatched ScheduledDispatchStatus = "dispatched"
 	ScheduledDispatchFailed     ScheduledDispatchStatus = "failed"
 	ScheduledDispatchCancelled  ScheduledDispatchStatus = "cancelled"
+	ScheduledDispatchExpired    ScheduledDispatchStatus = "expired"
 )
 
 // ScheduledDispatch represents a deferred or repeating notification dispatch.

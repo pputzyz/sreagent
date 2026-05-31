@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// TODO(context-propagation): AISkillRepository methods do not accept context.Context
+// and use bare r.db instead of r.db.WithContext(ctx). This prevents proper request
+// tracing and cancellation propagation. Refactor all methods to accept ctx as the
+// first parameter, matching the pattern used by ChatHistoryRepository and others.
 type AISkillRepository struct {
 	db *gorm.DB
 }

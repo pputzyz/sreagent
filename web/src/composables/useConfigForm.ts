@@ -161,5 +161,9 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
     reset,
     confirmLeave,
     markSaved,
+    // FE3-7: Dirty state indicator — use in template:
+    // <span v-if="isDirty" class="dirty-indicator" />
+    // Style: .dirty-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--sre-warning); display: inline-block; }
+    dirtyIndicatorClass: computed(() => isDirty.value ? 'dirty-indicator' : ''),
   }
 }

@@ -93,3 +93,13 @@ func (r *ScheduledDispatchRepository) CancelByIncident(ctx context.Context, inci
 		Where("incident_id = ? AND status = ?", incidentID, model.ScheduledDispatchPending).
 		Update("status", model.ScheduledDispatchCancelled).Error
 }
+
+// MarkExpired marks all pending dispatches older than the given time as expired.
+// Returns the number of rows updated.
+func (r *ScheduledDispatchRepository) MarkExpired(ctx context.Context, olderThan time.Time) (int64, error) {
+	result := r.db.WithContext(ctx).
+		Model(&model.ScheduledDispatch{}).
+		Where("status = ? AND created_at < ?", model.ScheduledDispatchPending, olderThan).
+		Update("status", model.ScheduledDispatchExpired)
+	return result.RowsAffected, result.Error
+}

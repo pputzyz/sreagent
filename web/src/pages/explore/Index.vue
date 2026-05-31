@@ -28,13 +28,26 @@ import type { SavedView } from '@/components/query/ViewSelect.vue'
 const { t } = useI18n()
 const router = useRouter()
 
-// FE5-5: Metric name autocomplete from label registry.
-// Plan: integrate with label registry API to provide autocomplete suggestions
-// for metric names in the query input. Implementation:
-//  1. Fetch metric names from /api/v1/label-registry/metrics endpoint
-//  2. Pass suggestions to QueryPanelContent as a prop
-//  3. Use Naive UI NAutoComplete or custom dropdown in the expression input
-//  4. Cache metric names per datasource to avoid repeated fetches
+// FE5-5: Metric name autocomplete — IMPLEMENTED via PromQLEditor.
+// PromQLEditor uses @prometheus-io/codemirror-promql with remote completion
+// pointing to /api/v1/datasources/{id}/proxy (Prometheus-compatible endpoint).
+// This provides metric name, label name, and label value autocompletion out of the box.
+//
+// Additional enhancement (future): supplement with datasourceApi.metricNames() for
+// datasources that don't support the Prometheus series API (e.g., Zabbix).
+// Cache metric names per datasource to avoid repeated fetches.
+
+// FE5-6: Visual PromQL Builder Mode — PLANNED
+// A visual query builder that constructs PromQL without writing raw text.
+// Architecture:
+//  1. Metric selector: dropdown populated from datasourceApi.metricNames()
+//  2. Label filters: key-value pair editor with autocomplete from labelKeys/labelValues
+//  3. Aggregation: function picker (sum, avg, min, max, count, etc.) with by/without clause
+//  4. Functions: rate/irate/increase/delta with range vector input
+//  5. Binary operations: arithmetic between queries
+//  6. Toggle between visual and code mode (visual generates code, code parses to visual)
+// Requires: PromQL parser (e.g., lezer-promql) for code-to-visual conversion.
+// Estimated effort: 3-5 days.
 
 // --- Datasources (shared) ---
 const datasources = ref<DataSource[]>([])

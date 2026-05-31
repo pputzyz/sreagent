@@ -32,6 +32,7 @@ type ScheduleService struct {
 	stepRepo        *repository.EscalationStepRepository
 	userRepo        *repository.UserRepository
 	teamRepo        *repository.TeamRepository
+	eventRepo       *repository.AlertEventRepository // optional, for policy-in-use checks
 	logger          *zap.Logger
 }
 
@@ -57,6 +58,11 @@ func NewScheduleService(
 		teamRepo:        teamRepo,
 		logger:          logger,
 	}
+}
+
+// SetAlertEventRepository injects the alert event repository for policy-in-use checks.
+func (s *ScheduleService) SetAlertEventRepository(repo *repository.AlertEventRepository) {
+	s.eventRepo = repo
 }
 
 // ---------------------------------------------------------------------------
@@ -763,9 +769,23 @@ func (s *ScheduleService) UpdateEscalationPolicy(ctx context.Context, policy *mo
 }
 
 // DeleteEscalationPolicy deletes an escalation policy and its steps atomically.
+// If there are firing events referencing this policy, deletion is blocked to prevent
+// breaking active escalation chains.
 func (s *ScheduleService) DeleteEscalationPolicy(ctx context.Context, id uint) error {
 	if _, err := s.policyRepo.GetByID(ctx, id); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "escalation policy not found")
+	}
+
+	// B11-16: Block deletion if firing events still reference this policy.
+	if s.eventRepo != nil {
+		count, err := s.eventRepo.CountFiringByEscalationPolicy(ctx, id)
+		if err != nil {
+			s.logger.Warn("failed to check firing events for escalation policy",
+				zap.Uint("policy_id", id), zap.Error(err))
+		} else if count > 0 {
+			return apperr.WithMessage(apperr.ErrBusiness,
+				fmt.Sprintf("cannot delete escalation policy: %d firing event(s) still reference it", count))
+		}
 	}
 
 	if err := s.policyRepo.DeleteCascade(ctx, id); err != nil {

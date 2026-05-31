@@ -23,6 +23,7 @@ import {
   EllipsisHorizontalOutline,
   ShieldCheckmarkOutline,
   CloseOutline,
+  SettingsOutline,
 } from '@vicons/ionicons5'
 import { alertEventApi, alertRuleApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
@@ -58,6 +59,28 @@ const customRange = ref<[number, number] | null>(null)
 const timePreset = ref<string>('24h')
 
 const viewMode = ref<AlertViewMode>('mine')
+
+// FE4-9: Card section visibility preferences (persisted in localStorage)
+const CARD_VIS_KEY = 'sre.alerts.cardVisibility'
+const cardVisibility = ref<{ showLabels: boolean; showSource: boolean; showAssignee: boolean }>(
+  (() => { try { return JSON.parse(localStorage.getItem(CARD_VIS_KEY) || '{}') } catch { return {} } })(),
+)
+function toggleCardSection(key: 'showLabels' | 'showSource' | 'showAssignee') {
+  cardVisibility.value[key] = !cardVisibility.value[key]
+  localStorage.setItem(CARD_VIS_KEY, JSON.stringify(cardVisibility.value))
+}
+const showLabels = computed(() => cardVisibility.value.showLabels !== false)
+const showSource = computed(() => cardVisibility.value.showSource !== false)
+const showAssignee = computed(() => cardVisibility.value.showAssignee !== false)
+
+const cardVisibilityOptions = computed(() => [
+  { label: `${showLabels.value ? '●' : '○'} ${t('alert.showLabels')}`, key: 'showLabels' },
+  { label: `${showSource.value ? '●' : '○'} ${t('alert.showSource')}`, key: 'showSource' },
+  { label: `${showAssignee.value ? '●' : '○'} ${t('alert.showAssignee')}`, key: 'showAssignee' },
+])
+function onCardVisSelect(key: string) {
+  toggleCardSection(key as 'showLabels' | 'showSource' | 'showAssignee')
+}
 
 // Persist filter state to localStorage
 const filterMemory = useFilterMemory('alert-events')
@@ -507,6 +530,15 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
           <template #icon><NIcon :component="DownloadOutline" /></template>
           {{ t('alert.exportCSV') }}
         </NButton>
+        <NDropdown
+          trigger="click"
+          :options="cardVisibilityOptions"
+          @select="onCardVisSelect"
+        >
+          <NButton circle quaternary size="small">
+            <template #icon><NIcon :component="SettingsOutline" /></template>
+          </NButton>
+        </NDropdown>
       </template>
     </PageHeader>
 
@@ -672,12 +704,12 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
               <span class="ec-sev-label">{{ severityLabel(ev.severity) }}</span>
               <span class="ec-title">{{ ev.alert_name }}</span>
             </div>
-            <div class="ec-context">
+            <div class="ec-context" v-show="showSource">
               <span>{{ t('alert.ruleLabel') }} {{ ev.rule?.name || '—' }}</span>
               <span class="sre-meta-divider"></span>
               <span>{{ t('alert.datasourceLabel') }} {{ ev.source || '—' }}</span>
             </div>
-            <div v-if="hasLabels(ev)" class="ec-labels">
+            <div v-if="hasLabels(ev) && showLabels" class="ec-labels">
               <span
                 v-for="(v, k) in ev.labels"
                 :key="k"
@@ -690,14 +722,14 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
               <span>{{ t('alert.firstTrigger') }} {{ relTime(ev.fired_at) }}</span>
               <span class="sre-meta-divider"></span>
               <span>{{ t('alert.lastTrigger') }} {{ relTime(ev.acked_at || ev.fired_at) }}</span>
-              <template v-if="ev.acked_by_user">
+              <template v-if="ev.acked_by_user && showAssignee">
                 <span class="sre-meta-divider"></span>
                 <span class="ec-assignee">
                   <span class="ec-avatar">{{ assigneeInitial(ev.acked_by_user) }}</span>
                   {{ ev.acked_by_user.display_name || ev.acked_by_user.username }}
                 </span>
               </template>
-              <template v-else-if="ev.oncall_user">
+              <template v-else-if="ev.oncall_user && showAssignee">
                 <span class="sre-meta-divider"></span>
                 <span class="ec-assignee">
                   <span class="ec-avatar">{{ assigneeInitial(ev.oncall_user) }}</span>

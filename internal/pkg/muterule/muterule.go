@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 )
@@ -26,6 +28,10 @@ func LoadMuteTimezone(name string) *time.Location {
 	}
 	loc, err := time.LoadLocation(name)
 	if err != nil {
+		zap.L().Warn("invalid mute rule timezone, falling back to Asia/Shanghai",
+			zap.String("timezone", name),
+			zap.Error(err),
+		)
 		loc, _ = time.LoadLocation("Asia/Shanghai")
 		if loc != nil {
 			return loc

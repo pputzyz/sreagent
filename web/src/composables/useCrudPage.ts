@@ -89,6 +89,8 @@ export interface UseCrudPageReturn<T> {
   handleDelete: (id: number) => Promise<void>
   resetForm: () => void
   confirmDelete: (id: number) => void
+  /** FE3-6: Batch delete with confirmation dialog showing item count */
+  confirmBatchDelete: (ids: number[]) => void
 }
 
 /**
@@ -227,6 +229,36 @@ export function useCrudPage<T extends { id: number }>(
     })
   }
 
+  // FE3-6: Batch delete with confirmation showing count
+  async function handleBatchDelete(ids: number[]) {
+    let successCount = 0
+    for (const id of ids) {
+      try {
+        await options.api.delete(id)
+        successCount++
+      } catch (err: unknown) {
+        message.error(getErrorMessage(err))
+      }
+    }
+    if (successCount > 0) {
+      const msg = options.i18nKeys.deleted ? t(options.i18nKeys.deleted) : t('common.deleteSuccess')
+      message.success(`${successCount} ${msg}`)
+      await fetchList()
+    }
+  }
+
+  function confirmBatchDelete(ids: number[]) {
+    if (!ids.length) return
+    const confirmMsg = t('common.confirmBatchDelete', { count: ids.length }) || `Delete ${ids.length} items?`
+    dialog.warning({
+      title: t('common.confirmDelete'),
+      content: confirmMsg,
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => handleBatchDelete(ids),
+    })
+  }
+
   return {
     loading,
     items,
@@ -247,5 +279,6 @@ export function useCrudPage<T extends { id: number }>(
     handleDelete,
     resetForm,
     confirmDelete,
+    confirmBatchDelete,
   }
 }

@@ -6,21 +6,22 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func Test_notifDedup_TrySend_first_call_returns_true(t *testing.T) {
-	d := newNotifDedup()
+	d := newNotifDedup(zap.NewNop())
 	assert.True(t, d.TrySend("key1"))
 }
 
 func Test_notifDedup_TrySend_duplicate_returns_false(t *testing.T) {
-	d := newNotifDedup()
+	d := newNotifDedup(zap.NewNop())
 	assert.True(t, d.TrySend("key1"))
 	assert.False(t, d.TrySend("key1"))
 }
 
 func Test_notifDedup_TrySend_different_keys_independent(t *testing.T) {
-	d := newNotifDedup()
+	d := newNotifDedup(zap.NewNop())
 	assert.True(t, d.TrySend("key1"))
 	assert.True(t, d.TrySend("key2"))
 	assert.False(t, d.TrySend("key1"))
@@ -30,7 +31,7 @@ func Test_notifDedup_TrySend_different_keys_independent(t *testing.T) {
 
 func Test_notifDedup_TrySend_v1_v2_keys_are_distinct(t *testing.T) {
 	// v1 and v2 keys for the same event should be independent
-	d := newNotifDedup()
+	d := newNotifDedup(zap.NewNop())
 	v1Key := fmt.Sprintf("v1:%d:%d:%s", 10, 5, "abc123")
 	v2Key := fmt.Sprintf("v2:%d:%d:%s", 20, 3, "abc123")
 
@@ -41,7 +42,7 @@ func Test_notifDedup_TrySend_v1_v2_keys_are_distinct(t *testing.T) {
 }
 
 func Test_notifDedup_TrySend_concurrent_access(t *testing.T) {
-	d := newNotifDedup()
+	d := newNotifDedup(zap.NewNop())
 	var wg sync.WaitGroup
 	results := make([]bool, 100)
 
@@ -65,7 +66,7 @@ func Test_notifDedup_TrySend_concurrent_access(t *testing.T) {
 }
 
 func Test_notifDedup_TrySend_concurrent_different_keys(t *testing.T) {
-	d := newNotifDedup()
+	d := newNotifDedup(zap.NewNop())
 	var wg sync.WaitGroup
 	results := make([]bool, 100)
 

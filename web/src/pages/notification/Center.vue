@@ -21,12 +21,26 @@ const page = ref(1)
 const pageSize = ref(20)
 const filter = ref<'all' | 'unread' | 'read'>('all')
 
+// FE6-6: Severity filter chips
+const severityFilter = ref<string | null>(null)
+const severityOptions = [
+  { label: 'P0', value: 'p0', color: 'var(--sre-critical)' },
+  { label: 'P1', value: 'p1', color: 'var(--sre-warning)' },
+  { label: 'P2', value: 'p2', color: 'var(--sre-info)' },
+  { label: 'P3', value: 'p3', color: 'var(--sre-text-secondary)' },
+]
+function toggleSeverity(val: string) {
+  severityFilter.value = severityFilter.value === val ? null : val
+  fetchList()
+}
+
 async function fetchList() {
   loading.value = true
   try {
     const params: Record<string, unknown> = { page: page.value, page_size: pageSize.value }
     if (filter.value === 'unread') params.is_read = false
     if (filter.value === 'read') params.is_read = true
+    if (severityFilter.value) params.severity = severityFilter.value
     const { data } = await notificationCenterApi.list(params)
     items.value = data.data.list || []
     total.value = data.data.total || 0
@@ -138,6 +152,24 @@ onUnmounted(() => {
         <NRadioButton value="unread">{{ t('notification.unread') }}</NRadioButton>
         <NRadioButton value="read">{{ t('notification.read') }}</NRadioButton>
       </NRadioGroup>
+      <div class="notif-sev-chips">
+        <button
+          v-for="sev in severityOptions"
+          :key="sev.value"
+          class="sev-chip"
+          :class="{ active: severityFilter === sev.value }"
+          :style="{ '--chip-color': sev.color }"
+          @click="toggleSeverity(sev.value)"
+        >
+          <span class="sev-chip-dot" :style="{ background: sev.color }"></span>
+          {{ sev.label }}
+        </button>
+        <button
+          v-if="severityFilter"
+          class="sev-chip sev-chip--clear"
+          @click="severityFilter = null; fetchList()"
+        >x</button>
+      </div>
     </div>
 
     <NSpin :show="loading">
@@ -182,7 +214,27 @@ onUnmounted(() => {
 
 <style scoped>
 .notif-center { font-family: var(--sre-font-sans); }
-.notif-filter { margin: 12px 0 16px; }
+.notif-filter { margin: 12px 0 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.notif-sev-chips { display: flex; gap: 6px; }
+.sev-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 12px;
+  border: 1px solid var(--sre-border); background: var(--sre-bg-card);
+  font-size: 12px; color: var(--sre-text-secondary); cursor: pointer;
+  transition: all 0.15s; font-family: var(--sre-font-sans);
+}
+.sev-chip:hover { border-color: var(--chip-color); color: var(--chip-color); }
+.sev-chip.active {
+  background: var(--chip-color); border-color: var(--chip-color);
+  color: white;
+}
+.sev-chip.active .sev-chip-dot { background: white !important; }
+.sev-chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.sev-chip--clear {
+  padding: 3px 8px; font-size: 11px; color: var(--sre-text-muted);
+  border-color: transparent; background: transparent;
+}
+.sev-chip--clear:hover { color: var(--sre-critical); }
 .notif-list { display: flex; flex-direction: column; gap: 6px; }
 .notif-empty { padding: 60px 0; text-align: center; }
 .notif-item {

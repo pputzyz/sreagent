@@ -53,6 +53,9 @@ func main() {
 		zapLogger.Fatal("failed to initialize database", zap.Error(err))
 	}
 
+	// Validate migration file sequence before applying (catches duplicates, gaps, missing pairs).
+	dbmigrate.ValidateMigrationSequence(zapLogger)
+
 	// Run database migrations (golang-migrate, version-tracked).
 	migrateDB, err := sql.Open("mysql", cfg.Database.MigrateDSN())
 	if err != nil {

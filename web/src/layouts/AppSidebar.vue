@@ -124,7 +124,8 @@ function handleMenuUpdate(key: string) {
   background: var(--sre-bg-card);
   border-right: 1px solid var(--sre-border);
   flex-shrink: 0;
-  transition: width 280ms var(--sre-ease-out);
+  /* FE8-8: Smooth collapse animation — width + content fade coordinated */
+  transition: width 280ms var(--sre-ease-out), box-shadow 280ms var(--sre-ease-out);
   overflow: hidden;
 }
 
@@ -272,7 +273,12 @@ function handleMenuUpdate(key: string) {
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
-  transition: color var(--sre-duration-base) var(--sre-ease-out);
+  /* FE8-8: Coordinated fade with sidebar collapse */
+  transition: color var(--sre-duration-base) var(--sre-ease-out), opacity 200ms var(--sre-ease-out);
+  opacity: 1;
+}
+.app-sidebar.collapsed .sidebar-app-name {
+  opacity: 0;
 }
 
 /* Pin/collapse button */

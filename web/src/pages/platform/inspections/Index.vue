@@ -9,7 +9,7 @@ import {
 } from 'naive-ui'
 import {
   AddOutline, PlayOutline, TrashOutline, CreateOutline,
-  RefreshOutline, TimeOutline,
+  RefreshOutline, TimeOutline, CopyOutline,
 } from '@vicons/ionicons5'
 import { inspectionApi } from '@/api/inspection'
 import type { InspectionTask, InspectionRun } from '@/api/inspection'
@@ -89,6 +89,9 @@ const taskColumns = [
         h(NButton, { size: 'small', secondary: true, onClick: () => openEdit(row) }, {
           icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
         }),
+        h(NButton, { size: 'small', secondary: true, onClick: () => cloneTask(row), title: t('inspection.clone') || 'Clone' }, {
+          icon: () => h(NIcon, null, { default: () => h(CopyOutline) }),
+        }),
         h(NPopconfirm, { onPositiveClick: () => deleteTask(row) }, {
           trigger: () => h(NButton, { size: 'small', type: 'error', secondary: true }, {
             icon: () => h(NIcon, null, { default: () => h(TrashOutline) }),
@@ -130,6 +133,22 @@ async function deleteTask(task: InspectionTask) {
   } catch (e) {
     message.error(getErrorMessage(e))
   }
+}
+
+// FE7-7: Clone task
+function cloneTask(task: InspectionTask) {
+  editingTask.value = null
+  form.value = {
+    name: task.name + ' (copy)',
+    description: task.description,
+    cron_expr: task.cron_expr,
+    target_type: task.target_type,
+    target_ids: task.target_ids || '',
+    allowed_tools: task.allowed_tools || '',
+    output_channels: task.output_channels || '[{"type":"lark_bot"}]',
+    enabled: false,
+  }
+  showModal.value = true
 }
 
 function openCreate() {

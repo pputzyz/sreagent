@@ -312,6 +312,16 @@ func (r *AlertEventRepository) CountByFingerprintAndStatus(ctx context.Context, 
 	return count, err
 }
 
+// CountFiringByEscalationPolicy counts firing events that reference the given escalation policy.
+func (r *AlertEventRepository) CountFiringByEscalationPolicy(ctx context.Context, policyID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.AlertEvent{}).
+		Where("escalation_policy_id = ? AND status = ?", policyID, model.EventStatusFiring).
+		Count(&count).Error
+	return count, err
+}
+
 // AlertTimelineRepository handles alert timeline persistence.
 type AlertTimelineRepository struct {
 	db *gorm.DB

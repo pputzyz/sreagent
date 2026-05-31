@@ -395,6 +395,7 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	svcs.UserSvc = service.NewUserService(repos.User, zapLogger)
 	svcs.TeamSvc = service.NewTeamService(repos.Team, zapLogger)
 	svcs.ScheduleSvc = service.NewScheduleService(repos.Schedule, repos.Participant, repos.Override, repos.OnCallShift, repos.EscalationPolicy, repos.EscalationStep, repos.User, repos.Team, zapLogger)
+	svcs.ScheduleSvc.SetAlertEventRepository(repos.Event)
 	svcs.MuteRuleSvc = service.NewMuteRuleService(repos.MuteRule, zapLogger)
 	svcs.InhibitionRuleSvc = service.NewInhibitionRuleService(repos.InhibitionRule, zapLogger)
 

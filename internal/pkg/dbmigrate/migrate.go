@@ -25,6 +25,9 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -172,5 +175,105 @@ func RunMigrations(db *sql.DB, dbName string, logger *zap.Logger) error {
 	}
 
 	return nil
+}
+
+// migrationFileRe matches embedded migration filenames to extract version numbers.
+var migrationFileRe = regexp.MustCompile(`^(\d{6})_.*\.(up|down)\.sql$`)
+
+// ValidateMigrationSequence checks the embedded migration files for:
+//   - Duplicate version numbers (e.g. two files with version 000080)
+//   - Missing up/down pairs (an .up.sql without its .down.sql or vice versa)
+//   - Non-sequential version numbers (gaps in the numbering)
+//
+// Duplicate versions and missing down files are logged as warnings because they
+// indicate a real problem that may cause data loss or failed migrations. Gaps
+// are logged as info since they may be intentional (e.g. a migration was
+// retracted and its files deleted).
+func ValidateMigrationSequence(logger *zap.Logger) {
+	entries, err := fs.ReadDir(migrationsFS, "migrations")
+	if err != nil {
+		logger.Warn("dbmigrate: cannot read embedded migrations for validation", zap.Error(err))
+		return
+	}
+
+	type migInfo struct{ hasUp, hasDown bool }
+	versions := make(map[int]*migInfo)
+	var versionNums []int
+
+	for _, e := range entries {
+		m := migrationFileRe.FindStringSubmatch(e.Name())
+		if m == nil {
+			continue
+		}
+		v, _ := strconv.Atoi(m[1])
+		kind := m[2] // "up" or "down"
+
+		if _, ok := versions[v]; !ok {
+			versions[v] = &migInfo{}
+			versionNums = append(versionNums, v)
+		}
+		if kind == "up" {
+			versions[v].hasUp = true
+		} else {
+			versions[v].hasDown = true
+		}
+	}
+
+	sort.Ints(versionNums)
+
+	// Check for duplicate version numbers (already detected by the map above;
+	// if two different files share a version, the second overwrites the first
+	// in the map, so we track seen filenames separately).
+	seen := make(map[int]int) // version -> count of files
+	for _, e := range entries {
+		m := migrationFileRe.FindStringSubmatch(e.Name())
+		if m == nil {
+			continue
+		}
+		v, _ := strconv.Atoi(m[1])
+		seen[v]++
+	}
+	for v, count := range seen {
+		if count > 2 {
+			logger.Warn("dbmigrate: duplicate migration version detected — this may cause unpredictable behavior",
+				zap.Int("version", v),
+				zap.Int("file_count", count),
+				zap.String("remediation", "renumber one of the duplicate files"),
+			)
+		}
+	}
+
+	// Check for missing pairs.
+	for _, v := range versionNums {
+		info := versions[v]
+		if !info.hasUp {
+			logger.Warn("dbmigrate: migration has .down.sql but no .up.sql",
+				zap.Int("version", v),
+			)
+		}
+		if !info.hasDown {
+			logger.Warn("dbmigrate: migration has .up.sql but no .down.sql — rollback will not be possible",
+				zap.Int("version", v),
+			)
+		}
+	}
+
+	// Check for gaps in the sequence.
+	if len(versionNums) > 0 {
+		for i := 1; i < len(versionNums); i++ {
+			prev, curr := versionNums[i-1], versionNums[i]
+			if curr != prev+1 {
+				logger.Info("dbmigrate: gap in migration sequence",
+					zap.Int("from_version", prev),
+					zap.Int("to_version", curr),
+					zap.Int("missing_count", curr-prev-1),
+				)
+			}
+		}
+	}
+
+	logger.Info("dbmigrate: migration sequence validation complete",
+		zap.Int("total_versions", len(versionNums)),
+	)
 }
 

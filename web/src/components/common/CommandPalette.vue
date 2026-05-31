@@ -71,22 +71,29 @@ const groupLabel = computed<Record<string, string>>(() => ({
   recent:   t('palette.recent'),
   navigate: t('palette.navigate'),
   action:   t('palette.actions'),
+  settings: t('palette.settings') || 'Settings',
 }))
 
+// FE8-7: Split actions into sub-categories (settings, general actions)
 function sections() {
   const f = filteredItems.value
   const out: { key: string; label: string; items: PaletteItem[] }[] = []
   if (f.recent.length)   out.push({ key: 'recent',   label: groupLabel.value.recent,   items: f.recent })
   if (f.navigate.length) out.push({ key: 'navigate', label: groupLabel.value.navigate, items: f.navigate })
-  if (f.action.length)   out.push({ key: 'action',   label: groupLabel.value.action,   items: f.action })
+  // FE8-7: Split actions by category
+  if (f.action.length) {
+    const settingsItems = f.action.filter(i => i.category === 'settings')
+    const generalItems = f.action.filter(i => i.category !== 'settings')
+    if (settingsItems.length) out.push({ key: 'settings', label: groupLabel.value.settings, items: settingsItems })
+    if (generalItems.length) out.push({ key: 'action', label: groupLabel.value.action, items: generalItems })
+  }
   return out
 }
 
 function globalIndex(sectionIdx: number, itemIdx: number) {
-  const f = filteredItems.value
-  const lens = [f.recent.length, f.navigate.length, f.action.length]
+  const sectionList = sections()
   let offset = 0
-  for (let i = 0; i < sectionIdx; i++) offset += lens[i]
+  for (let i = 0; i < sectionIdx; i++) offset += sectionList[i].items.length
   return offset + itemIdx
 }
 

@@ -728,7 +728,12 @@ func (s *NotifyRuleService) createRecord(ctx context.Context, eventID, mediaID, 
 	}
 }
 
+// callbackMaxRetries is the number of retry attempts for callback HTTP POSTs.
+// Total attempts = 1 (initial) + callbackMaxRetries. Backoff: 1s, 2s, 4s.
+const callbackMaxRetries = 3
+
 // fireCallback sends a POST request to the configured callback URL.
+// Retries up to callbackMaxRetries times with exponential backoff on failure.
 func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string, event *model.AlertEvent, analysis *AlertAnalysis) {
 	payload := map[string]interface{}{
 		"event_id":   event.ID,
@@ -748,41 +753,86 @@ func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", callbackURL, strings.NewReader(string(body)))
-	if err != nil {
-		s.logger.Error("failed to create callback request", zap.Error(err))
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
 	// B5-8: HMAC-SHA256 signing for callback payload integrity verification.
 	// If SREAGENT_WEBHOOK_SECRET is set, compute HMAC and attach X-Signature-256 header.
 	// Callers should verify this header before processing the callback.
-	if secret := os.Getenv("SREAGENT_WEBHOOK_SECRET"); secret != "" {
-		mac := hmac.New(sha256.New, []byte(secret))
-		mac.Write(body)
-		sig := hex.EncodeToString(mac.Sum(nil))
-		req.Header.Set("X-Signature-256", "sha256="+sig)
+	computeSignature := func() string {
+		if secret := os.Getenv("SREAGENT_WEBHOOK_SECRET"); secret != "" {
+			mac := hmac.New(sha256.New, []byte(secret))
+			mac.Write(body)
+			return "sha256=" + hex.EncodeToString(mac.Sum(nil))
+		}
+		return ""
 	}
 
 	client := safehttp.NewSafeClient(10 * time.Second)
-	resp, err := client.Do(req)
-	if err != nil {
-		s.logger.Error("callback request failed",
-			zap.String("url", callbackURL),
-			zap.Error(err),
-		)
-		return
-	}
-	defer func() {
+	backoff := 1 * time.Second
+
+	var lastErr error
+	for attempt := 0; attempt <= callbackMaxRetries; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				s.logger.Warn("callback retry aborted: context cancelled",
+					zap.String("url", callbackURL),
+					zap.Int("attempt", attempt),
+				)
+				return
+			case <-time.After(backoff):
+				backoff *= 2
+			}
+			s.logger.Info("retrying callback",
+				zap.String("url", callbackURL),
+				zap.Int("attempt", attempt),
+			)
+		}
+
+		req, reqErr := http.NewRequestWithContext(ctx, "POST", callbackURL, strings.NewReader(string(body)))
+		if reqErr != nil {
+			s.logger.Error("failed to create callback request", zap.Error(reqErr))
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if sig := computeSignature(); sig != "" {
+			req.Header.Set("X-Signature-256", sig)
+		}
+
+		resp, doErr := client.Do(req)
+		if doErr != nil {
+			lastErr = doErr
+			s.logger.Error("callback request failed",
+				zap.String("url", callbackURL),
+				zap.Int("attempt", attempt),
+				zap.Error(doErr),
+			)
+			continue
+		}
 		// Drain body to allow connection reuse (M6).
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 		_ = resp.Body.Close()
-	}()
 
-	s.logger.Info("callback fired",
+		if resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("server returned %d", resp.StatusCode)
+			s.logger.Warn("callback returned server error, will retry",
+				zap.String("url", callbackURL),
+				zap.Int("status", resp.StatusCode),
+				zap.Int("attempt", attempt),
+			)
+			continue
+		}
+
+		s.logger.Info("callback fired",
+			zap.String("url", callbackURL),
+			zap.Int("status", resp.StatusCode),
+			zap.Int("attempt", attempt),
+		)
+		return
+	}
+
+	s.logger.Error("callback failed after all retries",
 		zap.String("url", callbackURL),
-		zap.Int("status", resp.StatusCode),
+		zap.Int("max_retries", callbackMaxRetries),
+		zap.Error(lastErr),
 	)
 }
 

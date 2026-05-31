@@ -39,6 +39,33 @@ async function resetError() {
   await nextTick()
 }
 
+// FE2-5: Copy error details to clipboard
+const copiedOk = ref(false)
+async function copyErrorDetails() {
+  if (!capturedError.value) return
+  const text = [
+    `Error: ${capturedError.value.message}`,
+    `Stack: ${capturedError.value.stack || '(no stack trace)'}`,
+    `URL: ${window.location.href}`,
+    `Time: ${new Date().toISOString()}`,
+  ].join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedOk.value = true
+    setTimeout(() => { copiedOk.value = false }, 2000)
+  } catch {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea')
+    ta.value = text
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    copiedOk.value = true
+    setTimeout(() => { copiedOk.value = false }, 2000)
+  }
+}
+
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
 
@@ -52,6 +79,7 @@ onMounted(() => {
     label: t('command.toggleDarkMode'),
     hint: t('command.action'),
     icon: 'contrast-outline',
+    category: 'settings',
     action: toggleTheme,
   })
   registerAction({
@@ -189,7 +217,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <div v-if="capturedError" class="error-boundary">
       <NResult status="error" :title="t('error.renderError')" :description="capturedError.message">
         <template #footer>
-          <button class="error-reset-btn" @click="resetError">{{ t('common.retry') }}</button>
+          <div class="error-actions">
+            <button class="error-reset-btn" @click="resetError">{{ t('common.retry') }}</button>
+            <button class="error-copy-btn" @click="copyErrorDetails">{{ copiedOk ? (t('common.copied') || 'Copied!') : (t('error.copyDetails') || 'Copy error details') }}</button>
+          </div>
         </template>
       </NResult>
     </div>
@@ -501,6 +532,14 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   transition: opacity var(--sre-duration-fast) var(--sre-ease-out);
 }
 .error-reset-btn:hover { opacity: 0.85; }
+.error-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.error-copy-btn {
+  padding: 8px 24px; border: 1px solid var(--sre-border); border-radius: var(--sre-radius-sm);
+  background: transparent; color: var(--sre-text-secondary);
+  font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--sre-font-sans);
+  transition: background var(--sre-duration-fast) var(--sre-ease-out), color var(--sre-duration-fast) var(--sre-ease-out);
+}
+.error-copy-btn:hover { background: var(--sre-bg-hover); color: var(--sre-primary); }
 
 /* ===== Keyboard Shortcuts (FE8-6) ===== */
 .shortcuts-list {

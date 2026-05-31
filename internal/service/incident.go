@@ -11,6 +11,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -119,7 +120,7 @@ func (s *IncidentService) Create(ctx context.Context, inc *model.Incident) error
 		Action:     model.IncidentActionTriggered,
 		Content:    "Incident triggered",
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", inc.ID))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", inc.ID))
 	}
 
 	s.logger.Info("incident created", zap.Uint("id", inc.ID), zap.String("title", inc.Title))
@@ -191,7 +192,7 @@ func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) erro
 
 	// Record assignee ack
 	if err := s.repo.AcknowledgeAssignee(ctx, id, userID); err != nil {
-		zap.L().Error("failed to acknowledge assignee", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to acknowledge assignee", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	// Fire status change callback (cancels scheduled dispatches)
@@ -206,7 +207,7 @@ func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) erro
 		ActorID:    &userID,
 		Content:    "Incident acknowledged",
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	s.logger.Info("incident acknowledged", zap.Uint("id", id), zap.Uint("user_id", userID))
@@ -250,7 +251,7 @@ func (s *IncidentService) Close(ctx context.Context, id, userID uint) error {
 		ActorID:    &userID,
 		Content:    "Incident closed",
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	s.logger.Info("incident closed", zap.Uint("id", id), zap.Uint("user_id", userID))
@@ -272,7 +273,8 @@ func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 	}
 
 	updates := map[string]interface{}{
-		"closed_at": nil,
+		"closed_at":                 nil,
+		"current_escalation_step": 0,
 	}
 	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusTriggered, updates); err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -284,7 +286,7 @@ func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 		ActorID:    &userID,
 		Content:    "Incident reopened",
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	s.logger.Info("incident reopened", zap.Uint("id", id), zap.Uint("user_id", userID))
@@ -322,7 +324,7 @@ func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until tim
 		ActorID:    &userID,
 		Content:    "Incident snoozed until " + until.Format(time.RFC3339),
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	return nil
@@ -354,7 +356,7 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 		AssignedAt: time.Now(),
 		Source:     "manual",
 	}); err != nil {
-		zap.L().Error("failed to add assignee", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to add assignee", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
@@ -363,7 +365,7 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 		ActorID:    &userID,
 		Content:    "Incident reassigned",
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	s.logger.Info("incident reassigned", zap.Uint("id", id), zap.Uint("new_assignee", newAssignee))
@@ -426,7 +428,7 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 		ActorID:    &userID,
 		Content:    "Merged into another incident",
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", sourceID))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", sourceID))
 	}
 
 	// Record timeline on the target incident so the merge is visible there too.
@@ -436,7 +438,7 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 		ActorID:    &userID,
 		Content:    fmt.Sprintf("Incident #%d merged into this incident", sourceID),
 	}); err != nil {
-		zap.L().Error("failed to add timeline on target", zap.Error(err), zap.Uint("incident_id", targetID))
+		s.logger.Error("failed to add timeline on target", zap.Error(err), zap.Uint("incident_id", targetID))
 	}
 
 	s.logger.Info("incident merged", zap.Uint("source", sourceID), zap.Uint("target", targetID))
@@ -525,7 +527,7 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 		ActorID:    &userID,
 		Content:    "Incident escalated",
 	}); err != nil {
-		zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
 	s.logger.Info("incident escalated", zap.Uint("id", id), zap.Int("step", inc.CurrentEscalationStep))
@@ -555,8 +557,9 @@ func (s *IncidentService) CloseExpiredIncidents(ctx context.Context) {
 			Action:     model.IncidentActionClosed,
 			Content:    "Incident auto-closed due to timeout",
 		}); err != nil {
-			zap.L().Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", inc.ID))
+			s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", inc.ID))
 		}
+		metrics.IncIncidentAutoClose()
 		s.logger.Info("auto-close: incident closed", zap.Uint("id", inc.ID))
 	}
 }

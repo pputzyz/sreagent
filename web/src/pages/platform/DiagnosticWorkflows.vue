@@ -258,6 +258,16 @@ async function handleStartRun() {
 }
 
 // ─── Steps editor ───
+// FE7-8: Step drag-to-reorder — PLANNED
+// Implement drag-and-drop reordering for workflow steps using:
+//  1. HTML5 Drag and Drop API or a library like @vueuse/integrations (useDraggable)
+//  2. Add drag handle (grip icon) to each step card header
+//  3. On drop, reorder steps array and update step_order values
+//  4. Visual feedback: drag ghost, drop indicator line
+//  5. Touch support for mobile: use pointer events fallback
+// Alternative: add move-up/move-down arrow buttons (simpler, accessibility-friendly)
+// Estimated effort: 1-2 days.
+
 function addStep() {
   steps.value.push({
     step_order: steps.value.length + 1,
