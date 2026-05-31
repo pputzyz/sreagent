@@ -151,9 +151,9 @@ func (s *KnowledgeBaseService) IngestFromAlertEvent(ctx context.Context, event *
 		sb.WriteString(annotationStr + "\n")
 	}
 	if event.Resolution != "" {
-		sb.WriteString(fmt.Sprintf("\nResolution: %s\n", event.Resolution))
+		fmt.Fprintf(&sb, "\nResolution: %s\n", event.Resolution)
 	}
-	sb.WriteString(fmt.Sprintf("\nSource: %s\n", event.Source))
+	fmt.Fprintf(&sb, "\nSource: %s\n", event.Source)
 
 	// Build tags from labels for searchability
 	tags := make(model.JSONLabels)
