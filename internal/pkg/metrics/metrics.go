@@ -93,6 +93,41 @@ var (
 		},
 		[]string{"result"},
 	)
+
+	// engineForceSyncTotal counts forceSync events triggered by datasource changes.
+	engineForceSyncTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "sreagent_engine_forcesync_total",
+			Help: "Total number of force-sync events triggered by datasource endpoint changes",
+		},
+	)
+
+	// statePersistFailuresTotal counts state persistence failures (Redis best-effort writes).
+	statePersistFailuresTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sreagent_state_persist_failures_total",
+			Help: "Total number of state persistence failures to Redis",
+		},
+		[]string{"operation"}, // "save" or "delete"
+	)
+
+	// workerPoolDroppedTotal counts work items dropped due to pool saturation.
+	workerPoolDroppedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "sreagent_worker_pool_dropped_total",
+			Help: "Total number of alert processing tasks dropped because the worker pool was full",
+		},
+	)
+
+	// scheduledDispatchTotal counts scheduled dispatch outcomes.
+	// Labels: status (string: "dispatched", "failed", "cancelled", "expired")
+	scheduledDispatchTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sreagent_scheduled_dispatch_total",
+			Help: "Total number of scheduled dispatch outcomes",
+		},
+		[]string{"status"},
+	)
 )
 
 func init() {
@@ -106,6 +141,10 @@ func init() {
 	prometheus.MustRegister(engineLastHeartbeatTimestamp)
 	prometheus.MustRegister(recordingRuleExecutionsTotal)
 	prometheus.MustRegister(rbacWarnCounter)
+	prometheus.MustRegister(engineForceSyncTotal)
+	prometheus.MustRegister(statePersistFailuresTotal)
+	prometheus.MustRegister(workerPoolDroppedTotal)
+	prometheus.MustRegister(scheduledDispatchTotal)
 }
 
 // IncAlertsEvaluated increments the alert evaluation counter.
@@ -183,4 +222,26 @@ func IncRBACWarn(perm, path string) {
 // result is "success" or "error".
 func IncRecordingRuleExecution(result string) {
 	recordingRuleExecutionsTotal.WithLabelValues(result).Inc()
+}
+
+// IncForceSync increments the force-sync event counter.
+func IncForceSync() {
+	engineForceSyncTotal.Inc()
+}
+
+// IncStatePersistFailure increments the state persistence failure counter.
+// operation is "save" or "delete".
+func IncStatePersistFailure(operation string) {
+	statePersistFailuresTotal.WithLabelValues(operation).Inc()
+}
+
+// IncWorkerPoolDropped increments the worker pool dropped-items counter.
+func IncWorkerPoolDropped() {
+	workerPoolDroppedTotal.Inc()
+}
+
+// IncScheduledDispatch increments the scheduled dispatch counter.
+// status is one of: "dispatched", "failed", "cancelled", "expired".
+func IncScheduledDispatch(status string) {
+	scheduledDispatchTotal.WithLabelValues(status).Inc()
 }

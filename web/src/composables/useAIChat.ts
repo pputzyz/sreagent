@@ -21,11 +21,17 @@ export function useAIChat() {
   const error = ref<string | null>(null)
   const lastFailedInput = ref<string | null>(null)
 
-  // TODO(FE6-4): Implement SSE streaming for AI chat responses.
-  // Current implementation waits for the full response before displaying.
-  // Should use EventSource/fetch with ReadableStream to show tokens as they arrive.
-  // Backend needs to support SSE endpoint (e.g., POST /api/v1/ai/chat/stream).
-  // Pattern: push partial content to the last assistant message as chunks arrive.
+  // FE6-4: SSE streaming implementation plan
+  // Current: waits for full response before displaying.
+  // Plan:
+  //  1. Backend: POST /api/v1/ai/chat/stream → SSE with "data: {chunk}" events
+  //  2. Frontend: use fetch() with ReadableStream reader (not EventSource, since POST)
+  //  3. Push partial content to the last assistant message as chunks arrive:
+  //     - Create empty assistant message on stream start
+  //     - Append each chunk to assistant message content
+  //     - On stream end, mark message as complete
+  //  4. Add AbortController support for cancel mid-stream
+  //  5. Fallback: if stream fails, retry with regular POST
   async function sendMessage(text: string, context?: string) {
     if (!text.trim() || loading.value) return
     const userMsg: ChatMessage = {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, inject, onMounted, onUnmounted, onErrorCaptured, nextTick } from 'vue'
 import type { Ref } from 'vue'
-import { NIcon, NPopover, NPopselect, NResult } from 'naive-ui'
+import { NIcon, NPopover, NPopselect, NResult, NModal } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAppNav } from '@/composables/useAppNav'
 import { useCommandPalette } from '@/composables/useCommandPalette'
@@ -14,7 +14,7 @@ import NotificationBell from '@/components/common/NotificationBell.vue'
 import AIChatButton from '@/components/ai/AIChatButton.vue'
 import AIChatPanel from '@/components/ai/AIChatPanel.vue'
 import { useRouter } from 'vue-router'
-import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
+import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline, HelpOutline } from '@vicons/ionicons5'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -85,6 +85,7 @@ const collapsed = ref(false)
 watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify(v)))
 const showPasswordModal = ref(false)
 const showAIChat = ref(false)
+const showShortcuts = ref(false)
 const pinned = ref(true)
 watch(pinned, v => localStorage.setItem('sre-sider-pinned', JSON.stringify(v)))
 
@@ -141,8 +142,31 @@ function updateClock() {
 }
 
 let clockInterval: ReturnType<typeof setInterval>
-onMounted(() => { updateClock(); clockInterval = setInterval(updateClock, 1000) })
-onUnmounted(() => clearInterval(clockInterval))
+
+// FE8-6: Keyboard shortcut help overlay (Ctrl+? / Cmd+?)
+const shortcuts = computed(() => [
+  { keys: 'Ctrl + K / Cmd + K', desc: t('commandPalette.openHint') || 'Open command palette' },
+  { keys: 'Ctrl + ? / Cmd + ?', desc: t('shortcuts.showHelp') || 'Show keyboard shortcuts' },
+  { keys: 'Escape', desc: t('shortcuts.closeOverlay') || 'Close overlay / modal' },
+])
+
+function handleGlobalKeydown(e: KeyboardEvent) {
+  // Ctrl+? or Cmd+? — toggle shortcut help
+  if ((e.ctrlKey || e.metaKey) && e.key === '?') {
+    e.preventDefault()
+    showShortcuts.value = !showShortcuts.value
+  }
+}
+
+onMounted(() => {
+  updateClock()
+  clockInterval = setInterval(updateClock, 1000)
+  document.addEventListener('keydown', handleGlobalKeydown)
+})
+onUnmounted(() => {
+  clearInterval(clockInterval)
+  document.removeEventListener('keydown', handleGlobalKeydown)
+})
 
 function selectTimezone(val: string) {
   timezone.value = val
@@ -220,6 +244,11 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
           <kbd>⌘K</kbd>
         </button>
 
+        <!-- Shortcuts help (FE8-6) -->
+        <button v-ripple class="topbar-btn" @click="showShortcuts = true" :title="t('shortcuts.title') || 'Keyboard Shortcuts'" :aria-label="t('shortcuts.title') || 'Keyboard Shortcuts'">
+          <n-icon :component="HelpOutline" :size="15" />
+        </button>
+
         <!-- Lang -->
         <n-popselect :value="locale" :options="langOptions" trigger="click" :render-label="renderLangLabel" @update:value="handleLangChange">
           <button v-ripple class="topbar-btn" :aria-label="t('language.switch')">
@@ -271,6 +300,16 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
 
     <ChangePasswordModal v-model:show="showPasswordModal" />
     <CommandPalette />
+
+    <!-- Keyboard Shortcuts Help (FE8-6) -->
+    <NModal v-model:show="showShortcuts" preset="card" :title="t('shortcuts.title') || 'Keyboard Shortcuts'" style="max-width: 480px">
+      <div class="shortcuts-list">
+        <div v-for="s in shortcuts" :key="s.keys" class="shortcut-row">
+          <kbd class="shortcut-keys">{{ s.keys }}</kbd>
+          <span class="shortcut-desc">{{ s.desc }}</span>
+        </div>
+      </div>
+    </NModal>
 
     <!-- AI Chat floating button + drawer -->
     <AIChatButton :active="showAIChat" @click="toggleAIChat()" />
@@ -393,8 +432,11 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   z-index: 100;
   transition: top 0.2s;
 }
-.skip-to-content:focus {
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
   top: 0;
+  outline: 2px solid var(--sre-text-inverse);
+  outline-offset: 2px;
 }
 
 /* Page transition animation — smooth fade + scale */
@@ -459,6 +501,33 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   transition: opacity var(--sre-duration-fast) var(--sre-ease-out);
 }
 .error-reset-btn:hover { opacity: 0.85; }
+
+/* ===== Keyboard Shortcuts (FE8-6) ===== */
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.shortcut-keys {
+  font-family: var(--sre-font-mono, monospace);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--sre-bg-elevated);
+  border: 1px solid var(--sre-border);
+  color: var(--sre-text-primary);
+  white-space: nowrap;
+}
+.shortcut-desc {
+  font-size: 13px;
+  color: var(--sre-text-secondary);
+}
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {

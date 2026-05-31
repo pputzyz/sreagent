@@ -11,7 +11,9 @@ import (
 	"net"
 	"net/http"
 	"net/smtp"
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -27,11 +29,34 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// defaultMaxConcurrentSends is the default concurrency cap for outbound notifications.
+// Override via SREAGENT_MAX_CONCURRENT_SENDS environment variable.
+const defaultMaxConcurrentSends = 100
+
+// circuitBreakerThreshold is the number of consecutive failures before opening the circuit.
+const circuitBreakerThreshold = 5
+
+// circuitBreakerCooldown is how long a circuit stays open before transitioning to half-open.
+const circuitBreakerCooldown = 5 * time.Minute
+
+// circuitState tracks per-media circuit breaker state.
+type circuitState struct {
+	consecutiveFails int
+	openedAt         time.Time // zero value means circuit is closed
+}
+
 // NotifyMediaService provides CRUD and notification dispatch for media backends.
 type NotifyMediaService struct {
 	repo        *repository.NotifyMediaRepository
 	logger      *zap.Logger
 	feishuTokenCache sync.Map // key: appID, value: *feishuTokenEntry
+
+	// B5-10: Global concurrency cap for outbound notification sends.
+	sendSem chan struct{}
+
+	// B5-15: Per-media circuit breaker to avoid cascading failures.
+	cbMu    sync.Mutex
+	breakers map[uint]*circuitState // key: media ID
 }
 
 type feishuTokenEntry struct {
@@ -44,9 +69,70 @@ func NewNotifyMediaService(
 	repo *repository.NotifyMediaRepository,
 	logger *zap.Logger,
 ) *NotifyMediaService {
+	maxConcurrent := defaultMaxConcurrentSends
+	if envVal := os.Getenv("SREAGENT_MAX_CONCURRENT_SENDS"); envVal != "" {
+		if n, err := strconv.Atoi(envVal); err == nil && n > 0 {
+			maxConcurrent = n
+		}
+	}
+	logger.Info("notification dispatch concurrency cap initialized", zap.Int("max_concurrent", maxConcurrent))
 	return &NotifyMediaService{
-		repo:   repo,
-		logger: logger,
+		repo:      repo,
+		logger:    logger,
+		sendSem:   make(chan struct{}, maxConcurrent),
+		breakers:  make(map[uint]*circuitState),
+	}
+}
+
+// checkCircuit returns true if the circuit is open (should skip send).
+// After the cooldown period, it transitions to half-open (allows one probe request).
+func (s *NotifyMediaService) checkCircuit(mediaID uint) bool {
+	s.cbMu.Lock()
+	defer s.cbMu.Unlock()
+	cb, ok := s.breakers[mediaID]
+	if !ok {
+		return false
+	}
+	if cb.openedAt.IsZero() {
+		return false // circuit closed
+	}
+	if time.Since(cb.openedAt) >= circuitBreakerCooldown {
+		// Half-open: allow one probe request, reset to closed on success.
+		return false
+	}
+	return true // circuit open, skip send
+}
+
+// recordSuccess resets the circuit breaker for a media ID (closes it).
+func (s *NotifyMediaService) recordSuccess(mediaID uint) {
+	s.cbMu.Lock()
+	defer s.cbMu.Unlock()
+	if cb, ok := s.breakers[mediaID]; ok && !cb.openedAt.IsZero() {
+		s.logger.Info("circuit breaker closed (recovered)",
+			zap.Uint("media_id", mediaID),
+			zap.Int("prev_consecutive_fails", cb.consecutiveFails),
+		)
+	}
+	s.breakers[mediaID] = &circuitState{}
+}
+
+// recordFailure increments consecutive failures and opens the circuit if threshold exceeded.
+func (s *NotifyMediaService) recordFailure(mediaID uint) {
+	s.cbMu.Lock()
+	defer s.cbMu.Unlock()
+	cb, ok := s.breakers[mediaID]
+	if !ok {
+		cb = &circuitState{}
+		s.breakers[mediaID] = cb
+	}
+	cb.consecutiveFails++
+	if cb.consecutiveFails >= circuitBreakerThreshold && cb.openedAt.IsZero() {
+		cb.openedAt = time.Now()
+		s.logger.Warn("circuit breaker OPENED — notification sends will be skipped",
+			zap.Uint("media_id", mediaID),
+			zap.Int("consecutive_failures", cb.consecutiveFails),
+			zap.Duration("cooldown", circuitBreakerCooldown),
+		)
 	}
 }
 
@@ -190,59 +276,85 @@ func (s *NotifyMediaService) decryptNotifyMediaConfig(media *model.NotifyMedia) 
 }
 
 // SendNotification dispatches a notification through the given media with rendered template content.
-// TODO(B5-14): Add circuit breaker for downstream webhook/notification failures.
-// When a media endpoint returns repeated transport errors or 5xx responses,
-// circuit-break it for a configurable cooldown period to avoid cascading failures.
-// Consider github.com/sony/gobreaker or a simple sliding-window counter per media ID.
+// B5-10: Acquires a concurrency semaphore before sending to prevent overwhelming downstream endpoints.
+// B5-15: Checks per-media circuit breaker — skips sends when circuit is open.
 func (s *NotifyMediaService) SendNotification(ctx context.Context, media *model.NotifyMedia, renderedContent string, data *TemplateData) error {
 	if !media.IsEnabled {
 		s.logger.Warn("skipping disabled media", zap.Uint("media_id", media.ID), zap.String("media_name", media.Name))
 		return nil
 	}
 
+	// B5-15: Check circuit breaker before acquiring semaphore.
+	if s.checkCircuit(media.ID) {
+		s.logger.Warn("circuit breaker open, skipping notification send",
+			zap.Uint("media_id", media.ID),
+			zap.String("media_name", media.Name),
+		)
+		return fmt.Errorf("circuit breaker open for media %d (%s)", media.ID, media.Name)
+	}
+
+	// B5-10: Acquire concurrency semaphore (blocks until a slot is available).
+	select {
+	case s.sendSem <- struct{}{}:
+		defer func() { <-s.sendSem }()
+	case <-ctx.Done():
+		return fmt.Errorf("notification send cancelled waiting for concurrency slot: %w", ctx.Err())
+	}
+
 	// Decrypt config if encrypted (transparent to send methods).
 	media.Config = s.decryptNotifyMediaConfig(media)
 
+	// Execute the actual send and track success/failure for circuit breaker.
+	var sendErr error
 	switch media.Type {
 	case model.MediaTypeLarkWebhook:
-		return s.sendLarkWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendLarkWebhook(ctx, media, renderedContent, data)
 	case model.MediaTypeEmail:
-		return s.sendEmail(ctx, media, renderedContent, data)
+		sendErr = s.sendEmail(ctx, media, renderedContent, data)
 	case model.MediaTypeHTTP:
-		return s.sendHTTP(ctx, media, renderedContent, data)
+		sendErr = s.sendHTTP(ctx, media, renderedContent, data)
 	case model.MediaTypeScript:
-		return s.executeScript(ctx, media, renderedContent, data)
+		sendErr = s.executeScript(ctx, media, renderedContent, data)
 	case model.MediaTypeDingTalkWebhook:
-		return s.sendDingTalkWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendDingTalkWebhook(ctx, media, renderedContent, data)
 	case model.MediaTypeWeComWebhook:
-		return s.sendWeComWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendWeComWebhook(ctx, media, renderedContent, data)
 	case model.MediaTypeSlackWebhook:
-		return s.sendSlackWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendSlackWebhook(ctx, media, renderedContent, data)
 	case model.MediaTypeDiscordWebhook:
-		return s.sendDiscordWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendDiscordWebhook(ctx, media, renderedContent, data)
 	case model.MediaTypeTelegramBot:
-		return s.sendTelegramBot(ctx, media, renderedContent, data)
+		sendErr = s.sendTelegramBot(ctx, media, renderedContent, data)
 	case model.MediaTypeFeishuWebhook:
-		return s.sendFeishuWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendFeishuWebhook(ctx, media, renderedContent, data)
 	case model.MediaTypeFeishuCard:
-		return s.sendFeishuCard(ctx, media, renderedContent, data)
+		sendErr = s.sendFeishuCard(ctx, media, renderedContent, data)
 	case model.MediaTypeFeishuApp:
-		return s.sendFeishuApp(ctx, media, renderedContent, data)
+		sendErr = s.sendFeishuApp(ctx, media, renderedContent, data)
 	case model.MediaTypeWeComApp:
-		return s.sendWeComApp(ctx, media, renderedContent, data)
+		sendErr = s.sendWeComApp(ctx, media, renderedContent, data)
 	case model.MediaTypeFlashDuty:
-		return s.sendFlashDuty(ctx, media, renderedContent, data)
+		sendErr = s.sendFlashDuty(ctx, media, renderedContent, data)
 	case model.MediaTypePagerDuty:
-		return s.sendPagerDuty(ctx, media, renderedContent, data)
+		sendErr = s.sendPagerDuty(ctx, media, renderedContent, data)
 	case model.MediaTypeTencentSMS:
-		return s.sendTencentSMS(ctx, media, renderedContent, data)
+		sendErr = s.sendTencentSMS(ctx, media, renderedContent, data)
 	case model.MediaTypeAliyunSMS:
-		return s.sendAliyunSMS(ctx, media, renderedContent, data)
+		sendErr = s.sendAliyunSMS(ctx, media, renderedContent, data)
 	case model.MediaTypeCustomHTTP:
-		return s.sendCustomHTTP(ctx, media, renderedContent, data)
+		sendErr = s.sendCustomHTTP(ctx, media, renderedContent, data)
 	default:
-		return fmt.Errorf("unsupported media type: %s", media.Type)
+		sendErr = fmt.Errorf("unsupported media type: %s", media.Type)
 	}
+
+	// B5-15: Track success/failure for circuit breaker.
+	if sendErr != nil {
+		s.recordFailure(media.ID)
+	} else {
+		s.recordSuccess(media.ID)
+	}
+
+	return sendErr
 }
 
 // SendByUserConfig sends a notification via a user's personal UserNotifyConfig.

@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
@@ -27,6 +30,13 @@ var TokenRevocationChecker interface {
 	// GetUserTokenRevokedAt returns the time all tokens for a user were revoked.
 	// Returns zero time if no revocation exists.
 	GetUserTokenRevokedAt(userID uint) time.Time
+}
+
+// TokenBlacklistChecker abstracts per-token blacklist for single-session logout.
+// Injected at startup. When nil, per-token blacklist checks are skipped.
+var TokenBlacklistChecker interface {
+	// IsTokenBlacklisted returns true if the given token ID has been revoked.
+	IsTokenBlacklisted(ctx context.Context, tokenID string) (bool, error)
 }
 
 const (
@@ -90,6 +100,20 @@ func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 		if TokenRevocationChecker != nil && claims.IssuedAt != nil {
 			revokedAt := TokenRevocationChecker.GetUserTokenRevokedAt(claims.UserID)
 			if !revokedAt.IsZero() && claims.IssuedAt.Before(revokedAt) {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"code":    10102,
+					"message": "token has been revoked",
+				})
+				c.Abort()
+				return
+			}
+		}
+
+		// Check per-token blacklist (single-session logout via POST /auth/logout).
+		if TokenBlacklistChecker != nil {
+			hash := sha256.Sum256([]byte(parts[1]))
+			tokenID := hex.EncodeToString(hash[:16])
+			if blacklisted, _ := TokenBlacklistChecker.IsTokenBlacklisted(c.Request.Context(), tokenID); blacklisted {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"code":    10102,
 					"message": "token has been revoked",

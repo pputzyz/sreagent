@@ -527,10 +527,16 @@ func (e *EscalationExecutor) executeStep(ctx context.Context, event *model.Alert
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// NOTE: Cross-path dedup with NotifyRule was removed (Bug 05-P1-2).
-	// Step-level dedup is handled by escalation_step_executions INSERT IGNORE.
-	// NotifyRule and Escalation target different channels (group vs personal),
-	// so cross-path dedup keys never matched and was effectively a no-op.
+	// DESIGN NOTE: Cross-path dedup between escalation and notification was intentionally removed.
+	//
+	// Escalation sends to *personal* channels (lark_personal DM, personal email, personal webhook)
+	// via UserNotifyConfig, while NotifyRule sends to *group* channels (team webhooks, group email)
+	// via NotifyChannel. These are fundamentally different delivery targets, so deduplicating
+	// between them would incorrectly suppress personal escalation notifications that users
+	// specifically configured to receive. The old cross-path dedup used shared keys that never
+	// matched across the two paths, making it effectively a no-op.
+	//
+	// Step-level dedup is handled by escalation_step_executions INSERT IGNORE (event_id, policy_id, step_order).
 
 	// This note is also used as the dedup key in executedStepOrders — keep format in sync.
 	note := fmt.Sprintf("escalation policy '%s' step %d triggered (delay: %dm)",

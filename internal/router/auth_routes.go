@@ -7,6 +7,7 @@ import (
 // registerAuthRoutes registers authenticated user profile and OIDC settings routes.
 func (h *Handlers) registerAuthRoutes(auth *gin.RouterGroup, admin gin.HandlerFunc) {
 	// Current user (self) — any authenticated user
+	auth.POST("/auth/logout", h.Auth.Logout)
 	auth.GET("/auth/profile", h.Auth.GetProfile)
 	auth.PUT("/me/profile", h.Auth.UpdateMe)
 	auth.POST("/me/password", h.Auth.ChangeMyPassword)

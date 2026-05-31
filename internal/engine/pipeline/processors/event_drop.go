@@ -102,7 +102,7 @@ func newLexer(input string) *exprLexer {
 	l.s.Init(strings.NewReader(input))
 	l.s.Mode = scanner.ScanIdents | scanner.ScanStrings | scanner.ScanRawStrings
 	l.s.IsIdentRune = func(ch rune, i int) bool {
-		return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' || ch == '.'
+		return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_'
 	}
 	l.next()
 	return l

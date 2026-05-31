@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 )
 
 const defaultAlertTimeout = 30 * time.Second
@@ -41,6 +43,7 @@ func (p *AlertWorkerPool) Submit(ctx context.Context, fn func(context.Context)) 
 	select {
 	case p.sem <- struct{}{}:
 	default:
+		metrics.IncWorkerPoolDropped()
 		return false
 	}
 

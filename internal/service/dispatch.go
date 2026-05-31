@@ -372,5 +372,13 @@ func (s *DispatchService) validatePolicy(p *model.DispatchPolicy) error {
 	if p.RepeatIntervalSeconds < 0 {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "repeat_interval_seconds must be >= 0")
 	}
+	// B7-13: Validate label_enhancement_rules is valid JSON array if provided.
+	if p.LabelEnhancementRules != "" {
+		var rules []model.LabelEnhancementAction
+		if err := json.Unmarshal([]byte(p.LabelEnhancementRules), &rules); err != nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam,
+				fmt.Sprintf("label_enhancement_rules must be a valid JSON array: %v", err))
+		}
+	}
 	return nil
 }

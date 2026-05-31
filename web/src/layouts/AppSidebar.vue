@@ -97,7 +97,7 @@ function handleMenuUpdate(key: string) {
     </div>
 
     <!-- Nav area — hidden when collapsed to prevent stacking -->
-    <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed && !pinned }">
+    <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed && !pinned }" aria-label="Main navigation">
       <div class="sidebar-nav-inner">
         <n-menu
           :collapsed="false"

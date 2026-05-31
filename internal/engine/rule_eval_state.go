@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 )
 
 // lockState returns (or creates) the per-fingerprint stateLock.
@@ -97,6 +99,7 @@ func (re *RuleEvaluator) persistState(fp string, state *AlertState) {
 
 	entry := toStateEntry(fp, state)
 	if err := re.stateStore.SaveState(ctx, re.rule.ID, fp, entry, re.stateTTL()); err != nil {
+		metrics.IncStatePersistFailure("save")
 		re.logger.Warn("failed to persist state to redis",
 			zap.String("fingerprint", fp),
 			zap.Error(err),
@@ -114,6 +117,7 @@ func (re *RuleEvaluator) deletePersistedState(fp string) {
 	defer cancel()
 
 	if err := re.stateStore.DeleteState(ctx, re.rule.ID, fp); err != nil {
+		metrics.IncStatePersistFailure("delete")
 		re.logger.Warn("failed to delete persisted state from redis",
 			zap.String("fingerprint", fp),
 			zap.Error(err),

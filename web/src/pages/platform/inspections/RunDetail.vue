@@ -28,6 +28,17 @@ const findings = computed<InspectionFinding[]>(() => {
   }
 })
 
+// FE7-6: Severity badge counts from findings
+const severityCounts = computed(() => {
+  const counts = { critical: 0, warning: 0, info: 0 }
+  for (const f of findings.value) {
+    if (f.severity === 'critical') counts.critical++
+    else if (f.severity === 'warning') counts.warning++
+    else counts.info++
+  }
+  return counts
+})
+
 const statusType = computed(() => {
   if (!run.value) return 'info'
   return run.value.status === 'success' ? 'success' : run.value.status === 'failed' ? 'error' : 'info'
@@ -90,6 +101,17 @@ function exportReport() {
       </NButton>
       <h2 style="margin: 0; font-size: 18px">{{ t('inspection.reportTitle', { id: route.params.id }) }}</h2>
       <NTag v-if="run" :type="statusType" size="small">{{ run.status }}</NTag>
+      <NSpace v-if="findings.length > 0" size="small" style="margin-left: 8px">
+        <NTag v-if="severityCounts.critical > 0" type="error" size="small" :bordered="false">
+          {{ severityCounts.critical }} {{ t('inspection.critical') || 'critical' }}
+        </NTag>
+        <NTag v-if="severityCounts.warning > 0" type="warning" size="small" :bordered="false">
+          {{ severityCounts.warning }} {{ t('inspection.warning') || 'warning' }}
+        </NTag>
+        <NTag v-if="severityCounts.info > 0" type="info" size="small" :bordered="false">
+          {{ severityCounts.info }} {{ t('inspection.info') || 'info' }}
+        </NTag>
+      </NSpace>
       <div style="margin-left: auto;">
         <NButton
           v-if="run?.report_markdown"

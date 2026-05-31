@@ -28,6 +28,14 @@ import type { SavedView } from '@/components/query/ViewSelect.vue'
 const { t } = useI18n()
 const router = useRouter()
 
+// FE5-5: Metric name autocomplete from label registry.
+// Plan: integrate with label registry API to provide autocomplete suggestions
+// for metric names in the query input. Implementation:
+//  1. Fetch metric names from /api/v1/label-registry/metrics endpoint
+//  2. Pass suggestions to QueryPanelContent as a prop
+//  3. Use Naive UI NAutoComplete or custom dropdown in the expression input
+//  4. Cache metric names per datasource to avoid repeated fetches
+
 // --- Datasources (shared) ---
 const datasources = ref<DataSource[]>([])
 

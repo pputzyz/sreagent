@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -79,6 +80,8 @@ func (s *ScheduledDispatchService) Schedule(ctx context.Context, d *model.Schedu
 // CancelByIncident cancels all pending dispatches for an incident.
 // Called when an incident is acknowledged or closed.
 func (s *ScheduledDispatchService) CancelByIncident(ctx context.Context, incidentID uint) error {
+	// B11-13: Count cancelled dispatches.
+	metrics.IncScheduledDispatch("cancelled")
 	return s.repo.CancelByIncident(ctx, incidentID)
 }
 
@@ -105,6 +108,7 @@ func (s *ScheduledDispatchService) ProcessDueDispatches(ctx context.Context) err
 				zap.Uint("incident_id", d.IncidentID),
 				zap.Error(sendErr),
 			)
+			metrics.IncScheduledDispatch("failed")
 			if markErr := s.repo.MarkFailed(ctx, d.ID, sendErr.Error()); markErr != nil {
 				s.logger.Error("failed to mark dispatch as failed",
 					zap.Uint("dispatch_id", d.ID), zap.Error(markErr))
@@ -112,6 +116,7 @@ func (s *ScheduledDispatchService) ProcessDueDispatches(ctx context.Context) err
 			continue
 		}
 
+		metrics.IncScheduledDispatch("dispatched")
 		if markErr := s.repo.MarkDispatched(ctx, d.ID); markErr != nil {
 			s.logger.Error("failed to mark dispatch as dispatched",
 				zap.Uint("dispatch_id", d.ID), zap.Error(markErr))

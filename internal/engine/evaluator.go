@@ -13,6 +13,7 @@ import (
 	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/pkg/hashring"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -604,6 +605,7 @@ func (e *Evaluator) syncRules() {
 			return true
 		})
 		if len(affectedDSs) > 0 {
+			metrics.IncForceSync()
 			e.logger.Info("forced sync triggered by datasource change — restarting affected evaluators",
 				zap.Uints("datasource_ids", affectedDSs))
 			e.stopEvaluatorsByDatasource(affectedDSs)

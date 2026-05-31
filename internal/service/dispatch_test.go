@@ -354,3 +354,43 @@ func Test_ApplyLabelEnhancements_does_not_mutate_original(t *testing.T) {
 	_, exists := labels["new_key"]
 	assert.False(t, exists, "original labels should not be mutated")
 }
+
+// ---------------------------------------------------------------------------
+// Additional matchConditions tests
+// ---------------------------------------------------------------------------
+
+func TestMatchConditions_LabelNotIn(t *testing.T) {
+	svc := newTestDispatchService()
+	cond := `[{"field":"labels.env","operator":"not_in","value":"dev,test"}]`
+
+	assert.True(t, svc.matchConditions(cond, model.JSONLabels{"env": "prod"}, "critical"),
+		"prod is not in dev,test so should match")
+	assert.True(t, svc.matchConditions(cond, model.JSONLabels{"env": "staging"}, "critical"),
+		"staging is not in dev,test so should match")
+	assert.False(t, svc.matchConditions(cond, model.JSONLabels{"env": "dev"}, "critical"),
+		"dev is in dev,test so should NOT match")
+	assert.False(t, svc.matchConditions(cond, model.JSONLabels{"env": "test"}, "critical"),
+		"test is in dev,test so should NOT match")
+}
+
+func TestMatchConditions_RegexLabelMatch(t *testing.T) {
+	svc := newTestDispatchService()
+	cond := `[{"field":"labels.service","operator":"regex","value":"^api-.*"}]`
+
+	assert.True(t, svc.matchConditions(cond, model.JSONLabels{"service": "api-gateway"}, "critical"),
+		"api-gateway matches ^api-.*")
+	assert.True(t, svc.matchConditions(cond, model.JSONLabels{"service": "api-auth"}, "critical"),
+		"api-auth matches ^api-.*")
+	assert.False(t, svc.matchConditions(cond, model.JSONLabels{"service": "web-frontend"}, "critical"),
+		"web-frontend does NOT match ^api-.*")
+}
+
+func TestExpandTemplate_LabelsDotPrefix_Multiple(t *testing.T) {
+	labels := model.JSONLabels{
+		"env":     "prod",
+		"service": "api-gateway",
+		"region":  "us-east-1",
+	}
+	result := expandTemplate("{{labels.env}}/{{labels.service}}@{{labels.region}}", labels)
+	assert.Equal(t, "prod/api-gateway@us-east-1", result)
+}

@@ -1306,6 +1306,60 @@ body.dark-theme .sev-chip[data-sev="info"]     { color: #7dd3fc; }
 .bg-app-platform { background-color: color-mix(in srgb, var(--sre-brand-platform) 5%, var(--sre-bg-page)); }
 
 /* ============================================================
+   Print stylesheet
+   ============================================================ */
+@media print {
+  /* Hide navigation, chrome, and interactive elements */
+  .topbar,
+  .nav-zone,
+  .app-rail,
+  .app-sidebar,
+  .sidebar-nav,
+  .sidebar-header,
+  .main-actions,
+  .float-ai-btn,
+  .float-btn,
+  .sre-icon-btn,
+  .error-boundary,
+  .n-dialog,
+  .n-drawer,
+  .n-modal,
+  .n-notification,
+  .n-message,
+  [aria-live="polite"] > .topbar-btn {
+    display: none !important;
+  }
+
+  /* Reset layout for full-width content */
+  .app-shell { display: block; height: auto; overflow: visible; }
+  .app-body  { display: block; }
+  .main      { overflow: visible; }
+  .main-content { overflow: visible; padding: 0; }
+
+  /* Remove shadows and decorative borders */
+  .surface-glass,
+  .surface-glass-strong,
+  .surface-card,
+  .surface-clay,
+  .content-card,
+  .sre-row-card,
+  .sre-notify-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+  }
+
+  /* Ensure text is black for readability */
+  body { color: #000 !important; background: #fff !important; }
+  a { color: #000 !important; text-decoration: underline; }
+
+  /* Page margins */
+  @page {
+    margin: 1.5cm;
+  }
+}
+
+/* ============================================================
    Responsive breakpoints
    ============================================================ */
 @media (max-width: 1024px) {

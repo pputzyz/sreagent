@@ -609,6 +609,8 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			svcs.AuthSvc.SetFailStore(rc)
 			// Inject Redis token revocation checker for JWT blacklist
 			middleware.TokenRevocationChecker = &tokenRevocationAdapter{rc: rc}
+			// Inject Redis per-token blacklist checker for single-session logout
+			middleware.TokenBlacklistChecker = rc
 			// Inject Redis token blacklister into UserService for user-disable revocation
 			svcs.UserSvc.SetTokenBlacklister(rc)
 			// Inject Redis StreamBus into AgentService for multi-instance SSE

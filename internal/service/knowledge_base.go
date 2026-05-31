@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -94,7 +96,102 @@ func (s *KnowledgeBaseService) SummarizeWithLLM(ctx context.Context, id uint) er
 }
 
 // IngestFromAlertEvent creates a knowledge document from a resolved alert event.
-// TODO: Implement alert-to-knowledge ingestion (P2.4)
-func (s *KnowledgeBaseService) IngestFromAlertEvent(ctx context.Context, event interface{}) error {
-	return fmt.Errorf("IngestFromAlertEvent not yet implemented")
+// Extracts alert name, severity, labels, annotations, and resolution from the event
+// and stores it as an auto-generated incident_case document.
+func (s *KnowledgeBaseService) IngestFromAlertEvent(ctx context.Context, event *model.AlertEvent) error {
+	if event == nil {
+		return fmt.Errorf("IngestFromAlertEvent: event is nil")
+	}
+	// Only ingest resolved/closed events — firing events are not yet actionable knowledge.
+	if event.Status != model.EventStatusResolved && event.Status != model.EventStatusClosed {
+		return nil
+	}
+
+	// Build label summary
+	labelParts := make([]string, 0, len(event.Labels))
+	for k, v := range event.Labels {
+		labelParts = append(labelParts, fmt.Sprintf("%s=%s", k, v))
+	}
+	labelStr := ""
+	if len(labelParts) > 0 {
+		labelStr = "Labels: " + strings.Join(labelParts, ", ")
+	}
+
+	// Build annotation summary
+	annotationParts := make([]string, 0, len(event.Annotations))
+	for k, v := range event.Annotations {
+		annotationParts = append(annotationParts, fmt.Sprintf("%s=%s", k, v))
+	}
+	annotationStr := ""
+	if len(annotationParts) > 0 {
+		annotationStr = "Annotations: " + strings.Join(annotationParts, ", ")
+	}
+
+	// Auto-generate title
+	title := fmt.Sprintf("[%s] %s — Resolved", strings.ToUpper(string(event.Severity)), event.AlertName)
+
+	// Build content from event metadata
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Alert: %s\n", event.AlertName))
+	sb.WriteString(fmt.Sprintf("Severity: %s\n", event.Severity))
+	sb.WriteString(fmt.Sprintf("Status: %s\n", event.Status))
+	sb.WriteString(fmt.Sprintf("Fired At: %s\n", event.FiredAt.Format(time.RFC3339)))
+	if event.ResolvedAt != nil {
+		sb.WriteString(fmt.Sprintf("Resolved At: %s\n", event.ResolvedAt.Format(time.RFC3339)))
+		duration := event.ResolvedAt.Sub(event.FiredAt)
+		sb.WriteString(fmt.Sprintf("Duration: %s\n", duration.Round(time.Second)))
+	}
+	if event.FireCount > 1 {
+		sb.WriteString(fmt.Sprintf("Fire Count: %d\n", event.FireCount))
+	}
+	if labelStr != "" {
+		sb.WriteString(labelStr + "\n")
+	}
+	if annotationStr != "" {
+		sb.WriteString(annotationStr + "\n")
+	}
+	if event.Resolution != "" {
+		sb.WriteString(fmt.Sprintf("\nResolution: %s\n", event.Resolution))
+	}
+	sb.WriteString(fmt.Sprintf("\nSource: %s\n", event.Source))
+
+	// Build tags from labels for searchability
+	tags := make(model.JSONLabels)
+	if event.Severity != "" {
+		tags["severity"] = string(event.Severity)
+	}
+	if event.Source != "" {
+		tags["source"] = event.Source
+	}
+	if v, ok := event.Labels["job"]; ok {
+		tags["job"] = v
+	}
+	if v, ok := event.Labels["instance"]; ok {
+		tags["instance"] = v
+	}
+
+	doc := &model.KnowledgeDocument{
+		Source:    model.KBSourceIncidentCase,
+		Title:     title,
+		Content:   sb.String(),
+		Tags:      tags,
+		SourceRef: fmt.Sprintf("alert_event:%d", event.ID),
+		Status:    "active",
+	}
+
+	if err := s.repo.Create(ctx, doc); err != nil {
+		s.logger.Error("failed to ingest knowledge from alert event",
+			zap.Uint("event_id", event.ID),
+			zap.String("alert_name", event.AlertName),
+			zap.Error(err),
+		)
+		return fmt.Errorf("ingest knowledge document: %w", err)
+	}
+
+	s.logger.Info("knowledge document ingested from alert event",
+		zap.Uint("event_id", event.ID),
+		zap.String("alert_name", event.AlertName),
+		zap.Uint("doc_id", doc.ID),
+	)
+	return nil
 }

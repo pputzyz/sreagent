@@ -68,7 +68,25 @@ type sseSubscriber struct {
 	taskID string
 }
 
-// AgentService 管理 Agent 任务的规划与执行
+// AgentService manages AI Agent tasks with two execution models:
+//
+// Execution Model A — Plan-then-Execute (runTask / StartAgent / RunAgent):
+//   1. LLM generates a full execution plan (JSON steps) upfront via planSteps
+//   2. Steps are executed sequentially via executeStep (tool.Execute)
+//   3. LLM summarizes all results via summarize
+//   Used by: StartAgent (async), RunAgent (sync)
+//
+// Execution Model B — Tool-Calling Loop (RunUntilDone):
+//   1. LLM receives tools as OpenAI function definitions
+//   2. LLM autonomously decides which tools to call in a loop (callLLMWithToolsCustom)
+//   3. Loop continues until LLM produces a final text answer (no more tool_calls)
+//   Used by: RunUntilDone (direct chat with tool access)
+//
+// TODO(B8-14): These two models should be unified. Model A duplicates tool execution
+// logic (step planning, error handling, result truncation) that Model B handles more
+// elegantly via the LLM's native tool-calling ability. The recommended path forward is
+// to migrate Model A to use Model B's tool-calling loop internally, with the plan-step
+// prompt serving as the initial system instruction.
 type AgentService struct {
 	aiSvc    *AIService
 	toolReg  *AIToolRegistry

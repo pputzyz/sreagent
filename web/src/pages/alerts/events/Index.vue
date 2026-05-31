@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, h, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   useMessage,
@@ -208,6 +208,13 @@ function statusFilterArray(): string[] | undefined {
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 function refilter() {
   refresh()
+  scrollToTop()
+}
+function scrollToTop() {
+  nextTick(() => {
+    const el = document.querySelector('.event-list') as HTMLElement | null
+    if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
+  })
 }
 function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer)
@@ -750,8 +757,8 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         :item-count="total"
         :page-sizes="[20, 50, 100]"
         show-size-picker
-        @update:page="(p: number) => { page = p; clearSelection(); fetchList() }"
-        @update:page-size="(s: number) => { pageSize = s; page = 1; fetchList() }"
+        @update:page="(p: number) => { page = p; clearSelection(); fetchList(); scrollToTop() }"
+        @update:page-size="(s: number) => { pageSize = s; page = 1; fetchList(); scrollToTop() }"
       />
     </div>
   </div>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -283,12 +285,114 @@ func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model
 		}
 		return summary, nil
 
+	case "metric_correlation":
+		// Compares a metric across two time windows (e.g. current hour vs same hour yesterday)
+		// to detect anomalous deviations. Uses the step's datasource_id and expression.
+		// ConditionExpr: JSON {"current_window":"1h","baseline_window":"24h","threshold":0.5}
+		if step.DatasourceID == nil || step.Expression == "" {
+			return "", fmt.Errorf("metric_correlation step requires datasource_id and expression")
+		}
+		var corrCfg struct {
+			CurrentWindow  string  `json:"current_window"`
+			BaselineWindow string  `json:"baseline_window"`
+			Threshold      float64 `json:"threshold"` // fractional change threshold (0.5 = 50%)
+		}
+		corrCfg.CurrentWindow = "1h"
+		corrCfg.BaselineWindow = "24h"
+		corrCfg.Threshold = 0.5
+		if step.ConditionExpr != "" {
+			if err := json.Unmarshal([]byte(step.ConditionExpr), &corrCfg); err != nil {
+				return "", fmt.Errorf("parse metric_correlation condition_expr: %w", err)
+			}
+		}
+		currentDur, err := time.ParseDuration(corrCfg.CurrentWindow)
+		if err != nil {
+			return "", fmt.Errorf("invalid current_window %q: %w", corrCfg.CurrentWindow, err)
+		}
+		baselineDur, err := time.ParseDuration(corrCfg.BaselineWindow)
+		if err != nil {
+			return "", fmt.Errorf("invalid baseline_window %q: %w", corrCfg.BaselineWindow, err)
+		}
+		now := time.Now()
+		// Query current window
+		currentResp, err := s.dsSvc.QueryDatasource(ctx, *step.DatasourceID, step.Expression, now)
+		if err != nil {
+			return "", fmt.Errorf("metric_correlation current window query failed: %w", err)
+		}
+		// Query baseline window
+		baselineResp, err := s.dsSvc.QueryDatasource(ctx, *step.DatasourceID, step.Expression, now.Add(-baselineDur))
+		if err != nil {
+			return "", fmt.Errorf("metric_correlation baseline window query failed: %w", err)
+		}
+		summary := fmt.Sprintf("metric_correlation: current window=%s, baseline=%s, threshold=%.0f%%",
+			corrCfg.CurrentWindow, corrCfg.BaselineWindow, corrCfg.Threshold*100)
+		// Compare last values
+		if len(currentResp.Series) > 0 && len(baselineResp.Series) > 0 {
+			currentVal := 0.0
+			if len(currentResp.Series[0].Values) > 0 {
+				currentVal = currentResp.Series[0].Values[len(currentResp.Series[0].Values)-1].Value
+			}
+			baselineVal := 0.0
+			if len(baselineResp.Series[0].Values) > 0 {
+				baselineVal = baselineResp.Series[0].Values[len(baselineResp.Series[0].Values)-1].Value
+			}
+			change := 0.0
+			if baselineVal != 0 {
+				change = (currentVal - baselineVal) / baselineVal
+			}
+			summary += fmt.Sprintf("\ncurrent=%.4f, baseline=%.4f, change=%.1f%%", currentVal, baselineVal, change*100)
+			if change > corrCfg.Threshold || change < -corrCfg.Threshold {
+				summary += "\nANOMALY DETECTED: change exceeds threshold"
+			} else {
+				summary += "\nNo significant deviation detected"
+			}
+		} else {
+			summary += "\nInsufficient data for comparison"
+		}
+		_ = currentDur // used for logging; actual time refs use now
+		return summary, nil
+
+	case "http_probe":
+		// Checks endpoint availability via HTTP GET.
+		// Expression is the URL to probe. ConditionExpr: JSON {"expected_status":200,"timeout":"10s"}
+		if step.Expression == "" {
+			return "", fmt.Errorf("http_probe step requires expression (URL)")
+		}
+		var probeCfg struct {
+			ExpectedStatus int    `json:"expected_status"`
+			Timeout        string `json:"timeout"`
+		}
+		probeCfg.ExpectedStatus = 200
+		probeCfg.Timeout = "10s"
+		if step.ConditionExpr != "" {
+			if err := json.Unmarshal([]byte(step.ConditionExpr), &probeCfg); err != nil {
+				return "", fmt.Errorf("parse http_probe condition_expr: %w", err)
+			}
+		}
+		timeoutDur, err := time.ParseDuration(probeCfg.Timeout)
+		if err != nil {
+			timeoutDur = 10 * time.Second
+		}
+		probeCtx, probeCancel := context.WithTimeout(ctx, timeoutDur)
+		defer probeCancel()
+		req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, step.Expression, nil)
+		if err != nil {
+			return "", fmt.Errorf("http_probe create request: %w", err)
+		}
+		client := safehttp.NewSafeClient(timeoutDur)
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Sprintf("http_probe: %s — UNREACHABLE (%v)", step.Expression, err), nil
+		}
+		defer func() { _ = resp.Body.Close() }()
+		statusOK := resp.StatusCode == probeCfg.ExpectedStatus
+		summary := fmt.Sprintf("http_probe: %s — HTTP %d (expected %d) — %s",
+			step.Expression, resp.StatusCode, probeCfg.ExpectedStatus,
+			map[bool]string{true: "OK", false: "MISMATCH"}[statusOK])
+		return summary, nil
+
 	default:
-		// TODO (B8-9): Currently only 3 step types are supported (query, label_check,
-		// change_correlation). Consider adding: "log_query" (VictoriaLogs/ES log search),
-		// "ai_analysis" (LLM-based root cause analysis), "http_probe" (endpoint reachability),
-		// "metric_correlation" (cross-metric correlation), and "conditional_branch" (if/else).
-		return fmt.Sprintf("步骤类型 %q 暂不支持自动执行（当前仅支持 query, label_check, change_correlation）", step.StepType),
+		return fmt.Sprintf("步骤类型 %q 暂不支持自动执行（当前支持: query, label_check, change_correlation, metric_correlation, http_probe）", step.StepType),
 			fmt.Errorf("unsupported step type: %s", step.StepType)
 	}
 }

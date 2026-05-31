@@ -128,6 +128,7 @@ type OIDCConfig struct {
 	Scopes        []string          `mapstructure:"scopes"`         // default: ["openid","profile","email"]
 	RoleClaim     string            `mapstructure:"role_claim"`     // JWT claim path for roles, default "realm_access.roles"
 	RoleMapping   map[string]string `mapstructure:"role_mapping"`   // Keycloak role → SREAgent role, e.g. {"sre-admin":"admin","sre-member":"member"}
+	RoleStrategy  string            `mapstructure:"role_strategy"`  // "highest" (default) or "lowest" — how to resolve multiple OIDC role matches
 	DefaultRole   string            `mapstructure:"default_role"`   // role when no mapping matches, default "viewer"
 	AutoProvision bool              `mapstructure:"auto_provision"` // create user on first OIDC login, default true
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, computed, h, inject } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, computed, h, inject, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NIcon, NDataTable, NTag, NSelect } from 'naive-ui'
@@ -130,6 +130,40 @@ async function load() {
     message.error(getErrorMessage(e) || t('common.loadFailed'))
   } finally { loading.value = false }
 }
+
+// FE1-12: Auto-refresh timeline when incident is active (not closed)
+const AUTO_REFRESH_MS = 30_000 // 30 seconds
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+function startPolling() {
+  stopPolling()
+  if (incident.value && incident.value.status !== 'closed') {
+    pollTimer = setInterval(() => {
+      if (!loading.value) {
+        // Only refresh timeline and related alerts, not the full page
+        Promise.all([
+          incidentApi.getTimeline(incidentId.value),
+          alertV2Api.list({ incident_id: incidentId.value, page: 1, page_size: 50 }),
+        ]).then(([tlRes, alertRes]) => {
+          timeline.value = tlRes.data.data ?? []
+          relatedAlerts.value = alertRes.data.data?.list ?? []
+        }).catch(() => { /* silent */ })
+      }
+    }, AUTO_REFRESH_MS)
+  }
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+// Restart polling when incident status changes
+watch(() => incident.value?.status, () => {
+  startPolling()
+})
 
 async function loadRelatedChanges() {
   changesLoading.value = true
@@ -304,6 +338,11 @@ onMounted(async () => {
   await load()
   await loadPostMortem()
   await loadRelatedChanges()
+  startPolling()
+})
+
+onUnmounted(() => {
+  stopPolling()
 })
 </script>
 

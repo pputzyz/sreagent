@@ -2,7 +2,9 @@ package handler
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	mrand "math/rand"
@@ -14,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/middleware"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
 	"github.com/sreagent/sreagent/internal/service"
@@ -361,5 +364,54 @@ func (h *AuthHandler) ChangeMyPassword(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+	Success(c, nil)
+}
+
+// Logout blacklists the current JWT token so it can no longer be used.
+// POST /api/v1/auth/logout
+func (h *AuthHandler) Logout(c *gin.Context) {
+	if h.redis == nil {
+		Error(c, apperr.WithMessage(apperr.ErrInternal, "logout requires Redis (token blacklist unavailable)"))
+		return
+	}
+
+	// Extract the raw token from the Authorization header.
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "missing authorization header"))
+		return
+	}
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "invalid authorization format"))
+		return
+	}
+	rawToken := parts[1]
+
+	// Compute a stable token ID by hashing the raw JWT (each token is unique).
+	hash := sha256.Sum256([]byte(rawToken))
+	tokenID := hex.EncodeToString(hash[:16]) // 16 bytes = 32 hex chars, sufficient for uniqueness
+
+	// Parse claims to get the remaining TTL for the blacklist entry.
+	claims, err := middleware.ParseToken(rawToken, h.svc.GetJWTSecret())
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, "invalid token"))
+		return
+	}
+
+	// Blacklist until the token would have expired anyway.
+	var ttl time.Duration
+	if claims.ExpiresAt != nil {
+		ttl = time.Until(claims.ExpiresAt.Time)
+	}
+	if ttl <= 0 {
+		ttl = 1 * time.Minute // short-lived marker for already-expired tokens
+	}
+
+	if err := h.redis.BlacklistToken(c.Request.Context(), tokenID, ttl); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrRedis, "failed to blacklist token"))
+		return
+	}
+
 	Success(c, nil)
 }

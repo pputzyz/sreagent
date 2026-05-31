@@ -33,7 +33,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <button v-ripple class="topbar-btn" @click="handleClick" :title="$t('notification.centerTitle')">
+  <button
+    v-ripple
+    class="topbar-btn"
+    @click="handleClick"
+    :title="$t('notification.centerTitle')"
+    :aria-label="unreadCount > 0 ? `${$t('notification.centerTitle')} (${unreadCount})` : $t('notification.centerTitle')"
+  >
     <NBadge :value="unreadCount" :max="99" :offset="[-4, -2]" :show="unreadCount > 0">
       <NIcon :component="NotificationsOutline" :size="16" />
     </NBadge>

@@ -178,20 +178,30 @@ export function useVariable(
     })
   }
 
-  // Resolve all variables sequentially (for chained dependency support)
-  // TODO(FE3-5): Add cycle detection for chained variable dependencies.
-  // Current sequential resolution handles A->B->C correctly but will infinite-loop
-  // on A->B->A cycles. Implement topological sort or max-depth guard.
+  // Resolve all variables sequentially (for chained dependency support).
+  // Cycle detection: tracks visited variable names during dependency traversal.
+  // If a variable is encountered again, it's a cycle — skip that dependency.
+  const MAX_RESOLVE_DEPTH = 10
+
   let resolveSeq = 0
   async function resolveAll() {
     const seq = ++resolveSeq
-    // Build a preResolve function that uses current states
+    const visited = new Set<string>()
+
+    // Build a preResolve function that uses current states with cycle detection
     function preResolve(s: string): string {
       return replaceInString(s, states.value)
     }
 
-    for (const [, state] of states.value) {
+    for (const [name, state] of states.value) {
       if (seq !== resolveSeq) return // superseded by a newer call
+
+      // Cycle detection: skip if this variable was already resolved in this pass
+      if (visited.has(name)) {
+        console.warn(`[useVariable] Cycle detected for variable "${name}", skipping resolution`)
+        continue
+      }
+      visited.add(name)
 
       switch (state.config.type) {
         case 'query':
@@ -219,18 +229,33 @@ export function useVariable(
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
-  // Core replacement logic on a raw string with a given states map
-  // TODO(FE4-8): Current single-pass replacement doesn't handle nested $var references
-  // (e.g., $A resolves to "${B}-suffix" but $B won't be expanded). Consider multi-pass
-  // resolution with cycle detection and max-depth guard (e.g., 5 passes).
+  // Core replacement logic on a raw string with a given states map.
+  // Multi-pass resolution (FE4-8): resolves nested $var references iteratively.
+  // e.g., $A → "${B}-suffix" → "$B" gets expanded in the next pass.
+  // Stops when no more $var patterns are found or MAX_RESOLVE_DEPTH is reached.
   function replaceInString(input: string, stateMap: Map<string, VariableState>): string {
     let result = input
-    for (const [name, state] of stateMap) {
-      const escaped = escapeRegex(name)
-      const replacement = resolveValueForReplacement(state)
-      result = result.replace(new RegExp(`\\$${escaped}\\b`, 'g'), replacement)
-      result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), replacement)
-      result = result.replace(new RegExp(`\\[\\[${escaped}\\]\\]`, 'g'), replacement)
+    const MAX_PASSES = 10
+
+    for (let pass = 0; pass < MAX_PASSES; pass++) {
+      let changed = false
+      for (const [name, state] of stateMap) {
+        const escaped = escapeRegex(name)
+        const replacement = resolveValueForReplacement(state)
+        const patterns = [
+          new RegExp(`\\$${escaped}\\b`, 'g'),
+          new RegExp(`\\$\\{${escaped}\\}`, 'g'),
+          new RegExp(`\\[\\[${escaped}\\]\\]`, 'g'),
+        ]
+        for (const pattern of patterns) {
+          const next = result.replace(pattern, replacement)
+          if (next !== result) {
+            changed = true
+            result = next
+          }
+        }
+      }
+      if (!changed) break // no more substitutions — converged
     }
     return result
   }

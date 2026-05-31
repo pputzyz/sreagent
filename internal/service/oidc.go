@@ -234,7 +234,16 @@ func (s *OIDCService) navigateClaimPath(claims map[string]json.RawMessage, path 
 	return s.navigateClaimPath(nested, path[1:])
 }
 
-// mapRole finds the highest-privilege SREAgent role from the OIDC roles.
+// mapRole resolves the SREAgent role from a set of OIDC roles using the configured strategy.
+//
+// Strategy "highest" (default): picks the highest-privilege mapped role.
+//   - Security note: a user with both "sre-admin" and "sre-viewer" OIDC roles gets admin.
+//   - This is convenient but means any admin-granting OIDC role elevates the user.
+//
+// Strategy "lowest": picks the lowest-privilege mapped role.
+//   - Security note: a user with both "sre-admin" and "sre-viewer" OIDC roles gets viewer.
+//   - This is more restrictive and prevents accidental privilege escalation when a user
+//     belongs to multiple OIDC groups with conflicting role mappings.
 func (s *OIDCService) mapRole(oidcRoles []string, defaultRole model.Role) model.Role {
 	if len(s.oidcCfg.RoleMapping) == 0 {
 		return defaultRole
@@ -249,15 +258,32 @@ func (s *OIDCService) mapRole(oidcRoles []string, defaultRole model.Role) model.
 		model.RoleViewer:       1,
 	}
 
+	strategy := s.oidcCfg.RoleStrategy
+	if strategy == "" {
+		strategy = "highest"
+	}
+
 	bestRole := defaultRole
 	bestPriority := rolePriority[defaultRole]
 
 	for _, oidcRole := range oidcRoles {
 		if mapped, ok := s.oidcCfg.RoleMapping[oidcRole]; ok {
 			sreRole := model.Role(mapped)
-			if p, ok := rolePriority[sreRole]; ok && p > bestPriority {
-				bestRole = sreRole
-				bestPriority = p
+			p, ok := rolePriority[sreRole]
+			if !ok {
+				continue
+			}
+			switch strategy {
+			case "lowest":
+				if p < bestPriority {
+					bestRole = sreRole
+					bestPriority = p
+				}
+			default: // "highest"
+				if p > bestPriority {
+					bestRole = sreRole
+					bestPriority = p
+				}
 			}
 		}
 	}

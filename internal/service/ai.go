@@ -392,6 +392,47 @@ Respond in Chinese (简体中文).`
 	return &analysis, nil
 }
 
+// trimHistory drops the oldest messages from history so that the total character
+// budget (system prompt + history + user message) stays within maxChars.
+// It preserves tool-call pairs (assistant with tool_calls → matching tool responses).
+// maxChars <= 0 means no trimming.
+func trimHistory(systemPrompt string, history []ChatMessage, userMessage string, maxChars int) []ChatMessage {
+	if maxChars <= 0 {
+		return history
+	}
+	// Rough estimate: 1 token ~ 4 chars (English/Chinese mix). We work in chars for simplicity.
+	budget := maxChars - len(systemPrompt) - len(userMessage)
+	if budget <= 0 {
+		return nil // no room for history
+	}
+	// Walk from the end, keeping messages that fit within budget.
+	total := 0
+	cutoff := len(history)
+	for i := len(history) - 1; i >= 0; i-- {
+		msgLen := len(history[i].Content) + len(history[i].ToolCallID)
+		for _, tc := range history[i].ToolCalls {
+			msgLen += len(tc.Function.Name) + len(tc.Function.Arguments)
+		}
+		// Reserve ~100 chars overhead per message (role, JSON framing)
+		msgLen += 100
+		if total+msgLen > budget {
+			// This message would exceed the budget. But if it's a tool response,
+			// try to also drop the preceding assistant tool_call to keep pairs intact.
+			if history[i].Role == "tool" && i > 0 && history[i-1].Role == "assistant" {
+				i-- // skip the assistant tool_call message too
+			}
+			cutoff = i + 1
+			break
+		}
+		total += msgLen
+		cutoff = i
+	}
+	if cutoff <= 0 {
+		return nil
+	}
+	return history[cutoff:]
+}
+
 // Chat sends a multi-turn conversation to the LLM and returns the assistant reply.
 // The caller supplies the system prompt, conversation history, and the new user message.
 // 根据 provider 类型分发：anthropic 走原生 Messages API，其余走 OpenAI 兼容协议。
@@ -403,6 +444,9 @@ func (s *AIService) Chat(ctx context.Context, systemPrompt string, history []Cha
 	if !cfg.Enabled {
 		return "", fmt.Errorf("AI is not enabled")
 	}
+
+	// B8-17: Trim history to fit within context window budget.
+	history = trimHistory(systemPrompt, history, userMessage, cfg.ContextMaxChars)
 
 	// Anthropic 走原生 Messages API（system 独立字段）
 	if cfg.Provider == "anthropic" {
@@ -869,6 +913,11 @@ type ToolCallRecord struct {
 
 // callLLMWithToolsCustom 与 callLLMWithTools 类似，但接受自定义工具执行器和工具定义，
 // 返回最终文本回答和所有工具调用记录。供 RunUntilDone 等场景使用。
+//
+// TODO(B8-13): Anthropic tool calling is not supported. The Anthropic Messages API uses a different
+// tool format (content blocks with type "tool_use" / "tool_result") than OpenAI's function calling.
+// This method only implements the OpenAI-compatible chat/completions protocol. When provider is
+// "anthropic" and tools are non-empty, we log a warning and fall back to a non-tool single-shot call.
 func (s *AIService) callLLMWithToolsCustom(
 	ctx context.Context,
 	cfg AIConfig,
@@ -877,6 +926,16 @@ func (s *AIService) callLLMWithToolsCustom(
 	executor func(ctx context.Context, name string, params map[string]interface{}) (string, error),
 	maxRounds int,
 ) (string, []ToolCallRecord, error) {
+	// B8-13: Anthropic does not support OpenAI-format tool calling.
+	// Fall back to non-tool mode with a warning.
+	if cfg.Provider == "anthropic" && len(tools) > 0 {
+		s.logger.Warn("Anthropic provider does not support OpenAI-format tool calling, falling back to non-tool mode",
+			zap.String("provider", cfg.Provider),
+			zap.Int("tools_count", len(tools)),
+		)
+		result, err := s.callLLMWithSystem(ctx, cfg, systemPrompt, userPrompt)
+		return result, nil, err
+	}
 	if maxRounds <= 0 {
 		maxRounds = 5
 	}
