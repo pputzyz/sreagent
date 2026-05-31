@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // EventPipeline defines a reusable event processing pipeline.
@@ -68,10 +70,14 @@ func (p *EventPipeline) FE2DB() {
 // DB2FE deserializes database JSON fields to frontend-facing structs.
 func (p *EventPipeline) DB2FE() {
 	if p.LabelFiltersJSON != "" {
-		_ = json.Unmarshal([]byte(p.LabelFiltersJSON), &p.LabelFilters)
+		if err := json.Unmarshal([]byte(p.LabelFiltersJSON), &p.LabelFilters); err != nil {
+			zap.L().Warn("failed to unmarshal LabelFiltersJSON", zap.Error(err))
+		}
 	}
 	if p.ProcessorsJSON != "" {
-		_ = json.Unmarshal([]byte(p.ProcessorsJSON), &p.ProcessorConfigs)
+		if err := json.Unmarshal([]byte(p.ProcessorsJSON), &p.ProcessorConfigs); err != nil {
+			zap.L().Warn("failed to unmarshal ProcessorsJSON", zap.Error(err))
+		}
 	}
 	if p.LabelFilters == nil {
 		p.LabelFilters = []TagFilter{}

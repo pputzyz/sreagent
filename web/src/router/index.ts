@@ -118,6 +118,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/knowledge', component: () => import('@/pages/platform/Knowledge.vue'), meta: { title: 'menu.knowledge' } },
       { path: 'platform/annotations', component: () => import('@/pages/platform/Annotations.vue'), meta: { title: 'menu.annotations' } },
 
+      // ===== Catch-all 404 =====
+      { path: ':pathMatch(.*)*', redirect: '/alert/events' },
     ],
   },
 ]

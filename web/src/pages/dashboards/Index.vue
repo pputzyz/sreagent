@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, h } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NInput, NSpace, NPopconfirm, NPagination, NDropdown } from 'naive-ui'
 import { useMessage } from 'naive-ui'
@@ -51,6 +51,10 @@ function onSearch() {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => refresh(), 300)
 }
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 async function handleDelete(id: number) {
   try {

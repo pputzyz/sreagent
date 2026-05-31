@@ -111,9 +111,14 @@ func (e *Evaluator) collectAllEvaluators() []*RuleEvaluator {
 
 	// Per-datasource bucket evaluators.
 	e.perDS.Range(func(_, v any) bool {
-		bucket := v.(*PerDatasourceEvaluator)
+		bucket, ok := v.(*PerDatasourceEvaluator)
+		if !ok {
+			return true
+		}
 		bucket.rules.Range(func(_, rv any) bool {
-			evals = append(evals, rv.(*RuleEvaluator))
+			if re, ok := rv.(*RuleEvaluator); ok {
+				evals = append(evals, re)
+			}
 			return true
 		})
 		return true

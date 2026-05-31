@@ -143,10 +143,12 @@ const providerColumns = computed(() => [
     key: 'actions',
     width: 140,
     render: (row: AIProvider) => {
-      const idx = providersConfig.value!.providers.indexOf(row)
+      const providers = providersConfig.value?.providers ?? []
+      const idx = providers.indexOf(row)
+      const isDefault = providersConfig.value?.default_provider === row.key
       return h('div', { style: 'display: flex; gap: 2px;' }, [
         h(NButton, { text: true, size: 'small', loading: testingProvider.value === row.key, onClick: () => handleTestProvider(row.key) }, { icon: () => h(NIcon, { component: PulseOutline }) }),
-        h(NButton, { text: true, size: 'small', disabled: providersConfig.value!.default_provider === row.key, onClick: () => setDefaultProvider(row.key) }, { icon: () => h(NIcon, { component: StarOutline }) }),
+        h(NButton, { text: true, size: 'small', disabled: isDefault, onClick: () => setDefaultProvider(row.key) }, { icon: () => h(NIcon, { component: StarOutline }) }),
         h(NButton, { text: true, size: 'small', onClick: () => openEditProvider(idx) }, { icon: () => h(NIcon, { component: CreateOutline }) }),
         h(NPopconfirm, { onPositiveClick: () => deleteProvider(idx) }, {
           trigger: () => h(NButton, { text: true, size: 'small', type: 'error' }, { icon: () => h(NIcon, { component: TrashOutline }) }),

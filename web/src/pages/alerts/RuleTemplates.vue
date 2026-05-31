@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, h, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog } from 'naive-ui'
 import {
@@ -56,6 +56,10 @@ watch(searchQuery, () => {
 watch(filterCategory, () => {
   page.value = 1
   fetchList()
+})
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
 })
 
 // Category options

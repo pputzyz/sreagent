@@ -12,7 +12,7 @@
  * - ECharts histogram from date_histogram aggregation
  * - Click-to-filter (is/is not) as tags
  */
-import { ref, computed, onMounted, watch, shallowRef, type Component } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, shallowRef, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NSelect, NButton, NSpace, NTag, NSpin, NIcon, NInput,
@@ -581,6 +581,10 @@ onMounted(() => {
   loadDatasources()
   loadECharts()
   document.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown)
 })
 </script>
 

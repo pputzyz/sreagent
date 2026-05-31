@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, h } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NIcon } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -27,6 +27,10 @@ function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => fetchList(), 300)
 }
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 const statusFilter = ref<'' | 'active' | 'disabled'>('')
 const teamFilter = ref<number | null>(null)
 const teams = ref<Team[]>([])

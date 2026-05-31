@@ -11,6 +11,7 @@ import (
 // Test_RuleGenCache_Get_miss_returns_nil verifies that cache miss returns nil.
 func Test_RuleGenCache_Get_miss_returns_nil(t *testing.T) {
 	cache := NewRuleGenCache(10 * time.Minute)
+	t.Cleanup(cache.Stop)
 	result := cache.Get("nonexistent description", nil, "alert")
 	assert.Nil(t, result, "cache miss should return nil")
 }
@@ -19,6 +20,7 @@ func Test_RuleGenCache_Get_miss_returns_nil(t *testing.T) {
 // set/get cycle works correctly.
 func Test_RuleGenCache_Set_then_Get_hit_returns_result(t *testing.T) {
 	cache := NewRuleGenCache(10 * time.Minute)
+	t.Cleanup(cache.Stop)
 
 	dsID := uint(42)
 	original := &RuleGenerateResult{
@@ -42,6 +44,7 @@ func Test_RuleGenCache_Set_then_Get_hit_returns_result(t *testing.T) {
 func Test_RuleGenCache_expired_entry_returns_nil(t *testing.T) {
 	// Use a very short TTL
 	cache := NewRuleGenCache(50 * time.Millisecond)
+	t.Cleanup(cache.Stop)
 
 	result := &RuleGenerateResult{
 		Name:       "TestRule",
@@ -64,6 +67,7 @@ func Test_RuleGenCache_expired_entry_returns_nil(t *testing.T) {
 // produce different cache keys and don't collide.
 func Test_RuleGenCache_different_keys_miss(t *testing.T) {
 	cache := NewRuleGenCache(10 * time.Minute)
+	t.Cleanup(cache.Stop)
 
 	cache.Set("disk full", nil, "alert", &RuleGenerateResult{Name: "DiskFull"})
 	cached := cache.Get("cpu high", nil, "alert")
@@ -74,6 +78,7 @@ func Test_RuleGenCache_different_keys_miss(t *testing.T) {
 // with different datasource IDs produces different cache entries.
 func Test_RuleGenCache_different_dsID_miss(t *testing.T) {
 	cache := NewRuleGenCache(10 * time.Minute)
+	t.Cleanup(cache.Stop)
 
 	ds1 := uint(1)
 	ds2 := uint(2)

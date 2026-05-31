@@ -44,7 +44,7 @@ async function handleRun() {
     }
 
     // 启动 SSE 流
-    startSSE(task.value!.id)
+    if (task.value) startSSE(task.value.id)
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
   } finally {

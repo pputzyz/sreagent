@@ -505,6 +505,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 
 // ===== Render helpers (icons via h to avoid template noise) =====

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -93,13 +94,17 @@ func (r *RecordingRule) DB2FE() {
 	// DatasourceIDs
 	r.DatasourceIDsJSON = nil
 	if r.DatasourceIDs != "" && r.DatasourceIDs != "[]" {
-		_ = json.Unmarshal([]byte(r.DatasourceIDs), &r.DatasourceIDsJSON)
+		if err := json.Unmarshal([]byte(r.DatasourceIDs), &r.DatasourceIDsJSON); err != nil {
+			zap.L().Warn("failed to unmarshal DatasourceIDs", zap.Error(err))
+		}
 	}
 
 	// QueryConfigs
 	r.QueryConfigsJSON = nil
 	if r.QueryConfigs != "" {
-		_ = json.Unmarshal([]byte(r.QueryConfigs), &r.QueryConfigsJSON)
+		if err := json.Unmarshal([]byte(r.QueryConfigs), &r.QueryConfigsJSON); err != nil {
+			zap.L().Warn("failed to unmarshal QueryConfigs", zap.Error(err))
+		}
 	}
 
 	// Backward compat: if CronPattern is empty, derive from a default

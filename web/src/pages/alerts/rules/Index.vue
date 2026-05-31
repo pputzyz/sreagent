@@ -415,6 +415,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 </script>
 

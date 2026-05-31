@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, watch } from 'vue'
+import { ref, shallowRef, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NRadioGroup, NRadioButton, NSelect, NInput, NDatePicker, NButton, NPagination, NSpin } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -99,6 +99,10 @@ function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => onFilterChange(), 300)
 }
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 function onRangeChange(v: string) {
   range.value = v as '7d' | '30d' | '90d' | 'custom'

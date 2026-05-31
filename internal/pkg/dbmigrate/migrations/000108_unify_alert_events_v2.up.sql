@@ -51,26 +51,9 @@ FROM `alert_events_v2` v2
 LEFT JOIN `alerts` a ON a.`id` = v2.`alert_id`;
 
 -- Step 5: Add foreign key for alert_id (SET NULL — event survives alert deletion)
--- B12-3: Only catch errno 1061 (Duplicate key name) instead of all SQLEXCEPTION.
--- The IF NOT EXISTS check prevents most duplicates; the handler is a safety net for races.
-DELIMITER //
-CREATE PROCEDURE _migrate_000108_add_fk()
-BEGIN
-    DECLARE CONTINUE HANDLER FOR 1061 BEGIN END; -- Duplicate key name only
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.TABLE_CONSTRAINTS
-        WHERE CONSTRAINT_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'alert_events'
-          AND CONSTRAINT_NAME = 'fk_alert_events_alert_id'
-          AND CONSTRAINT_TYPE = 'FOREIGN KEY'
-    ) THEN
-        ALTER TABLE `alert_events`
-            ADD CONSTRAINT `fk_alert_events_alert_id`
-            FOREIGN KEY (`alert_id`) REFERENCES `alerts`(`id`)
-            ON DELETE SET NULL;
-    END IF;
-END //
-DELIMITER ;
-
-CALL _migrate_000108_add_fk();
-DROP PROCEDURE IF EXISTS _migrate_000108_add_fk;
+-- The migration runner treats errno 1061 (Duplicate key name) as idempotent, so a
+-- plain ALTER TABLE is safe to re-run.
+ALTER TABLE `alert_events`
+    ADD CONSTRAINT `fk_alert_events_alert_id`
+    FOREIGN KEY (`alert_id`) REFERENCES `alerts`(`id`)
+    ON DELETE SET NULL;

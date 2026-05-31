@@ -9,7 +9,7 @@
  * All Prometheus API calls go through the existing datasource proxy:
  *   /api/v1/datasources/:id/proxy/api/v1/...
  */
-import { ref, computed, watch, onMounted, shallowRef, type Component } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, shallowRef, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
@@ -208,6 +208,10 @@ watch(queryExpression, (expr) => {
     return
   }
   fetchTimer = setTimeout(fetchChartData, 500)
+})
+
+onBeforeUnmount(() => {
+  if (fetchTimer) clearTimeout(fetchTimer)
 })
 
 // ===== Chart option =====

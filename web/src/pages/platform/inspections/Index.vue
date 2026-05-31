@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, h } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
@@ -54,6 +54,10 @@ function debouncedCronPreview() {
   if (cronPreviewTimer) clearTimeout(cronPreviewTimer)
   cronPreviewTimer = setTimeout(fetchCronPreview, 500)
 }
+
+onBeforeUnmount(() => {
+  if (cronPreviewTimer) clearTimeout(cronPreviewTimer)
+})
 
 async function fetchCronPreview() {
   const expr = form.value.cron_expr?.trim()

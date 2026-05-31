@@ -375,13 +375,17 @@ func (e *Evaluator) buildEvaluatorDeps() evaluatorDeps {
 // getOrCreateDSBucket gets or creates a per-datasource evaluation bucket.
 func (e *Evaluator) getOrCreateDSBucket(dsID uint) *PerDatasourceEvaluator {
 	if v, ok := e.perDS.Load(dsID); ok {
-		return v.(*PerDatasourceEvaluator)
+		if pde, ok := v.(*PerDatasourceEvaluator); ok {
+			return pde
+		}
 	}
 	bucket := NewPerDatasourceEvaluator(e.ctx, dsID, e.logger)
 	actual, loaded := e.perDS.LoadOrStore(dsID, bucket)
 	if loaded {
 		bucket.cancel()
-		return actual.(*PerDatasourceEvaluator)
+		if pde, ok := actual.(*PerDatasourceEvaluator); ok {
+			return pde
+		}
 	}
 	return bucket
 }
@@ -389,7 +393,9 @@ func (e *Evaluator) getOrCreateDSBucket(dsID uint) *PerDatasourceEvaluator {
 // removeDSBucket removes a per-datasource evaluation bucket.
 func (e *Evaluator) removeDSBucket(dsID uint) {
 	if v, loaded := e.perDS.LoadAndDelete(dsID); loaded {
-		v.(*PerDatasourceEvaluator).Stop()
+		if pde, ok := v.(*PerDatasourceEvaluator); ok {
+			pde.Stop()
+		}
 	}
 }
 
@@ -397,7 +403,9 @@ func (e *Evaluator) removeDSBucket(dsID uint) {
 func (e *Evaluator) listDSBuckets() []*PerDatasourceEvaluator {
 	var buckets []*PerDatasourceEvaluator
 	e.perDS.Range(func(_, v any) bool {
-		buckets = append(buckets, v.(*PerDatasourceEvaluator))
+		if pde, ok := v.(*PerDatasourceEvaluator); ok {
+			buckets = append(buckets, pde)
+		}
 		return true
 	})
 	return buckets
@@ -552,7 +560,9 @@ func (e *Evaluator) Stop() {
 
 		// Clean up per-datasource buckets
 		e.perDS.Range(func(k, v any) bool {
-			v.(*PerDatasourceEvaluator).Stop()
+			if pde, ok := v.(*PerDatasourceEvaluator); ok {
+				pde.Stop()
+			}
 			return true
 		})
 
@@ -635,9 +645,15 @@ func (e *Evaluator) syncRules() {
 		}
 		// Clean up removed/disabled rules from all buckets
 		e.perDS.Range(func(_, v any) bool {
-			bucket := v.(*PerDatasourceEvaluator)
+			bucket, ok := v.(*PerDatasourceEvaluator)
+			if !ok {
+				return true
+			}
 			bucket.rules.Range(func(k, _ any) bool {
-				ruleID := k.(uint)
+				ruleID, ok := k.(uint)
+				if !ok {
+					return true
+				}
 				if !activeRuleIDs[ruleID] || !e.shouldEvaluateRule(ruleID) {
 					bucket.RemoveRule(ruleID)
 				}
@@ -886,9 +902,11 @@ func (e *Evaluator) stopEvaluatorsByDatasource(dsIDs []uint) {
 	if e.perDSEval {
 		for _, dsID := range dsIDs {
 			if v, loaded := e.perDS.LoadAndDelete(dsID); loaded {
-				v.(*PerDatasourceEvaluator).Stop()
-				e.logger.Info("stopped per-datasource bucket for affected datasource",
-					zap.Uint("datasource_id", dsID))
+				if pde, ok := v.(*PerDatasourceEvaluator); ok {
+					pde.Stop()
+					e.logger.Info("stopped per-datasource bucket for affected datasource",
+						zap.Uint("datasource_id", dsID))
+				}
 			}
 		}
 	}

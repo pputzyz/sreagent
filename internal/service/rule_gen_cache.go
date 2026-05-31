@@ -20,6 +20,7 @@ type RuleGenCache struct {
 	mu      sync.RWMutex
 	entries map[string]*ruleGenCacheEntry
 	ttl     time.Duration
+	stop    chan struct{}
 }
 
 // NewRuleGenCache creates a cache with the given TTL.
@@ -27,16 +28,27 @@ func NewRuleGenCache(ttl time.Duration) *RuleGenCache {
 	c := &RuleGenCache{
 		entries: make(map[string]*ruleGenCacheEntry),
 		ttl:     ttl,
+		stop:    make(chan struct{}),
 	}
 	// Background cleanup every 5 minutes
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			c.evict()
+		for {
+			select {
+			case <-ticker.C:
+				c.evict()
+			case <-c.stop:
+				return
+			}
 		}
 	}()
 	return c
+}
+
+// Stop terminates the background cleanup goroutine.
+func (c *RuleGenCache) Stop() {
+	close(c.stop)
 }
 
 // cacheKey builds a deterministic key from the generation request.

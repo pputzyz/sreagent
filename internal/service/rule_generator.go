@@ -322,6 +322,13 @@ func (s *RuleGeneratorService) SaveDraft(ctx context.Context, result *RuleGenera
 	return res, nil
 }
 
+// Stop terminates background goroutines owned by the service.
+func (s *RuleGeneratorService) Stop() {
+	if s.cache != nil {
+		s.cache.Stop()
+	}
+}
+
 // checkAIEnabled verifies AI and rule_gen module are enabled.
 func (s *RuleGeneratorService) checkAIEnabled(ctx context.Context) error {
 	cfg, err := s.aiSvc.loadConfig(ctx)
