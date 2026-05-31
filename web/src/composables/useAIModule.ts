@@ -2,6 +2,9 @@ import { ref } from 'vue'
 import { aiModuleApi, aiApi } from '@/api'
 import type { AIModuleConfig, AIProvidersConfig } from '@/types/ai-module'
 
+// Design note: Module-level singleton used instead of Pinia store for simplicity.
+// AI module config is fetched once and cached; this composable is not visible in Pinia devtools.
+// The reset function is called on logout to clear stale cached config.
 const modules = ref<AIModuleConfig | null>(null)
 const globalEnabled = ref(false)
 const providers = ref<AIProvidersConfig | null>(null)

@@ -401,6 +401,10 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	// Wire inhibition check into notify rule service (B4-2: pre-dispatch inhibition)
 	svcs.NotifyRuleSvc.SetInhibitionService(svcs.InhibitionRuleSvc)
 	svcs.NotifyRuleSvc.SetAlertEventRepository(repos.Event)
+
+	// B4-5: Wire mute rule check into both NotificationService and NotifyRuleService
+	svcs.NotifySvc.SetMuteRuleService(svcs.MuteRuleSvc)
+	svcs.NotifyRuleSvc.SetMuteRuleService(svcs.MuteRuleSvc)
 	svcs.BizGroupSvc = service.NewBizGroupService(repos.BizGroup, zapLogger)
 
 	// Label registry service

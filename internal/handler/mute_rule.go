@@ -69,7 +69,7 @@ type CreateMuteRuleRequest struct {
 	PeriodicEnd   string           `json:"periodic_end"`
 	DaysOfWeek    string           `json:"days_of_week"`
 	Timezone      string           `json:"timezone"`
-	IsEnabled     bool             `json:"is_enabled"`
+	IsEnabled     *bool            `json:"is_enabled"` // B4-6: pointer so PUT can omit to preserve existing value
 	RuleIDs       string           `json:"rule_ids"`
 }
 
@@ -97,6 +97,9 @@ func (h *MuteRuleHandler) Create(c *gin.Context) {
 		zap.String("name", req.Name),
 		zap.String("request_id", c.GetString("request_id")))
 
+	// B4-6: Dereference *bool with default false when nil (Create path).
+	isEnabled := req.IsEnabled != nil && *req.IsEnabled
+
 	rule := &model.MuteRule{
 		Name:          req.Name,
 		Description:   req.Description,
@@ -109,7 +112,7 @@ func (h *MuteRuleHandler) Create(c *gin.Context) {
 		DaysOfWeek:    req.DaysOfWeek,
 		Timezone:      tz,
 		CreatedBy:     userID,
-		IsEnabled:     req.IsEnabled,
+		IsEnabled:     isEnabled,
 		RuleIDs:       req.RuleIDs,
 	}
 
@@ -189,6 +192,17 @@ func (h *MuteRuleHandler) Update(c *gin.Context) {
 		zap.String("name", req.Name),
 		zap.String("request_id", c.GetString("request_id")))
 
+	// B4-6: Preserve existing IsEnabled when not explicitly provided in the request.
+	isEnabled := false
+	if req.IsEnabled != nil {
+		isEnabled = *req.IsEnabled
+	} else {
+		// Load existing rule to preserve the current is_enabled value.
+		if existing, err := h.svc.GetByID(c.Request.Context(), id); err == nil {
+			isEnabled = existing.IsEnabled
+		}
+	}
+
 	rule := &model.MuteRule{
 		Name:          req.Name,
 		Description:   req.Description,
@@ -200,7 +214,7 @@ func (h *MuteRuleHandler) Update(c *gin.Context) {
 		PeriodicEnd:   req.PeriodicEnd,
 		DaysOfWeek:    req.DaysOfWeek,
 		Timezone:      tz,
-		IsEnabled:     req.IsEnabled,
+		IsEnabled:     isEnabled,
 		RuleIDs:       req.RuleIDs,
 	}
 	rule.ID = id

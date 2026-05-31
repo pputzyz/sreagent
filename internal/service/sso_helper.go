@@ -120,7 +120,8 @@ func AutoCreateSSOUser(ctx context.Context, userRepo *repository.UserRepository,
 
 // UpdateUserFromSSO updates user profile fields from SSO info if they have changed.
 // Returns true if any field was modified.
-func UpdateUserFromSSO(user *model.User, info *SSOUserInfo) bool {
+// When a logger is provided, role changes are logged for audit purposes.
+func UpdateUserFromSSO(user *model.User, info *SSOUserInfo, logger *zap.Logger) bool {
 	changed := false
 	if info.DisplayName != "" && user.DisplayName != info.DisplayName {
 		user.DisplayName = info.DisplayName
@@ -135,8 +136,19 @@ func UpdateUserFromSSO(user *model.User, info *SSOUserInfo) bool {
 		changed = true
 	}
 	if info.Role != "" && info.Role.IsValid() && user.Role != info.Role {
+		oldRole := user.Role
 		user.Role = info.Role
 		changed = true
+		if logger != nil {
+			logger.Warn("SSO role change audit",
+				zap.String("source", info.Source),
+				zap.Uint("user_id", user.ID),
+				zap.String("username", user.Username),
+				zap.String("old_role", string(oldRole)),
+				zap.String("new_role", string(info.Role)),
+				zap.String("subject", info.Subject),
+			)
+		}
 	}
 	return changed
 }

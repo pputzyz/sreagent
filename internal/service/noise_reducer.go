@@ -266,8 +266,13 @@ func (nr *NoiseReducer) checkExclusion(ctx context.Context, channelID uint, even
 		return false, ""
 	}
 	for _, rule := range rules {
-		var conditions []model.FilterCondition
-		if err := json.Unmarshal([]byte(rule.Conditions), &conditions); err != nil {
+		conditions, ok := parseAndValidateConditions(rule.Conditions)
+		if !ok {
+			// Invalid or empty conditions: skip this rule (do not match-all).
+			nr.logger.Warn("exclusion rule has invalid/empty conditions, skipping",
+				zap.Uint("rule_id", rule.ID),
+				zap.String("rule_name", rule.Name),
+				zap.String("conditions", rule.Conditions))
 			continue
 		}
 		if matchAllConditions(conditions, event) {
@@ -275,6 +280,23 @@ func (nr *NoiseReducer) checkExclusion(ctx context.Context, channelID uint, even
 		}
 	}
 	return false, ""
+}
+
+// parseAndValidateConditions parses a JSON conditions string and validates it
+// is non-empty. Returns false if the JSON is empty, invalid, or parses to an
+// empty slice — preventing silent match-all behavior.
+func parseAndValidateConditions(condJSON string) ([]model.FilterCondition, bool) {
+	if condJSON == "" || condJSON == "null" || condJSON == "[]" {
+		return nil, false
+	}
+	var conditions []model.FilterCondition
+	if err := json.Unmarshal([]byte(condJSON), &conditions); err != nil {
+		return nil, false
+	}
+	if len(conditions) == 0 {
+		return nil, false
+	}
+	return conditions, true
 }
 
 // matchAllConditions returns true when all conditions match the alert event.

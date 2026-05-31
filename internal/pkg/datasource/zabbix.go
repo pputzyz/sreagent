@@ -192,6 +192,17 @@ func (c *ZabbixChecker) CheckHealth(ctx context.Context, endpoint, authType, aut
 			}
 			msg += " (credentials verified)"
 		}
+	} else if authType == "bearer" && authConfig != "" {
+		// Verify bearer token by making an authenticated API call (user.get with limit 1).
+		// If the token is invalid/expired, Zabbix returns a JSON-RPC auth error.
+		var cfg zabbixAuthConfig
+		if err := json.Unmarshal([]byte(authConfig), &cfg); err == nil && cfg.Token != "" {
+			if authErr := zabbixVerifyToken(ctx, apiURL, cfg.Token); authErr != nil {
+				return HealthResult{Healthy: false, LatencyMs: latency,
+					Message: fmt.Sprintf("Zabbix token auth failed: %v", authErr), Version: version}
+			}
+			msg += " (token verified)"
+		}
 	}
 
 	return HealthResult{Healthy: true, LatencyMs: latency, Message: msg, Version: version}
@@ -228,7 +239,7 @@ func zabbixAPIToken(ctx context.Context, apiURL, username, password string) (str
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", fmt.Errorf("failed to read login response: %w", err)
 	}
@@ -247,6 +258,55 @@ func zabbixAPIToken(ctx context.Context, apiURL, username, password string) (str
 		return "", fmt.Errorf("failed to parse login token: %w", err)
 	}
 	return token, nil
+}
+
+// zabbixVerifyToken verifies a Zabbix API bearer token by making an authenticated
+// API call (user.get with limit 1). Returns nil if the token is valid, or an error
+// if the token is invalid/expired (Zabbix returns a JSON-RPC auth error).
+func zabbixVerifyToken(ctx context.Context, apiURL, token string) error {
+	reqBody := zabbixRequest{
+		JSONRPC: "2.0",
+		Method:  "user.get",
+		Params: map[string]interface{}{
+			"output": []string{"userid"},
+			"limit":  1,
+		},
+		Auth: &token,
+		ID:   3,
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal user.get request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create user.get request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json-rpc")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("user.get request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return fmt.Errorf("failed to read user.get response: %w", err)
+	}
+
+	var zResp zabbixResponse
+	if err := json.Unmarshal(body, &zResp); err != nil {
+		return fmt.Errorf("failed to parse user.get response: %w", err)
+	}
+
+	if zResp.Error != nil {
+		return fmt.Errorf("token rejected: %s — %s", zResp.Error.Message, zResp.Error.Data)
+	}
+
+	return nil
 }
 
 // ZabbixInstantQuery queries Zabbix items by key pattern and returns QueryResults.
@@ -313,7 +373,7 @@ func ZabbixInstantQuery(ctx context.Context, endpoint, authType, authConfig, exp
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read item.get response: %w", err)
 	}

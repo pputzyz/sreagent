@@ -146,9 +146,16 @@ function openEdit(integ: Integration) {
   showModal.value = true
 }
 
+// Allowed integration types — must match backend model
+const validIntegrationTypes = new Set(['standard', 'alertmanager', 'grafana'])
+
 async function save() {
   if (!form.value.name.trim()) {
     message.warning(t('integration.name') + ' ' + (t('common.required') || 'required'))
+    return
+  }
+  if (!validIntegrationTypes.has(form.value.type)) {
+    message.warning(t('integration.type') + ' ' + (t('common.invalid') || 'invalid'))
     return
   }
   saving.value = true

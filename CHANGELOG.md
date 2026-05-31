@@ -4,7 +4,18 @@
 
 ---
 
-## [v4.60.0] — 2026-05-29
+## [v4.60.0] — 2026-05-31
+
+### P2 前端审计修复 — 6 项
+
+- FE1-6: 路由守卫 localStorage fallback 可绕过 — 添加文档注释说明后端 RBAC 兜底（router/index.ts）
+- FE2-2: Error boundary 重试不重建组件 — 改用 key-based 强制重建 router-view 子树（AppShell.vue）
+- FE3-2: 模块级单例不在 Pinia devtools — 添加设计决策文档注释（4 个 composable 文件）
+- FE4-5: 集成类型缺少前端校验 — save() 新增 type 白名单验证（integrations/Index.vue）
+- FE6-1: 缺少全局 app.config.errorHandler — 添加全局错误处理器（main.ts）
+- FE8-1: useTimeRange 已废弃导出 — 确认 @deprecated JSDoc 已标注（无需修改）
+
+---
 
 ### 全项目审计修复 — 40 项问题全量修复
 

@@ -64,7 +64,7 @@ func (c *ElasticsearchChecker) CheckHealth(ctx context.Context, endpoint, authTy
 	defer func() { _ = resp.Body.Close() }()
 	// ES returns 200 for _search even with 0 results; 404 means no indices but API works
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		return HealthResult{Healthy: false, LatencyMs: latency,
 			Message: fmt.Sprintf("search API returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))}
 	}
@@ -186,11 +186,11 @@ func ElasticsearchQueryLogs(ctx context.Context, endpoint, authType, authConfig 
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		return nil, fmt.Errorf("msearch returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 50<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read msearch response: %w", err)
 	}
@@ -395,11 +395,11 @@ func ElasticsearchQueryHistogram(ctx context.Context, endpoint, authType, authCo
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		return nil, fmt.Errorf("histogram msearch returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 50<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read histogram response: %w", err)
 	}

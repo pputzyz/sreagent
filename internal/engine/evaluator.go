@@ -548,6 +548,23 @@ func (e *Evaluator) Stop() {
 	e.logger.Info("alert evaluator stopped")
 }
 
+// Restart stops the evaluator and restarts it.
+// Unlike Start(), which is a no-op after the first call due to sync.Once,
+// Restart() resets the internal state so the evaluator can be started again.
+// This is useful when the evaluator needs to be re-initialized after a
+// configuration change or recovery from a fatal error.
+func (e *Evaluator) Restart() {
+	e.logger.Info("restarting alert evaluator")
+	e.Stop()
+	// Wait for all background goroutines to exit before resetting
+	e.wg.Wait()
+	// Reset sync.Once and channel so Start() can run again
+	e.startOnce = sync.Once{}
+	e.stopOnce = sync.Once{}
+	e.stopCh = make(chan struct{})
+	e.Start()
+}
+
 // shouldEvaluateRule returns true if the current instance should evaluate
 // the given rule. In hash ring mode, this checks ring ownership; otherwise
 // all rules are evaluated (single-leader or single-instance mode).

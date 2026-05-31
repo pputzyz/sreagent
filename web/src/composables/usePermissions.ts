@@ -2,6 +2,9 @@ import { ref, computed } from 'vue'
 import { permissionsApi } from '@/api'
 import type { MyPermissions, TeamRole } from '@/api/center'
 
+// Design note: Module-level singleton used instead of Pinia store for simplicity.
+// Permissions are fetched once and cached; this composable is not visible in Pinia devtools.
+// The reset function is called on logout to clear stale cached permissions.
 const permissions = ref<MyPermissions | null>(null)
 const loaded = ref(false)
 

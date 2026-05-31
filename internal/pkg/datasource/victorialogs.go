@@ -60,7 +60,7 @@ func (c *VictoriaLogsChecker) CheckHealth(ctx context.Context, endpoint, authTyp
 	defer func() { _ = resp.Body.Close() }()
 	// VictoriaLogs returns 200 OK even with 0 results; any non-200 is a problem.
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		return HealthResult{Healthy: false, LatencyMs: latency,
 			Message: fmt.Sprintf("query API returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))}
 	}
@@ -112,7 +112,7 @@ func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfi
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		return nil, fmt.Errorf("logsql query returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -258,7 +258,7 @@ func QueryLogs(ctx context.Context, endpoint, authType, authConfig string, param
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		return nil, fmt.Errorf("log query returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -365,11 +365,11 @@ func QueryLogHistogram(ctx context.Context, endpoint, authType, authConfig, expr
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		return nil, fmt.Errorf("histogram returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 50<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read histogram response: %w", err)
 	}
@@ -444,5 +444,10 @@ func QueryLogHistogram(ctx context.Context, endpoint, authType, authConfig, expr
 		return &LogHistogramResponse{Buckets: buckets, Total: total}, nil
 	}
 
-	return nil, fmt.Errorf("victorialogs histogram: failed to parse response in any known format (tried timestamps+values, array, ndjson): %s", string(body))
+	// Truncate body in error message to avoid OOM on huge responses
+	bodyPreview := string(body)
+	if len(bodyPreview) > 1024 {
+		bodyPreview = bodyPreview[:1024] + "... (truncated)"
+	}
+	return nil, fmt.Errorf("victorialogs histogram: failed to parse response in any known format (tried timestamps+values, array, ndjson): %s", bodyPreview)
 }

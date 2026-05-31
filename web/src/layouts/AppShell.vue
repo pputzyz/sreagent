@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, inject, onMounted, onUnmounted, onErrorCaptured } from 'vue'
+import { ref, computed, watch, inject, onMounted, onUnmounted, onErrorCaptured, nextTick } from 'vue'
 import type { Ref } from 'vue'
 import { NIcon, NPopover, NPopselect, NResult } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -24,13 +24,20 @@ const { open: openPalette, registerAction } = useCommandPalette()
 const router = useRouter()
 
 // ===== Error Boundary =====
+// Key-based re-render: incrementing the key forces Vue to destroy and re-create
+// the entire router-view subtree, giving the failed component a clean slate.
+const routerViewKey = ref(0)
 const capturedError = ref<Error | null>(null)
 onErrorCaptured((err, instance, info) => {
   console.error('[AppShell] Error captured:', err, info)
   capturedError.value = err
   return false // prevent further propagation
 })
-function resetError() { capturedError.value = null }
+async function resetError() {
+  capturedError.value = null
+  routerViewKey.value++
+  await nextTick()
+}
 
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
@@ -255,7 +262,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         <div class="main-content" :data-app="activeApp" aria-live="polite" aria-atomic="false">
           <router-view v-slot="{ Component, route }">
             <Transition name="page" mode="out-in">
-              <component :is="Component" :key="route.path" />
+              <component :is="Component" :key="route.path + ':' + routerViewKey" />
             </Transition>
           </router-view>
         </div>

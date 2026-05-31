@@ -70,9 +70,24 @@ func (h *IntegrationHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Validate integration type
+	validTypes := map[string]bool{
+		string(model.IntegrationTypeStandard):     true,
+		string(model.IntegrationTypeAlertManager): true,
+		string(model.IntegrationTypeGrafana):      true,
+	}
+	if !validTypes[req.Type] {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "unsupported integration type: must be one of standard, alertmanager, grafana"))
+		return
+	}
+
 	mode := model.IntegrationMode(req.Mode)
 	if mode == "" {
 		mode = model.IntegrationModeExclusive
+	}
+	if mode != model.IntegrationModeExclusive && mode != model.IntegrationModeShared {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "unsupported integration mode: must be one of exclusive, shared"))
+		return
 	}
 
 	h.log.Info("integration create",
@@ -144,6 +159,8 @@ func (h *IntegrationHandler) Update(c *gin.Context) {
 		Description:            req.Description,
 		PipelineConfig:         req.PipelineConfig,
 		LabelEnhancementConfig: req.LabelEnhancementConfig,
+		Mode:                   model.IntegrationMode(req.Mode),
+		ChannelID:              req.ChannelID,
 	}
 	if req.IsEnabled != nil {
 		updates.IsEnabled = *req.IsEnabled

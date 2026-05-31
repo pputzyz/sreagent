@@ -32,7 +32,7 @@ func (s *ChannelService) Create(ctx context.Context, ch *model.Channel) error {
 	// Check name uniqueness
 	existing, err := s.repo.GetByName(ctx, ch.Name)
 	if err == nil && existing != nil {
-		return apperr.WithMessage(apperr.ErrDuplicateName, "channel name '"+ch.Name+"' already exists")
+		return apperr.WithMessage(apperr.ErrDuplicateName, "a channel with this name already exists")
 	}
 
 	if err := s.repo.Create(ctx, ch); err != nil {
@@ -80,7 +80,7 @@ func (s *ChannelService) Update(ctx context.Context, id uint, updates *model.Cha
 	if updates.Name != "" && updates.Name != existing.Name {
 		dup, err := s.repo.GetByName(ctx, updates.Name)
 		if err == nil && dup != nil {
-			return nil, apperr.WithMessage(apperr.ErrDuplicateName, "channel name '"+updates.Name+"' already exists")
+			return nil, apperr.WithMessage(apperr.ErrDuplicateName, "a channel with this name already exists")
 		}
 		existing.Name = updates.Name
 	}

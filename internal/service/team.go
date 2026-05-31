@@ -112,6 +112,12 @@ func (s *TeamService) Delete(ctx context.Context, id uint) error {
 
 // AddMember adds a user to a team with the given role.
 func (s *TeamService) AddMember(ctx context.Context, teamID, userID uint, role string) error {
+	// Validate role
+	validRoles := map[string]bool{"team_lead": true, "member": true}
+	if role != "" && !validRoles[role] {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid team role: must be one of team_lead, member")
+	}
+
 	// Check team exists
 	if _, err := s.repo.GetByID(ctx, teamID); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "team not found")

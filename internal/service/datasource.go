@@ -99,6 +99,13 @@ func validateEndpoint(endpoint string) error {
 		return fmt.Errorf("endpoint scheme must be http or https, got %q", u.Scheme)
 	}
 
+	// B1-12: Reject URLs containing embedded credentials (userinfo).
+	// Storing credentials in the URL leaks them to access logs, referrer headers, and error messages.
+	// Use the AuthType/AuthConfig mechanism instead.
+	if u.User != nil {
+		return fmt.Errorf("endpoint URL must not contain embedded credentials (username:password); use auth_type/auth_config instead")
+	}
+
 	host := u.Hostname()
 	if host == "" {
 		return fmt.Errorf("endpoint hostname is empty")

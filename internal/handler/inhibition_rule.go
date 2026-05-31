@@ -34,7 +34,7 @@ type InhibitionRuleRequest struct {
 	SourceMatch model.JSONLabels `json:"source_match"`
 	TargetMatch model.JSONLabels `json:"target_match"`
 	EqualLabels string           `json:"equal_labels"`
-	IsEnabled   bool             `json:"is_enabled"`
+	IsEnabled   *bool            `json:"is_enabled"` // B4-6: pointer so PUT can omit to preserve existing value
 }
 
 // Create creates a new inhibition rule.
@@ -50,13 +50,16 @@ func (h *InhibitionRuleHandler) Create(c *gin.Context) {
 		zap.String("name", req.Name),
 		zap.String("request_id", c.GetString("request_id")))
 
+	// B4-6: Dereference *bool with default false when nil (Create path).
+	isEnabled := req.IsEnabled != nil && *req.IsEnabled
+
 	rule := &model.InhibitionRule{
 		Name:        req.Name,
 		Description: req.Description,
 		SourceMatch: req.SourceMatch,
 		TargetMatch: req.TargetMatch,
 		EqualLabels: req.EqualLabels,
-		IsEnabled:   req.IsEnabled,
+		IsEnabled:   isEnabled,
 		CreatedBy:   userID,
 	}
 	if len(rule.SourceMatch) == 0 || len(rule.TargetMatch) == 0 {
@@ -130,13 +133,23 @@ func (h *InhibitionRuleHandler) Update(c *gin.Context) {
 		zap.String("name", req.Name),
 		zap.String("request_id", c.GetString("request_id")))
 
+	// B4-6: Preserve existing IsEnabled when not explicitly provided in the request.
+	isEnabled := false
+	if req.IsEnabled != nil {
+		isEnabled = *req.IsEnabled
+	} else {
+		if existing, err := h.svc.GetByID(c.Request.Context(), id); err == nil {
+			isEnabled = existing.IsEnabled
+		}
+	}
+
 	rule := &model.InhibitionRule{
 		Name:        req.Name,
 		Description: req.Description,
 		SourceMatch: req.SourceMatch,
 		TargetMatch: req.TargetMatch,
 		EqualLabels: req.EqualLabels,
-		IsEnabled:   req.IsEnabled,
+		IsEnabled:   isEnabled,
 	}
 	rule.ID = id
 	if rule.SourceMatch == nil {

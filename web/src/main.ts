@@ -25,4 +25,10 @@ app.use(router)
 app.directive('ripple', vRipple)
 app.directive('can', vCan)
 
+// Global error handler for errors outside the component tree
+// (e.g. in lifecycle hooks, event handlers not wrapped in try/catch, etc.)
+app.config.errorHandler = (err, instance, info) => {
+  console.error('[Global Error]', info, err, instance)
+}
+
 app.mount('#app')

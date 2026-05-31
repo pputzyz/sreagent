@@ -184,6 +184,12 @@ func (s *IntegrationService) Update(ctx context.Context, id uint, updates *model
 	if updates.LabelEnhancementConfig != "" {
 		existing.LabelEnhancementConfig = updates.LabelEnhancementConfig
 	}
+	if updates.Mode != "" {
+		existing.Mode = updates.Mode
+	}
+	if updates.ChannelID != nil {
+		existing.ChannelID = updates.ChannelID
+	}
 	if err := s.repo.Update(ctx, existing); err != nil {
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
@@ -607,12 +613,15 @@ func (s *IntegrationService) matchRoutingRule(rules []model.RoutingRule, labels 
 }
 
 func matchIntegrationConditions(condJSON string, labels map[string]string, severity string) bool {
-	if condJSON == "" || condJSON == "[]" {
-		return true
+	if condJSON == "" || condJSON == "null" || condJSON == "[]" {
+		return false // empty conditions = do not match (reject, not match-all)
 	}
 	var conds []model.FilterCondition
 	if err := json.Unmarshal([]byte(condJSON), &conds); err != nil {
-		return true
+		return false // invalid JSON = do not match (reject, not match-all)
+	}
+	if len(conds) == 0 {
+		return false
 	}
 	for _, c := range conds {
 		var actual string

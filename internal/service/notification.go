@@ -18,6 +18,7 @@ type NotificationService struct {
 	notifyRuleSvc   *NotifyRuleService
 	ruleRepo        *repository.AlertRuleRepository
 	inhibitionSvc   *InhibitionRuleService // optional — inhibition check before routing
+	muteSvc         *MuteRuleService       // optional — mute rule check before routing
 	eventRepo       *repository.AlertEventRepository // optional — for fetching firing events
 	logger          *zap.Logger
 }
@@ -47,6 +48,11 @@ func (s *NotificationService) SetAlertEventRepository(repo *repository.AlertEven
 	s.eventRepo = repo
 }
 
+// SetMuteRuleService injects the mute rule service for pre-routing mute checks.
+func (s *NotificationService) SetMuteRuleService(svc *MuteRuleService) {
+	s.muteSvc = svc
+}
+
 // RouteAlert is the main routing function. It finds matching notify rules by
 // alert labels/severity, processes each through the v2 pipeline (throttle,
 // dedup, template, media dispatch), and also processes user/team subscriptions.
@@ -72,6 +78,15 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 				return nil
 			}
 		}
+	}
+
+	// B4-5: Mute rule check — suppress notification if any active mute rule matches.
+	if s.muteSvc != nil && s.muteSvc.IsAlertMuted(ctx, event) {
+		s.logger.Info("notification suppressed by mute rule",
+			zap.Uint("event_id", event.ID),
+			zap.String("alert_name", event.AlertName),
+		)
+		return nil
 	}
 
 	// Resolve datasource_id from the event's alert rule for routing.

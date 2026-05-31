@@ -272,7 +272,7 @@ func (s *OIDCService) findOrCreateUser(ctx context.Context, info *SSOUserInfo) (
 	user, err := LookupSSOUser(ctx, s.userRepo, info)
 	if err == nil {
 		// User found — update profile fields from OIDC claims
-		if UpdateUserFromSSO(user, info) {
+		if UpdateUserFromSSO(user, info, s.logger) {
 			if err := s.userRepo.Update(ctx, user); err != nil {
 				s.logger.Warn("failed to update user from OIDC claims",
 					zap.Uint("user_id", user.ID), zap.Error(err))

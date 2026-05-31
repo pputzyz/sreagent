@@ -172,7 +172,10 @@ router.beforeEach((to, _from, next) => {
   } else if (to.name === 'Login' && token) {
     next({ path: '/' })
   } else if (to.meta.requiresRole) {
-    // Route-level role guard: prefer store, fall back to localStorage (pre-hydration)
+    // Route-level role guard: prefer store, fall back to localStorage (pre-hydration).
+    // NOTE: localStorage fallback can be bypassed by manually editing the stored value.
+    // This is acceptable because all sensitive operations are enforced server-side via RBAC;
+    // the frontend guard is purely for UX (hiding inaccessible menu items).
     const authStore = useAuthStore()
     const role = authStore.user?.role || localStorage.getItem('user_role')
     const allowedRoles = to.meta.requiresRole as string[]

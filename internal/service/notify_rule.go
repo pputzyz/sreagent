@@ -2,10 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -38,6 +42,8 @@ type NotifyRuleService struct {
 	teamRepo             *repository.TeamRepository
 	// inhibitionSvc is an optional inhibition check before dispatching notifications.
 	inhibitionSvc *InhibitionRuleService
+	// muteSvc is an optional mute rule check before dispatching notifications (B4-5).
+	muteSvc *MuteRuleService
 	// eventRepo is required by the inhibition check to fetch currently-firing events.
 	eventRepo *repository.AlertEventRepository
 	logger    *zap.Logger
@@ -67,6 +73,11 @@ func (s *NotifyRuleService) SetTeamRepo(repo *repository.TeamRepository) {
 // SetInhibitionService injects the inhibition rule service for pre-dispatch checks.
 func (s *NotifyRuleService) SetInhibitionService(svc *InhibitionRuleService) {
 	s.inhibitionSvc = svc
+}
+
+// SetMuteRuleService injects the mute rule service for pre-dispatch mute checks (B4-5).
+func (s *NotifyRuleService) SetMuteRuleService(svc *MuteRuleService) {
+	s.muteSvc = svc
 }
 
 // SetAlertEventRepository injects the event repository for inhibition checks.
@@ -194,6 +205,16 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 				return nil
 			}
 		}
+	}
+
+	// B4-5: Mute rule check — suppress notification if any active mute rule matches.
+	if s.muteSvc != nil && s.muteSvc.IsAlertMuted(ctx, event) {
+		s.logger.Info("notification suppressed by mute rule (notify_rule)",
+			zap.Uint("event_id", event.ID),
+			zap.String("alert_name", event.AlertName),
+			zap.Uint("rule_id", notifyRuleID),
+		)
+		return nil
 	}
 
 	// 1. Load the notify rule
@@ -733,6 +754,16 @@ func (s *NotifyRuleService) fireCallback(ctx context.Context, callbackURL string
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+
+	// B5-8: HMAC-SHA256 signing for callback payload integrity verification.
+	// If SREAGENT_WEBHOOK_SECRET is set, compute HMAC and attach X-Signature-256 header.
+	// Callers should verify this header before processing the callback.
+	if secret := os.Getenv("SREAGENT_WEBHOOK_SECRET"); secret != "" {
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(body)
+		sig := hex.EncodeToString(mac.Sum(nil))
+		req.Header.Set("X-Signature-256", "sha256="+sig)
+	}
 
 	client := safehttp.NewSafeClient(10 * time.Second)
 	resp, err := client.Do(req)

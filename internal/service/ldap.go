@@ -236,7 +236,7 @@ func (s *LDAPService) findOrCreateUser(ctx context.Context, info *LDAPUserInfo) 
 
 	user, err := LookupSSOUser(ctx, s.userRepo, ssoInfo)
 	if err == nil {
-		if UpdateUserFromSSO(user, ssoInfo) {
+		if UpdateUserFromSSO(user, ssoInfo, s.logger) {
 			if err := s.userRepo.Update(ctx, user); err != nil {
 				s.logger.Warn("failed to update user from LDAP", zap.Uint("user_id", user.ID), zap.Error(err))
 			}

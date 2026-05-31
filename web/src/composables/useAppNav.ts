@@ -120,6 +120,11 @@ export interface MenuSection {
 }
 
 // ===== Singleton reactive state =====
+// Design note: Module-level singletons are used intentionally here instead of Pinia stores.
+// These composables manage ephemeral UI state (active app, menu sections) that is tightly
+// coupled to the router lifecycle and doesn't benefit from Pinia devtools inspection.
+// Module-level refs are shared across all component instances naturally via ES module caching.
+// They are NOT visible in Pinia devtools — this is a deliberate trade-off for simplicity.
 
 const activeApp: Ref<AppKey> = ref('oncall')
 let _routeWatcherInstalled = false

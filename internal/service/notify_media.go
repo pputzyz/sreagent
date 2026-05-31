@@ -1448,6 +1448,40 @@ func (s *NotifyMediaService) sendAliyunSMS(ctx context.Context, media *model.Not
 
 // --- Custom HTTP ---
 
+// sensitiveLabelKeyPatterns are substrings that indicate a label key may contain secrets.
+// Labels whose keys match any of these patterns (case-insensitive) are redacted in custom HTTP templates (B5-7).
+var sensitiveLabelKeyPatterns = []string{
+	"password", "passwd", "token", "secret", "api_key", "apikey",
+	"auth", "credential", "private_key", "access_key", "accesskey",
+	"client_secret", "client_id",
+}
+
+// sanitizeLabels returns a copy of labels with values redacted for keys that match
+// sensitive patterns. This prevents custom HTTP templates from leaking secrets
+// into third-party webhook endpoints.
+func sanitizeLabels(labels map[string]string) map[string]string {
+	if len(labels) == 0 {
+		return labels
+	}
+	sanitized := make(map[string]string, len(labels))
+	for k, v := range labels {
+		lower := strings.ToLower(k)
+		isSensitive := false
+		for _, pattern := range sensitiveLabelKeyPatterns {
+			if strings.Contains(lower, pattern) {
+				isSensitive = true
+				break
+			}
+		}
+		if isSensitive {
+			sanitized[k] = "***REDACTED***"
+		} else {
+			sanitized[k] = v
+		}
+	}
+	return sanitized
+}
+
 // customHTTPRenderData is the data context passed to Go templates in CustomHTTPConfig.Body.
 type customHTTPRenderData struct {
 	Content     string            `json:"content"`
@@ -1478,6 +1512,8 @@ func (s *NotifyMediaService) sendCustomHTTP(ctx context.Context, media *model.No
 	}
 
 	// Render body template
+	// B5-7: Sanitize labels to prevent leaking sensitive values (passwords, tokens, keys)
+	// into third-party custom HTTP endpoints via Go templates.
 	renderData := customHTTPRenderData{
 		Content:     content,
 		AlertName:   data.AlertName,
@@ -1487,7 +1523,7 @@ func (s *NotifyMediaService) sendCustomHTTP(ctx context.Context, media *model.No
 		EventID:     data.EventID,
 		FiredAt:     data.FiredAt.Format(time.RFC3339),
 		RuleName:    data.RuleName,
-		Labels:      data.Labels,
+		Labels:      sanitizeLabels(data.Labels),
 		Annotations: data.Annotations,
 	}
 

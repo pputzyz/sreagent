@@ -888,8 +888,14 @@ func (r *AIToolRegistry) RegisterMCPTools(mcpSvc *MCPServerService) {
 			toolDesc := tool.Description
 			toolSchema := tool.InputSchema
 
-			// Heuristic: infer IO/RiskLevel from description keywords when MCP
+			// B8-4: Heuristic: infer IO/RiskLevel from description keywords when MCP
 			// protocol does not provide annotation fields.
+			// TODO: This keyword-based classification is fragile — a tool named "get_user_settings"
+			// that modifies data would be misclassified as read-only. MCP protocol extensions
+			// (e.g. tool annotations with readOnlyHint/writeOnlyHint) should be preferred when
+			// available. Until then, the conservative "write" default and explicit read-hint
+			// matching provide a reasonable safety net but may produce false negatives for
+			// write operations described with read-like verbs.
 			ioType := "write"     // conservative default
 			riskLevel := int8(1)  // moderate risk default
 			descLower := strings.ToLower(toolDesc)

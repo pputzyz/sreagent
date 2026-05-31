@@ -14,6 +14,10 @@ export interface PaletteItem {
 const visible = ref(false)
 const query = ref('')
 
+// Design note: Module-level singletons are used intentionally instead of Pinia stores.
+// Command palette state (query, visibility, registered actions) is ephemeral UI state
+// that doesn't benefit from Pinia devtools inspection. Module-level refs are shared
+// across all component instances via ES module caching. NOT visible in Pinia devtools.
 // Registry: actions registered by external composables/components
 const registeredActions = ref<PaletteItem[]>([])
 

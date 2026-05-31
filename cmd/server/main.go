@@ -287,18 +287,17 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 		return
 	}
 
-	// Admin exists — sync password from env var if it differs.
-	// DESIGN NOTE: The SREAGENT_ADMIN_PASSWORD env var is the source of truth for the
-	// admin password. On each startup, if the env var value differs from the stored hash,
-	// the stored password is updated to match. This ensures deployments that rotate the
-	// env var get the new password applied automatically. If you want to change the admin
-	// password independently (e.g. via the UI), clear the SREAGENT_ADMIN_PASSWORD env var
-	// after the desired password is set.
-	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(defaultPwd)); err != nil {
-		if err := db.Model(&admin).Update("password", string(hashedPwd)).Error; err != nil {
-			logger.Error("failed to update admin password from SREAGENT_ADMIN_PASSWORD", zap.Error(err))
-			return
+	// Admin exists — only force-update password when SREAGENT_ADMIN_PASSWORD_FORCE=true.
+	// By default, the password is set once on first creation. To rotate the admin password
+	// via env var, set SREAGENT_ADMIN_PASSWORD_FORCE=true alongside the new password.
+	// This prevents accidental password resets on every deployment restart.
+	if os.Getenv("SREAGENT_ADMIN_PASSWORD_FORCE") == "true" {
+		if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(defaultPwd)); err != nil {
+			if err := db.Model(&admin).Update("password", string(hashedPwd)).Error; err != nil {
+				logger.Error("failed to update admin password from SREAGENT_ADMIN_PASSWORD", zap.Error(err))
+				return
+			}
+			logger.Info("admin password force-synced from SREAGENT_ADMIN_PASSWORD environment variable")
 		}
-		logger.Info("admin password synced from SREAGENT_ADMIN_PASSWORD environment variable")
 	}
 }
