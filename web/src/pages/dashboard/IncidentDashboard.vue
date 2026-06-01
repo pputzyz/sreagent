@@ -118,10 +118,10 @@ onMounted(load)
         style="margin-bottom: 16px"
         @close="loadError = null"
       >
-        <template #action>
-          <n-button size="small" @click="load">{{ t('common.retry') }}</n-button>
-        </template>
         {{ loadError }}
+        <div style="margin-top: 8px">
+          <n-button size="small" @click="load">{{ t('common.retry') }}</n-button>
+        </div>
       </n-alert>
 
       <n-spin :show="loading">
