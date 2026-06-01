@@ -120,6 +120,31 @@ func (r *OnCallShiftRepository) DeleteByScheduleAndTimeRange(ctx context.Context
 		Delete(&model.OnCallShift{}).Error
 }
 
+// GetCurrentShiftsForSchedules returns the active shift for each of the given
+// schedule IDs at the given time, in a single query. Returns a map keyed by scheduleID.
+func (r *OnCallShiftRepository) GetCurrentShiftsForSchedules(ctx context.Context, scheduleIDs []uint, now time.Time) (map[uint]*model.OnCallShift, error) {
+	if len(scheduleIDs) == 0 {
+		return nil, nil
+	}
+	var shifts []model.OnCallShift
+	err := r.db.WithContext(ctx).
+		Where("schedule_id IN ? AND start_time <= ? AND end_time > ?", scheduleIDs, now, now).
+		Order("schedule_id ASC, start_time DESC").
+		Preload("User").
+		Find(&shifts).Error
+	if err != nil {
+		return nil, err
+	}
+	// Take the most recent active shift per schedule.
+	m := make(map[uint]*model.OnCallShift, len(scheduleIDs))
+	for i := range shifts {
+		if _, exists := m[shifts[i].ScheduleID]; !exists {
+			m[shifts[i].ScheduleID] = &shifts[i]
+		}
+	}
+	return m, nil
+}
+
 // HasOverlapShift checks if any shift exists for the given schedule that overlaps the time range.
 // excludeID can be set to exclude a specific shift (used during updates).
 func (r *OnCallShiftRepository) HasOverlapShift(ctx context.Context, scheduleID uint, start, end time.Time, excludeID uint) (bool, error) {

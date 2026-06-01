@@ -145,41 +145,57 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id uint) error {
 // ---------------------------------------------------------------------------
 
 // SetParticipants replaces all participants for a schedule with the given list.
+// The delete + insert is wrapped in a transaction for atomicity.
+// User validation uses a single batch query instead of per-user lookups.
 func (s *ScheduleService) SetParticipants(ctx context.Context, scheduleID uint, userIDs []uint) error {
 	if _, err := s.scheduleRepo.GetByID(ctx, scheduleID); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
 	}
 
-	// Validate that all user IDs exist.
-	if s.userRepo != nil {
+	// Batch validate that all user IDs exist.
+	if s.userRepo != nil && len(userIDs) > 0 {
+		users, err := s.userRepo.GetByIDs(ctx, userIDs)
+		if err != nil {
+			s.logger.Error("failed to batch validate users", zap.Error(err))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+		foundIDs := make(map[uint]bool, len(users))
+		for _, u := range users {
+			foundIDs[u.ID] = true
+		}
 		for _, uid := range userIDs {
-			if _, err := s.userRepo.GetByID(ctx, uid); err != nil {
+			if !foundIDs[uid] {
 				return apperr.WithMessage(apperr.ErrNotFound, fmt.Sprintf("user %d not found", uid))
 			}
 		}
 	}
 
-	// Delete existing participants
-	if err := s.participantRepo.DeleteByScheduleID(ctx, scheduleID); err != nil {
-		s.logger.Error("failed to delete existing participants", zap.Error(err), zap.Uint("schedule_id", scheduleID))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	// Create new participants in order
-	for i, userID := range userIDs {
-		p := &model.ScheduleParticipant{
-			ScheduleID: scheduleID,
-			UserID:     userID,
-			Position:   i,
-		}
-		if err := s.participantRepo.Create(ctx, p); err != nil {
-			s.logger.Error("failed to create participant",
-				zap.Error(err),
-				zap.Uint("schedule_id", scheduleID),
-				zap.Uint("user_id", userID),
-			)
+	// Delete + insert in a single transaction for atomicity.
+	err := s.participantRepo.Transaction(ctx, func(ctx context.Context) error {
+		if err := s.participantRepo.DeleteByScheduleID(ctx, scheduleID); err != nil {
+			s.logger.Error("failed to delete existing participants", zap.Error(err), zap.Uint("schedule_id", scheduleID))
 			return apperr.Wrap(apperr.ErrDatabase, err)
 		}
+
+		for i, userID := range userIDs {
+			p := &model.ScheduleParticipant{
+				ScheduleID: scheduleID,
+				UserID:     userID,
+				Position:   i,
+			}
+			if err := s.participantRepo.Create(ctx, p); err != nil {
+				s.logger.Error("failed to create participant",
+					zap.Error(err),
+					zap.Uint("schedule_id", scheduleID),
+					zap.Uint("user_id", userID),
+				)
+				return apperr.Wrap(apperr.ErrDatabase, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	s.logger.Info("schedule participants updated",
@@ -447,6 +463,7 @@ func parseHandoffTime(s string) (hour, min int, err error) {
 // GetCurrentOnCallForAlert finds the on-call user for all enabled schedules
 // whose labels match the alert labels. Returns the first match found.
 // Priority: override > shift > rotation (matches GetCurrentOnCall).
+// Uses batch queries to avoid N+1 per-schedule lookups.
 func (s *ScheduleService) GetCurrentOnCallForAlert(ctx context.Context, alertLabels map[string]string) (*model.User, error) {
 	// List all schedules (unpaged - use a large page size)
 	schedules, _, err := s.scheduleRepo.List(ctx, 0, 1, 1000)
@@ -457,37 +474,50 @@ func (s *ScheduleService) GetCurrentOnCallForAlert(ctx context.Context, alertLab
 	alertSeverity := alertLabels["severity"]
 	now := time.Now()
 
-	for _, schedule := range schedules {
-		if !schedule.IsEnabled {
-			continue
+	// Collect enabled schedule IDs for batch queries.
+	var enabledIDs []uint
+	enabledMap := make(map[uint]*model.Schedule, len(schedules))
+	for i := range schedules {
+		if schedules[i].IsEnabled {
+			enabledIDs = append(enabledIDs, schedules[i].ID)
+			enabledMap[schedules[i].ID] = &schedules[i]
 		}
+	}
+	if len(enabledIDs) == 0 {
+		return nil, nil
+	}
+
+	// Batch query 1: active overrides for all enabled schedules.
+	overrideMap, _ := s.overrideRepo.GetActiveOverridesForSchedules(ctx, enabledIDs, now)
+
+	// Batch query 2: active shifts for all enabled schedules.
+	var shiftMap map[uint]*model.OnCallShift
+	if s.shiftRepo != nil {
+		shiftMap, _ = s.shiftRepo.GetCurrentShiftsForSchedules(ctx, enabledIDs, now)
+	}
+
+	// Batch query 3: participants for all enabled schedules.
+	participantMap, _ := s.participantRepo.ListByScheduleIDs(ctx, enabledIDs)
+
+	// Now resolve on-call per schedule using the pre-fetched data.
+	for _, scheduleID := range enabledIDs {
+		schedule := enabledMap[scheduleID]
 
 		// 1. Check override first — overrides always take precedence.
-		override, err := s.overrideRepo.GetActiveOverride(ctx, schedule.ID, now)
-		if err == nil && override != nil {
+		if override, ok := overrideMap[scheduleID]; ok && override != nil {
 			return &override.User, nil
 		}
 
 		// 2. Check OnCallShift records for severity-aware dispatch.
-		if s.shiftRepo != nil {
-			shift, err := s.shiftRepo.GetCurrentShift(ctx, schedule.ID, now)
-			if err == nil && shift != nil {
-				if matchesSeverityFilter(shift.SeverityFilter, alertSeverity) {
-					return &shift.User, nil
-				}
-				// Shift exists but severity doesn't match — fall through to rotation fallback.
+		if shift, ok := shiftMap[scheduleID]; ok && shift != nil {
+			if matchesSeverityFilter(shift.SeverityFilter, alertSeverity) {
+				return &shift.User, nil
 			}
+			// Shift exists but severity doesn't match — fall through to rotation fallback.
 		}
 
 		// 3. Fallback to rotation-based on-call (participants).
-		participants, err := s.participantRepo.ListByScheduleID(ctx, schedule.ID)
-		if err != nil {
-			s.logger.Warn("failed to list participants for schedule",
-				zap.Uint("schedule_id", schedule.ID),
-				zap.Error(err),
-			)
-			continue
-		}
+		participants := participantMap[scheduleID]
 		if len(participants) == 0 {
 			continue
 		}
@@ -503,7 +533,7 @@ func (s *ScheduleService) GetCurrentOnCallForAlert(ctx context.Context, alertLab
 		}
 		nowInLoc := now.In(loc)
 
-		index := s.calculateRotationIndex(&schedule, participants, nowInLoc)
+		index := s.calculateRotationIndex(schedule, participants, nowInLoc)
 		return &participants[index].User, nil
 	}
 

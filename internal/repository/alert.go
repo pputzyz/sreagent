@@ -12,21 +12,18 @@ import (
 // AlertRepository handles CRUD for the v2 Alert model.
 type AlertRepository struct {
 	db *gorm.DB
-	// Tx is an optional per-request transaction. When set, all repository
-	// methods use Tx instead of db. The caller is responsible for commit/rollback.
-	Tx *gorm.DB
 }
 
 func NewAlertRepository(db *gorm.DB) *AlertRepository {
 	return &AlertRepository{db: db}
 }
 
-// withTx returns the active transaction if set, otherwise the default db.
-func (r *AlertRepository) withTx() *gorm.DB {
-	if r.Tx != nil {
-		return r.Tx
+// withTx returns the transaction stored in ctx, or falls back to r.db.WithContext(ctx).
+func (r *AlertRepository) withTx(ctx context.Context) *gorm.DB {
+	if tx := txFromContext(ctx); tx != nil {
+		return tx
 	}
-	return r.db
+	return r.db.WithContext(ctx)
 }
 
 func (r *AlertRepository) Create(ctx context.Context, alert *model.Alert) error {
@@ -129,7 +126,7 @@ func (r *AlertRepository) LinkToIncident(ctx context.Context, alertID, incidentI
 // BulkUpdateIncidentID moves all alerts from one incident to another.
 // Used during incident merge to migrate source alerts to the target.
 func (r *AlertRepository) BulkUpdateIncidentID(ctx context.Context, fromIncidentID, toIncidentID uint) error {
-	return r.withTx().WithContext(ctx).
+	return r.withTx(ctx).
 		Model(&model.Alert{}).
 		Where("incident_id = ?", fromIncidentID).
 		Update("incident_id", toIncidentID).Error
@@ -138,7 +135,7 @@ func (r *AlertRepository) BulkUpdateIncidentID(ctx context.Context, fromIncident
 // CountByIncidentID returns the number of alerts linked to an incident.
 func (r *AlertRepository) CountByIncidentID(ctx context.Context, incidentID uint) (int, error) {
 	var count int64
-	err := r.withTx().WithContext(ctx).
+	err := r.withTx(ctx).
 		Model(&model.Alert{}).
 		Where("incident_id = ?", incidentID).
 		Count(&count).Error

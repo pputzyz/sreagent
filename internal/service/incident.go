@@ -169,24 +169,22 @@ func (s *IncidentService) ListScoped(ctx context.Context, isAdmin bool, teamIDs 
 }
 
 // Acknowledge marks the incident as processing and records the ack.
+// Uses atomic CAS: UPDATE ... WHERE status = 'triggered'. No read-then-write race.
 func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) error {
-	inc, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return apperr.ErrIncidentNotFound
-		}
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	if err := validateTransition(inc.Status, model.IncidentStatusProcessing); err != nil {
-		return err
-	}
-
 	now := time.Now()
 	updates := map[string]interface{}{
 		"acknowledged_at": now,
 	}
-	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusProcessing, updates); err != nil {
+	err := s.repo.TransitionStatus(ctx, id, model.IncidentStatusTriggered, model.IncidentStatusProcessing, updates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Could be: not found, or concurrent status change. Check which.
+			inc, getErr := s.repo.GetByID(ctx, id)
+			if getErr != nil {
+				return apperr.ErrIncidentNotFound
+			}
+			return validateTransition(inc.Status, model.IncidentStatusProcessing)
+		}
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
@@ -215,68 +213,66 @@ func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) erro
 }
 
 // Close closes an incident.
+// Uses atomic CAS: UPDATE ... WHERE status = expected. No read-then-write race.
 func (s *IncidentService) Close(ctx context.Context, id, userID uint) error {
-	inc, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return apperr.ErrIncidentNotFound
-		}
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	if inc.Status == model.IncidentStatusClosed {
-		return nil // idempotent
-	}
-
-	if err := validateTransition(inc.Status, model.IncidentStatusClosed); err != nil {
-		return err
-	}
-
 	now := time.Now()
 	updates := map[string]interface{}{
 		"closed_at": now,
 	}
-	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusClosed, updates); err != nil {
-		return apperr.Wrap(apperr.ErrDatabase, err)
+	// Try from triggered first (most common), then processing, then snoozed.
+	for _, from := range []model.IncidentStatus{
+		model.IncidentStatusTriggered,
+		model.IncidentStatusProcessing,
+		model.IncidentStatusSnoozed,
+	} {
+		err := s.repo.TransitionStatus(ctx, id, from, model.IncidentStatusClosed, updates)
+		if err == nil {
+			// Success
+			if s.onStatusChange != nil {
+				s.onStatusChange(ctx, id, model.IncidentStatusClosed)
+			}
+			if addErr := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+				IncidentID: id,
+				Action:     model.IncidentActionClosed,
+				ActorID:    &userID,
+				Content:    "Incident closed",
+			}); addErr != nil {
+				s.logger.Error("failed to add timeline", zap.Error(addErr), zap.Uint("incident_id", id))
+			}
+			s.logger.Info("incident closed", zap.Uint("id", id), zap.Uint("user_id", userID))
+			return nil
+		}
+		if err != gorm.ErrRecordNotFound {
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
 	}
-
-	// Fire status change callback (cancels scheduled dispatches)
-	if s.onStatusChange != nil {
-		s.onStatusChange(ctx, id, model.IncidentStatusClosed)
+	// All attempts returned ErrRecordNotFound: either not found or already closed.
+	inc, getErr := s.repo.GetByID(ctx, id)
+	if getErr != nil {
+		return apperr.ErrIncidentNotFound
 	}
-
-	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
-		IncidentID: id,
-		Action:     model.IncidentActionClosed,
-		ActorID:    &userID,
-		Content:    "Incident closed",
-	}); err != nil {
-		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
+	if inc.Status == model.IncidentStatusClosed {
+		return nil // idempotent
 	}
-
-	s.logger.Info("incident closed", zap.Uint("id", id), zap.Uint("user_id", userID))
-	return nil
+	return validateTransition(inc.Status, model.IncidentStatusClosed)
 }
 
 // Reopen re-opens a closed incident.
+// Uses atomic CAS: UPDATE ... WHERE status = 'closed'. No read-then-write race.
 func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
-	inc, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return apperr.ErrIncidentNotFound
-		}
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	if err := validateTransition(inc.Status, model.IncidentStatusTriggered); err != nil {
-		return err
-	}
-
 	updates := map[string]interface{}{
 		"closed_at":                 nil,
 		"current_escalation_step": 0,
 	}
-	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusTriggered, updates); err != nil {
+	err := s.repo.TransitionStatus(ctx, id, model.IncidentStatusClosed, model.IncidentStatusTriggered, updates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			inc, getErr := s.repo.GetByID(ctx, id)
+			if getErr != nil {
+				return apperr.ErrIncidentNotFound
+			}
+			return validateTransition(inc.Status, model.IncidentStatusTriggered)
+		}
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
@@ -294,27 +290,24 @@ func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 }
 
 // Snooze puts an incident on hold until a specified time.
+// Uses atomic CAS: UPDATE ... WHERE status = 'triggered'. No read-then-write race.
 func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until time.Time) error {
 	if until.Before(time.Now()) {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "snooze time must be in the future")
 	}
 
-	inc, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return apperr.ErrIncidentNotFound
-		}
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	if err := validateTransition(inc.Status, model.IncidentStatusSnoozed); err != nil {
-		return err
-	}
-
 	updates := map[string]interface{}{
 		"snoozed_until": until,
 	}
-	if err := s.repo.UpdateStatus(ctx, id, model.IncidentStatusSnoozed, updates); err != nil {
+	err := s.repo.TransitionStatus(ctx, id, model.IncidentStatusTriggered, model.IncidentStatusSnoozed, updates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			inc, getErr := s.repo.GetByID(ctx, id)
+			if getErr != nil {
+				return apperr.ErrIncidentNotFound
+			}
+			return validateTransition(inc.Status, model.IncidentStatusSnoozed)
+		}
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
@@ -376,6 +369,7 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 // Merge merges a source incident into a target incident.
 // All steps (close source, migrate alerts, update target count, add timelines)
 // are wrapped in a single database transaction for atomicity.
+// The transaction is propagated via context — no shared mutable state.
 func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID uint) error {
 	if sourceID == targetID {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "cannot merge incident into itself")
@@ -401,18 +395,7 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 		return err
 	}
 
-	// Set AlertRepository Tx to participate in the same transaction.
-	if s.alertRepo != nil {
-		origTx := s.alertRepo.Tx
-		defer func() { s.alertRepo.Tx = origTx }()
-	}
-
-	err = s.repo.Transaction(func(tx *gorm.DB) error {
-		// Wire alertRepo to the same transaction
-		if s.alertRepo != nil {
-			s.alertRepo.Tx = tx
-		}
-
+	err = s.repo.Transaction(ctx, func(ctx context.Context) error {
 		// Close source incident
 		source.MergedIntoID = &targetID
 		now := time.Now()
@@ -422,7 +405,7 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 			return apperr.Wrap(apperr.ErrDatabase, err)
 		}
 
-		// Migrate alerts from source to target
+		// Migrate alerts from source to target (alertRepo uses context tx)
 		if s.alertRepo != nil {
 			if err := s.alertRepo.BulkUpdateIncidentID(ctx, source.ID, target.ID); err != nil {
 				s.logger.Error("failed to migrate alerts during merge",
@@ -527,8 +510,7 @@ func (s *IncidentService) ListAssignees(ctx context.Context, incidentID uint) ([
 }
 
 // Escalate moves the incident to the next escalation step.
-// Uses a targeted column update on current_escalation_step to avoid lost-update
-// races that would occur with a full-row Save().
+// Uses atomic CAS on current_escalation_step to prevent concurrent double-escalation.
 func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 	inc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -550,8 +532,20 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 		}
 	}
 
-	newStep := inc.CurrentEscalationStep + 1
-	if err := s.repo.UpdateEscalationStep(ctx, id, newStep); err != nil {
+	// Atomic CAS: only update if current_escalation_step hasn't changed since we read it.
+	expectedStep := inc.CurrentEscalationStep
+	newStep := expectedStep + 1
+	if err := s.repo.TransitionEscalationStep(ctx, id, expectedStep, newStep); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Another goroutine escalated concurrently. Re-read and report current state.
+			current, getErr := s.repo.GetByID(ctx, id)
+			if getErr != nil {
+				return apperr.Wrap(apperr.ErrDatabase, getErr)
+			}
+			return apperr.WithMessage(apperr.ErrVersionConflict,
+				fmt.Sprintf("escalation step was concurrently modified (expected %d, now %d)",
+					expectedStep, current.CurrentEscalationStep))
+		}
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 

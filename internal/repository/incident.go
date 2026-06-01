@@ -9,45 +9,56 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 )
 
+// txContextKey is used to store a *gorm.DB transaction in context.Context.
+// Defined at package level so all repositories in this package share the same key.
+type txContextKey struct{}
+
+// ContextWithTx returns a new context carrying the given transaction.
+func ContextWithTx(ctx context.Context, tx *gorm.DB) context.Context {
+	return context.WithValue(ctx, txContextKey{}, tx)
+}
+
+// txFromContext extracts a *gorm.DB transaction from context, or returns nil.
+func txFromContext(ctx context.Context) *gorm.DB {
+	if tx, ok := ctx.Value(txContextKey{}).(*gorm.DB); ok {
+		return tx
+	}
+	return nil
+}
+
 // IncidentRepository handles CRUD for incidents (故障).
 type IncidentRepository struct {
 	db *gorm.DB
-	// Tx is an optional per-request transaction. When set, all repository
-	// methods use Tx instead of db. The caller is responsible for commit/rollback.
-	Tx *gorm.DB
 }
 
 func NewIncidentRepository(db *gorm.DB) *IncidentRepository {
 	return &IncidentRepository{db: db}
 }
 
-// withTx returns the active transaction if set, otherwise the default db.
-func (r *IncidentRepository) withTx() *gorm.DB {
-	if r.Tx != nil {
-		return r.Tx
+// withTx returns the transaction stored in ctx, or falls back to r.db.WithContext(ctx).
+func (r *IncidentRepository) withTx(ctx context.Context) *gorm.DB {
+	if tx := txFromContext(ctx); tx != nil {
+		return tx
 	}
-	return r.db
+	return r.db.WithContext(ctx)
 }
 
-// Transaction executes fn inside a database transaction. On success the
-// transaction is committed; on error it is rolled back. The repository's Tx
-// field is set for the duration of fn so that all repository methods
-// automatically participate in the transaction.
-func (r *IncidentRepository) Transaction(fn func(tx *gorm.DB) error) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		r.Tx = tx
-		defer func() { r.Tx = nil }()
-		return fn(tx)
+// Transaction executes fn inside a database transaction. The transaction is
+// propagated via context so all repository methods called within fn
+// automatically participate in the transaction without any shared mutable state.
+func (r *IncidentRepository) Transaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(ContextWithTx(ctx, tx))
 	})
 }
 
 func (r *IncidentRepository) Create(ctx context.Context, inc *model.Incident) error {
-	return r.withTx().WithContext(ctx).Create(inc).Error
+	return r.withTx(ctx).Create(inc).Error
 }
 
 func (r *IncidentRepository) GetByID(ctx context.Context, id uint) (*model.Incident, error) {
 	var inc model.Incident
-	err := r.withTx().WithContext(ctx).
+	err := r.withTx(ctx).
 		Preload("Channel").
 		Preload("AssignedUser").
 		Preload("EscalationPolicy").
@@ -63,7 +74,7 @@ func (r *IncidentRepository) List(ctx context.Context, channelID uint, status, s
 	var list []model.Incident
 	var total int64
 
-	q := r.withTx().WithContext(ctx).Model(&model.Incident{})
+	q := r.withTx(ctx).Model(&model.Incident{})
 	if channelID > 0 {
 		q = q.Where("channel_id = ?", channelID)
 	}
@@ -100,7 +111,7 @@ func (r *IncidentRepository) ListByTeamIDs(ctx context.Context, teamIDs []uint, 
 	var list []model.Incident
 	var total int64
 
-	q := r.withTx().WithContext(ctx).Model(&model.Incident{}).
+	q := r.withTx(ctx).Model(&model.Incident{}).
 		Where("channel_id IN (SELECT id FROM channels WHERE team_id IN ? AND deleted_at IS NULL)", teamIDs)
 	if channelID > 0 {
 		q = q.Where("channel_id = ?", channelID)
@@ -133,48 +144,81 @@ func (r *IncidentRepository) ListByTeamIDs(ctx context.Context, teamIDs []uint, 
 }
 
 func (r *IncidentRepository) Update(ctx context.Context, inc *model.Incident) error {
-	return r.withTx().WithContext(ctx).Save(inc).Error
+	return r.withTx(ctx).Save(inc).Error
 }
 
 func (r *IncidentRepository) Delete(ctx context.Context, id uint) error {
-	return r.withTx().WithContext(ctx).Delete(&model.Incident{}, id).Error
+	return r.withTx(ctx).Delete(&model.Incident{}, id).Error
 }
 
 // UpdateStatus updates status and related timestamps atomically.
 func (r *IncidentRepository) UpdateStatus(ctx context.Context, id uint, status model.IncidentStatus, updates map[string]interface{}) error {
 	updates["status"] = status
-	return r.withTx().WithContext(ctx).Model(&model.Incident{}).Where("id = ?", id).Updates(updates).Error
+	return r.withTx(ctx).Model(&model.Incident{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// TransitionStatus performs an atomic compare-and-swap status transition.
+// Updates status only if the current status matches expectedStatus.
+// Returns ErrInvalidTransition if no rows were affected (concurrent modification or wrong state).
+func (r *IncidentRepository) TransitionStatus(ctx context.Context, id uint, expectedStatus, newStatus model.IncidentStatus, updates map[string]interface{}) error {
+	updates["status"] = newStatus
+	result := r.withTx(ctx).Model(&model.Incident{}).
+		Where("id = ? AND status = ?", id, expectedStatus).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // UpdateAssignees updates only the assigned_to column to avoid lost-update races
 // from concurrent full-row Save() calls.
 func (r *IncidentRepository) UpdateAssignees(ctx context.Context, id uint, assignee *uint) error {
-	return r.withTx().WithContext(ctx).Model(&model.Incident{}).Where("id = ?", id).
+	return r.withTx(ctx).Model(&model.Incident{}).Where("id = ?", id).
 		Update("assigned_to", assignee).Error
 }
 
 // UpdateEscalationStep updates only the current_escalation_step column to avoid
 // lost-update races from concurrent full-row Save() calls.
 func (r *IncidentRepository) UpdateEscalationStep(ctx context.Context, id uint, step int) error {
-	return r.withTx().WithContext(ctx).Model(&model.Incident{}).Where("id = ?", id).
+	return r.withTx(ctx).Model(&model.Incident{}).Where("id = ?", id).
 		Update("current_escalation_step", step).Error
+}
+
+// TransitionEscalationStep performs an atomic compare-and-swap escalation step update.
+// Updates current_escalation_step only if the current value matches expectedStep.
+// Returns gorm.ErrRecordNotFound if no rows were affected (concurrent modification).
+func (r *IncidentRepository) TransitionEscalationStep(ctx context.Context, id uint, expectedStep, newStep int) error {
+	result := r.withTx(ctx).Model(&model.Incident{}).
+		Where("id = ? AND current_escalation_step = ?", id, expectedStep).
+		Update("current_escalation_step", newStep)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // --- IncidentAssignee ---
 
 func (r *IncidentRepository) AddAssignee(ctx context.Context, assignee *model.IncidentAssignee) error {
-	return r.withTx().WithContext(ctx).Create(assignee).Error
+	return r.withTx(ctx).Create(assignee).Error
 }
 
 func (r *IncidentRepository) ListAssignees(ctx context.Context, incidentID uint) ([]model.IncidentAssignee, error) {
 	var list []model.IncidentAssignee
-	err := r.withTx().WithContext(ctx).Preload("User").Where("incident_id = ?", incidentID).Find(&list).Error
+	err := r.withTx(ctx).Preload("User").Where("incident_id = ?", incidentID).Find(&list).Error
 	return list, err
 }
 
 func (r *IncidentRepository) AcknowledgeAssignee(ctx context.Context, incidentID, userID uint) error {
 	now := time.Now()
-	return r.withTx().WithContext(ctx).
+	return r.withTx(ctx).
 		Model(&model.IncidentAssignee{}).
 		Where("incident_id = ? AND user_id = ?", incidentID, userID).
 		Updates(map[string]interface{}{
@@ -184,18 +228,18 @@ func (r *IncidentRepository) AcknowledgeAssignee(ctx context.Context, incidentID
 }
 
 func (r *IncidentRepository) RemoveAssignees(ctx context.Context, incidentID uint) error {
-	return r.withTx().WithContext(ctx).Where("incident_id = ?", incidentID).Delete(&model.IncidentAssignee{}).Error
+	return r.withTx(ctx).Where("incident_id = ?", incidentID).Delete(&model.IncidentAssignee{}).Error
 }
 
 // --- IncidentTimeline ---
 
 func (r *IncidentRepository) AddTimeline(ctx context.Context, entry *model.IncidentTimeline) error {
-	return r.withTx().WithContext(ctx).Create(entry).Error
+	return r.withTx(ctx).Create(entry).Error
 }
 
 func (r *IncidentRepository) ListTimeline(ctx context.Context, incidentID uint) ([]model.IncidentTimeline, error) {
 	var list []model.IncidentTimeline
-	err := r.withTx().WithContext(ctx).Preload("Actor").
+	err := r.withTx(ctx).Preload("Actor").
 		Where("incident_id = ?", incidentID).
 		Order("created_at ASC").
 		Limit(1000).Find(&list).Error
@@ -207,7 +251,7 @@ func (r *IncidentRepository) ListTimeline(ctx context.Context, incidentID uint) 
 // LIMIT prevents unbounded result sets; auto-close worker re-polls periodically.
 func (r *IncidentRepository) ListForAutoClose(ctx context.Context, now time.Time) ([]model.Incident, error) {
 	var list []model.Incident
-	err := r.withTx().WithContext(ctx).
+	err := r.withTx(ctx).
 		Joins("JOIN channels ON channels.id = incidents.channel_id AND channels.deleted_at IS NULL").
 		Where("incidents.status IN ? AND channels.auto_close_enabled = ? AND incidents.closed_at IS NULL", []string{"triggered", "processing"}, true).
 		// Keep column on the left side for index sargability:
@@ -224,7 +268,7 @@ func (r *IncidentRepository) ListForAutoClose(ctx context.Context, now time.Time
 // FindOpenByFingerprint returns the first open incident (triggered/processing) for a fingerprint.
 func (r *IncidentRepository) FindOpenByFingerprint(ctx context.Context, fingerprint string) (*model.Incident, error) {
 	var inc model.Incident
-	err := r.withTx().WithContext(ctx).
+	err := r.withTx(ctx).
 		Where("fingerprint = ? AND status IN ?", fingerprint, []string{
 			string(model.IncidentStatusTriggered),
 			string(model.IncidentStatusProcessing),
@@ -240,7 +284,7 @@ func (r *IncidentRepository) FindOpenByFingerprint(ctx context.Context, fingerpr
 // CountActiveByChannel returns the count of active (triggered/processing) incidents for a channel.
 func (r *IncidentRepository) CountActiveByChannel(ctx context.Context, channelID uint) (int64, error) {
 	var count int64
-	err := r.withTx().WithContext(ctx).
+	err := r.withTx(ctx).
 		Model(&model.Incident{}).
 		Where("channel_id = ? AND status IN ?", channelID, []string{
 			string(model.IncidentStatusTriggered),
@@ -256,7 +300,7 @@ func (r *IncidentRepository) CountByStatus(ctx context.Context, channelID uint) 
 		Count  int64
 	}
 	var results []result
-	q := r.withTx().WithContext(ctx).Model(&model.Incident{}).Select("status, count(*) as count")
+	q := r.withTx(ctx).Model(&model.Incident{}).Select("status, count(*) as count")
 	if channelID > 0 {
 		q = q.Where("channel_id = ?", channelID)
 	}

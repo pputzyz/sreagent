@@ -115,6 +115,37 @@ func (r *ScheduleParticipantRepository) DeleteByScheduleID(ctx context.Context, 
 		Delete(&model.ScheduleParticipant{}).Error
 }
 
+// ListByScheduleIDs returns participants for multiple schedules in a single query.
+// Results are grouped by schedule_id and ordered by position within each group.
+func (r *ScheduleParticipantRepository) ListByScheduleIDs(ctx context.Context, scheduleIDs []uint) (map[uint][]model.ScheduleParticipant, error) {
+	if len(scheduleIDs) == 0 {
+		return nil, nil
+	}
+	var list []model.ScheduleParticipant
+	err := r.db.WithContext(ctx).
+		Where("schedule_id IN ?", scheduleIDs).
+		Order("schedule_id ASC, position ASC").
+		Preload("User").
+		Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[uint][]model.ScheduleParticipant, len(scheduleIDs))
+	for _, p := range list {
+		m[p.ScheduleID] = append(m[p.ScheduleID], p)
+	}
+	return m, nil
+}
+
+// Transaction executes fn inside a database transaction. The transaction is
+// propagated via context so all repository methods called within fn
+// automatically participate in the transaction without any shared mutable state.
+func (r *ScheduleParticipantRepository) Transaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(ContextWithTx(ctx, tx))
+	})
+}
+
 // UpdatePositions updates participant positions in a single transaction.
 // NOTE: Schedule participants per schedule are typically <20, so per-row UPDATE
 // is acceptable. If the dataset grows, consider CASE WHEN batch update.
@@ -415,6 +446,31 @@ func (r *EscalationStepExecutionRepository) DeleteByEventAndStep(ctx context.Con
 	return r.db.WithContext(ctx).
 		Where("event_id = ? AND policy_id = ? AND step_order = ?", eventID, policyID, stepOrder).
 		Delete(&model.EscalationStepExecution{}).Error
+}
+
+// GetActiveOverridesForSchedules returns all currently active overrides for the given
+// schedule IDs in a single query. Returns a map keyed by scheduleID (first match per schedule).
+func (r *ScheduleOverrideRepository) GetActiveOverridesForSchedules(ctx context.Context, scheduleIDs []uint, at time.Time) (map[uint]*model.ScheduleOverride, error) {
+	if len(scheduleIDs) == 0 {
+		return nil, nil
+	}
+	var overrides []model.ScheduleOverride
+	err := r.db.WithContext(ctx).
+		Where("schedule_id IN ? AND start_time <= ? AND end_time > ?", scheduleIDs, at, at).
+		Preload("User").
+		Order("created_at DESC").
+		Find(&overrides).Error
+	if err != nil {
+		return nil, err
+	}
+	// Take the first (most recent) override per schedule.
+	m := make(map[uint]*model.ScheduleOverride, len(scheduleIDs))
+	for i := range overrides {
+		if _, exists := m[overrides[i].ScheduleID]; !exists {
+			m[overrides[i].ScheduleID] = &overrides[i]
+		}
+	}
+	return m, nil
 }
 
 // HasOverlapOverride checks if any override exists for the given schedule that overlaps the time range.
