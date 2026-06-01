@@ -63,9 +63,8 @@ func (s *NotificationService) SetMuteRuleService(svc *MuteRuleService) {
 // delay schedule. This separation keeps the notification path (immediate)
 // distinct from the escalation path (delayed, policy-driven).
 //
-// TODO (B5-10): There is no global concurrency cap on notification dispatch.
-// During a mass-firing event (hundreds of alerts), this could overwhelm
-// downstream media APIs (Lark, webhook endpoints). Consider adding a global
+// NOTE: Global concurrency cap is implemented via maxConcurrentSend (semaphore)
+// in NotifyMediaService. See notify_media.go:76 for the limiter initialization.
 // semaphore (e.g. buffered channel of size 50) that limits concurrent
 // ProcessEvent calls across all rules and subscriptions.
 func (s *NotificationService) RouteAlert(ctx context.Context, event *model.AlertEvent) error {

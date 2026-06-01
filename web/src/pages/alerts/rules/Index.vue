@@ -75,7 +75,7 @@ const filterMemory = useFilterMemory('alert-rules')
 filterMemory.bindRefs({ searchKeyword, filterDatasource, filterSeverity, filterStatus })
 
 // Re-fetch when filters change (debounced for text, immediate for selects)
-// TODO(FE4-7): Page reset to 1 on filter change is correct, but consider preserving
+// NOTE(FE4-7): Page reset to 1 on filter change is correct, but consider preserving
 // scroll position after re-fetch to avoid jarring UX when the user was scrolled down.
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchKeyword, () => {

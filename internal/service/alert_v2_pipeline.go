@@ -29,7 +29,7 @@ import (
 // - Resolution: when all events for a fingerprint resolve, Incident is closed
 // - ChannelID: determined by the alert's _channel_id label or defaultChannelID
 //
-// TODO: AlertChannel (label-matched routing to notification media) is configured via
+// NOTE: AlertChannel (label-matched routing to notification media) is configured via
 // AlertChannelService.FindMatchingChannels but is NOT consulted by this pipeline.
 // Currently, notification routing is handled entirely by NotifyRuleService.ProcessEvent.
 // To integrate AlertChannel into the pipeline, call FindMatchingChannels in process()

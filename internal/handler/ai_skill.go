@@ -41,7 +41,7 @@ type aiSkillRequest struct {
 
 func (h *AISkillHandler) List(c *gin.Context) {
 	search := c.Query("search")
-	skills, err := h.svc.List(search)
+	skills, err := h.svc.List(c.Request.Context(), search)
 	if err != nil {
 		Error(c, err)
 		return
@@ -55,7 +55,7 @@ func (h *AISkillHandler) Get(c *gin.Context) {
 		Error(c, apperr.ErrInvalidParam)
 		return
 	}
-	skill, err := h.svc.GetByID(uint(id))
+	skill, err := h.svc.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
 		Error(c, err)
 		return
@@ -92,7 +92,7 @@ func (h *AISkillHandler) Create(c *gin.Context) {
 		}
 	}
 
-	if err := h.svc.Create(skill); err != nil {
+	if err := h.svc.Create(c.Request.Context(), skill); err != nil {
 		Error(c, err)
 		return
 	}
@@ -132,7 +132,7 @@ func (h *AISkillHandler) Update(c *gin.Context) {
 		}
 	}
 
-	if err := h.svc.Update(skill); err != nil {
+	if err := h.svc.Update(c.Request.Context(), skill); err != nil {
 		Error(c, err)
 		return
 	}
@@ -145,7 +145,7 @@ func (h *AISkillHandler) Delete(c *gin.Context) {
 		Error(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.Delete(uint(id)); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), uint(id)); err != nil {
 		Error(c, err)
 		return
 	}
@@ -160,7 +160,7 @@ func (h *AISkillHandler) GetFiles(c *gin.Context) {
 		Error(c, apperr.ErrInvalidParam)
 		return
 	}
-	files, err := h.svc.GetFiles(uint(id))
+	files, err := h.svc.GetFiles(c.Request.Context(), uint(id))
 	if err != nil {
 		Error(c, err)
 		return
@@ -174,7 +174,7 @@ func (h *AISkillHandler) GetFile(c *gin.Context) {
 		Error(c, apperr.ErrInvalidParam)
 		return
 	}
-	file, err := h.svc.GetFile(uint(fileID))
+	file, err := h.svc.GetFile(c.Request.Context(), uint(fileID))
 	if err != nil {
 		Error(c, err)
 		return
@@ -203,7 +203,7 @@ func (h *AISkillHandler) AddFile(c *gin.Context) {
 		Name:    req.Name,
 		Content: req.Content,
 	}
-	if err := h.svc.AddFile(uint(id), file); err != nil {
+	if err := h.svc.AddFile(c.Request.Context(), uint(id), file); err != nil {
 		Error(c, err)
 		return
 	}
@@ -216,7 +216,7 @@ func (h *AISkillHandler) DeleteFile(c *gin.Context) {
 		Error(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.DeleteFile(uint(fileID)); err != nil {
+	if err := h.svc.DeleteFile(c.Request.Context(), uint(fileID)); err != nil {
 		Error(c, err)
 		return
 	}
@@ -256,7 +256,7 @@ func (h *AISkillHandler) Import(c *gin.Context) {
 	skill.UpdatedBy = userStr
 	skill.Enabled = true
 
-	if err := h.svc.ImportSkill(skill, files); err != nil {
+	if err := h.svc.ImportSkill(c.Request.Context(), skill, files); err != nil {
 		Error(c, err)
 		return
 	}

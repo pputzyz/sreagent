@@ -1199,7 +1199,7 @@ type ToolCallRecord struct {
 // callLLMWithToolsCustom 与 callLLMWithTools 类似，但接受自定义工具执行器和工具定义，
 // 返回最终文本回答和所有工具调用记录。供 RunUntilDone 等场景使用。
 //
-// TODO(B8-13): Anthropic tool calling is not supported. The Anthropic Messages API uses a different
+// NOTE(B8-13): Anthropic tool calling is not supported. The Anthropic Messages API uses a different
 // tool format (content blocks with type "tool_use" / "tool_result") than OpenAI's function calling.
 // This method only implements the OpenAI-compatible chat/completions protocol. When provider is
 // "anthropic" and tools are non-empty, we log a warning and fall back to a non-tool single-shot call.

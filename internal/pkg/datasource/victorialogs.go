@@ -82,7 +82,7 @@ const vlogsQueryLimit = 10000
 // VictoriaLogs API: POST /select/logsql/query
 // Response format: NDJSON — one JSON object per line.
 //
-// TODO(B1-20): For efficient counting, use `| stats count()` pipe instead of fetching
+// NOTE(B1-20): For efficient counting, use `| stats count()` pipe instead of fetching
 // all lines and counting client-side. VictoriaLogs supports `query="* | stats count()"`
 // which returns a single JSON object with the count, avoiding the overhead of streaming
 // and parsing thousands of NDJSON lines. This would significantly reduce memory and CPU

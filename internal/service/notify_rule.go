@@ -427,7 +427,7 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 // If the required repositories are not injected, a warning is logged and the
 // dispatch is skipped.
 //
-// TODO: TeamNotifyChannel (team-level notification media) is configured via
+// NOTE: TeamNotifyChannel (team-level notification media) is configured via
 // TeamNotifyChannelService but is NOT consulted here. Currently, team dispatch
 // expands TeamIDs to members and sends via each member's personal UserNotifyConfig.
 // To honor team-level channels, query TeamNotifyChannelService.ListByTeam for each
