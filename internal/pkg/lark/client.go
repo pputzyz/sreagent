@@ -89,9 +89,13 @@ type Card struct {
 }
 
 // CardHeader represents the card header.
+// Text is optional and enables i18n header rendering. When set, Lark uses
+// Text instead of Title for locale-aware display. Currently Title.PlainText
+// is used; upgrade path: set Text with a "zh_cn"/"en_us" map.
 type CardHeader struct {
-	Title    CardText `json:"title"`
-	Template string   `json:"template"`
+	Title    CardText   `json:"title"`
+	Template string     `json:"template"`
+	Text     *CardText  `json:"text,omitempty"`
 }
 
 // CardText represents a text element.
@@ -125,6 +129,43 @@ type CardButton struct {
 	Type      string      `json:"type"`
 	Value     interface{} `json:"value,omitempty"`
 	Behaviour string      `json:"behaviour,omitempty"`
+}
+
+// CardSelectMenu represents a select_static dropdown in a Lark card form.
+type CardSelectMenu struct {
+	Tag          string            `json:"tag"`
+	Placeholder  *CardText         `json:"placeholder,omitempty"`
+	Name         string            `json:"name"`
+	Options      []CardSelectOption `json:"options"`
+	DefaultValue string            `json:"value,omitempty"`
+}
+
+// CardSelectOption is a single option in a select_static menu.
+type CardSelectOption struct {
+	Text  CardText `json:"text"`
+	Value string   `json:"value"`
+}
+
+// CardInput represents a text input field in a Lark card form.
+type CardInput struct {
+	Tag         string    `json:"tag"`
+	Name        string    `json:"name"`
+	Placeholder *CardText `json:"placeholder,omitempty"`
+	MaxLength   int       `json:"max_length,omitempty"`
+}
+
+// CardForm represents a form container in a Lark card.
+// Elements inside a form share a common submit action.
+type CardForm struct {
+	Tag      string        `json:"tag"`
+	Elements []interface{} `json:"elements"`
+}
+
+// UserOption represents a selectable user for the assign form card.
+type UserOption struct {
+	ID     uint   `json:"id"`
+	Name   string `json:"name"`
+	OpenID string `json:"open_id"`
 }
 
 // severityTemplate returns the card header color template based on severity.
@@ -693,8 +734,205 @@ func BuildSilenceResponseCard(alertName string) *CardMessage {
 	}
 }
 
+// BuildSilenceFormCard builds a card with a form for choosing silence duration and reason.
+// The form submits back via Lark's card.action.trigger mechanism.
+func BuildSilenceFormCard(eventID uint, alertName string) *CardMessage {
+	elements := []interface{}{
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("为告警 **%s** 设置静默:", alertName),
+		},
+		CardDivider{Tag: "hr"},
+		CardForm{
+			Tag: "form",
+			Elements: []interface{}{
+				CardSelectMenu{
+					Tag: "select_static",
+					Name: "duration",
+					Placeholder: &CardText{Tag: "plain_text", Content: "选择静默时长"},
+					Options: []CardSelectOption{
+						{Text: CardText{Tag: "plain_text", Content: "15 分钟"}, Value: "15"},
+						{Text: CardText{Tag: "plain_text", Content: "30 分钟"}, Value: "30"},
+						{Text: CardText{Tag: "plain_text", Content: "1 小时"}, Value: "60"},
+						{Text: CardText{Tag: "plain_text", Content: "2 小时"}, Value: "120"},
+						{Text: CardText{Tag: "plain_text", Content: "4 小时"}, Value: "240"},
+						{Text: CardText{Tag: "plain_text", Content: "8 小时"}, Value: "480"},
+						{Text: CardText{Tag: "plain_text", Content: "24 小时"}, Value: "1440"},
+					},
+					DefaultValue: "60",
+				},
+				CardInput{
+					Tag:         "input",
+					Name:        "reason",
+					Placeholder: &CardText{Tag: "plain_text", Content: "静默原因（可选）"},
+					MaxLength:   200,
+				},
+				CardButton{
+					Tag:       "button",
+					Text:      CardText{Tag: "plain_text", Content: "确认静默"},
+					Type:      "primary",
+					Behaviour: "callback",
+					Value:     map[string]interface{}{"action": "silence_form", "event_id": eventID},
+				},
+			},
+		},
+	}
+
+	return &CardMessage{
+		MsgType: "interactive",
+		Card: Card{
+			Header: CardHeader{
+				Title:    CardText{Tag: "plain_text", Content: "🔕 静默告警"},
+				Template: "yellow",
+			},
+			Elements: elements,
+		},
+	}
+}
+
+// BuildAssignFormCard builds a card with a form for assigning an alert to a user.
+// The form submits back via Lark's card.action.trigger mechanism.
+func BuildAssignFormCard(eventID uint, alertName string, users []UserOption) *CardMessage {
+	options := make([]CardSelectOption, 0, len(users))
+	for _, u := range users {
+		options = append(options, CardSelectOption{
+			Text:  CardText{Tag: "plain_text", Content: u.Name},
+			Value: fmt.Sprintf("%d", u.ID),
+		})
+	}
+
+	elements := []interface{}{
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("将告警 **%s** 指派给:", alertName),
+		},
+		CardDivider{Tag: "hr"},
+		CardForm{
+			Tag: "form",
+			Elements: []interface{}{
+				CardSelectMenu{
+					Tag: "select_static",
+					Name: "assignee",
+					Placeholder: &CardText{Tag: "plain_text", Content: "选择值班人员"},
+					Options: options,
+				},
+				CardInput{
+					Tag:         "input",
+					Name:        "note",
+					Placeholder: &CardText{Tag: "plain_text", Content: "备注（可选）"},
+					MaxLength:   200,
+				},
+				CardButton{
+					Tag:       "button",
+					Text:      CardText{Tag: "plain_text", Content: "确认指派"},
+					Type:      "primary",
+					Behaviour: "callback",
+					Value:     map[string]interface{}{"action": "assign_form", "event_id": eventID},
+				},
+			},
+		},
+	}
+
+	return &CardMessage{
+		MsgType: "interactive",
+		Card: Card{
+			Header: CardHeader{
+				Title:    CardText{Tag: "plain_text", Content: "👤 指派告警"},
+				Template: "blue",
+			},
+			Elements: elements,
+		},
+	}
+}
+
+// BuildAIResponseCard builds a card displaying an AI conversation response.
+// viewURL links to the full AI chat page in SREAgent.
+func BuildAIResponseCard(question string, answer string, viewURL string) *CardMessage {
+	// Truncate answer for card display (Lark has a ~30KB card limit)
+	displayAnswer := answer
+	if len(displayAnswer) > 2000 {
+		displayAnswer = displayAnswer[:2000] + "\n\n..._(内容过长，请在 SREAgent 中查看完整回复)_"
+	}
+
+	elements := []interface{}{
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("**问题:** %s", question),
+		},
+		CardDivider{Tag: "hr"},
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("🤖 **AI 回复:**\n%s", displayAnswer),
+		},
+	}
+
+	if viewURL != "" {
+		elements = append(elements,
+			CardDivider{Tag: "hr"},
+			CardAction{
+				Tag: "action",
+				Actions: []interface{}{
+					CardButton{
+						Tag:  "button",
+						Text: CardText{Tag: "plain_text", Content: "📊 在 SREAgent 中查看"},
+						URL:  viewURL,
+						Type: "primary",
+					},
+				},
+			},
+		)
+	}
+
+	return &CardMessage{
+		MsgType: "interactive",
+		Card: Card{
+			Header: CardHeader{
+				Title:    CardText{Tag: "plain_text", Content: "🤖 AI 助手"},
+				Template: "purple",
+			},
+			Elements: elements,
+		},
+	}
+}
+
 // BuildErrorResponseCard builds a card shown when a card action fails.
+// Includes an optional retry button when eventID and originalAction are provided.
 func BuildErrorResponseCard(errMsg string) *CardMessage {
+	return BuildErrorResponseCardWithRetry(errMsg, 0, "")
+}
+
+// BuildErrorResponseCardWithRetry builds an error card with a retry callback button.
+// When eventID > 0 and originalAction is non-empty, a "Retry" button is included.
+func BuildErrorResponseCardWithRetry(errMsg string, eventID uint, originalAction string) *CardMessage {
+	elements := []interface{}{
+		CardMarkdown{
+			Tag:     "markdown",
+			Content: fmt.Sprintf("操作失败: %s", errMsg),
+		},
+	}
+
+	if eventID > 0 && originalAction != "" {
+		elements = append(elements,
+			CardDivider{Tag: "hr"},
+			CardAction{
+				Tag: "action",
+				Actions: []interface{}{
+					CardButton{
+						Tag:       "button",
+						Text:      CardText{Tag: "plain_text", Content: "🔄 重试"},
+						Type:      "danger",
+						Behaviour: "callback",
+						Value: map[string]interface{}{
+							"action":          "retry",
+							"event_id":        eventID,
+							"original_action": originalAction,
+						},
+					},
+				},
+			},
+		)
+	}
+
 	return &CardMessage{
 		MsgType: "interactive",
 		Card: Card{
@@ -702,12 +940,7 @@ func BuildErrorResponseCard(errMsg string) *CardMessage {
 				Title:    CardText{Tag: "plain_text", Content: "❌ 操作失败"},
 				Template: "red",
 			},
-			Elements: []interface{}{
-				CardMarkdown{
-					Tag:     "markdown",
-					Content: fmt.Sprintf("操作失败: %s", errMsg),
-				},
-			},
+			Elements: elements,
 		},
 	}
 }

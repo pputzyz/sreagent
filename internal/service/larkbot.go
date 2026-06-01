@@ -30,6 +30,7 @@ type LarkBotService struct {
 	settingSvc  *SystemSettingService
 	eventSvc    *AlertEventService
 	scheduleSvc *ScheduleService
+	aiSvc       *AIService           // optional; enables AI conversation in groups
 	userRepo    *repository.UserRepository // optional; enables OpenID→User mapping
 	client      *http.Client
 	tokenCache  *lark.TokenCache // shared token cache (optional)
@@ -58,6 +59,11 @@ func NewLarkBotService(settingSvc *SystemSettingService, eventSvc *AlertEventSer
 // SetTokenCache injects a shared token cache for Bot API calls.
 func (s *LarkBotService) SetTokenCache(cache *lark.TokenCache) {
 	s.tokenCache = cache
+}
+
+// SetAIService injects the AI service for natural language conversation in Lark groups.
+func (s *LarkBotService) SetAIService(svc *AIService) {
+	s.aiSvc = svc
 }
 
 // resolveUserID maps a Lark open_id to a DB user ID.
@@ -169,10 +175,11 @@ type LarkMention struct {
 
 // LarkCardActionRequest represents the incoming Lark card action callback payload.
 type LarkCardActionRequest struct {
-	Operator  *LarkCardOperator `json:"operator"`
-	Action    *LarkCardAction   `json:"action"`
-	Token     string            `json:"token"`
-	Type      string            `json:"type"`
+	Operator  *LarkCardOperator    `json:"operator"`
+	Action    *LarkCardAction      `json:"action"`
+	Token     string               `json:"token"`
+	Type      string               `json:"type"`
+	FormData  map[string]interface{} `json:"form_data,omitempty"`
 }
 
 // LarkCardOperator identifies the user who clicked the button.
@@ -362,6 +369,66 @@ func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, sign
 			zap.Uint("event_id", eventID), zap.Uint("operator", operatorID))
 		return lark.BuildSilenceResponseCard(event.AlertName), nil
 
+	case "silence_form":
+		// Form-based silence: read duration and reason from form_data
+		durationMinutes := 60 // default
+		reason := "Lark card action"
+		if req.FormData != nil {
+			if durStr, ok := req.FormData["duration"].(string); ok {
+				if dur, err := strconv.Atoi(durStr); err == nil && dur > 0 {
+					durationMinutes = dur
+				}
+			}
+			if r, ok := req.FormData["reason"].(string); ok && r != "" {
+				reason = r
+			}
+		}
+		if err := s.eventSvc.Silence(ctx, eventID, operatorID, durationMinutes, reason); err != nil {
+			s.logger.Warn("card action silence_form failed",
+				zap.Uint("event_id", eventID), zap.Error(err))
+			return lark.BuildErrorResponseCard(fmt.Sprintf("静默失败: %v", err)), nil
+		}
+		s.logger.Info("alert silenced via silence form",
+			zap.Uint("event_id", eventID), zap.Int("duration", durationMinutes), zap.Uint("operator", operatorID))
+		return lark.BuildSilenceResponseCard(event.AlertName), nil
+
+	case "assign_form":
+		// Form-based assign: read assignee and note from form_data
+		if req.FormData == nil {
+			return lark.BuildErrorResponseCard("表单数据缺失"), nil
+		}
+		assigneeStr, _ := req.FormData["assignee"].(string)
+		if assigneeStr == "" {
+			return lark.BuildErrorResponseCard("请选择指派人"), nil
+		}
+		assignTo, err := strconv.ParseUint(assigneeStr, 10, 64)
+		if err != nil || assignTo == 0 {
+			return lark.BuildErrorResponseCard("无效的指派人"), nil
+		}
+		note, _ := req.FormData["note"].(string)
+		if note == "" {
+			note = fmt.Sprintf("Assigned via Lark by operator %d", operatorID)
+		}
+		if err := s.eventSvc.Assign(ctx, eventID, uint(assignTo), operatorID, note); err != nil {
+			s.logger.Warn("card action assign_form failed",
+				zap.Uint("event_id", eventID), zap.Error(err))
+			return lark.BuildErrorResponseCard(fmt.Sprintf("指派失败: %v", err)), nil
+		}
+		s.logger.Info("alert assigned via assign form",
+			zap.Uint("event_id", eventID), zap.Uint64("assign_to", assignTo), zap.Uint("operator", operatorID))
+		return lark.BuildAckResponseCard(event.AlertName), nil
+
+	case "retry":
+		// Retry the original action — re-dispatch to self
+		originalAction, _ := req.Action.Value["original_action"].(string)
+		if originalAction == "" {
+			return lark.BuildErrorResponseCard("缺少原始操作类型"), nil
+		}
+		// Rebuild the action value with the original action
+		req.Action.Value["action"] = originalAction
+		delete(req.Action.Value, "original_action")
+		return s.HandleCardAction(ctx, body, signature, timestamp, nonce)
+
 	default:
 		return lark.BuildErrorResponseCard(fmt.Sprintf("未知操作: %s", action)), nil
 	}
@@ -421,6 +488,9 @@ func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventR
 				zap.String("input", text),
 				zap.String("mapped_command", mappedCmd),
 			)
+		} else if s.aiSvc != nil {
+			// No command mapping found — forward to AI conversation
+			return s.handleAIConversation(ctx, text, chatID, msg.ChatID)
 		}
 	}
 
@@ -774,4 +844,49 @@ func (s *LarkBotService) mapNaturalLanguage(text string) (string, []string) {
 	}
 
 	return "", nil
+}
+
+// handleAIConversation forwards a user message to the AI service and replies
+// with an AI response card. Used when natural language is enabled but no
+// command mapping is found.
+func (s *LarkBotService) handleAIConversation(ctx context.Context, question string, chatID string, larkChatID string) error {
+	if s.aiSvc == nil {
+		return s.SendMessage(ctx, chatID, "AI 助手未配置，请在系统设置中启用 AI。")
+	}
+
+	systemPrompt := `你是 SREAgent 智能运维助手。用户通过飞书群向你提问。
+请简洁、专业地回答关于告警、监控、值班、故障排查等 SRE 相关问题。
+如果问题不明确，请给出通用的排查建议。回答使用中文。`
+
+	answer, err := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
+	if err != nil {
+		s.logger.Warn("AI conversation failed", zap.Error(err))
+		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", err))
+	}
+
+	// Send as a card with "View in SREAgent" button
+	cfg, _ := s.loadConfig(ctx)
+	viewURL := "" // Will be populated if platform URL is configured
+	_ = cfg
+
+	// Try to get platform URL from lark service settings for deep-link
+	// For now, send the card without the view URL (platform URL not available in bot context)
+	card := lark.BuildAIResponseCard(question, answer, viewURL)
+
+	// Send card via Bot API if available
+	if s.tokenCache != nil {
+		cfg, cfgErr := s.loadConfig(ctx)
+		if cfgErr == nil && cfg.AppID != "" && cfg.AppSecret != "" {
+			bot := lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache)
+			if _, sendErr := bot.SendMessage(ctx, larkChatID, card); sendErr != nil {
+				s.logger.Warn("AI card send failed, falling back to text", zap.Error(sendErr))
+				return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))
+			}
+			s.recordMessageSuccess()
+			return nil
+		}
+	}
+
+	// Fallback: send as plain text
+	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))
 }
