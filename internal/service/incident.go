@@ -331,6 +331,8 @@ func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until tim
 }
 
 // Reassign reassigns the incident to a different user.
+// Uses a targeted column update on assigned_to to avoid lost-update races
+// that would occur with a full-row Save().
 func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee uint) error {
 	inc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -344,8 +346,7 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 		return err
 	}
 
-	inc.AssignedTo = &newAssignee
-	if err := s.repo.Update(ctx, inc); err != nil {
+	if err := s.repo.UpdateAssignees(ctx, id, &newAssignee); err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
@@ -373,6 +374,8 @@ func (s *IncidentService) Reassign(ctx context.Context, id, userID, newAssignee 
 }
 
 // Merge merges a source incident into a target incident.
+// All steps (close source, migrate alerts, update target count, add timelines)
+// are wrapped in a single database transaction for atomicity.
 func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID uint) error {
 	if sourceID == targetID {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "cannot merge incident into itself")
@@ -394,51 +397,80 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
-	source.MergedIntoID = &targetID
-	now := time.Now()
 	if err := validateTransition(source.Status, model.IncidentStatusClosed); err != nil {
 		return err
 	}
-	source.Status = model.IncidentStatusClosed
-	source.ClosedAt = &now
-	if err := s.repo.Update(ctx, source); err != nil {
-		return apperr.Wrap(apperr.ErrDatabase, err)
+
+	// Set AlertRepository Tx to participate in the same transaction.
+	if s.alertRepo != nil {
+		origTx := s.alertRepo.Tx
+		defer func() { s.alertRepo.Tx = origTx }()
 	}
 
-	// Migrate alerts from source to target
-	if s.alertRepo != nil {
-		if err := s.alertRepo.BulkUpdateIncidentID(ctx, source.ID, target.ID); err != nil {
-			s.logger.Error("failed to migrate alerts during merge",
-				zap.Uint("source", sourceID), zap.Uint("target", targetID), zap.Error(err))
-		} else {
+	err = s.repo.Transaction(func(tx *gorm.DB) error {
+		// Wire alertRepo to the same transaction
+		if s.alertRepo != nil {
+			s.alertRepo.Tx = tx
+		}
+
+		// Close source incident
+		source.MergedIntoID = &targetID
+		now := time.Now()
+		source.Status = model.IncidentStatusClosed
+		source.ClosedAt = &now
+		if err := s.repo.Update(ctx, source); err != nil {
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+
+		// Migrate alerts from source to target
+		if s.alertRepo != nil {
+			if err := s.alertRepo.BulkUpdateIncidentID(ctx, source.ID, target.ID); err != nil {
+				s.logger.Error("failed to migrate alerts during merge",
+					zap.Uint("source", sourceID), zap.Uint("target", targetID), zap.Error(err))
+				return apperr.Wrap(apperr.ErrDatabase, err)
+			}
 			// Recount alerts on target
-			if count, err := s.alertRepo.CountByIncidentID(ctx, target.ID); err == nil {
-				target.AlertCount = count
-				if err := s.repo.Update(ctx, target); err != nil {
-					s.logger.Error("failed to update target alert count after merge",
-						zap.Uint("target", targetID), zap.Error(err))
-				}
+			count, err := s.alertRepo.CountByIncidentID(ctx, target.ID)
+			if err != nil {
+				s.logger.Error("failed to count alerts on target after merge",
+					zap.Uint("target", targetID), zap.Error(err))
+				return apperr.Wrap(apperr.ErrDatabase, err)
+			}
+			target.AlertCount = count
+			if err := s.repo.Update(ctx, target); err != nil {
+				s.logger.Error("failed to update target alert count after merge",
+					zap.Uint("target", targetID), zap.Error(err))
+				return apperr.Wrap(apperr.ErrDatabase, err)
 			}
 		}
-	}
 
-	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
-		IncidentID: sourceID,
-		Action:     model.IncidentActionMerged,
-		ActorID:    &userID,
-		Content:    "Merged into another incident",
-	}); err != nil {
-		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", sourceID))
-	}
+		// Timeline on source
+		if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+			IncidentID: sourceID,
+			Action:     model.IncidentActionMerged,
+			ActorID:    &userID,
+			Content:    "Merged into another incident",
+		}); err != nil {
+			s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", sourceID))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
 
-	// Record timeline on the target incident so the merge is visible there too.
-	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
-		IncidentID: targetID,
-		Action:     model.IncidentActionAlertMerged,
-		ActorID:    &userID,
-		Content:    fmt.Sprintf("Incident #%d merged into this incident", sourceID),
-	}); err != nil {
-		s.logger.Error("failed to add timeline on target", zap.Error(err), zap.Uint("incident_id", targetID))
+		// Timeline on target
+		if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+			IncidentID: targetID,
+			Action:     model.IncidentActionAlertMerged,
+			ActorID:    &userID,
+			Content:    fmt.Sprintf("Incident #%d merged into this incident", sourceID),
+		}); err != nil {
+			s.logger.Error("failed to add timeline on target", zap.Error(err), zap.Uint("incident_id", targetID))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	s.logger.Info("incident merged", zap.Uint("source", sourceID), zap.Uint("target", targetID))
@@ -495,6 +527,8 @@ func (s *IncidentService) ListAssignees(ctx context.Context, incidentID uint) ([
 }
 
 // Escalate moves the incident to the next escalation step.
+// Uses a targeted column update on current_escalation_step to avoid lost-update
+// races that would occur with a full-row Save().
 func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 	inc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -516,8 +550,8 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 		}
 	}
 
-	inc.CurrentEscalationStep++
-	if err := s.repo.Update(ctx, inc); err != nil {
+	newStep := inc.CurrentEscalationStep + 1
+	if err := s.repo.UpdateEscalationStep(ctx, id, newStep); err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
@@ -530,7 +564,7 @@ func (s *IncidentService) Escalate(ctx context.Context, id, userID uint) error {
 		s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", id))
 	}
 
-	s.logger.Info("incident escalated", zap.Uint("id", id), zap.Int("step", inc.CurrentEscalationStep))
+	s.logger.Info("incident escalated", zap.Uint("id", id), zap.Int("step", newStep))
 	return nil
 }
 

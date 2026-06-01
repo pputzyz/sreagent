@@ -480,6 +480,7 @@ type LabelValidationSample struct {
 
 // PreviewLabelValidation checks all alert rules against label validation rules
 // without modifying anything. Returns aggregate counts and up to `limit` failing samples.
+// Fetches rules in batches of 1000 to avoid loading the entire table into memory at once.
 func (s *AlertRuleService) PreviewLabelValidation(ctx context.Context, limit int) (*LabelValidationResult, error) {
 	// If label validation is disabled, return empty result
 	if s.settingSvc != nil {
@@ -489,33 +490,43 @@ func (s *AlertRuleService) PreviewLabelValidation(ctx context.Context, limit int
 		}
 	}
 
-	// List all alert rules (use large page to get everything)
-	rules, _, err := s.repo.List(ctx, "", "", "", "", "", nil, 1, 10000)
-	if err != nil {
-		s.logger.Error("failed to list alert rules for label validation preview", zap.Error(err))
-		return nil, apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
+	const batchSize = 1000
 	result := &LabelValidationResult{
-		Total:   len(rules),
 		Samples: []LabelValidationSample{},
 	}
 
-	for _, rule := range rules {
-		err := s.validateLabels(rule.Labels)
-		if err == nil {
-			result.Passing++
-		} else {
-			result.Failing++
-			if len(result.Samples) < limit {
-				sample := LabelValidationSample{
-					RuleID:   rule.ID,
-					RuleName: rule.Name,
-					Pass:     false,
-					Issues:   []string{err.Error()},
+	for page := 1; ; page++ {
+		rules, total, err := s.repo.List(ctx, "", "", "", "", "", nil, page, batchSize)
+		if err != nil {
+			s.logger.Error("failed to list alert rules for label validation preview", zap.Error(err))
+			return nil, apperr.Wrap(apperr.ErrDatabase, err)
+		}
+
+		if page == 1 {
+			result.Total = int(total)
+		}
+
+		for _, rule := range rules {
+			err := s.validateLabels(rule.Labels)
+			if err == nil {
+				result.Passing++
+			} else {
+				result.Failing++
+				if len(result.Samples) < limit {
+					sample := LabelValidationSample{
+						RuleID:   rule.ID,
+						RuleName: rule.Name,
+						Pass:     false,
+						Issues:   []string{err.Error()},
+					}
+					result.Samples = append(result.Samples, sample)
 				}
-				result.Samples = append(result.Samples, sample)
 			}
+		}
+
+		// Stop when we've fetched all rules
+		if len(rules) < batchSize {
+			break
 		}
 	}
 

@@ -70,6 +70,7 @@ func (r *NotifyRecordRepository) ListByEventID(ctx context.Context, eventID uint
 	err := r.db.WithContext(ctx).
 		Where("event_id = ?", eventID).
 		Order("created_at DESC").
+		Limit(500).
 		Find(&list).Error
 	return list, err
 }

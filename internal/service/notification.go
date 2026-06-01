@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -78,9 +79,22 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 	}
 
 	// Inhibition check: suppress notification if a higher-priority alert is firing.
+	// Cap at 2000 firing events for the in-memory match. This balances correctness
+	// (most environments have <1000 concurrent firing alerts) against memory/CPU
+	// cost of O(n*m) label matching. If you consistently have >2000 firing alerts,
+	// consider pushing inhibition logic to the database layer.
 	if s.inhibitionSvc != nil && s.eventRepo != nil {
-		firingEvents, _, err := s.eventRepo.List(ctx, "firing", "", 1, 500)
-		if err == nil && len(firingEvents) > 0 {
+		const inhibitionScanCap = 2000
+		firingEvents, _, err := s.eventRepo.List(ctx, "firing", "", 1, inhibitionScanCap)
+		if err != nil {
+			// DB error during inhibition check — fail-open: allow the notification
+			// rather than risk suppressing alerts due to a transient DB issue.
+			s.logger.Warn("inhibition check failed (fail-open), allowing notification",
+				zap.Uint("event_id", event.ID),
+				zap.Error(err),
+			)
+			metrics.IncInhibitionCheckError()
+		} else if len(firingEvents) > 0 {
 			if s.inhibitionSvc.IsInhibited(ctx, event, firingEvents) {
 				s.logger.Info("notification inhibited by inhibition rule",
 					zap.Uint("event_id", event.ID),

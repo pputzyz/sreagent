@@ -136,6 +136,15 @@ var (
 			Help: "Total number of incidents auto-closed due to timeout",
 		},
 	)
+
+	// inhibitionCheckErrorsTotal counts DB errors during inhibition rule checks.
+	// When this fires, the notification path fails open (allows the notification).
+	inhibitionCheckErrorsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "sreagent_inhibition_check_errors_total",
+			Help: "Total number of DB errors during inhibition rule checks (fail-open)",
+		},
+	)
 )
 
 func init() {
@@ -154,6 +163,7 @@ func init() {
 	prometheus.MustRegister(workerPoolDroppedTotal)
 	prometheus.MustRegister(scheduledDispatchTotal)
 	prometheus.MustRegister(incidentAutoCloseTotal)
+	prometheus.MustRegister(inhibitionCheckErrorsTotal)
 }
 
 // IncAlertsEvaluated increments the alert evaluation counter.
@@ -258,4 +268,10 @@ func IncScheduledDispatch(status string) {
 // IncIncidentAutoClose increments the incident auto-close counter.
 func IncIncidentAutoClose() {
 	incidentAutoCloseTotal.Inc()
+}
+
+// IncInhibitionCheckError increments the inhibition check error counter.
+// Called when a DB error occurs during inhibition rule evaluation (fail-open).
+func IncInhibitionCheckError() {
+	inhibitionCheckErrorsTotal.Inc()
 }
