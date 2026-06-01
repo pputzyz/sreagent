@@ -77,23 +77,25 @@ func (h *HeartbeatChecker) SetWorkerPool(p *AlertWorkerPool) {
 func (h *HeartbeatChecker) Start() {
 	h.startOnce.Do(func() {
 		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					h.logger.Error("heartbeat checker goroutine panic recovered", zap.Any("recover", r))
-				}
-			}()
 			ticker := time.NewTicker(h.interval)
 			defer ticker.Stop()
 			h.logger.Info("heartbeat checker started", zap.Duration("interval", h.interval))
 			for {
 				select {
 				case <-ticker.C:
-					if h.leader != nil && !h.leader.IsLeader() {
-						continue
-					}
-					ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
-					h.runOnce(ctx)
-					cancel()
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								h.logger.Error("heartbeat checker tick panic recovered", zap.Any("recover", r))
+							}
+						}()
+						if h.leader != nil && !h.leader.IsLeader() {
+							return
+						}
+						ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+						defer cancel()
+						h.runOnce(ctx)
+					}()
 				case <-h.stopCh:
 					h.logger.Info("heartbeat checker stopped")
 					return

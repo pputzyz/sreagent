@@ -81,12 +81,15 @@ func (s *DispatchService) Update(ctx context.Context, id uint, updates *model.Di
 		}
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
+	// Validate the updated policy before saving
+	if err := s.validatePolicy(updates); err != nil {
+		return nil, err
+	}
 	if updates.Name != "" {
 		existing.Name = updates.Name
 	}
-	if updates.Description != "" {
-		existing.Description = updates.Description
-	}
+	// Description can be cleared to empty string
+	existing.Description = updates.Description
 	existing.IsEnabled = updates.IsEnabled
 	existing.Priority = updates.Priority
 	existing.MatchConditions = updates.MatchConditions
@@ -168,7 +171,9 @@ func (s *DispatchService) matchConditions(condJSON string, labels model.JSONLabe
 	}
 	var conds []model.FilterCondition
 	if err := json.Unmarshal([]byte(condJSON), &conds); err != nil {
-		return true // parse error = match all (safe default)
+		zap.L().Warn("dispatch: failed to parse match_conditions JSON, treating as no-match",
+			zap.String("conditions", condJSON), zap.Error(err))
+		return false // parse error = match none (fail-closed)
 	}
 	// Build a synthetic event-like map for matching
 	for _, c := range conds {

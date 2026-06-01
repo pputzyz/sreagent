@@ -171,12 +171,12 @@ func Test_matchConditions_multiple_conditions_all_must_pass(t *testing.T) {
 		"should fail when one condition doesn't match")
 }
 
-func Test_matchConditions_invalid_json_matches_all(t *testing.T) {
+func Test_matchConditions_invalid_json_matches_none(t *testing.T) {
 	svc := newTestDispatchService()
 	labels := model.JSONLabels{"env": "prod"}
 
-	assert.True(t, svc.matchConditions("not-json", labels, "critical"),
-		"invalid JSON should match all (safe default)")
+	assert.False(t, svc.matchConditions("not-json", labels, "critical"),
+		"invalid JSON should match none (fail-closed)")
 }
 
 // ---------------------------------------------------------------------------

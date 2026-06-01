@@ -78,24 +78,25 @@ func (e *RecordingRuleEngine) Start(ctx context.Context) {
 
 	// Periodic sync loop to pick up new/changed/deleted rules.
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				e.logger.Error("recording rule engine sync loop panic recovered", zap.Any("recover", r))
-			}
-		}()
-
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-ticker.C:
-				if e.leader != nil && !e.leader.IsLeader() {
-					continue
-				}
-				if err := e.syncRules(context.Background()); err != nil {
-					e.logger.Error("recording rule engine: sync failed", zap.Error(err))
-				}
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							e.logger.Error("recording rule sync tick panic recovered", zap.Any("recover", r))
+						}
+					}()
+					if e.leader != nil && !e.leader.IsLeader() {
+						return
+					}
+					if err := e.syncRules(context.Background()); err != nil {
+						e.logger.Error("recording rule engine: sync failed", zap.Error(err))
+					}
+				}()
 			case <-e.stopCh:
 				return
 			}

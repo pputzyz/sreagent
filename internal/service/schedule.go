@@ -85,7 +85,11 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule *model.Sc
 func (s *ScheduleService) GetScheduleByID(ctx context.Context, id uint) (*model.Schedule, error) {
 	schedule, err := s.scheduleRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
+		if err == gorm.ErrRecordNotFound {
+			return nil, apperr.ErrNotFound
+		}
+		s.logger.Error("failed to get schedule", zap.Uint("id", id), zap.Error(err))
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	return schedule, nil
 }
@@ -893,6 +897,9 @@ func validateSchedule(schedule *model.Schedule) *apperr.AppError {
 	}
 	if schedule.HandoffDay < 0 || schedule.HandoffDay > 6 {
 		return apperr.WithMessage(apperr.ErrBadRequest, "handoff_day must be between 0 (Sunday) and 6 (Saturday)")
+	}
+	if schedule.RotationPeriodDays < 0 || schedule.RotationPeriodDays > 365 {
+		return apperr.WithMessage(apperr.ErrBadRequest, "rotation_period_days must be between 0 (default 1) and 365")
 	}
 	if schedule.Timezone != "" {
 		if _, err := time.LoadLocation(schedule.Timezone); err != nil {
