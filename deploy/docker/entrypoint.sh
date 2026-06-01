@@ -16,6 +16,12 @@ DB_USER="${SREAGENT_DATABASE_USERNAME:-sreagent}"
 DB_PASS="${SREAGENT_DATABASE_PASSWORD:?SREAGENT_DATABASE_PASSWORD is not set. Provide it via environment variable.}"
 DB_NAME="${SREAGENT_DATABASE_DATABASE:-sreagent}"
 
+# Validate DB_NAME contains only safe characters (alphanumeric + underscore)
+if ! echo "$DB_NAME" | grep -qE '^[a-zA-Z0-9_]+$'; then
+  echo "ERROR: DB_NAME '${DB_NAME}' contains invalid characters. Only alphanumeric and underscore are allowed."
+  exit 1
+fi
+
 echo "============================================"
 echo "  SREAgent - Intelligent SRE Platform"
 echo "============================================"
@@ -29,6 +35,7 @@ if MYSQL_PWD="${DB_PASS}" mysql -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -e 
 else
   ROOT_PASS="${MYSQL_ROOT_PASSWORD:-}"
   if [ -n "${ROOT_PASS}" ]; then
+    echo "WARNING: Using MYSQL_ROOT_PASSWORD fallback to create database — consider pre-provisioning the database and user for production."
     MYSQL_PWD="${ROOT_PASS}" mysql -h"${DB_HOST}" -P"${DB_PORT}" -uroot \
       -e "${CREATE_SQL}" 2>/dev/null \
       && echo "[entrypoint] Database '${DB_NAME}' created via root." \

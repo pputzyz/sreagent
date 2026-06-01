@@ -24,7 +24,7 @@ FROM node:20-alpine AS frontend
 WORKDIR /src/web
 
 COPY web/package.json web/package-lock.json* ./
-RUN npm ci 2>/dev/null || npm install
+RUN npm ci || npm install
 
 COPY web/ .
 RUN npm run build
@@ -32,9 +32,12 @@ RUN npm run build
 # ========== Final runtime stage ==========
 FROM alpine:3.20
 
+ARG TZ=Asia/Shanghai
+ENV TZ=${TZ}
+
 RUN apk add --no-cache ca-certificates tzdata bash mysql-client \
-    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && echo "Asia/Shanghai" > /etc/timezone
+    && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
+    && echo "${TZ}" > /etc/timezone
 
 WORKDIR /app
 

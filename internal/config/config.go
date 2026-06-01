@@ -59,7 +59,7 @@ func (s *ServerConfig) ExternalURL() string {
 }
 
 type DatabaseConfig struct {
-	Driver       string `mapstructure:"driver"`
+	Driver       string `mapstructure:"driver"` // unused; MySQL is hardcoded. Kept for config file compatibility.
 	Host         string `mapstructure:"host"`
 	Port         int    `mapstructure:"port"`
 	Username     string `mapstructure:"username"`
@@ -69,6 +69,7 @@ type DatabaseConfig struct {
 	MaxIdleConns int    `mapstructure:"max_idle_conns"`
 	MaxOpenConns int    `mapstructure:"max_open_conns"`
 	MaxLifetime  int    `mapstructure:"max_lifetime"`
+	Debug        bool   `mapstructure:"debug"` // enable GORM SQL logging (env: SREAGENT_DB_DEBUG=true)
 }
 
 func (d *DatabaseConfig) DSN() string {
@@ -159,12 +160,17 @@ func Load(cfgFile string) (*Config, error) {
 	_ = viper.BindEnv("database.host", "SREAGENT_DATABASE_HOST")
 	_ = viper.BindEnv("database.port", "SREAGENT_DATABASE_PORT")
 	_ = viper.BindEnv("database.username", "SREAGENT_DATABASE_USERNAME")
+	_ = viper.BindEnv("database.debug", "SREAGENT_DB_DEBUG")
 	_ = viper.BindEnv("redis.password", "SREAGENT_REDIS_PASSWORD")
 	_ = viper.BindEnv("redis.host", "SREAGENT_REDIS_HOST")
 	_ = viper.BindEnv("redis.port", "SREAGENT_REDIS_PORT")
 	_ = viper.BindEnv("jwt.secret", "SREAGENT_JWT_SECRET")
 	_ = viper.BindEnv("metrics_token", "SREAGENT_METRICS_TOKEN")
 	_ = viper.BindEnv("cors_allowed_origins", "SREAGENT_CORS_ALLOWED_ORIGINS")
+	_ = viper.BindEnv("server.webhook_secret", "SREAGENT_WEBHOOK_SECRET")
+	_ = viper.BindEnv("oidc.client_secret", "SREAGENT_OIDC_CLIENT_SECRET")
+	_ = viper.BindEnv("oidc.client_id", "SREAGENT_OIDC_CLIENT_ID")
+	_ = viper.BindEnv("oidc.issuer_url", "SREAGENT_OIDC_ISSUER_URL")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if !os.IsNotExist(err) {

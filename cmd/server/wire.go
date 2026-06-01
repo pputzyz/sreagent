@@ -1210,6 +1210,13 @@ func (d *Dependencies) Shutdown() {
 			zapLogger.Warn("failed to close redis connection", zap.Error(err))
 		}
 	}
+
+	// 9. Close database connection pool
+	if sqlDB, err := d.db.DB(); err == nil {
+		if err := sqlDB.Close(); err != nil {
+			zapLogger.Warn("failed to close database connection", zap.Error(err))
+		}
+	}
 }
 
 // --------------- Helper functions ---------------

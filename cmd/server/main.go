@@ -67,9 +67,14 @@ func main() {
 	}
 	_ = migrateDB.Close()
 
-	// Auto-migrate any models not covered by SQL migrations (development safety net)
-	if err := autoMigrate(db); err != nil {
-		zapLogger.Fatal("failed to auto-migrate", zap.Error(err))
+	// Auto-migrate any models not covered by SQL migrations (development safety net).
+	// Skipped in production to avoid accidental schema changes from GORM.
+	if cfg.Server.Mode != "release" {
+		if err := autoMigrate(db); err != nil {
+			zapLogger.Fatal("failed to auto-migrate", zap.Error(err))
+		}
+	} else {
+		zapLogger.Info("skipping auto-migrate in release mode (SQL migrations handle schema)")
 	}
 
 	// Seed default admin user
@@ -168,7 +173,7 @@ func initLogger(cfg config.LogConfig) *zap.Logger {
 
 func initDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	gormLogLevel := logger.Silent
-	if os.Getenv("SREAGENT_DB_DEBUG") == "true" {
+	if cfg.Debug {
 		gormLogLevel = logger.Info
 	}
 
@@ -260,17 +265,16 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 		logger.Fatal("SREAGENT_ADMIN_PASSWORD environment variable must be set")
 	}
 
-	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(defaultPwd), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Error("failed to hash password", zap.Error(err))
-		return
-	}
-
 	// Check if admin user already exists
 	var admin model.User
 	if err := db.Where("username = ?", "admin").First(&admin).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// Create new admin user
+			// Create new admin user — hash password only when actually needed
+			hashedPwd, hashErr := bcrypt.GenerateFromPassword([]byte(defaultPwd), bcrypt.DefaultCost)
+			if hashErr != nil {
+				logger.Error("failed to hash password", zap.Error(hashErr))
+				return
+			}
 			admin = model.User{
 				Username:    "admin",
 				Password:    string(hashedPwd),
@@ -296,6 +300,12 @@ func seedAdminUser(db *gorm.DB, logger *zap.Logger) {
 	// This prevents accidental password resets on every deployment restart.
 	if os.Getenv("SREAGENT_ADMIN_PASSWORD_FORCE") == "true" {
 		if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(defaultPwd)); err != nil {
+			// Hash password only when force-update is needed
+			hashedPwd, hashErr := bcrypt.GenerateFromPassword([]byte(defaultPwd), bcrypt.DefaultCost)
+			if hashErr != nil {
+				logger.Error("failed to hash password", zap.Error(hashErr))
+				return
+			}
 			if err := db.Model(&admin).Update("password", string(hashedPwd)).Error; err != nil {
 				logger.Error("failed to update admin password from SREAGENT_ADMIN_PASSWORD", zap.Error(err))
 				return
