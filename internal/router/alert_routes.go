@@ -90,7 +90,7 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 		// #10: Rate limit heartbeat endpoint (60 req/min per token)
 		heartbeatRL := middleware.RateLimit(func(c *gin.Context) string {
 			return "heartbeat:" + c.Param("token")
-		}, 60.0/60.0, 60)
+		}, 1.0, 60)
 		root.POST("/heartbeat/:token", heartbeatRL, h.Heartbeat.Ping)
 	}
 

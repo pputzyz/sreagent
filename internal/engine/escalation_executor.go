@@ -114,7 +114,7 @@ func (e *EscalationExecutor) sendViaChannel(ctx context.Context, event *model.Al
 	var rendered string
 	if e.templateSvc != nil {
 		// Use the default template format with the standard template system.
-		defaultContent := fmt.Sprintf("[{{.Severity | upper}}] {{.AlertName}} - {{.Status}}\n\nLabels: {{range $k, $v := .Labels}}{{$k}}={{$v}} {{end}}\nFiredAt: {{.FiredAt.Format \"2006-01-02 15:04:05\"}}")
+		defaultContent := "[{{.Severity | upper}}] {{.AlertName}} - {{.Status}}\n\nLabels: {{range $k, $v := .Labels}}{{$k}}={{$v}} {{end}}\nFiredAt: {{.FiredAt.Format \"2006-01-02 15:04:05\"}}"
 		result, err := e.templateSvc.RenderContent(ctx, defaultContent, data)
 		if err != nil {
 			e.logger.Warn("escalation: template render failed, falling back to basic format",
