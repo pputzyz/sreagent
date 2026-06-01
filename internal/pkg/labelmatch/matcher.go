@@ -23,13 +23,17 @@ func CompileRegex(pattern string) (*regexp.Regexp, error) {
 // getOrCompileRegex returns a compiled regex from cache or compiles and caches it.
 func getOrCompileRegex(pattern string) (*regexp.Regexp, error) {
 	if re, ok := regexCache.Load(pattern); ok {
-		return re.(*regexp.Regexp), nil
+		if r, ok := re.(*regexp.Regexp); ok {
+			return r, nil
+		}
 	}
 	regexCacheMu.Lock()
 	defer regexCacheMu.Unlock()
 	// Double-check after acquiring lock
 	if re, ok := regexCache.Load(pattern); ok {
-		return re.(*regexp.Regexp), nil
+		if r, ok := re.(*regexp.Regexp); ok {
+			return r, nil
+		}
 	}
 	re, err := regexp.Compile(pattern)
 	if err != nil {

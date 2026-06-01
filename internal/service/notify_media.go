@@ -1303,9 +1303,10 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, appSecret string) (string, error) {
 	// Check cache — refresh 60s before expiry to avoid stale tokens.
 	if cached, ok := s.feishuTokenCache.Load(appID); ok {
-		entry := cached.(*feishuTokenEntry)
-		if time.Now().Before(entry.expiresAt.Add(-60 * time.Second)) {
-			return entry.token, nil
+		if entry, ok := cached.(*feishuTokenEntry); ok {
+			if time.Now().Before(entry.expiresAt.Add(-60 * time.Second)) {
+				return entry.token, nil
+			}
 		}
 	}
 

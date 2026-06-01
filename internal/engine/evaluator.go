@@ -128,13 +128,16 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 		p.suppressor = deps.suppressor
 	}
 	if old, loaded := p.rules.Load(rule.ID); loaded {
-		rv := old.(*ruleVersion)
-		if rv.version == rule.Version {
+		rv, ok := old.(*ruleVersion)
+		if !ok {
+			p.rules.Delete(rule.ID)
+		} else if rv.version == rule.Version {
 			return // same version — no change, keep running evaluator
+		} else {
+			// Version changed — stop old evaluator before creating new one
+			p.rules.Delete(rule.ID)
+			rv.evaluator.Stop()
 		}
-		// Version changed — stop old evaluator before creating new one
-		p.rules.Delete(rule.ID)
-		rv.evaluator.Stop()
 		p.log.Info("rule version changed, restarting evaluator",
 			zap.Uint("rule_id", rule.ID),
 			zap.Int("old_version", rv.version),
@@ -151,7 +154,11 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 // RemoveRule stops a rule's evaluator in this bucket and cleans up suppressor entries.
 func (p *PerDatasourceEvaluator) RemoveRule(ruleID uint) {
 	if v, loaded := p.rules.LoadAndDelete(ruleID); loaded {
-		ev := v.(*ruleVersion).evaluator
+		rv, ok := v.(*ruleVersion)
+		if !ok {
+			return
+		}
+		ev := rv.evaluator
 		ev.Stop()
 		// B4-7: Clean up suppressor entries to prevent memory leak
 		if p.suppressor != nil {
@@ -173,8 +180,12 @@ func (p *PerDatasourceEvaluator) RemoveRule(ruleID uint) {
 func (p *PerDatasourceEvaluator) Stop() {
 	p.cancel()
 	p.rules.Range(func(k, v any) bool {
-		ruleID := k.(uint)
-		v.(*ruleVersion).evaluator.Stop()
+		ruleID, ok1 := k.(uint)
+		rv, ok2 := v.(*ruleVersion)
+		if !ok1 || !ok2 {
+			return true
+		}
+		rv.evaluator.Stop()
 		// B4-7: Clean up suppressor entries to prevent memory leak
 		if p.suppressor != nil {
 			p.suppressor.RemoveRule(ruleID)
@@ -620,7 +631,9 @@ func (e *Evaluator) syncRules() {
 	if e.forceSync.CompareAndSwap(true, false) {
 		var affectedDSs []uint
 		e.forceSyncDSs.Range(func(k, _ any) bool {
-			affectedDSs = append(affectedDSs, k.(uint))
+			if dsID, ok := k.(uint); ok {
+				affectedDSs = append(affectedDSs, dsID)
+			}
 			e.forceSyncDSs.Delete(k)
 			return true
 		})

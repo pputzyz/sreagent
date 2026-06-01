@@ -13,7 +13,13 @@ import (
 // This is the primary entry point for fine-grained locking.
 func (re *RuleEvaluator) lockState(fp string) *stateLock {
 	sl, _ := re.states.LoadOrStore(fp, &stateLock{})
-	return sl.(*stateLock)
+	if sl == nil {
+		return &stateLock{}
+	}
+	if s, ok := sl.(*stateLock); ok {
+		return s
+	}
+	return &stateLock{}
 }
 
 // deleteState removes a fingerprint's state (used after alert resolved cleanup).
@@ -25,7 +31,12 @@ func (re *RuleEvaluator) deleteState(fp string) {
 // fn must lock sl.mu itself if it reads/writes sl.state.
 func (re *RuleEvaluator) rangeStates(fn func(fp string, sl *stateLock) bool) {
 	re.states.Range(func(k, v any) bool {
-		return fn(k.(string), v.(*stateLock))
+		fp, ok1 := k.(string)
+		sl, ok2 := v.(*stateLock)
+		if !ok1 || !ok2 {
+			return true
+		}
+		return fn(fp, sl)
 	})
 }
 
@@ -132,13 +143,17 @@ func (re *RuleEvaluator) gcStates() {
 	removed := 0
 
 	re.states.Range(func(k, v any) bool {
-		sl := v.(*stateLock)
+		sl, ok := v.(*stateLock)
+		if !ok {
+			return true
+		}
 		sl.mu.Lock()
 		if sl.state != nil && sl.state.Status == "resolved" && !sl.state.ResolvedAt.IsZero() && sl.state.ResolvedAt.Before(threshold) {
 			sl.state = nil // Clear state under lock; leave stateLock in map to avoid lockState race
 			sl.mu.Unlock()
-			fp := k.(string)
-			re.deletePersistedState(fp)
+			if fp, ok := k.(string); ok {
+				re.deletePersistedState(fp)
+			}
 			removed++
 			return true
 		}
