@@ -173,10 +173,14 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 
 		// OIDC routes (public — before JWT middleware)
 		if handlers.OIDC != nil {
+			// #7: Rate limit OIDC callback and token endpoints
+			oidcCallbackRL := middleware.RateLimit(func(c *gin.Context) string {
+				return "oidc-cb:" + c.ClientIP()
+			}, 10.0/60.0, 10)
 			api.GET("/auth/oidc/config", handlers.OIDC.OIDCConfig)
 			api.GET("/auth/oidc/login", handlers.OIDC.LoginRedirect)
-			api.GET("/auth/oidc/callback", handlers.OIDC.Callback)
-			api.POST("/auth/oidc/token", handlers.OIDC.CallbackJSON)
+			api.GET("/auth/oidc/callback", oidcCallbackRL, handlers.OIDC.Callback)
+			api.POST("/auth/oidc/token", oidcCallbackRL, handlers.OIDC.CallbackJSON)
 		} else {
 			// Return disabled status when OIDC is not configured
 			api.GET("/auth/oidc/config", func(c *gin.Context) {
@@ -186,10 +190,14 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 
 		// OAuth2 routes (public — before JWT middleware)
 		if handlers.OAuth2 != nil {
+			// #7: Rate limit OAuth2 callback and token endpoints
+			oauth2CallbackRL := middleware.RateLimit(func(c *gin.Context) string {
+				return "oauth2-cb:" + c.ClientIP()
+			}, 10.0/60.0, 10)
 			api.GET("/auth/oauth2/config", handlers.OAuth2.OAuth2Config)
 			api.GET("/auth/oauth2/login", handlers.OAuth2.LoginRedirect)
-			api.GET("/auth/oauth2/callback", handlers.OAuth2.Callback)
-			api.POST("/auth/oauth2/token", handlers.OAuth2.CallbackJSON)
+			api.GET("/auth/oauth2/callback", oauth2CallbackRL, handlers.OAuth2.Callback)
+			api.POST("/auth/oauth2/token", oauth2CallbackRL, handlers.OAuth2.CallbackJSON)
 		} else {
 			// Return disabled status when OAuth2 is not configured
 			api.GET("/auth/oauth2/config", func(c *gin.Context) {
@@ -205,8 +213,12 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 
 		// Status page subscription public endpoints (no auth — email subscribe/unsubscribe)
 		if handlers.StatusSubscription != nil {
-			api.POST("/status-subscriptions", handlers.StatusSubscription.Subscribe)
-			api.DELETE("/status-subscriptions", handlers.StatusSubscription.Unsubscribe)
+			// #13: Rate limit subscribe/unsubscribe to prevent abuse
+			statusSubRL := middleware.RateLimit(func(c *gin.Context) string {
+				return "status-sub:" + c.ClientIP()
+			}, 10.0/60.0, 10)
+			api.POST("/status-subscriptions", statusSubRL, handlers.StatusSubscription.Subscribe)
+			api.DELETE("/status-subscriptions", statusSubRL, handlers.StatusSubscription.Unsubscribe)
 		}
 
 		// ----- Authenticated routes (JWT required) -----
@@ -271,6 +283,11 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			// If it looks like a static file request, try to serve it
 			if strings.Contains(reqPath, ".") {
 				filePath := path.Join(distPath, reqPath)
+				// #5: Prevent path traversal — resolved path must stay under distPath
+				if !strings.HasPrefix(filePath, distPath) {
+					c.Status(http.StatusNotFound)
+					return
+				}
 				if _, err := os.Stat(filePath); err == nil {
 					c.File(filePath)
 					return

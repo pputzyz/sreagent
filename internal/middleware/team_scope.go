@@ -33,6 +33,14 @@ func GetUserTeamIDs(c *gin.Context) []uint {
 //
 // Admin users still get their team IDs loaded (for audit / display purposes),
 // but service-layer ListScoped methods skip filtering for admins.
+//
+// #9: FAIL-OPEN DESIGN — When the team ID query fails (e.g. database outage),
+// this middleware sets "team_scope_degraded" = true in the gin context and allows
+// the request through. This is intentional: blocking all authenticated requests
+// on a DB blip would be worse than temporarily relaxing team-scoped filtering.
+// Handlers that perform team-scoped data access SHOULD check for the
+// "team_scope_degraded" flag and either fall back to admin-level visibility
+// or return an explicit error to the caller.
 func TeamScoped() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if TeamIDQuerier == nil {
@@ -55,7 +63,8 @@ func TeamScoped() gin.HandlerFunc {
 		if err != nil {
 			// DB failure: log warning and set a flag so downstream handlers
 			// can detect that team-scoped filtering was not applied.
-			zap.L().Warn("team_scope: failed to query user team IDs, setting degraded flag",
+			// FAIL-OPEN: request proceeds without team filtering.
+			zap.L().Warn("team_scope: failed to query user team IDs, setting degraded flag (fail-open)",
 				zap.Uint("user_id", userID), zap.Error(err))
 			c.Set("team_scope_degraded", true)
 			c.Next()

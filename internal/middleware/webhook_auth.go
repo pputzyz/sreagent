@@ -15,9 +15,10 @@ import (
 func WebhookAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if secret == "" {
-			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
-				"code":    50001,
-				"message": "webhook secret not configured on server",
+			// #15: Return 401 with generic message (do not reveal server config state)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    40001,
+				"message": "invalid webhook secret",
 			})
 			return
 		}

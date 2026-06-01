@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"net/http"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -20,10 +22,24 @@ func init() {
 	enforceMode.Store("deny")
 }
 
+// warnModeActivatedAt tracks when warn mode was last activated.
+var (
+	warnModeMu          sync.RWMutex
+	warnModeActivatedAt time.Time
+	lastWarnLongLog     atomic.Int64
+)
+
 // SetEnforceMode sets the RBAC enforce mode. Valid values: "warn", "deny".
 func SetEnforceMode(mode string) {
 	if mode == "warn" || mode == "deny" {
 		enforceMode.Store(mode)
+		warnModeMu.Lock()
+		if mode == "warn" {
+			warnModeActivatedAt = time.Now()
+		} else {
+			warnModeActivatedAt = time.Time{}
+		}
+		warnModeMu.Unlock()
 	}
 }
 
@@ -44,6 +60,43 @@ func SetPermLogger(l *zap.Logger) {
 	permLogger = l
 }
 
+// CheckRBACWarnModeInRelease should be called at startup. It logs a loud warning
+// if the RBAC enforce mode is "warn" while running in release mode.
+func CheckRBACWarnModeInRelease() {
+	if gin.Mode() == gin.ReleaseMode && getEnforceMode() == "warn" {
+		if permLogger != nil {
+			permLogger.Error("SECURITY WARNING: RBAC enforce mode is 'warn' in release mode — " +
+				"permission checks are logged but NOT enforced. " +
+				"Set enforce mode to 'deny' before deploying to production.")
+		}
+	}
+}
+
+// logWarnModeLongActive logs a warning if warn mode has been active for over 1 hour.
+// Rate-limited to at most once per minute to avoid log spam.
+func logWarnModeLongActive(path string) {
+	warnModeMu.RLock()
+	activatedAt := warnModeActivatedAt
+	warnModeMu.RUnlock()
+	if activatedAt.IsZero() || time.Since(activatedAt) <= time.Hour {
+		return
+	}
+	now := time.Now().Unix()
+	last := lastWarnLongLog.Load()
+	if now-last < 60 {
+		return
+	}
+	if lastWarnLongLog.CompareAndSwap(last, now) {
+		if permLogger != nil {
+			permLogger.Warn("RBAC warn mode has been active for over 1 hour — requests are NOT being denied",
+				zap.Time("activated_at", activatedAt),
+				zap.Duration("active_for", time.Since(activatedAt)),
+				zap.String("path", path),
+			)
+		}
+	}
+}
+
 // RequirePerm returns a middleware that checks if the user's effective permissions
 // (global role + team roles) include the required permission.
 // For team-scoped endpoints, team roles can elevate permissions beyond the global role.
@@ -52,6 +105,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 		role, exists := c.Get(ContextKeyRole)
 		if !exists {
 			if getEnforceMode() == "warn" {
+				logWarnModeLongActive(c.Request.URL.Path)
 				if permLogger != nil {
 					permLogger.Warn("RBAC warn: no role in context",
 						zap.String("path", c.Request.URL.Path),
@@ -72,6 +126,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 		roleStr, ok := role.(string)
 		if !ok {
 			if getEnforceMode() == "warn" {
+				logWarnModeLongActive(c.Request.URL.Path)
 				if permLogger != nil {
 					permLogger.Warn("RBAC warn: invalid role type in context",
 						zap.String("path", c.Request.URL.Path),
@@ -83,7 +138,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 			}
 			c.JSON(http.StatusForbidden, gin.H{
 				"code":    10200,
-				"message": "forbidden: invalid role type in context",
+				"message": "forbidden",
 			})
 			c.Abort()
 			return
@@ -119,6 +174,7 @@ func RequirePerm(perm string) gin.HandlerFunc {
 		}
 
 		if getEnforceMode() == "warn" {
+			logWarnModeLongActive(c.Request.URL.Path)
 			metrics.IncRBACWarn(perm, c.Request.URL.Path)
 			if permLogger != nil {
 				permLogger.Warn("RBAC warn: permission denied (request allowed)",
@@ -132,9 +188,18 @@ func RequirePerm(perm string) gin.HandlerFunc {
 			return
 		}
 
+		// #16: Log permission name server-side; do not expose to client.
+		if permLogger != nil {
+			permLogger.Warn("permission denied",
+				zap.Uint("user_id", uid),
+				zap.String("path", c.Request.URL.Path),
+				zap.String("required_perm", perm),
+				zap.String("role", roleStr),
+			)
+		}
 		c.JSON(http.StatusForbidden, gin.H{
 			"code":    10200,
-			"message": "insufficient permissions: " + perm,
+			"message": "insufficient permissions",
 		})
 		c.Abort()
 	}

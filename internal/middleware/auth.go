@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -56,15 +57,16 @@ type Claims struct {
 
 // jwtAuthRevocationOnce ensures the "token revocation disabled" warning is logged
 // only once per process, not on every request.
-var jwtAuthRevocationOnce bool
+var jwtAuthRevocationOnce sync.Once
 
 // JWTAuth returns a middleware that validates JWT tokens.
 func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if TokenRevocationChecker == nil && !jwtAuthRevocationOnce {
-			jwtAuthRevocationOnce = true
-			zap.L().Warn("token revocation checker is nil — revocation checks are DISABLED; " +
-				"tokens will remain valid until expiry even after user logout/disable")
+		if TokenRevocationChecker == nil {
+			jwtAuthRevocationOnce.Do(func() {
+				zap.L().Warn("token revocation checker is nil — revocation checks are DISABLED; " +
+					"tokens will remain valid until expiry even after user logout/disable")
+			})
 		}
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -113,7 +115,21 @@ func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 		if TokenBlacklistChecker != nil {
 			hash := sha256.Sum256([]byte(parts[1]))
 			tokenID := hex.EncodeToString(hash[:16])
-			if blacklisted, _ := TokenBlacklistChecker.IsTokenBlacklisted(c.Request.Context(), tokenID); blacklisted {
+			blacklisted, blErr := TokenBlacklistChecker.IsTokenBlacklisted(c.Request.Context(), tokenID)
+			if blErr != nil {
+				// #3: Fail closed — if Redis is down, reject the request rather than
+				// allowing a potentially revoked token through.
+				zap.L().Error("failed to check token blacklist, failing closed",
+					zap.String("token_id_prefix", tokenID[:min(len(tokenID), 8)]),
+					zap.Error(blErr))
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"code":    50003,
+					"message": "service temporarily unavailable",
+				})
+				c.Abort()
+				return
+			}
+			if blacklisted {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"code":    10102,
 					"message": "token has been revoked",

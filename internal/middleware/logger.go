@@ -1,12 +1,16 @@
 package middleware
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+// requestIDSanitizer strips control characters and newlines from X-Request-ID.
+var requestIDSanitizer = regexp.MustCompile(`[\x00-\x1f\x7f\r\n]`)
 
 // RequestLogger returns a middleware that logs HTTP requests using zap.
 func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
@@ -15,6 +19,11 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 		requestID := c.GetHeader("X-Request-ID")
 		if requestID == "" {
 			requestID = uuid.New().String()
+		}
+		// #4: Sanitize — strip control chars/newlines, limit to 64 chars
+		requestID = requestIDSanitizer.ReplaceAllString(requestID, "")
+		if len(requestID) > 64 {
+			requestID = requestID[:64]
 		}
 		c.Set("request_id", requestID)
 		c.Set("logger", logger.With(zap.String("request_id", requestID)))

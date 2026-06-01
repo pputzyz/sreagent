@@ -69,13 +69,22 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// --- #2: Mandatory captcha after 5 failed login attempts ---
+	if h.redis != nil {
+		failCount, fcErr := h.redis.GetLoginFailCount(ctx, req.Username)
+		if fcErr == nil && failCount >= 5 && req.CaptchaID == "" {
+			Error(c, apperr.WithMessage(apperr.ErrForbidden, "captcha required after multiple failed login attempts"))
+			return
+		}
+	}
+
 	// --- Rate limit check (Redis-based, per username) ---
 	if err := h.svc.CheckLoginRateLimit(ctx, req.Username); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrForbidden, err.Error()))
 		return
 	}
 
-	// --- Captcha verification (optional — only if captcha_id is provided) ---
+	// --- Captcha verification (mandatory when fail count >= 5) ---
 	if req.CaptchaID != "" && h.redis != nil {
 		expected, err := h.redis.GetCaptcha(ctx, req.CaptchaID)
 		if err != nil {
@@ -83,11 +92,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			Error(c, apperr.WithMessage(apperr.ErrInvalidCreds, "invalid or expired captcha"))
 			return
 		}
-		if expected == "" || !strings.EqualFold(expected, req.CaptchaVal) {
+		// #17: Case-sensitive comparison for captcha
+		if expected == "" || expected != req.CaptchaVal {
 			h.svc.RecordLoginFail(ctx, req.Username)
 			Error(c, apperr.WithMessage(apperr.ErrInvalidCreds, "incorrect captcha"))
 			return
 		}
+		// #2: Delete captcha after successful verification (defense-in-depth;
+		// GetCaptcha already uses GetDel internally)
+		_ = h.redis.Del(ctx, sredis.CaptchaKey(req.CaptchaID))
 	}
 
 	// --- Actual login ---

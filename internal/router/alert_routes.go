@@ -87,12 +87,20 @@ func (h *Handlers) registerAlertRoutes(root *gin.Engine, auth *gin.RouterGroup, 
 
 	// Heartbeat ping endpoint (no auth — token authenticates the sender)
 	if h.Heartbeat != nil {
-		root.POST("/heartbeat/:token", h.Heartbeat.Ping)
+		// #10: Rate limit heartbeat endpoint (60 req/min per token)
+		heartbeatRL := middleware.RateLimit(func(c *gin.Context) string {
+			return "heartbeat:" + c.Param("token")
+		}, 60.0/60.0, 60)
+		root.POST("/heartbeat/:token", heartbeatRL, h.Heartbeat.Ping)
 	}
 
 	// Alert action page (no auth - token-based)
 	if h.AlertAction != nil {
+		// #6: Rate limit alert action POST (10 req/min per token)
+		alertActionRL := middleware.RateLimit(func(c *gin.Context) string {
+			return "alert-action:" + c.Param("token")
+		}, 10.0/60.0, 10)
 		root.GET("/alert-action/:token", h.AlertAction.ActionPage)
-		root.POST("/alert-action/:token", h.AlertAction.ExecuteAction)
+		root.POST("/alert-action/:token", alertActionRL, h.AlertAction.ExecuteAction)
 	}
 }

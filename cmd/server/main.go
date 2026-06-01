@@ -21,6 +21,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/sreagent/sreagent/internal/config"
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/pkg/dbmigrate"
@@ -88,6 +89,12 @@ func main() {
 	if err != nil {
 		zapLogger.Fatal("failed to initialize dependencies", zap.Error(err))
 	}
+
+	// #1: Configure RBAC enforce mode from environment and check for warn-in-release
+	if mode := os.Getenv("SREAGENT_RBAC_ENFORCE_MODE"); mode != "" {
+		middleware.SetEnforceMode(mode)
+	}
+	middleware.CheckRBACWarnModeInRelease()
 
 	// Start label registry sync worker (cancels on shutdown via deps.appCtx)
 	go deps.LabelRegistrySvc.StartSyncWorker(deps.appCtx, 10*time.Minute)

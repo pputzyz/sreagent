@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,6 +52,13 @@ func (h *AlertActionHandler) resolveOperator(c *gin.Context, formName string) (u
 		}
 	}
 	return 0, formName
+}
+
+// generateCSRFToken creates an HMAC-based CSRF token for the alert action form.
+func generateCSRFToken(actionToken, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(actionToken))
+	return hex.EncodeToString(mac.Sum(nil)[:16])
 }
 
 // AlertActionHandler handles no-auth alert action pages (linked from Lark cards).
@@ -104,8 +114,11 @@ func (h *AlertActionHandler) ActionPage(c *gin.Context) {
 		}
 	}
 
+	// #18: Generate CSRF token for the action form
+	csrfToken := generateCSRFToken(token, h.jwtSecret)
+
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, renderActionPage(event, token, preAction, duration))
+	c.String(http.StatusOK, renderActionPage(event, token, preAction, duration, csrfToken))
 }
 
 // ExecuteAction handles the action form submission.
@@ -118,6 +131,18 @@ func (h *AlertActionHandler) ExecuteAction(c *gin.Context) {
 		h.logger.Warn("invalid alert action token on execute", zap.Error(err))
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.String(http.StatusForbidden, renderErrorPage("链接无效或已过期", "该操作链接已过期（24小时有效），请从最新的告警通知中获取链接。"))
+		return
+	}
+
+	// #18: CSRF validation
+	csrfToken := c.PostForm("_csrf")
+	expectedCSRF := generateCSRFToken(token, h.jwtSecret)
+	if csrfToken == "" || !hmac.Equal([]byte(csrfToken), []byte(expectedCSRF)) {
+		h.logger.Warn("CSRF token mismatch on alert action",
+			zap.Uint("event_id", eventID),
+		)
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(http.StatusForbidden, renderErrorPage("操作无效", "CSRF token validation failed. Please refresh the page and try again."))
 		return
 	}
 

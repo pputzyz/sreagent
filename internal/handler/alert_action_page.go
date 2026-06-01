@@ -15,7 +15,7 @@ import (
 //	so the dropdown is pre-selected.
 //
 // preDuration: optional minute hint. 0 means "no hint, let the user pick".
-func renderActionPage(event *model.AlertEvent, token, preAction string, preDuration int) string {
+func renderActionPage(event *model.AlertEvent, token, preAction string, preDuration int, csrfToken string) string {
 	// Build labels display
 	var labelsHTML strings.Builder
 	for k, v := range event.Labels {
@@ -131,6 +131,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
   <div class="card">
     <form method="POST" action="/alert-action/%s" id="action-form">
+      <input type="hidden" name="_csrf" value="%s">
       <div class="form-group">
         <label for="action">选择操作</label>
         <select name="action" id="action" onchange="toggleDuration()" required>
@@ -263,6 +264,7 @@ document.getElementById('action-form').addEventListener('submit', function() {
 		event.FireCount,
 		labelsHTML.String(),
 		html.EscapeString(token),
+		html.EscapeString(csrfToken),
 		html.EscapeString(preDurationValue),
 		preActionJS,
 	)

@@ -17,6 +17,14 @@ import (
 // include Authorization: Bearer <token>.
 func NewMetricsHandler(metricsToken string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// #12: In release mode with no token configured, restrict to localhost only.
+		if gin.Mode() == gin.ReleaseMode && metricsToken == "" {
+			ip := c.ClientIP()
+			if ip != "127.0.0.1" && ip != "::1" {
+				Error(c, apperr.WithMessage(apperr.ErrForbidden, "metrics endpoint requires authentication in release mode"))
+				return
+			}
+		}
 		// If a metrics token is configured, require Bearer auth
 		if metricsToken != "" {
 			auth := c.GetHeader("Authorization")

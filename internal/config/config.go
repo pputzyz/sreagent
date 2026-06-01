@@ -206,11 +206,15 @@ func Load(cfgFile string) (*Config, error) {
 	if cfg.MetricsToken == "" {
 		if v := os.Getenv("METRICS_TOKEN"); v != "" {
 			cfg.MetricsToken = v
+			// #14: Deprecation warning
+			fmt.Fprintf(os.Stderr, "WARNING: deprecated env var METRICS_TOKEN is ignored; use SREAGENT_METRICS_TOKEN instead\n")
 		}
 	}
 	if cfg.CORSAllowedOrigins == "" {
 		if v := os.Getenv("CORS_ALLOWED_ORIGINS"); v != "" {
 			cfg.CORSAllowedOrigins = v
+			// #14: Deprecation warning
+			fmt.Fprintf(os.Stderr, "WARNING: deprecated env var CORS_ALLOWED_ORIGINS is ignored; use SREAGENT_CORS_ALLOWED_ORIGINS instead\n")
 		}
 	}
 

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +21,16 @@ func CORS(originsCSV string) gin.HandlerFunc {
 			trimmed := strings.TrimSpace(o)
 			if trimmed == "*" {
 				panic("CORS misconfiguration: AllowCredentials=true with wildcard origin is unsafe. Set explicit origins in CORS_ALLOWED_ORIGINS.")
+			}
+			// #11: Validate origin URL format
+			if trimmed != "" {
+				u, err := url.Parse(trimmed)
+				if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+					panic(fmt.Sprintf("CORS misconfiguration: invalid origin %q — must have http/https scheme and valid host", trimmed))
+				}
+				if u.Path != "" && u.Path != "/" {
+					panic(fmt.Sprintf("CORS misconfiguration: origin %q must not contain a path", trimmed))
+				}
 			}
 		}
 	}
