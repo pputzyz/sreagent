@@ -15,6 +15,10 @@ import (
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 )
 
+// varVarRe matches trigger expressions of the form $A op $B (var-to-var comparison).
+// Compiled once at package level to avoid recompilation on every parseTriggerExp call.
+var varVarRe = regexp.MustCompile(`^\$(\w+)\s*(>=|<=|!=|==|>|<)\s*\$(\w+)$`)
+
 // JoinType defines the type of join operation for multi-query results.
 type JoinType string
 
@@ -41,12 +45,8 @@ func (re *RuleEvaluator) executeMultiQuery(ctx context.Context) ([]datasource.Qu
 		return nil, fmt.Errorf("no queries defined for multi-query rule")
 	}
 
-	// Fail-closed: multi-query rules must have a trigger expression to filter
-	// results. Without it, all joined results would be treated as firing events,
-	// which would cause an alert storm on every evaluation cycle.
-	if strings.TrimSpace(re.rule.TriggerExp) == "" {
-		return nil, fmt.Errorf("multi-query rule requires TriggerExp to filter results; without it all results would fire as alerts")
-	}
+	// NOTE: TriggerExp emptiness is checked by the caller (evaluate()) before
+	// calling evaluateTriggerExp, so we do not duplicate that guard here.
 
 	if len(queries) > 2 {
 		re.logger.Warn("multi-query: more than 2 queries defined; only the first 2 are used for joins (N-way join not yet implemented)",
@@ -73,6 +73,7 @@ func (re *RuleEvaluator) executeMultiQuery(ctx context.Context) ([]datasource.Qu
 
 	// Execute each query independently
 	allResults := make([]queryResults, 0, len(queries))
+	var lastQueryErr error
 	for _, q := range queries {
 		// Apply VarConfig substitution if configured
 		queryExprs := []string{q.Expr}
@@ -91,11 +92,22 @@ func (re *RuleEvaluator) executeMultiQuery(ctx context.Context) ([]datasource.Qu
 					zap.String("expr", expr),
 					zap.Error(err),
 				)
+				lastQueryErr = err
 				continue
 			}
 			queryAllResults = append(queryAllResults, results...)
 		}
 		allResults = append(allResults, queryResults{Ref: q.Ref, Results: queryAllResults})
+	}
+
+	// If ALL queries returned no results and at least one failed, surface the error
+	// instead of returning empty results (which would silently suppress the failure).
+	totalResults := 0
+	for _, qr := range allResults {
+		totalResults += len(qr.Results)
+	}
+	if totalResults == 0 && lastQueryErr != nil {
+		return nil, fmt.Errorf("multi-query: all queries failed, last error: %w", lastQueryErr)
 	}
 
 	// Apply join logic
@@ -139,6 +151,12 @@ func (re *RuleEvaluator) executeQueryByRef(ctx context.Context, q model.RuleQuer
 		if crypto.IsEncrypted(ac) {
 			if decrypted, err := crypto.DecryptString(ac); err == nil {
 				ac = decrypted
+			} else {
+				re.logger.Warn("multi-query: failed to decrypt cross-datasource auth config, queries may fail",
+					zap.String("ref", q.Ref),
+					zap.Uint("datasource_id", q.DatasourceID),
+					zap.Error(err),
+				)
 			}
 		}
 	}
@@ -314,6 +332,10 @@ func labelsToSortedKey(labels map[string]string) string {
 // mergeResults combines two query results, prefixing labels with query references.
 // B's last value is stored as a synthetic label "__B_value__" so that var-to-var
 // trigger expressions (e.g. $A > $B) can retrieve it during evaluation.
+//
+// Label collision policy (A-wins): when A and B share an original label key,
+// the un-prefixed slot keeps A's value. This is intentional — A is the "primary"
+// query in a binary join, and its labels drive the fingerprint and routing.
 func mergeResults(a, b datasource.QueryResult, aRef, bRef string) datasource.QueryResult {
 	merged := datasource.QueryResult{
 		Labels: make(map[string]string),
@@ -448,7 +470,6 @@ func parseTriggerExp(exp string) (*triggerExpParts, error) {
 	}
 
 	// Try var-to-var first: $A op $B
-	varVarRe := regexp.MustCompile(`^\$(\w+)\s*(>=|<=|!=|==|>|<)\s*\$(\w+)$`)
 	if m := varVarRe.FindStringSubmatch(exp); len(m) == 4 {
 		return &triggerExpParts{
 			ref:      m[1],

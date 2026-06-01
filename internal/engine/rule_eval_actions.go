@@ -21,6 +21,9 @@ func (re *RuleEvaluator) checkTimeWindowMute(stateLabels map[string]string, seve
 }
 
 // createAlertEvent creates a new alert event in the database.
+// On success, state.EventID is set to the new event's ID.
+// On failure, state.Status is reverted to "pending" and state.FiredAt is zeroed
+// so the caller can detect the failure via state.EventID == 0 and handle it.
 func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertEventStatus) {
 	ctx, cancel := context.WithTimeout(re.ctx, 10*time.Second)
 	defer cancel()
@@ -117,8 +120,9 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 	)
 
 	// Call the onAlert callback to trigger notification routing.
-	// Use context.Background() so notifications complete even during graceful shutdown
-	// (when the evaluator's ctx is cancelled).
+	// Use an independent context (not re.ctx) so notifications complete even
+	// during graceful shutdown. A 60s timeout prevents goroutine leaks if the
+	// notification path hangs indefinitely.
 	if re.onAlert != nil {
 		ev := event
 		fn := func(ctx context.Context) {
@@ -129,9 +133,15 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 			}()
 			re.onAlert(ctx, ev)
 		}
-		notifyCtx := context.Background()
+		notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		// Wrap fn so that notifyCancel is always called when the callback finishes.
+		wrappedFn := func(ctx context.Context) {
+			defer notifyCancel()
+			fn(ctx)
+		}
 		if re.workerPool != nil {
-			if !re.workerPool.Submit(notifyCtx, fn) {
+			if !re.workerPool.Submit(notifyCtx, wrappedFn) {
+				notifyCancel()
 				re.logger.Warn("worker pool full, onAlert deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)
@@ -142,9 +152,10 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 			case re.fallbackSem <- struct{}{}:
 				go func() {
 					defer func() { <-re.fallbackSem }()
-					fn(notifyCtx)
+					wrappedFn(notifyCtx)
 				}()
 			default:
+				notifyCancel()
 				re.logger.Warn("fallback semaphore full, onAlert deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)
@@ -227,8 +238,9 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 		zap.String("alert_name", re.rule.Name),
 	)
 
-	// Notify about resolution — use context.Background() so notifications
-	// complete even during graceful shutdown.
+	// Notify about resolution — use an independent context so notifications
+	// complete even during graceful shutdown. A 60s timeout prevents goroutine
+	// leaks if the notification path hangs indefinitely.
 	if re.onAlert != nil {
 		ev := event
 		fn := func(ctx context.Context) {
@@ -239,9 +251,15 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 			}()
 			re.onAlert(ctx, ev)
 		}
-		notifyCtx := context.Background()
+		notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		// Wrap fn so that notifyCancel is always called when the callback finishes.
+		wrappedFn := func(ctx context.Context) {
+			defer notifyCancel()
+			fn(ctx)
+		}
 		if re.workerPool != nil {
-			if !re.workerPool.Submit(notifyCtx, fn) {
+			if !re.workerPool.Submit(notifyCtx, wrappedFn) {
+				notifyCancel()
 				re.logger.Warn("worker pool full, onAlert (resolve) deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)
@@ -252,9 +270,10 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 			case re.fallbackSem <- struct{}{}:
 				go func() {
 					defer func() { <-re.fallbackSem }()
-					fn(notifyCtx)
+					wrappedFn(notifyCtx)
 				}()
 			default:
+				notifyCancel()
 				re.logger.Warn("fallback semaphore full, onAlert (resolve) deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)

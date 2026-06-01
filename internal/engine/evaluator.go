@@ -73,7 +73,7 @@ type RuleEvaluator struct {
 	fallbackSem       chan struct{} // semaphore for onAlert when workerPool is nil (cap=16)
 
 	// Reliability: consecutive query error tracking
-	consecutiveErrors int
+	consecutiveErrors atomic.Int64
 }
 
 // Stop signals the evaluator to stop its Run loop.
@@ -294,6 +294,7 @@ type Evaluator struct {
 	started    bool           // set by Start(), cleared by Stop()
 	stopOnce   sync.Once
 	wg         sync.WaitGroup
+	restartMu  sync.Mutex     // serializes Restart() to prevent concurrent restarts
 
 	// Hash ring mode: distribute rules across multiple instances.
 	// When enabled, leader election is bypassed — all instances run
@@ -595,8 +596,9 @@ func (e *Evaluator) Stop() {
 
 		// Cancel the evaluator context AFTER stopping evaluators so that
 		// in-flight operations can finish gracefully before context is cancelled.
+		// Safety net: if evaluators are slow to stop, force-cancel after 30s.
 		if e.cancel != nil {
-			e.cancel()
+			time.AfterFunc(30*time.Second, func() { e.cancel() })
 		}
 
 		// Clean up per-datasource buckets
@@ -623,7 +625,12 @@ func (e *Evaluator) Stop() {
 // Stop() clears the started flag so Start() can run again.
 // This is useful when the evaluator needs to be re-initialized after a
 // configuration change or recovery from a fatal error.
+// Serialised via restartMu to prevent concurrent Restart() calls from racing
+// on stopOnce reset and stopCh recreation.
 func (e *Evaluator) Restart() {
+	e.restartMu.Lock()
+	defer e.restartMu.Unlock()
+
 	e.logger.Info("restarting alert evaluator")
 	e.Stop()
 	// Wait for all background goroutines to exit before restarting
@@ -651,7 +658,7 @@ func (e *Evaluator) shouldEvaluateRule(ruleID uint) bool {
 
 // syncRules loads rules from DB and starts/stops evaluators as needed.
 func (e *Evaluator) syncRules() {
-	ctx := context.Background()
+	ctx := e.ctx
 
 	// When a datasource endpoint changes, stop only the evaluators for the
 	// affected datasource(s) so they are re-created with fresh objects.

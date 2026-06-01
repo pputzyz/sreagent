@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"crypto/md5"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/fingerprint"
 	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -211,8 +211,10 @@ func (h *HeartbeatChecker) computeMissed(rule *model.AlertRule, interval time.Du
 		)
 		return false, true
 	}
-	if gap > 5*interval {
-		// Gap implausibly large — likely NTP forward jump. Skip to avoid false positives.
+	if gap > 10*interval {
+		// Gap implausibly large — likely NTP forward jump or VM migration.
+		// 10x threshold is generous enough to tolerate brief monitoring gaps
+		// while still catching genuine clock skew.
 		h.logger.Warn("heartbeat: suspicious clock skew detected (gap >> interval), skipping check",
 			zap.Uint("rule_id", rule.ID),
 			zap.Duration("gap", gap),
@@ -254,7 +256,7 @@ func (h *HeartbeatChecker) fireHeartbeatAlert(ctx context.Context, rule *model.A
 		AlertName:   rule.Name,
 		Severity:    rule.Severity,
 		Status:      model.EventStatusFiring,
-		Labels:      rule.Labels,
+		Labels:      copyLabels(rule.Labels),
 		Annotations: model.JSONLabels{
 			"summary":     fmt.Sprintf("Heartbeat missing for rule '%s'", rule.Name),
 			"description": fmt.Sprintf("No ping received for %ds (last: %s)", rule.HeartbeatInterval, lastSeen),
@@ -314,10 +316,13 @@ func (h *HeartbeatChecker) fireHeartbeatAlert(ctx context.Context, rule *model.A
 }
 
 // resolveHeartbeatAlert transitions an open heartbeat event to resolved.
+// Creates a local copy to avoid mutating the caller's event pointer, which may
+// still be referenced by other goroutines or caches.
 func (h *HeartbeatChecker) resolveHeartbeatAlert(ctx context.Context, event *model.AlertEvent, now time.Time) {
-	event.Status = model.EventStatusResolved
-	event.ResolvedAt = &now
-	if err := h.eventRepo.Update(ctx, event); err != nil {
+	eventCopy := *event
+	eventCopy.Status = model.EventStatusResolved
+	eventCopy.ResolvedAt = &now
+	if err := h.eventRepo.Update(ctx, &eventCopy); err != nil {
 		h.logger.Error("heartbeat: failed to resolve alert event",
 			zap.Uint("event_id", event.ID), zap.Error(err))
 		return
@@ -341,7 +346,19 @@ func (h *HeartbeatChecker) recordTimeline(ctx context.Context, eventID uint, not
 
 // heartbeatFingerprint produces a stable fingerprint for a heartbeat rule's alert event.
 func heartbeatFingerprint(ruleID uint) string {
-	h := md5.New()
-	_, _ = fmt.Fprintf(h, "heartbeat:rule:%d", ruleID)
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return fingerprint.Compute(map[string]string{
+		"__heartbeat_rule__": fmt.Sprintf("%d", ruleID),
+	})
+}
+
+// copyLabels creates a deep copy of a JSONLabels map to avoid shared-map mutations.
+func copyLabels(src model.JSONLabels) model.JSONLabels {
+	if src == nil {
+		return nil
+	}
+	dst := make(model.JSONLabels, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }

@@ -164,9 +164,9 @@ func (re *RuleEvaluator) gcStates() {
 		return true
 	})
 
-	// Phase 2: Delete entries whose state is nil (marked in phase 1).
-	// This is safe because once state is nil, lockState will create a new stateLock
-	// via LoadOrStore, and any subsequent operation will use the fresh one.
+	// Phase 2: Delete entries whose state is still nil (marked in phase 1).
+	// Re-check under lock because a concurrent evaluate() may have replaced the
+	// state between phase 1 and phase 2 via lockState/LoadOrStore.
 	if removed > 0 {
 		re.states.Range(func(k, v any) bool {
 			sl, ok := v.(*stateLock)

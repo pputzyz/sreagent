@@ -193,16 +193,19 @@ func (s *LevelSuppressor) Stop() {
 //     that are likely stale or forgotten). This prevents memory leaks for alerts that keep
 //     calling UpdateSeverity every eval cycle without ever resolving.
 //
-// Must be called with no locks held; acquires write lock internally.
+// Must be called with no locks held; acquires locks internally.
+// Two-phase approach: collect candidates under read lock, then delete under write lock
+// to minimise write-lock contention with concurrent UpdateSeverity/RemoveSeverity calls.
 func (s *LevelSuppressor) gc() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	now := time.Now()
 	updateThreshold := now.Add(-24 * time.Hour)
 	changeThreshold := now.Add(-7 * 24 * time.Hour)
-	removed := 0
 
+	// Phase 1: collect keys to delete under read lock.
+	type gcKey struct{ ruleID uint; fp string }
+	var toDelete []gcKey
+
+	s.mu.RLock()
 	for ruleID, fpMap := range s.lastUpdates {
 		for fp, lastUp := range fpMap {
 			shouldGC := false
@@ -222,28 +225,63 @@ func (s *LevelSuppressor) gc() {
 			}
 
 			if shouldGC {
-				delete(fpMap, fp)
-				// Also remove from activeSeverities
-				if sevMap, ok := s.activeSeverities[ruleID]; ok {
-					delete(sevMap, fp)
-					if len(sevMap) == 0 {
-						delete(s.activeSeverities, ruleID)
-					}
-				}
-				// Also remove from lastChanges
-				if lcMap, ok := s.lastChanges[ruleID]; ok {
-					delete(lcMap, fp)
-					if len(lcMap) == 0 {
-						delete(s.lastChanges, ruleID)
-					}
-				}
-				removed++
+				toDelete = append(toDelete, gcKey{ruleID: ruleID, fp: fp})
 			}
 		}
-		// Clean up empty maps
-		if len(fpMap) == 0 {
-			delete(s.lastUpdates, ruleID)
+	}
+	s.mu.RUnlock()
+
+	if len(toDelete) == 0 {
+		return
+	}
+
+	// Phase 2: delete under write lock.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	removed := 0
+	for _, k := range toDelete {
+		// Re-check: entry may have been removed or refreshed since phase 1.
+		luMap, ok := s.lastUpdates[k.ruleID]
+		if !ok {
+			continue
 		}
+		lastUp, exists := luMap[k.fp]
+		if !exists {
+			continue
+		}
+		// Re-check both conditions with the same thresholds.
+		shouldGC := lastUp.Before(updateThreshold)
+		if !shouldGC {
+			if lcMap, ok := s.lastChanges[k.ruleID]; ok {
+				if lastChange, exists := lcMap[k.fp]; exists && lastChange.Before(changeThreshold) {
+					shouldGC = true
+				}
+			}
+		}
+		if !shouldGC {
+			continue
+		}
+
+		delete(luMap, k.fp)
+		if len(luMap) == 0 {
+			delete(s.lastUpdates, k.ruleID)
+		}
+		// Also remove from activeSeverities
+		if sevMap, ok := s.activeSeverities[k.ruleID]; ok {
+			delete(sevMap, k.fp)
+			if len(sevMap) == 0 {
+				delete(s.activeSeverities, k.ruleID)
+			}
+		}
+		// Also remove from lastChanges
+		if lcMap, ok := s.lastChanges[k.ruleID]; ok {
+			delete(lcMap, k.fp)
+			if len(lcMap) == 0 {
+				delete(s.lastChanges, k.ruleID)
+			}
+		}
+		removed++
 	}
 
 	if removed > 0 && s.logger != nil {
@@ -303,12 +341,15 @@ func (s *LevelSuppressor) UpdateSeverity(ruleID uint, fingerprint string, severi
 		return
 	}
 
+	// Always touch lastUpdate so the GC knows this entry is still alive,
+	// even when the severity is not upgraded.
+	s.touchLastUpdate(ruleID, fingerprint)
+
 	existingOrder := severityRank(existing)
 	newOrder := severityRank(severity)
 
 	if newOrder > existingOrder {
 		fpMap[fingerprint] = severity
-		s.touchLastUpdate(ruleID, fingerprint)
 		s.touchLastChange(ruleID, fingerprint)
 	}
 }

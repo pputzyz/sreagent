@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/pkg/metrics"
 	"github.com/sreagent/sreagent/internal/repository"
@@ -204,8 +205,20 @@ func (e *RecordingRuleEngine) addRule(rule *model.RecordingRule) error {
 		pattern = "@every 60s"
 	}
 
-	// Capture for closure.
+	// Capture for closure — deep copy slice fields to prevent shared-slice mutations.
 	ruleCopy := *rule
+	if rule.DatasourceIDsJSON != nil {
+		ruleCopy.DatasourceIDsJSON = make([]int64, len(rule.DatasourceIDsJSON))
+		copy(ruleCopy.DatasourceIDsJSON, rule.DatasourceIDsJSON)
+	}
+	if rule.AppendTagsJSON != nil {
+		ruleCopy.AppendTagsJSON = make([]string, len(rule.AppendTagsJSON))
+		copy(ruleCopy.AppendTagsJSON, rule.AppendTagsJSON)
+	}
+	if rule.QueryConfigsJSON != nil {
+		ruleCopy.QueryConfigsJSON = make([]model.QueryConfig, len(rule.QueryConfigsJSON))
+		copy(ruleCopy.QueryConfigsJSON, rule.QueryConfigsJSON)
+	}
 
 	entryID, err := e.cron.AddFunc(pattern, func() {
 		if e.leader != nil && !e.leader.IsLeader() {
@@ -271,7 +284,23 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 			continue
 		}
 
-		results, err := e.queryCli.InstantQuery(ctx, ds.Endpoint, ds.AuthType, ds.AuthConfig, rule.PromQL, time.Time{})
+		// Decrypt AuthConfig so the query uses plaintext without mutating the model.
+		ac := ds.AuthConfig
+		if crypto.IsEncrypted(ac) {
+			if plain, decErr := crypto.DecryptString(ac); decErr != nil {
+				e.logger.Error("recording rule: failed to decrypt datasource auth_config",
+					zap.Uint("rule_id", rule.ID),
+					zap.Uint("datasource_id", uint(dsID)),
+					zap.Error(decErr),
+				)
+				lastErr = decErr
+				continue
+			} else {
+				ac = plain
+			}
+		}
+
+		results, err := e.queryCli.InstantQuery(ctx, ds.Endpoint, ds.AuthType, ac, rule.PromQL, time.Time{})
 		if err != nil {
 			e.logger.Error("recording rule: query failed",
 				zap.Uint("rule_id", rule.ID),
@@ -310,7 +339,22 @@ func (e *RecordingRuleEngine) RunOnce(ctx context.Context, rule *model.Recording
 					writeDS = wds
 				}
 			}
-			writer := datasource.NewRemoteWriteClient(writeDS.Endpoint, writeDS.AuthType, writeDS.AuthConfig, 30*time.Second)
+			// Decrypt write datasource AuthConfig (may differ from query DS).
+			writeAC := writeDS.AuthConfig
+			if crypto.IsEncrypted(writeAC) {
+				if plain, decErr := crypto.DecryptString(writeAC); decErr != nil {
+					e.logger.Error("recording rule: failed to decrypt write datasource auth_config",
+						zap.Uint("rule_id", rule.ID),
+						zap.Uint("write_ds_id", writeDS.ID),
+						zap.Error(decErr),
+					)
+					lastErr = decErr
+					continue
+				} else {
+					writeAC = plain
+				}
+			}
+			writer := datasource.NewRemoteWriteClient(writeDS.Endpoint, writeDS.AuthType, writeAC, 30*time.Second)
 			if err := writer.Write(ctx, series); err != nil {
 				e.logger.Error("recording rule: failed to write back",
 					zap.Uint("rule_id", rule.ID),

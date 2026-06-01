@@ -72,6 +72,10 @@ func (re *RuleEvaluator) evaluate() {
 	ctx, cancel := context.WithTimeout(re.ctx, 30*time.Second)
 	defer cancel()
 
+	// Capture a single timestamp for the entire evaluation cycle to avoid
+	// subtle inconsistencies from multiple time.Now() calls.
+	now := time.Now()
+
 	// 1. Execute query against datasource — dispatch by datasource type
 	// Supports both single Expression and multi-query (Queries + TriggerExp)
 	var results []datasource.QueryResult
@@ -89,11 +93,11 @@ func (re *RuleEvaluator) evaluate() {
 	}
 
 	if err != nil {
-		re.consecutiveErrors++
-		if re.consecutiveErrors >= 5 {
+		errCount := re.consecutiveErrors.Add(1)
+		if errCount >= 5 {
 			re.logger.Error("query execution failed repeatedly",
 				zap.Error(err),
-				zap.Int("consecutive_errors", re.consecutiveErrors),
+				zap.Int64("consecutive_errors", errCount),
 			)
 		} else {
 			re.logger.Warn("query execution failed, will retry next cycle",
@@ -105,11 +109,10 @@ func (re *RuleEvaluator) evaluate() {
 		return
 	}
 	// Reset consecutive error count on success
-	if re.consecutiveErrors > 0 {
+	if prev := re.consecutiveErrors.Swap(0); prev > 0 {
 		re.logger.Info("query execution recovered after errors",
-			zap.Int("previous_errors", re.consecutiveErrors),
+			zap.Int64("previous_errors", prev),
 		)
-		re.consecutiveErrors = 0
 	}
 
 	// Parse for_duration
@@ -139,8 +142,7 @@ func (re *RuleEvaluator) evaluate() {
 		state := sl.state
 
 		if state == nil {
-			// New alert series detected
-			now := time.Now()
+			// New alert series detected — reuse cycle-level `now`
 			// Deep copy annotations to avoid sharing the underlying map with the rule definition.
 			annotations := make(map[string]string, len(re.rule.Annotations))
 			for k, v := range re.rule.Annotations {
@@ -200,7 +202,7 @@ func (re *RuleEvaluator) evaluate() {
 			}
 		} else {
 			state.Value = value
-			state.LastSeen = time.Now()
+			state.LastSeen = now
 			// Reset recovery hold since alert is active again
 			state.RecoveryHoldUntil = time.Time{}
 
@@ -208,7 +210,6 @@ func (re *RuleEvaluator) evaluate() {
 			case "pending":
 				// Check if pending long enough
 				if time.Since(state.ActiveAt) >= forDuration {
-					now := time.Now()
 					severity := string(re.rule.Severity)
 					// B4-3: ShouldSuppress is skipped (single-severity per rule).
 					if muted, muteID := re.checkTimeWindowMute(state.Labels, severity); muted {
@@ -241,7 +242,6 @@ func (re *RuleEvaluator) evaluate() {
 
 			case "resolved":
 				// Alert came back, re-activate
-				now := time.Now()
 				severity := string(re.rule.Severity)
 				if forDuration <= 0 {
 					// B4-3: ShouldSuppress is skipped (single-severity per rule).
@@ -280,7 +280,6 @@ func (re *RuleEvaluator) evaluate() {
 	}
 
 	// 3. Check for resolved alerts — iterate with rangeStates, lock each fp individually
-	now := time.Now()
 	re.rangeStates(func(fp string, sl *stateLock) bool {
 		if seenFingerprints[fp] {
 			return true // skip, already processed above
@@ -425,6 +424,11 @@ func parseDuration(s string) time.Duration {
 	}
 	d, err := time.ParseDuration(s)
 	if err != nil {
+		// Log warning for non-empty invalid input so operators can diagnose config issues.
+		zap.L().Warn("invalid duration string, defaulting to 0",
+			zap.String("input", s),
+			zap.Error(err),
+		)
 		return 0
 	}
 	return d
@@ -601,7 +605,16 @@ func (re *RuleEvaluator) executeVarFillingBeforeQuery(ctx context.Context, vc *m
 	var firstErr error
 
 	var wg sync.WaitGroup
+	const maxAllResults = 100000
 	for _, combo := range combinations {
+		// Safety cap: stop spawning queries if result set is already huge.
+		mu.Lock()
+		overLimit := len(allResults) >= maxAllResults
+		mu.Unlock()
+		if overLimit {
+			break
+		}
+
 		expr := re.rule.Expression
 		for i, name := range paramNames {
 			expr = strings.ReplaceAll(expr, fmt.Sprintf("$%s", name), combo[i])
@@ -722,7 +735,7 @@ func (re *RuleEvaluator) executeVarFillingAfterQuery(ctx context.Context, vc *mo
 // For params ["host","env"] with values {"host":["a","b"], "env":["prod","staging"]},
 // returns [["a","prod"],["a","staging"],["b","prod"],["b","staging"]].
 //
-// A hard limit of maxCombinations (10,000) prevents cartesian product explosion
+// A hard limit of maxCombinations (1,000) prevents cartesian product explosion
 // that could overwhelm the TSDB with queries.
 func buildCombinations(paramNames []string, varValues map[string][]string) ([][]string, error) {
 	if len(paramNames) == 0 {
@@ -730,7 +743,7 @@ func buildCombinations(paramNames []string, varValues map[string][]string) ([][]
 	}
 
 	// Pre-check total combinations to prevent explosion.
-	const maxCombinations = 10000
+	const maxCombinations = 1000
 	total := 1
 	for _, p := range paramNames {
 		total *= len(varValues[p])

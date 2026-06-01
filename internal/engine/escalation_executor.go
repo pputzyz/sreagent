@@ -109,6 +109,8 @@ func (e *EscalationExecutor) sendViaChannel(ctx context.Context, event *model.Al
 	}
 	data := service.EventToTemplateData(event, nil, nil, nil)
 
+	// Note: template validation happens at runtime via RenderContent.
+	// Invalid templates will fall back to the basic format string below.
 	var rendered string
 	if e.templateSvc != nil {
 		// Use the default template format with the standard template system.
@@ -137,6 +139,9 @@ func mapChannelTypeToMediaType(ct model.NotifyChannelType) model.NotifyMediaType
 	case model.ChannelTypeCustom:
 		return model.MediaTypeHTTP
 	default:
+		zap.L().Warn("unknown notify channel type, defaulting to HTTP",
+			zap.String("channel_type", string(ct)),
+		)
 		return model.MediaTypeHTTP
 	}
 }
@@ -288,7 +293,9 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 			return nil
 		})
 
-		_ = eg.Wait() // errors already logged inside goroutines
+		if err := eg.Wait(); err != nil {
+			e.logger.Warn("escalation: batch processing completed with errors", zap.Error(err))
+		}
 
 		afterID = events[len(events)-1].ID
 		if len(events) < pageSize {

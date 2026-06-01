@@ -24,7 +24,7 @@ type StateEntry struct {
 // Implementations are responsible for serialization and TTL management.
 type StateStore interface {
 	// SaveState persists a single alert state entry for a rule.
-	// The ttl should be set to 3× the rule evaluation interval.
+	// The ttl should be set to max(1 hour, 10× the rule evaluation interval).
 	SaveState(ctx context.Context, ruleID uint, fp string, entry *StateEntry, ttl time.Duration) error
 
 	// DeleteState removes a single alert state entry.
