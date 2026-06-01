@@ -290,13 +290,15 @@ type Evaluator struct {
 	perDS        sync.Map           // map[uint]*PerDatasourceEvaluator, key is datasourceID
 	perDSEval    bool               // feature flag: per-datasource bucket evaluation
 	leader     LeaderElection // optional; nil = single-instance mode (no election)
-	startOnce  sync.Once
+	startMu    sync.Mutex     // guards started flag — replaces sync.Once to allow Restart()
+	started    bool           // set by Start(), cleared by Stop()
 	stopOnce   sync.Once
 	wg         sync.WaitGroup
 
 	// Hash ring mode: distribute rules across multiple instances.
 	// When enabled, leader election is bypassed — all instances run
 	// independently and each evaluates only its assigned rules.
+	hashRingMu   sync.RWMutex   // protects hashRing and instanceID
 	hashRing     *hashring.Ring // consistent hash ring for rule distribution
 	instanceID   string         // this instance's identifier in the ring (e.g. hostname:pid)
 
@@ -365,6 +367,8 @@ func (e *Evaluator) SetLeaderElection(le LeaderElection) {
 // across multiple engine instances. When set, leader election is bypassed
 // and each instance evaluates only the rules it owns based on hash(ruleID).
 func (e *Evaluator) SetHashRing(ring *hashring.Ring, instanceID string) {
+	e.hashRingMu.Lock()
+	defer e.hashRingMu.Unlock()
 	e.hashRing = ring
 	e.instanceID = instanceID
 }
@@ -372,6 +376,8 @@ func (e *Evaluator) SetHashRing(ring *hashring.Ring, instanceID string) {
 // UpdateHashRing replaces the current hash ring (e.g. after membership change).
 // Thread-safe: can be called from a background goroutine.
 func (e *Evaluator) UpdateHashRing(ring *hashring.Ring) {
+	e.hashRingMu.Lock()
+	defer e.hashRingMu.Unlock()
 	e.hashRing = ring
 }
 
@@ -481,68 +487,82 @@ func (e *Evaluator) OnDatasourceUpdated(dsID uint) {
 // 2. Start a goroutine for each rule
 // 3. Periodically sync rules from DB (detect new/deleted/changed rules)
 func (e *Evaluator) Start() {
-	e.startOnce.Do(func() {
-		e.ctx, e.cancel = context.WithCancel(context.Background())
-		e.startedAt = time.Now()
-		e.logger.Info("starting alert evaluator")
+	e.startMu.Lock()
+	if e.started {
+		e.startMu.Unlock()
+		return
+	}
+	e.started = true
+	e.startMu.Unlock()
 
-		// Start level suppressor GC
-		e.suppressor.SetLogger(e.logger)
-		e.suppressor.Start()
+	e.ctx, e.cancel = context.WithCancel(context.Background())
+	e.startedAt = time.Now()
+	e.logger.Info("starting alert evaluator")
 
-		if e.hashRing != nil {
-			// Hash ring mode: all instances run independently,
-			// each evaluates only the rules assigned to it.
-			e.logger.Info("hash ring mode enabled",
-				zap.String("instance_id", e.instanceID),
-				zap.Int("ring_size", e.hashRing.Size()),
-			)
-			e.syncRules()
-		} else if e.leader != nil {
-			// Leader election mode: try to acquire and start renewal
-			acquired := e.leader.TryAcquire(e.ctx)
-			e.leader.Start(e.ctx)
-			if !acquired {
-				e.logger.Info("evaluator waiting for leadership (standby mode)")
-			} else {
-				e.syncRules()
-			}
+	// Start level suppressor GC
+	e.suppressor.SetLogger(e.logger)
+	e.suppressor.Start()
+
+	e.hashRingMu.RLock()
+	ring := e.hashRing
+	instID := e.instanceID
+	e.hashRingMu.RUnlock()
+
+	if ring != nil {
+		// Hash ring mode: all instances run independently,
+		// each evaluates only the rules assigned to it.
+		e.logger.Info("hash ring mode enabled",
+			zap.String("instance_id", instID),
+			zap.Int("ring_size", ring.Size()),
+		)
+		e.syncRules()
+	} else if e.leader != nil {
+		// Leader election mode: try to acquire and start renewal
+		acquired := e.leader.TryAcquire(e.ctx)
+		e.leader.Start(e.ctx)
+		if !acquired {
+			e.logger.Info("evaluator waiting for leadership (standby mode)")
 		} else {
-			// Single-instance mode — no election needed
 			e.syncRules()
 		}
+	} else {
+		// Single-instance mode — no election needed
+		e.syncRules()
+	}
 
-		// Periodic sync loop
-		e.wg.Add(1)
-		go func() {
-			defer e.wg.Done()
-			defer func() {
-				if r := recover(); r != nil {
-					e.logger.Error("evaluator sync loop panic recovered", zap.Any("recover", r))
-				}
-			}()
-			ticker := time.NewTicker(e.syncInterval)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if e.hashRing != nil {
-						// Hash ring mode: always sync (ring membership may change)
-						e.syncRules()
-					} else if e.leader != nil && !e.leader.IsLeader() {
-						// Not leader — stop any running evaluators and skip sync
-						e.stopAllEvaluators()
-						continue
-					} else {
-						e.syncRules()
-					}
-				case <-e.stopCh:
-					return
-				}
+	// Periodic sync loop
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				e.logger.Error("evaluator sync loop panic recovered", zap.Any("recover", r))
 			}
 		}()
-	})
+		ticker := time.NewTicker(e.syncInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				e.hashRingMu.RLock()
+				hasRing := e.hashRing != nil
+				e.hashRingMu.RUnlock()
+				if hasRing {
+					// Hash ring mode: always sync (ring membership may change)
+					e.syncRules()
+				} else if e.leader != nil && !e.leader.IsLeader() {
+					// Not leader — stop any running evaluators and skip sync
+					e.stopAllEvaluators()
+					continue
+				} else {
+					e.syncRules()
+				}
+			case <-e.stopCh:
+				return
+			}
+		}
+	}()
 }
 
 // Stop gracefully stops all evaluators.
@@ -589,23 +609,26 @@ func (e *Evaluator) Stop() {
 
 		// Wait for background goroutines (e.g. sync loop) to exit
 		e.wg.Wait()
+
+		// Mark as stopped so Start() can run again on Restart()
+		e.startMu.Lock()
+		e.started = false
+		e.startMu.Unlock()
 	})
 
 	e.logger.Info("alert evaluator stopped")
 }
 
 // Restart stops the evaluator and restarts it.
-// Unlike Start(), which is a no-op after the first call due to sync.Once,
-// Restart() resets the internal state so the evaluator can be started again.
+// Stop() clears the started flag so Start() can run again.
 // This is useful when the evaluator needs to be re-initialized after a
 // configuration change or recovery from a fatal error.
 func (e *Evaluator) Restart() {
 	e.logger.Info("restarting alert evaluator")
 	e.Stop()
-	// Wait for all background goroutines to exit before resetting
+	// Wait for all background goroutines to exit before restarting
 	e.wg.Wait()
-	// Reset sync.Once and channel so Start() can run again
-	e.startOnce = sync.Once{}
+	// Reset stopOnce and channel so Stop() / the sync loop can run again
 	e.stopOnce = sync.Once{}
 	e.stopCh = make(chan struct{})
 	e.Start()
@@ -615,11 +638,15 @@ func (e *Evaluator) Restart() {
 // the given rule. In hash ring mode, this checks ring ownership; otherwise
 // all rules are evaluated (single-leader or single-instance mode).
 func (e *Evaluator) shouldEvaluateRule(ruleID uint) bool {
-	if e.hashRing == nil {
+	e.hashRingMu.RLock()
+	ring := e.hashRing
+	instID := e.instanceID
+	e.hashRingMu.RUnlock()
+	if ring == nil {
 		return true
 	}
 	key := hashring.RuleRingKey(ruleID)
-	return e.hashRing.IsHit(key, e.instanceID)
+	return ring.IsHit(key, instID)
 }
 
 // syncRules loads rules from DB and starts/stops evaluators as needed.
@@ -954,8 +981,12 @@ func (e *Evaluator) stopAllEvaluators() {
 	e.evaluators = make(map[uint]*RuleEvaluator)
 	e.mu.Unlock()
 
-	for _, re := range evaluators {
+	for ruleID, re := range evaluators {
 		re.Stop()
+		// Clean up suppressor entries to prevent memory leak.
+		if e.suppressor != nil {
+			e.suppressor.RemoveRule(ruleID)
+		}
 	}
 
 	// Also clear per-datasource evaluators

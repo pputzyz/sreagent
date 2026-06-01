@@ -138,10 +138,13 @@ func (re *RuleEvaluator) deletePersistedState(fp string) {
 
 // gcStates removes resolved entries whose ResolvedAt is older than 24 hours.
 // Called periodically by the evaluator's Run loop.
+// Two-phase approach: first mark stale entries (set state=nil), then delete
+// them from the map outside the Range callback to avoid concurrent modification.
 func (re *RuleEvaluator) gcStates() {
 	threshold := time.Now().Add(-24 * time.Hour)
 	removed := 0
 
+	// Phase 1: Mark stale entries by setting state=nil under lock.
 	re.states.Range(func(k, v any) bool {
 		sl, ok := v.(*stateLock)
 		if !ok {
@@ -149,7 +152,7 @@ func (re *RuleEvaluator) gcStates() {
 		}
 		sl.mu.Lock()
 		if sl.state != nil && sl.state.Status == "resolved" && !sl.state.ResolvedAt.IsZero() && sl.state.ResolvedAt.Before(threshold) {
-			sl.state = nil // Clear state under lock; leave stateLock in map to avoid lockState race
+			sl.state = nil // Mark for deletion
 			sl.mu.Unlock()
 			if fp, ok := k.(string); ok {
 				re.deletePersistedState(fp)
@@ -161,7 +164,24 @@ func (re *RuleEvaluator) gcStates() {
 		return true
 	})
 
+	// Phase 2: Delete entries whose state is nil (marked in phase 1).
+	// This is safe because once state is nil, lockState will create a new stateLock
+	// via LoadOrStore, and any subsequent operation will use the fresh one.
 	if removed > 0 {
+		re.states.Range(func(k, v any) bool {
+			sl, ok := v.(*stateLock)
+			if !ok {
+				return true
+			}
+			sl.mu.Lock()
+			isEmpty := sl.state == nil
+			sl.mu.Unlock()
+			if isEmpty {
+				re.states.Delete(k)
+			}
+			return true
+		})
+
 		re.logger.Debug("state GC completed",
 			zap.Int("removed_entries", removed),
 		)

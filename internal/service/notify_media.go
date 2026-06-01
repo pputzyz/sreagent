@@ -302,50 +302,51 @@ func (s *NotifyMediaService) SendNotification(ctx context.Context, media *model.
 		return fmt.Errorf("notification send cancelled waiting for concurrency slot: %w", ctx.Err())
 	}
 
-	// Decrypt config if encrypted (transparent to send methods).
-	media.Config = s.decryptNotifyMediaConfig(media)
+	// Decrypt config into a local copy to avoid mutating the shared media object.
+	localMedia := *media
+	localMedia.Config = s.decryptNotifyMediaConfig(media)
 
 	// Execute the actual send and track success/failure for circuit breaker.
 	var sendErr error
-	switch media.Type {
+	switch localMedia.Type {
 	case model.MediaTypeLarkWebhook:
-		sendErr = s.sendLarkWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendLarkWebhook(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeEmail:
-		sendErr = s.sendEmail(ctx, media, renderedContent, data)
+		sendErr = s.sendEmail(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeHTTP:
-		sendErr = s.sendHTTP(ctx, media, renderedContent, data)
+		sendErr = s.sendHTTP(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeScript:
-		sendErr = s.executeScript(ctx, media, renderedContent, data)
+		sendErr = s.executeScript(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeDingTalkWebhook:
-		sendErr = s.sendDingTalkWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendDingTalkWebhook(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeWeComWebhook:
-		sendErr = s.sendWeComWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendWeComWebhook(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeSlackWebhook:
-		sendErr = s.sendSlackWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendSlackWebhook(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeDiscordWebhook:
-		sendErr = s.sendDiscordWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendDiscordWebhook(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeTelegramBot:
-		sendErr = s.sendTelegramBot(ctx, media, renderedContent, data)
+		sendErr = s.sendTelegramBot(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeFeishuWebhook:
-		sendErr = s.sendFeishuWebhook(ctx, media, renderedContent, data)
+		sendErr = s.sendFeishuWebhook(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeFeishuCard:
-		sendErr = s.sendFeishuCard(ctx, media, renderedContent, data)
+		sendErr = s.sendFeishuCard(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeFeishuApp:
-		sendErr = s.sendFeishuApp(ctx, media, renderedContent, data)
+		sendErr = s.sendFeishuApp(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeWeComApp:
-		sendErr = s.sendWeComApp(ctx, media, renderedContent, data)
+		sendErr = s.sendWeComApp(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeFlashDuty:
-		sendErr = s.sendFlashDuty(ctx, media, renderedContent, data)
+		sendErr = s.sendFlashDuty(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypePagerDuty:
-		sendErr = s.sendPagerDuty(ctx, media, renderedContent, data)
+		sendErr = s.sendPagerDuty(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeTencentSMS:
-		sendErr = s.sendTencentSMS(ctx, media, renderedContent, data)
+		sendErr = s.sendTencentSMS(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeAliyunSMS:
-		sendErr = s.sendAliyunSMS(ctx, media, renderedContent, data)
+		sendErr = s.sendAliyunSMS(ctx, &localMedia, renderedContent, data)
 	case model.MediaTypeCustomHTTP:
-		sendErr = s.sendCustomHTTP(ctx, media, renderedContent, data)
+		sendErr = s.sendCustomHTTP(ctx, &localMedia, renderedContent, data)
 	default:
-		sendErr = fmt.Errorf("unsupported media type: %s", media.Type)
+		sendErr = fmt.Errorf("unsupported media type: %s", localMedia.Type)
 	}
 
 	// B5-15: Track success/failure for circuit breaker.
@@ -599,7 +600,7 @@ func (s *NotifyMediaService) sendHTTP(ctx context.Context, media *model.NotifyMe
 			continue
 		}
 
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
@@ -882,7 +883,7 @@ func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, 
 			continue
 		}
 
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
@@ -1285,7 +1286,7 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 			continue
 		}
 
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
@@ -1430,7 +1431,7 @@ func (s *NotifyMediaService) sendWeComApp(ctx context.Context, media *model.Noti
 			continue
 		}
 
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
@@ -1702,7 +1703,7 @@ func (s *NotifyMediaService) sendCustomHTTP(ctx context.Context, media *model.No
 			continue
 		}
 
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 400 {

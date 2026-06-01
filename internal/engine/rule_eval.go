@@ -141,10 +141,15 @@ func (re *RuleEvaluator) evaluate() {
 		if state == nil {
 			// New alert series detected
 			now := time.Now()
+			// Deep copy annotations to avoid sharing the underlying map with the rule definition.
+			annotations := make(map[string]string, len(re.rule.Annotations))
+			for k, v := range re.rule.Annotations {
+				annotations[k] = v
+			}
 			state = &AlertState{
 				Labels:      result.Labels,
 				Value:       value,
-				Annotations: map[string]string(re.rule.Annotations),
+				Annotations: annotations,
 				LastSeen:    now,
 			}
 
@@ -246,14 +251,20 @@ func (re *RuleEvaluator) evaluate() {
 							zap.Uint("mute_rule_id", muteID),
 						)
 					} else {
-						state.Status = "firing"
 						state.ActiveAt = now
 						state.FiredAt = now
-						state.Revision++
 						if re.suppressor != nil {
 							re.suppressor.UpdateSeverity(re.rule.ID, fp, severity)
 						}
 						re.createAlertEvent(state, model.EventStatusFiring)
+						if state.EventID == 0 {
+							// DB write failed — state was reverted to "pending" inside createAlertEvent.
+							state.Status = "pending"
+							state.FiredAt = time.Time{}
+						} else {
+							state.Status = "firing"
+							state.Revision++
+						}
 						re.persistState(fp, state)
 					}
 				} else {

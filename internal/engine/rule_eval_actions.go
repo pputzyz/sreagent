@@ -116,7 +116,9 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 		zap.Float64("value", state.Value),
 	)
 
-	// Call the onAlert callback to trigger notification routing
+	// Call the onAlert callback to trigger notification routing.
+	// Use context.Background() so notifications complete even during graceful shutdown
+	// (when the evaluator's ctx is cancelled).
 	if re.onAlert != nil {
 		ev := event
 		fn := func(ctx context.Context) {
@@ -127,8 +129,9 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 			}()
 			re.onAlert(ctx, ev)
 		}
+		notifyCtx := context.Background()
 		if re.workerPool != nil {
-			if !re.workerPool.Submit(re.ctx, fn) {
+			if !re.workerPool.Submit(notifyCtx, fn) {
 				re.logger.Warn("worker pool full, onAlert deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)
@@ -139,7 +142,7 @@ func (re *RuleEvaluator) createAlertEvent(state *AlertState, status model.AlertE
 			case re.fallbackSem <- struct{}{}:
 				go func() {
 					defer func() { <-re.fallbackSem }()
-					fn(re.ctx)
+					fn(notifyCtx)
 				}()
 			default:
 				re.logger.Warn("fallback semaphore full, onAlert deferred to next eval cycle",
@@ -173,6 +176,8 @@ func (re *RuleEvaluator) updateFiringEvent(state *AlertState) {
 }
 
 // resolveAlertEvent resolves an existing alert event.
+// Uses TransitionStatus for an atomic check-and-update to avoid TOCTOU races
+// where the event status changes between the read and the write.
 func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 	if state.EventID == 0 {
 		return nil
@@ -181,29 +186,15 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 	ctx, cancel := context.WithTimeout(re.ctx, 10*time.Second)
 	defer cancel()
 
-	event, err := re.eventRepo.GetByID(ctx, state.EventID)
-	if err != nil {
-		re.logger.Warn("failed to get event for resolution",
-			zap.Uint("event_id", state.EventID),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// Skip resolution if the event is already closed/resolved, or has been
-	// actively managed by a user (acknowledged/assigned/silenced).  The engine
-	// should not overwrite user-driven states.
-	switch event.Status {
-	case model.EventStatusClosed, model.EventStatusResolved,
-		model.EventStatusAcknowledged, model.EventStatusAssigned, model.EventStatusSilenced:
-		return nil
-	}
-
 	now := time.Now()
-	event.Status = model.EventStatusResolved
-	event.ResolvedAt = &now
-
-	if err := re.eventRepo.Update(ctx, event); err != nil {
+	ok, err := re.eventRepo.TransitionStatus(ctx, state.EventID,
+		[]model.AlertEventStatus{model.EventStatusFiring},
+		map[string]interface{}{
+			"status":      model.EventStatusResolved,
+			"resolved_at": now,
+		},
+	)
+	if err != nil {
 		re.logger.Error("failed to resolve alert event, reverting to firing for retry",
 			zap.Uint("event_id", state.EventID),
 			zap.String("alert_name", re.rule.Name),
@@ -214,13 +205,30 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 		state.ResolvedAt = time.Time{}
 		return err
 	}
+	if !ok {
+		// Status didn't match (already resolved/closed/acknowledged/assigned/silenced).
+		// Engine should not overwrite user-driven states.
+		return nil
+	}
+
+	// Reload the event for the notification callback.
+	event, err := re.eventRepo.GetByID(ctx, state.EventID)
+	if err != nil {
+		re.logger.Warn("failed to reload event after resolution for notification",
+			zap.Uint("event_id", state.EventID),
+			zap.Error(err),
+		)
+		// Resolution succeeded in DB; just skip the notification.
+		return nil
+	}
 
 	re.logger.Info("alert resolved",
 		zap.Uint("event_id", state.EventID),
 		zap.String("alert_name", re.rule.Name),
 	)
 
-	// Notify about resolution
+	// Notify about resolution — use context.Background() so notifications
+	// complete even during graceful shutdown.
 	if re.onAlert != nil {
 		ev := event
 		fn := func(ctx context.Context) {
@@ -231,8 +239,9 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 			}()
 			re.onAlert(ctx, ev)
 		}
+		notifyCtx := context.Background()
 		if re.workerPool != nil {
-			if !re.workerPool.Submit(re.ctx, fn) {
+			if !re.workerPool.Submit(notifyCtx, fn) {
 				re.logger.Warn("worker pool full, onAlert (resolve) deferred to next eval cycle",
 					zap.Uint("event_id", ev.ID),
 				)
@@ -243,7 +252,7 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 			case re.fallbackSem <- struct{}{}:
 				go func() {
 					defer func() { <-re.fallbackSem }()
-					fn(re.ctx)
+					fn(notifyCtx)
 				}()
 			default:
 				re.logger.Warn("fallback semaphore full, onAlert (resolve) deferred to next eval cycle",
