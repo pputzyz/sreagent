@@ -30,6 +30,7 @@ const (
 	AuditActionComment = "comment"
 	AuditActionImport           = "import"
 	AuditActionPermissionDenied = "permission_denied"
+	AuditActionReopen           = "reopen"
 )
 
 // Audit result constants.
@@ -56,4 +57,5 @@ const (
 	AuditResourceNotifyMedia    = "notify_media"
 	AuditResourceSchedule         = "schedule"
 	AuditResourceEscalationPolicy = "escalation_policy"
+	AuditResourceIncident         = "incident"
 )

@@ -88,7 +88,7 @@ func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) (string, err
 
 // validateEndpoint checks that the endpoint URL does not point to a private/loopback IP (SSRF protection).
 // H1: Also checks DNS resolution, IPv6-mapped addresses, and cloud metadata endpoints.
-func validateEndpoint(endpoint string) error {
+func validateEndpoint(ctx context.Context, endpoint string) error {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func validateEndpoint(endpoint string) error {
 
 	// DNS resolution with timeout: check all resolved IPs.
 	resolver := &net.Resolver{}
-	resolveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	resolveCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	addrs, err := resolver.LookupIPAddr(resolveCtx, host)
 	if err != nil {
@@ -175,7 +175,7 @@ func validateIP(ip net.IP) error {
 func (s *DataSourceService) Create(ctx context.Context, ds *model.DataSource) error {
 	// Validate endpoint against SSRF
 	if ds.Endpoint != "" {
-		if err := validateEndpoint(ds.Endpoint); err != nil {
+		if err := validateEndpoint(ctx, ds.Endpoint); err != nil {
 			return apperr.WithMessage(apperr.ErrInvalidParam, err.Error())
 		}
 	}
@@ -233,7 +233,7 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 
 	// Validate endpoint against SSRF
 	if ds.Endpoint != "" {
-		if err := validateEndpoint(ds.Endpoint); err != nil {
+		if err := validateEndpoint(ctx, ds.Endpoint); err != nil {
 			return apperr.WithMessage(apperr.ErrInvalidParam, err.Error())
 		}
 	}

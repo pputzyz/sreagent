@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
@@ -103,6 +104,7 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 		})
 	}
 
+	ds.AuthConfig = "" // mask credentials before returning
 	Success(c, ds)
 }
 
@@ -191,6 +193,7 @@ func (h *DataSourceHandler) Update(c *gin.Context) {
 		})
 	}
 
+	ds.AuthConfig = "" // mask credentials before returning
 	Success(c, ds)
 }
 
@@ -475,10 +478,10 @@ func (h *DataSourceHandler) Proxy(c *gin.Context) {
 		return
 	}
 
-	// Extract the path after /proxy
-	path := c.Param("path")
-	if path == "" {
-		path = "/"
+	// Extract the path after /proxy and normalize to prevent traversal.
+	proxyPath := path.Clean(c.Param("path"))
+	if proxyPath == "" || proxyPath == "." {
+		proxyPath = "/"
 	}
 
 	// P1-9: Path whitelist validation
@@ -492,7 +495,7 @@ func (h *DataSourceHandler) Proxy(c *gin.Context) {
 	}
 
 	for _, blocked := range blockedPrefixes {
-		if strings.HasPrefix(path, blocked) {
+		if strings.HasPrefix(proxyPath, blocked) {
 			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "access to this path is blocked"))
 			return
 		}
@@ -500,7 +503,7 @@ func (h *DataSourceHandler) Proxy(c *gin.Context) {
 
 	allowed := false
 	for _, prefix := range allowedPrefixes {
-		if strings.HasPrefix(path, prefix) {
+		if strings.HasPrefix(proxyPath, prefix) {
 			allowed = true
 			break
 		}
@@ -518,7 +521,7 @@ func (h *DataSourceHandler) Proxy(c *gin.Context) {
 		}
 	}
 
-	body, err := h.svc.ProxyToDatasource(c.Request.Context(), id, path, params)
+	body, err := h.svc.ProxyToDatasource(c.Request.Context(), id, proxyPath, params)
 	if err != nil {
 		Error(c, err)
 		return

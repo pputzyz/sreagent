@@ -54,11 +54,6 @@ type ToggleActiveRequest struct {
 	IsActive bool `json:"is_active"`
 }
 
-// ChangePasswordRequest is the request body for changing a user's password.
-type ChangePasswordRequest struct {
-	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=8"`
-}
 
 // Create creates a new user.
 func (h *UserHandler) Create(c *gin.Context) {
@@ -71,6 +66,10 @@ func (h *UserHandler) Create(c *gin.Context) {
 	role := req.Role
 	if role == "" {
 		role = model.RoleMember
+	}
+	if !role.IsValid() {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "role must be one of: admin, team_lead, member, viewer, global_viewer"))
+		return
 	}
 
 	h.log.Info("user create",
@@ -151,6 +150,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+	if req.Role != "" && !req.Role.IsValid() {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "role must be one of: admin, team_lead, member, viewer, global_viewer"))
+		return
+	}
 
 	h.log.Info("user update",
 		zap.Uint("user_id", GetCurrentUserID(c)),
@@ -223,44 +226,9 @@ func (h *UserHandler) ToggleActive(c *gin.Context) {
 	Success(c, nil)
 }
 
-// ChangePassword allows an admin to reset a user's password.
-// PATCH /users/:id/password
-func (h *UserHandler) ChangePassword(c *gin.Context) {
-	userID, err := GetIDParam(c, "id")
-	if err != nil {
-		Error(c, err)
-		return
-	}
-
-	var req ChangePasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
-		return
-	}
-
-	h.log.Info("user change password",
-		zap.Uint("user_id", GetCurrentUserID(c)),
-		zap.Uint("target_user_id", userID),
-		zap.String("request_id", c.GetString("request_id")))
-
-	if err := h.svc.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
-		Error(c, err)
-		return
-	}
-
-	if h.auditSvc != nil {
-		uid := GetCurrentUserID(c)
-		h.auditSvc.Record(&model.AuditLog{
-			UserID: &uid, Username: GetCurrentUsername(c),
-			Action: model.AuditActionUpdate, ResourceType: model.AuditResourceUserPassword,
-			ResourceID: &userID, IP: c.ClientIP(),
-		})
-	}
-	Success(c, nil)
-}
-
-// ResetPassword allows an admin to force-reset a user's password without knowing the old password.
-// POST /users/:id/reset-password
+// ResetPassword is the admin force-reset path: it allows an admin to set a new password
+// for any user without knowing the old password.
+// PATCH /users/:id/password  and  POST /users/:id/reset-password
 func (h *UserHandler) ResetPassword(c *gin.Context) {
 	userID, err := GetIDParam(c, "id")
 	if err != nil {
@@ -319,6 +287,10 @@ func (h *UserHandler) CreateVirtual(c *gin.Context) {
 	role := req.Role
 	if role == "" {
 		role = model.RoleMember
+	}
+	if !role.IsValid() {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "role must be one of: admin, team_lead, member, viewer, global_viewer"))
+		return
 	}
 
 	h.log.Info("user create virtual",

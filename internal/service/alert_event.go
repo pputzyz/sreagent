@@ -31,6 +31,7 @@ type AlertWorkerPool interface {
 type AlertEventService struct {
 	repo         *repository.AlertEventRepository
 	timelineRepo *repository.AlertTimelineRepository
+	userRepo     *repository.UserRepository
 	notifySvc    *NotificationService
 	onCallSvc    OnCallResolver
 	larkSvc      *LarkService
@@ -83,6 +84,7 @@ func (s *AlertEventService) ListGrouped(ctx context.Context, statuses, severitie
 func NewAlertEventService(
 	repo *repository.AlertEventRepository,
 	timelineRepo *repository.AlertTimelineRepository,
+	userRepo *repository.UserRepository,
 	notifySvc *NotificationService,
 	onCallSvc OnCallResolver,
 	larkSvc *LarkService,
@@ -92,6 +94,7 @@ func NewAlertEventService(
 	return &AlertEventService{
 		repo:         repo,
 		timelineRepo: timelineRepo,
+		userRepo:     userRepo,
 		notifySvc:    notifySvc,
 		onCallSvc:    onCallSvc,
 		larkSvc:      larkSvc,
@@ -163,16 +166,29 @@ func (s *AlertEventService) Acknowledge(ctx context.Context, eventID, userID uin
 
 // Assign assigns an alert to a specific user.
 func (s *AlertEventService) Assign(ctx context.Context, eventID, assignTo, operatorID uint, note string) error {
-	event, err := s.repo.GetByID(ctx, eventID)
-	if err != nil {
-		return apperr.ErrEventNotFound
+	// Validate that the target user exists.
+	if _, err := s.userRepo.GetByID(ctx, assignTo); err != nil {
+		return apperr.ErrNotFound
 	}
 
-	event.Status = model.EventStatusAssigned
-	event.AssignedTo = &assignTo
-
-	if err := s.repo.Update(ctx, event); err != nil {
+	// Use atomic CAS (TransitionStatus) to prevent race conditions.
+	ok, err := s.repo.TransitionStatus(ctx, eventID,
+		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAcknowledged, model.EventStatusAssigned},
+		map[string]interface{}{
+			"status":      model.EventStatusAssigned,
+			"assigned_to": assignTo,
+		})
+	if err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if !ok {
+		return apperr.WithMessage(apperr.ErrBadRequest, "alert cannot be assigned from current state")
+	}
+
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		s.logger.Warn("failed to fetch event for Lark update after assign",
+			zap.Uint("event_id", eventID), zap.Error(err))
 	}
 
 	if note == "" {
@@ -180,7 +196,9 @@ func (s *AlertEventService) Assign(ctx context.Context, eventID, assignTo, opera
 	}
 	s.addTimeline(ctx, eventID, model.TimelineActionAssigned, &operatorID, note)
 
-	s.triggerLarkCardUpdate(event)
+	if event != nil {
+		s.triggerLarkCardUpdate(event)
+	}
 
 	return nil
 }
@@ -247,29 +265,36 @@ func (s *AlertEventService) Close(ctx context.Context, eventID, userID uint, not
 
 // Silence silences an alert for a specified duration.
 func (s *AlertEventService) Silence(ctx context.Context, eventID, userID uint, durationMinutes int, reason string) error {
-	event, err := s.repo.GetByID(ctx, eventID)
-	if err != nil {
-		return apperr.ErrEventNotFound
-	}
-
-	if event.Status == model.EventStatusClosed || event.Status == model.EventStatusResolved {
-		return apperr.WithMessage(apperr.ErrBadRequest, "cannot silence a closed or resolved alert")
-	}
-
 	now := time.Now()
 	silencedUntil := now.Add(time.Duration(durationMinutes) * time.Minute)
-	event.Status = model.EventStatusSilenced
-	event.SilencedUntil = &silencedUntil
-	event.SilenceReason = reason
 
-	if err := s.repo.Update(ctx, event); err != nil {
+	// Use atomic CAS (TransitionStatus) to prevent race conditions.
+	ok, err := s.repo.TransitionStatus(ctx, eventID,
+		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAcknowledged, model.EventStatusAssigned},
+		map[string]interface{}{
+			"status":          model.EventStatusSilenced,
+			"silenced_until":  silencedUntil,
+			"silence_reason":  reason,
+		})
+	if err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if !ok {
+		return apperr.WithMessage(apperr.ErrBadRequest, "alert cannot be silenced from current state")
+	}
+
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		s.logger.Warn("failed to fetch event for Lark update after silence",
+			zap.Uint("event_id", eventID), zap.Error(err))
 	}
 
 	note := fmt.Sprintf("Alert silenced for %d minutes. Reason: %s", durationMinutes, reason)
 	s.addTimeline(ctx, eventID, model.TimelineActionSilenced, &userID, note)
 
-	s.triggerLarkCardUpdate(event)
+	if event != nil {
+		s.triggerLarkCardUpdate(event)
+	}
 	return nil
 }
 

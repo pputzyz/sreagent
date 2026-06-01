@@ -157,6 +157,12 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 			return
 		}
 	}
+	if req.NoDataDuration != "" {
+		if _, err := time.ParseDuration(req.NoDataDuration); err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "nodata_duration must be a valid Go duration (e.g. 5m, 1h): "+err.Error()))
+			return
+		}
+	}
 
 	// Default to active if caller did not specify a status.
 	status := req.Status
@@ -317,6 +323,12 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 	if req.RecoveryHold != nil && *req.RecoveryHold != "" {
 		if _, err := time.ParseDuration(*req.RecoveryHold); err != nil {
 			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "recovery_hold must be a valid Go duration (e.g. 5m, 1h): "+err.Error()))
+			return
+		}
+	}
+	if req.NoDataDuration != nil && *req.NoDataDuration != "" {
+		if _, err := time.ParseDuration(*req.NoDataDuration); err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "nodata_duration must be a valid Go duration (e.g. 5m, 1h): "+err.Error()))
 			return
 		}
 	}

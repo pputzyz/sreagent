@@ -41,7 +41,7 @@ func (h *AlertEventHandler) List(c *gin.Context) {
 		Status:    c.Query("status"),
 		Severity:  c.Query("severity"),
 		AlertName: c.Query("alert_name"), // FE4-1: wire frontend search to backend
-		ViewMode:  c.Query("view_mode"),
+		ViewMode:  c.DefaultQuery("view_mode", "all"),
 		Page:      pq.Page,
 		PageSize:  pq.PageSize,
 	}
@@ -307,7 +307,7 @@ func (h *AlertEventHandler) Silence(c *gin.Context) {
 	}
 
 	var req struct {
-		DurationMinutes int    `json:"duration_minutes" binding:"required,min=1"`
+		DurationMinutes int    `json:"duration_minutes" binding:"required,min=1,max=43200"`
 		Reason          string `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -340,7 +340,7 @@ func (h *AlertEventHandler) Silence(c *gin.Context) {
 // BatchAcknowledge acknowledges multiple alerts at once.
 func (h *AlertEventHandler) BatchAcknowledge(c *gin.Context) {
 	var req struct {
-		IDs []uint `json:"ids" binding:"required,min=1"`
+		IDs []uint `json:"ids" binding:"required,min=1,max=1000"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
@@ -372,7 +372,7 @@ func (h *AlertEventHandler) BatchAcknowledge(c *gin.Context) {
 // BatchClose closes multiple alerts at once.
 func (h *AlertEventHandler) BatchClose(c *gin.Context) {
 	var req struct {
-		IDs []uint `json:"ids" binding:"required,min=1"`
+		IDs []uint `json:"ids" binding:"required,min=1,max=1000"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
@@ -425,7 +425,11 @@ func (h *AlertEventHandler) Export(c *gin.Context) {
 	if filter.UserID == 0 {
 		filter.UserID = currentUserID
 	}
-	filter.ViewMode = c.DefaultQuery("view_mode", "all")
+	defaultViewMode := "mine"
+	if isAdmin {
+		defaultViewMode = "all"
+	}
+	filter.ViewMode = c.DefaultQuery("view_mode", defaultViewMode)
 
 	if startStr := c.Query("start"); startStr != "" {
 		if t, err := time.Parse(time.RFC3339, startStr); err == nil {
@@ -479,17 +483,17 @@ func (h *AlertEventHandler) Export(c *gin.Context) {
 	for _, ev := range events {
 		if err := w.Write([]string{
 			strconv.FormatUint(uint64(ev.ID), 10),
-			ev.AlertName,
-			string(ev.Severity),
-			string(ev.Status),
-			ev.Source,
+			sanitizeCSVCell(ev.AlertName),
+			sanitizeCSVCell(string(ev.Severity)),
+			sanitizeCSVCell(string(ev.Status)),
+			sanitizeCSVCell(ev.Source),
 			ev.FiredAt.Format(time.RFC3339),
 			fmtT(ev.AckedAt),
 			fmtT(ev.ResolvedAt),
 			fmtT(ev.ClosedAt),
-			fmtLabels(ev.Labels),
-			fmtLabels(ev.Annotations),
-			ev.Resolution,
+			sanitizeCSVCell(fmtLabels(ev.Labels)),
+			sanitizeCSVCell(fmtLabels(ev.Annotations)),
+			sanitizeCSVCell(ev.Resolution),
 			strconv.Itoa(ev.FireCount),
 		}); err != nil {
 			h.log.Error("failed to write CSV row", zap.Error(err))
@@ -580,6 +584,15 @@ func (h *AlertEventHandler) ListGroups(c *gin.Context) {
 		result = append(result, *groups[k])
 	}
 	Success(c, result)
+}
+
+// sanitizeCSVCell prefixes cells that start with formula-injection characters
+// (=, +, -, @) with a single quote to prevent CSV injection.
+func sanitizeCSVCell(s string) string {
+	if len(s) > 0 && (s[0] == '=' || s[0] == '+' || s[0] == '-' || s[0] == '@') {
+		return "'" + s
+	}
+	return s
 }
 
 // splitCSV splits a comma-separated string into trimmed non-empty parts.

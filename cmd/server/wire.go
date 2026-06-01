@@ -538,7 +538,7 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	svcs.AlertmanagerImportSvc = service.NewAlertmanagerImportService(svcs.ChannelV2Svc, svcs.InhibitionRuleSvc, zapLogger)
 
 	// AlertEventService — all dependencies resolved via constructor (no setters).
-	svcs.EventSvc = service.NewAlertEventService(repos.Event, repos.Timeline, svcs.NotifySvc, svcs.ScheduleSvc, svcs.LarkSvc, svcs.AlertWorkerPool, zapLogger)
+	svcs.EventSvc = service.NewAlertEventService(repos.Event, repos.Timeline, repos.User, svcs.NotifySvc, svcs.ScheduleSvc, svcs.LarkSvc, svcs.AlertWorkerPool, zapLogger)
 
 	svcs.LarkBotSvc = service.NewLarkBotService(svcs.SettingSvc, svcs.EventSvc, svcs.ScheduleSvc, repos.User, zapLogger)
 
@@ -1032,6 +1032,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.MCPServer.SetAuditService(svcs.AuditLogSvc)
 	handlers.LLMConfig.SetAuditService(svcs.AuditLogSvc)
 	handlers.ESIndexPattern.SetAuditService(svcs.AuditLogSvc)
+	if handlers.IncidentV2 != nil {
+		handlers.IncidentV2.SetAuditService(svcs.AuditLogSvc)
+	}
 
 	// Wire permission-denied audit callback into the RBAC middleware.
 	middleware.SetPermLogger(zapLogger)

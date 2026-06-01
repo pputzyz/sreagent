@@ -14,11 +14,17 @@ import (
 
 // IncidentHandler handles HTTP requests for incidents (故障).
 type IncidentHandler struct {
-	svc *service.IncidentService
+	svc      *service.IncidentService
+	auditSvc *service.AuditLogService
 }
 
 func NewIncidentHandler(svc *service.IncidentService) *IncidentHandler {
 	return &IncidentHandler{svc: svc}
+}
+
+// SetAuditService injects the audit log service (called after construction to avoid circular DI).
+func (h *IncidentHandler) SetAuditService(svc *service.AuditLogService) {
+	h.auditSvc = svc
 }
 
 // --- Request structs ---
@@ -59,6 +65,10 @@ func (h *IncidentHandler) Create(c *gin.Context) {
 	}
 
 	// --- Parameter validation ---
+	if req.ChannelID == 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "channel_id is required"))
+		return
+	}
 	if len(req.Title) > 256 {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "title must not exceed 256 characters"))
 		return
@@ -86,6 +96,15 @@ func (h *IncidentHandler) Create(c *gin.Context) {
 	if err := h.svc.Create(c.Request.Context(), inc); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Username: GetCurrentUsername(c),
+			Action: model.AuditActionCreate, ResourceType: model.AuditResourceIncident,
+			ResourceID: &inc.ID, ResourceName: inc.Title, IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, inc)
@@ -157,6 +176,14 @@ func (h *IncidentHandler) Acknowledge(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &userID, Username: GetCurrentUsername(c),
+			Action: model.AuditActionAck, ResourceType: model.AuditResourceIncident,
+			ResourceID: &id, IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, nil)
 }
 
@@ -175,6 +202,14 @@ func (h *IncidentHandler) Close(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &userID, Username: GetCurrentUsername(c),
+			Action: model.AuditActionClose, ResourceType: model.AuditResourceIncident,
+			ResourceID: &id, IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, nil)
 }
 
@@ -191,6 +226,14 @@ func (h *IncidentHandler) Reopen(c *gin.Context) {
 	if err := h.svc.Reopen(c.Request.Context(), id, userID); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &userID, Username: GetCurrentUsername(c),
+			Action: model.AuditActionReopen, ResourceType: model.AuditResourceIncident,
+			ResourceID: &id, IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

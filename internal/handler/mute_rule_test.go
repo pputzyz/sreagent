@@ -117,7 +117,7 @@ func Test_MuteRule_PreviewOne_NotFound(t *testing.T) {
 	eventRepo := repository.NewAlertEventRepository(db)
 
 	muteSvc := service.NewMuteRuleService(muteRepo, logger)
-	eventSvc := service.NewAlertEventService(eventRepo, nil, nil, nil, nil, nil, logger)
+	eventSvc := service.NewAlertEventService(eventRepo, nil, nil, nil, nil, nil, nil, logger)
 
 	h := handler.NewMuteRuleHandler(muteSvc, eventSvc, logger)
 
