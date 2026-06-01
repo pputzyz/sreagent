@@ -93,6 +93,7 @@ export default {
   },
   error: {
     renderError: 'Render error',
+    copyDetails: 'Copy error details',
   },
   severity: {
     critical: 'Critical',
@@ -219,6 +220,7 @@ export default {
     changePassword: 'Change Password',
     logout: 'Logout',
     defaultUser: 'User',
+    userMenu: 'User menu',
   },
   rail: {
     oncall: 'On-Call',
@@ -2072,6 +2074,14 @@ export default {
     actions: 'Actions',
     open: 'Open',
     close: 'Close',
+    settings: 'Settings',
+  },
+
+  // ===== Keyboard Shortcuts =====
+  shortcuts: {
+    title: 'Keyboard Shortcuts',
+    showHelp: 'Show keyboard shortcuts',
+    closeOverlay: 'Close overlay / modal',
   },
 
   // ===== v2: Collaboration Channels =====
@@ -2586,6 +2596,7 @@ export default {
   // ===== Accessibility =====
   a11y: {
     skipToContent: 'Skip to content',
+    mainNav: 'Main navigation',
   },
 
   // ===== My Alerts =====

@@ -215,7 +215,7 @@ watch([() => form.value.username, () => form.value.password], () => {
                 class="captcha-input"
                 @keyup.enter="handleLogin"
               />
-              <div class="captcha-image-wrap" @click="fetchCaptcha">
+              <div class="captcha-image-wrap" @click="fetchCaptcha" role="button" tabindex="0" @keydown.enter="fetchCaptcha">
                 <img
                   v-if="captchaImage"
                   :src="captchaImage"
@@ -236,7 +236,7 @@ watch([() => form.value.username, () => form.value.password], () => {
             class="submit-btn"
             @click="handleLogin"
           >
-            {{ t('auth.signIn') }} &rarr;
+            {{ t('auth.signIn') }} →
           </n-button>
 
           <div v-if="loginError" class="error-banner">

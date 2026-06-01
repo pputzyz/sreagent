@@ -93,6 +93,7 @@ export default {
   },
   error: {
     renderError: '页面渲染出错',
+    copyDetails: '复制错误详情',
   },
   severity: {
     critical: '严重 (Critical)',
@@ -219,6 +220,7 @@ export default {
     changePassword: '修改密码',
     logout: '退出登录',
     defaultUser: '用户',
+    userMenu: '用户菜单',
   },
   rail: {
     oncall: '值班',
@@ -2152,6 +2154,14 @@ export default {
     actions: '操作',
     open: '打开',
     close: '关闭',
+    settings: '设置',
+  },
+
+  // ===== Keyboard Shortcuts =====
+  shortcuts: {
+    title: '键盘快捷键',
+    showHelp: '显示键盘快捷键',
+    closeOverlay: '关闭覆盖层',
   },
 
   // ===== v2: Collaboration Channels =====
@@ -2605,6 +2615,7 @@ export default {
   // ===== Accessibility =====
   a11y: {
     skipToContent: '跳转到内容',
+    mainNav: '主导航',
   },
 
   // ===== My Alerts =====

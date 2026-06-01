@@ -138,8 +138,12 @@ router.beforeEach((to, _from, next) => {
     const params = new URLSearchParams(hash.substring(1)) // strip leading #
     const oidcToken = params.get('oidc_token')
     if (oidcToken) {
-      localStorage.setItem('token', oidcToken)
-      useAuthStore().setToken(oidcToken)
+      if (oidcToken.split('.').length !== 3) {
+        console.warn('[router] Received invalid OIDC token format — ignoring')
+      } else {
+        localStorage.setItem('token', oidcToken)
+        useAuthStore().setToken(oidcToken)
+      }
       // Clear the hash fragment
       window.history.replaceState(null, '', '/')
       next({ path: '/', replace: true })
@@ -150,8 +154,12 @@ router.beforeEach((to, _from, next) => {
   // Also handle query param for backwards compatibility
   const oidcTokenQuery = to.query.oidc_token as string | undefined
   if (oidcTokenQuery) {
-    localStorage.setItem('token', oidcTokenQuery)
-    useAuthStore().setToken(oidcTokenQuery)
+    if (oidcTokenQuery.split('.').length !== 3) {
+      console.warn('[router] Received invalid OIDC token format (query) — ignoring')
+    } else {
+      localStorage.setItem('token', oidcTokenQuery)
+      useAuthStore().setToken(oidcTokenQuery)
+    }
     next({ path: '/', replace: true })
     return
   }
@@ -162,8 +170,12 @@ router.beforeEach((to, _from, next) => {
     const params = new URLSearchParams(hash.substring(1))
     const oauth2Token = params.get('oauth2_token')
     if (oauth2Token) {
-      localStorage.setItem('token', oauth2Token)
-      useAuthStore().setToken(oauth2Token)
+      if (oauth2Token.split('.').length !== 3) {
+        console.warn('[router] Received invalid OAuth2 token format — ignoring')
+      } else {
+        localStorage.setItem('token', oauth2Token)
+        useAuthStore().setToken(oauth2Token)
+      }
       window.history.replaceState(null, '', '/')
       next({ path: '/', replace: true })
       return

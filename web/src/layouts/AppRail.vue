@@ -37,10 +37,10 @@ interface RailItem {
   colorClass: string
 }
 
-const topItems: RailItem[] = [
+const topItems = computed<RailItem[]>(() => [
   { key: 'oncall', icon: Zap, label: t('rail.oncall'), desc: t('rail.oncallDesc'), colorClass: 'nav-icon-oncall' },
   { key: 'alert', icon: Bell, label: t('rail.alert'), desc: t('rail.alertDesc'), colorClass: 'nav-icon-alert' },
-]
+])
 
 const userInitial = computed(() =>
   (authStore.user?.display_name || authStore.user?.username || 'U').charAt(0).toUpperCase(),

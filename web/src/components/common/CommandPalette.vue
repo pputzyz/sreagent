@@ -75,7 +75,7 @@ const groupLabel = computed<Record<string, string>>(() => ({
 }))
 
 // FE8-7: Split actions into sub-categories (settings, general actions)
-function sections() {
+const sections = computed(() => {
   const f = filteredItems.value
   const out: { key: string; label: string; items: PaletteItem[] }[] = []
   if (f.recent.length)   out.push({ key: 'recent',   label: groupLabel.value.recent,   items: f.recent })
@@ -88,10 +88,10 @@ function sections() {
     if (generalItems.length) out.push({ key: 'action', label: groupLabel.value.action, items: generalItems })
   }
   return out
-}
+})
 
 function globalIndex(sectionIdx: number, itemIdx: number) {
-  const sectionList = sections()
+  const sectionList = sections.value
   let offset = 0
   for (let i = 0; i < sectionIdx; i++) offset += sectionList[i].items.length
   return offset + itemIdx
@@ -124,7 +124,7 @@ function hintColor(item: PaletteItem) {
             autocomplete="off"
             spellcheck="false"
           />
-          <kbd class="cp-esc" @click="close">Esc</kbd>
+          <kbd class="cp-esc" role="button" tabindex="0" @click="close" @keydown.enter="close">Esc</kbd>
         </div>
 
         <!-- Results -->
@@ -136,7 +136,7 @@ function hintColor(item: PaletteItem) {
               <span class="cp-empty-hint">{{ t('palette.trySomethingElse') }}</span>
             </div>
           </template>
-          <template v-for="(section, si) in sections()" :key="section.key">
+          <template v-for="(section, si) in sections" :key="section.key">
             <div class="cp-group-label">{{ section.label }}</div>
             <button
               v-for="(item, ii) in section.items"

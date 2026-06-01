@@ -248,7 +248,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         <!-- Clock -->
         <n-popover v-model:show="showTzPanel" trigger="click" placement="bottom-end" :show-arrow="false" style="padding:0">
           <template #trigger>
-            <button v-ripple class="topbar-btn topbar-clock" :class="{ active: showTzPanel }">
+            <button v-ripple class="topbar-btn topbar-clock" :class="{ active: showTzPanel }" :aria-label="t('header.timezone')">
               <n-icon :component="TimeOutline" :size="14" />
               <span class="clock-text">{{ timeDisplay }}</span>
               <span class="clock-tz">{{ tzAbbr }}</span>
@@ -261,7 +261,10 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
               :key="opt.value"
               class="tz-item"
               :class="{ selected: timezone === opt.value }"
+              role="option"
+              tabindex="0"
               @click="selectTimezone(opt.value)"
+              @keydown.enter="selectTimezone(opt.value)"
             >
               <span class="tz-abbr">{{ opt.abbr }}</span>
               <span class="tz-label">{{ opt.label }}</span>
@@ -348,7 +351,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <AIChatPanel v-model:show="showAIChat" />
 
     <!-- Floating Ask AI button -->
-    <button class="float-ai-btn" @click="toggleAIChat()" :title="t('ai.askAI')">
+    <button class="float-ai-btn" @click="toggleAIChat()" :title="t('ai.askAI')" :aria-label="t('ai.askAI')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" fill="white"/>
         <path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z" fill="white" opacity="0.7"/>
