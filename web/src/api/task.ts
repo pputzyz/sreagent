@@ -101,6 +101,18 @@ export const taskApi = {
   execute: (data: ExecuteTaskRequest) =>
     request.post<ApiResponse<TaskRecord>>('/tasks', data),
 
+  executeDirect: (data: {
+    script: string
+    hosts: string[]
+    args?: string
+    account?: string
+    timeout?: number
+    batch?: number
+    tolerance?: number
+    title?: string
+    event_id?: number
+  }) => request.post<ApiResponse<TaskRecord>>('/tasks/direct', data),
+
   list: (params?: { tpl_id?: number; event_id?: number; status?: number; page?: number; page_size?: number }) =>
     request.get<ApiResponse<PageData<TaskRecord>>>('/tasks', { params }),
 

@@ -36,7 +36,7 @@ export interface CreateMetricViewRequest {
   configs: MetricViewConfig
 }
 
-export type UpdateMetricViewRequest = CreateMetricViewRequest
+export type UpdateMetricViewRequest = Partial<CreateMetricViewRequest>
 
 export const metricViewApi = {
   list: (params?: { page?: number; page_size?: number }) =>
@@ -53,10 +53,4 @@ export const metricViewApi = {
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/metric-views/${id}`),
-
-  favorite: (id: number) =>
-    request.post<ApiResponse<null>>(`/metric-views/${id}/favorite`),
-
-  unfavorite: (id: number) =>
-    request.delete<ApiResponse<null>>(`/metric-views/${id}/favorite`),
 }

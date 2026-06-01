@@ -26,7 +26,7 @@ export interface CreateESIndexPatternRequest {
   note?: string
 }
 
-export type UpdateESIndexPatternRequest = CreateESIndexPatternRequest
+export type UpdateESIndexPatternRequest = Partial<CreateESIndexPatternRequest>
 
 export const esIndexPatternApi = {
   list: (params?: { datasource_id?: number }) =>

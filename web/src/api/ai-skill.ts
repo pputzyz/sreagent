@@ -40,7 +40,7 @@ export interface CreateAISkillRequest {
   enabled?: boolean
 }
 
-export type UpdateAISkillRequest = CreateAISkillRequest
+export type UpdateAISkillRequest = Partial<CreateAISkillRequest>
 
 export interface CreateAISkillFileRequest {
   name: string

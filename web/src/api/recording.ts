@@ -46,8 +46,8 @@ export interface CreateRecordingRuleRequest {
 }
 
 export interface UpdateRecordingRuleRequest {
-  name: string
-  prom_ql: string
+  name?: string
+  prom_ql?: string
   datasource_ids?: number[]
   cron_pattern?: string
   disabled?: number

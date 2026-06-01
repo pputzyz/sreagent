@@ -26,11 +26,11 @@ export const annotationApi = {
   list: (params?: { page?: number; page_size?: number; dashboard_id?: number }) =>
     request.get<ApiResponse<PageData<Annotation>>>('/annotations', { params }),
 
-  get: (id: number) =>
-    request.get<ApiResponse<Annotation>>(`/annotations/${id}`),
-
   create: (data: CreateAnnotationRequest) =>
     request.post<ApiResponse<Annotation>>('/annotations', data),
+
+  batchCreate: (annotations: CreateAnnotationRequest[]) =>
+    request.post<ApiResponse<null>>('/annotations/batch', { annotations }),
 
   update: (id: number, data: UpdateAnnotationRequest) =>
     request.put<ApiResponse<null>>(`/annotations/${id}`, data),

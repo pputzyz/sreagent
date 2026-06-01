@@ -146,6 +146,15 @@ export const aiAgentApi = {
 
   listConversations: (page = 1, pageSize = 1) =>
     request.get<ApiResponse<{ list: unknown[]; total: number }>>('/ai/agent/conversations', { params: { page, page_size: pageSize } }),
+
+  getConversation: (id: number) =>
+    request.get<ApiResponse<unknown>>(`/ai/agent/conversations/${id}`),
+
+  deleteConversation: (id: number) =>
+    request.delete<ApiResponse<null>>(`/ai/agent/conversations/${id}`),
+
+  listToolCalls: (id: number) =>
+    request.get<ApiResponse<unknown[]>>(`/ai/agent/conversations/${id}/tool-calls`),
 }
 
 // ===== Auth API =====

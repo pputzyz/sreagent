@@ -21,7 +21,7 @@ export interface CreateKnowledgeRequest {
   tags?: string[]
 }
 
-export type UpdateKnowledgeRequest = CreateKnowledgeRequest
+export type UpdateKnowledgeRequest = Partial<CreateKnowledgeRequest>
 
 export const knowledgeApi = {
   list: (params?: { page?: number; page_size?: number; source?: string; search?: string }) =>
@@ -41,4 +41,7 @@ export const knowledgeApi = {
 
   markHelpful: (id: number) =>
     request.post<ApiResponse<null>>(`/knowledge/${id}/helpful`),
+
+  search: (params: { query: string; source?: string; top_k?: number }) =>
+    request.post<ApiResponse<KnowledgeDocument[]>>('/knowledge/search', params),
 }

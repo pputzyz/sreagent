@@ -93,9 +93,6 @@ export const dashboardV2Api = {
 
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/dashboards/${id}`),
-
-  clone: (id: number, name?: string) =>
-    request.post<ApiResponse<import('@/types/dashboard').DashboardV2>>(`/dashboards/${id}/clone`, { name }),
 }
 
 // ===== Dashboard Biz-Group Binding API =====

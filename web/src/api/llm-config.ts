@@ -38,7 +38,7 @@ export interface CreateLLMConfigRequest {
   description?: string
 }
 
-export type UpdateLLMConfigRequest = CreateLLMConfigRequest
+export type UpdateLLMConfigRequest = Partial<CreateLLMConfigRequest>
 
 export interface TestConnectionResponse {
   success: boolean

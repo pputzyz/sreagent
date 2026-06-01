@@ -26,7 +26,7 @@ export interface CreateMCPServerRequest {
   enabled?: boolean
 }
 
-export type UpdateMCPServerRequest = CreateMCPServerRequest
+export type UpdateMCPServerRequest = Partial<CreateMCPServerRequest>
 
 export const mcpServerApi = {
   list: (params?: { page?: number; page_size?: number }) =>
@@ -49,4 +49,7 @@ export const mcpServerApi = {
 
   listTools: (id: number) =>
     request.get<ApiResponse<MCPTool[]>>(`/mcp-servers/${id}/tools`),
+
+  callTool: (id: number, toolName: string, args: Record<string, unknown>) =>
+    request.post<ApiResponse<unknown>>(`/mcp-servers/${id}/tools/${toolName}/call`, { arguments: args }),
 }
