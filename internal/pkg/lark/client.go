@@ -119,10 +119,12 @@ type CardAction struct {
 
 // CardButton represents a button in an action element.
 type CardButton struct {
-	Tag  string   `json:"tag"`
-	Text CardText `json:"text"`
-	URL  string   `json:"url"`
-	Type string   `json:"type"`
+	Tag       string      `json:"tag"`
+	Text      CardText    `json:"text"`
+	URL       string      `json:"url,omitempty"`
+	Type      string      `json:"type"`
+	Value     interface{} `json:"value,omitempty"`
+	Behaviour string      `json:"behaviour,omitempty"`
 }
 
 // severityTemplate returns the card header color template based on severity.
@@ -276,6 +278,8 @@ type AIAnalysisResult struct {
 // If analysis is nil (AI disabled or failed), the card is equivalent to the basic alert card.
 // actionBaseURL is the no-auth alert action page URL (e.g., http://host/alert-action/{token}).
 // If empty, action buttons fall back to platformURL.
+// eventID, when non-zero, enables callback buttons (acknowledge/silence) that POST back
+// to the server via Lark's card.action.trigger mechanism instead of opening a URL.
 func BuildEnrichedAlertCard(
 	alertName string,
 	severity string,
@@ -286,6 +290,7 @@ func BuildEnrichedAlertCard(
 	analysis *AIAnalysisResult,
 	platformURL string,
 	actionBaseURL string,
+	eventID uint,
 ) *CardMessage {
 	template := severityTemplate(severity)
 	emoji := severityEmoji(severity)
@@ -383,7 +388,7 @@ func BuildEnrichedAlertCard(
 	}
 
 	// Action buttons
-	if platformURL != "" || actionBaseURL != "" {
+	if platformURL != "" || actionBaseURL != "" || eventID > 0 {
 		var actions []interface{}
 
 		// "View details" button links to the platform UI
@@ -396,18 +401,30 @@ func BuildEnrichedAlertCard(
 			})
 		}
 
-		if actionBaseURL != "" {
-			// Acknowledge button
+		if eventID > 0 {
+			// Callback buttons: POST to server via card.action.trigger
+			actions = append(actions, CardButton{
+				Tag:       "button",
+				Text:      CardText{Tag: "plain_text", Content: "✅ 认领告警"},
+				Type:      "default",
+				Behaviour: "callback",
+				Value:     map[string]interface{}{"action": "ack", "event_id": eventID},
+			})
+			actions = append(actions, CardButton{
+				Tag:       "button",
+				Text:      CardText{Tag: "plain_text", Content: "🔕 静默告警"},
+				Type:      "default",
+				Behaviour: "callback",
+				Value:     map[string]interface{}{"action": "silence", "event_id": eventID},
+			})
+		} else if actionBaseURL != "" {
+			// URL-based action buttons (fallback for webhook delivery)
 			actions = append(actions, CardButton{
 				Tag:  "button",
 				Text: CardText{Tag: "plain_text", Content: "✅ 认领告警"},
 				URL:  actionBaseURL + "?action=acknowledge",
 				Type: "default",
 			})
-			// Silence button — opens the action page with the silence
-			// dropdown pre-selected. The user picks the duration (preset
-			// chips 30m/2h/8h/1d/3d/7d/30d or custom) on the page, so we
-			// no longer hardcode 1 hour here.
 			actions = append(actions, CardButton{
 				Tag:  "button",
 				Text: CardText{Tag: "plain_text", Content: "🔕 静默告警"},
@@ -624,6 +641,71 @@ func BuildTestCard() *CardMessage {
 				CardMarkdown{
 					Tag:     "markdown",
 					Content: fmt.Sprintf("**Sent at:** %s", time.Now().Format("2006-01-02 15:04:05 MST")),
+				},
+			},
+		},
+	}
+}
+
+// BuildAckResponseCard builds a card shown after a successful acknowledge action.
+func BuildAckResponseCard(alertName string) *CardMessage {
+	return &CardMessage{
+		MsgType: "interactive",
+		Card: Card{
+			Header: CardHeader{
+				Title:    CardText{Tag: "plain_text", Content: "✅ 告警已认领"},
+				Template: "green",
+			},
+			Elements: []interface{}{
+				CardMarkdown{
+					Tag:     "markdown",
+					Content: fmt.Sprintf("告警 **%s** 已被认领。", alertName),
+				},
+				CardMarkdown{
+					Tag:     "markdown",
+					Content: fmt.Sprintf("_认领时间: %s_", time.Now().Format("2006-01-02 15:04:05")),
+				},
+			},
+		},
+	}
+}
+
+// BuildSilenceResponseCard builds a card shown after a successful silence action.
+func BuildSilenceResponseCard(alertName string) *CardMessage {
+	return &CardMessage{
+		MsgType: "interactive",
+		Card: Card{
+			Header: CardHeader{
+				Title:    CardText{Tag: "plain_text", Content: "🔕 告警已静默"},
+				Template: "yellow",
+			},
+			Elements: []interface{}{
+				CardMarkdown{
+					Tag:     "markdown",
+					Content: fmt.Sprintf("告警 **%s** 已被静默。", alertName),
+				},
+				CardMarkdown{
+					Tag:     "markdown",
+					Content: fmt.Sprintf("_静默时间: %s_", time.Now().Format("2006-01-02 15:04:05")),
+				},
+			},
+		},
+	}
+}
+
+// BuildErrorResponseCard builds a card shown when a card action fails.
+func BuildErrorResponseCard(errMsg string) *CardMessage {
+	return &CardMessage{
+		MsgType: "interactive",
+		Card: Card{
+			Header: CardHeader{
+				Title:    CardText{Tag: "plain_text", Content: "❌ 操作失败"},
+				Template: "red",
+			},
+			Elements: []interface{}{
+				CardMarkdown{
+					Tag:     "markdown",
+					Content: fmt.Sprintf("操作失败: %s", errMsg),
 				},
 			},
 		},

@@ -27,6 +27,8 @@ type LarkService struct {
 	botClient        *lark.BotClient
 	botClientAppID   string
 	botClientSecret  string
+	// Shared token cache — can be injected so multiple services share one cache.
+	tokenCache *lark.TokenCache
 }
 
 // NewLarkService creates a new LarkService.
@@ -40,6 +42,17 @@ func NewLarkService(logger *zap.Logger, platformBaseURL, jwtSecret string, setti
 	}
 }
 
+// SetTokenCache injects a shared token cache so that multiple services (LarkService,
+// NotifyMediaService, LarkBotService) share a single cache, avoiding redundant
+// tenant_access_token fetches.
+func (s *LarkService) SetTokenCache(cache *lark.TokenCache) {
+	s.botClientMu.Lock()
+	defer s.botClientMu.Unlock()
+	s.tokenCache = cache
+	// Invalidate the cached bot client so it is recreated with the shared cache.
+	s.botClient = nil
+}
+
 // getBotClient returns a cached BotClient, creating a new one if credentials changed.
 func (s *LarkService) getBotClient(appID, appSecret string) *lark.BotClient {
 	s.botClientMu.Lock()
@@ -47,7 +60,11 @@ func (s *LarkService) getBotClient(appID, appSecret string) *lark.BotClient {
 	if s.botClient != nil && s.botClientAppID == appID && s.botClientSecret == appSecret {
 		return s.botClient
 	}
-	s.botClient = lark.NewBotClient(appID, appSecret)
+	if s.tokenCache != nil {
+		s.botClient = lark.NewBotClientWithCache(appID, appSecret, s.tokenCache)
+	} else {
+		s.botClient = lark.NewBotClient(appID, appSecret)
+	}
 	s.botClientAppID = appID
 	s.botClientSecret = appSecret
 	return s.botClient
@@ -132,6 +149,7 @@ func (s *LarkService) SendEnrichedAlertNotification(ctx context.Context, event *
 		aiResult,
 		platformURL,
 		actionBaseURL,
+		0, // no callback for webhook delivery
 	)
 
 	resp, err := s.client.SendWebhook(ctx, webhookURL, card)
@@ -183,7 +201,7 @@ func (s *LarkService) SendEnrichedAlertNotificationViaBot(ctx context.Context, e
 		return "", fmt.Errorf("lark bot credentials not configured")
 	}
 
-	card := s.buildEnrichedCard(event, analysis)
+	card := s.buildEnrichedCard(event, analysis, true)
 	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 
 	msgID, err := botClient.SendMessage(ctx, chatID, card)
@@ -242,7 +260,7 @@ func (s *LarkService) SendAlertCardToUser(ctx context.Context, event *model.Aler
 		return "", fmt.Errorf("lark bot credentials not configured")
 	}
 
-	card := s.buildEnrichedCard(event, analysis)
+	card := s.buildEnrichedCard(event, analysis, true)
 	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 
 	msgID, err := botClient.SendDirectMessage(ctx, receiveIDType, receiveID, card)
@@ -280,7 +298,7 @@ func (s *LarkService) UpdateAlertCard(ctx context.Context, event *model.AlertEve
 		return fmt.Errorf("lark bot credentials not configured")
 	}
 
-	card := s.buildEnrichedCard(event, nil)
+	card := s.buildEnrichedCard(event, nil, true)
 	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
 
 	if err := botClient.UpdateMessage(ctx, messageID, card); err != nil {
@@ -376,13 +394,19 @@ func isWithinBusinessHours(start, end string) bool {
 }
 
 // buildEnrichedCard constructs the Lark interactive card for an alert event.
-func (s *LarkService) buildEnrichedCard(event *model.AlertEvent, analysis *AlertAnalysis) *lark.CardMessage {
+// When useCallback is true, action buttons use Lark card callback (behaviour: "callback")
+// instead of URL links. This is appropriate for Bot API delivery where the server can
+// receive card.action.trigger events.
+func (s *LarkService) buildEnrichedCard(event *model.AlertEvent, analysis *AlertAnalysis, useCallback bool) *lark.CardMessage {
 	platformURL := ""
 	if s.platformBaseURL != "" {
 		platformURL = fmt.Sprintf("%s/alert-events/%d", s.platformBaseURL, event.ID)
 	}
 	actionBaseURL := ""
-	if s.platformBaseURL != "" && s.jwtSecret != "" {
+	var eventID uint
+	if useCallback {
+		eventID = event.ID
+	} else if s.platformBaseURL != "" && s.jwtSecret != "" {
 		token, err := GenerateAlertActionToken(event.ID, s.jwtSecret)
 		if err == nil {
 			actionBaseURL = fmt.Sprintf("%s/alert-action/%s", s.platformBaseURL, token)
@@ -409,5 +433,6 @@ func (s *LarkService) buildEnrichedCard(event *model.AlertEvent, analysis *Alert
 		aiResult,
 		platformURL,
 		actionBaseURL,
+		eventID,
 	)
 }

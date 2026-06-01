@@ -92,14 +92,17 @@ func doWithRetry(ctx context.Context, fn func() (larkAPIResult, error)) (larkAPI
 	return lastResult, lastErr
 }
 
-// tokenCache caches a tenant_access_token along with its expiry.
-type tokenCache struct {
+// TokenCache caches a tenant_access_token along with its expiry.
+// Exported so that other packages (e.g. NotifyMediaService) can share the same cache
+// instance via dependency injection, avoiding duplicate token fetches.
+type TokenCache struct {
 	mu      sync.Mutex
 	token   string
 	expires time.Time
 }
 
-func (c *tokenCache) get() (string, bool) {
+// Get returns the cached token if it is still valid.
+func (c *TokenCache) Get() (string, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.token == "" || time.Now().After(c.expires) {
@@ -108,11 +111,12 @@ func (c *tokenCache) get() (string, bool) {
 	return c.token, true
 }
 
-func (c *tokenCache) set(token string, ttlSeconds int) {
+// Set stores a token with the given TTL in seconds.
+// The cache refreshes 60 seconds before actual expiry, clamped to minimum 30s.
+func (c *TokenCache) Set(token string, ttlSeconds int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.token = token
-	// Refresh 60 seconds before actual expiry, clamped to minimum 30s.
 	effective := ttlSeconds - 60
 	if effective < 30 {
 		effective = 30
@@ -120,12 +124,17 @@ func (c *tokenCache) set(token string, ttlSeconds int) {
 	c.expires = time.Now().Add(time.Duration(effective) * time.Second)
 }
 
+// NewTokenCache creates a new empty TokenCache.
+func NewTokenCache() *TokenCache {
+	return &TokenCache{}
+}
+
 // BotClient wraps Lark Bot API calls (auth, send, patch messages).
 type BotClient struct {
 	httpClient *http.Client
 	appID      string
 	appSecret  string
-	tokenCache tokenCache
+	tokenCache *TokenCache
 }
 
 // NewBotClient creates a new BotClient with SSRF protection.
@@ -134,12 +143,25 @@ func NewBotClient(appID, appSecret string) *BotClient {
 		httpClient: safehttp.NewSafeClient(10 * time.Second),
 		appID:      appID,
 		appSecret:  appSecret,
+		tokenCache: NewTokenCache(),
+	}
+}
+
+// NewBotClientWithCache creates a new BotClient that shares an existing TokenCache.
+// This allows multiple BotClient instances (e.g. LarkService and NotifyMediaService)
+// to share a single token cache, avoiding redundant token fetches.
+func NewBotClientWithCache(appID, appSecret string, cache *TokenCache) *BotClient {
+	return &BotClient{
+		httpClient: safehttp.NewSafeClient(10 * time.Second),
+		appID:      appID,
+		appSecret:  appSecret,
+		tokenCache: cache,
 	}
 }
 
 // getTenantAccessToken returns a valid tenant_access_token, fetching a new one if needed.
 func (c *BotClient) getTenantAccessToken(ctx context.Context) (string, error) {
-	if tok, ok := c.tokenCache.get(); ok {
+	if tok, ok := c.tokenCache.Get(); ok {
 		return tok, nil
 	}
 
@@ -178,7 +200,7 @@ func (c *BotClient) getTenantAccessToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	c.tokenCache.set(tokenResult.TenantAccessToken, tokenResult.Expire)
+	c.tokenCache.Set(tokenResult.TenantAccessToken, tokenResult.Expire)
 	return tokenResult.TenantAccessToken, nil
 }
 

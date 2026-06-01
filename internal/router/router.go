@@ -156,6 +156,9 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	// Lark Bot callback (no auth middleware — verified by HMAC signature or token)
 	r.POST("/lark/event", handlers.LarkBot.EventCallback)
 
+	// Lark card action callback (button clicks on alert cards)
+	r.POST("/lark/card-action", handlers.LarkBot.CardActionCallback)
+
 	// Integration webhook receive endpoint (no auth — authenticated by token in URL)
 	if handlers.Integration != nil {
 		r.POST("/api/v1/integrations/:token/alerts", handlers.Integration.Receive)

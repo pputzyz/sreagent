@@ -133,17 +133,17 @@ func TestDoWithRetry_ExhaustsRetries(t *testing.T) {
 }
 
 func TestTokenCache_GetSet(t *testing.T) {
-	var tc tokenCache
+	tc := NewTokenCache()
 
 	// Empty cache should return false
-	_, ok := tc.get()
+	_, ok := tc.Get()
 	if ok {
 		t.Error("empty cache returned ok=true")
 	}
 
 	// Set and get
-	tc.set("test-token", 3600)
-	tok, ok := tc.get()
+	tc.Set("test-token", 3600)
+	tok, ok := tc.Get()
 	if !ok {
 		t.Fatal("cache returned ok=false after set")
 	}
@@ -153,28 +153,28 @@ func TestTokenCache_GetSet(t *testing.T) {
 }
 
 func TestTokenCache_Expiry(t *testing.T) {
-	var tc tokenCache
+	tc := NewTokenCache()
 	// Set with very short effective TTL (1s means effective is clamped to 30s minimum)
-	tc.set("short-lived", 31)
+	tc.Set("short-lived", 31)
 
 	// Should still be valid immediately
-	_, ok := tc.get()
+	_, ok := tc.Get()
 	if !ok {
 		t.Error("cache expired too early")
 	}
 }
 
 func TestBotClient_TokenCacheIntegration(t *testing.T) {
-	var tc tokenCache
-	tc.set("valid-token", 3600)
-	tok, ok := tc.get()
+	tc := NewTokenCache()
+	tc.Set("valid-token", 3600)
+	tok, ok := tc.Get()
 	if !ok || tok != "valid-token" {
 		t.Errorf("token cache failed: got=%q ok=%v", tok, ok)
 	}
 
 	// Overwrite with new token
-	tc.set("new-token", 7200)
-	tok, ok = tc.get()
+	tc.Set("new-token", 7200)
+	tok, ok = tc.Get()
 	if !ok || tok != "new-token" {
 		t.Errorf("token cache overwrite failed: got=%q ok=%v", tok, ok)
 	}

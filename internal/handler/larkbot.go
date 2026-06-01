@@ -43,6 +43,30 @@ func (h *LarkBotHandler) EventCallback(c *gin.Context) {
 	c.JSON(200, result)
 }
 
+// CardActionCallback handles incoming Lark card action callbacks (button clicks).
+// Lark POSTs here when a user clicks a callback button on an alert card.
+// The response body is the updated card that replaces the original in the chat.
+func (h *LarkBotHandler) CardActionCallback(c *gin.Context) {
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20)) // 1 MB max
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "failed to read request body"))
+		return
+	}
+
+	card, err := h.svc.HandleCardAction(c.Request.Context(), body,
+		c.GetHeader("X-Lark-Signature"),
+		c.GetHeader("X-Lark-Request-Timestamp"),
+		c.GetHeader("X-Lark-Request-Nonce"),
+	)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrUnauthorized, err.Error()))
+		return
+	}
+
+	// Return the card JSON — Lark replaces the original card with this response.
+	c.JSON(200, card)
+}
+
 // GetConfig returns the current Lark bot configuration.
 func (h *LarkBotHandler) GetConfig(c *gin.Context) {
 	cfg, err := h.svc.GetConfig(c.Request.Context())

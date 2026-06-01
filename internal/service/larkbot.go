@@ -32,6 +32,7 @@ type LarkBotService struct {
 	scheduleSvc *ScheduleService
 	userRepo    *repository.UserRepository // optional; enables OpenID→User mapping
 	client      *http.Client
+	tokenCache  *lark.TokenCache // shared token cache (optional)
 	logger      *zap.Logger
 
 	// Runtime lifecycle metrics (in-memory, not persisted).
@@ -52,6 +53,11 @@ func NewLarkBotService(settingSvc *SystemSettingService, eventSvc *AlertEventSer
 		client:      safehttp.NewSafeClient(10 * time.Second),
 		logger:      logger,
 	}
+}
+
+// SetTokenCache injects a shared token cache for Bot API calls.
+func (s *LarkBotService) SetTokenCache(cache *lark.TokenCache) {
+	s.tokenCache = cache
 }
 
 // resolveUserID maps a Lark open_id to a DB user ID.
@@ -161,6 +167,24 @@ type LarkMention struct {
 	TenantKey string        `json:"tenant_key"`
 }
 
+// LarkCardActionRequest represents the incoming Lark card action callback payload.
+type LarkCardActionRequest struct {
+	Operator  *LarkCardOperator `json:"operator"`
+	Action    *LarkCardAction   `json:"action"`
+	Token     string            `json:"token"`
+	Type      string            `json:"type"`
+}
+
+// LarkCardOperator identifies the user who clicked the button.
+type LarkCardOperator struct {
+	OpenID string `json:"open_id"`
+}
+
+// LarkCardAction holds the button action data.
+type LarkCardAction struct {
+	Value map[string]interface{} `json:"value"`
+}
+
 // HandleEvent processes a Lark event callback.
 // signature, timestamp, nonce are the X-Lark-Signature headers for HMAC-SHA256 verification.
 // Returns (response body, error).
@@ -242,6 +266,105 @@ func verifyLarkSignature(timestamp, nonce, encryptKey string, body []byte, expec
 	hash.Write(body)
 	computed := base64.StdEncoding.EncodeToString(hash.Sum(nil))
 	return hmac.Equal([]byte(computed), []byte(expectedSignature))
+}
+
+// HandleCardAction processes a Lark card action callback (button clicks on alert cards).
+// The callback body contains the operator (who clicked) and the action value (what to do).
+// Returns an updated card to replace the original, or an error card.
+func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, signature, timestamp, nonce string) (*lark.CardMessage, error) {
+	var req LarkCardActionRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, fmt.Errorf("failed to parse card action: %w", err)
+	}
+
+	// Verify signature
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load lark config: %w", err)
+	}
+
+	if cfg.EncryptKey == "" && cfg.VerificationToken == "" {
+		s.logger.Warn("lark card action rejected: no verification configured")
+		return nil, fmt.Errorf("lark verification not configured")
+	}
+
+	// Anti-replay check
+	if timestamp != "" {
+		ts, parseErr := strconv.ParseInt(timestamp, 10, 64)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid lark request timestamp")
+		}
+		if diff := time.Now().Unix() - ts; diff < -300 || diff > 300 {
+			return nil, fmt.Errorf("lark request timestamp out of acceptable window")
+		}
+	}
+
+	if cfg.EncryptKey != "" && signature != "" {
+		if !verifyLarkSignature(timestamp, nonce, cfg.EncryptKey, body, signature) {
+			return nil, fmt.Errorf("invalid lark card action signature")
+		}
+	} else if cfg.VerificationToken != "" && req.Token != cfg.VerificationToken {
+		return nil, fmt.Errorf("invalid card action token")
+	} else if cfg.EncryptKey != "" && signature == "" {
+		return nil, fmt.Errorf("missing lark card action signature")
+	}
+
+	// Validate action payload
+	if req.Action == nil || req.Action.Value == nil {
+		return lark.BuildErrorResponseCard("无效的操作请求"), nil
+	}
+	if req.Operator == nil || req.Operator.OpenID == "" {
+		return lark.BuildErrorResponseCard("无法识别操作者"), nil
+	}
+
+	action, _ := req.Action.Value["action"].(string)
+	eventIDFloat, _ := req.Action.Value["event_id"].(float64)
+	eventID := uint(eventIDFloat)
+
+	if action == "" || eventID == 0 {
+		return lark.BuildErrorResponseCard("操作参数不完整"), nil
+	}
+
+	// Resolve operator to system user
+	operatorID, err := s.resolveUserID(ctx, req.Operator.OpenID)
+	if err != nil {
+		s.logger.Warn("card action: operator not mapped",
+			zap.String("open_id", req.Operator.OpenID), zap.Error(err))
+		return lark.BuildErrorResponseCard("未绑定系统账号，请先在 SREAgent 中绑定 Lark 账号"), nil
+	}
+
+	// Fetch event for response card
+	event, err := s.eventSvc.GetByID(ctx, eventID)
+	if err != nil {
+		return lark.BuildErrorResponseCard(fmt.Sprintf("告警 #%d 不存在", eventID)), nil
+	}
+
+	// Route to the appropriate action
+	switch action {
+	case "ack":
+		if err := s.eventSvc.Acknowledge(ctx, eventID, operatorID); err != nil {
+			s.logger.Warn("card action ack failed",
+				zap.Uint("event_id", eventID), zap.Error(err))
+			return lark.BuildErrorResponseCard(fmt.Sprintf("认领失败: %v", err)), nil
+		}
+		s.logger.Info("alert acknowledged via card action",
+			zap.Uint("event_id", eventID), zap.Uint("operator", operatorID))
+		return lark.BuildAckResponseCard(event.AlertName), nil
+
+	case "silence":
+		// Default silence duration: 60 minutes
+		if err := s.eventSvc.Silence(ctx, eventID, operatorID, 60, "Lark card action"); err != nil {
+			s.logger.Warn("card action silence failed",
+				zap.Uint("event_id", eventID), zap.Error(err))
+			return lark.BuildErrorResponseCard(fmt.Sprintf("静默失败: %v", err)), nil
+		}
+		s.logger.Info("alert silenced via card action",
+			zap.Uint("event_id", eventID), zap.Uint("operator", operatorID))
+		return lark.BuildSilenceResponseCard(event.AlertName), nil
+
+	default:
+		return lark.BuildErrorResponseCard(fmt.Sprintf("未知操作: %s", action)), nil
+	}
 }
 
 // handleMessageEvent processes a received message event.
@@ -461,7 +584,12 @@ func (s *LarkBotService) SendMessage(ctx context.Context, chatID, content string
 
 	// Preferred path: Bot API with chat_id (correct routing for command replies).
 	if cfg.AppID != "" && cfg.AppSecret != "" && chatID != "" {
-		bot := lark.NewBotClient(cfg.AppID, cfg.AppSecret)
+		var bot *lark.BotClient
+		if s.tokenCache != nil {
+			bot = lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache)
+		} else {
+			bot = lark.NewBotClient(cfg.AppID, cfg.AppSecret)
+		}
 		if _, err := bot.SendText(ctx, "chat_id", chatID, content); err != nil {
 			s.recordMessageError(err)
 			s.logger.Warn("lark bot: Bot API send failed",
