@@ -113,14 +113,14 @@ const sourceOptions = computed(() => {
 async function fetchEvents() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = {
+    const params: { page: number; page_size: number; service?: string; environment?: string; source?: string } = {
       page: page.value,
       page_size: pageSize.value,
     }
     if (filterService.value) params.service = filterService.value
     if (filterEnvironment.value) params.environment = filterEnvironment.value
     if (filterSource.value) params.source = filterSource.value
-    const resp = await changeEventApi.list(params as any)
+    const resp = await changeEventApi.list(params)
     events.value = resp.data.data?.list || []
     total.value = resp.data.data?.total || 0
   } catch (e: unknown) {
@@ -350,7 +350,7 @@ onMounted(fetchEvents)
         style="width: 160px"
         @update:value="() => { page = 1; fetchEvents() }"
       />
-      <span class="count tnum">{{ filteredEvents.length }} / {{ events.length }}</span>
+      <span class="count tnum">{{ search.trim() ? `${filteredEvents.length} ${t('common.filtered')}` : total }}</span>
     </div>
 
     <n-empty

@@ -268,7 +268,7 @@ onMounted(fetchAnnotations)
         style="width: 180px"
         @update:value="handleDashboardFilter"
       />
-      <span class="count tnum">{{ filtered.length }} / {{ total }}</span>
+      <span class="count tnum">{{ search.trim() ? `${filtered.length} ${t('common.filtered')}` : total }}</span>
     </div>
 
     <n-empty v-if="!loading && annotations.length === 0" :description="t('common.noData')" style="padding: 60px 0">
@@ -308,7 +308,7 @@ onMounted(fetchAnnotations)
         <n-form label-placement="top">
           <n-form-item :label="t('annotations.dashboardId')" required>
             <n-input
-              v-model:value.number="form.dashboard_id"
+              v-model:value="form.dashboard_id"
               :placeholder="t('annotations.dashboardIdPlaceholder')"
             />
           </n-form-item>

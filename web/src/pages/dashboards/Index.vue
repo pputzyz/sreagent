@@ -127,8 +127,14 @@ function onImportFile(e: Event) {
   if (!file) return
   const reader = new FileReader()
   reader.onload = async () => {
+    let raw: Record<string, unknown>
     try {
-      const raw = JSON.parse(reader.result as string)
+      raw = JSON.parse(reader.result as string)
+    } catch {
+      message.error(t('dashboardV2.importParseError'))
+      return
+    }
+    try {
       // Validate required fields
       if (!raw.name || !raw.config) {
         message.error(t('dashboardV2.invalidFile'))
@@ -137,7 +143,7 @@ function onImportFile(e: Event) {
       // Parse and regenerate panel IDs to avoid conflicts
       let cfg: DashboardConfig = { panels: [], layout: { cols: 24, rowHeight: 100 }, variables: [] }
       try {
-        cfg = typeof raw.config === 'string' ? JSON.parse(raw.config) : raw.config
+        cfg = typeof raw.config === 'string' ? JSON.parse(raw.config as string) : (raw.config as DashboardConfig)
         if (cfg.panels) {
           cfg.panels = cfg.panels.map(p => ({
             ...p,
@@ -146,11 +152,11 @@ function onImportFile(e: Event) {
         }
       } catch { /* keep default config */ }
       await dashboardV2Api.create({
-        name: raw.name,
-        description: raw.description || '',
-        tags: raw.tags || {},
+        name: raw.name as string,
+        description: (raw.description as string) || '',
+        tags: (raw.tags as Record<string, string>) || {},
         config: JSON.stringify(cfg),
-        is_public: raw.is_public || false,
+        is_public: (raw.is_public as boolean) || false,
       })
       message.success(t('dashboardV2.importSuccess'))
       fetchList()

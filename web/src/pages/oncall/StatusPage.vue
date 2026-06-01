@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NSpin, NModal, NForm, NFormItem, NSelect, NInputNumber, NPopconfirm } from 'naive-ui'
 import { Activity, CheckCircle, AlertCircle, Clock, Bell, Globe, Shield, Zap, Layers, Server, Settings, Plus, Pencil, Trash2 } from 'lucide-vue-next'
 import { statusServiceApi, statusSubscriptionApi, type StatusServiceItem } from '@/api'
+import { getErrorMessage } from '@/utils/format'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 
@@ -107,8 +108,8 @@ async function handleNotify() {
     await statusSubscriptionApi.subscribe(email.value)
     email.value = ''
     message.success(t('statusPageModule.notifySuccess'))
-  } catch {
-    message.error(t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
   } finally {
     submitting.value = false
   }
@@ -190,8 +191,8 @@ async function handleSave() {
     }
     showForm.value = false
     await loadServices()
-  } catch {
-    message.error(t('common.saveFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
   } finally {
     saving.value = false
   }
@@ -202,8 +203,8 @@ async function handleDelete(id: number) {
     await statusServiceApi.delete(id)
     message.success(t('common.deleteSuccess'))
     await loadServices()
-  } catch {
-    message.error(t('common.deleteFailed'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
   }
 }
 </script>

@@ -89,6 +89,7 @@ export default {
     importFailed: '导入失败',
     unknownError: '未知错误',
     optional: '可选',
+    filtered: '已筛选',
   },
   error: {
     renderError: '页面渲染出错',
@@ -581,6 +582,7 @@ export default {
     importSuccess: '仪表盘已导入',
     exportSuccess: '仪表盘已导出',
     importError: '导入失败，请检查文件格式',
+    importParseError: 'JSON 文件解析失败',
     invalidFile: '无效的仪表盘文件',
     moreActions: '更多操作',
     // 业务分组共享

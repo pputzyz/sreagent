@@ -165,16 +165,16 @@ function handleDelete(id: number) {
 
 function getTargetName(type: string, id: number): string {
   if (type === 'user') {
-    const u = users.value.find(u => u.id === id)
-    return u ? (u.display_name || u.username) : `#${id}`
+    const found = users.value.find(u => u.id === id)
+    return found ? (found.display_name || found.username) : `#${id}`
   }
   if (type === 'team') {
-    const team = teams.value.find(t => t.id === id)
-    return team ? team.name : `#${id}`
+    const found = teams.value.find(team => team.id === id)
+    return found ? found.name : `#${id}`
   }
   if (type === 'schedule') {
-    const s = schedules.value.find(s => s.id === id)
-    return s ? s.name : `#${id}`
+    const found = schedules.value.find(sch => sch.id === id)
+    return found ? found.name : `#${id}`
   }
   return `#${id}`
 }

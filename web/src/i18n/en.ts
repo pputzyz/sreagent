@@ -89,6 +89,7 @@ export default {
     importFailed: 'Import failed',
     unknownError: 'Unknown error',
     optional: 'Optional',
+    filtered: 'filtered',
   },
   error: {
     renderError: 'Render error',
@@ -581,6 +582,7 @@ export default {
     importSuccess: 'Dashboard imported',
     exportSuccess: 'Dashboard exported',
     importError: 'Import failed, please check file format',
+    importParseError: 'Failed to parse JSON file',
     invalidFile: 'Invalid dashboard file',
     moreActions: 'More Actions',
     // Business Group Sharing
