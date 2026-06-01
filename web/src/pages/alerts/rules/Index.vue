@@ -3,7 +3,7 @@ import { h, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useMessage, useDialog, NButton, NIcon, NDropdown, NInput, NSelect, NPagination, NSwitch, NModal, NForm, NFormItem, NSpace, NSpin, NAlert, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
-import { alertRuleApi, datasourceApi } from '@/api'
+import { alertRuleApi, datasourceApi, muteRuleApi } from '@/api'
 import type { AlertRule, DataSource } from '@/types'
 import type { RuleGenerateResult, MuteRuleGenerateResult } from '@/types/ai-module'
 import { usePaginatedList, useAIModule, useFilterMemory, usePermissions } from '@/composables'
@@ -122,14 +122,36 @@ function openAIGenerate() {
 }
 
 async function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) {
+  // Route mute rule results to the mute rule API instead of alert rule API
+  if ('match_labels' in result) {
+    const muteResult = result as MuteRuleGenerateResult
+    try {
+      await muteRuleApi.create({
+        name: muteResult.name,
+        description: muteResult.description || '',
+        match_labels: muteResult.match_labels || {},
+        severities: JSON.stringify(muteResult.severities || []),
+        start_time: muteResult.start_time,
+        end_time: muteResult.end_time,
+        periodic_start: muteResult.periodic_start,
+        periodic_end: muteResult.periodic_end,
+        days_of_week: JSON.stringify(muteResult.days_of_week || []),
+      })
+      message.success(t('common.createSuccess'))
+      fetchList()
+    } catch (err: unknown) {
+      message.error(getErrorMessage(err))
+    }
+    return
+  }
   try {
     await alertRuleApi.create({
       name: result.name,
-      expression: (result as RuleGenerateResult).expression || '',
-      for_duration: (result as RuleGenerateResult).for_duration || '0s',
-      severity: ((result as RuleGenerateResult).severity as AlertRule['severity']) || 'warning',
-      labels: (result as RuleGenerateResult).labels || {},
-      annotations: (result as RuleGenerateResult).annotations || {},
+      expression: result.expression || '',
+      for_duration: result.for_duration || '0s',
+      severity: (result.severity as AlertRule['severity']) || 'warning',
+      labels: result.labels || {},
+      annotations: result.annotations || {},
     })
     message.success(t('common.createSuccess'))
     fetchList()

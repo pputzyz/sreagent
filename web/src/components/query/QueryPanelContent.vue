@@ -53,6 +53,7 @@ const emit = defineEmits<{
 
 // Local copy of stepValue so we can use v-model
 const localStepValue = ref(props.stepValue)
+watch(() => props.stepValue, (v) => { localStepValue.value = v })
 
 const { t } = useI18n()
 const message = useMessage()
@@ -431,10 +432,9 @@ function onTokenFilter(key: string, value: string, operator: string) {
 }
 
 // --- Chart option ---
+watch(metricData, () => { isolatedSeries.value = null })
 const chartOption = computed(() => {
   if (!metricData.value?.series?.length) return null
-  // Reset isolation when data changes
-  isolatedSeries.value = null
   interface EChartsSeries { name: string; type: string; data: [number, number][]; smooth: boolean; showSymbol: boolean; connectNulls: boolean; lineStyle: { width: number }; areaStyle?: { opacity: number } }
   const seriesList: EChartsSeries[] = []
   const isArea = chartSettings.value.chartType === 'area'
@@ -464,10 +464,15 @@ const chartOption = computed(() => {
           const labels = series?.labels || {}
           const labelParts = Object.entries(labels)
             .filter(([k]) => k !== '__name__')
-            .map(([k, v]) => `<span style="color:${secondaryColor}">${k}</span>=${v}`)
+            .map(([k, v]) => {
+              const safeK = k.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+              const safeV = String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+              return `<span style="color:${secondaryColor}">${safeK}</span>=${safeV}`
+            })
             .join(' ')
           html += `<div style="font-size:11px;margin:3px 0;line-height:1.4">`
-          html += `<div style="display:flex;align-items:center;gap:4px">${item.marker}<span style="font-weight:600">${item.seriesName}</span>: <strong>${val}</strong></div>`
+          const safeSeriesName = item.seriesName.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          html += `<div style="display:flex;align-items:center;gap:4px">${item.marker}<span style="font-weight:600">${safeSeriesName}</span>: <strong>${val}</strong></div>`
           if (labelParts) html += `<div style="padding-left:16px;font-size:10px;color:${secondaryColor};word-break:break-all">${labelParts}</div>`
           html += `</div>`
         }

@@ -25,7 +25,7 @@ const searchQuery = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => fetchList(), 300)
+  searchTimer = setTimeout(() => { page.value = 1; fetchList() }, 300)
 }
 
 onBeforeUnmount(() => {

@@ -224,10 +224,14 @@ function summarizeMedia(r: NotifyRule): string[] {
 }
 
 async function toggleEnabled(row: NotifyRule, val: boolean) {
+  const original = row.is_enabled
+  rules.value = rules.value.map(r => r.id === row.id ? { ...r, is_enabled: val } : r)
   try {
     await notifyRuleApi.update(row.id, { is_enabled: val })
-    rules.value = rules.value.map(r => r.id === row.id ? { ...r, is_enabled: val } : r)
-  } catch (err: unknown) { message.error(getErrorMessage(err)) }
+  } catch (err: unknown) {
+    rules.value = rules.value.map(r => r.id === row.id ? { ...r, is_enabled: original } : r)
+    message.error(getErrorMessage(err))
+  }
 }
 
 function rowMenu(row: NotifyRule) {

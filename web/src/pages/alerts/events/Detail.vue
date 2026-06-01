@@ -36,7 +36,8 @@ const commentText = ref('')
 const loading = ref(false)
 const activeTab = ref<'overview' | 'timeline' | 'ai'>('overview')
 
-const eventId = Number(route.params.id)
+const eventId = computed(() => Number(route.params.id))
+watch(eventId, () => { if (eventId.value) fetchEvent() })
 
 // ── Silence modal ──
 const showSilenceModal = ref(false)
@@ -138,7 +139,7 @@ function copyText(value: string, hint = t('common.copied')) {
 async function fetchEvent() {
   loading.value = true
   try {
-    const { data } = await alertEventApi.get(eventId)
+    const { data } = await alertEventApi.get(eventId.value)
     event.value = data.data
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
   finally { loading.value = false }
@@ -146,7 +147,7 @@ async function fetchEvent() {
 
 async function fetchTimeline() {
   try {
-    const { data } = await alertEventApi.getTimeline(eventId)
+    const { data } = await alertEventApi.getTimeline(eventId.value)
     timeline.value = data.data || []
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
 }
@@ -167,7 +168,7 @@ const actionLoading = ref(false)
 async function handleAck() {
   actionLoading.value = true
   try {
-    await alertEventApi.acknowledge(eventId)
+    await alertEventApi.acknowledge(eventId.value)
     message.success(t('alert.alertAcknowledged'))
     refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
@@ -177,7 +178,7 @@ async function handleAck() {
 async function handleResolve() {
   actionLoading.value = true
   try {
-    await alertEventApi.resolve(eventId, { resolution: t('alert.manuallyResolved') })
+    await alertEventApi.resolve(eventId.value, { resolution: t('alert.manuallyResolved') })
     message.success(t('alert.alertResolved'))
     refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
@@ -187,7 +188,7 @@ async function handleResolve() {
 async function handleClose() {
   actionLoading.value = true
   try {
-    await alertEventApi.close(eventId)
+    await alertEventApi.close(eventId.value)
     message.success(t('alert.alertClosed'))
     refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
@@ -203,7 +204,7 @@ async function handleSilence() {
   if (!silenceReason.value.trim()) { message.warning(t('alert.silenceReasonPlaceholder')); return }
   silenceSaving.value = true
   try {
-    await alertEventApi.silence(eventId, { duration_minutes: silenceDuration.value, reason: silenceReason.value })
+    await alertEventApi.silence(eventId.value, { duration_minutes: silenceDuration.value, reason: silenceReason.value })
     message.success(t('alert.silenceSuccess'))
     showSilenceModal.value = false; refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
@@ -220,7 +221,7 @@ async function handleAssign() {
   if (!assignUserId.value) { message.warning(t('alert.selectUser')); return }
   assignSaving.value = true
   try {
-    await alertEventApi.assign(eventId, { assign_to: assignUserId.value, note: assignNote.value || undefined })
+    await alertEventApi.assign(eventId.value, { assign_to: assignUserId.value, note: assignNote.value || undefined })
     message.success(t('alert.assignSuccess'))
     showAssignModal.value = false; refreshAll()
   } catch (err: unknown) { message.error(getErrorMessage(err)) }
@@ -232,7 +233,7 @@ async function handleComment() {
   if (!commentText.value.trim()) return
   commentLoading.value = true
   try {
-    await alertEventApi.comment(eventId, { note: commentText.value })
+    await alertEventApi.comment(eventId.value, { note: commentText.value })
     commentText.value = ''
     message.success(t('alert.commentAdded'))
     fetchTimeline()
@@ -264,7 +265,7 @@ const aiReportError = ref('')
 async function generateAIReport() {
   aiReportLoading.value = true; aiReportError.value = ''
   try {
-    const res = await aiApi.generateReport(eventId)
+    const res = await aiApi.generateReport(eventId.value)
     const d = res.data.data
     aiReport.value = typeof d === 'string' ? d : (d as any)?.report ?? JSON.stringify(d)
   } catch (err: unknown) { aiReportError.value = getErrorMessage(err) || t('alert.aiReportError') }
@@ -278,7 +279,7 @@ const sopError = ref('')
 async function generateSOP() {
   sopLoading.value = true; sopError.value = ''
   try {
-    const res = await aiApi.suggestSOP(eventId)
+    const res = await aiApi.suggestSOP(eventId.value)
     const d = res.data.data
     sopReport.value = typeof d === 'string' ? d : (d as any)?.sop ?? JSON.stringify(d)
   } catch (err: unknown) { sopError.value = getErrorMessage(err) || t('alert.aiReportError') }

@@ -128,6 +128,7 @@ const typeFilter = ref<'all' | DataSourceType>('all')
 // Health check history drawer
 interface HealthLogEntry {
   id: number
+  dsId: number
   time: string
   status: 'healthy' | 'unhealthy'
   latency: string
@@ -135,7 +136,9 @@ interface HealthLogEntry {
 }
 const healthDrawerVisible = ref(false)
 const healthDrawerTitle = ref('')
-const healthLogs = ref<HealthLogEntry[]>([])
+const healthDrawerDsId = ref(0)
+const allHealthLogs = ref<HealthLogEntry[]>([])
+const healthLogs = computed(() => allHealthLogs.value.filter(l => l.dsId === healthDrawerDsId.value))
 let healthLogIdSeq = 0
 
 const healthLogColumns = [
@@ -149,6 +152,7 @@ const healthLogColumns = [
 ]
 
 function openHealthDrawer(ds: DSCard) {
+  healthDrawerDsId.value = ds.id
   healthDrawerTitle.value = `${ds.name} — ${t('datasource.healthLog')}`
   healthDrawerVisible.value = true
 }
@@ -187,12 +191,12 @@ async function testHealth(ds: DSCard) {
     ds._lastCheckAt = new Date().toISOString()
     ds.status = r.status as DataSourceStatus
     if (r.version) ds.version = r.version
-    // Push to health log (max 20 entries)
+    // Push to health log (max 50 entries total)
     healthLogIdSeq++
-    healthLogs.value = [
-      { id: healthLogIdSeq, time: new Date().toLocaleString(), status: r.status as 'healthy' | 'unhealthy', latency: r.latency_ms >= 0 ? `${r.latency_ms}ms` : '—', error: r.message || '' },
-      ...healthLogs.value,
-    ].slice(0, 20)
+    allHealthLogs.value = [
+      { id: healthLogIdSeq, dsId: ds.id, time: new Date().toLocaleString(), status: r.status as 'healthy' | 'unhealthy', latency: r.latency_ms >= 0 ? `${r.latency_ms}ms` : '—', error: r.message || '' },
+      ...allHealthLogs.value,
+    ].slice(0, 50)
     if (r.status === 'healthy') {
       message.success(`${ds.name} · ${r.latency_ms}ms${r.version ? ' · ' + r.version : ''}`, { duration: 3500 })
     } else {
