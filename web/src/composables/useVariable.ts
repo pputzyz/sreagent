@@ -2,7 +2,7 @@ import { ref, watch, onUnmounted, computed, type Ref } from 'vue'
 import { datasourceApi } from '@/api'
 import { computeTimeStep } from '@/utils/timeStep'
 import type { VariableConfig } from '@/types/dashboard'
-import type { TimeRange } from '@/types/query'
+import type { QueryTimeRange } from '@/types/query'
 
 const ALL_SENTINEL = '__all'
 
@@ -28,7 +28,7 @@ export interface UseVariableOptions {
 
 export function useVariable(
   variables: Ref<VariableConfig[]>,
-  timeRange: Ref<TimeRange>,
+  timeRange: Ref<QueryTimeRange>,
   options?: UseVariableOptions,
 ) {
   const states = ref<Map<string, VariableState>>(new Map())
@@ -497,6 +497,6 @@ export function useVariable(
   }
 }
 
-function autoInterval(tr: TimeRange): string {
+function autoInterval(tr: QueryTimeRange): string {
   return computeTimeStep((tr.end - tr.start) / 1000)
 }

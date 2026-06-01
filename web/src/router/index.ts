@@ -184,7 +184,7 @@ router.beforeEach((to, _from, next) => {
     const authStore = useAuthStore()
     const role = authStore.user?.role || localStorage.getItem('user_role')
     const allowedRoles = to.meta.requiresRole as string[]
-    if (role && !allowedRoles.includes(role)) {
+    if (!role || !allowedRoles.includes(role)) {
       next({ path: '/' })
     } else {
       next()

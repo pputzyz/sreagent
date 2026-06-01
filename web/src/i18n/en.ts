@@ -857,7 +857,6 @@ export default {
     aiDescription: 'Description',
     aiRegenerate: 'Regenerate',
     aiConfirmCreate: 'Confirm Create',
-    aiSaveDraft: 'Save as Draft',
     statusDraft: 'Draft',
     aiGenDuration: 'Duration',
     aiGenLabels: 'Labels',
@@ -951,7 +950,6 @@ export default {
     notifyConfig: 'Notification Settings',
     mediaType: 'Notify Method',
     larkPersonal: 'Lark Personal Message',
-    larkpersonal: 'Lark Personal Message',
     email: 'Email',
     webhook: 'Webhook',
     configValue: 'Config Value',
@@ -1944,6 +1942,7 @@ export default {
   },
   role: {
     admin: 'Admin',
+    team_lead: 'Team Lead',
     member: 'Member',
   },
   inhibition: {
@@ -3525,5 +3524,12 @@ export default {
     myTemplates: 'My Templates',
     title: 'Template Library',
     subtitle: 'Browse and apply built-in presets and custom templates',
+  },
+
+  // ── Not Found ──
+  notFound: {
+    title: 'Page Not Found',
+    description: 'The page you are looking for does not exist or has been removed',
+    goHome: 'Go Home',
   },
 }

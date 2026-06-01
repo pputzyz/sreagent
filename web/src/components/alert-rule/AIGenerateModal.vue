@@ -119,7 +119,7 @@ async function handleSaveAsDraft() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning(t('aiGenerate.selectDatasourceFirst'))
+    message.warning(t('alert.selectDatasourceFirst'))
     return
   }
   saving.value = true
@@ -136,7 +136,7 @@ async function handleSaveAsDraft() {
       status: 'draft',
       enabled: false,
     })
-    message.success(t('aiGenerate.savedAsDraft'))
+    message.success(t('alert.savedAsDraft'))
     emit('saved', { draft: true })
     show.value = false
   } catch (err: unknown) {
@@ -151,7 +151,7 @@ async function handleSaveAsActive() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning(t('aiGenerate.selectDatasourceFirst'))
+    message.warning(t('alert.selectDatasourceFirst'))
     return
   }
   saving.value = true
@@ -168,7 +168,7 @@ async function handleSaveAsActive() {
       status: 'active',
       enabled: true,
     })
-    message.success(t('aiGenerate.ruleCreatedEnabled'))
+    message.success(t('alert.ruleCreatedEnabled'))
     emit('saved', { draft: false })
     show.value = false
   } catch (err: unknown) {
@@ -183,7 +183,7 @@ async function handleDryRun() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning(t('aiGenerate.selectDatasourceFirst'))
+    message.warning(t('alert.selectDatasourceFirst'))
     return
   }
   dryRunLoading.value = true
@@ -215,7 +215,7 @@ async function handleLabelPreview() {
   const ruleResult = result.value as RuleGenerateResult
   const dsId = selectedDatasourceId.value
   if (!dsId) {
-    message.warning(t('aiGenerate.selectDatasourceFirst'))
+    message.warning(t('alert.selectDatasourceFirst'))
     return
   }
   labelLoading.value = true
@@ -364,18 +364,18 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
 
       <!-- Dry-run & Label Preview (rule type only) -->
       <NCollapse v-if="result && ruleType === 'rule'" class="mt-3">
-        <NCollapseItem :title="t('aiGenerate.dryRun')" name="dry-run">
+        <NCollapseItem :title="t('alert.dryRun')" name="dry-run">
           <NSpace vertical>
             <NButton size="small" :loading="dryRunLoading" @click="handleDryRun">
-              {{ t('aiGenerate.runDryRun') }}
+              {{ t('alert.runDryRun') }}
             </NButton>
             <template v-if="dryRunResult">
               <NSpace>
                 <NTag :type="dryRunResult.would_fire ? 'error' : 'success'" size="small">
-                  {{ dryRunResult.would_fire ? t('aiGenerate.wouldFire') : t('aiGenerate.wouldNotFire') }}
+                  {{ dryRunResult.would_fire ? t('alert.wouldFire') : t('alert.wouldNotFire') }}
                 </NTag>
-                <NText>{{ t('aiGenerate.matchedSeries', { count: dryRunResult.series_count }) }}</NText>
-                <NText>{{ t('aiGenerate.evalDuration', { ms: dryRunResult.eval_duration_ms }) }}</NText>
+                <NText>{{ t('alert.matchedSeries', { count: dryRunResult.series_count }) }}</NText>
+                <NText>{{ t('alert.evalDuration', { ms: dryRunResult.eval_duration_ms }) }}</NText>
               </NSpace>
               <NDataTable
                 v-if="dryRunResult.sample_series?.length"
@@ -388,19 +388,19 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
           </NSpace>
         </NCollapseItem>
 
-        <NCollapseItem :title="t('aiGenerate.labelPreview')" name="labels">
+        <NCollapseItem :title="t('alert.labelPreview')" name="labels">
           <NSpace vertical>
             <NButton size="small" :loading="labelLoading" @click="handleLabelPreview">
-              {{ t('aiGenerate.queryMatches') }}
+              {{ t('alert.queryMatches') }}
             </NButton>
             <template v-if="labelHits.length">
               <div v-for="hit in labelHits" :key="hit.key" class="label-hit-item">
                 <NTag :type="hit.matched ? 'success' : 'warning'" size="small">
                   {{ hit.matched ? '✓' : '⚠' }} {{ hit.key }}
                 </NTag>
-                <span class="label-hit-detail">{{ t('aiGenerate.ruleValue') }}: {{ hit.ruleValue }}</span>
+                <span class="label-hit-detail">{{ t('alert.ruleValue') }}: {{ hit.ruleValue }}</span>
                 <span v-if="hit.registryValues.length" class="label-hit-detail">
-                  {{ t('aiGenerate.existing') }}: {{ hit.registryValues.join(', ') }}
+                  {{ t('alert.existing') }}: {{ hit.registryValues.join(', ') }}
                 </span>
               </div>
             </template>
@@ -410,14 +410,14 @@ const isMuteResult = (r: RuleGenerateResult | MuteRuleGenerateResult): r is Mute
 
       <NSpace justify="end" style="margin-top: 16px">
         <NButton :loading="generating" @click="handleRegenerate">
-          {{ t('aiGenerate.regenerate') }}
+          {{ t('alert.regenerate') }}
         </NButton>
         <template v-if="ruleType === 'rule'">
           <NButton :loading="saving" @click="handleSaveAsDraft">
-            {{ t('aiGenerate.saveAsDraft') }}
+            {{ t('alert.saveAsDraft') }}
           </NButton>
           <NButton type="primary" :loading="saving" @click="handleSaveAsActive">
-            {{ t('aiGenerate.saveAndEnable') }}
+            {{ t('alert.saveAndEnable') }}
           </NButton>
         </template>
         <template v-else>

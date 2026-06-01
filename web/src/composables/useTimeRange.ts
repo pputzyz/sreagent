@@ -1,6 +1,6 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TimeRange, RelativeTimeOption, AutoRefreshOption } from '@/types/query'
+import type { QueryTimeRange, RelativeTimeOption, AutoRefreshOption } from '@/types/query'
 
 export function useRelativeTimeOptions(): RelativeTimeOption[] {
   const { t } = useI18n()
@@ -48,7 +48,7 @@ export const autoRefreshOptions: AutoRefreshOption[] = [
   { label: '5m', value: 300000 },
 ]
 
-function computeRange(ms: number): TimeRange {
+function computeRange(ms: number): QueryTimeRange {
   const end = Date.now()
   return { start: end - ms, end }
 }
@@ -56,7 +56,7 @@ function computeRange(ms: number): TimeRange {
 export function useTimeRange(defaultDuration = '1h') {
   const relativeOptions = useRelativeTimeOptions()
   const defaultOpt = relativeOptions.find(o => o.value === defaultDuration) || relativeOptions.find(o => o.value === '1h')!
-  const timeRange = ref<TimeRange>(computeRange(defaultOpt.ms))
+  const timeRange = ref<QueryTimeRange>(computeRange(defaultOpt.ms))
   const isRelative = ref(true)
   const relativeDuration = ref(defaultDuration)
   const autoRefreshInterval = ref<number | null>(null)

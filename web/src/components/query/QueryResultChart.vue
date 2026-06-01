@@ -12,14 +12,14 @@ import {
 } from 'echarts/components'
 import { NTabs, NTabPane, NDataTable } from 'naive-ui'
 import VChart from 'vue-echarts'
-import type { QueryTarget, TimeRange, QuerySeriesItem } from '@/types/query'
+import type { QueryTarget, QueryTimeRange, QuerySeriesItem } from '@/types/query'
 import { formatValue, type ValueFormat } from '@/utils/valueFormatter'
 
 use([CanvasRenderer, LineChart, TooltipComponent, LegendComponent, GridComponent, DataZoomComponent])
 
 const props = withDefaults(defineProps<{
   targets: QueryTarget[]
-  timeRange: TimeRange
+  timeRange: QueryTimeRange
   height?: number
   valueFormat?: ValueFormat
 }>(), {

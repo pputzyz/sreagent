@@ -866,7 +866,6 @@ export default {
     aiDescription: '描述',
     aiRegenerate: '重新生成',
     aiConfirmCreate: '确认创建',
-    aiSaveDraft: '保存为草稿',
     statusDraft: '草稿',
     aiGenDuration: '持续时间',
     aiGenLabels: '标签',
@@ -960,7 +959,6 @@ export default {
     notifyConfig: '通知设置',
     mediaType: '通知方式',
     larkPersonal: '飞书个人消息',
-    larkpersonal: '飞书个人消息',
     email: '邮件',
     webhook: 'Webhook',
     configValue: '配置值',
@@ -1961,6 +1959,7 @@ export default {
   },
   role: {
     admin: '管理员',
+    team_lead: '团队负责人',
     member: '成员',
   },
   // Status Page
@@ -3286,7 +3285,7 @@ export default {
   },
   esPatterns: {
     title: 'ES 索引模式',
-    create: '创建索引模式',
+    create: '创建',
     edit: '编辑索引模式',
     datasource: '数据源',
     datasourcePlaceholder: '选择 Elasticsearch 数据源',
@@ -3544,5 +3543,12 @@ export default {
     myTemplates: '我的模板',
     title: '模板库',
     subtitle: '浏览和应用内置预设规则及自定义模板',
+  },
+
+  // ── Not Found ──
+  notFound: {
+    title: '页面未找到',
+    description: '您访问的页面不存在或已被移除',
+    goHome: '返回首页',
   },
 }

@@ -3,9 +3,9 @@ import { useI18n } from 'vue-i18n'
 import { datasourceApi } from '@/api'
 import { getErrorMessage } from '@/utils/format'
 import { computeTimeStep } from '@/utils/timeStep'
-import type { TimeRange, QueryTarget, QuerySeriesItem } from '@/types/query'
+import type { QueryTimeRange, QueryTarget, QuerySeriesItem } from '@/types/query'
 
-function autoStep(timeRange: TimeRange): string {
+function autoStep(timeRange: QueryTimeRange): string {
   return computeTimeStep((timeRange.end - timeRange.start) / 1000)
 }
 
@@ -34,7 +34,7 @@ export function createDefaultTarget(): QueryTarget {
   }
 }
 
-export function useQueryEngine(timeRange: Ref<TimeRange>) {
+export function useQueryEngine(timeRange: Ref<QueryTimeRange>) {
   const { t } = useI18n()
   const targets = ref<QueryTarget[]>([createDefaultTarget()])
   const globalLoading = ref(false)

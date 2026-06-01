@@ -1,5 +1,5 @@
 /** Time range for queries (Unix milliseconds) */
-export interface TimeRange {
+export interface QueryTimeRange {
   start: number
   end: number
 }

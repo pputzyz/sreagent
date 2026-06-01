@@ -2,10 +2,10 @@
 import { ref, computed } from 'vue'
 import { NSelect, NDatePicker, NButton, NSpace, NIcon } from 'naive-ui'
 import { useRelativeTimeOptions } from '@/composables/useTimeRange'
-import type { TimeRange } from '@/types/query'
+import type { QueryTimeRange } from '@/types/query'
 
 const props = defineProps<{
-  timeRange: TimeRange
+  timeRange: QueryTimeRange
   isRelative: boolean
   relativeDuration: string
 }>()
