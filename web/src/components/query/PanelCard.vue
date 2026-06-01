@@ -26,6 +26,7 @@ const props = defineProps<{
 
 const loading = ref(false)
 const error = ref('')
+let activeAbort: AbortController | null = null
 
 // FE4-10: Fullscreen mode
 const cardRef = ref<HTMLElement | null>(null)
@@ -100,25 +101,38 @@ async function fetchData() {
   const targets = props.panel.targets
   if (!targets?.length) return
 
+  // Cancel previous in-flight requests
+  if (activeAbort) activeAbort.abort()
+  const controller = new AbortController()
+  activeAbort = controller
+
   loading.value = true
   error.value = ''
   series.value = []
 
   try {
+    const validTargets = targets.filter(t => t.datasourceId && t.expression?.trim())
+    const results = await Promise.all(
+      validTargets.map(t =>
+        datasourceApi.rangeQuery(t.datasourceId!, {
+          expression: t.expression,
+          start: Math.floor(props.timeRange.start / 1000),
+          end: Math.floor(props.timeRange.end / 1000),
+          step: stepAuto.value,
+        }),
+      ),
+    )
+
+    if (controller.signal.aborted) return
+
     const allSeries: QueryResponse['series'] = []
     let type: 'vector' | 'matrix' | 'logs' | null = null
 
-    for (const t of targets) {
-      if (!t.datasourceId || !t.expression?.trim()) continue
-      const res = await datasourceApi.rangeQuery(t.datasourceId, {
-        expression: t.expression,
-        start: Math.floor(props.timeRange.start / 1000),
-        end: Math.floor(props.timeRange.end / 1000),
-        step: stepAuto.value,
-      })
+    results.forEach((res, i) => {
       const data = res.data.data
       if (data.result_type) type = data.result_type
       if (data.series) {
+        const t = validTargets[i]
         for (const s of data.series) {
           const labelStr = Object.entries(s.labels || {})
             .filter(([k]) => k !== '__name__')
@@ -130,14 +144,15 @@ async function fetchData() {
           allSeries.push({ ...s, labels: { ...s.labels, __panel_name: name } })
         }
       }
-    }
+    })
     resultType.value = type
     series.value = allSeries
   } catch (err: unknown) {
+    if (controller.signal.aborted) return
     const e = err as { response?: { data?: { message?: string } }; message?: string }
     error.value = e?.response?.data?.message || e?.message || t('query.queryFailed')
   } finally {
-    loading.value = false
+    if (!controller.signal.aborted) loading.value = false
   }
 }
 

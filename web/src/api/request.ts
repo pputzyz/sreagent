@@ -69,6 +69,7 @@ request.interceptors.request.use(
 )
 
 // Prevent multiple simultaneous 401 redirects / refresh attempts
+const retriedRequests = new WeakSet<object>()
 const REDIRECT_DEBOUNCE_MS = 2000
 let isRedirecting = false
 let refreshPromise: Promise<string> | null = null
@@ -100,7 +101,7 @@ request.interceptors.response.use(
     const data = error.response?.data as ApiResponse | undefined
     const code = data?.code || 0
 
-    if (error.response?.status === 401 && !originalRequest._retried) {
+    if (error.response?.status === 401 && !retriedRequests.has(originalRequest)) {
       // If the backend returned a specific error code (e.g. 10102 invalid credentials),
       // surface the localized message directly — don't attempt token refresh.
       if (code && code !== 10101) {
@@ -108,7 +109,7 @@ request.interceptors.response.use(
         return Promise.reject(new Error(localizeError(code, fallback)))
       }
 
-      originalRequest._retried = true
+      retriedRequests.add(originalRequest)
       const storedToken = localStorage.getItem('token')
       if (storedToken && !isRedirecting) {
         try {

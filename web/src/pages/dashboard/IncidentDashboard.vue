@@ -4,9 +4,10 @@
  */
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NIcon } from 'naive-ui'
+import { useMessage, NIcon, NAlert, NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { dashboardV2StatsApi } from '@/api'
+import type { ChannelStatItem, TeamStatItem, IncidentTrendPoint } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
@@ -21,8 +22,10 @@ const router = useRouter()
 const loading = ref(false)
 const firstLoaded = ref(false)
 const days = ref(30)
+const loadError = ref<string | null>(null)
 
-interface IncidentStats {
+// Local interface for the incident-stats endpoint (different shape from @/types.IncidentStats)
+interface DashboardIncidentStats {
   active_incidents?: number
   closed_today?: number
   critical_active?: number
@@ -30,35 +33,15 @@ interface IncidentStats {
   total_post_mortems?: number
   published_post_mortems?: number
 }
-interface ChannelStatsRow {
-  channel_id?: number
-  channel_name?: string
-  total: number
-  triggered: number
-  critical: number
-  closed: number
-}
-interface TeamStatsRow {
-  team_id?: number
-  team_name?: string
-  total: number
-  critical: number
-  closed: number
-  avg_mttr_seconds?: number
-}
-interface TrendPoint {
-  date: string
-  triggered: number
-  closed: number
-}
 
-const incidentStats = ref<IncidentStats | null>(null)
-const channelStats = ref<ChannelStatsRow[]>([])
-const teamStats = ref<TeamStatsRow[]>([])
-const incidentTrend = ref<TrendPoint[]>([])
+const incidentStats = ref<DashboardIncidentStats | null>(null)
+const channelStats = ref<ChannelStatItem[]>([])
+const teamStats = ref<TeamStatItem[]>([])
+const incidentTrend = ref<IncidentTrendPoint[]>([])
 
 async function load() {
   loading.value = true
+  loadError.value = null
   try {
     const [isRes, csRes, tsRes, itRes] = await Promise.all([
       dashboardV2StatsApi.incidentStats(),
@@ -66,13 +49,13 @@ async function load() {
       dashboardV2StatsApi.teamStats(days.value),
       dashboardV2StatsApi.incidentTrend(days.value),
     ])
-    incidentStats.value = isRes.data.data as IncidentStats | null
+    incidentStats.value = isRes.data.data as DashboardIncidentStats | null
     channelStats.value = csRes.data.data ?? []
     teamStats.value = tsRes.data.data ?? []
     incidentTrend.value = itRes.data.data ?? []
     firstLoaded.value = true
   } catch (e: unknown) {
-    message.error(getErrorMessage(e) || t('common.loadFailed'))
+    loadError.value = getErrorMessage(e) || t('common.loadFailed')
   } finally {
     loading.value = false
   }
@@ -106,9 +89,9 @@ const kpis = computed(() => {
 const sevRatio = computed(() => {
   const s = incidentStats.value
   if (!s) return { critical: 0, normal: 0, total: 0 }
-  const crit = s.critical_active ?? 0
-  const active = s.active_incidents ?? 0
-  return { critical: crit, normal: active - crit, total: active }
+  const crit = Math.max(0, s.critical_active ?? 0)
+  const active = Math.max(0, s.active_incidents ?? 0)
+  return { critical: crit, normal: Math.max(0, active - crit), total: active }
 })
 
 function cycleDays() {
@@ -125,6 +108,22 @@ onMounted(load)
     <LoadingSkeleton v-if="loading && !firstLoaded" :rows="5" variant="kpi" />
 
     <template v-else>
+      <!-- Error banner with retry -->
+      <n-alert
+        v-if="loadError"
+        type="error"
+        :title="t('common.loadFailed')"
+        closable
+        :bordered="false"
+        style="margin-bottom: 16px"
+        @close="loadError = null"
+      >
+        <template #action>
+          <n-button size="small" @click="load">{{ t('common.retry') }}</n-button>
+        </template>
+        {{ loadError }}
+      </n-alert>
+
       <n-spin :show="loading">
         <div class="bento">
 
@@ -137,7 +136,11 @@ onMounted(load)
                 class="kpi-item"
                 :data-tone="k.tone"
                 :class="{ clickable: !!k.route }"
+                :role="k.route ? 'button' : undefined"
+                :tabindex="k.route ? 0 : undefined"
+                :aria-label="`${k.label}: ${k.value}`"
                 @click="k.route && router.push(k.route)"
+                @keydown.enter="k.route && router.push(k.route)"
               >
                 <div class="kpi-icon-wrap">
                   <n-icon :component="k.icon" :size="20" />

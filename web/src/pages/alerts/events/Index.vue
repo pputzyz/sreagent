@@ -47,6 +47,7 @@ const firstLoad = ref(true)
 const selected = ref<Set<number>>(new Set())
 const crossPageActive = ref(false)
 const crossPageLoading = ref(false)
+const eventListRef = ref<HTMLElement | null>(null)
 
 // ===== Filters =====
 type StatusTab = 'all' | 'firing' | 'acked' | 'resolved'
@@ -235,7 +236,7 @@ function refilter() {
 }
 function scrollToTop() {
   nextTick(() => {
-    const el = document.querySelector('.event-list') as HTMLElement | null
+    const el = eventListRef.value
     if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
   })
 }
@@ -313,12 +314,20 @@ async function batchSilence() {
   if (!ids.length) return
   batchLoading.value = true
   try {
-    await Promise.all(
+    const results = await Promise.allSettled(
       ids.map((id) =>
         alertEventApi.silence(id, { duration_minutes: 60, reason: 'manual batch' }),
       ),
     )
-    message.success(t('alert.silenced'))
+    const failed = results.filter(r => r.status === 'rejected').length
+    const succeeded = results.length - failed
+    if (failed === 0) {
+      message.success(t('alert.silenced'))
+    } else if (succeeded > 0) {
+      message.warning(`${succeeded}/${results.length} ${t('alert.silenced')}, ${failed} ${t('common.failed')}`)
+    } else {
+      message.error(t('common.failed'))
+    }
     selected.value = new Set()
     fetchList()
   } catch (err: unknown) {
@@ -433,16 +442,17 @@ async function selectAllAcrossPages() {
   crossPageLoading.value = true
   try {
     const tr = getTimeRange()
-    const params: Record<string, unknown> = {
+    const fetchSize = Math.min(total.value || 0, 5000)
+    const params = {
       page: 1,
-      page_size: total.value || 10000,
+      page_size: fetchSize,
       status: statusFilterArray(),
       severity: severityFilter.value ? [severityFilter.value] : undefined,
       alert_name: search.value || undefined,
       view_mode: viewMode.value,
       ...tr,
     }
-    const { data } = await alertEventApi.list(params as never)
+    const { data } = await alertEventApi.list(params)
     const allItems = data.data?.list || []
     const next = new Set<number>()
     allItems.forEach((e: AlertEvent) => next.add(e.id))
@@ -674,6 +684,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
     <NSpin v-else :show="loading && !firstLoad">
       <DynamicScroller
         v-if="filteredEvents.length > 0"
+        ref="eventListRef"
         class="event-list"
         :class="{ 'sre-stagger': firstLoad }"
         :items="filteredEvents"

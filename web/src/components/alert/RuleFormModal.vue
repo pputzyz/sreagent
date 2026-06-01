@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import {
-  useMessage, NModal, NButton, NIcon, NForm, NFormItem, NGrid, NGi,
+  useMessage, useDialog, NModal, NButton, NIcon, NForm, NFormItem, NGrid, NGi,
   NInput, NInputNumber, NSelect, NCollapseTransition, NSwitch, NCollapse, NCollapseItem,
   NCard, NDrawer, NDrawerContent, NSpin, NTabs, NTabPane, NDataTable,
 } from 'naive-ui'
@@ -36,6 +36,7 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useI18n()
 
 const modalTitle = ref('')
@@ -435,6 +436,46 @@ watch(() => props.show, (val) => {
   if (val) { initForm(); fetchLabelKeys() }
 })
 
+// Fix #1: Re-populate form when rule prop changes (e.g. parent switches which rule to edit)
+watch(() => props.rule, (newRule) => {
+  if (props.show && newRule) {
+    editingId.value = newRule.id
+    modalTitle.value = t('alert.editRule')
+    Object.assign(form, formDataFromRule(newRule))
+    queryResult.value = null
+    appliedTemplateId.value = null
+  }
+})
+
+// Fix #8: Warn when changing datasource if expression is non-empty
+const lastDatasourceId = ref<number | null>(null)
+watch(() => form.datasource_id, (newId, oldId) => {
+  if (oldId != null && newId !== oldId && form.expression.trim()) {
+    dialog.warning({
+      title: t('alert.datasourceChangeWarning'),
+      content: t('alert.datasourceChangeDescription'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => {
+        lastDatasourceId.value = newId
+      },
+      onNegativeClick: () => {
+        form.datasource_id = oldId
+      },
+    })
+  } else {
+    lastDatasourceId.value = newId
+  }
+})
+
+// Fix #9: Debounce handleTestExpression (300ms)
+const testExprTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+function handleTestExpressionDebounced() {
+  if (testExprTimer.value) clearTimeout(testExprTimer.value)
+  testExprTimer.value = setTimeout(() => { handleTestExpression() }, 300)
+}
+onUnmounted(() => { if (testExprTimer.value) clearTimeout(testExprTimer.value) })
+
 async function handleSave() {
   if (!form.name.trim()) { message.warning(t('alert.nameRequired')); return }
   if (!form.expression.trim()) { message.warning(t('alert.expressionRequired')); return }
@@ -665,7 +706,7 @@ async function handleSave() {
                     size="small"
                     :loading="queryTesting"
                     :disabled="!form.datasource_id || !form.expression.trim()"
-                    @click="handleTestExpression"
+                    @click="handleTestExpressionDebounced"
                   >
                     <template #icon><n-icon :component="PlayOutline" /></template>
                     {{ queryTesting ? t('alert.testing') : t('alert.testExpression') }}

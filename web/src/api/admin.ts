@@ -137,6 +137,29 @@ export interface AgentTask {
   completed_at?: string
 }
 
+export interface AgentConversation {
+  id: number
+  query: string
+  status: string
+  result: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  step_count: number
+}
+
+export interface AgentToolCall {
+  id: number
+  conversation_id: number
+  step_index: number
+  tool: string
+  parameters: Record<string, unknown>
+  result: string
+  status: string
+  duration_ms: number
+  created_at: string
+}
+
 export const aiAgentApi = {
   run: (query: string) =>
     request.post<ApiResponse<AgentTask>>('/ai/agent/run', { query }),
@@ -145,16 +168,16 @@ export const aiAgentApi = {
     request.get<ApiResponse<AgentTask>>(`/ai/agent/tasks/${id}`),
 
   listConversations: (page = 1, pageSize = 1) =>
-    request.get<ApiResponse<{ list: unknown[]; total: number }>>('/ai/agent/conversations', { params: { page, page_size: pageSize } }),
+    request.get<ApiResponse<{ list: AgentConversation[]; total: number }>>('/ai/agent/conversations', { params: { page, page_size: pageSize } }),
 
   getConversation: (id: number) =>
-    request.get<ApiResponse<unknown>>(`/ai/agent/conversations/${id}`),
+    request.get<ApiResponse<AgentConversation>>(`/ai/agent/conversations/${id}`),
 
   deleteConversation: (id: number) =>
     request.delete<ApiResponse<null>>(`/ai/agent/conversations/${id}`),
 
   listToolCalls: (id: number) =>
-    request.get<ApiResponse<unknown[]>>(`/ai/agent/conversations/${id}/tool-calls`),
+    request.get<ApiResponse<AgentToolCall[]>>(`/ai/agent/conversations/${id}/tool-calls`),
 }
 
 // ===== Auth API =====
