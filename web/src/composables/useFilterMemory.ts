@@ -93,7 +93,13 @@ export function useFilterMemory(pageKey: string, debounceMs = 300) {
     )
 
     // Auto-stop the watcher when the calling scope is disposed.
-    onScopeDispose(stop)
+    onScopeDispose(() => {
+      stop()
+      if (saveTimer) {
+        clearTimeout(saveTimer)
+        saveTimer = null
+      }
+    })
 
     return stop
   }

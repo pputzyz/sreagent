@@ -141,7 +141,7 @@ export function useCrudPage<T extends { id: number }>(
     const id = ++requestId
     loading.value = true
     try {
-      const { data } = await options.api.list({ page: page.value, page_size: pageSize.value })
+      const { data } = await options.api.list({ page: page.value, page_size: pageSize.value, search: search.value || undefined })
       if (id !== requestId) return // stale response, discard
       const pageData = normalizePageData<T>(data.data)
       items.value = pageData.list
@@ -182,6 +182,7 @@ export function useCrudPage<T extends { id: number }>(
   // ---- Save ----
 
   async function handleSave() {
+    if (saving.value) return
     // Validate
     if (options.validate) {
       const err = options.validate(form.value)
@@ -194,7 +195,7 @@ export function useCrudPage<T extends { id: number }>(
     saving.value = true
     try {
       const payload = options.formToPayload ? options.formToPayload(form.value) : form.value
-      if (editingId.value) {
+      if (editingId.value !== null) {
         await options.api.update(editingId.value, payload as Partial<T>)
         if (options.i18nKeys.updated) message.success(t(options.i18nKeys.updated))
       } else {
@@ -213,13 +214,19 @@ export function useCrudPage<T extends { id: number }>(
 
   // ---- Delete ----
 
+  const deletingId = ref<number | null>(null)
+
   async function handleDelete(id: number) {
+    if (deletingId.value !== null) return
+    deletingId.value = id
     try {
       await options.api.delete(id)
       if (options.i18nKeys.deleted) message.success(t(options.i18nKeys.deleted))
       await fetchList()
     } catch (err: unknown) {
       message.error(getErrorMessage(err))
+    } finally {
+      deletingId.value = null
     }
   }
 

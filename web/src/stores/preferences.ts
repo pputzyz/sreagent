@@ -53,10 +53,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
       }
     } catch (e) {
       console.warn('Failed to update preferences', e)
+      throw e
     }
   }
 
   function reset() {
+    stopOsThemeListener()
     prefs.value = { ...defaultPrefs }
     loaded.value = false
   }

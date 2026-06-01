@@ -6,11 +6,15 @@ import type { ChatMessage } from '@/types'
 
 export type ChatMode = 'alert' | 'general'
 
+/** Module-level abort controller shared across useAIChat instances */
+const moduleAbortController = { current: null as AbortController | null }
+
 /** Reset module-level singleton state (call on logout) */
 export function resetAIChat() {
-  // Note: useAIChat uses instance-level state (inside the composable function),
-  // so there are no module-level singletons to reset here.
-  // This is a no-op export for consistent API surface.
+  if (moduleAbortController.current) {
+    moduleAbortController.current.abort()
+    moduleAbortController.current = null
+  }
 }
 
 export function useAIChat() {
@@ -23,6 +27,8 @@ export function useAIChat() {
   const streamingContent = ref<string>('')
   const streaming = ref(false)
   let abortController: AbortController | null = null
+  // Sync local reference with module-level ref for resetAIChat()
+  moduleAbortController.current = abortController
 
   // FE6-7: Chat history pagination state
   const historyPageSize = 50
@@ -47,6 +53,7 @@ export function useAIChat() {
     if (!token) return false
 
     abortController = new AbortController()
+    moduleAbortController.current = abortController
     streaming.value = true
     streamingContent.value = ''
 
@@ -259,6 +266,7 @@ export function useAIChat() {
 
   async function switchMode(newMode: ChatMode) {
     if (mode.value === newMode) return
+    cancelStream()
     mode.value = newMode
     messages.value = []
     lastFailedInput.value = null

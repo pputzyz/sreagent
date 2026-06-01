@@ -304,8 +304,8 @@ export function useVariable(
   function replaceVariables(input: string): string {
     let result = replaceInString(input, states.value)
     // Built-in time variables
-    result = result.replace(/\$__from/g, String(Math.floor(timeRange.value.start / 1000)))
-    result = result.replace(/\$__to/g, String(Math.floor(timeRange.value.end / 1000)))
+    result = result.replace(/\$__from\b/g, String(Math.floor(timeRange.value.start / 1000)))
+    result = result.replace(/\$__to\b/g, String(Math.floor(timeRange.value.end / 1000)))
     result = result.replace(/\$__interval/g, autoInterval(timeRange.value))
     return result
   }
@@ -460,11 +460,13 @@ export function useVariable(
   }
 
   // Re-subscribe when variables config changes (if live mode is on)
+  let resubscribeTimer: ReturnType<typeof setTimeout> | null = null
   if (liveEnabled) {
     watch(variables, () => {
       unsubscribeAllVariables()
       // Delay slightly to let initStates complete
-      setTimeout(subscribeAllVariables, 100)
+      if (resubscribeTimer) clearTimeout(resubscribeTimer)
+      resubscribeTimer = setTimeout(subscribeAllVariables, 100)
     }, { deep: true })
   }
 
@@ -472,6 +474,7 @@ export function useVariable(
 
   // Clean up SSE connections when the component unmounts
   onUnmounted(() => {
+    if (resubscribeTimer) clearTimeout(resubscribeTimer)
     unsubscribeAllVariables()
   })
 

@@ -30,6 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** Standard username/password login */
   async function login(username: string, password: string, captchaId?: string, captcha?: string) {
     try {
+      user.value = null
       const payload: LoginPayload = { username, password }
       if (captchaId) payload.captcha_id = captchaId
       if (captcha) payload.captcha = captcha
@@ -44,10 +45,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** Accept a token from OIDC/OAuth2 callback redirect */
-  function setToken(oidcToken: string) {
+  async function setToken(oidcToken: string) {
     token.value = oidcToken
     localStorage.setItem('token', oidcToken)
-    fetchProfile()
+    await fetchProfile()
   }
 
   async function fetchProfile() {
