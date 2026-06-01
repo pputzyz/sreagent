@@ -194,6 +194,7 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(clockInterval)
   document.removeEventListener('keydown', handleGlobalKeydown)
+  if (hoverTimeout) { clearTimeout(hoverTimeout); hoverTimeout = null }
 })
 
 function selectTimezone(val: string) {

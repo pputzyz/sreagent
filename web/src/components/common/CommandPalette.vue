@@ -7,7 +7,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const {
-  visible, query, close, filteredItems, runItem, registerAction,
+  visible, query, open, close, filteredItems, runItem, registerAction,
 } = useCommandPalette()
 
 const isDark = inject<Ref<boolean>>('isDark', ref(true))
@@ -59,7 +59,7 @@ function onKeydown(e: KeyboardEvent) {
 function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault()
-    visible.value ? close() : (visible.value = true)
+    visible.value ? close() : open()
   }
 }
 

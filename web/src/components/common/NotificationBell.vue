@@ -10,6 +10,7 @@ const unreadCount = ref(0)
 const previousCount = ref(0)
 let interval: ReturnType<typeof setInterval> | null = null
 let audioCtx: AudioContext | null = null
+let alive = true
 
 // FE6-8: Notification sound using Web Audio API
 // Respects user preference in localStorage: sre.notification.sound ('on' | 'off', default 'on')
@@ -17,10 +18,11 @@ function isSoundEnabled(): boolean {
   return localStorage.getItem('sre.notification.sound') !== 'off'
 }
 
-function playNotificationSound() {
+async function playNotificationSound() {
   if (!isSoundEnabled()) return
   try {
     if (!audioCtx) audioCtx = new AudioContext()
+    if (audioCtx.state === 'suspended') await audioCtx.resume()
     const ctx = audioCtx
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -41,6 +43,7 @@ function playNotificationSound() {
 async function fetchCount() {
   try {
     const { data } = await notificationCenterApi.unreadCount()
+    if (!alive) return
     const newCount = data.data?.count || 0
     // Play sound when count increases (skip first load)
     if (previousCount.value > 0 && newCount > previousCount.value) {
@@ -63,6 +66,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  alive = false
   if (interval) clearInterval(interval)
   if (audioCtx) {
     audioCtx.close().catch(() => {})

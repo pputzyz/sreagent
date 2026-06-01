@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onUnmounted } from 'vue'
 import { NSelect, NInput, NText } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { inspectionApi } from '@/api/inspection'
@@ -51,6 +51,7 @@ const presetOptions = computed(() => [
 const presetValue = ref<string | null>(null)
 const nextRuns = ref<string[]>([])
 const error = ref('')
+let requestId = 0
 
 function onPresetChange(val: string | null) {
   if (val) {
@@ -64,6 +65,10 @@ function onInputChange(val: string) {
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
+onUnmounted(() => {
+  if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null }
+})
+
 watch(() => props.modelValue, (val) => {
   // Match preset
   const match = presetOptions.value.find(p => p.value === val)
@@ -76,17 +81,20 @@ watch(() => props.modelValue, (val) => {
     error.value = ''
     return
   }
+  const reqId = ++requestId
   debounceTimer = setTimeout(async () => {
     try {
       const res = await inspectionApi.validateCron(val)
+      if (reqId !== requestId) return // stale response
       if (res.data.data?.valid) {
-        nextRuns.value = res.data.data.next_runs.map((t: string) => new Date(t).toLocaleString())
+        nextRuns.value = res.data.data.next_runs?.map((t: string) => new Date(t).toLocaleString()) ?? []
         error.value = ''
       } else {
         nextRuns.value = []
         error.value = t('cronInput.invalidExpr')
       }
     } catch {
+      if (reqId !== requestId) return
       nextRuns.value = []
       error.value = t('cronInput.validateFailed')
     }

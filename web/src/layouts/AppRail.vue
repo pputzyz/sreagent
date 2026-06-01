@@ -136,16 +136,16 @@ function handleLogout() {
             </div>
           </div>
           <div class="user-popover-divider" />
-          <div class="user-popover-item" @click="goToProfile">
+          <div class="user-popover-item" role="button" tabindex="0" @click="goToProfile" @keydown.enter="goToProfile">
             <User :size="16" />
             <span>{{ t('header.profile') }}</span>
           </div>
-          <div class="user-popover-item" @click="handleChangePassword">
+          <div class="user-popover-item" role="button" tabindex="0" @click="handleChangePassword" @keydown.enter="handleChangePassword">
             <KeyRound :size="16" />
             <span>{{ t('header.changePassword') }}</span>
           </div>
           <div class="user-popover-divider" />
-          <div class="user-popover-item user-popover-item--danger" @click="handleLogout">
+          <div class="user-popover-item user-popover-item--danger" role="button" tabindex="0" @click="handleLogout" @keydown.enter="handleLogout">
             <LogOut :size="16" />
             <span>{{ t('header.logout') }}</span>
           </div>

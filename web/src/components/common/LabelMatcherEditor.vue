@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { NAutoComplete, NSelect, NButton, NIcon } from 'naive-ui'
 import { AddOutline, CloseOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
@@ -60,9 +60,9 @@ async function loadValues(key: string) {
   }
 }
 
-// Fire-and-forget: autocomplete suggestions are best-effort; void keeps
-// lint quiet and signals intent.
-void loadKeys()
+// Fire-and-forget: autocomplete suggestions are best-effort; deferred to
+// onMounted so props (e.g. datasourceId) are resolved before the API call.
+onMounted(() => { void loadKeys() })
 
 function addRow() {
   emit('update:modelValue', [...props.modelValue, { key: '', op: '=', value: '' }])

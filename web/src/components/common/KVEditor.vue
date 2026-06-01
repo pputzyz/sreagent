@@ -11,16 +11,16 @@
         size="small"
         style="flex: 1"
         :status="keyStatus(idx).status"
-        @update:value="(v: string) => { item.key = v || ''; emitUpdate(); $emit('keyChange', idx, v || '') }"
+        @update:value="(v: string) => onFieldChange(idx, 'key', v || '')"
       />
       <n-input
         v-else
-        v-model:value="item.key"
+        :value="item.key"
         :placeholder="resolvedKeyPlaceholder"
         size="small"
         :status="keyStatus(idx).status"
         :maxlength="maxKeyLength"
-        @update:value="emitUpdate"
+        @update:value="(v: string) => onFieldChange(idx, 'key', v)"
       />
       <n-select
         v-if="valueOptions"
@@ -31,15 +31,15 @@
         clearable
         size="small"
         style="flex: 1"
-        @update:value="(v: string) => { item.value = v || ''; emitUpdate() }"
+        @update:value="(v: string) => onFieldChange(idx, 'value', v || '')"
       />
       <n-input
         v-else
-        v-model:value="item.value"
+        :value="item.value"
         :placeholder="resolvedValuePlaceholder"
         size="small"
         :maxlength="maxValueLength"
-        @update:value="emitUpdate"
+        @update:value="(v: string) => onFieldChange(idx, 'value', v)"
       />
       <n-button size="small" quaternary type="error" @click="removeItem(idx)">
         <template #icon><n-icon :component="CloseOutline" /></template>
@@ -131,8 +131,12 @@ function removeItem(index: number) {
   emit('update:modelValue', updated)
 }
 
-function emitUpdate() {
-  emit('update:modelValue', [...props.modelValue])
+function onFieldChange(index: number, field: 'key' | 'value', val: string) {
+  const updated = props.modelValue.map((item, i) =>
+    i === index ? { ...item, [field]: val } : item,
+  )
+  emit('update:modelValue', updated)
+  if (field === 'key') emit('keyChange', index, val)
 }
 
 /** Returns validation feedback for a given row index. */

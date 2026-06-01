@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { useSlots } from 'vue'
+import { useSlots, computed } from 'vue'
 
 withDefaults(defineProps<{
   title: string
@@ -25,7 +25,7 @@ withDefaults(defineProps<{
 })
 
 const slots = useSlots()
-const hasActions = !!slots.actions
+const hasActions = computed(() => !!slots.actions)
 </script>
 
 <style scoped>
