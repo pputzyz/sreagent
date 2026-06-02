@@ -419,3 +419,45 @@ func (h *MuteRuleHandler) BatchDelete(c *gin.Context) {
 	}
 	Success(c, nil)
 }
+
+// ToggleEnabled toggles the is_enabled field of a mute rule.
+// PATCH /mute-rules/:id/toggle
+func (h *MuteRuleHandler) ToggleEnabled(c *gin.Context) {
+	id, err := GetIDParam(c, "id")
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	var req struct {
+		IsEnabled bool `json:"is_enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	existing, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	existing.IsEnabled = req.IsEnabled
+	if err := h.svc.Update(c.Request.Context(), existing); err != nil {
+		Error(c, err)
+		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		action := model.AuditActionUpdate
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: action,
+			ResourceType: model.AuditResourceMuteRule, ResourceID: &id, ResourceName: existing.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
+	Success(c, existing)
+}

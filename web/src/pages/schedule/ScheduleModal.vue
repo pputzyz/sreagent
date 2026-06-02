@@ -30,6 +30,7 @@ const form = reactive({
   timezone: 'Asia/Shanghai',
   handoff_time: '09:00',
   handoff_day: 1,
+  rotation_period_days: 1,
   severity_filter: '',
   is_enabled: true,
 })
@@ -64,6 +65,7 @@ function openCreate() {
     timezone: 'Asia/Shanghai',
     handoff_time: '09:00',
     handoff_day: 1,
+    rotation_period_days: 1,
     severity_filter: '',
     is_enabled: true,
   })
@@ -81,6 +83,7 @@ function openEdit(s: Schedule) {
     timezone: s.timezone,
     handoff_time: s.handoff_time,
     handoff_day: s.handoff_day,
+    rotation_period_days: s.rotation_period_days ?? 1,
     severity_filter: s.severity_filter || '',
     is_enabled: s.is_enabled,
   })
@@ -156,6 +159,9 @@ defineExpose({ openCreate, openEdit })
           </n-form-item>
         </n-gi>
       </n-grid>
+      <n-form-item v-if="form.rotation_type === 'custom'" :label="t('schedule.rotationPeriodDays') || 'Rotation Period (days)'">
+        <n-input-number v-model:value="form.rotation_period_days" :min="1" :max="365" style="width: 100%" />
+      </n-form-item>
       <n-form-item :label="t('common.enabled')">
         <n-switch v-model:value="form.is_enabled" />
       </n-form-item>

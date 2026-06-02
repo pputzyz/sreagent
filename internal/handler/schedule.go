@@ -40,26 +40,28 @@ func (h *ScheduleHandler) SetAuditService(svc *service.AuditLogService) {
 
 // CreateScheduleRequest is the request body for creating a schedule.
 type CreateScheduleRequest struct {
-	Name         string             `json:"name" binding:"required"`
-	TeamID       *uint              `json:"team_id"`
-	Description  string             `json:"description"`
-	RotationType model.RotationType `json:"rotation_type" binding:"required"`
-	Timezone     string             `json:"timezone"`
-	HandoffTime  string             `json:"handoff_time"`
-	HandoffDay   int                `json:"handoff_day"`
-	IsEnabled    *bool              `json:"is_enabled"`
+	Name               string             `json:"name" binding:"required"`
+	TeamID             *uint              `json:"team_id"`
+	Description        string             `json:"description"`
+	RotationType       model.RotationType `json:"rotation_type" binding:"required"`
+	Timezone           string             `json:"timezone"`
+	HandoffTime        string             `json:"handoff_time"`
+	HandoffDay         int                `json:"handoff_day"`
+	RotationPeriodDays int                `json:"rotation_period_days"`
+	IsEnabled          *bool              `json:"is_enabled"`
 }
 
 // UpdateScheduleRequest is the request body for updating a schedule.
 type UpdateScheduleRequest struct {
-	Name         string             `json:"name" binding:"required"`
-	TeamID       *uint              `json:"team_id"`
-	Description  string             `json:"description"`
-	RotationType model.RotationType `json:"rotation_type" binding:"required"`
-	Timezone     string             `json:"timezone"`
-	HandoffTime  string             `json:"handoff_time"`
-	HandoffDay   int                `json:"handoff_day"`
-	IsEnabled    *bool              `json:"is_enabled"`
+	Name               string             `json:"name" binding:"required"`
+	TeamID             *uint              `json:"team_id"`
+	Description        string             `json:"description"`
+	RotationType       model.RotationType `json:"rotation_type" binding:"required"`
+	Timezone           string             `json:"timezone"`
+	HandoffTime        string             `json:"handoff_time"`
+	HandoffDay         int                `json:"handoff_day"`
+	RotationPeriodDays int                `json:"rotation_period_days"`
+	IsEnabled          *bool              `json:"is_enabled"`
 }
 
 // SetParticipantsRequest is the request body for setting schedule participants.
@@ -148,14 +150,15 @@ func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 		zap.String("request_id", c.GetString("request_id")))
 
 	schedule := &model.Schedule{
-		Name:         req.Name,
-		TeamID:       req.TeamID,
-		Description:  req.Description,
-		RotationType: req.RotationType,
-		Timezone:     timezone,
-		HandoffTime:  handoffTime,
-		HandoffDay:   req.HandoffDay,
-		IsEnabled:    isEnabled,
+		Name:               req.Name,
+		TeamID:             req.TeamID,
+		Description:        req.Description,
+		RotationType:       req.RotationType,
+		Timezone:           timezone,
+		HandoffTime:        handoffTime,
+		HandoffDay:         req.HandoffDay,
+		RotationPeriodDays: req.RotationPeriodDays,
+		IsEnabled:          isEnabled,
 	}
 
 	if err := h.svc.CreateSchedule(c.Request.Context(), schedule); err != nil {
@@ -238,14 +241,15 @@ func (h *ScheduleHandler) UpdateSchedule(c *gin.Context) {
 		zap.String("request_id", c.GetString("request_id")))
 
 	schedule := &model.Schedule{
-		Name:         req.Name,
-		TeamID:       req.TeamID,
-		Description:  req.Description,
-		RotationType: req.RotationType,
-		Timezone:     req.Timezone,
-		HandoffTime:  req.HandoffTime,
-		HandoffDay:   req.HandoffDay,
-		IsEnabled:    isEnabled,
+		Name:               req.Name,
+		TeamID:             req.TeamID,
+		Description:        req.Description,
+		RotationType:       req.RotationType,
+		Timezone:           req.Timezone,
+		HandoffTime:        req.HandoffTime,
+		HandoffDay:         req.HandoffDay,
+		RotationPeriodDays: req.RotationPeriodDays,
+		IsEnabled:          isEnabled,
 	}
 	schedule.ID = id
 

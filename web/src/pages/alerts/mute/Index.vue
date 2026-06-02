@@ -89,7 +89,7 @@ async function fetchRules() {
 
 async function toggle(rule: MuteRule) {
   try {
-    await muteRuleApi.update(rule.id, { is_enabled: !rule.is_enabled })
+    await muteRuleApi.toggle(rule.id, !rule.is_enabled)
     message.success(rule.is_enabled ? t('mute.disabledSuccess') : t('mute.enabledSuccess'))
     fetchRules()
   } catch (err: unknown) {

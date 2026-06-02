@@ -19,6 +19,7 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		mutes.GET("/:id/preview", operate, h.MuteRule.PreviewOne)
 		mutes.POST("", manage, middleware.RequirePerm("mute.write"), h.MuteRule.Create)
 		mutes.PUT("/:id", manage, middleware.RequirePerm("mute.write"), h.MuteRule.Update)
+		mutes.PATCH("/:id/toggle", manage, middleware.RequirePerm("mute.write"), h.MuteRule.ToggleEnabled)
 		mutes.DELETE("/:id", manage, middleware.RequirePerm("mute.write"), h.MuteRule.Delete)
 		mutes.POST("/batch/enable", manage, middleware.RequirePerm("mute.write"), h.MuteRule.BatchEnable)
 		mutes.POST("/batch/disable", manage, middleware.RequirePerm("mute.write"), h.MuteRule.BatchDisable)

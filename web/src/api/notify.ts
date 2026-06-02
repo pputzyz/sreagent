@@ -112,6 +112,9 @@ export const muteRuleApi = {
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/mute-rules/${id}`),
 
+  toggle: (id: number, is_enabled: boolean) =>
+    request.patch<ApiResponse<MuteRule>>(`/mute-rules/${id}/toggle`, { is_enabled }),
+
   preview: () =>
     request.get<ApiResponse<Array<{
       rule_id: number; rule_name: string
