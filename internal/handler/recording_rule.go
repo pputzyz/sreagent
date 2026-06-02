@@ -81,6 +81,20 @@ func (h *RecordingRuleHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Validate required fields beyond binding tags
+	if req.Name == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "name is required"))
+		return
+	}
+	if req.PromQL == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "prom_ql is required"))
+		return
+	}
+	if len(req.DatasourceIDs) == 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "datasource_ids must not be empty"))
+		return
+	}
+
 	userID := GetCurrentUserID(c)
 
 	writeBack := 1 // default: write results back to datasource

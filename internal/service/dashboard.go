@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"go.uber.org/zap"
 
@@ -13,6 +15,7 @@ import (
 type DashboardService struct {
 	repo         *repository.DashboardRepository
 	bizGroupRepo *repository.DashboardBizGroupRepository
+	dsRepo       *repository.DataSourceRepository
 	logger       *zap.Logger
 }
 
@@ -25,7 +28,15 @@ func (s *DashboardService) SetBizGroupRepository(repo *repository.DashboardBizGr
 	s.bizGroupRepo = repo
 }
 
+// SetDataSourceRepository injects the datasource repository for panel validation.
+func (s *DashboardService) SetDataSourceRepository(repo *repository.DataSourceRepository) {
+	s.dsRepo = repo
+}
+
 func (s *DashboardService) Create(ctx context.Context, d *model.Dashboard) error {
+	if err := s.validateConfigDatasources(ctx, d.Config); err != nil {
+		return err
+	}
 	if err := s.repo.Create(ctx, d); err != nil {
 		s.logger.Error("failed to create dashboard", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -51,6 +62,10 @@ func (s *DashboardService) Update(ctx context.Context, d *model.Dashboard) error
 		return apperr.ErrNotFound
 	}
 
+	if err := s.validateConfigDatasources(ctx, d.Config); err != nil {
+		return err
+	}
+
 	existing.Name = d.Name
 	existing.Description = d.Description
 	existing.Tags = d.Tags
@@ -61,6 +76,34 @@ func (s *DashboardService) Update(ctx context.Context, d *model.Dashboard) error
 	if err := s.repo.Update(ctx, existing); err != nil {
 		s.logger.Error("failed to update dashboard", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// validateConfigDatasources parses the dashboard config JSON and validates that
+// all datasource_id references in panels point to existing data sources.
+func (s *DashboardService) validateConfigDatasources(ctx context.Context, config string) error {
+	if s.dsRepo == nil || config == "" {
+		return nil
+	}
+	var cfg struct {
+		Panels []struct {
+			DatasourceID *uint `json:"datasource_id"`
+		} `json:"panels"`
+	}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid dashboard config JSON")
+	}
+	seen := make(map[uint]bool)
+	for _, p := range cfg.Panels {
+		if p.DatasourceID != nil && *p.DatasourceID > 0 {
+			seen[*p.DatasourceID] = true
+		}
+	}
+	for dsID := range seen {
+		if _, err := s.dsRepo.GetByID(ctx, dsID); err != nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("datasource_id %d does not exist", dsID))
+		}
 	}
 	return nil
 }

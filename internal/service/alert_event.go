@@ -312,3 +312,8 @@ func (s *AlertEventService) AddComment(ctx context.Context, eventID, userID uint
 func (s *AlertEventService) GetTimeline(ctx context.Context, eventID uint) ([]model.AlertTimeline, error) {
 	return s.timelineRepo.ListByEventID(ctx, eventID)
 }
+
+// GetTimelinePaged returns a paginated timeline for an alert event.
+func (s *AlertEventService) GetTimelinePaged(ctx context.Context, eventID uint, page, pageSize int) ([]model.AlertTimeline, int64, error) {
+	return s.timelineRepo.ListByEventIDPaged(ctx, eventID, page, pageSize)
+}

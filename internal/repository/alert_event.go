@@ -352,3 +352,33 @@ func (r *AlertTimelineRepository) ListByEventID(ctx context.Context, eventID uin
 		Find(&list).Error
 	return list, err
 }
+
+// ListByEventIDPaged returns a paginated timeline for an alert event.
+func (r *AlertTimelineRepository) ListByEventIDPaged(ctx context.Context, eventID uint, page, pageSize int) ([]model.AlertTimeline, int64, error) {
+	var list []model.AlertTimeline
+	var total int64
+
+	q := r.db.WithContext(ctx).
+		Model(&model.AlertTimeline{}).
+		Where("event_id = ?", eventID)
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+
+	err := r.db.WithContext(ctx).
+		Preload("Operator").
+		Where("event_id = ?", eventID).
+		Order("created_at ASC").
+		Offset(offset).Limit(pageSize).
+		Find(&list).Error
+	return list, total, err
+}

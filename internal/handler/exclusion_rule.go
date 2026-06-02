@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
@@ -65,16 +67,23 @@ func (h *ExclusionRuleHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Validate conditions is valid JSON
+	cond := req.Conditions
+	if cond == "" {
+		cond = "[]"
+	}
+	if !json.Valid([]byte(cond)) {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "conditions must be valid JSON"))
+		return
+	}
+
 	rule := &model.ChannelExclusionRule{
 		ChannelID:   channelID,
 		Name:        req.Name,
 		Description: req.Description,
-		Conditions:  req.Conditions,
+		Conditions:  cond,
 		IsEnabled:   req.IsEnabled,
 		Priority:    req.Priority,
-	}
-	if rule.Conditions == "" {
-		rule.Conditions = "[]"
 	}
 
 	if err := h.svc.Create(c.Request.Context(), rule); err != nil {
@@ -96,6 +105,12 @@ func (h *ExclusionRuleHandler) Update(c *gin.Context) {
 	var req UpdateExclusionRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	// Validate conditions is valid JSON if provided
+	if req.Conditions != "" && !json.Valid([]byte(req.Conditions)) {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "conditions must be valid JSON"))
 		return
 	}
 

@@ -160,26 +160,38 @@ func (h *KnowledgeHandler) Delete(c *gin.Context) {
 // @Router /knowledge/search [post]
 func (h *KnowledgeHandler) Search(c *gin.Context) {
 	var req struct {
-		Query  string `json:"query"`
-		Source string `json:"source"`
-		TopK   int    `json:"top_k"`
+		Query    string `json:"query"`
+		Source   string `json:"source"`
+		TopK     int    `json:"top_k"`
+		Page     int    `json:"page"`
+		PageSize int    `json:"page_size"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
-	if req.TopK <= 0 {
-		req.TopK = 10
+	// Support both top_k (legacy) and page/page_size (pagination)
+	page := req.Page
+	pageSize := req.PageSize
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		if req.TopK > 0 {
+			pageSize = req.TopK
+		} else {
+			pageSize = 20
+		}
 	}
 
-	docs, err := h.svc.Search(c.Request.Context(), req.Query, req.Source, req.TopK)
+	docs, total, err := h.svc.Search(c.Request.Context(), req.Query, req.Source, page, pageSize)
 	if err != nil {
 		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
 		return
 	}
 
-	Success(c, docs)
+	SuccessPage(c, docs, total, page, pageSize)
 }
 
 // Helpful godoc

@@ -420,6 +420,7 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	// Dashboard v2 service
 	svcs.DashboardV2Svc = service.NewDashboardService(repos.DashboardV2, zapLogger)
 	svcs.DashboardV2Svc.SetBizGroupRepository(repos.DashboardBizGroup)
+	svcs.DashboardV2Svc.SetDataSourceRepository(repos.DS)
 
 	// Alert rule template service
 	svcs.TemplateSvc = service.NewAlertRuleTemplateService(repos.AlertRuleTemplate, zapLogger)

@@ -809,7 +809,7 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 				topK = 10
 			}
 
-			docs, err := kbSvc.Search(ctx, query, source, topK)
+			docs, _, err := kbSvc.Search(ctx, query, source, 1, topK)
 			if err != nil {
 				return fmt.Sprintf("搜索知识库失败: %v", err), nil
 			}

@@ -37,8 +37,8 @@ func (r *KnowledgeRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.KnowledgeDocument{}, id).Error
 }
 
-// Search performs a FULLTEXT search on title + content + summary.
-func (r *KnowledgeRepository) Search(ctx context.Context, query string, source string, topK int) ([]*model.KnowledgeDocument, error) {
+// Search performs a FULLTEXT search on title + content + summary with pagination.
+func (r *KnowledgeRepository) Search(ctx context.Context, query string, source string, page, pageSize int) ([]*model.KnowledgeDocument, int64, error) {
 	q := r.db.WithContext(ctx).
 		Where("status = ?", "active")
 
@@ -50,15 +50,24 @@ func (r *KnowledgeRepository) Search(ctx context.Context, query string, source s
 		q = q.Where("MATCH(title, content, summary) AGAINST(? IN BOOLEAN MODE)", query)
 	}
 
-	if topK <= 0 {
-		topK = 10
+	var total int64
+	if err := q.Model(&model.KnowledgeDocument{}).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
 
 	var docs []*model.KnowledgeDocument
 	err := q.Order("helpful_count DESC, view_count DESC").
-		Limit(topK).
+		Offset(offset).Limit(pageSize).
 		Find(&docs).Error
-	return docs, err
+	return docs, total, err
 }
 
 // List returns paginated knowledge documents.

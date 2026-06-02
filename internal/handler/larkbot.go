@@ -85,6 +85,19 @@ func (h *LarkBotHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
+	// When bot is enabled, app_id and app_secret are required.
+	if req.BotEnabled {
+		if req.AppID == "" {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "app_id is required when bot is enabled"))
+			return
+		}
+		// app_secret is required unless it's the masked placeholder (already saved).
+		if req.AppSecret == "" {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "app_secret is required when bot is enabled"))
+			return
+		}
+	}
+
 	if err := h.svc.UpdateConfig(c.Request.Context(), req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to save Lark config: "+err.Error()))
 		return

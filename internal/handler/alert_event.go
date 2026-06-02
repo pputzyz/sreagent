@@ -281,7 +281,7 @@ func (h *AlertEventHandler) AddComment(c *gin.Context) {
 	Success(c, nil)
 }
 
-// GetTimeline returns the timeline for an alert event.
+// GetTimeline returns the timeline for an alert event with optional pagination.
 func (h *AlertEventHandler) GetTimeline(c *gin.Context) {
 	id, err := GetIDParam(c, "id")
 	if err != nil {
@@ -289,13 +289,14 @@ func (h *AlertEventHandler) GetTimeline(c *gin.Context) {
 		return
 	}
 
-	timeline, err := h.svc.GetTimeline(c.Request.Context(), id)
+	pq := GetPageQuery(c)
+	timeline, total, err := h.svc.GetTimelinePaged(c.Request.Context(), id, pq.Page, pq.PageSize)
 	if err != nil {
 		Error(c, err)
 		return
 	}
 
-	Success(c, timeline)
+	SuccessPage(c, timeline, total, pq.Page, pq.PageSize)
 }
 
 // Silence silences an alert for a specified duration.

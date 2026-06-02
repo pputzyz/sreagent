@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, h } from 'vue'
+import { ref, shallowRef, computed, onMounted, watch, h } from 'vue'
 import {
   NButton, NIcon, NSwitch, NDropdown, NInput, NSpin,
-  NModal, NForm, NFormItem, NSpace, useMessage, useDialog,
+  NModal, NForm, NFormItem, NSpace, NPagination, useMessage, useDialog,
 } from 'naive-ui'
 import type { FormInst } from 'naive-ui'
 import {
@@ -33,6 +33,8 @@ const { isEnabled: isAIModuleEnabled, loadModules } = useAIModule()
 const list = shallowRef<InhibitionRule[]>([])
 const loading = ref(false)
 const searchKeyword = ref('')
+const page = ref(1)
+const pageSize = ref(20)
 
 // ─── AI Inhibition Generation ───
 const showAIModal = ref(false)
@@ -79,6 +81,16 @@ const filteredList = computed(() => {
     (r.description || '').toLowerCase().includes(kw)
   )
 })
+
+// Pagination
+const paginatedList = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredList.value.slice(start, start + pageSize.value)
+})
+const totalFiltered = computed(() => filteredList.value.length)
+
+// Reset page when search changes
+watch(searchKeyword, () => { page.value = 1 })
 
 async function fetchList() {
   loading.value = true
@@ -278,7 +290,7 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
     <NSpin v-else :show="loading">
       <div class="inhib-list">
         <div
-          v-for="rule in filteredList" :key="rule.id"
+          v-for="rule in paginatedList" :key="rule.id"
           class="sre-row-card inhib-row sre-lift"
           :data-dim="!rule.is_enabled || undefined"
           @click="goEdit(rule)"
@@ -328,6 +340,14 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
             </NDropdown>
           </div>
         </div>
+      </div>
+      <div v-if="totalFiltered > pageSize" class="inhib-pagination">
+        <NPagination
+          v-model:page="page"
+          :page-size="pageSize"
+          :item-count="totalFiltered"
+          show-quick-jumper
+        />
       </div>
     </NSpin>
 
@@ -435,6 +455,11 @@ function goEdit(row: InhibitionRule) { if (canManage.value) openEdit(row) }
 
 .inhib-actions {
   display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+
+.inhib-pagination {
+  display: flex; justify-content: center;
+  margin-top: 16px; padding: 8px 0;
 }
 
 /* AI Generate Modal */

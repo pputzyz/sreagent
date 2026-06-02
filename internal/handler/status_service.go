@@ -1,12 +1,26 @@
 package handler
 
 import (
+	"net/url"
+
 	"github.com/gin-gonic/gin"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
 )
+
+// validateURL checks that a URL has a valid format with http or https scheme.
+func validateURL(raw string) bool {
+	if raw == "" {
+		return true // empty is allowed
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
+}
 
 type StatusServiceHandler struct {
 	svc *service.StatusServiceService
@@ -52,6 +66,14 @@ func (h *StatusServiceHandler) Create(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+	if req.Name == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "name is required"))
+		return
+	}
+	if !validateURL(req.URL) {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "url must be a valid http/https URL"))
+		return
+	}
 	svc := &model.StatusService{
 		Name:        req.Name,
 		Status:      req.Status,
@@ -88,6 +110,14 @@ func (h *StatusServiceHandler) Update(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if req.Name != nil && *req.Name == "" {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "name cannot be empty"))
+		return
+	}
+	if req.URL != nil && !validateURL(*req.URL) {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "url must be a valid http/https URL"))
 		return
 	}
 	if req.Name != nil {

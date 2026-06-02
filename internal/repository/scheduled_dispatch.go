@@ -103,3 +103,18 @@ func (r *ScheduledDispatchRepository) MarkExpired(ctx context.Context, olderThan
 		Update("status", model.ScheduledDispatchExpired)
 	return result.RowsAffected, result.Error
 }
+
+// DeleteOldRecords deletes completed/cancelled/expired/failed dispatches older than the given time.
+// Returns the number of rows deleted.
+func (r *ScheduledDispatchRepository) DeleteOldRecords(ctx context.Context, olderThan time.Time) (int64, error) {
+	result := r.db.WithContext(ctx).
+		Where("status IN ? AND created_at < ?",
+			[]model.ScheduledDispatchStatus{
+				model.ScheduledDispatchDispatched,
+				model.ScheduledDispatchCancelled,
+				model.ScheduledDispatchExpired,
+				model.ScheduledDispatchFailed,
+			}, olderThan).
+		Delete(&model.ScheduledDispatch{})
+	return result.RowsAffected, result.Error
+}

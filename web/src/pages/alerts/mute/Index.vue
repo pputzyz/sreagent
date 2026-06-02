@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, shallowRef, reactive, computed, onMounted } from 'vue'
+import { ref, shallowRef, reactive, computed, onMounted, watch } from 'vue'
 import {
   useMessage, useDialog, NButton, NIcon, NSwitch, NDropdown,
   NRadioGroup, NRadioButton, NInput, NSelect, NSpin, NModal, NForm,
   NFormItem, NGrid, NGi, NDatePicker, NTimePicker, NCheckboxGroup, NCheckbox,
-  NSpace, NDivider,
+  NSpace, NDivider, NPagination,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import {
@@ -36,6 +36,8 @@ const rules = shallowRef<MuteRule[]>([])
 const statusFilter = ref<'all' | 'active' | 'future' | 'expired' | 'disabled'>('all')
 const searchKeyword = ref('')
 const typeFilter = ref<'all' | 'once' | 'periodic'>('all')
+const page = ref(1)
+const pageSize = ref(20)
 
 // ---------- type helpers (imported from ./utils) ----------
 function statusText(r: MuteRule): string {
@@ -73,6 +75,16 @@ const typeOptions = [
   { label: () => t('mute.oneTime'), value: 'once' },
   { label: () => t('mute.periodic'), value: 'periodic' },
 ]
+
+// Pagination
+const paginatedRules = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRules.value.slice(start, start + pageSize.value)
+})
+const totalFiltered = computed(() => filteredRules.value.length)
+
+// Reset page when filters change
+watch([statusFilter, searchKeyword, typeFilter], () => { page.value = 1 })
 
 // ---------- API ----------
 async function fetchRules() {
@@ -339,7 +351,7 @@ function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) 
     />
     <NSpin v-else :show="loading">
       <div class="mute-list">
-        <div v-for="rule in filteredRules" :key="rule.id" class="mute-rule-group">
+        <div v-for="rule in paginatedRules" :key="rule.id" class="mute-rule-group">
           <div
             class="sre-row-card mute-row sre-lift"
             :data-dim="!rule.is_enabled || undefined"
@@ -421,6 +433,14 @@ function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) 
             </NSpin>
           </div>
         </div>
+      </div>
+      <div v-if="totalFiltered > pageSize" class="mute-pagination">
+        <NPagination
+          v-model:page="page"
+          :page-size="pageSize"
+          :item-count="totalFiltered"
+          show-quick-jumper
+        />
       </div>
     </NSpin>
 
@@ -592,5 +612,9 @@ function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) 
 .mute-preview-meta {
   font-size: 11px; color: var(--sre-text-tertiary);
   display: flex; align-items: center;
+}
+.mute-pagination {
+  display: flex; justify-content: center;
+  margin-top: 16px; padding: 8px 0;
 }
 </style>

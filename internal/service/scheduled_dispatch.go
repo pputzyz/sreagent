@@ -224,6 +224,23 @@ func (s *ScheduledDispatchService) CleanupExpiredDispatches(ctx context.Context)
 	}
 }
 
+// CleanupOldRecords deletes completed/cancelled/expired/failed dispatches older than 30 days.
+// Called periodically by the background worker to prevent unbounded table growth.
+func (s *ScheduledDispatchService) CleanupOldRecords(ctx context.Context) {
+	olderThan := time.Now().Add(-30 * 24 * time.Hour)
+	count, err := s.repo.DeleteOldRecords(ctx, olderThan)
+	if err != nil {
+		s.logger.Error("failed to delete old scheduled dispatches", zap.Error(err))
+		return
+	}
+	if count > 0 {
+		s.logger.Info("deleted old scheduled dispatches",
+			zap.Int64("count", count),
+			zap.Time("older_than", olderThan),
+		)
+	}
+}
+
 // StartWorker starts the background worker that processes due dispatches.
 // Stops when ctx is cancelled.
 func (s *ScheduledDispatchService) StartWorker(ctx context.Context) {
@@ -232,6 +249,8 @@ func (s *ScheduledDispatchService) StartWorker(ctx context.Context) {
 		defer ticker.Stop()
 		cleanupTicker := time.NewTicker(10 * time.Minute)
 		defer cleanupTicker.Stop()
+		oldRecordTicker := time.NewTicker(24 * time.Hour)
+		defer oldRecordTicker.Stop()
 		s.logger.Info("scheduled dispatch worker started")
 		for {
 			select {
@@ -241,6 +260,8 @@ func (s *ScheduledDispatchService) StartWorker(ctx context.Context) {
 				}
 			case <-cleanupTicker.C:
 				s.CleanupExpiredDispatches(ctx)
+			case <-oldRecordTicker.C:
+				s.CleanupOldRecords(ctx)
 			case <-ctx.Done():
 				s.logger.Info("scheduled dispatch worker stopped")
 				return

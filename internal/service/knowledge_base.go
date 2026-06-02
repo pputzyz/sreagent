@@ -53,9 +53,9 @@ func (s *KnowledgeBaseService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// Search performs FULLTEXT search on the knowledge base.
-func (s *KnowledgeBaseService) Search(ctx context.Context, query string, source string, topK int) ([]*model.KnowledgeDocument, error) {
-	return s.repo.Search(ctx, query, source, topK)
+// Search performs FULLTEXT search on the knowledge base with pagination.
+func (s *KnowledgeBaseService) Search(ctx context.Context, query string, source string, page, pageSize int) ([]*model.KnowledgeDocument, int64, error) {
+	return s.repo.Search(ctx, query, source, page, pageSize)
 }
 
 // List returns paginated knowledge documents.
