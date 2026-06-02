@@ -3,7 +3,7 @@ import { ref, shallowRef, reactive, onMounted, onUnmounted, computed, watch } fr
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { scheduleApi, teamApi, userApi, scheduleICalApi } from '@/api'
-import type { Schedule, Team, User, OnCallShift } from '@/types'
+import type { Schedule, Team, User, OnCallShift, ScheduleOverride } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 
 import ScheduleSidebar from './ScheduleSidebar.vue'
@@ -203,6 +203,63 @@ async function handleGenerateShifts() {
   }
 }
 
+// ===== Overrides =====
+const overrides = ref<ScheduleOverride[]>([])
+const overridesLoading = ref(false)
+const showOverrideModal = ref(false)
+const overrideForm = ref({
+  user_id: null as number | null,
+  start_time: '',
+  end_time: '',
+  reason: '',
+})
+
+async function fetchOverrides() {
+  if (!selectedSchedule.value) return
+  overridesLoading.value = true
+  try {
+    const { data } = await scheduleApi.listOverrides(selectedSchedule.value.id)
+    overrides.value = data.data || []
+  } catch {
+    overrides.value = []
+  } finally {
+    overridesLoading.value = false
+  }
+}
+
+function openOverrideCreate() {
+  overrideForm.value = { user_id: null, start_time: '', end_time: '', reason: '' }
+  showOverrideModal.value = true
+}
+
+async function handleCreateOverride() {
+  if (!selectedSchedule.value || !overrideForm.value.user_id) return
+  try {
+    await scheduleApi.createOverride(selectedSchedule.value.id, {
+      user_id: overrideForm.value.user_id,
+      start_time: overrideForm.value.start_time,
+      end_time: overrideForm.value.end_time,
+      reason: overrideForm.value.reason,
+    })
+    message.success(t('schedule.overrideCreated') || 'Override created')
+    showOverrideModal.value = false
+    fetchOverrides()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  }
+}
+
+async function handleDeleteOverride(overrideId: number) {
+  if (!selectedSchedule.value) return
+  try {
+    await scheduleApi.deleteOverride(selectedSchedule.value.id, overrideId)
+    message.success(t('schedule.overrideDeleted') || 'Override deleted')
+    fetchOverrides()
+  } catch (err: unknown) {
+    message.error(getErrorMessage(err))
+  }
+}
+
 // ===== Component refs =====
 const scheduleModalRef = ref<InstanceType<typeof ScheduleModal> | null>(null)
 const shiftModalRef = ref<InstanceType<typeof ShiftModal> | null>(null)
@@ -253,6 +310,7 @@ function selectSchedule(s: Schedule) {
   activeConfigTab.value = 'config'
   participantsRef.value?.fetchParticipants()
   fetchShifts()
+  fetchOverrides()
 }
 
 async function handleDeleteSchedule(id: number) {
@@ -502,6 +560,36 @@ onMounted(() => {
                   :get-user-name="getUserName"
                 />
               </n-tab-pane>
+
+              <n-tab-pane name="overrides" :tab="t('schedule.tabOverrides') || 'Substitutes'">
+                <div class="overrides-section">
+                  <div class="overrides-header">
+                    <n-button size="small" type="primary" @click="openOverrideCreate">
+                      + {{ t('schedule.addOverride') || 'Add Substitute' }}
+                    </n-button>
+                  </div>
+                  <n-spin :show="overridesLoading">
+                    <div v-if="overrides.length === 0" class="overrides-empty">
+                      {{ t('schedule.noOverrides') || 'No substitutes configured' }}
+                    </div>
+                    <div v-else class="overrides-list">
+                      <div v-for="ov in overrides" :key="ov.id" class="override-item">
+                        <div class="override-info">
+                          <span class="override-user">{{ getUserName(ov.user_id) }}</span>
+                          <span class="override-time tnum">
+                            {{ ov.start_time ? new Date(ov.start_time).toLocaleString() : '' }}
+                            {{ ov.end_time ? '– ' + new Date(ov.end_time).toLocaleString() : '' }}
+                          </span>
+                          <span v-if="ov.reason" class="override-reason">{{ ov.reason }}</span>
+                        </div>
+                        <n-button size="tiny" quaternary type="error" @click="handleDeleteOverride(ov.id)">
+                          {{ t('common.delete') }}
+                        </n-button>
+                      </div>
+                    </div>
+                  </n-spin>
+                </div>
+              </n-tab-pane>
             </n-tabs>
           </div>
         </template>
@@ -530,6 +618,35 @@ onMounted(() => {
       :users="users"
       @saved="handleShiftSaved"
     />
+
+    <!-- Override (Substitute) Modal -->
+    <n-modal v-model:show="showOverrideModal" preset="card" :title="t('schedule.addOverride') || 'Add Substitute'" style="width: 460px" :bordered="false">
+      <n-form label-placement="top">
+        <n-form-item :label="t('schedule.overrideUser') || 'Substitute User'" required>
+          <n-select
+            v-model:value="overrideForm.user_id"
+            :options="users.map(u => ({ label: u.display_name || u.username, value: u.id }))"
+            :placeholder="t('schedule.selectUser') || 'Select user'"
+            filterable
+          />
+        </n-form-item>
+        <n-form-item :label="t('schedule.overrideStart') || 'Start Time'" required>
+          <n-input v-model:value="overrideForm.start_time" type="datetime-local" />
+        </n-form-item>
+        <n-form-item :label="t('schedule.overrideEnd') || 'End Time'" required>
+          <n-input v-model:value="overrideForm.end_time" type="datetime-local" />
+        </n-form-item>
+        <n-form-item :label="t('schedule.overrideReason') || 'Reason'">
+          <n-input v-model:value="overrideForm.reason" :placeholder="t('schedule.overrideReasonPlaceholder') || 'Optional reason'" />
+        </n-form-item>
+      </n-form>
+      <template #action>
+        <n-space justify="end">
+          <n-button size="small" @click="showOverrideModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button size="small" type="primary" @click="handleCreateOverride">{{ t('common.create') }}</n-button>
+        </n-space>
+      </template>
+    </n-modal>
 
     <!-- Generate Shifts Modal -->
     <n-modal v-model:show="showGenerateModal" preset="card" :title="t('schedule.generateShifts')" style="width: 420px" :bordered="false">
@@ -1032,5 +1149,53 @@ onMounted(() => {
   .config-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* Overrides section */
+.overrides-section {
+  padding: 8px 0;
+}
+.overrides-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.overrides-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--sre-text-secondary);
+  font-size: 13px;
+}
+.overrides-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.override-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--sre-bg-elevated, rgba(255,255,255,0.04));
+  border: var(--sre-hairline);
+  border-radius: 6px;
+}
+.override-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.override-user {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sre-text-primary);
+}
+.override-time {
+  font-size: 12px;
+  color: var(--sre-text-secondary);
+}
+.override-reason {
+  font-size: 12px;
+  color: var(--sre-text-tertiary);
 }
 </style>

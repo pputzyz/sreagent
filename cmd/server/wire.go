@@ -1035,6 +1035,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	if handlers.IncidentV2 != nil {
 		handlers.IncidentV2.SetAuditService(svcs.AuditLogSvc)
 	}
+	if handlers.ChangeEvent != nil {
+		handlers.ChangeEvent.SetIncidentService(svcs.IncidentSvc)
+	}
 
 	// Wire permission-denied audit callback into the RBAC middleware.
 	middleware.SetPermLogger(zapLogger)

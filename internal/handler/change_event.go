@@ -2,8 +2,10 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -12,11 +14,17 @@ import (
 
 // ChangeEventHandler handles change event API endpoints.
 type ChangeEventHandler struct {
-	svc *service.ChangeEventService
+	svc        *service.ChangeEventService
+	incidentSvc *service.IncidentService
 }
 
 func NewChangeEventHandler(svc *service.ChangeEventService) *ChangeEventHandler {
 	return &ChangeEventHandler{svc: svc}
+}
+
+// SetIncidentService injects the incident service for incident-scoped change queries.
+func (h *ChangeEventHandler) SetIncidentService(svc *service.IncidentService) {
+	h.incidentSvc = svc
 }
 
 // List godoc
@@ -35,6 +43,36 @@ func (h *ChangeEventHandler) List(c *gin.Context) {
 	svc := c.Query("service")
 	env := c.Query("environment")
 	source := c.Query("source")
+
+	// Support incident_id filtering: find changes in the incident's time window
+	if incidentIDStr := c.Query("incident_id"); incidentIDStr != "" && h.incidentSvc != nil {
+		incidentID, err := strconv.ParseUint(incidentIDStr, 10, 64)
+		if err != nil {
+			Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid incident_id"))
+			return
+		}
+		inc, err := h.incidentSvc.GetByID(c.Request.Context(), uint(incidentID))
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				Error(c, apperr.ErrNotFound)
+				return
+			}
+			Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+			return
+		}
+		end := inc.ClosedAt
+		if end == nil {
+			now := time.Now()
+			end = &now
+		}
+		events, err := h.svc.FindByTimeWindow(c.Request.Context(), "", inc.TriggeredAt, *end)
+		if err != nil {
+			Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+			return
+		}
+		SuccessPage(c, events, int64(len(events)), 1, len(events))
+		return
+	}
 
 	events, total, err := h.svc.List(c.Request.Context(), svc, env, source, pq.Page, pq.PageSize)
 	if err != nil {

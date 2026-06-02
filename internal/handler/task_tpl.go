@@ -15,6 +15,24 @@ type TaskTplHandler struct {
 	logger *zap.Logger
 }
 
+// CreateTaskTplRequest is the request body for creating/updating a task template.
+// The Password field is included here because the model.TaskTpl struct has json:"-"
+// to prevent password leakage in responses, but we still need to accept it on write.
+type CreateTaskTplRequest struct {
+	Name      string `json:"name" binding:"required"`
+	Script    string `json:"script"`
+	Args      string `json:"args"`
+	Batch     int    `json:"batch"`
+	Tolerance int    `json:"tolerance"`
+	Timeout   int    `json:"timeout"`
+	Account   string `json:"account"`
+	Password  string `json:"password"`
+	Pause     string `json:"pause"`
+	Hosts     string `json:"hosts"`
+	Tags      string `json:"tags"`
+	Note      string `json:"note"`
+}
+
 // NewTaskTplHandler creates a new TaskTplHandler.
 func NewTaskTplHandler(svc *service.TaskTplService, logger *zap.Logger) *TaskTplHandler {
 	return &TaskTplHandler{svc: svc, logger: logger}
@@ -74,17 +92,31 @@ func (h *TaskTplHandler) Get(c *gin.Context) {
 // @Success 200 {object} model.TaskTpl
 // @Router /task-tpls [post]
 func (h *TaskTplHandler) Create(c *gin.Context) {
-	var tpl model.TaskTpl
-	if err := c.ShouldBindJSON(&tpl); err != nil {
+	var req CreateTaskTplRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
 	username := GetCurrentUsername(c)
-	tpl.CreateBy = username
-	tpl.UpdateBy = username
+	tpl := &model.TaskTpl{
+		Name:      req.Name,
+		Script:    req.Script,
+		Args:      req.Args,
+		Batch:     req.Batch,
+		Tolerance: req.Tolerance,
+		Timeout:   req.Timeout,
+		Account:   req.Account,
+		Password:  req.Password,
+		Pause:     req.Pause,
+		Hosts:     req.Hosts,
+		Tags:      req.Tags,
+		Note:      req.Note,
+		CreateBy:  username,
+		UpdateBy:  username,
+	}
 
-	if err := h.svc.Create(c.Request.Context(), &tpl); err != nil {
+	if err := h.svc.Create(c.Request.Context(), tpl); err != nil {
 		Error(c, err)
 		return
 	}
@@ -114,11 +146,26 @@ func (h *TaskTplHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := c.ShouldBindJSON(existing); err != nil {
+	var req CreateTaskTplRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 
+	existing.Name = req.Name
+	existing.Script = req.Script
+	existing.Args = req.Args
+	existing.Batch = req.Batch
+	existing.Tolerance = req.Tolerance
+	existing.Timeout = req.Timeout
+	existing.Account = req.Account
+	if req.Password != "" {
+		existing.Password = req.Password
+	}
+	existing.Pause = req.Pause
+	existing.Hosts = req.Hosts
+	existing.Tags = req.Tags
+	existing.Note = req.Note
 	existing.ID = id
 	existing.UpdateBy = GetCurrentUsername(c)
 

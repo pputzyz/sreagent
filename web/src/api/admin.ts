@@ -28,7 +28,7 @@ export const userApi = {
     request.patch<ApiResponse<null>>(`/users/${id}/active`, { is_active }),
 
   changePassword: (id: number, data: { password: string }) =>
-    request.patch<ApiResponse<null>>(`/users/${id}/password`, data),
+    request.patch<ApiResponse<null>>(`/users/${id}/password`, { new_password: data.password }),
 
   createVirtual: (data: { username: string; display_name: string; user_type: 'bot' | 'channel'; notify_target?: string }) =>
     request.post<ApiResponse<User>>('/users/virtual', data),

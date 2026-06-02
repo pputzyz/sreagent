@@ -460,6 +460,28 @@ func (s *IncidentService) Merge(ctx context.Context, sourceID, targetID, userID 
 	return nil
 }
 
+// BulkAcknowledge acknowledges multiple incidents.
+func (s *IncidentService) BulkAcknowledge(ctx context.Context, ids []uint, userID uint) error {
+	for _, id := range ids {
+		if err := s.Acknowledge(ctx, id, userID); err != nil {
+			s.logger.Error("bulk acknowledge: failed on incident",
+				zap.Uint("id", id), zap.Error(err))
+		}
+	}
+	return nil
+}
+
+// BulkClose closes multiple incidents.
+func (s *IncidentService) BulkClose(ctx context.Context, ids []uint, userID uint) error {
+	for _, id := range ids {
+		if err := s.Close(ctx, id, userID); err != nil {
+			s.logger.Error("bulk close: failed on incident",
+				zap.Uint("id", id), zap.Error(err))
+		}
+	}
+	return nil
+}
+
 // AddComment adds a comment to the incident timeline.
 func (s *IncidentService) AddComment(ctx context.Context, incidentID, userID uint, content string) error {
 	_, err := s.repo.GetByID(ctx, incidentID)

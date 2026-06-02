@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, inject, onMounted, onUnmounted, onErrorCaptured, nextTick } from 'vue'
 import type { Ref } from 'vue'
-import { NIcon, NPopover, NPopselect, NResult, NModal } from 'naive-ui'
+import { NIcon, NPopover, NPopselect, NResult, NModal, NDrawer, NDrawerContent } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAppNav } from '@/composables/useAppNav'
 import { useCommandPalette } from '@/composables/useCommandPalette'
@@ -14,7 +14,7 @@ import NotificationBell from '@/components/common/NotificationBell.vue'
 import AIChatButton from '@/components/ai/AIChatButton.vue'
 import AIChatPanel from '@/components/ai/AIChatPanel.vue'
 import { useRouter } from 'vue-router'
-import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline, HelpOutline } from '@vicons/ionicons5'
+import { TimeOutline, EarthOutline, SunnyOutline, MoonOutline, HelpOutline, MenuOutline } from '@vicons/ionicons5'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -114,6 +114,7 @@ watch(collapsed, v => localStorage.setItem('sre-sider-collapsed', JSON.stringify
 const showPasswordModal = ref(false)
 const showAIChat = ref(false)
 const showShortcuts = ref(false)
+const showMobileNav = ref(false)
 const pinned = ref(true)
 watch(pinned, v => localStorage.setItem('sre-sider-pinned', JSON.stringify(v)))
 
@@ -239,6 +240,11 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         <div class="topbar-sep" />
       </div>
 
+      <!-- Mobile hamburger (hidden on desktop via CSS) -->
+      <button class="topbar-btn mobile-hamburger" @click="showMobileNav = true" :aria-label="t('common.menu') || 'Menu'">
+        <n-icon :component="MenuOutline" :size="20" />
+      </button>
+
       <div class="topbar-end">
         <!-- Notification Bell — aria-live for screen readers -->
         <div aria-live="polite" aria-atomic="true" class="topbar-notification-area">
@@ -332,6 +338,28 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         </div>
       </main>
     </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <NDrawer v-model:show="showMobileNav" placement="left" :width="280">
+      <NDrawerContent :title="activeAppLabel" :native-scrollbar="false">
+        <div class="mobile-nav-list">
+          <template v-for="section in menuSections" :key="section.title">
+            <div class="mobile-nav-section-title">{{ section.title }}</div>
+            <router-link
+              v-for="item in section.items"
+              :key="item.key"
+              :to="item.path || '#'"
+              class="mobile-nav-item"
+              :class="{ active: activeMenuKey === item.key }"
+              @click="showMobileNav = false"
+            >
+              <n-icon v-if="item.icon" :component="item.icon" :size="16" />
+              <span>{{ item.label }}</span>
+            </router-link>
+          </template>
+        </div>
+      </NDrawerContent>
+    </NDrawer>
 
     <ChangePasswordModal v-model:show="showPasswordModal" />
     <CommandPalette />
@@ -572,8 +600,55 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   color: var(--sre-text-secondary);
 }
 
+/* Mobile hamburger — hidden on desktop */
+.mobile-hamburger {
+  display: none;
+}
+
+/* Mobile nav drawer */
+.mobile-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mobile-nav-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sre-text-tertiary);
+  padding: 12px 8px 4px;
+  margin-top: 8px;
+}
+.mobile-nav-section-title:first-child {
+  margin-top: 0;
+}
+.mobile-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--sre-text-secondary);
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+.mobile-nav-item:hover {
+  background: var(--sre-bg-hover);
+  color: var(--sre-text-primary);
+}
+.mobile-nav-item.active {
+  background: var(--sre-primary-soft);
+  color: var(--sre-primary);
+  font-weight: 600;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
+  .mobile-hamburger {
+    display: inline-flex;
+  }
   .nav-zone {
     display: none;
   }

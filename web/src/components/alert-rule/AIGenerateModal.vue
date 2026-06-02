@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<AIGenerateModalProps>(), {
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
-  (e: 'generated', result: RuleGenerateResult | MuteRuleGenerateResult): void
+  (e: 'generated', result: RuleGenerateResult | MuteRuleGenerateResult, datasourceId?: number): void
   (e: 'saved', payload: { draft: boolean }): void
 }>()
 
@@ -110,7 +110,7 @@ function handleRegenerate() {
 
 function handleApply() {
   if (!result.value) return
-  emit('generated', result.value)
+  emit('generated', result.value, selectedDatasourceId.value ?? undefined)
   show.value = false
 }
 

@@ -20,11 +20,11 @@ const message = useMessage()
 const query = ref('')
 const loading = ref(false)
 const task = ref<AgentTask | null>(null)
-let eventSource: EventSource | null = null
 
 // 是否正在接收 SSE 流（任务执行中）
+const isStreaming = ref(false)
 const isPolling = computed(() => {
-  return !!eventSource && !!task.value && (task.value.status === 'planning' || task.value.status === 'executing')
+  return isStreaming.value && !!task.value && (task.value.status === 'planning' || task.value.status === 'executing')
 })
 
 // 防止主动关闭后 onerror 误触轮询回退
@@ -56,35 +56,77 @@ async function handleRun() {
 }
 
 // SSE 实时推送（替代 2s 轮询）
-function startSSE(taskId: string) {
+// 使用 fetch + ReadableStream 代替 EventSource，以支持 Authorization 头
+let sseAbortController: AbortController | null = null
+
+async function startSSE(taskId: string) {
   stopSSE()
   stopped = false
+  isStreaming.value = true
+
+  const token = localStorage.getItem('token')
+  if (!token) {
+    // No token, fall back to polling
+    if (task.value) startPollingFallback(task.value.id)
+    return
+  }
+
   const url = `/api/v1/ai/agent/stream/${taskId}`
-  const es = new EventSource(url)
+  sseAbortController = new AbortController()
 
-  es.addEventListener('task', (e: MessageEvent) => {
-    try {
-      const updated = JSON.parse(e.data) as AgentTask
-      task.value = updated
-      if (updated.status === 'completed' || updated.status === 'failed') {
-        stopSSE()
+  try {
+    const resp = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: sseAbortController.signal,
+    })
+
+    if (!resp.ok) {
+      if (!stopped && task.value && (task.value.status === 'planning' || task.value.status === 'executing')) {
+        startPollingFallback(task.value.id)
       }
-    } catch {
-      // 解析失败不中断流
+      return
     }
-  })
 
-  es.onerror = () => {
-    stopSSE()
-    // 主动关闭时不回退到轮询
+    const reader = resp.body?.getReader()
+    if (!reader) {
+      if (!stopped && task.value) startPollingFallback(task.value.id)
+      return
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith('data: ')) continue
+        const data = trimmed.slice(6)
+        try {
+          const updated = JSON.parse(data) as AgentTask
+          task.value = updated
+          if (updated.status === 'completed' || updated.status === 'failed') {
+            stopSSE()
+            return
+          }
+        } catch {
+          // 解析失败不中断流
+        }
+      }
+    }
+  } catch {
+    // AbortError means user cancelled; other errors fall back to polling
     if (stopped) return
-    // 连接断开时回退到轮询
     if (task.value && (task.value.status === 'planning' || task.value.status === 'executing')) {
       startPollingFallback(task.value.id)
     }
   }
-
-  eventSource = es
 }
 
 // 回退轮询（SSE 断开时使用）
@@ -125,9 +167,10 @@ function stopPollingFallback() {
 
 function stopSSE() {
   stopped = true
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
+  isStreaming.value = false
+  if (sseAbortController) {
+    sseAbortController.abort()
+    sseAbortController = null
   }
   stopPollingFallback()
 }

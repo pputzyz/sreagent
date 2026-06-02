@@ -6,19 +6,27 @@
 import { ref, onMounted, h, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NSpace, NTag, NPopconfirm, NSwitch } from 'naive-ui'
-import { channelV2Api, routingRuleApi } from '@/api'
-import type { RoutingRule, Channel } from '@/types'
+import { channelV2Api, routingRuleApi, integrationV2Api } from '@/api'
+import type { RoutingRule, Channel, Integration } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { AddOutline, TrashOutline, CreateOutline, ArrowUpOutline, ArrowDownOutline, GitNetworkOutline } from '@vicons/ionicons5'
 import EmptyState from '@/components/common/EmptyState.vue'
 
-const props = defineProps<{ integrationId: number }>()
+const props = withDefaults(defineProps<{ integrationId?: number }>(), {
+  integrationId: 0,
+})
 const message = useMessage()
 const { t } = useI18n()
 
 const rules = ref<RoutingRule[]>([])
 const channels = ref<Channel[]>([])
+const integrations = ref<Integration[]>([])
+const selectedIntegrationId = ref<number | null>(props.integrationId || null)
 const loading = ref(false)
+
+const integrationOptions = computed(() =>
+  integrations.value.map(i => ({ label: i.name, value: i.id }))
+)
 const showModal = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
@@ -93,10 +101,12 @@ watch(conditionItems, (items) => {
 }, { deep: true })
 
 async function load() {
+  const intId = selectedIntegrationId.value || props.integrationId
+  if (!intId) return
   loading.value = true
   try {
     const [rRes, cRes] = await Promise.all([
-      routingRuleApi.listByIntegration(props.integrationId),
+      routingRuleApi.listByIntegration(intId),
       channelV2Api.list({ status: 'active', page: 1, page_size: 100 }),
     ])
     rules.value = (rRes.data.data ?? []).sort((a: RoutingRule, b: RoutingRule) => a.priority - b.priority)
@@ -106,6 +116,22 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadIntegrations() {
+  try {
+    const res = await integrationV2Api.list({ page: 1, page_size: 200 })
+    integrations.value = res.data.data?.list ?? []
+    // Auto-select first integration if none provided
+    if (!selectedIntegrationId.value && integrations.value.length > 0) {
+      selectedIntegrationId.value = integrations.value[0].id
+    }
+  } catch { /* ignore */ }
+}
+
+function onIntegrationChange(val: number) {
+  selectedIntegrationId.value = val
+  load()
 }
 
 function openCreate() {
@@ -142,7 +168,8 @@ async function save() {
         is_enabled: form.value.is_enabled,
       })
     } else {
-      await routingRuleApi.create(props.integrationId, {
+      const intId = selectedIntegrationId.value || props.integrationId
+      await routingRuleApi.create(intId, {
         target_channel_id: form.value.target_channel_id!,
         conditions: form.value.conditions,
         priority: form.value.priority,
@@ -261,11 +288,30 @@ const columns = computed(() => [
   },
 ])
 
-onMounted(load)
+onMounted(() => {
+  if (props.integrationId) {
+    load()
+  } else {
+    loadIntegrations()
+  }
+})
 </script>
 
 <template>
   <div class="routing-rules">
+    <!-- Integration selector (standalone mode) -->
+    <div v-if="!props.integrationId && integrations.length > 0" class="rr-integration-select">
+      <span class="rr-integration-label">{{ t('routingRule.selectIntegration') || 'Integration' }}</span>
+      <n-select
+        :value="selectedIntegrationId"
+        :options="integrationOptions"
+        :placeholder="t('routingRule.selectIntegrationPlaceholder') || 'Select integration'"
+        filterable
+        style="width: 300px"
+        @update:value="onIntegrationChange"
+      />
+    </div>
+
     <div class="rr-header">
       <div>
         <p class="rr-desc">
@@ -361,6 +407,19 @@ onMounted(load)
 
 <style scoped>
 .routing-rules { padding: 4px 0; }
+
+.rr-integration-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rr-integration-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sre-text-secondary);
+  white-space: nowrap;
+}
 
 .rr-header {
   display: flex;

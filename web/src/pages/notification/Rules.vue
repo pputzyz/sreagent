@@ -2,7 +2,7 @@
 import { ref, shallowRef, computed, onMounted, h, watch, type Ref } from 'vue'
 import { useMessage, useDialog, NDropdown, NPagination } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { notifyRuleApi, notifyMediaApi } from '@/api'
+import { notifyRuleApi, notifyMediaApi, messageTemplateApi, userApi, teamApi } from '@/api'
 import type { NotifyRule, NotifyMedia } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { useCrudPage } from '@/composables/useCrudPage'
@@ -25,6 +25,9 @@ interface RuleForm {
   repeat_interval: number
   callback_url: string
   is_enabled: boolean
+  template_id: number | null
+  user_ids: number[]
+  team_ids: number[]
 }
 
 const message = useMessage()
@@ -38,6 +41,7 @@ const crud = useCrudPage<NotifyRule>({
     match_labels: [] as LabelMatcher[],
     pipeline: '[]', notify_configs: '[]',
     repeat_interval: 3600, callback_url: '', is_enabled: true,
+    template_id: null, user_ids: [] as number[], team_ids: [] as number[],
   } as unknown as Partial<NotifyRule>),
   i18nKeys: {
     created: 'notifyRule.created',
@@ -56,6 +60,9 @@ const crud = useCrudPage<NotifyRule>({
     repeat_interval: row.repeat_interval,
     callback_url: row.callback_url || '',
     is_enabled: row.is_enabled,
+    template_id: (row as Record<string, unknown>).template_id ?? null,
+    user_ids: (row as Record<string, unknown>).user_ids ?? [],
+    team_ids: (row as Record<string, unknown>).team_ids ?? [],
   } as unknown as Partial<NotifyRule>),
   formToPayload: (form) => {
     const f = form as unknown as RuleForm
@@ -68,6 +75,9 @@ const crud = useCrudPage<NotifyRule>({
       repeat_interval: f.repeat_interval,
       callback_url: f.callback_url,
       is_enabled: form.is_enabled,
+      template_id: f.template_id,
+      user_ids: f.user_ids,
+      team_ids: f.team_ids,
     }
   },
   validate: (form) => {
@@ -107,6 +117,36 @@ const severityOptions = computed(() => [
 
 // --- Structured editors for notify_configs and pipeline ---
 const allMediaOptions = ref<Array<{ label: string; value: number; type: string }>>([])
+const templateOptions = ref<Array<{ label: string; value: number }>>([])
+const userOptions = ref<Array<{ label: string; value: number }>>([])
+const teamOptions = ref<Array<{ label: string; value: number }>>([])
+
+async function loadTemplateOptions() {
+  try {
+    const res = await messageTemplateApi.list({ page: 1, page_size: 500 })
+    templateOptions.value = (res.data.data?.list || []).map((t: { id: number; name: string }) => ({
+      label: t.name, value: t.id,
+    }))
+  } catch { /* ignore */ }
+}
+
+async function loadUserOptions() {
+  try {
+    const res = await userApi.list({ page: 1, page_size: 500 })
+    userOptions.value = (res.data.data?.list || []).map((u: { id: number; display_name?: string; username: string }) => ({
+      label: u.display_name || u.username, value: u.id,
+    }))
+  } catch { /* ignore */ }
+}
+
+async function loadTeamOptions() {
+  try {
+    const res = await teamApi.list({ page: 1, page_size: 500 })
+    teamOptions.value = (res.data.data?.list || []).map((t: { id: number; name: string }) => ({
+      label: t.name, value: t.id,
+    }))
+  } catch { /* ignore */ }
+}
 
 interface NotifyConfigItem {
   media_id: number | null
@@ -197,6 +237,9 @@ watch(pipelineItems, (items) => {
 watch(showModal, (open) => {
   if (open) {
     loadMediaOptions()
+    loadTemplateOptions()
+    loadUserOptions()
+    loadTeamOptions()
     notifyConfigItems.value = parseNotifyConfigs(form.value.notify_configs)
     pipelineItems.value = parsePipeline(form.value.pipeline)
   }
@@ -438,6 +481,41 @@ onMounted(fetchList)
             </n-button>
           </div>
         </n-form-item>
+
+        <n-form-item :label="t('notifyRule.template') || 'Message Template'">
+          <n-select
+            v-model:value="form.template_id"
+            :options="templateOptions"
+            :placeholder="t('notifyRule.selectTemplate') || 'Select template (optional)'"
+            clearable
+            filterable
+          />
+        </n-form-item>
+
+        <n-grid :x-gap="12" :cols="2">
+          <n-gi>
+            <n-form-item :label="t('notifyRule.targetUsers') || 'Target Users'">
+              <n-select
+                v-model:value="form.user_ids"
+                :options="userOptions"
+                :placeholder="t('notifyRule.selectUsers') || 'Select users (optional)'"
+                multiple
+                filterable
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item :label="t('notifyRule.targetTeams') || 'Target Teams'">
+              <n-select
+                v-model:value="form.team_ids"
+                :options="teamOptions"
+                :placeholder="t('notifyRule.selectTeams') || 'Select teams (optional)'"
+                multiple
+                filterable
+              />
+            </n-form-item>
+          </n-gi>
+        </n-grid>
 
         <n-form-item :label="t('notifyRule.pipeline')">
           <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">

@@ -60,7 +60,7 @@ export const scheduleApi = {
     request.get<ApiResponse<User | null>>(`/schedules/${id}/oncall`),
 
   setParticipants: (id: number, participants: { user_id: number; position: number }[]) =>
-    request.put<ApiResponse<ScheduleParticipant[]>>(`/schedules/${id}/participants`, { participants }),
+    request.put<ApiResponse<ScheduleParticipant[]>>(`/schedules/${id}/participants`, { user_ids: participants.map(p => p.user_id) }),
 
   getParticipants: (id: number) =>
     request.get<ApiResponse<ScheduleParticipant[]>>(`/schedules/${id}/participants`),

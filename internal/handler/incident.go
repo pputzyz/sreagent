@@ -53,6 +53,10 @@ type CommentRequest struct {
 	Content string `json:"content" binding:"required"`
 }
 
+type BulkIDsRequest struct {
+	IDs []uint `json:"ids" binding:"required"`
+}
+
 // --- Endpoints ---
 
 // Create creates a new incident.
@@ -351,6 +355,50 @@ func (h *IncidentHandler) GetTimeline(c *gin.Context) {
 	}
 
 	Success(c, list)
+}
+
+// BulkAcknowledge acknowledges multiple incidents.
+// POST /api/v1/incidents/bulk-acknowledge
+func (h *IncidentHandler) BulkAcknowledge(c *gin.Context) {
+	var req BulkIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if len(req.IDs) == 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "ids is required"))
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.BulkAcknowledge(c.Request.Context(), req.IDs, userID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
+}
+
+// BulkClose closes multiple incidents.
+// POST /api/v1/incidents/bulk-close
+func (h *IncidentHandler) BulkClose(c *gin.Context) {
+	var req BulkIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if len(req.IDs) == 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "ids is required"))
+		return
+	}
+
+	userID := GetCurrentUserID(c)
+	if err := h.svc.BulkClose(c.Request.Context(), req.IDs, userID); err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, nil)
 }
 
 // AddComment adds a comment to the incident timeline.

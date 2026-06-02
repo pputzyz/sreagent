@@ -120,6 +120,8 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			incidents.GET("/:id/timeline", h.IncidentV2.GetTimeline)
 			incidents.POST("/:id/acknowledge", operate, h.IncidentV2.Acknowledge)
 			incidents.POST("/:id/close", operate, h.IncidentV2.Close)
+			incidents.POST("/bulk-acknowledge", operate, h.IncidentV2.BulkAcknowledge)
+			incidents.POST("/bulk-close", operate, h.IncidentV2.BulkClose)
 			incidents.POST("/:id/reopen", operate, h.IncidentV2.Reopen)
 			incidents.POST("/:id/snooze", operate, h.IncidentV2.Snooze)
 			incidents.POST("/:id/reassign", operate, h.IncidentV2.Reassign)

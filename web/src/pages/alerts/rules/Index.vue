@@ -121,7 +121,7 @@ function openAIGenerate() {
   showAIModal.value = true
 }
 
-async function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult) {
+async function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateResult, datasourceId?: number) {
   // Route mute rule results to the mute rule API instead of alert rule API
   if ('match_labels' in result) {
     const muteResult = result as MuteRuleGenerateResult
@@ -145,14 +145,20 @@ async function handleAIGenerated(result: RuleGenerateResult | MuteRuleGenerateRe
     return
   }
   try {
-    await alertRuleApi.create({
+    const payload: Record<string, unknown> = {
       name: result.name,
       expression: result.expression || '',
       for_duration: result.for_duration || '0s',
       severity: (result.severity as AlertRule['severity']) || 'warning',
       labels: result.labels || {},
       annotations: result.annotations || {},
-    })
+    }
+    if (datasourceId) {
+      payload.datasource_id = datasourceId
+      const ds = datasources.value.find(d => d.id === datasourceId)
+      if (ds) payload.datasource_type = ds.type
+    }
+    await alertRuleApi.create(payload as Parameters<typeof alertRuleApi.create>[0])
     message.success(t('common.createSuccess'))
     fetchList()
   } catch (err: unknown) {
@@ -412,7 +418,7 @@ function handleKeydown(e: KeyboardEvent) {
     scrollToSelected()
   } else if (e.key === 'Enter' && selectedIndex.value >= 0) {
     e.preventDefault()
-    goDetail(list[selectedIndex.value])
+    openEdit(list[selectedIndex.value])
   }
 }
 
@@ -581,7 +587,7 @@ onUnmounted(() => {
             :data-dim="rule.status !== 'active' || undefined"
             :data-status="rule.status"
             :data-selected="idx === selectedIndex || undefined"
-            @click="goDetail(rule)"
+            @click="openEdit(rule)"
             @mouseenter="selectedIndex = idx"
           >
             <input

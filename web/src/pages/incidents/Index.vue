@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { incidentApi } from '@/api'
+import { incidentApi, channelV2Api } from '@/api'
 import type { Incident } from '@/types'
 import { usePaginatedList } from '@/composables'
 import { useAuthStore } from '@/stores/auth'
@@ -105,6 +105,7 @@ onMounted(() => {
   if (route.query.severity) severityFilter.value = String(route.query.severity)
   if (route.query.search) searchQuery.value = String(route.query.search)
   fetchList()
+  loadChannels()
 })
 
 const {
@@ -137,8 +138,19 @@ const createForm = ref({
   title: '',
   description: '',
   severity: 'warning',
-  channel_id: 0,
+  channel_id: 0 as number,
 })
+const channelOptions = ref<Array<{ label: string; value: number }>>([])
+
+async function loadChannels() {
+  try {
+    const res = await channelV2Api.list({ page: 1, page_size: 200 })
+    channelOptions.value = (res.data.data?.list || []).map((c: { id: number; name: string }) => ({
+      label: c.name,
+      value: c.id,
+    }))
+  } catch { /* ignore */ }
+}
 
 function resetCreateForm() {
   createForm.value = { title: '', description: '', severity: 'warning', channel_id: 0 }
@@ -458,6 +470,14 @@ const hasFilters = computed(() =>
       <n-form label-placement="top" size="small">
         <n-form-item :label="t('incident.name')" required>
           <n-input v-model:value="createForm.title" :placeholder="t('incident.namePlaceholder')" />
+        </n-form-item>
+        <n-form-item :label="t('incident.channel')" required>
+          <n-select
+            v-model:value="createForm.channel_id"
+            :options="channelOptions"
+            :placeholder="t('incident.channelPlaceholder') || 'Select channel'"
+            filterable
+          />
         </n-form-item>
         <n-form-item :label="t('incident.severity')">
           <n-select
