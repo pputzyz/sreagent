@@ -343,12 +343,12 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <NDrawer v-model:show="showMobileNav" placement="left" :width="280">
       <NDrawerContent :title="activeAppLabel" :native-scrollbar="false">
         <div class="mobile-nav-list">
-          <template v-for="section in menuSections" :key="section.title">
-            <div class="mobile-nav-section-title">{{ section.title }}</div>
+          <template v-for="section in menuSections" :key="section.label">
+            <div class="mobile-nav-section-title">{{ section.label }}</div>
             <router-link
               v-for="item in section.items"
               :key="item.key"
-              :to="item.path || '#'"
+              :to="'#'"
               class="mobile-nav-item"
               :class="{ active: activeMenuKey === item.key }"
               @click="showMobileNav = false"

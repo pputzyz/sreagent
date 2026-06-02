@@ -60,9 +60,9 @@ const crud = useCrudPage<NotifyRule>({
     repeat_interval: row.repeat_interval,
     callback_url: row.callback_url || '',
     is_enabled: row.is_enabled,
-    template_id: (row as Record<string, unknown>).template_id ?? null,
-    user_ids: (row as Record<string, unknown>).user_ids ?? [],
-    team_ids: (row as Record<string, unknown>).team_ids ?? [],
+    template_id: (row as unknown as Record<string, unknown>).template_id ?? null,
+    user_ids: (row as unknown as Record<string, unknown>).user_ids ?? [],
+    team_ids: (row as unknown as Record<string, unknown>).team_ids ?? [],
   } as unknown as Partial<NotifyRule>),
   formToPayload: (form) => {
     const f = form as unknown as RuleForm

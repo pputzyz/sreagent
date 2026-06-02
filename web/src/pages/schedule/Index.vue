@@ -631,10 +631,10 @@ onMounted(() => {
           />
         </n-form-item>
         <n-form-item :label="t('schedule.overrideStart') || 'Start Time'" required>
-          <n-input v-model:value="overrideForm.start_time" type="datetime-local" />
+          <n-date-picker v-model:formatted-value="overrideForm.start_time" type="datetime" value-format="yyyy-MM-dd'T'HH:mm" />
         </n-form-item>
         <n-form-item :label="t('schedule.overrideEnd') || 'End Time'" required>
-          <n-input v-model:value="overrideForm.end_time" type="datetime-local" />
+          <n-date-picker v-model:formatted-value="overrideForm.end_time" type="datetime" value-format="yyyy-MM-dd'T'HH:mm" />
         </n-form-item>
         <n-form-item :label="t('schedule.overrideReason') || 'Reason'">
           <n-input v-model:value="overrideForm.reason" :placeholder="t('schedule.overrideReasonPlaceholder') || 'Optional reason'" />

@@ -198,6 +198,7 @@ export interface Schedule {
   timezone: string
   handoff_time: string
   handoff_day: number
+  rotation_period_days: number
   is_enabled: boolean
   severity_filter?: string
   created_at: string
