@@ -168,7 +168,11 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	api := r.Group("/api/v1")
 	{
 		// Public routes — login rate limited (5 RPS, burst 5, lockout after 5 failures for 15 min)
+		// In testing mode, disable rate limiting entirely
 		loginRL := middleware.LoginRateLimit(5, 5, 5, 15*time.Minute)
+		if os.Getenv("SREAGENT_TESTING") == "true" {
+			loginRL = func(c *gin.Context) { c.Next() } // no-op in testing mode
+		}
 		api.POST("/auth/login", loginRL, handlers.Auth.Login)
 		refreshRL := middleware.RateLimit(func(c *gin.Context) string { return "refresh:" + c.ClientIP() }, 1, 5)
 		api.POST("/auth/refresh", refreshRL, handlers.Auth.Refresh)
