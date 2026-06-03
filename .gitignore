@@ -50,3 +50,10 @@ tmp/
 .superpowers/
 .agents/
 skills-lock.json
+
+# Test artifacts
+tests/qa/test-results/
+tests/qa/reports/
+tests/qa/node_modules/
+tests/qa/playwright-report/
+sreagent-server
