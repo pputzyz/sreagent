@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -88,7 +89,11 @@ func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) (string, err
 
 // validateEndpoint checks that the endpoint URL does not point to a private/loopback IP (SSRF protection).
 // H1: Also checks DNS resolution, IPv6-mapped addresses, and cloud metadata endpoints.
+// Set SREAGENT_DEV_SKIP_SSRF_CHECK=true to skip validation for local development.
 func validateEndpoint(ctx context.Context, endpoint string) error {
+	if os.Getenv("SREAGENT_DEV_SKIP_SSRF_CHECK") == "true" {
+		return nil
+	}
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return err

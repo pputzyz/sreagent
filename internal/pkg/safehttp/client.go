@@ -9,17 +9,21 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
 // blockedIP returns an error if the IP address should not be reachable
 // from an outbound HTTP request. This prevents SSRF attacks where an
 // attacker tricks the server into making requests to internal services.
+// Set SREAGENT_DEV_SKIP_SSRF_CHECK=true to skip all checks for local development.
 func blockedIP(ip net.IP) error {
+	if os.Getenv("SREAGENT_DEV_SKIP_SSRF_CHECK") == "true" {
+		return nil
+	}
 	if ip.IsLoopback() {
 		return fmt.Errorf("blocked: loopback address %s", ip)
 	}
-
 	// Block link-local (169.254.0.0/16, fe80::/10) — includes cloud metadata endpoints
 	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 		return fmt.Errorf("blocked: link-local address %s", ip)
@@ -140,19 +144,22 @@ func safeDialContextInternal(transport *http.Transport) func(ctx context.Context
 			return nil, fmt.Errorf("no addresses found for %q", host)
 		}
 
-		for _, ipAddr := range ips {
-			ip := ipAddr.IP
-			if ip.IsLoopback() {
-				return nil, fmt.Errorf("SSRF protection: blocked: loopback address %s", ip)
+		// SREAGENT_DEV_SKIP_SSRF_CHECK: skip all IP validation for local development
+		if os.Getenv("SREAGENT_DEV_SKIP_SSRF_CHECK") != "true" {
+			for _, ipAddr := range ips {
+				ip := ipAddr.IP
+				if ip.IsLoopback() {
+					return nil, fmt.Errorf("SSRF protection: blocked: loopback address %s", ip)
+				}
+				if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+					return nil, fmt.Errorf("SSRF protection: blocked: link-local address %s", ip)
+				}
+				if ip.IsUnspecified() {
+					return nil, fmt.Errorf("SSRF protection: blocked: unspecified address %s", ip)
+				}
+				// Private addresses (10/8, 172.16/12, 192.168/16) are allowed —
+				// datasources run on internal infrastructure.
 			}
-			if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-				return nil, fmt.Errorf("SSRF protection: blocked: link-local address %s", ip)
-			}
-			if ip.IsUnspecified() {
-				return nil, fmt.Errorf("SSRF protection: blocked: unspecified address %s", ip)
-			}
-			// Private addresses (10/8, 172.16/12, 192.168/16) are allowed —
-			// datasources run on internal infrastructure.
 		}
 
 		return originalDialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
