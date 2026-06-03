@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -70,7 +71,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// --- #2: Mandatory captcha after 5 failed login attempts ---
-	if h.redis != nil {
+	// Skip captcha in testing mode (SREAGENT_TESTING=true)
+	isTesting := os.Getenv("SREAGENT_TESTING") == "true"
+	if !isTesting && h.redis != nil {
 		failCount, fcErr := h.redis.GetLoginFailCount(ctx, req.Username)
 		if fcErr == nil && failCount >= 5 && req.CaptchaID == "" {
 			Error(c, apperr.WithMessage(apperr.ErrForbidden, "captcha required after multiple failed login attempts"))

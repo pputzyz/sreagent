@@ -144,7 +144,11 @@ const logoUrl = ref(localStorage.getItem('sre-logo-url') || '/logo.svg')
 onMounted(() => {
   checkOIDCConfig()
   checkOAuth2Config()
-  fetchCaptcha()
+  // Skip captcha when URL has ?testing=true (for automated QA)
+  const params = new URLSearchParams(window.location.search)
+  if (!params.has('testing')) {
+    fetchCaptcha()
+  }
 })
 
 watch([() => form.value.username, () => form.value.password], () => {
