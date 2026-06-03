@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, h } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
@@ -160,6 +160,36 @@ const hostColumns = computed<DataTableColumns<TaskHostRecord>>(() => [
   },
 ])
 
+// --- Auto-refresh polling ---
+let pollTimer: ReturnType<typeof setInterval> | null = null
+const POLL_INTERVAL = 5000 // 5 seconds
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(() => {
+    if (!loading.value) {
+      fetchRecord()
+      fetchHostRecords()
+    }
+  }, POLL_INTERVAL)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+// Watch for status changes to start/stop polling
+watch(record, (r) => {
+  if (r && (r.status === TaskStatus.Running || r.status === TaskStatus.Pending)) {
+    startPolling()
+  } else {
+    stopPolling()
+  }
+}, { immediate: true })
+
 // --- Init ---
 onMounted(() => {
   if (!taskId.value) {
@@ -168,6 +198,10 @@ onMounted(() => {
   }
   fetchRecord()
   fetchHostRecords()
+})
+
+onUnmounted(() => {
+  stopPolling()
 })
 </script>
 

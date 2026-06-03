@@ -276,6 +276,28 @@ const sopReport = ref<string | null>(null)
 const sopLoading = ref(false)
 const sopError = ref('')
 
+// ── Root Cause Analysis ──
+interface RootCauseResult {
+  summary: string
+  severity: string
+  probable_causes: string[]
+  impact: string
+  recommended_steps: string[]
+  root_cause_hint: string
+}
+const rcaResult = ref<RootCauseResult | null>(null)
+const rcaLoading = ref(false)
+const rcaError = ref('')
+
+async function generateRootCauseAnalysis() {
+  rcaLoading.value = true; rcaError.value = ''
+  try {
+    const res = await aiApi.analyzeAlert(eventId.value)
+    rcaResult.value = res.data.data ?? null
+  } catch (err: unknown) { rcaError.value = getErrorMessage(err) || t('alert.aiReportError') }
+  finally { rcaLoading.value = false }
+}
+
 async function generateSOP() {
   sopLoading.value = true; sopError.value = ''
   try {
@@ -502,6 +524,48 @@ onUnmounted(() => {
                 <n-alert v-if="sopError" type="error" :bordered="false" size="small">{{ sopError }}</n-alert>
                 <div v-if="sopReport" class="evt-ai-report">
                   <pre class="evt-ai-text">{{ sopReport }}</pre>
+                </div>
+              </n-spin>
+            </section>
+
+            <!-- Root Cause Analysis -->
+            <section class="evt-section">
+              <div class="evt-ai-head">
+                <div class="sre-label-eyebrow">
+                  <n-icon :component="SparklesOutline" :size="12" />
+                  {{ t('alert.rootCauseAnalysis') || '根因分析' }}
+                </div>
+                <n-button quaternary size="tiny" @click="generateRootCauseAnalysis">
+                  {{ rcaResult ? t('alert.regenerateReport') : (t('alert.rootCauseAnalysis') || '根因分析') }}
+                </n-button>
+              </div>
+              <n-spin :show="rcaLoading">
+                <n-alert v-if="rcaError" type="error" :bordered="false" size="small">{{ rcaError }}</n-alert>
+                <div v-if="rcaResult" class="evt-ai-report">
+                  <div v-if="rcaResult.summary" class="rca-section">
+                    <strong>{{ t('alert.summary') || '摘要' }}:</strong>
+                    <p>{{ rcaResult.summary }}</p>
+                  </div>
+                  <div v-if="rcaResult.probable_causes?.length" class="rca-section">
+                    <strong>{{ t('alert.probableCauses') || '可能原因' }}:</strong>
+                    <ul>
+                      <li v-for="(cause, i) in rcaResult.probable_causes" :key="i">{{ cause }}</li>
+                    </ul>
+                  </div>
+                  <div v-if="rcaResult.impact" class="rca-section">
+                    <strong>{{ t('alert.impact') || '影响' }}:</strong>
+                    <p>{{ rcaResult.impact }}</p>
+                  </div>
+                  <div v-if="rcaResult.recommended_steps?.length" class="rca-section">
+                    <strong>{{ t('alert.recommendedSteps') || '建议步骤' }}:</strong>
+                    <ol>
+                      <li v-for="(step, i) in rcaResult.recommended_steps" :key="i">{{ step }}</li>
+                    </ol>
+                  </div>
+                  <div v-if="rcaResult.root_cause_hint" class="rca-section">
+                    <strong>{{ t('alert.rootCauseHint') || '根因提示' }}:</strong>
+                    <p>{{ rcaResult.root_cause_hint }}</p>
+                  </div>
                 </div>
               </n-spin>
             </section>
@@ -952,6 +1016,11 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 .evt-ai-report { font-size: 13px; color: var(--sre-text-primary); }
+.rca-section { margin-bottom: 12px; }
+.rca-section strong { display: block; margin-bottom: 4px; color: var(--sre-text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+.rca-section p { margin: 0; line-height: 1.6; }
+.rca-section ul, .rca-section ol { margin: 4px 0 0; padding-left: 20px; }
+.rca-section li { margin-bottom: 4px; line-height: 1.5; }
 .evt-ai-summary {
   margin: 0 0 12px;
   padding: 10px 12px;

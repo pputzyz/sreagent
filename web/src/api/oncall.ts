@@ -29,8 +29,8 @@ export const teamApi = {
   delete: (id: number) =>
     request.delete<ApiResponse<null>>(`/teams/${id}`),
 
-  addMember: (teamId: number, userId: number) =>
-    request.post<ApiResponse<null>>(`/teams/${teamId}/members`, { user_id: userId }),
+  addMember: (teamId: number, userId: number, role?: string) =>
+    request.post<ApiResponse<null>>(`/teams/${teamId}/members`, { user_id: userId, ...(role ? { role } : {}) }),
 
   removeMember: (teamId: number, userId: number) =>
     request.delete<ApiResponse<null>>(`/teams/${teamId}/members/${userId}`),

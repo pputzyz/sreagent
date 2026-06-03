@@ -93,9 +93,15 @@ const membersTeamId = ref<number | null>(null)
 const membersTeamName = ref('')
 const teamMembers = shallowRef<User[]>([])
 const selectedMemberUserId = ref<number | null>(null)
+const selectedMemberRole = ref<string>('member')
 const membersLoading = ref(false)
 const addMemberLoading = ref(false)
 const allUsers = ref<User[]>([])
+
+const memberRoleOptions = [
+  { label: t('settings.roleMember') || 'Member', value: 'member' },
+  { label: t('settings.roleTeamLead') || 'Team Lead', value: 'team_lead' },
+]
 
 const allUserOptions = computed(() =>
   allUsers.value.map(u => ({ label: u.display_name || u.username, value: u.id }))
@@ -145,9 +151,10 @@ async function handleAddMember() {
   }
   addMemberLoading.value = true
   try {
-    await teamApi.addMember(membersTeamId.value, selectedMemberUserId.value)
+    await teamApi.addMember(membersTeamId.value, selectedMemberUserId.value, selectedMemberRole.value)
     message.success(t('settings.memberAdded'))
     selectedMemberUserId.value = null
+    selectedMemberRole.value = 'member'
     await fetchTeamMembers(membersTeamId.value)
     fetchList()
   } catch (err: unknown) {
@@ -351,6 +358,11 @@ onMounted(() => { fetchList(); fetchAllUsers() })
           :placeholder="t('settings.selectUserToAdd')"
           filterable
           style="flex: 1"
+        />
+        <NSelect
+          v-model:value="selectedMemberRole"
+          :options="memberRoleOptions"
+          style="width: 140px"
         />
         <NButton type="primary" :loading="addMemberLoading" @click="handleAddMember" :disabled="!selectedMemberUserId">
           {{ t('common.add') }}

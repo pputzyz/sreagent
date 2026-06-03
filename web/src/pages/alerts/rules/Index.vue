@@ -217,6 +217,17 @@ async function fetchCategories() {
   try {
     const { data } = await alertRuleApi.listCategories()
     categories.value = data.data || []
+    // Fetch counts per category
+    const counts: Record<string, number> = {}
+    await Promise.all(
+      categories.value.map(async (cat) => {
+        try {
+          const res = await alertRuleApi.list({ category: cat, page_size: 1 })
+          counts[cat] = res.data.data?.total ?? 0
+        } catch { counts[cat] = 0 }
+      }),
+    )
+    categoryCounts.value = counts
   } catch (e) { console.warn('[AlertRules] Failed to fetch categories:', e) } finally { categoriesLoading.value = false }
 }
 

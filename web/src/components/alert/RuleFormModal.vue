@@ -101,14 +101,9 @@ function onLabelKeyChange(_idx: number, key: string) {
 }
 
 const severityOptions = [
-  { label: () => t('alert.p0'), value: 'p0' },
-  { label: () => t('alert.p1'), value: 'p1' },
-  { label: () => t('alert.p2'), value: 'p2' },
-  { label: () => t('alert.p3'), value: 'p3' },
-  { label: () => t('alert.p4'), value: 'p4' },
-  { label: () => t('alert.critical'), value: 'critical' },
-  { label: () => t('alert.warning'), value: 'warning' },
-  { label: () => t('alert.info'), value: 'info' },
+  { label: () => `${t('alert.critical')} (P0-P1)`, value: 'critical' },
+  { label: () => `${t('alert.warning')} (P2)`, value: 'warning' },
+  { label: () => `${t('alert.info')} (P3-P4)`, value: 'info' },
 ]
 
 const categoryOptions = [

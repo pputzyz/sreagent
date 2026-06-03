@@ -41,6 +41,16 @@ const rotationOptions = [
   { label: () => t('schedule.custom'), value: 'custom' },
 ]
 
+const dayOfWeekOptions = [
+  { label: () => t('common.monday') || '周一', value: 1 },
+  { label: () => t('common.tuesday') || '周二', value: 2 },
+  { label: () => t('common.wednesday') || '周三', value: 3 },
+  { label: () => t('common.thursday') || '周四', value: 4 },
+  { label: () => t('common.friday') || '周五', value: 5 },
+  { label: () => t('common.saturday') || '周六', value: 6 },
+  { label: () => t('common.sunday') || '周日', value: 0 },
+]
+
 const timezoneOptions = [
   { label: 'Asia/Shanghai (CST)', value: 'Asia/Shanghai' },
   { label: 'UTC', value: 'UTC' },
@@ -159,6 +169,9 @@ defineExpose({ openCreate, openEdit })
           </n-form-item>
         </n-gi>
       </n-grid>
+      <n-form-item v-if="form.rotation_type === 'weekly'" :label="t('schedule.handoffDay') || 'Handoff Day'">
+        <n-select v-model:value="form.handoff_day" :options="dayOfWeekOptions" />
+      </n-form-item>
       <n-form-item v-if="form.rotation_type === 'custom'" :label="t('schedule.rotationPeriodDays') || 'Rotation Period (days)'">
         <n-input-number v-model:value="form.rotation_period_days" :min="1" :max="365" style="width: 100%" />
       </n-form-item>

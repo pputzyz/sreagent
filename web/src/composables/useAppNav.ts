@@ -312,6 +312,7 @@ export function useAppNav() {
               if (authStore.canManage) {
                 items.push(
                   { label: t('menu.esPatterns'),      key: '/alert/es-patterns', icon: SearchOutline },
+                  { label: t('menu.esExplore') || 'ES 日志浏览', key: '/alert/es-explore', icon: SearchOutline },
                   { label: t('menu.dashboard'),       key: '/alert/dashboards', icon: PieChartOutline },
                 )
               }

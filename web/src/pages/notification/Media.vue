@@ -246,8 +246,8 @@ const typeOptions = computed(() => [
   { label: t('media.channelType.wecom_app'), value: 'wecom_app' },
   { label: t('media.channelType.flashduty'), value: 'flashduty' },
   { label: t('media.channelType.pagerduty'), value: 'pagerduty' },
-  { label: t('media.channelType.tencent_sms'), value: 'tencent_sms' },
-  { label: t('media.channelType.aliyun_sms'), value: 'aliyun_sms' },
+  { label: t('media.channelType.tencent_sms') + ' (暂未实现)', value: 'tencent_sms', disabled: true },
+  { label: t('media.channelType.aliyun_sms') + ' (暂未实现)', value: 'aliyun_sms', disabled: true },
 ])
 
 const filterTypeOptions = computed(() => [
@@ -373,8 +373,9 @@ async function handleTest(id: number) {
   testingId.value = id
   try {
     const { data } = await notifyMediaApi.test(id)
-    if (data.data.success) message.success(t('media.testSuccess'))
-    else message.warning(`${t('media.testFailed')}: ${data.data.message}`)
+    // Backend returns {message: ...} on success; HTTP 2xx means test passed
+    const msg = data.data?.message
+    message.success(msg || t('media.testSuccess'))
   } catch (err: unknown) { message.error(getErrorMessage(err)) } finally { testingId.value = null }
 }
 

@@ -73,6 +73,7 @@ const saving = ref(false)
 const form = ref<{
   name: string
   description: string
+  team_id: number | undefined
   status: ChannelStatus
   access_level: ChannelAccessLevel
   auto_close_enabled: boolean
@@ -81,6 +82,7 @@ const form = ref<{
 }>({
   name: '',
   description: '',
+  team_id: undefined,
   status: 'active',
   access_level: 'public',
   auto_close_enabled: false,
@@ -144,6 +146,7 @@ async function createChannel() {
     form.value = {
       name: '',
       description: '',
+      team_id: undefined,
       status: 'active',
       access_level: 'public',
       auto_close_enabled: false,
@@ -412,6 +415,14 @@ onMounted(() => {
         </n-form-item>
         <n-form-item :label="t('channel.description')">
           <n-input v-model:value="form.description" type="textarea" :rows="2" />
+        </n-form-item>
+        <n-form-item :label="t('channel.team') || 'Team'">
+          <n-select
+            v-model:value="form.team_id"
+            :options="teamOptions"
+            :placeholder="t('channel.selectTeam') || 'Select team'"
+            clearable
+          />
         </n-form-item>
         <n-form-item :label="t('channel.accessLevel')">
           <n-radio-group v-model:value="form.access_level">

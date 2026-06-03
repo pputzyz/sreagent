@@ -205,17 +205,9 @@ async function loadPostMortem() {
   } catch { postMortem.value = null } finally { pmLoading.value = false }
 }
 
-function initPostMortem() {
-  postMortem.value = {
-    id: 0,
-    incident_id: incidentId.value,
-    title: '',
-    content: '',
-    status: 'draft',
-    published_at: null,
-    created_at: '',
-    updated_at: '',
-  }
+async function initPostMortem() {
+  // GET endpoint uses GetOrCreate, so calling loadPostMortem will create the post-mortem on the backend
+  await loadPostMortem()
 }
 
 async function savePostMortem() {
@@ -498,7 +490,7 @@ onUnmounted(() => {
                   v-for="a in relatedAlerts" :key="a.id"
                   class="sre-row-card alert-row"
                   :data-severity="a.severity"
-                  @click="router.push(`/alert/events/${a.id}`)"
+                  @click="router.push({ path: '/alert/events', query: { alert_name: a.title } })"
                 >
                   <span class="sre-dot" :data-severity="a.severity" />
                   <span class="alert-title">{{ a.title }}</span>

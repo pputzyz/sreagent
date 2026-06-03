@@ -76,6 +76,10 @@ const logTruncated = ref(false)
 const resultMode = ref<ResultMode>('table')
 const activeTab = ref<QueryTab>('metrics')
 
+// Elasticsearch-specific fields
+const esIndexName = ref('')
+const esDateField = ref('@timestamp')
+
 // Log histogram
 interface HistogramBucket { timestamp: string; count: number }
 const histogramBuckets = ref<HistogramBucket[]>([])
@@ -250,11 +254,22 @@ const selectedDs = computed(() => props.datasources.find(d => d.id === selectedD
 const metricDatasources = computed(() => props.datasources.filter(d => d.supports_query && d.type !== 'victorialogs' && d.type !== 'elasticsearch'))
 const logDatasources = computed(() => props.datasources.filter(d => d.type === 'victorialogs' || d.type === 'elasticsearch'))
 const isLogs = computed(() => activeTab.value === 'logs')
+const isElasticsearch = computed(() => selectedDs.value?.type === 'elasticsearch')
 
 // Datasource selector options (filtered by active tab)
 const datasourceOptions = computed(() => {
   const list = isLogs.value ? logDatasources.value : metricDatasources.value
-  return list.map(d => ({ label: `${d.name} (${typeBadge(d.type)})`, value: d.id }))
+  const options = list.map(d => ({ label: `${d.name} (${typeBadge(d.type)})`, value: d.id }))
+  // Add disabled Zabbix hint when on metrics tab
+  if (!isLogs.value) {
+    const zabbixDs = props.datasources.filter(d => d.type === 'zabbix')
+    for (const ds of zabbixDs) {
+      if (!options.find(o => o.value === ds.id)) {
+        options.push({ label: `${ds.name} (Zabbix - 仅用于告警采集，不支持查询)`, value: ds.id, disabled: true } as any)
+      }
+    }
+  }
+  return options
 })
 
 // Ref for fullscreen target
@@ -331,12 +346,18 @@ async function run() {
   logEntries.value = []
   try {
     if (isLogs.value) {
-      const res = await datasourceApi.logQuery(selectedDsId.value, {
+      const logQueryParams: Record<string, unknown> = {
         expression: expression.value,
         start: props.timeStart,
         end: props.timeEnd,
         limit: logLimit.value,
-      })
+      }
+      // Pass ES-specific fields when datasource is elasticsearch
+      if (isElasticsearch.value) {
+        if (esIndexName.value.trim()) logQueryParams.index = esIndexName.value.trim()
+        if (esDateField.value.trim()) logQueryParams.date_field = esDateField.value.trim()
+      }
+      const res = await datasourceApi.logQuery(selectedDsId.value, logQueryParams)
       const data = res.data?.data
       if (data) {
         logEntries.value = (data.entries || []).map((e: LogEntry, i: number) => ({ ...e, _key: i }))
@@ -678,6 +699,12 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
         <VisualQueryBuilder v-else-if="!isLogs && queryMode === 'visual'" v-model="expression" :datasource-id="selectedDsId" />
         <LogsQLEditor v-else v-model="expression" :datasource-id="selectedDsId" :placeholder="t('query.logQueryPlaceholder')" @execute="run" />
       </div>
+
+      <!-- Elasticsearch-specific inputs -->
+      <div v-if="isLogs && isElasticsearch" class="es-fields-row">
+        <NInput v-model:value="esIndexName" size="small" :placeholder="t('query.esIndexName') || 'Index name'" style="width: 180px" />
+        <NInput v-model:value="esDateField" size="small" :placeholder="t('query.esDateField') || '@timestamp'" style="width: 150px" />
+      </div>
       <div class="editor-actions">
         <NPopover v-model:show="historyVisible" trigger="click" placement="bottom-end">
           <template #trigger>
@@ -962,6 +989,11 @@ defineExpose({ run, setState, activeTab, expression, selectedDsId })
 
 /* Editor row (Nightingale: PromQL input + Execute button side-by-side) */
 .editor-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.es-fields-row {
   display: flex;
   gap: 8px;
   margin-bottom: 8px;

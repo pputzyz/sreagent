@@ -585,8 +585,8 @@ onMounted(fetchList)
         <div class="test-results-title">{{ t('notifyRule.testResults') }}</div>
         <div v-for="r in testResults" :key="r.media_id" class="test-result-item">
           <span class="test-result-name">{{ r.media_name }}</span>
-          <n-tag :type="r.status === 'success' ? 'success' : 'error'" size="small">
-            {{ r.status === 'success' ? t('common.success') : t('common.failed') }}
+          <n-tag :type="(r.status === 'success' || r.status === 'sent') ? 'success' : 'error'" size="small">
+            {{ (r.status === 'success' || r.status === 'sent') ? t('common.success') : t('common.failed') }}
           </n-tag>
           <span v-if="r.error" class="test-result-error">{{ r.error }}</span>
         </div>

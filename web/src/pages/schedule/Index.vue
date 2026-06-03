@@ -652,7 +652,7 @@ onMounted(() => {
     <n-modal v-model:show="showGenerateModal" preset="card" :title="t('schedule.generateShifts')" style="width: 420px" :bordered="false">
       <n-form label-placement="top">
         <n-form-item :label="t('schedule.weeksCount')">
-          <n-input-number v-model:value="generateWeeks" :min="1" :max="12" style="width: 100%" />
+          <n-input-number v-model:value="generateWeeks" :min="1" :max="52" style="width: 100%" />
         </n-form-item>
         <n-text depth="3" style="font-size: 12px">{{ t('schedule.generateHint') }}</n-text>
       </n-form>
