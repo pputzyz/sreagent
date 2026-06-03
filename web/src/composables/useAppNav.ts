@@ -56,6 +56,8 @@ import {
   PlayOutline,
   GitPullRequestOutline,
   BookOutline,
+  BookmarkOutline,
+  TrendingUpOutline,
 } from '@vicons/ionicons5'
 
 // ===== Public Types =====
@@ -308,9 +310,11 @@ export function useAppNav() {
               const items: MenuItem[] = []
               items.push(
                 { label: t('menu.dataQuery'),       key: '/alert/explore', icon: SearchOutline },
+                { label: t('menu.savedViews') || '快捷视图', key: '/alert/saved-views', icon: BookmarkOutline },
               )
               if (authStore.canManage) {
                 items.push(
+                  { label: t('menu.metricViews') || '指标视图', key: '/alert/metric-views', icon: TrendingUpOutline },
                   { label: t('menu.esPatterns'),      key: '/alert/es-patterns', icon: SearchOutline },
                   { label: t('menu.esExplore') || 'ES 日志浏览', key: '/alert/es-explore', icon: SearchOutline },
                   { label: t('menu.dashboard'),       key: '/alert/dashboards', icon: PieChartOutline },

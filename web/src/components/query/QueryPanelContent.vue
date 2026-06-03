@@ -346,7 +346,7 @@ async function run() {
   logEntries.value = []
   try {
     if (isLogs.value) {
-      const logQueryParams: Record<string, unknown> = {
+      const logQueryParams: { expression: string; start: number; end: number; limit?: number; index?: string; query_string?: string; date_field?: string } = {
         expression: expression.value,
         start: props.timeStart,
         end: props.timeEnd,

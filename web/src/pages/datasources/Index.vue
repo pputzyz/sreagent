@@ -125,6 +125,37 @@ const datasources = rawDatasources as unknown as Ref<DSCard[]>
 
 const typeFilter = ref<'all' | DataSourceType>('all')
 
+// Test connection
+const testing = ref(false)
+async function testConnection() {
+  testing.value = true
+  try {
+    // Build auth_config from form fields
+    let authConfig = ''
+    const f = form.value
+    if (f.auth_type === 'basic') {
+      authConfig = JSON.stringify({ username: f.auth_username, password: f.auth_password })
+    } else if (f.auth_type === 'bearer') {
+      authConfig = JSON.stringify({ token: f.auth_token })
+    } else if (f.auth_type === 'api_key') {
+      authConfig = JSON.stringify({ header: f.auth_key_header, key: f.auth_key_value })
+    }
+    const { data } = await datasourceApi.testConnection({
+      type: f.type,
+      endpoint: f.endpoint,
+      auth_type: f.auth_type || 'none',
+      auth_config: authConfig,
+    })
+    const r = data.data
+    message.success(`${r.status} · ${r.latency_ms}ms${r.version ? ' · ' + r.version : ''}`, { duration: 5000 })
+  } catch (err: unknown) {
+    const axiosErr = err as { response?: { data?: { message?: string } }; message?: string }
+    message.error(axiosErr?.response?.data?.message || axiosErr?.message || t('datasource.testConnectionFailed') || '连接失败')
+  } finally {
+    testing.value = false
+  }
+}
+
 // Health check history drawer
 interface HealthLogEntry {
   id: number
@@ -458,6 +489,9 @@ onMounted(fetchList)
       <template #action>
         <NSpace justify="end">
           <NButton @click="showModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton :loading="testing" @click="testConnection">
+            {{ t('datasource.testConnection') || '测试连接' }}
+          </NButton>
           <NButton type="primary" :loading="saving" @click="handleSave">
             {{ editingId ? t('common.update') : t('common.create') }}
           </NButton>

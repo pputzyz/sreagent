@@ -33,6 +33,9 @@ export const datasourceApi = {
   healthCheck: (id: number) =>
     request.post<ApiResponse<{ status: string; message: string; latency_ms: number; version: string }>>(`/datasources/${id}/health-check`),
 
+  testConnection: (data: { type: string; endpoint: string; auth_type: string; auth_config: string }) =>
+    request.post<ApiResponse<{ status: string; message: string; latency_ms: number; version: string }>>('/datasources/test-connection', data),
+
   query: (id: number, data: { expression: string; time?: number }) =>
     request.post<ApiResponse<QueryResponse>>(`/datasources/${id}/query`, data),
 
