@@ -288,9 +288,31 @@ func (s *AlertRuleService) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
+// validateImportRule checks that an imported alert rule has required fields.
+func validateImportRule(rule *model.AlertRule, index int) error {
+	if rule.Name == "" {
+		return fmt.Errorf("rule #%d: name is required", index)
+	}
+	if rule.Expression == "" {
+		return fmt.Errorf("rule #%d (%s): expression is required", index, rule.Name)
+	}
+	if rule.Severity == "" {
+		return fmt.Errorf("rule #%d (%s): severity is required", index, rule.Name)
+	}
+	if rule.DataSourceID == nil && rule.DatasourceType == "" {
+		return fmt.Errorf("rule #%d (%s): either datasource_id or datasource_type is required", index, rule.Name)
+	}
+	return nil
+}
+
 // ImportRules batch-creates alert rules, returning success/failed counts and error details.
 func (s *AlertRuleService) ImportRules(ctx context.Context, rules []model.AlertRule) (success, failed int, errors []string) {
 	for i, rule := range rules {
+		if err := validateImportRule(&rule, i+1); err != nil {
+			failed++
+			errors = append(errors, err.Error())
+			continue
+		}
 		rule.Version = 1
 		if err := s.repo.Create(ctx, &rule); err != nil {
 			failed++

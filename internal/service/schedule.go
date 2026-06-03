@@ -156,6 +156,15 @@ func (s *ScheduleService) SetParticipants(ctx context.Context, scheduleID uint, 
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
 	}
 
+	// Check for duplicate user IDs.
+	seen := make(map[uint]bool, len(userIDs))
+	for _, uid := range userIDs {
+		if seen[uid] {
+			return apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("duplicate user_id: %d", uid))
+		}
+		seen[uid] = true
+	}
+
 	// Batch validate that all user IDs exist.
 	if s.userRepo != nil && len(userIDs) > 0 {
 		users, err := s.userRepo.GetByIDs(ctx, userIDs)

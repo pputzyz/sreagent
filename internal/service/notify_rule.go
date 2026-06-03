@@ -121,8 +121,28 @@ func (s *NotifyRuleService) FindMatchingRules(ctx context.Context, event *model.
 	return s.ruleRepo.FindMatchingRules(ctx, map[string]string(event.Labels), string(event.Severity), dataSourceID)
 }
 
+// validateNotifyConfigs checks that the NotifyConfigs JSON is valid (if provided).
+func validateNotifyConfigs(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	var configs []model.NotifyConfig
+	if err := json.Unmarshal([]byte(raw), &configs); err != nil {
+		return apperr.WithMessage(apperr.ErrInvalidParam, "notify_configs is not valid JSON: "+err.Error())
+	}
+	for i, nc := range configs {
+		if nc.MediaID == 0 {
+			return apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("notify_configs[%d]: media_id is required", i))
+		}
+	}
+	return nil
+}
+
 // Create creates a new notify rule.
 func (s *NotifyRuleService) Create(ctx context.Context, rule *model.NotifyRule) error {
+	if err := validateNotifyConfigs(rule.NotifyConfigs); err != nil {
+		return err
+	}
 	if err := s.ruleRepo.Create(ctx, rule); err != nil {
 		s.logger.Error("failed to create notify rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -151,6 +171,9 @@ func (s *NotifyRuleService) List(ctx context.Context, page, pageSize int) ([]mod
 
 // Update updates an existing notify rule.
 func (s *NotifyRuleService) Update(ctx context.Context, rule *model.NotifyRule) error {
+	if err := validateNotifyConfigs(rule.NotifyConfigs); err != nil {
+		return err
+	}
 	existing, err := s.ruleRepo.GetByID(ctx, rule.ID)
 	if err != nil {
 		return apperr.ErrNotifyRuleNotFound

@@ -112,8 +112,35 @@ func validateRuleIDs(csv string) error {
 	return nil
 }
 
+// validateMuteTimeWindow checks that the mute rule's time windows are valid.
+func validateMuteTimeWindow(rule *model.MuteRule) error {
+	if rule.StartTime != nil && rule.EndTime != nil {
+		if !rule.EndTime.After(*rule.StartTime) {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "end_time must be after start_time")
+		}
+	}
+	if rule.PeriodicStart != "" && rule.PeriodicEnd != "" {
+		startMin := parseHHMM(rule.PeriodicStart)
+		endMin := parseHHMM(rule.PeriodicEnd)
+		if startMin < 0 {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "periodic_start must be in HH:MM format")
+		}
+		if endMin < 0 {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "periodic_end must be in HH:MM format")
+		}
+		// Overnight windows (e.g., 22:00-06:00) are allowed, only reject exact same time.
+		if startMin == endMin {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "periodic_start and periodic_end must not be equal")
+		}
+	}
+	return nil
+}
+
 // Create creates a new mute rule.
 func (s *MuteRuleService) Create(ctx context.Context, rule *model.MuteRule) error {
+	if err := validateMuteTimeWindow(rule); err != nil {
+		return err
+	}
 	if rule.RuleIDs != "" {
 		if err := validateRuleIDs(rule.RuleIDs); err != nil {
 			return err
@@ -148,6 +175,9 @@ func (s *MuteRuleService) List(ctx context.Context, page, pageSize int) ([]model
 
 // Update updates an existing mute rule.
 func (s *MuteRuleService) Update(ctx context.Context, rule *model.MuteRule) error {
+	if err := validateMuteTimeWindow(rule); err != nil {
+		return err
+	}
 	if rule.RuleIDs != "" {
 		if err := validateRuleIDs(rule.RuleIDs); err != nil {
 			return err

@@ -226,6 +226,18 @@ func (s *DataSourceService) Update(ctx context.Context, ds *model.DataSource) er
 		return apperr.ErrDSNotFound
 	}
 
+	// P2-19: Check name uniqueness if name changed
+	if existing.Name != ds.Name {
+		conflict, err := s.repo.GetByName(ctx, ds.Name)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Error("failed to check datasource name", zap.Error(err))
+			return apperr.Wrap(apperr.ErrDatabase, err)
+		}
+		if conflict != nil {
+			return apperr.WithMessage(apperr.ErrDuplicateName, fmt.Sprintf("datasource '%s' already exists", ds.Name))
+		}
+	}
+
 	// P1-2: Prevent changing datasource type (e.g. prometheus→zabbix breaks everything)
 	if existing.Type != ds.Type {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "datasource type cannot be changed; create a new datasource instead")

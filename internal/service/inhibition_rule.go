@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -73,8 +74,30 @@ func (s *InhibitionRuleService) InvalidateCache() {
 	s.cacheMu.Unlock()
 }
 
+// validateLabelMap checks that a label map has non-empty keys and values.
+func validateLabelMap(labels model.JSONLabels, fieldName string) error {
+	if len(labels) == 0 {
+		return nil
+	}
+	for k, v := range labels {
+		if strings.TrimSpace(k) == "" {
+			return apperr.WithMessage(apperr.ErrInvalidParam, fieldName+": label key must not be empty")
+		}
+		if strings.TrimSpace(v) == "" {
+			return apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("%s: label %q has empty value", fieldName, k))
+		}
+	}
+	return nil
+}
+
 // Create inserts a new inhibition rule.
 func (s *InhibitionRuleService) Create(ctx context.Context, rule *model.InhibitionRule) error {
+	if err := validateLabelMap(rule.SourceMatch, "source_match"); err != nil {
+		return err
+	}
+	if err := validateLabelMap(rule.TargetMatch, "target_match"); err != nil {
+		return err
+	}
 	if err := s.repo.Create(ctx, rule); err != nil {
 		s.logger.Error("failed to create inhibition rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -99,6 +122,12 @@ func (s *InhibitionRuleService) List(ctx context.Context, page, pageSize int) ([
 
 // Update updates an existing inhibition rule.
 func (s *InhibitionRuleService) Update(ctx context.Context, rule *model.InhibitionRule) error {
+	if err := validateLabelMap(rule.SourceMatch, "source_match"); err != nil {
+		return err
+	}
+	if err := validateLabelMap(rule.TargetMatch, "target_match"); err != nil {
+		return err
+	}
 	existing, err := s.repo.GetByID(ctx, rule.ID)
 	if err != nil {
 		return apperr.ErrNotFound
