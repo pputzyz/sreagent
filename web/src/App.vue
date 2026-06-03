@@ -9,6 +9,7 @@ import {
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { ref, provide, watch, onMounted, computed } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
+import { siteInfoApi } from '@/api' // P1-27: fetch site branding on app load
 
 const preferencesStore = usePreferencesStore()
 
@@ -268,7 +269,56 @@ function applyBodyClass(dark: boolean) {
   }
 }
 
-onMounted(() => { applyBodyClass(isDark.value) })
+onMounted(() => {
+  applyBodyClass(isDark.value)
+  // P1-27: Fetch site branding on app load and apply globally
+  fetchSiteBranding()
+})
+
+// P1-27: Apply site info (title, favicon, custom CSS) globally
+async function fetchSiteBranding() {
+  try {
+    const { data } = await siteInfoApi.get()
+    const info = data.data
+    if (!info) return
+    // Apply document title
+    if (info.site_name) {
+      document.title = info.site_name
+    }
+    // Apply favicon
+    if (info.favicon_url) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement
+      if (!link) {
+        link = document.createElement('link')
+        link.rel = 'icon'
+        document.head.appendChild(link)
+      }
+      link.href = info.favicon_url
+    }
+    // Apply custom CSS
+    if (info.custom_css) {
+      let style = document.getElementById('site-custom-css')
+      if (!style) {
+        style = document.createElement('style')
+        style.id = 'site-custom-css'
+        document.head.appendChild(style)
+      }
+      style.textContent = info.custom_css
+    }
+    // Store for login page access
+    if (info.site_name) {
+      localStorage.setItem('sre-site-name', info.site_name)
+    }
+    if (info.login_title) {
+      localStorage.setItem('sre-login-title', info.login_title)
+    }
+    if (info.logo_url) {
+      localStorage.setItem('sre-logo-url', info.logo_url)
+    }
+  } catch {
+    // Site info endpoint may not be available — ignore
+  }
+}
 
 watch(isDark, (val) => {
   localStorage.setItem('sre-theme', val ? 'dark' : 'light')

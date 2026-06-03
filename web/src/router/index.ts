@@ -53,7 +53,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/suppression/inhibition', component: () => import('@/pages/alerts/inhibition/Index.vue'), meta: { title: 'menu.inhibitionRules' } },
       { path: 'alert/recording-rules', component: () => import('@/pages/alerts/recording-rules/Index.vue'), meta: { title: 'menu.recordingRules', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/event-pipelines', component: () => import('@/pages/alerts/event-pipelines/Index.vue'), meta: { title: 'menu.eventPipelines', requiresRole: ['admin', 'team_lead'] } },
-      { path: 'alert/builtin-metrics', component: () => import('@/pages/alerts/builtin-metrics/Index.vue'), meta: { title: 'menu.builtinMetrics', requiresRole: ['admin', 'team_lead'] } },
+      // P1-28: removed /alert/builtin-metrics (orphan route, no menu entry)
       { path: 'alert/presets', redirect: '/alert/template-library' },
       { path: 'alert/template-library', component: () => import('@/pages/alerts/TemplateLibrary.vue'), meta: { title: 'menu.templateLibrary' } },
       { path: 'alert/datasources', component: () => import('@/pages/datasources/Index.vue'), meta: { title: 'menu.datasources', requiresRole: ['admin', 'team_lead'] } },
@@ -64,7 +64,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'alert/es-explore', component: () => import('@/pages/explore/ESExplorer.vue'), meta: { title: 'menu.esExplorer' } },
       { path: 'alert/es-patterns', component: () => import('@/pages/alerts/es-patterns/Index.vue'), meta: { title: 'menu.esPatterns', requiresRole: ['admin', 'team_lead'] } },
       { path: 'alert/dashboards', component: () => import('@/pages/dashboards/Index.vue'), meta: { title: 'menu.dashboard', requiresRole: ['admin', 'team_lead'] } },
-      { path: 'alert/dashboards/builtin', component: () => import('@/pages/dashboards/BuiltinLibrary.vue'), meta: { title: 'menu.builtinDashboards' } },
+      // P1-28: removed /alert/dashboards/builtin (orphan route, no menu entry)
       { path: 'alert/dashboards/:id', component: () => import('@/pages/dashboards/View.vue'), meta: { title: 'menu.dashboard' } },
       // Legacy notification routes → redirect to /oncall/notify/* (v4.43.0 migration)
       { path: 'alert/notify/policies', redirect: '/oncall/notify/policies' },

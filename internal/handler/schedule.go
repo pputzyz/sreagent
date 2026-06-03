@@ -102,18 +102,20 @@ type GenerateShiftsRequest struct {
 
 // CreateEscalationPolicyRequest is the request body for creating an escalation policy.
 type CreateEscalationPolicyRequest struct {
-	Name      string                  `json:"name" binding:"required"`
-	TeamID    uint                    `json:"team_id"` // 0 = global policy (no team)
-	IsEnabled *bool                   `json:"is_enabled"`
-	Steps     []model.EscalationStep  `json:"steps"`
+	Name        string                 `json:"name" binding:"required"`
+	Description string                 `json:"description"` // P1-09
+	TeamID      uint                   `json:"team_id"`     // 0 = global policy (no team)
+	IsEnabled   *bool                  `json:"is_enabled"`
+	Steps       []model.EscalationStep `json:"steps"`
 }
 
 // UpdateEscalationPolicyRequest is the request body for updating an escalation policy.
 type UpdateEscalationPolicyRequest struct {
-	Name      string                  `json:"name" binding:"required"`
-	TeamID    uint                    `json:"team_id"` // 0 = global policy (no team)
-	IsEnabled *bool                   `json:"is_enabled"`
-	Steps     []model.EscalationStep  `json:"steps"`
+	Name        string                 `json:"name" binding:"required"`
+	Description string                 `json:"description"` // P1-09
+	TeamID      uint                   `json:"team_id"`     // 0 = global policy (no team)
+	IsEnabled   *bool                  `json:"is_enabled"`
+	Steps       []model.EscalationStep `json:"steps"`
 }
 
 // ---------------------------------------------------------------------------
@@ -468,9 +470,10 @@ func (h *ScheduleHandler) CreateEscalationPolicy(c *gin.Context) {
 		zap.String("request_id", c.GetString("request_id")))
 
 	policy := &model.EscalationPolicy{
-		Name:      req.Name,
-		TeamID:    req.TeamID,
-		IsEnabled: isEnabled,
+		Name:        req.Name,
+		Description: req.Description, // P1-09
+		TeamID:      req.TeamID,
+		IsEnabled:   isEnabled,
 	}
 
 	if err := h.svc.CreateEscalationPolicy(c.Request.Context(), policy); err != nil {
@@ -577,9 +580,10 @@ func (h *ScheduleHandler) UpdateEscalationPolicy(c *gin.Context) {
 		zap.String("request_id", c.GetString("request_id")))
 
 	policy := &model.EscalationPolicy{
-		Name:      req.Name,
-		TeamID:    req.TeamID,
-		IsEnabled: isEnabled,
+		Name:        req.Name,
+		Description: req.Description, // P1-09
+		TeamID:      req.TeamID,
+		IsEnabled:   isEnabled,
 	}
 	policy.ID = id
 

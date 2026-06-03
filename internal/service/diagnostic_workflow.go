@@ -76,12 +76,23 @@ func (s *DiagnosticWorkflowService) StartRun(ctx context.Context, workflowID uin
 	}
 
 	run := &model.DiagnosticRun{
-		WorkflowID: workflowID,
-		IncidentID: incidentID,
-		UserID:     userID,
-		Status:     "running",
+		WorkflowID:  workflowID,
+		IncidentID:  incidentID,
+		UserID:      userID,
 		CurrentStep: 0,
 	}
+
+	// P1-22: If require_approval is true, set status to pending_approval and wait.
+	if wf.RequireApproval {
+		run.Status = "pending_approval"
+		if err := s.repo.CreateRun(ctx, run); err != nil {
+			return nil, err
+		}
+		s.logger.Info("diagnostic run pending approval", zap.Uint("run_id", run.ID), zap.Uint("wf_id", workflowID))
+		return run, nil
+	}
+
+	run.Status = "running"
 	now := time.Now()
 	run.StartedAt = &now
 
@@ -101,6 +112,45 @@ func (s *DiagnosticWorkflowService) StartRun(ctx context.Context, workflowID uin
 		s.executeRun(runCtx, run, wf)
 	}()
 
+	return run, nil
+}
+
+// ApproveRun transitions a pending_approval run to running and starts execution.
+// P1-22: Approval endpoint for diagnostic workflows with require_approval=true.
+func (s *DiagnosticWorkflowService) ApproveRun(ctx context.Context, runID uint, userID *uint) (*model.DiagnosticRun, error) {
+	run, err := s.repo.GetRun(ctx, runID)
+	if err != nil {
+		return nil, fmt.Errorf("run not found: %w", err)
+	}
+	if run.Status != "pending_approval" {
+		return nil, fmt.Errorf("run is not pending approval (current status: %s)", run.Status)
+	}
+
+	wf, err := s.repo.GetByID(ctx, run.WorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("workflow not found: %w", err)
+	}
+
+	run.Status = "running"
+	now := time.Now()
+	run.StartedAt = &now
+	if err := s.repo.UpdateRun(ctx, run); err != nil {
+		return nil, err
+	}
+
+	// Execute steps asynchronously with a 30-minute timeout.
+	runCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	go func() {
+		defer cancel()
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("diagnostic workflow panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+			}
+		}()
+		s.executeRun(runCtx, run, wf)
+	}()
+
+	s.logger.Info("diagnostic run approved", zap.Uint("run_id", runID), zap.Uint("wf_id", wf.ID))
 	return run, nil
 }
 

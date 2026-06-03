@@ -32,11 +32,17 @@ func (h *AuditLogHandler) List(c *gin.Context) {
 			f.UserID = &u
 		}
 	}
+	if v := c.Query("username"); v != "" {
+		f.Username = v // P1-26
+	}
 	if v := c.Query("action"); v != "" {
 		f.Action = v
 	}
 	if v := c.Query("resource_type"); v != "" {
 		f.ResourceType = v
+	}
+	if v := c.Query("keyword"); v != "" {
+		f.Keyword = v // P1-26
 	}
 	if v := c.Query("start_time"); v != "" {
 		if t, err := time.Parse(time.RFC3339, v); err == nil {

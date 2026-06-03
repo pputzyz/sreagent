@@ -107,6 +107,7 @@ func (r *TeamRepository) RemoveMember(ctx context.Context, teamID, userID uint) 
 func (r *TeamRepository) ListMembers(ctx context.Context, teamID uint) ([]model.TeamMember, error) {
 	var members []model.TeamMember
 	err := r.db.WithContext(ctx).
+		Preload("User"). // P1-23: Load user details (name, email, etc.)
 		Where("team_id = ?", teamID).
 		Find(&members).Error
 	return members, err

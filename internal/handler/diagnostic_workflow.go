@@ -178,6 +178,30 @@ func (h *DiagnosticWorkflowHandler) StartRun(c *gin.Context) {
 	Success(c, run)
 }
 
+// ApproveRun approves a pending_approval diagnostic run and starts execution.
+// P1-22: POST /api/v1/diagnostic-workflows/runs/:id/approve
+func (h *DiagnosticWorkflowHandler) ApproveRun(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
+		return
+	}
+
+	uid, ok := GetCurrentUserIDOK(c)
+	if !ok {
+		Error(c, apperr.ErrUnauthorized)
+		return
+	}
+
+	run, err := h.svc.ApproveRun(c.Request.Context(), uint(id), &uid)
+	if err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrBusiness, err.Error()))
+		return
+	}
+
+	Success(c, run)
+}
+
 func (h *DiagnosticWorkflowHandler) GetRun(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

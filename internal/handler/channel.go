@@ -40,19 +40,20 @@ type CreateCollabChannelRequest struct {
 	SortOrder         int    `json:"sort_order"`
 }
 
+// P1-18: Pointer-based fields allow clearing optional fields (set to "" via pointer).
 type UpdateCollabChannelRequest struct {
-	Name              string `json:"name"`
-	Description       string `json:"description"`
-	TeamID            *uint  `json:"team_id"`
-	Status            string `json:"status"`
-	AccessLevel       string `json:"access_level"`
-	AggregationConfig string `json:"aggregation_config"`
-	FlappingConfig    string `json:"flapping_config"`
-	AutoCloseEnabled  bool   `json:"auto_close_enabled"`
-	AutoCloseOrigin   string `json:"auto_close_origin"`
-	AutoCloseMinutes  int    `json:"auto_close_minutes"`
-	FollowAlertClose  bool   `json:"follow_alert_close"`
-	SortOrder         int    `json:"sort_order"`
+	Name              *string `json:"name"`
+	Description       *string `json:"description"`
+	TeamID            *uint   `json:"team_id"`
+	Status            *string `json:"status"`
+	AccessLevel       *string `json:"access_level"`
+	AggregationConfig *string `json:"aggregation_config"`
+	FlappingConfig    *string `json:"flapping_config"`
+	AutoCloseEnabled  *bool   `json:"auto_close_enabled"`
+	AutoCloseOrigin   *string `json:"auto_close_origin"`
+	AutoCloseMinutes  *int    `json:"auto_close_minutes"`
+	FollowAlertClose  *bool   `json:"follow_alert_close"`
+	SortOrder         *int    `json:"sort_order"`
 }
 
 // --- Endpoints ---
@@ -175,19 +176,40 @@ func (h *ChannelHandler) Update(c *gin.Context) {
 		return
 	}
 
-	updates := &model.Channel{
-		Name:              req.Name,
-		Description:       req.Description,
-		TeamID:            req.TeamID,
-		Status:            model.ChannelStatus(req.Status),
-		AccessLevel:       model.ChannelAccessLevel(req.AccessLevel),
-		AggregationConfig: req.AggregationConfig,
-		FlappingConfig:    req.FlappingConfig,
-		AutoCloseEnabled:  req.AutoCloseEnabled,
-		AutoCloseOrigin:   req.AutoCloseOrigin,
-		AutoCloseMinutes:  req.AutoCloseMinutes,
-		FollowAlertClose:  req.FollowAlertClose,
-		SortOrder:         req.SortOrder,
+	updates := &model.Channel{}
+	if req.Name != nil {
+		updates.Name = *req.Name
+	}
+	if req.Description != nil {
+		updates.Description = *req.Description
+	}
+	updates.TeamID = req.TeamID
+	if req.Status != nil {
+		updates.Status = model.ChannelStatus(*req.Status)
+	}
+	if req.AccessLevel != nil {
+		updates.AccessLevel = model.ChannelAccessLevel(*req.AccessLevel)
+	}
+	if req.AggregationConfig != nil {
+		updates.AggregationConfig = *req.AggregationConfig
+	}
+	if req.FlappingConfig != nil {
+		updates.FlappingConfig = *req.FlappingConfig
+	}
+	if req.AutoCloseEnabled != nil {
+		updates.AutoCloseEnabled = *req.AutoCloseEnabled
+	}
+	if req.AutoCloseOrigin != nil {
+		updates.AutoCloseOrigin = *req.AutoCloseOrigin
+	}
+	if req.AutoCloseMinutes != nil {
+		updates.AutoCloseMinutes = *req.AutoCloseMinutes
+	}
+	if req.FollowAlertClose != nil {
+		updates.FollowAlertClose = *req.FollowAlertClose
+	}
+	if req.SortOrder != nil {
+		updates.SortOrder = *req.SortOrder
 	}
 
 	ch, err := h.svc.Update(c.Request.Context(), id, updates)
@@ -196,11 +218,15 @@ func (h *ChannelHandler) Update(c *gin.Context) {
 		return
 	}
 
+	auditName := ""
+	if req.Name != nil {
+		auditName = *req.Name
+	}
 	if h.auditSvc != nil {
 		uid := GetCurrentUserID(c)
 		h.auditSvc.Record(&model.AuditLog{
 			UserID: &uid, Action: model.AuditActionUpdate,
-			ResourceType: model.AuditResourceChannel, ResourceID: &id, ResourceName: req.Name,
+			ResourceType: model.AuditResourceChannel, ResourceID: &id, ResourceName: auditName,
 			IP: c.ClientIP(),
 		})
 	}

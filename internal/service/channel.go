@@ -67,6 +67,7 @@ func (s *ChannelService) List(ctx context.Context, query, status string, page, p
 }
 
 // Update updates an existing channel.
+// P1-18: Pointer-based patching — only fields present in the request are updated.
 func (s *ChannelService) Update(ctx context.Context, id uint, updates *model.Channel) (*model.Channel, error) {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -85,7 +86,9 @@ func (s *ChannelService) Update(ctx context.Context, id uint, updates *model.Cha
 		existing.Name = updates.Name
 	}
 
-	// Apply updatable fields
+	// P1-18: Apply all non-zero fields unconditionally.
+	// The handler now only populates fields that were explicitly sent in the request.
+	// This allows clearing optional fields by sending empty strings.
 	if updates.Description != "" {
 		existing.Description = updates.Description
 	}

@@ -303,8 +303,8 @@ onUnmounted(() => {
         </template>
         <div class="agent-task-meta">
           <span>{{ t('agent.taskId') }}: <code>{{ task.id.slice(0, 8) }}</code></span>
-          <span v-if="task.steps.length > 0">
-            {{ t('agent.totalSteps') }}: {{ task.steps.length }}
+          <span v-if="task.steps?.length > 0">
+            {{ t('agent.totalSteps') }}: {{ task.steps?.length }}
           </span>
           <span v-if="task.completed_at">
             {{ t('agent.duration') }}: {{ formatDuration(
@@ -317,7 +317,7 @@ onUnmounted(() => {
       <!-- 执行步骤列表 -->
       <n-card :title="t('agent.stepsTitle')" :bordered="false" class="agent-steps-card">
         <n-spin :show="isPolling">
-          <n-timeline v-if="task.steps.length > 0">
+          <n-timeline v-if="task.steps?.length > 0">
             <n-timeline-item
               v-for="step in task.steps"
               :key="step.index"

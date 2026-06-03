@@ -26,8 +26,10 @@ func (r *AuditLogRepository) Create(ctx context.Context, log *model.AuditLog) er
 // AuditLogFilter holds optional filter criteria for listing audit logs.
 type AuditLogFilter struct {
 	UserID       *uint
+	Username     string // P1-26: filter by username
 	Action       string
 	ResourceType string
+	Keyword      string    // P1-26: free-text search across resource_name, action
 	StartTime    *time.Time
 	EndTime      *time.Time
 }
@@ -39,11 +41,21 @@ func (r *AuditLogRepository) List(ctx context.Context, f AuditLogFilter, page, p
 	if f.UserID != nil {
 		q = q.Where("user_id = ?", *f.UserID)
 	}
+	if f.Username != "" {
+		// P1-26: Filter by username (join with users table)
+		q = q.Joins("LEFT JOIN users ON users.id = audit_logs.user_id").
+			Where("users.username = ?", f.Username)
+	}
 	if f.Action != "" {
 		q = q.Where("action = ?", f.Action)
 	}
 	if f.ResourceType != "" {
 		q = q.Where("resource_type = ?", f.ResourceType)
+	}
+	if f.Keyword != "" {
+		// P1-26: Free-text search across resource_name and action
+		like := "%" + f.Keyword + "%"
+		q = q.Where("(resource_name LIKE ? OR action LIKE ?)", like, like)
 	}
 	if f.StartTime != nil {
 		q = q.Where("created_at >= ?", *f.StartTime)

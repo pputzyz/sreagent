@@ -244,6 +244,33 @@ func (h *DataSourceHandler) HealthCheck(c *gin.Context) {
 	Success(c, result)
 }
 
+// TestConnectionRaw tests connectivity to a datasource endpoint without requiring a saved datasource.
+// P1-15: POST /api/v1/datasources/test-connection
+func (h *DataSourceHandler) TestConnectionRaw(c *gin.Context) {
+	var req struct {
+		Type       string `json:"type" binding:"required"`
+		Endpoint   string `json:"endpoint" binding:"required"`
+		AuthType   string `json:"auth_type"`
+		AuthConfig string `json:"auth_config"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	if err := validateEndpointScheme(req.Endpoint); err != nil {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+
+	result, err := h.svc.TestConnectionRaw(c.Request.Context(), req.Type, req.Endpoint, req.AuthType, req.AuthConfig)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+
+	Success(c, result)
+}
+
 // toTime converts a unix timestamp in seconds (with fractional precision) to time.Time.
 // Handles millisecond/sub-second precision correctly (P1-3).
 func toTime(unixSec float64) time.Time {

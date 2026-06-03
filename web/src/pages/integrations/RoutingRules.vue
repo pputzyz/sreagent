@@ -52,20 +52,27 @@ interface ConditionItem {
 
 const conditionItems = ref<ConditionItem[]>([])
 
+// P1-17: Aligned with backend FilterCondition fields (severity, title, description, labels.xxx)
 const fieldOptions = [
   { label: 'severity', value: 'severity' },
-  { label: 'status', value: 'status' },
+  { label: 'title', value: 'title' },
+  { label: 'description', value: 'description' },
   { label: 'rule_name', value: 'rule_name' },
   { label: 'datasource_id', value: 'datasource_id' },
-  { label: 'tags', value: 'tags' },
+  { label: 'labels.env', value: 'labels.env' },
+  { label: 'labels.service', value: 'labels.service' },
+  { label: 'labels.cluster', value: 'labels.cluster' },
 ]
 
+// P1-17: Aligned with backend FilterCondition operators (eq, ne, contains, not_contains, regex, in, not_in)
 const operatorOptions = computed(() => [
   { label: t('routingRule.opEq'), value: 'eq' },
   { label: t('routingRule.opNe'), value: 'ne' },
+  { label: t('routingRule.opContains') || 'contains', value: 'contains' },
+  { label: t('routingRule.opNotContains') || 'not_contains', value: 'not_contains' },
   { label: t('routingRule.opRegex'), value: 'regex' },
-  { label: t('routingRule.opNotRegex'), value: 'not_regex' },
   { label: t('routingRule.opIn'), value: 'in' },
+  { label: t('routingRule.opNotIn') || 'not_in', value: 'not_in' },
 ])
 
 function parseConditions(json: string): ConditionItem[] {

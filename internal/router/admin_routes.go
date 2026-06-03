@@ -184,6 +184,8 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 		{
 			diagRuns.GET("", h.DiagnosticWorkflow.ListRuns)
 			diagRuns.GET("/:id", h.DiagnosticWorkflow.GetRun)
+			// P1-22: Approve a pending_approval run
+			diagRuns.POST("/:id/approve", operate, h.DiagnosticWorkflow.ApproveRun)
 		}
 	}
 

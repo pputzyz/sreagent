@@ -245,7 +245,7 @@ func (s *AgentService) StartAgent(ctx context.Context, userID uint, query string
 		UserID:    userID,
 		Query:     query,
 		Status:    "planning",
-		Steps:     nil,
+		Steps:     []AgentStep{}, // P1-19: never nil to prevent frontend crash
 		CreatedAt: time.Now(),
 	}
 
@@ -315,7 +315,7 @@ func (s *AgentService) RunAgent(ctx context.Context, userID uint, query string) 
 		UserID:    userID,
 		Query:     query,
 		Status:    "planning",
-		Steps:     nil,
+		Steps:     []AgentStep{}, // P1-19: never nil to prevent frontend crash
 		CreatedAt: time.Now(),
 	}
 

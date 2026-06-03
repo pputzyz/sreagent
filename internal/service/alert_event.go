@@ -29,16 +29,17 @@ type AlertWorkerPool interface {
 }
 
 type AlertEventService struct {
-	repo         *repository.AlertEventRepository
-	timelineRepo *repository.AlertTimelineRepository
-	userRepo     *repository.UserRepository
-	notifySvc    *NotificationService
-	onCallSvc    OnCallResolver
-	larkSvc      *LarkService
-	workerPool   AlertWorkerPool
-	dispatchSem  chan struct{} // bounds goroutines when no worker pool is configured
-	logger       *zap.Logger
-	serverCtx    context.Context // server lifecycle context for background goroutines
+	repo               *repository.AlertEventRepository
+	timelineRepo       *repository.AlertTimelineRepository
+	userRepo           *repository.UserRepository
+	notifySvc          *NotificationService
+	onCallSvc          OnCallResolver
+	larkSvc            *LarkService
+	incidentAggregator *IncidentAggregator // P1-03: bridges resolve/close to incident lifecycle
+	workerPool         AlertWorkerPool
+	dispatchSem        chan struct{} // bounds goroutines when no worker pool is configured
+	logger             *zap.Logger
+	serverCtx          context.Context // server lifecycle context for background goroutines
 }
 
 
@@ -102,6 +103,11 @@ func NewAlertEventService(
 		dispatchSem:  make(chan struct{}, defaultDispatchConcurrency),
 		logger:       logger,
 	}
+}
+
+// SetIncidentAggregator attaches an IncidentAggregator for P1-03 manual resolve/close linking.
+func (s *AlertEventService) SetIncidentAggregator(agg *IncidentAggregator) {
+	s.incidentAggregator = agg
 }
 
 // WithServerContext sets the server lifecycle context for background goroutines.
@@ -228,6 +234,10 @@ func (s *AlertEventService) Resolve(ctx context.Context, eventID, userID uint, r
 	s.addTimeline(ctx, eventID, model.TimelineActionResolved, &userID, resolution)
 	if event != nil {
 		s.triggerLarkCardUpdate(event)
+		// P1-03: Notify incident aggregator on manual resolve
+		if s.incidentAggregator != nil {
+			s.incidentAggregator.OnEventResolved(ctx, event)
+		}
 	}
 	return nil
 }
@@ -259,6 +269,10 @@ func (s *AlertEventService) Close(ctx context.Context, eventID, userID uint, not
 	s.addTimeline(ctx, eventID, model.TimelineActionClosed, &userID, note)
 	if event != nil {
 		s.triggerLarkCardUpdate(event)
+		// P1-03: Notify incident aggregator on manual close
+		if s.incidentAggregator != nil {
+			s.incidentAggregator.OnEventResolved(ctx, event)
+		}
 	}
 	return nil
 }

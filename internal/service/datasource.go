@@ -377,6 +377,37 @@ func (s *DataSourceService) HealthCheck(ctx context.Context, id uint) (*HealthCh
 	}, nil
 }
 
+// TestConnectionRaw tests connectivity to a datasource endpoint without requiring a saved datasource.
+// P1-15: Used for "test before save" flow when creating a new datasource.
+func (s *DataSourceService) TestConnectionRaw(ctx context.Context, dsType, endpoint, authType, authConfig string) (*HealthCheckResult, error) {
+	if err := validateEndpoint(ctx, endpoint); err != nil {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, err.Error())
+	}
+
+	checker, err := datasource.NewChecker(dsType)
+	if err != nil {
+		return nil, apperr.WithMessage(apperr.ErrInvalidParam, fmt.Sprintf("unsupported datasource type: %s", dsType))
+	}
+
+	hr := checker.CheckHealth(ctx, endpoint, authType, authConfig)
+
+	status := model.DSStatusHealthy
+	message := hr.Message
+	if !hr.Healthy {
+		status = model.DSStatusUnhealthy
+		if message == "" {
+			message = "connection failed"
+		}
+	}
+
+	return &HealthCheckResult{
+		Status:    status,
+		Message:   message,
+		LatencyMs: hr.LatencyMs,
+		Version:   hr.Version,
+	}, nil
+}
+
 // QueryResponse holds the result of a datasource query test.
 type QueryResponse struct {
 	ResultType string            `json:"result_type"`

@@ -87,10 +87,13 @@ function syncTriggerLabelsStr() {
 }
 
 // ─── Options ───
+// P1-21: Aligned with backend executeStep supported types (query, label_check, change_correlation, metric_correlation, http_probe)
 const stepTypeOptions = computed(() => [
   { label: t('diagnostic.stepQuery'), value: 'query' },
-  { label: t('diagnostic.stepCommand'), value: 'command' },
-  { label: t('diagnostic.stepCheck'), value: 'check' },
+  { label: t('diagnostic.stepLabelCheck') || 'Label Check', value: 'label_check' },
+  { label: t('diagnostic.stepChangeCorrelation') || 'Change Correlation', value: 'change_correlation' },
+  { label: t('diagnostic.stepMetricCorrelation') || 'Metric Correlation', value: 'metric_correlation' },
+  { label: t('diagnostic.stepHttpProbe') || 'HTTP Probe', value: 'http_probe' },
 ])
 
 const onFailureOptions = computed(() => [

@@ -136,6 +136,11 @@ async function checkOAuth2Config() {
   }
 }
 
+// P1-27: Read site branding from localStorage (set by App.vue)
+const siteName = ref(localStorage.getItem('sre-site-name') || 'SREAgent')
+const loginTitle = ref(localStorage.getItem('sre-login-title') || '')
+const logoUrl = ref(localStorage.getItem('sre-logo-url') || '/logo.svg')
+
 onMounted(() => {
   checkOIDCConfig()
   checkOAuth2Config()
@@ -169,10 +174,10 @@ watch([() => form.value.username, () => form.value.password], () => {
         <!-- Brand header inside card -->
         <div class="card-brand">
           <div class="brand-logo-row">
-            <img src="/logo.svg" alt="SREAgent" class="brand-logo" />
-            <span class="brand-name">SREAgent</span>
+            <img :src="logoUrl" :alt="siteName" class="brand-logo" />
+            <span class="brand-name">{{ siteName }}</span>
           </div>
-          <p class="brand-tagline">{{ t('auth.brand.tagline') }}</p>
+          <p class="brand-tagline">{{ loginTitle || t('auth.brand.tagline') }}</p>
         </div>
 
         <!-- Form -->
