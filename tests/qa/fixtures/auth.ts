@@ -35,8 +35,8 @@ export const test = base.extend<{ authPage: Page }>({
       .waitFor({ state: 'visible', timeout: 15000 })
       .catch(() => {})
 
-    // 5. 等待 auth store 完全初始化
-    await page.waitForTimeout(1000)
+    // 5. 等待 auth store 完全初始化（包括权限加载）
+    await page.waitForTimeout(2000)
 
     await use(page)
   },
