@@ -2,12 +2,12 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './specs',
-  fullyParallel: false,
+  fullyParallel: true, // 并行执行所有测试
   forbidOnly: true,
-  retries: 0, // 不重试，直接报告失败
-  workers: 1,
+  retries: 0,
+  workers: 4, // 4 个并行 worker
   reporter: [
-    ['list', { printSteps: true }],  // 实时打印每个 step
+    ['list', { printSteps: true }],
     ['json', { outputFile: 'reports/results.json' }],
     ['html', { outputFolder: 'reports/html', open: 'never' }],
   ],
