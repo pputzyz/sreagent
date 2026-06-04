@@ -255,13 +255,16 @@ func (m *AlertGroupManager) Stop() {
 				zap.String("group_key", key),
 				zap.Int("event_count", len(events)),
 			)
+			// Use detached context for flush — serverCtx may be cancelled during shutdown
+			flushCtx, flushCancel := context.WithTimeout(context.Background(), 30*time.Second)
 			if m.batchRouteFunc != nil {
-				_ = m.batchRouteFunc(m.serverCtx, events)
+				_ = m.batchRouteFunc(flushCtx, events)
 			} else {
 				for _, event := range events {
-					_ = m.routeFunc(m.serverCtx, event)
+					_ = m.routeFunc(flushCtx, event)
 				}
 			}
+			flushCancel()
 		}
 	}
 

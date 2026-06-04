@@ -224,9 +224,9 @@ func Test_evalDispatchCondition_not_in(t *testing.T) {
 	assert.False(t, evalDispatchCondition("not_in", "prod", "prod,staging,dev"))
 }
 
-func Test_evalDispatchCondition_unknown_operator_matches_all(t *testing.T) {
-	assert.True(t, evalDispatchCondition("unknown", "any", "any"),
-		"unknown operator should match all (safe default)")
+func Test_evalDispatchCondition_unknown_operator_matches_none(t *testing.T) {
+	assert.False(t, evalDispatchCondition("unknown", "any", "any"),
+		"unknown operator should match none (fail-closed)")
 }
 
 // ---------------------------------------------------------------------------

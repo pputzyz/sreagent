@@ -501,16 +501,28 @@ func (s *ScheduleService) GetCurrentOnCallForAlert(ctx context.Context, alertLab
 	}
 
 	// Batch query 1: active overrides for all enabled schedules.
-	overrideMap, _ := s.overrideRepo.GetActiveOverridesForSchedules(ctx, enabledIDs, now)
+	overrideMap, err := s.overrideRepo.GetActiveOverridesForSchedules(ctx, enabledIDs, now)
+	if err != nil {
+		s.logger.Warn("failed to batch-load overrides, falling back to rotation", zap.Error(err))
+		overrideMap = nil
+	}
 
 	// Batch query 2: active shifts for all enabled schedules.
 	var shiftMap map[uint]*model.OnCallShift
 	if s.shiftRepo != nil {
-		shiftMap, _ = s.shiftRepo.GetCurrentShiftsForSchedules(ctx, enabledIDs, now)
+		shiftMap, err = s.shiftRepo.GetCurrentShiftsForSchedules(ctx, enabledIDs, now)
+		if err != nil {
+			s.logger.Warn("failed to batch-load shifts, falling back to rotation", zap.Error(err))
+			shiftMap = nil
+		}
 	}
 
 	// Batch query 3: participants for all enabled schedules.
-	participantMap, _ := s.participantRepo.ListByScheduleIDs(ctx, enabledIDs)
+	participantMap, err := s.participantRepo.ListByScheduleIDs(ctx, enabledIDs)
+	if err != nil {
+		s.logger.Error("failed to batch-load participants", zap.Error(err))
+		return nil, err
+	}
 
 	// Now resolve on-call per schedule using the pre-fetched data.
 	for _, scheduleID := range enabledIDs {
