@@ -168,7 +168,7 @@ func (s *NotificationService) RouteAlert(ctx context.Context, event *model.Alert
 				zap.Uint("event_id", event.ID),
 				zap.Error(err),
 			)
-			return nil
+			return err
 		}
 
 		if len(subscriptions) > 0 {

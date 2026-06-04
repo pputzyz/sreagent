@@ -224,7 +224,7 @@ func evalDispatchCondition(op, actual, expected string) bool {
 		}
 		return true
 	}
-	return true
+	return false // fail-closed: unknown operator should not match
 }
 
 // isActiveNow checks if a policy is active at the given time based on its time config.

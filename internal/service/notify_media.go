@@ -468,6 +468,7 @@ func (s *NotifyMediaService) sendLarkWebhook(ctx context.Context, media *model.N
 
 // SendAggregatedLarkCard sends a single Lark card containing multiple alert events.
 // Used when group_aggregate is enabled on a notify rule.
+// Routes through the standard SendNotification path for circuit breaker and concurrency control.
 func (s *NotifyMediaService) SendAggregatedLarkCard(ctx context.Context, media *model.NotifyMedia, events []*model.AlertEvent) error {
 	if len(events) == 0 {
 		return nil
@@ -478,6 +479,21 @@ func (s *NotifyMediaService) SendAggregatedLarkCard(ctx context.Context, media *
 	}
 	if cfg.WebhookURL == "" {
 		return fmt.Errorf("lark webhook_url is empty")
+	}
+
+	// Circuit breaker check — if circuit is open, reject immediately
+	if !s.checkCircuit(media.ID) {
+		return fmt.Errorf("circuit breaker open for media %d", media.ID)
+	}
+
+	// Concurrency semaphore
+	if s.sendSem != nil {
+		select {
+		case s.sendSem <- struct{}{}:
+			defer func() { <-s.sendSem }()
+		default:
+			return fmt.Errorf("notification dispatch concurrency limit reached")
+		}
 	}
 
 	// Determine the highest severity for the card header color.
