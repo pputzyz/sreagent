@@ -348,7 +348,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
             <router-link
               v-for="item in section.items"
               :key="item.key"
-              :to="'#'"
+              :to="item.key"
               class="mobile-nav-item"
               :class="{ active: activeMenuKey === item.key }"
               @click="showMobileNav = false"

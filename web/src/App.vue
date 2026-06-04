@@ -8,7 +8,7 @@ import {
 } from 'naive-ui'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import { ref, provide, watch, onMounted, computed } from 'vue'
-import { usePreferencesStore } from '@/stores/preferences'
+import { usePreferencesStore, ACCENT_COLORS } from '@/stores/preferences'
 import { siteInfoApi } from '@/api' // P1-27: fetch site branding on app load
 
 const preferencesStore = usePreferencesStore()
@@ -51,17 +51,39 @@ mql.addEventListener('change', () => {
 
 const theme = computed(() => isDark.value ? darkTheme : null)
 
-// --- v6.0 brand tokens (teal) ---
-// WCAG contrast notes for #0D9488:
-//   On #ffffff (light bg): ratio ~3.7:1 — passes AA for large text (>=18px/14px bold), icons, and UI components
-//   On #0a1018 (dark bg):  ratio ~3.5:1 — passes AA for large text and UI components
-//   Used for active menu items (13px semibold), icons, and interactive accents — all qualifying as UI components
-//   For body text on white, the secondary/tertiary colors provide >=4.5:1 contrast
-const common = {
-  primaryColor:        '#0D9488',
-  primaryColorHover:   '#14B8A6',
-  primaryColorPressed: '#0F766E',
-  primaryColorSuppl:   '#14B8A6',
+// --- v6.0 brand tokens (reactive to accent color) ---
+// Derive Naive UI primary colors from the user's chosen accent color.
+// Hover = lighten 10%, Pressed = darken 10% (approximation via hex manipulation).
+const accentColor = computed(() => {
+  const key = preferencesStore.prefs.accent_color || 'teal'
+  return ACCENT_COLORS[key] || ACCENT_COLORS.teal
+})
+
+function lighten(hex: string, amount: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const lr = Math.min(255, Math.round(r + (255 - r) * amount))
+  const lg = Math.min(255, Math.round(g + (255 - g) * amount))
+  const lb = Math.min(255, Math.round(b + (255 - b) * amount))
+  return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`
+}
+
+function darken(hex: string, amount: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const dr = Math.round(r * (1 - amount))
+  const dg = Math.round(g * (1 - amount))
+  const db = Math.round(b * (1 - amount))
+  return `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`
+}
+
+const common = computed(() => ({
+  primaryColor:        accentColor.value.primary,
+  primaryColorHover:   lighten(accentColor.value.primary, 0.15),
+  primaryColorPressed: darken(accentColor.value.primary, 0.15),
+  primaryColorSuppl:   lighten(accentColor.value.primary, 0.15),
   errorColor:          '#ef4444',
   errorColorHover:     '#f87171',
   errorColorPressed:   '#dc2626',
@@ -74,36 +96,36 @@ const common = {
   successColor:        '#10B981',
   successColorHover:   '#34D399',
   successColorPressed: '#059669',
-  borderRadius:        '10px',   // matches --sre-radius-md in global.css
-  borderRadiusSmall:   '8px',    // matches --sre-radius-sm in global.css
+  borderRadius:        '10px',
+  borderRadiusSmall:   '8px',
   fontFamily:
     '"Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif',
   fontFamilyMono:
     '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Menlo", ui-monospace, monospace',
-}
+}))
 
-const darkOverrides: GlobalThemeOverrides = {
+const darkOverrides = computed<GlobalThemeOverrides>(() => ({
   common: {
-    ...common,
-    bodyColor:     '#0a1018',
-    cardColor:     'rgba(15,23,42,0.65)',
-    modalColor:    '#0f172a',
-    popoverColor:  '#0f172a',
-    tableColor:    '#0a1018',
+    ...common.value,
+    bodyColor:     '#1a1a2e',
+    cardColor:     '#22223a',
+    modalColor:    '#2a2a45',
+    popoverColor:  '#2a2a45',
+    tableColor:    '#1a1a2e',
     tableColorHover: 'rgba(148,163,184,0.06)',
     borderColor:   'rgba(148,163,184,0.08)',
     dividerColor:  'rgba(148,163,184,0.08)',
     hoverColor:    'rgba(148,163,184,0.06)',
     textColorBase:      '#f1f5f9',
     textColor1:         '#f1f5f9',
-    textColor2:         '#cbd5e1',
-    textColor3:         '#94a3b8',
+    textColor2:         '#94a3b8',
+    textColor3:         '#64748b',
     textColorDisabled:  'rgba(148,163,184,0.3)',
     placeholderColor:   'rgba(148,163,184,0.35)',
   },
   Card: {
-    color:         'rgba(15,23,42,0.65)',
-    colorEmbedded: '#0a1018',
+    color:         '#22223a',
+    colorEmbedded: '#1a1a2e',
     borderColor:   'rgba(148,163,184,0.08)',
     borderRadius:  '12px',
   },
@@ -114,32 +136,32 @@ const darkOverrides: GlobalThemeOverrides = {
     fontWeight:         '500',
   },
   DataTable: {
-    thColor:           '#0f172a',
-    tdColor:           '#0a1018',
+    thColor:           '#16162a',
+    tdColor:           '#1a1a2e',
     tdColorHover:      'rgba(148,163,184,0.06)',
     borderColor:       'rgba(148,163,184,0.08)',
     borderRadius:      '12px',
     thFontWeight:      '600',
   },
   Layout: {
-    color:       '#0a1018',
-    siderColor:  '#0a1018',
-    headerColor: '#0a1018',
+    color:       '#1a1a2e',
+    siderColor:  '#1a1a2e',
+    headerColor: '#1a1a2e',
   },
-  Modal:  { color: '#0f172a', borderRadius: '12px' },
-  Drawer: { color: '#0f172a' },
+  Modal:  { color: '#2a2a45', borderRadius: '12px' },
+  Drawer: { color: '#2a2a45' },
   Tag:    { borderRadius: '6px' },
   Menu: {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(148,163,184,0.06)',
-    itemColorActive:        'rgba(13,148,136,0.12)',
-    itemColorActiveHover:   'rgba(13,148,136,0.16)',
-    itemTextColor:          '#cbd5e1',
+    itemColorActive:        accentColor.value.soft,
+    itemColorActiveHover:   accentColor.value.soft,
+    itemTextColor:          '#94a3b8',
     itemTextColorHover:     '#f1f5f9',
-    itemTextColorActive:    '#0D9488',
-    itemIconColorActive:    '#0D9488',
-    itemIconColorActiveHover:'#0D9488',
+    itemTextColorActive:    accentColor.value.primary,
+    itemIconColorActive:    accentColor.value.primary,
+    itemIconColorActiveHover: accentColor.value.primary,
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -149,27 +171,27 @@ const darkOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#0D9488',
+    railColorActive: accentColor.value.primary,
   },
   Slider: {
-    fillColor: '#0D9488',
+    fillColor: accentColor.value.primary,
   },
   Progress: {
-    fillColor: '#0D9488',
+    fillColor: accentColor.value.primary,
   },
   Popover: {
-    color: '#0f172a',
+    color: '#2a2a45',
     borderRadius: '12px',
   },
   Tooltip: {
-    color: '#1e293b',
+    color: '#2a2a45',
     borderRadius: '6px',
   },
-}
+}))
 
-const lightOverrides: GlobalThemeOverrides = {
+const lightOverrides = computed<GlobalThemeOverrides>(() => ({
   common: {
-    ...common,
+    ...common.value,
     bodyColor:     '#FAFAF9',
     cardColor:     '#ffffff',
     modalColor:    '#ffffff',
@@ -216,13 +238,13 @@ const lightOverrides: GlobalThemeOverrides = {
     itemHeight:             '36px',
     borderRadius:           '8px',
     itemColorHover:         'rgba(0,0,0,0.03)',
-    itemColorActive:        'rgba(13,148,136,0.10)',
-    itemColorActiveHover:   'rgba(13,148,136,0.14)',
+    itemColorActive:        accentColor.value.soft,
+    itemColorActiveHover:   accentColor.value.soft,
     itemTextColor:          '#6b7280',
     itemTextColorHover:     '#111827',
-    itemTextColorActive:    '#0D9488',
-    itemIconColorActive:    '#0D9488',
-    itemIconColorActiveHover:'#0D9488',
+    itemTextColorActive:    accentColor.value.primary,
+    itemIconColorActive:    accentColor.value.primary,
+    itemIconColorActiveHover: accentColor.value.primary,
   },
   Tabs: {
     tabBorderRadius: '8px',
@@ -232,13 +254,13 @@ const lightOverrides: GlobalThemeOverrides = {
     borderRadius: '8px',
   },
   Switch: {
-    railColorActive: '#0D9488',
+    railColorActive: accentColor.value.primary,
   },
   Slider: {
-    fillColor: '#0D9488',
+    fillColor: accentColor.value.primary,
   },
   Progress: {
-    fillColor: '#0D9488',
+    fillColor: accentColor.value.primary,
   },
   Select: {
     peers: {
@@ -253,10 +275,10 @@ const lightOverrides: GlobalThemeOverrides = {
     color: '#111827',
     borderRadius: '6px',
   },
-}
+}))
 
 const themeOverrides = computed<GlobalThemeOverrides>(() =>
-  isDark.value ? darkOverrides : lightOverrides
+  isDark.value ? darkOverrides.value : lightOverrides.value
 )
 
 function applyBodyClass(dark: boolean) {
