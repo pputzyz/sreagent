@@ -38,6 +38,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       console.warn('Failed to load preferences, using defaults', e)
     } finally {
       loaded.value = true
+      // Apply accent color to CSS variables on load
+      applyAccentColor()
       // Start OS theme listener if in auto mode (FE8-4)
       if (prefs.value.theme === 'auto') {
         startOsThemeListener()
