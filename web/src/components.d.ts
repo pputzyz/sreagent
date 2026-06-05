@@ -80,7 +80,6 @@ declare module 'vue' {
     PanelPreview: typeof import('./components/dashboard/PanelPreview.vue')['default']
     PromQLEditor: typeof import('./components/query/PromQLEditor.vue')['default']
     QueryPanel: typeof import('./components/query/QueryPanel.vue')['default']
-    QueryPanelContent: typeof import('./components/query/QueryPanelContent.vue')['default']
     QueryResultChart: typeof import('./components/query/QueryResultChart.vue')['default']
     QueryRow: typeof import('./components/query/QueryRow.vue')['default']
     QuickSilenceModal: typeof import('./components/noise/QuickSilenceModal.vue')['default']
