@@ -314,6 +314,10 @@ func (s *AlertRuleService) ImportRules(ctx context.Context, rules []model.AlertR
 			continue
 		}
 		rule.Version = 1
+		// Generate unique heartbeat_token if not set
+		if rule.HeartbeatToken == "" {
+			rule.HeartbeatToken = generateSecureToken(32)
+		}
 		if err := s.repo.Create(ctx, &rule); err != nil {
 			failed++
 			errors = append(errors, fmt.Sprintf("rule #%d (%s): %v", i+1, rule.Name, err))

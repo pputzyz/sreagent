@@ -572,18 +572,25 @@ func (h *AlertRuleHandler) Import(c *gin.Context) {
 				}
 			}
 
+			// Determine datasource_type from labels or default to prometheus
+			dsType := model.DataSourceType(r.Labels["datasource_type"])
+			if dsType == "" {
+				dsType = model.DSTypePrometheus // default for Prometheus/VM rule files
+			}
+
 			rule := model.AlertRule{
-				Name:         r.Alert,
-				DisplayName:  r.Alert,
-				Expression:   r.Expr,
-				ForDuration:  r.For,
-				Severity:     severity,
-				Labels:       model.JSONLabels(r.Labels),
-				Annotations:  model.JSONLabels(r.Annotations),
-				GroupName:    group.Name,
-				Status:       model.RuleStatusActive,
-				DataSourceID: datasourceID,
-				CreatedBy:    userID,
+				Name:           r.Alert,
+				DisplayName:    r.Alert,
+				Expression:     r.Expr,
+				ForDuration:    r.For,
+				Severity:       severity,
+				Labels:         model.JSONLabels(r.Labels),
+				Annotations:    model.JSONLabels(r.Annotations),
+				GroupName:      group.Name,
+				Status:         model.RuleStatusActive,
+				DataSourceID:   datasourceID,
+				DatasourceType: dsType,
+				CreatedBy:      userID,
 			}
 			rules = append(rules, rule)
 		}
