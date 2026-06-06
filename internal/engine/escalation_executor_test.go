@@ -76,12 +76,12 @@ func Test_escalateEvent_team_overrides_global(t *testing.T) {
 	// Simulate the policy maps that runOnce builds.
 	teamPolicies := map[uint][]model.EscalationPolicy{
 		1: {
-			{BaseModel: model.BaseModel{ID: 10}, Name: "team-1-policy", TeamID: 1, IsEnabled: true},
-			{BaseModel: model.BaseModel{ID: 11}, Name: "team-1-policy-2", TeamID: 1, IsEnabled: true},
+			{BaseModel: model.BaseModel{ID: 10}, Name: "team-1-policy", TeamID: uintPtr(1), IsEnabled: true},
+			{BaseModel: model.BaseModel{ID: 11}, Name: "team-1-policy-2", TeamID: uintPtr(1), IsEnabled: true},
 		},
 	}
 	globalPolicies := []model.EscalationPolicy{
-		{BaseModel: model.BaseModel{ID: 99}, Name: "global-policy", TeamID: 0, IsEnabled: true},
+		{BaseModel: model.BaseModel{ID: 99}, Name: "global-policy", TeamID: nil, IsEnabled: true},
 	}
 
 	// Simulate teamBatches (which teams have firing events).
@@ -248,8 +248,8 @@ func TestEscalation_BatchLoadByPolicyIDs(t *testing.T) {
 	ctx := context.Background()
 
 	// Create two policies with steps.
-	p1 := &model.EscalationPolicy{Name: "p1", TeamID: 1, IsEnabled: true}
-	p2 := &model.EscalationPolicy{Name: "p2", TeamID: 2, IsEnabled: true}
+	p1 := &model.EscalationPolicy{Name: "p1", TeamID: uintPtr(1), IsEnabled: true}
+	p2 := &model.EscalationPolicy{Name: "p2", TeamID: uintPtr(2), IsEnabled: true}
 	require.NoError(t, db.Create(p1).Error)
 	require.NoError(t, db.Create(p2).Error)
 
@@ -279,9 +279,9 @@ func TestEscalation_ListAllEnabled(t *testing.T) {
 	ctx := context.Background()
 
 	// Create enabled and disabled policies.
-	require.NoError(t, db.Create(&model.EscalationPolicy{Name: "enabled1", TeamID: 1, IsEnabled: true}).Error)
-	require.NoError(t, db.Create(&model.EscalationPolicy{Name: "disabled1", TeamID: 1, IsEnabled: false}).Error)
-	require.NoError(t, db.Create(&model.EscalationPolicy{Name: "enabled2", TeamID: 2, IsEnabled: true}).Error)
+	require.NoError(t, db.Create(&model.EscalationPolicy{Name: "enabled1", TeamID: uintPtr(1), IsEnabled: true}).Error)
+	require.NoError(t, db.Create(&model.EscalationPolicy{Name: "disabled1", TeamID: uintPtr(1), IsEnabled: false}).Error)
+	require.NoError(t, db.Create(&model.EscalationPolicy{Name: "enabled2", TeamID: uintPtr(2), IsEnabled: true}).Error)
 
 	list, err := policyRepo.ListAllEnabled(ctx)
 	require.NoError(t, err)
