@@ -315,9 +315,58 @@ func (s *SystemSettingService) SaveAIConfig(ctx context.Context, cfg AIConfig) e
 	if err := s.repo.SetGroup(ctx, groupAI, kv); err != nil {
 		return err
 	}
+
+	// Also update the default provider in multi-provider config if it exists.
+	providersCfg, err := s.GetProvidersConfig(ctx)
+	if err == nil && len(providersCfg.Providers) > 0 {
+		defaultKey := providersCfg.DefaultProvider
+		if defaultKey == "" {
+			defaultKey = providersCfg.Providers[0].Key
+		}
+		changed := false
+		for i, p := range providersCfg.Providers {
+			if p.Key == defaultKey {
+				if cfg.Provider != "" {
+					providersCfg.Providers[i].Provider = cfg.Provider
+					changed = true
+				}
+				if cfg.BaseURL != "" {
+					providersCfg.Providers[i].BaseURL = cfg.BaseURL
+					changed = true
+				}
+				if cfg.Model != "" {
+					providersCfg.Providers[i].Model = cfg.Model
+					changed = true
+				}
+				if cfg.APIKey != "" {
+					providersCfg.Providers[i].APIKey = cfg.APIKey
+					changed = true
+				}
+				// Only update enabled/temperature/max_tokens if they were explicitly provided (non-zero)
+				if cfg.Temperature > 0 {
+					providersCfg.Providers[i].Temperature = cfg.Temperature
+					changed = true
+				}
+				if cfg.MaxTokens > 0 {
+					providersCfg.Providers[i].MaxTokens = cfg.MaxTokens
+					changed = true
+				}
+				break
+			}
+		}
+		if changed {
+			if saveErr := s.SaveProvidersConfig(ctx, providersCfg); saveErr != nil {
+				s.logger.Warn("failed to sync providers config on SaveAIConfig", zap.Error(saveErr))
+			}
+		}
+	}
+
 	// Invalidate cache so the next read fetches fresh data.
 	s.aiMu.Lock()
 	s.aiCache = cachedConfig[AIConfig]{}
+	s.providersMu.Lock()
+	s.providersCache = cachedConfig[AIProvidersConfig]{}
+	s.providersMu.Unlock()
 	s.aiMu.Unlock()
 	return nil
 }
