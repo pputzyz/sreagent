@@ -4,6 +4,32 @@
 
 ---
 
+## [v4.64.0] — 2026-06-06
+
+### QA 自动化测试修复 — 12 项代码修复
+
+**后端修复:**
+- `heartbeat_token` 唯一索引冲突: 所有规则自动生成唯一token
+- `nodata_duration`/`suppress_enabled` 列缺失: 迁移 000120
+- RBAC 权限配置: 添加 `incident.write`, `schedule.write`, `escalation.write`
+- Channel JSON 默认值: `aggregation_config`, `flapping_config` 默认 `{}`
+- Incident timeline JSON 默认值: `extra` 字段默认 `{}`
+- Incident snooze 允许从 `processing` 状态执行
+- Incident reassign/escalate 允许从 `triggered` 状态执行
+- EscalationPolicy 外键约束: `team_id` 改为可空 (迁移 000121)
+- EscalationPolicy `UpdateEscalationPolicy` 添加 `description` 更新
+- SSRF 开发环境跳过检查 (`SREAGENT_DEV_SKIP_SSRF_CHECK`)
+
+**测试修复:**
+- AI-2: 清理未使用变量
+- AR-5: 使用 `page.request` 替代 `page.evaluate` 绕过 CORS
+- USER-3: team role 从 `admin` 改为 `team_lead`
+- USER-4: 权限匹配从 `alertrules` 改为 `rules`
+
+**迁移文件:** 000119, 000120, 000121
+
+---
+
 ## [v4.60.0] — 2026-05-31
 
 ### P2 前端审计修复 — 6 项
