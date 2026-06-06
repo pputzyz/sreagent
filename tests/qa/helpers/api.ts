@@ -4,7 +4,7 @@ import { Page } from '@playwright/test'
  * API 辅助工具 — 使用 Playwright 内置 API 调用后端
  */
 export class API {
-  private static async request(page: Page, method: string, path: string, body?: unknown): Promise<any> {
+  private static async request(page: Page, method: string, path: string, body?: unknown, timeout?: number): Promise<any> {
     // 从 localStorage 获取 token
     const token = await page.evaluate(() => localStorage.getItem('token'))
     if (!token) {
@@ -17,25 +17,26 @@ export class API {
       'Authorization': `Bearer ${token}`
     }
 
+    const options: any = { headers, timeout: timeout || 60000 }
+
     try {
       let response
-      const bodyStr = body ? JSON.stringify(body) : undefined
 
       switch (method) {
         case 'GET':
-          response = await page.request.get(url, { headers })
+          response = await page.request.get(url, options)
           break
         case 'POST':
-          response = await page.request.post(url, { headers, data: body })
+          response = await page.request.post(url, { ...options, data: body })
           break
         case 'PUT':
-          response = await page.request.put(url, { headers, data: body })
+          response = await page.request.put(url, { ...options, data: body })
           break
         case 'DELETE':
-          response = await page.request.delete(url, { headers })
+          response = await page.request.delete(url, options)
           break
         case 'PATCH':
-          response = await page.request.patch(url, { headers, data: body })
+          response = await page.request.patch(url, { ...options, data: body })
           break
         default:
           throw new Error(`Unsupported method: ${method}`)
@@ -52,8 +53,8 @@ export class API {
     }
   }
 
-  static async post(page: Page, path: string, body?: unknown): Promise<any> {
-    return this.request(page, 'POST', path, body)
+  static async post(page: Page, path: string, body?: unknown, timeout?: number): Promise<any> {
+    return this.request(page, 'POST', path, body, timeout)
   }
 
   static async get(page: Page, path: string): Promise<any> {

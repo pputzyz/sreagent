@@ -24,6 +24,7 @@ type TeamMember struct {
 	TeamID uint   `json:"team_id" gorm:"primaryKey"`
 	UserID uint   `json:"user_id" gorm:"primaryKey"`
 	Role   string `json:"role" gorm:"size:32;default:member"` // lead, member
+	User   *User  `json:"user,omitempty" gorm:"foreignKey:UserID"`
 }
 
 func (TeamMember) TableName() string {
