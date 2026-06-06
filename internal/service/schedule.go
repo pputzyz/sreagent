@@ -813,6 +813,7 @@ func (s *ScheduleService) UpdateEscalationPolicy(ctx context.Context, policy *mo
 	}
 
 	existing.Name = policy.Name
+	existing.Description = policy.Description
 	existing.TeamID = policy.TeamID
 	existing.IsEnabled = policy.IsEnabled
 
