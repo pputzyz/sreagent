@@ -27,8 +27,6 @@ test.describe('AI 功能测试', () => {
 
   // AI-2: Send English message -> verify reply not empty -> send Chinese message -> verify reply not empty
   test('AI-2 AI 聊天消息收发', async ({ authPage: page }) => {
-    let englishReply: string | undefined
-
     await test.step('发送英文消息', async () => {
       const res = await API.post(page, '/api/v1/ai/chat', {
         mode: 'general',
@@ -38,7 +36,6 @@ test.describe('AI 功能测试', () => {
       expect(res.data).toBeDefined()
       expect(typeof res.data.reply).toBe('string')
       expect(res.data.reply.length).toBeGreaterThan(0)
-      englishReply = res.data.reply
       await page.screenshot({ path: 'test-results/AI-2-英文消息回复.png', fullPage: false })
     })
 

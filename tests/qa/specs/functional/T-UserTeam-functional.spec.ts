@@ -158,7 +158,7 @@ test('USER-3 团队 CRUD 与成员管理', async ({ authPage: page }) => {
     await test.step('添加成员到团队', async () => {
       const resp = await API.post(page, `${API_BASE}/teams/${teamId}/members`, {
         user_id: adminUserId,
-        role: 'admin',
+        role: 'team_lead',
       })
       expect(resp.code).toBe(0)
       await page.screenshot({ path: 'test-results/USER-3-04-添加成员.png', fullPage: false })
@@ -251,7 +251,7 @@ test('USER-4 权限查询', async ({ authPage: page }) => {
       const perms = resp.data
       const permsStr = JSON.stringify(perms).toLowerCase()
       // admin 应该拥有至少这些核心资源的权限
-      const coreResources = ['alert-rules', 'teams', 'users']
+      const coreResources = ['rules', 'teams', 'users']
       for (const resource of coreResources) {
         // 权限中应包含这些资源相关的内容
         expect(permsStr).toContain(resource.toLowerCase().replace('-', ''))

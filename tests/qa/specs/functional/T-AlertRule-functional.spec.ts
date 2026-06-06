@@ -319,23 +319,21 @@ test('AR-5 告警规则导入导出', async ({ authPage: page }) => {
     // ---- 2. 导出规则 (JSON format) ----
     let exportedData: any
     await test.step('导出规则 JSON', async () => {
-      const exportUrl = `${API_BASE}/alert-rules/export?format=json`
+      // Use page.request (test-process HTTP) to avoid CORS issues with page.evaluate + fetch
       const token = await page.evaluate(() => localStorage.getItem('token'))
-      const resp = await page.evaluate(async ({ url, token }) => {
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        return await res.json()
-      }, { url: exportUrl, token })
+      const resp = await page.request.get(`http://localhost:3000${API_BASE}/alert-rules/export?format=json`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const respData = await resp.json()
 
       // The export returns a Prometheus rule file structure
-      expect(resp).toBeTruthy()
-      expect(resp.groups).toBeDefined()
-      expect(Array.isArray(resp.groups)).toBe(true)
+      expect(respData).toBeTruthy()
+      expect(respData.groups).toBeDefined()
+      expect(Array.isArray(respData.groups)).toBe(true)
 
       // Find our exported rule
-      exportedData = resp
-      const allRules = resp.groups.flatMap((g: any) => g.rules || [])
+      exportedData = respData
+      const allRules = respData.groups.flatMap((g: any) => g.rules || [])
       const found = allRules.find((r: any) => r.alert === `export-test-${tag}`)
       expect(found).toBeTruthy()
       expect(found.expr).toContain('up{job="test-')
@@ -353,9 +351,7 @@ test('AR-5 告警规则导入导出', async ({ authPage: page }) => {
 
     // ---- 4. 导入规则 ----
     await test.step('导入规则', async () => {
-      // Convert exported data to YAML-like format for import
-      // The import endpoint accepts multipart/form-data with a file
-      // We'll build a minimal Prometheus rule file in YAML
+      // Build a minimal Prometheus rule file in YAML
       const yamlContent = `groups:
   - name: import-group-${tag}
     rules:
@@ -368,21 +364,20 @@ test('AR-5 告警规则导入导出', async ({ authPage: page }) => {
         annotations:
           summary: Imported by functional test
 `
-      // Create a Blob and upload via FormData
-      const importResult = await page.evaluate(async ({ yamlContent, apiUrl }) => {
-        const blob = new Blob([yamlContent], { type: 'text/yaml' })
-        const file = new File([blob], 'import_rules.yaml', { type: 'text/yaml' })
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const token = localStorage.getItem('token')
-        const res = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        })
-        return await res.json()
-      }, { yamlContent, apiUrl: `${API_BASE}/alert-rules/import` })
+      // Use page.request.post() (test-process HTTP) instead of page.evaluate + fetch()
+      // to avoid CORS preflight issues with FormData + Authorization header.
+      const token = await page.evaluate(() => localStorage.getItem('token'))
+      const resp = await page.request.post(`http://localhost:3000${API_BASE}/alert-rules/import`, {
+        headers: { Authorization: `Bearer ${token}` },
+        multipart: {
+          file: {
+            name: 'import_rules.yaml',
+            mimeType: 'text/yaml',
+            buffer: Buffer.from(yamlContent),
+          },
+        },
+      })
+      const importResult = await resp.json()
 
       expect(importResult.code).toBe(0)
       expect(importResult.data).toBeTruthy()
