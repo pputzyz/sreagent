@@ -31,7 +31,7 @@ test.describe('AI 功能测试', () => {
       const res = await API.post(page, '/api/v1/ai/chat', {
         mode: 'general',
         message: 'What is monitoring in SRE?',
-      })
+      }, 120000) // AI chat needs longer timeout
       expect(res.code).toBe(0)
       expect(res.data).toBeDefined()
       expect(typeof res.data.reply).toBe('string')
@@ -43,7 +43,7 @@ test.describe('AI 功能测试', () => {
       const res = await API.post(page, '/api/v1/ai/chat', {
         mode: 'general',
         message: '什么是 SRE 中的告警管理？',
-      })
+      }, 120000) // AI chat needs longer timeout
       expect(res.code).toBe(0)
       expect(res.data).toBeDefined()
       expect(typeof res.data.reply).toBe('string')
