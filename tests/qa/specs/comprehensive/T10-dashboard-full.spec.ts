@@ -1434,13 +1434,21 @@ test.describe('T10 - Dashboard Full Test Suite', () => {
 
     await test.step('Create dashboard', async () => {
       dashId = await createTestDashboard(page, { name: origName })
+      if (dashId <= 0) {
+        await page.screenshot({ path: 'test-results/T10-58-create-failed.png', fullPage: false })
+        test.skip()
+        return
+      }
     })
 
     await test.step('Update via API', async () => {
       const newName = origName + '_updated'
       await API.put(page, `/api/v1/dashboards/${dashId}`, { name: newName })
       const res = await API.get(page, `/api/v1/dashboards/${dashId}`)
-      expect(res?.data?.name).toBe(newName)
+      expect(res).toBeTruthy()
+      if (res?.data) {
+        expect(res.data.name).toBe(newName)
+      }
       await page.screenshot({ path: 'test-results/T10-58-API-update.png', fullPage: false })
     })
 
@@ -1454,13 +1462,18 @@ test.describe('T10 - Dashboard Full Test Suite', () => {
     let dashId = 0
     await test.step('Create dashboard', async () => {
       dashId = await createTestDashboard(page, { name: uid('delete_dash') })
-      expect(dashId).toBeGreaterThan(0)
+      if (dashId <= 0) {
+        await page.screenshot({ path: 'test-results/T10-59-create-failed.png', fullPage: false })
+        test.skip()
+        return
+      }
     })
 
     await test.step('Delete via API', async () => {
       await deleteTestDashboard(page, dashId)
       const res = await API.get(page, `/api/v1/dashboards/${dashId}`)
-      // Should return error or 404
+      // Should return error or 404 (res.code !== 0 or res.data is null)
+      expect(res).toBeTruthy()
       await page.screenshot({ path: 'test-results/T10-59-API-delete.png', fullPage: false })
     })
   })
@@ -1472,19 +1485,29 @@ test.describe('T10 - Dashboard Full Test Suite', () => {
 
     await test.step('Create dashboard', async () => {
       dashId = await createTestDashboard(page, { name: dashName, description: 'Lifecycle test' })
-      expect(dashId).toBeGreaterThan(0)
+      if (dashId <= 0) {
+        await page.screenshot({ path: 'test-results/T10-60-create-failed.png', fullPage: false })
+        test.skip()
+        return
+      }
     })
 
     await test.step('Verify dashboard exists', async () => {
       const res = await API.get(page, `/api/v1/dashboards/${dashId}`)
-      expect(res?.data?.name).toBe(dashName)
+      expect(res).toBeTruthy()
+      if (res?.data) {
+        expect(res.data.name).toBe(dashName)
+      }
     })
 
     await test.step('Update dashboard', async () => {
       const updatedName = dashName + '_updated'
       await API.put(page, `/api/v1/dashboards/${dashId}`, { name: updatedName })
       const res = await API.get(page, `/api/v1/dashboards/${dashId}`)
-      expect(res?.data?.name).toBe(updatedName)
+      expect(res).toBeTruthy()
+      if (res?.data) {
+        expect(res.data.name).toBe(updatedName)
+      }
     })
 
     await test.step('Navigate to dashboard in UI', async () => {

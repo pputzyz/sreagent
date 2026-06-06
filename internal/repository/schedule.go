@@ -250,13 +250,17 @@ func (r *EscalationPolicyRepository) GetByIDs(ctx context.Context, ids []uint) (
 }
 
 // ListByTeamID returns escalation policies filtered by team.
-// B11-9: teamID semantics — 0 returns only global policies (team_id=0).
+// B11-9: teamID semantics — 0 returns only global policies (team_id IS NULL).
 // Use ListAllPolicies() to get all policies regardless of team.
 func (r *EscalationPolicyRepository) ListByTeamID(ctx context.Context, teamID uint) ([]model.EscalationPolicy, error) {
 	var list []model.EscalationPolicy
 	query := r.db.WithContext(ctx).Model(&model.EscalationPolicy{})
-	// B11-9: Always filter by team_id. teamID=0 matches global policies (team_id=0).
-	query = query.Where("team_id = ?", teamID)
+	// B11-9: Filter by team_id. teamID=0 matches global policies (team_id IS NULL).
+	if teamID == 0 {
+		query = query.Where("team_id IS NULL")
+	} else {
+		query = query.Where("team_id = ?", teamID)
+	}
 	err := query.Order("id DESC").Preload("Team").Preload("Steps", func(db *gorm.DB) *gorm.DB {
 		return db.Order("step_order ASC")
 	}).Find(&list).Error

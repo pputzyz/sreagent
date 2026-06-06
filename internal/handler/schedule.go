@@ -104,7 +104,7 @@ type GenerateShiftsRequest struct {
 type CreateEscalationPolicyRequest struct {
 	Name        string                 `json:"name" binding:"required"`
 	Description string                 `json:"description"` // P1-09
-	TeamID      uint                   `json:"team_id"`     // 0 = global policy (no team)
+	TeamID      *uint                  `json:"team_id"`     // nil = global policy (no team)
 	IsEnabled   *bool                  `json:"is_enabled"`
 	Steps       []model.EscalationStep `json:"steps"`
 }
@@ -113,7 +113,7 @@ type CreateEscalationPolicyRequest struct {
 type UpdateEscalationPolicyRequest struct {
 	Name        string                 `json:"name" binding:"required"`
 	Description string                 `json:"description"` // P1-09
-	TeamID      uint                   `json:"team_id"`     // 0 = global policy (no team)
+	TeamID      *uint                  `json:"team_id"`     // nil = global policy (no team)
 	IsEnabled   *bool                  `json:"is_enabled"`
 	Steps       []model.EscalationStep `json:"steps"`
 }
@@ -466,7 +466,7 @@ func (h *ScheduleHandler) CreateEscalationPolicy(c *gin.Context) {
 	h.log.Info("escalation policy create",
 		zap.Uint("user_id", GetCurrentUserID(c)),
 		zap.String("name", req.Name),
-		zap.Uint("team_id", req.TeamID),
+		zap.Any("team_id", req.TeamID),
 		zap.String("request_id", c.GetString("request_id")))
 
 	policy := &model.EscalationPolicy{

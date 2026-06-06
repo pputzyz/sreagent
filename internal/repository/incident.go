@@ -234,6 +234,10 @@ func (r *IncidentRepository) RemoveAssignees(ctx context.Context, incidentID uin
 // --- IncidentTimeline ---
 
 func (r *IncidentRepository) AddTimeline(ctx context.Context, entry *model.IncidentTimeline) error {
+	// Ensure JSON fields have valid values (MySQL JSON columns don't accept empty strings)
+	if entry.Extra == "" {
+		entry.Extra = "{}"
+	}
 	return r.withTx(ctx).Create(entry).Error
 }
 

@@ -143,8 +143,8 @@ func (s *AlertRuleService) Create(ctx context.Context, rule *model.AlertRule, so
 		rule.Status = model.RuleStatusDraft
 	}
 
-	// Auto-generate a secure heartbeat token for heartbeat-type rules
-	if rule.RuleType == model.RuleTypeHeartbeat && rule.HeartbeatToken == "" {
+	// Auto-generate a unique heartbeat token for all rules (required by unique index)
+	if rule.HeartbeatToken == "" {
 		rule.HeartbeatToken = generateSecureToken(32)
 	}
 

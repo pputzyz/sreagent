@@ -1280,26 +1280,43 @@ test.describe('T7 - Settings Full Test Suite', () => {
     await test.step('Navigate to user management', async () => {
       await page.goto(USERS_URL)
       await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(1000)
     })
 
     await test.step('Open user edit and change role', async () => {
+      // Look for edit button in the user table
       const editBtn = page.locator('button').filter({ hasText: /编辑|Edit/ }).first()
+      await editBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
       if (await editBtn.isVisible().catch(() => false)) {
         await editBtn.click()
-        await page.waitForTimeout(500)
+        await page.waitForTimeout(800)
+        // Wait for dialog to fully render
+        const dialog = page.locator('.n-modal, [role="dialog"]').first()
+        await dialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
         const roleSelect = page.locator('.n-modal .n-select, [role="dialog"] .n-select').first()
         if (await roleSelect.isVisible().catch(() => false)) {
           await roleSelect.click()
-          await page.waitForTimeout(300)
+          await page.waitForTimeout(500)
           await page.screenshot({ path: 'test-results/T7-57-role-change.png', fullPage: false })
+          // Close the dropdown first
           await page.keyboard.press('Escape')
+          await page.waitForTimeout(300)
+        } else {
+          await page.screenshot({ path: 'test-results/T7-57-role-change.png', fullPage: false })
         }
+      } else {
+        // No users to edit — take screenshot of empty state
+        await page.screenshot({ path: 'test-results/T7-57-role-change.png', fullPage: false })
       }
     })
 
     await test.step('Close dialog', async () => {
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(300)
+      // Close any open dialog/modal
+      const modal = page.locator('.n-modal, [role="dialog"]').first()
+      if (await modal.isVisible().catch(() => false)) {
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(300)
+      }
     })
   })
 

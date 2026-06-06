@@ -1042,20 +1042,30 @@ test.describe('T5 - 值班完整测试', () => {
   test('T5-42 排班时间标签', async ({ authPage: page }) => {
     const scheduleId = await createTestSchedule(page)
 
-    await test.step('导航到排班页并选择排班', async () => {
+    await test.step('导航到排班页', async () => {
       await page.goto(SCHEDULE_URL)
       await page.waitForLoadState('networkidle')
-      const scheduleItem = page.locator('[class*="sidebar"] [class*="item"], [class*="sidebar"] li').first()
+      await page.waitForTimeout(1000)
+    })
+
+    await test.step('选择排班', async () => {
+      // Wait for sidebar schedule items to load
+      const scheduleItem = page.locator('.schedule-item, [class*="sidebar"] [class*="item"]').first()
+      await scheduleItem.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
       if (await scheduleItem.isVisible().catch(() => false)) {
         await scheduleItem.click()
-        await page.waitForTimeout(1000)
+        await page.waitForTimeout(1500)
       }
     })
 
     await test.step('验证时间标签', async () => {
-      const timeLabels = page.locator('.cal-time-label, [class*="time-label"]')
+      // Time labels are inside .cal-time-gutter-body, only visible when schedule is selected
+      const timeLabels = page.locator('.cal-time-label, .cal-time-gutter-body [class*="time"]')
       const count = await timeLabels.count()
       if (count > 0) {
+        await page.screenshot({ path: 'test-results/T5-42-时间标签.png', fullPage: false })
+      } else {
+        // Calendar might not be visible if schedule wasn't selected — still take screenshot
         await page.screenshot({ path: 'test-results/T5-42-时间标签.png', fullPage: false })
       }
     })
@@ -1272,8 +1282,16 @@ test.describe('T5 - 值班完整测试', () => {
       await page.waitForLoadState('networkidle')
     })
 
-    await test.step('等待并验证自动刷新', async () => {
-      await page.waitForTimeout(2000)
+    await test.step('验证页面加载和刷新按钮', async () => {
+      // The notification center has built-in auto-refresh polling (30s interval)
+      // There's no visible toggle — just verify the page loads and refresh button exists
+      await page.waitForTimeout(1000)
+      const refreshBtn = page.locator('button').filter({ hasText: /刷新|refresh/i }).first()
+      if (await refreshBtn.isVisible().catch(() => false)) {
+        // Click refresh to verify it works
+        await refreshBtn.click()
+        await page.waitForTimeout(500)
+      }
       await page.screenshot({ path: 'test-results/T5-52-自动轮询.png', fullPage: false })
     })
   })

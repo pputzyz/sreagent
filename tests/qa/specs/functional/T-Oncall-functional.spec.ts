@@ -239,13 +239,13 @@ test('ONCALL-2 升级策略创建-步骤-更新', async ({ authPage: page }) => 
     await test.step('GET 验证策略和步骤', async () => {
       const res = await API.get(page, `${API_BASE}/escalation-policies/${policyId}`)
       expect(res.code).toBe(0)
-      const policy = res.data
+      const policy = res.data.policy || res.data
       expect(policy.id).toBe(policyId)
       expect(policy.name).toContain('escalation-with-steps-')
       expect(policy.is_enabled).toBe(true)
 
-      // Verify steps
-      const steps = policy.steps
+      // Verify steps - API may return steps at res.data.steps or policy.steps
+      const steps = res.data.steps || policy.steps || []
       expect(Array.isArray(steps)).toBe(true)
       expect(steps.length).toBe(2)
 
@@ -299,12 +299,12 @@ test('ONCALL-2 升级策略创建-步骤-更新', async ({ authPage: page }) => 
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/escalation-policies/${policyId}`)
       expect(res.code).toBe(0)
-      const policy = res.data
+      const policy = res.data.policy || res.data
       expect(policy.name).toContain('escalation-updated-')
       expect(policy.description).toBe('Updated: added step 3 with 30min delay')
 
       // Verify 3 steps now
-      const steps = policy.steps
+      const steps = res.data.steps || policy.steps || []
       expect(Array.isArray(steps)).toBe(true)
       expect(steps.length).toBe(3)
 

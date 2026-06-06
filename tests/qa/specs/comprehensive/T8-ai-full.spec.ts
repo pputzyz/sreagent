@@ -562,7 +562,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     })
 
     await test.step('切换到 MCP 标签', async () => {
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -576,7 +576,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -602,7 +602,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -637,7 +637,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -674,7 +674,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -708,7 +708,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -742,7 +742,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -762,7 +762,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -782,7 +782,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -802,7 +802,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -822,7 +822,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -845,7 +845,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -873,7 +873,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -893,7 +893,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换 MCP', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
+      const mcpTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
       if (await mcpTab.isVisible()) {
         await mcpTab.click()
         await page.waitForTimeout(500)
@@ -912,23 +912,29 @@ test.describe('T8 - AI 助手完整测试', () => {
 
   // T8-45: MCP 服务器刷新
   test('T8-45 MCP 服务器刷新', async ({ authPage: page }) => {
-    await test.step('导航到 AI 配置页并切换 MCP', async () => {
+    await test.step('导航到 AI 配置页', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const mcpTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /MCP/ }).first()
-      if (await mcpTab.isVisible()) {
-        await mcpTab.click()
-        await page.waitForTimeout(500)
+      await page.waitForTimeout(500)
+    })
+
+    await test.step('切换到 MCP 导航项', async () => {
+      // ConfigView uses sidebar nav items (button.aic-nav-item), not tabs
+      const mcpNav = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /MCP/ }).first()
+      if (await mcpNav.isVisible().catch(() => false)) {
+        await mcpNav.click()
+        await page.waitForTimeout(800)
       }
     })
 
-    await test.step('查找刷新按钮', async () => {
-      const refreshBtn = page.locator('button').filter({ hasText: /刷新|Refresh|Reload/ }).first()
+    await test.step('查找并点击刷新按钮', async () => {
+      // The refresh button is inside the MCPServers component's PageHeader
+      const refreshBtn = page.locator('button').filter({ hasText: /刷新|Refresh/ }).first()
       if (await refreshBtn.isVisible().catch(() => false)) {
         await refreshBtn.click()
         await page.waitForTimeout(1000)
-        await page.screenshot({ path: 'test-results/T8-45-MCP刷新.png', fullPage: false })
       }
+      await page.screenshot({ path: 'test-results/T8-45-MCP刷新.png', fullPage: false })
     })
   })
 
@@ -941,13 +947,25 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(500)
     })
 
-    await test.step('切换到技能标签', async () => {
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
-      if (await skillsTab.isVisible()) {
-        await skillsTab.click()
-        await page.waitForTimeout(500)
+    await test.step('切换到技能导航项', async () => {
+      // ConfigView uses sidebar nav items (button.aic-nav-item), not tabs
+      const skillsNav = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
+      if (await skillsNav.isVisible().catch(() => false)) {
+        await skillsNav.click()
+        await page.waitForTimeout(800)
+      }
+    })
+
+    await test.step('验证技能列表页面', async () => {
+      // The SkillManager component should now be loaded
+      const skillTable = page.locator('.n-data-table, [class*="skill-manager"], .n-card').first()
+      if (await skillTable.isVisible().catch(() => false)) {
+        await page.screenshot({ path: 'test-results/T8-46-技能列表.png', fullPage: true })
+      } else {
+        // Take screenshot regardless to capture the current state
         await page.screenshot({ path: 'test-results/T8-46-技能列表.png', fullPage: true })
       }
     })
@@ -958,7 +976,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -984,7 +1002,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1019,7 +1037,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1054,7 +1072,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1077,7 +1095,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1105,7 +1123,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1125,7 +1143,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1148,7 +1166,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1168,7 +1186,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1188,7 +1206,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1208,7 +1226,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1228,7 +1246,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1250,7 +1268,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
@@ -1272,7 +1290,7 @@ test.describe('T8 - AI 助手完整测试', () => {
     await test.step('导航到 AI 配置页并切换技能', async () => {
       await page.goto(AI_CONFIG_URL)
       await page.waitForLoadState('networkidle')
-      const skillsTab = page.locator('[class*="tab"], .n-tabs-tab').filter({ hasText: /技能|Skills/ }).first()
+      const skillsTab = page.locator('button.aic-nav-item, .aic-nav-item').filter({ hasText: /技能|Skills|Skill/ }).first()
       if (await skillsTab.isVisible()) {
         await skillsTab.click()
         await page.waitForTimeout(500)
