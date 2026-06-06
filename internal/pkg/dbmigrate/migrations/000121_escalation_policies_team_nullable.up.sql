@@ -1,0 +1,1 @@
+ALTER TABLE escalation_policies MODIFY COLUMN team_id BIGINT UNSIGNED NULL;

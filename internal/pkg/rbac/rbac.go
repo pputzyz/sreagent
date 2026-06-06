@@ -10,14 +10,15 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"rules.manage": true, "rules.create": true, "rules.edit": true, "rules.delete": true,
 			"rules.write": true,
 			"events.manage": true, "events.ack": true, "events.assign": true,
-			"schedules.manage": true, "channels.manage": true,
+			"schedules.manage": true, "schedule.write": true, "escalation.write": true,
+			"channels.manage": true,
 			"mute.write": true, "inhibition.write": true,
 			"notify.write": true, "channels.write": true, "dispatch.write": true,
 			"datasource.write": true, "integration.write": true,
 			"team.write": true, "user.write": true,
 			"settings.manage": true, "audit.view": true,
 			"datasources.manage": true, "dashboards.manage": true,
-			"incidents.manage": true, "incidents.create": true,
+			"incidents.manage": true, "incidents.create": true, "incident.write": true,
 			"notifications.view": true, "todos.manage": true,
 		}
 	case "team_lead":
@@ -26,11 +27,12 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"rules.manage": true, "rules.create": true, "rules.edit": true,
 			"rules.write": true,
 			"events.manage": true, "events.ack": true, "events.assign": true,
-			"schedules.manage": true, "channels.manage": true,
+			"schedules.manage": true, "schedule.write": true, "escalation.write": true,
+			"channels.manage": true,
 			"mute.write": true, "inhibition.write": true,
 			"notify.write": true, "channels.write": true, "dispatch.write": true,
 			"datasources.view": true, "dashboards.manage": true,
-			"incidents.manage": true, "incidents.create": true,
+			"incidents.manage": true, "incidents.create": true, "incident.write": true,
 			"notifications.view": true, "todos.manage": true,
 		}
 	case "member":

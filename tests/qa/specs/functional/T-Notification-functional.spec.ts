@@ -3,70 +3,159 @@ import { API } from '../../helpers/api'
 
 test.describe('通知功能测试', () => {
 
-  test('NOTIF-1 通知渠道列表', async ({ authPage: page }) => {
-    await test.step('导航到通知渠道页', async () => {
-      await page.goto('/oncall/notify/media')
-      await page.waitForLoadState('networkidle')
-      await page.screenshot({ path: 'test-results/NOTIF-1-渠道列表.png', fullPage: true })
+  // NOTIF-1: List notify media -> verify structure -> create webhook media -> verify saved -> delete -> verify gone
+  test('NOTIF-1 通知媒体 CRUD', async ({ authPage: page }) => {
+    let createdMediaId: number | undefined
+    const mediaName = `QA-Test-Webhook-${Date.now()}`
+
+    await test.step('获取通知媒体列表', async () => {
+      const res = await API.get(page, '/api/v1/notify-media?page=1&page_size=100')
+      expect(res.code).toBe(0)
+      expect(res.data).toBeDefined()
+      expect(res.data.list).toBeDefined()
+      expect(Array.isArray(res.data.list)).toBe(true)
+      await page.screenshot({ path: 'test-results/NOTIF-1-媒体列表.png', fullPage: true })
     })
 
-    await test.step('验证渠道卡片', async () => {
-      const cards = page.locator('.n-card, [class*="card"]')
-      const count = await cards.count()
-      await page.screenshot({ path: 'test-results/NOTIF-1-渠道详情.png', fullPage: false })
-    })
+    try {
+      await test.step('创建 webhook 类型通知媒体', async () => {
+        const res = await API.post(page, '/api/v1/notify-media', {
+          name: mediaName,
+          type: 'webhook',
+          config: JSON.stringify({
+            url: 'https://httpbin.org/post',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        })
+        expect(res.code).toBe(0)
+        expect(res.data).toBeDefined()
+        expect(res.data.id).toBeGreaterThan(0)
+        expect(res.data.name).toBe(mediaName)
+        createdMediaId = res.data.id
+        await page.screenshot({ path: 'test-results/NOTIF-1-创建成功.png', fullPage: false })
+      })
+
+      await test.step('验证媒体已保存', async () => {
+        const res = await API.get(page, `/api/v1/notify-media/${createdMediaId}`)
+        expect(res.code).toBe(0)
+        expect(res.data).toBeDefined()
+        expect(res.data.id).toBe(createdMediaId)
+        expect(res.data.name).toBe(mediaName)
+        expect(res.data.type).toBe('webhook')
+        await page.screenshot({ path: 'test-results/NOTIF-1-验证已保存.png', fullPage: false })
+      })
+    } finally {
+      await test.step('清理: 删除创建的媒体', async () => {
+        if (createdMediaId) {
+          const res = await API.del(page, `/api/v1/notify-media/${createdMediaId}`)
+          expect(res.code).toBe(0)
+
+          // 验证已删除
+          const verifyRes = await API.get(page, `/api/v1/notify-media/${createdMediaId}`)
+          expect(verifyRes.code).not.toBe(0)
+          await page.screenshot({ path: 'test-results/NOTIF-1-清理完成.png', fullPage: false })
+        }
+      })
+    }
   })
 
-  test('NOTIF-2 新建渠道弹窗', async ({ authPage: page }) => {
-    await test.step('导航到通知渠道页', async () => {
-      await page.goto('/oncall/notify/media')
-      await page.waitForLoadState('networkidle')
+  // NOTIF-2: List message templates -> verify structure -> create template -> verify saved
+  test('NOTIF-2 消息模板 CRUD', async ({ authPage: page }) => {
+    let createdTemplateId: number | undefined
+    const templateName = `QA-Test-Template-${Date.now()}`
+
+    await test.step('获取消息模板列表', async () => {
+      const res = await API.get(page, '/api/v1/message-templates?page=1&page_size=100')
+      expect(res.code).toBe(0)
+      expect(res.data).toBeDefined()
+      expect(res.data.list).toBeDefined()
+      expect(Array.isArray(res.data.list)).toBe(true)
+      await page.screenshot({ path: 'test-results/NOTIF-2-模板列表.png', fullPage: true })
     })
 
-    await test.step('点击新建按钮', async () => {
-      const createBtn = page.locator('button').filter({ hasText: /创建|Create|新建/ }).first()
-      if (await createBtn.isVisible()) {
-        await createBtn.click()
-        await page.waitForTimeout(500)
-        await page.screenshot({ path: 'test-results/NOTIF-2-新建弹窗.png', fullPage: false })
-      }
-    })
+    try {
+      await test.step('创建消息模板', async () => {
+        const res = await API.post(page, '/api/v1/message-templates', {
+          name: templateName,
+          type: 'webhook',
+          content: '{"alert": "{{ .AlertName }}", "severity": "{{ .Severity }}", "status": "{{ .Status }}"}',
+          description: 'QA 自动化测试模板',
+        })
+        expect(res.code).toBe(0)
+        expect(res.data).toBeDefined()
+        expect(res.data.id).toBeGreaterThan(0)
+        expect(res.data.name).toBe(templateName)
+        createdTemplateId = res.data.id
+        await page.screenshot({ path: 'test-results/NOTIF-2-创建成功.png', fullPage: false })
+      })
 
-    await test.step('验证渠道类型选择', async () => {
-      const modal = page.locator('.n-modal, [role="dialog"]').first()
-      if (await modal.isVisible()) {
-        const typeSelect = modal.locator('.n-select, select').first()
-        await expect(typeSelect).toBeVisible()
-        await page.screenshot({ path: 'test-results/NOTIF-2-渠道类型.png', fullPage: false })
-      }
-    })
-
-    await test.step('关闭弹窗', async () => {
-      await page.keyboard.press('Escape')
-    })
+      await test.step('验证模板已保存', async () => {
+        const res = await API.get(page, `/api/v1/message-templates/${createdTemplateId}`)
+        expect(res.code).toBe(0)
+        expect(res.data).toBeDefined()
+        expect(res.data.id).toBe(createdTemplateId)
+        expect(res.data.name).toBe(templateName)
+        await page.screenshot({ path: 'test-results/NOTIF-2-验证已保存.png', fullPage: false })
+      })
+    } finally {
+      await test.step('清理: 删除创建的模板', async () => {
+        if (createdTemplateId) {
+          const res = await API.del(page, `/api/v1/message-templates/${createdTemplateId}`)
+          expect(res.code).toBe(0)
+          await page.screenshot({ path: 'test-results/NOTIF-2-清理完成.png', fullPage: false })
+        }
+      })
+    }
   })
 
-  test('NOTIF-3 通知规则列表', async ({ authPage: page }) => {
-    await test.step('导航到通知规则页', async () => {
-      await page.goto('/oncall/notify/rules')
-      await page.waitForLoadState('networkidle')
+  // NOTIF-3: List notify rules -> verify structure -> create rule with conditions -> verify saved
+  test('NOTIF-3 通知规则 CRUD', async ({ authPage: page }) => {
+    let createdRuleId: number | undefined
+    const ruleName = `QA-Test-Rule-${Date.now()}`
+
+    await test.step('获取通知规则列表', async () => {
+      const res = await API.get(page, '/api/v1/notify-rules?page=1&page_size=100')
+      expect(res.code).toBe(0)
+      expect(res.data).toBeDefined()
+      expect(res.data.list).toBeDefined()
+      expect(Array.isArray(res.data.list)).toBe(true)
       await page.screenshot({ path: 'test-results/NOTIF-3-规则列表.png', fullPage: true })
     })
 
-    await test.step('验证规则列表', async () => {
-      await expect(page.locator('body')).toBeVisible()
-    })
-  })
+    try {
+      await test.step('创建通知规则', async () => {
+        const res = await API.post(page, '/api/v1/notify-rules', {
+          name: ruleName,
+          severity: ['critical', 'warning'],
+          labels_match: { env: 'test' },
+          notify_media_ids: [],
+          is_enabled: true,
+        })
+        expect(res.code).toBe(0)
+        expect(res.data).toBeDefined()
+        expect(res.data.id).toBeGreaterThan(0)
+        expect(res.data.name).toBe(ruleName)
+        createdRuleId = res.data.id
+        await page.screenshot({ path: 'test-results/NOTIF-3-创建成功.png', fullPage: false })
+      })
 
-  test('NOTIF-4 消息模板列表', async ({ authPage: page }) => {
-    await test.step('导航到消息模板页', async () => {
-      await page.goto('/oncall/notify/templates')
-      await page.waitForLoadState('networkidle')
-      await page.screenshot({ path: 'test-results/NOTIF-4-模板列表.png', fullPage: true })
-    })
-
-    await test.step('验证模板列表', async () => {
-      await expect(page.locator('body')).toBeVisible()
-    })
+      await test.step('验证规则已保存', async () => {
+        const res = await API.get(page, `/api/v1/notify-rules/${createdRuleId}`)
+        expect(res.code).toBe(0)
+        expect(res.data).toBeDefined()
+        expect(res.data.id).toBe(createdRuleId)
+        expect(res.data.name).toBe(ruleName)
+        await page.screenshot({ path: 'test-results/NOTIF-3-验证已保存.png', fullPage: false })
+      })
+    } finally {
+      await test.step('清理: 删除创建的规则', async () => {
+        if (createdRuleId) {
+          const res = await API.del(page, `/api/v1/notify-rules/${createdRuleId}`)
+          expect(res.code).toBe(0)
+          await page.screenshot({ path: 'test-results/NOTIF-3-清理完成.png', fullPage: false })
+        }
+      })
+    }
   })
 })

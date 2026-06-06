@@ -74,7 +74,7 @@ type EscalationPolicy struct {
 	BaseModel
 	Name        string           `json:"name" gorm:"size:128;not null"`
 	Description string           `json:"description" gorm:"size:512"` // P1-09
-	TeamID      uint             `json:"team_id" gorm:"index"`        // 0 = global policy (no team)
+	TeamID      *uint            `json:"team_id" gorm:"index"`        // nil = global policy (no team)
 	Team        *Team            `json:"team,omitempty" gorm:"foreignKey:TeamID"`
 	IsEnabled   bool             `json:"is_enabled" gorm:"default:true"`
 	Steps       []EscalationStep `json:"steps,omitempty" gorm:"foreignKey:PolicyID"`

@@ -194,8 +194,8 @@ func (e *EscalationExecutor) runOnce(ctx context.Context) {
 	teamPolicies := make(map[uint][]model.EscalationPolicy)
 	var globalPolicies []model.EscalationPolicy
 	for _, p := range policies {
-		if p.TeamID > 0 {
-			teamPolicies[p.TeamID] = append(teamPolicies[p.TeamID], p)
+		if p.TeamID != nil && *p.TeamID > 0 {
+			teamPolicies[*p.TeamID] = append(teamPolicies[*p.TeamID], p)
 		} else {
 			globalPolicies = append(globalPolicies, p)
 		}

@@ -35,6 +35,14 @@ func (s *ChannelService) Create(ctx context.Context, ch *model.Channel) error {
 		return apperr.WithMessage(apperr.ErrDuplicateName, "a channel with this name already exists")
 	}
 
+	// Set default JSON configs if empty
+	if ch.AggregationConfig == "" {
+		ch.AggregationConfig = "{}"
+	}
+	if ch.FlappingConfig == "" {
+		ch.FlappingConfig = "{}"
+	}
+
 	if err := s.repo.Create(ctx, ch); err != nil {
 		s.logger.Error("failed to create channel", zap.Error(err), zap.String("name", ch.Name))
 		return apperr.Wrap(apperr.ErrDatabase, err)

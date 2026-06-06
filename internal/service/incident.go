@@ -53,20 +53,20 @@ func (s *IncidentService) SetOnStatusChange(fn func(ctx context.Context, inciden
 // Keys are source statuses, values are the set of allowed target statuses.
 //
 //	open (triggered)  → ack (processing), close (closed), snooze (snoozed)
-//	ack (processing)  → open (triggered), close (closed)
+//	ack (processing)  → open (triggered), close (closed), snooze (snoozed)
 //	close (closed)    → reopen (triggered)
 //	snooze (snoozed)  → open (triggered), close (closed)
 var validTransitions = map[model.IncidentStatus][]model.IncidentStatus{
 	model.IncidentStatusTriggered:  {model.IncidentStatusProcessing, model.IncidentStatusClosed, model.IncidentStatusSnoozed},
-	model.IncidentStatusProcessing: {model.IncidentStatusTriggered, model.IncidentStatusClosed},
+	model.IncidentStatusProcessing: {model.IncidentStatusTriggered, model.IncidentStatusClosed, model.IncidentStatusSnoozed},
 	model.IncidentStatusClosed:     {model.IncidentStatusTriggered},
 	model.IncidentStatusSnoozed:    {model.IncidentStatusTriggered, model.IncidentStatusClosed},
 }
 
 // allowedActionStates defines which statuses allow non-status-changing actions.
 var allowedActionStates = map[string][]model.IncidentStatus{
-	"reassign":  {model.IncidentStatusProcessing},
-	"escalate":  {model.IncidentStatusProcessing},
+	"reassign":  {model.IncidentStatusTriggered, model.IncidentStatusProcessing},
+	"escalate":  {model.IncidentStatusTriggered, model.IncidentStatusProcessing},
 }
 
 // validateTransition checks whether a status transition is allowed.
@@ -299,16 +299,21 @@ func (s *IncidentService) Snooze(ctx context.Context, id, userID uint, until tim
 	updates := map[string]interface{}{
 		"snoozed_until": until,
 	}
+	// Allow snooze from both triggered and processing states
 	err := s.repo.TransitionStatus(ctx, id, model.IncidentStatusTriggered, model.IncidentStatusSnoozed, updates)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			inc, getErr := s.repo.GetByID(ctx, id)
-			if getErr != nil {
-				return apperr.ErrIncidentNotFound
+		// Try from processing state
+		err = s.repo.TransitionStatus(ctx, id, model.IncidentStatusProcessing, model.IncidentStatusSnoozed, updates)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				inc, getErr := s.repo.GetByID(ctx, id)
+				if getErr != nil {
+					return apperr.ErrIncidentNotFound
+				}
+				return validateTransition(inc.Status, model.IncidentStatusSnoozed)
 			}
-			return validateTransition(inc.Status, model.IncidentStatusSnoozed)
+			return apperr.Wrap(apperr.ErrDatabase, err)
 		}
-		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 
 	if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
