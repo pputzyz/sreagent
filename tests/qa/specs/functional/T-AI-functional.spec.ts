@@ -27,11 +27,25 @@ test.describe('AI 功能测试', () => {
 
   // AI-2: Send English message -> verify reply not empty -> send Chinese message -> verify reply not empty
   test('AI-2 AI 聊天消息收发', async ({ authPage: page }) => {
+    test.setTimeout(300000) // 5 min timeout for AI chat
+    // Helper: retry AI chat up to 3 times on transient 50003 errors
+    async function chatWithRetry(msg: string, retries = 3): Promise<any> {
+      for (let i = 0; i < retries; i++) {
+        const res = await API.post(page, '/api/v1/ai/chat', {
+          mode: 'general',
+          message: msg,
+        }, 300000) // 5 min timeout for AI chat
+        if (res.code === 0) return res
+        if ((res.code === 50003 || res.code === -1) && i < retries - 1) {
+          await page.waitForTimeout(3000) // wait 3s before retry
+          continue
+        }
+        return res // return last result (may be error)
+      }
+    }
+
     await test.step('发送英文消息', async () => {
-      const res = await API.post(page, '/api/v1/ai/chat', {
-        mode: 'general',
-        message: 'What is monitoring in SRE?',
-      }, 120000) // AI chat needs longer timeout
+      const res = await chatWithRetry('What is monitoring in SRE?')
       expect(res.code).toBe(0)
       expect(res.data).toBeDefined()
       expect(typeof res.data.reply).toBe('string')
@@ -40,10 +54,7 @@ test.describe('AI 功能测试', () => {
     })
 
     await test.step('发送中文消息', async () => {
-      const res = await API.post(page, '/api/v1/ai/chat', {
-        mode: 'general',
-        message: '什么是 SRE 中的告警管理？',
-      }, 120000) // AI chat needs longer timeout
+      const res = await chatWithRetry('SRE中的告警管理是什么？')
       expect(res.code).toBe(0)
       expect(res.data).toBeDefined()
       expect(typeof res.data.reply).toBe('string')
