@@ -1,0 +1,25 @@
+{
+  "name": "sreagent-qa",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report reports/html",
+    "test:T1": "playwright test specs/T1-alert-rules.spec.ts",
+    "test:T2": "playwright test specs/T2-alert-events.spec.ts",
+    "test:T3": "playwright test specs/T3-notifications.spec.ts",
+    "test:T4": "playwright test specs/T4-incidents.spec.ts",
+    "test:T5": "playwright test specs/T5-oncall.spec.ts",
+    "test:T6": "playwright test specs/T6-datasources.spec.ts",
+    "test:T7": "playwright test specs/T7-settings.spec.ts",
+    "test:T8": "playwright test specs/T8-ai.spec.ts",
+    "test:T9": "playwright test specs/T9-platform.spec.ts",
+    "test:T10": "playwright test specs/T10-dashboard.spec.ts",
+    "test:T11": "playwright test specs/T11-integrations.spec.ts",
+    "test:T12": "playwright test specs/T12-frontend.spec.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}
