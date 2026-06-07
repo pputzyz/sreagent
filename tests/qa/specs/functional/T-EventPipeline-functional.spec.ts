@@ -14,7 +14,7 @@ async function createPipeline(page: any, overrides: Record<string, unknown> = {}
   const payload = {
     name: `ep-test-${tag}`,
     description: 'Functional test pipeline',
-    status: 'active',
+    disabled: false,
     processors: [
       { type: 'label_add', config: { env: 'test', run: tag } },
     ],
@@ -45,7 +45,7 @@ test('EP-1 事件管道 CRUD', async ({ authPage: page }) => {
       const pipeline = await createPipeline(page)
       pipelineId = pipeline.id
       expect(pipeline.name).toContain('ep-test-')
-      expect(pipeline.status).toBe('active')
+      expect(pipeline.disabled).toBe(false)
       await page.screenshot({ path: 'test-results/EP-1-01-创建成功.png', fullPage: false })
     })
 

@@ -23,8 +23,10 @@ async function createLLMConfig(page: any, overrides: Record<string, unknown> = {
   const res = await API.post(page, `${API_BASE}/llm-configs`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
-  expect(res.data.id).toBeGreaterThan(0)
-  return { ...res.data, _tag: tag, _payload: payload }
+  // GORM models use capitalized field names (ID, CreatedAt, etc.)
+  const id = res.data.ID || res.data.id
+  expect(id).toBeGreaterThan(0)
+  return { ...res.data, id, _tag: tag, _payload: payload }
 }
 
 /** Helper: delete an LLM config by ID, ignoring errors (for cleanup) */
@@ -52,7 +54,8 @@ test('LC-1 LLM配置 CRUD', async ({ authPage: page }) => {
     await test.step('GET 验证 LLM 配置已保存', async () => {
       const res = await API.get(page, `${API_BASE}/llm-configs/${configId}`)
       expect(res.code).toBe(0)
-      expect(res.data.id).toBe(configId)
+      const id = res.data.ID || res.data.id
+      expect(id).toBe(configId)
       expect(res.data.provider).toBe('openai')
       expect(res.data.model).toBe('gpt-4')
       await page.screenshot({ path: 'test-results/LC-1-02-GET验证.png', fullPage: false })
@@ -61,6 +64,7 @@ test('LC-1 LLM配置 CRUD', async ({ authPage: page }) => {
     await test.step('更新 LLM 配置', async () => {
       const res = await API.put(page, `${API_BASE}/llm-configs/${configId}`, {
         name: `updated-llm-${uid()}`,
+        provider: 'openai',
         model: 'gpt-4-turbo',
         description: 'Updated by functional test',
       })

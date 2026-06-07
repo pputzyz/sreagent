@@ -11,7 +11,7 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"rules.write": true,
 			"events.manage": true, "events.ack": true, "events.assign": true,
 			"schedules.manage": true, "schedule.write": true, "escalation.write": true,
-			"channels.manage": true,
+			"channels.manage": true, "pipeline.write": true,
 			"mute.write": true, "inhibition.write": true,
 			"notify.write": true, "channels.write": true, "dispatch.write": true,
 			"datasource.write": true, "integration.write": true,
@@ -20,6 +20,9 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"datasources.manage": true, "dashboards.manage": true,
 			"incidents.manage": true, "incidents.create": true, "incident.write": true,
 			"notifications.view": true, "todos.manage": true,
+			"recording.write": true, "template.write": true,
+			"mcp.write": true, "skill.write": true, "llm.write": true,
+			"task.write": true, "inspection.write": true,
 		}
 	case "team_lead":
 		return map[string]bool{
@@ -28,12 +31,15 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"rules.write": true,
 			"events.manage": true, "events.ack": true, "events.assign": true,
 			"schedules.manage": true, "schedule.write": true, "escalation.write": true,
-			"channels.manage": true,
+			"channels.manage": true, "pipeline.write": true,
 			"mute.write": true, "inhibition.write": true,
 			"notify.write": true, "channels.write": true, "dispatch.write": true,
 			"datasources.view": true, "dashboards.manage": true,
 			"incidents.manage": true, "incidents.create": true, "incident.write": true,
 			"notifications.view": true, "todos.manage": true,
+			"recording.write": true, "template.write": true,
+			"mcp.write": true, "skill.write": true, "llm.write": true,
+			"task.write": true, "inspection.write": true,
 		}
 	case "member":
 		return map[string]bool{

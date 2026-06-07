@@ -15,7 +15,6 @@ async function createAISkill(page: any, overrides: Record<string, unknown> = {})
     name: `skill-test-${tag}`,
     description: 'Functional test AI skill',
     type: 'custom',
-    status: 'active',
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/ai-skills`, payload)
@@ -43,7 +42,7 @@ test('AS-1 AI技能 CRUD', async ({ authPage: page }) => {
       const skill = await createAISkill(page)
       skillId = skill.id
       expect(skill.name).toContain('skill-test-')
-      expect(skill.status).toBe('active')
+      expect(skill.enabled).toBe(true)
       await page.screenshot({ path: 'test-results/AS-1-01-创建成功.png', fullPage: false })
     })
 

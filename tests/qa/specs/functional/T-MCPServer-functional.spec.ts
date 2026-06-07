@@ -13,16 +13,17 @@ async function createMCPServer(page: any, overrides: Record<string, unknown> = {
   const tag = uid()
   const payload = {
     name: `mcp-test-${tag}`,
-    endpoint: `http://localhost:9999/mcp/${tag}`,
+    url: `http://localhost:9999/mcp/${tag}`,
     description: 'Functional test MCP server',
-    status: 'active',
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/mcp-servers`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
-  expect(res.data.id).toBeGreaterThan(0)
-  return { ...res.data, _tag: tag, _payload: payload }
+  // GORM models use capitalized field names (ID, CreatedAt, etc.)
+  const id = res.data.ID || res.data.id
+  expect(id).toBeGreaterThan(0)
+  return { ...res.data, id, _tag: tag, _payload: payload }
 }
 
 /** Helper: delete an MCP server by ID, ignoring errors (for cleanup) */
@@ -43,14 +44,15 @@ test('MC-1 MCP服务器 CRUD', async ({ authPage: page }) => {
       const server = await createMCPServer(page)
       serverId = server.id
       expect(server.name).toContain('mcp-test-')
-      expect(server.endpoint).toContain('localhost:9999')
+      expect(server.url).toContain('localhost:9999')
       await page.screenshot({ path: 'test-results/MC-1-01-创建成功.png', fullPage: false })
     })
 
     await test.step('GET 验证 MCP 服务器已保存', async () => {
       const res = await API.get(page, `${API_BASE}/mcp-servers/${serverId}`)
       expect(res.code).toBe(0)
-      expect(res.data.id).toBe(serverId)
+      const id = res.data.ID || res.data.id
+      expect(id).toBe(serverId)
       expect(res.data.name).toContain('mcp-test-')
       await page.screenshot({ path: 'test-results/MC-1-02-GET验证.png', fullPage: false })
     })
@@ -58,6 +60,7 @@ test('MC-1 MCP服务器 CRUD', async ({ authPage: page }) => {
     await test.step('更新 MCP 服务器', async () => {
       const res = await API.put(page, `${API_BASE}/mcp-servers/${serverId}`, {
         name: `updated-mcp-${uid()}`,
+        url: `http://localhost:9999/mcp/updated-${uid()}`,
         description: 'Updated by functional test',
       })
       expect(res.code).toBe(0)
