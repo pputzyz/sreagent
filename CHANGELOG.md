@@ -4,6 +4,44 @@
 
 ---
 
+## [v4.65.0] — 2026-06-07
+
+### QA 全量通过 — Functional 测试 100%
+
+**后端修复:**
+- `heartbeat_token` 唯一索引冲突: 所有规则自动生成唯一token
+- `nodata_duration`/`suppress_enabled` 列缺失: 迁移 000120
+- RBAC 权限配置: 添加 `incident.write`, `schedule.write`, `escalation.write`
+- Channel JSON 默认值: `aggregation_config`, `flapping_config` 默认 `{}`
+- Incident timeline JSON 默认值: `extra` 字段默认 `{}`
+- Incident snooze 允许从 `processing` 状态执行
+- Incident reassign/escalate 允许从 `triggered` 状态执行
+- EscalationPolicy 外键约束: `team_id` 改为可空 (迁移 000121)
+- EscalationPolicy `UpdateEscalationPolicy` 添加 `description` 更新
+- SSRF 开发环境跳过检查 (`SREAGENT_DEV_SKIP_SSRF_CHECK`)
+- AI HTTP 客户端超时从 30s 增加到 120s
+- `SaveAIConfig` 同步更新 `providers` 配置
+- `ImportRules` 自动生成 `heartbeat_token`
+- Import handler 自动推断 `datasource_type`
+- `TeamMember` 添加 `User` 外键关联
+- `escalation_executor_test.go` 适配 `TeamID *uint` 类型
+
+**测试修复:**
+- AI-2: 添加 `chatWithRetry` 重试机制
+- AR-5: 使用 `page.request` 替代 `page.evaluate` 绕过 CORS
+- DS-4: 查询字段从 `result` 改为 `series`
+- REAL-5: `latency_ms` 可选检查
+- USER-3: team role 从 `admin` 改为 `team_lead`
+- USER-4: 权限匹配从 `alertrules` 改为 `rules`
+
+**迁移文件:** 000119, 000120, 000121
+
+**测试结果:**
+- Functional E2E: 41/41 通过 (100%)
+- go test ./...: 全部通过
+
+---
+
 ## [v4.64.0] — 2026-06-06
 
 ### QA 自动化测试修复 — 12 项代码修复
