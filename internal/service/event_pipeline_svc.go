@@ -25,6 +25,16 @@ func (s *EventPipelineService) GetByID(ctx context.Context, id uint) (*model.Eve
 }
 
 func (s *EventPipelineService) Create(ctx context.Context, p *model.EventPipeline) error {
+	// Ensure JSON fields have valid values (MySQL JSON columns don't accept empty strings)
+	if p.NodesJSON == "" {
+		p.NodesJSON = "[]"
+	}
+	if p.ProcessorsJSON == "" {
+		p.ProcessorsJSON = "[]"
+	}
+	if p.LabelFiltersJSON == "" {
+		p.LabelFiltersJSON = "{}"
+	}
 	return s.repo.Create(ctx, p)
 }
 
