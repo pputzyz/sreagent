@@ -45,7 +45,22 @@ func (s *AlertRuleTemplateService) Update(ctx context.Context, tpl *model.AlertR
 	if existing.IsBuiltin {
 		return apperr.WithMessage(apperr.ErrBuiltinDelete,"built-in templates cannot be modified")
 	}
-	return s.repo.Update(ctx, tpl)
+	// Merge updates into existing template (preserve created_at, etc.)
+	existing.Name = tpl.Name
+	existing.Description = tpl.Description
+	existing.Category = tpl.Category
+	existing.DatasourceType = tpl.DatasourceType
+	existing.Expression = tpl.Expression
+	existing.ForDuration = tpl.ForDuration
+	existing.Severity = tpl.Severity
+	existing.Labels = tpl.Labels
+	existing.Annotations = tpl.Annotations
+	existing.GroupName = tpl.GroupName
+	existing.EvalInterval = tpl.EvalInterval
+	existing.NoDataEnabled = tpl.NoDataEnabled
+	existing.NoDataDuration = tpl.NoDataDuration
+	existing.AckSlaMinutes = tpl.AckSlaMinutes
+	return s.repo.Update(ctx, existing)
 }
 
 func (s *AlertRuleTemplateService) Delete(ctx context.Context, id uint) error {
