@@ -51,8 +51,9 @@ test('DW-1 诊断工作流 CRUD', async ({ authPage: page }) => {
     await test.step('GET 验证诊断工作流已保存', async () => {
       const res = await API.get(page, `${API_BASE}/diagnostic-workflows/${workflowId}`)
       expect(res.code).toBe(0)
-      expect(res.data.id).toBe(workflowId)
-      expect(res.data.name).toContain('dw-test-')
+      const workflow = res.data.workflow || res.data
+      expect(workflow.id).toBe(workflowId)
+      expect(workflow.name).toContain('dw-test-')
       await page.screenshot({ path: 'test-results/DW-1-02-GET验证.png', fullPage: false })
     })
 
@@ -68,7 +69,8 @@ test('DW-1 诊断工作流 CRUD', async ({ authPage: page }) => {
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/diagnostic-workflows/${workflowId}`)
       expect(res.code).toBe(0)
-      expect(res.data.description).toBe('Updated by functional test')
+      const workflow = res.data.workflow || res.data
+      expect(workflow.description).toBe('Updated by functional test')
       await page.screenshot({ path: 'test-results/DW-1-04-更新验证.png', fullPage: false })
     })
 

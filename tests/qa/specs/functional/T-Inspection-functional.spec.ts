@@ -15,8 +15,9 @@ async function createInspection(page: any, overrides: Record<string, unknown> = 
     name: `inspection-${tag}`,
     description: 'Functional test inspection',
     cron_expr: '0 0 * * *',
-    is_enabled: true,
-    inspection_type: 'manual',
+    enabled: true,
+    target_type: 'global',
+    output_channels: '[]',
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/inspection/tasks`, payload)
