@@ -47,6 +47,16 @@ func (s *DispatchService) Create(ctx context.Context, p *model.DispatchPolicy) e
 	if _, err := s.channelRepo.GetByID(ctx, p.ChannelID); err != nil {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "channel not found")
 	}
+	// Ensure JSON fields have valid values
+	if p.MatchConditions == "" {
+		p.MatchConditions = "[]"
+	}
+	if p.ActiveTimeConfig == "" {
+		p.ActiveTimeConfig = "{}"
+	}
+	if p.LabelEnhancementRules == "" {
+		p.LabelEnhancementRules = "[]"
+	}
 	if err := s.repo.Create(ctx, p); err != nil {
 		s.logger.Error("failed to create dispatch policy", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
@@ -92,15 +102,22 @@ func (s *DispatchService) Update(ctx context.Context, id uint, updates *model.Di
 	existing.Description = updates.Description
 	existing.IsEnabled = updates.IsEnabled
 	existing.Priority = updates.Priority
-	existing.MatchConditions = updates.MatchConditions
-	existing.ActiveTimeConfig = updates.ActiveTimeConfig
+	if updates.MatchConditions != "" {
+		existing.MatchConditions = updates.MatchConditions
+	}
+	if updates.ActiveTimeConfig != "" {
+		existing.ActiveTimeConfig = updates.ActiveTimeConfig
+	}
 	existing.DelaySeconds = updates.DelaySeconds
 	existing.EscalationPolicyID = updates.EscalationPolicyID
 	existing.RepeatIntervalSeconds = updates.RepeatIntervalSeconds
 	existing.MaxRepeats = updates.MaxRepeats
 	existing.NotifyMode = updates.NotifyMode
 	existing.UnifiedMediaID = updates.UnifiedMediaID
-	existing.LabelEnhancementRules = updates.LabelEnhancementRules
+	// Only update JSON fields if non-empty to avoid overwriting with invalid JSON
+	if updates.LabelEnhancementRules != "" {
+		existing.LabelEnhancementRules = updates.LabelEnhancementRules
+	}
 
 	if err := s.repo.Update(ctx, existing); err != nil {
 		return nil, apperr.Wrap(apperr.ErrDatabase, err)

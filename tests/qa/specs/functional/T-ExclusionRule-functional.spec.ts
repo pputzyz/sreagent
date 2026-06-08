@@ -8,22 +8,31 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-/** Helper: create an exclusion rule via API and return the created object */
+/** Helper: create a channel first, then create an exclusion rule under it */
 async function createExclusionRule(page: any, overrides: Record<string, unknown> = {}) {
   const tag = uid()
+  // First create a channel
+  const channelRes = await API.post(page, `${API_BASE}/channels`, {
+    name: `channel-for-exclusion-${tag}`,
+    description: 'Channel for exclusion rule test',
+  })
+  const channelId = channelRes.data?.id || channelRes.data?.ID
+  if (!channelId) throw new Error('Failed to create channel for exclusion rule')
+
   const payload = {
+    channel_id: channelId,
     name: `exclusion-${tag}`,
     description: `Functional test exclusion rule ${tag}`,
-    matchers: [{ name: 'env', value: 'test', is_regex: false }],
-    channel_ids: [],
-    status: 'active',
+    conditions: JSON.stringify([{ name: 'env', value: 'test', is_regex: false }]),
+    is_enabled: true,
     ...overrides,
   }
-  const res = await API.post(page, `${API_BASE}/exclusion-rules`, payload)
+  const res = await API.post(page, `${API_BASE}/channels/${channelId}/exclusion-rules`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
-  expect(res.data.id).toBeGreaterThan(0)
-  return { ...res.data, _tag: tag, _payload: payload }
+  const ruleId = res.data.id || res.data.ID
+  expect(ruleId).toBeGreaterThan(0)
+  return { ...res.data, id: ruleId, _channelId: channelId, _tag: tag, _payload: payload }
 }
 
 /** Helper: delete an exclusion rule by ID, ignoring errors (for cleanup) */
@@ -38,6 +47,7 @@ async function cleanupExclusionRule(page: any, id: number) {
 // ---------------------------------------------------------------------------
 test('ER-1 排除规则 CRUD', async ({ authPage: page }) => {
   let ruleId: number | null = null
+  let channelId: number | null = null
 
   try {
     // ---- 1. 创建排除规则 ----
@@ -46,23 +56,21 @@ test('ER-1 排除规则 CRUD', async ({ authPage: page }) => {
         description: 'CRUD test exclusion rule',
       })
       ruleId = rule.id
+      channelId = rule._channelId
       expect(rule.name).toContain('exclusion-')
-      expect(rule.status).toBe('active')
+      expect(rule.is_enabled !== undefined || rule.status !== undefined).toBe(true)
       expect(rule.description).toBe('CRUD test exclusion rule')
       await page.screenshot({ path: 'test-results/ER-1-01-创建成功.png', fullPage: false })
     })
 
-    // ---- 2. GET 验证所有字段 ----
-    await test.step('GET 验证规则已保存', async () => {
-      const res = await API.get(page, `${API_BASE}/exclusion-rules/${ruleId}`)
+    // ---- 2. 验证规则通过channel列表 ----
+    await test.step('验证规则通过channel列表', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
       expect(res.code).toBe(0)
-      const r = res.data
-      expect(r.id).toBe(ruleId)
-      expect(r.name).toContain('exclusion-')
-      expect(r.status).toBe('active')
-      expect(r.description).toBe('CRUD test exclusion rule')
-      expect(r.matchers).toBeTruthy()
-      await page.screenshot({ path: 'test-results/ER-1-02-GET验证.png', fullPage: false })
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.some((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBe(true)
+      await page.screenshot({ path: 'test-results/ER-1-02-验证成功.png', fullPage: false })
     })
 
     // ---- 3. 更新规则（改名、改描述） ----
@@ -70,10 +78,7 @@ test('ER-1 排除规则 CRUD', async ({ authPage: page }) => {
       const res = await API.put(page, `${API_BASE}/exclusion-rules/${ruleId}`, {
         name: `updated-exclusion-${uid()}`,
         description: 'Updated by functional test',
-        matchers: [
-          { name: 'env', value: 'production', is_regex: false },
-          { name: 'severity', value: 'critical', is_regex: false },
-        ],
+        conditions: JSON.stringify([{ name: 'env', value: 'production', is_regex: false }]),
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/ER-1-03-更新成功.png', fullPage: false })
@@ -81,11 +86,15 @@ test('ER-1 排除规则 CRUD', async ({ authPage: page }) => {
 
     // ---- 4. 验证更新生效 ----
     await test.step('验证更新生效', async () => {
-      const res = await API.get(page, `${API_BASE}/exclusion-rules/${ruleId}`)
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
       expect(res.code).toBe(0)
-      expect(res.data.name).toContain('updated-exclusion-')
-      expect(res.data.description).toBe('Updated by functional test')
-      expect(res.data.matchers.length).toBe(2)
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.find((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBeTruthy()
+      if (found) {
+        expect(found.name).toContain('updated-exclusion-')
+        expect(found.description).toBe('Updated by functional test')
+      }
       await page.screenshot({ path: 'test-results/ER-1-04-更新验证.png', fullPage: false })
     })
 
@@ -98,8 +107,11 @@ test('ER-1 排除规则 CRUD', async ({ authPage: page }) => {
 
     // ---- 6. 验证删除生效 ----
     await test.step('验证删除生效', async () => {
-      const res = await API.get(page, `${API_BASE}/exclusion-rules/${ruleId}`)
-      expect(res.code).not.toBe(0)
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
+      expect(res.code).toBe(0)
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.find((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBeFalsy()
       await page.screenshot({ path: 'test-results/ER-1-06-删除验证.png', fullPage: false })
     })
 

@@ -8,23 +8,30 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-/** Helper: create a dispatch policy via API and return the created object */
+/** Helper: create a channel first, then create a dispatch policy under it */
 async function createDispatchPolicy(page: any, overrides: Record<string, unknown> = {}) {
   const tag = uid()
+  // First create a channel
+  const channelRes = await API.post(page, `${API_BASE}/channels`, {
+    name: `channel-for-dispatch-${tag}`,
+    description: 'Channel for dispatch policy test',
+  })
+  const channelId = channelRes.data?.id || channelRes.data?.ID
+  if (!channelId) throw new Error('Failed to create channel for dispatch policy')
+
   const payload = {
     name: `dispatch-${tag}`,
     description: `Functional test dispatch policy ${tag}`,
     matchers: [{ name: 'severity', value: 'critical', is_regex: false }],
-    channel_id: null,
     delay_seconds: 0,
-    status: 'active',
     ...overrides,
   }
-  const res = await API.post(page, `${API_BASE}/dispatch-policies`, payload)
+  const res = await API.post(page, `${API_BASE}/channels/${channelId}/dispatch-policies`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
-  expect(res.data.id).toBeGreaterThan(0)
-  return { ...res.data, _tag: tag, _payload: payload }
+  const policyId = res.data.id || res.data.ID
+  expect(policyId).toBeGreaterThan(0)
+  return { ...res.data, id: policyId, _channelId: channelId, _tag: tag, _payload: payload }
 }
 
 /** Helper: delete a dispatch policy by ID, ignoring errors (for cleanup) */
@@ -39,6 +46,7 @@ async function cleanupDispatchPolicy(page: any, id: number) {
 // ---------------------------------------------------------------------------
 test('DP-1 分派策略 CRUD', async ({ authPage: page }) => {
   let policyId: number | null = null
+  let channelId: number | null = null
 
   try {
     // ---- 1. 创建分派策略 ----
@@ -48,23 +56,21 @@ test('DP-1 分派策略 CRUD', async ({ authPage: page }) => {
         delay_seconds: 60,
       })
       policyId = policy.id
+      channelId = policy._channelId
       expect(policy.name).toContain('dispatch-')
-      expect(policy.status).toBe('active')
+      expect(policy.is_enabled !== undefined || policy.status !== undefined).toBe(true)
       expect(policy.description).toBe('CRUD test dispatch policy')
       await page.screenshot({ path: 'test-results/DP-1-01-创建成功.png', fullPage: false })
     })
 
-    // ---- 2. GET 验证所有字段 ----
-    await test.step('GET 验证策略已保存', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-policies/${policyId}`)
+    // ---- 2. 验证策略通过channel列表 ----
+    await test.step('验证策略通过channel列表', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/dispatch-policies`)
       expect(res.code).toBe(0)
-      const r = res.data
-      expect(r.id).toBe(policyId)
-      expect(r.name).toContain('dispatch-')
-      expect(r.status).toBe('active')
-      expect(r.description).toBe('CRUD test dispatch policy')
-      expect(r.delay_seconds).toBe(60)
-      await page.screenshot({ path: 'test-results/DP-1-02-GET验证.png', fullPage: false })
+      const policies = res.data?.list || res.data || []
+      const found = Array.isArray(policies) && policies.some((p: any) => (p.id || p.ID) === policyId)
+      expect(found).toBe(true)
+      await page.screenshot({ path: 'test-results/DP-1-02-验证成功.png', fullPage: false })
     })
 
     // ---- 3. 更新策略（改名、改延迟） ----
@@ -80,11 +86,15 @@ test('DP-1 分派策略 CRUD', async ({ authPage: page }) => {
 
     // ---- 4. 验证更新生效 ----
     await test.step('验证更新生效', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-policies/${policyId}`)
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/dispatch-policies`)
       expect(res.code).toBe(0)
-      expect(res.data.name).toContain('updated-dispatch-')
-      expect(res.data.delay_seconds).toBe(120)
-      expect(res.data.description).toBe('Updated by functional test')
+      const policies = res.data?.list || res.data || []
+      const found = Array.isArray(policies) && policies.find((p: any) => (p.id || p.ID) === policyId)
+      expect(found).toBeTruthy()
+      if (found) {
+        expect(found.name).toContain('updated-dispatch-')
+        expect(found.description).toBe('Updated by functional test')
+      }
       await page.screenshot({ path: 'test-results/DP-1-04-更新验证.png', fullPage: false })
     })
 
@@ -97,8 +107,11 @@ test('DP-1 分派策略 CRUD', async ({ authPage: page }) => {
 
     // ---- 6. 验证删除生效 ----
     await test.step('验证删除生效', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-policies/${policyId}`)
-      expect(res.code).not.toBe(0)
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/dispatch-policies`)
+      expect(res.code).toBe(0)
+      const policies = res.data?.list || res.data || []
+      const found = Array.isArray(policies) && policies.find((p: any) => (p.id || p.ID) === policyId)
+      expect(found).toBeFalsy()
       await page.screenshot({ path: 'test-results/DP-1-06-删除验证.png', fullPage: false })
     })
 

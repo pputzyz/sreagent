@@ -23,6 +23,7 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"recording.write": true, "template.write": true,
 			"mcp.write": true, "skill.write": true, "llm.write": true,
 			"task.write": true, "inspection.write": true,
+			"exclusion.write": true, "annotation.write": true,
 		}
 	case "team_lead":
 		return map[string]bool{
@@ -40,6 +41,7 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"recording.write": true, "template.write": true,
 			"mcp.write": true, "skill.write": true, "llm.write": true,
 			"task.write": true, "inspection.write": true,
+			"exclusion.write": true, "annotation.write": true,
 		}
 	case "member":
 		return map[string]bool{

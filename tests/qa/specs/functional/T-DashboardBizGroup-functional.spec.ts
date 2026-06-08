@@ -16,7 +16,7 @@ async function createBizGroup(page: any, overrides: Record<string, unknown> = {}
     description: `Functional test biz group ${tag}`,
     ...overrides,
   }
-  const res = await API.post(page, `${API_BASE}/dashboard-biz-groups`, payload)
+  const res = await API.post(page, `${API_BASE}/biz-groups`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
   expect(res.data.id).toBeGreaterThan(0)
@@ -26,7 +26,7 @@ async function createBizGroup(page: any, overrides: Record<string, unknown> = {}
 /** Helper: delete a biz-group by ID, ignoring errors (for cleanup) */
 async function cleanupBizGroup(page: any, id: number) {
   try {
-    await API.del(page, `${API_BASE}/dashboard-biz-groups/${id}`)
+    await API.del(page, `${API_BASE}/biz-groups/${id}`)
   } catch { /* ignore */ }
 }
 
@@ -50,7 +50,7 @@ test('DBG-1 仪表盘业务分组CRUD', async ({ authPage: page }) => {
 
     // ---- 2. GET 验证 ----
     await test.step('GET 验证分组已保存', async () => {
-      const res = await API.get(page, `${API_BASE}/dashboard-biz-groups/${groupId}`)
+      const res = await API.get(page, `${API_BASE}/biz-groups/${groupId}`)
       expect(res.code).toBe(0)
       expect(res.data.id).toBe(groupId)
       expect(res.data.name).toContain('biz-group-')
@@ -60,7 +60,7 @@ test('DBG-1 仪表盘业务分组CRUD', async ({ authPage: page }) => {
 
     // ---- 3. 更新分组 ----
     await test.step('更新分组名称和描述', async () => {
-      const res = await API.put(page, `${API_BASE}/dashboard-biz-groups/${groupId}`, {
+      const res = await API.put(page, `${API_BASE}/biz-groups/${groupId}`, {
         name: `updated-group-${uid()}`,
         description: 'Updated by functional test',
       })
@@ -70,7 +70,7 @@ test('DBG-1 仪表盘业务分组CRUD', async ({ authPage: page }) => {
 
     // ---- 4. 验证更新 ----
     await test.step('验证更新生效', async () => {
-      const res = await API.get(page, `${API_BASE}/dashboard-biz-groups/${groupId}`)
+      const res = await API.get(page, `${API_BASE}/biz-groups/${groupId}`)
       expect(res.code).toBe(0)
       expect(res.data.description).toBe('Updated by functional test')
       await page.screenshot({ path: 'test-results/DBG-1-04-更新验证.png', fullPage: false })
@@ -78,14 +78,14 @@ test('DBG-1 仪表盘业务分组CRUD', async ({ authPage: page }) => {
 
     // ---- 5. 删除分组 ----
     await test.step('删除分组', async () => {
-      const res = await API.del(page, `${API_BASE}/dashboard-biz-groups/${groupId}`)
+      const res = await API.del(page, `${API_BASE}/biz-groups/${groupId}`)
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/DBG-1-05-删除成功.png', fullPage: false })
     })
 
     // ---- 6. 验证删除 ----
     await test.step('验证删除生效', async () => {
-      const res = await API.get(page, `${API_BASE}/dashboard-biz-groups/${groupId}`)
+      const res = await API.get(page, `${API_BASE}/biz-groups/${groupId}`)
       expect(res.code).not.toBe(0)
       await page.screenshot({ path: 'test-results/DBG-1-06-删除验证.png', fullPage: false })
     })
@@ -115,7 +115,7 @@ test('DBG-2 仪表盘绑定/解绑分组', async ({ authPage: page }) => {
     await test.step('绑定仪表盘到分组', async () => {
       // 使用一个虚拟 dashboard id 进行绑定测试
       const dashboardId = 1 // 假设默认仪表盘 ID 为 1
-      const res = await API.post(page, `${API_BASE}/dashboard-biz-groups/${groupId}/bind`, {
+      const res = await API.post(page, `${API_BASE}/biz-groups/${groupId}/bind`, {
         dashboard_ids: [dashboardId],
       })
       expect(res.code).toBe(0)
@@ -124,7 +124,7 @@ test('DBG-2 仪表盘绑定/解绑分组', async ({ authPage: page }) => {
 
     // ---- 3. 验证绑定 ----
     await test.step('验证绑定关系', async () => {
-      const res = await API.get(page, `${API_BASE}/dashboard-biz-groups/${groupId}`)
+      const res = await API.get(page, `${API_BASE}/biz-groups/${groupId}`)
       expect(res.code).toBe(0)
       expect(res.data).toBeTruthy()
       await page.screenshot({ path: 'test-results/DBG-2-03-绑定验证.png', fullPage: false })
@@ -133,7 +133,7 @@ test('DBG-2 仪表盘绑定/解绑分组', async ({ authPage: page }) => {
     // ---- 4. 解绑仪表盘 ----
     await test.step('解绑仪表盘', async () => {
       const dashboardId = 1
-      const res = await API.post(page, `${API_BASE}/dashboard-biz-groups/${groupId}/unbind`, {
+      const res = await API.post(page, `${API_BASE}/biz-groups/${groupId}/unbind`, {
         dashboard_ids: [dashboardId],
       })
       expect(res.code).toBe(0)
@@ -142,7 +142,7 @@ test('DBG-2 仪表盘绑定/解绑分组', async ({ authPage: page }) => {
 
     // ---- 5. 验证解绑 ----
     await test.step('验证解绑生效', async () => {
-      const res = await API.get(page, `${API_BASE}/dashboard-biz-groups/${groupId}`)
+      const res = await API.get(page, `${API_BASE}/biz-groups/${groupId}`)
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/DBG-2-05-解绑验证.png', fullPage: false })
     })
