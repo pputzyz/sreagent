@@ -15,12 +15,11 @@ async function createInspection(page: any, overrides: Record<string, unknown> = 
     name: `inspection-${tag}`,
     description: 'Functional test inspection',
     cron_expr: '0 0 * * *',
-    enabled: true,
-    target_type: 'global',
-    output_channels: '[]',
+    status: 'active',
+    inspection_type: 'manual',
     ...overrides,
   }
-  const res = await API.post(page, `${API_BASE}/inspection/tasks`, payload)
+  const res = await API.post(page, `${API_BASE}/inspections`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
   expect(res.data.id).toBeGreaterThan(0)
@@ -30,7 +29,7 @@ async function createInspection(page: any, overrides: Record<string, unknown> = 
 /** Helper: delete an inspection by ID, ignoring errors (for cleanup) */
 async function cleanupInspection(page: any, id: number) {
   try {
-    await API.del(page, `${API_BASE}/inspection/tasks/${id}`)
+    await API.del(page, `${API_BASE}/inspections/${id}`)
   } catch { /* ignore */ }
 }
 
@@ -49,7 +48,7 @@ test('IN-1 巡检任务 CRUD', async ({ authPage: page }) => {
     })
 
     await test.step('GET 验证巡检任务已保存', async () => {
-      const res = await API.get(page, `${API_BASE}/inspection/tasks/${inspectionId}`)
+      const res = await API.get(page, `${API_BASE}/inspections/${inspectionId}`)
       expect(res.code).toBe(0)
       expect(res.data.id).toBe(inspectionId)
       expect(res.data.name).toContain('inspection-')
@@ -57,7 +56,7 @@ test('IN-1 巡检任务 CRUD', async ({ authPage: page }) => {
     })
 
     await test.step('更新巡检任务', async () => {
-      const res = await API.put(page, `${API_BASE}/inspection/tasks/${inspectionId}`, {
+      const res = await API.put(page, `${API_BASE}/inspections/${inspectionId}`, {
         name: `updated-inspection-${uid()}`,
         description: 'Updated by functional test',
       })
@@ -66,20 +65,20 @@ test('IN-1 巡检任务 CRUD', async ({ authPage: page }) => {
     })
 
     await test.step('验证更新生效', async () => {
-      const res = await API.get(page, `${API_BASE}/inspection/tasks/${inspectionId}`)
+      const res = await API.get(page, `${API_BASE}/inspections/${inspectionId}`)
       expect(res.code).toBe(0)
       expect(res.data.description).toBe('Updated by functional test')
       await page.screenshot({ path: 'test-results/IN-1-04-更新验证.png', fullPage: false })
     })
 
     await test.step('删除巡检任务', async () => {
-      const res = await API.del(page, `${API_BASE}/inspection/tasks/${inspectionId}`)
+      const res = await API.del(page, `${API_BASE}/inspections/${inspectionId}`)
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/IN-1-05-删除成功.png', fullPage: false })
     })
 
     await test.step('验证删除生效', async () => {
-      const res = await API.get(page, `${API_BASE}/inspection/tasks/${inspectionId}`)
+      const res = await API.get(page, `${API_BASE}/inspections/${inspectionId}`)
       expect(res.code).not.toBe(0)
       await page.screenshot({ path: 'test-results/IN-1-06-删除验证.png', fullPage: false })
     })
@@ -104,7 +103,7 @@ test('IN-2 巡检立即执行', async ({ authPage: page }) => {
     })
 
     await test.step('立即执行巡检', async () => {
-      const res = await API.post(page, `${API_BASE}/inspection/tasks/${inspectionId}/run`)
+      const res = await API.post(page, `${API_BASE}/inspections/${inspectionId}/run`)
       // May succeed or fail depending on inspection config
       expect(res).toBeDefined()
       expect(res.code).toBeDefined()
@@ -120,7 +119,7 @@ test('IN-2 巡检立即执行', async ({ authPage: page }) => {
 // ---------------------------------------------------------------------------
 test('IN-3 巡检 cron校验', async ({ authPage: page }) => {
   await test.step('有效 cron 表达式校验', async () => {
-    const res = await API.post(page, `${API_BASE}/inspection/tasks/validate-cron`, {
+    const res = await API.post(page, `${API_BASE}/inspections/validate-cron`, {
       cron_expr: '0 0 * * *',
     })
     expect(res.code).toBe(0)
@@ -129,7 +128,7 @@ test('IN-3 巡检 cron校验', async ({ authPage: page }) => {
   })
 
   await test.step('无效 cron 表达式校验', async () => {
-    const res = await API.post(page, `${API_BASE}/inspection/tasks/validate-cron`, {
+    const res = await API.post(page, `${API_BASE}/inspections/validate-cron`, {
       cron_expr: 'invalid cron',
     })
     // Should return error for invalid cron
@@ -139,7 +138,7 @@ test('IN-3 巡检 cron校验', async ({ authPage: page }) => {
   })
 
   await test.step('复杂 cron 表达式校验', async () => {
-    const res = await API.post(page, `${API_BASE}/inspection/tasks/validate-cron`, {
+    const res = await API.post(page, `${API_BASE}/inspections/validate-cron`, {
       cron_expr: '*/5 * * * 1-5',
     })
     expect(res.code).toBe(0)
@@ -152,14 +151,14 @@ test('IN-3 巡检 cron校验', async ({ authPage: page }) => {
 // ---------------------------------------------------------------------------
 test('IN-4 巡检运行记录', async ({ authPage: page }) => {
   await test.step('获取巡检运行记录列表', async () => {
-    const res = await API.get(page, `${API_BASE}/inspection/tasks/runs?page=1&page_size=20`)
+    const res = await API.get(page, `${API_BASE}/inspections/runs?page=1&page_size=20`)
     expect(res.code).toBe(0)
     expect(res.data).toBeDefined()
     await page.screenshot({ path: 'test-results/IN-4-01-运行记录.png', fullPage: false })
   })
 
   await test.step('验证运行记录结构', async () => {
-    const res = await API.get(page, `${API_BASE}/inspection/tasks/runs?page=1&page_size=5`)
+    const res = await API.get(page, `${API_BASE}/inspections/runs?page=1&page_size=5`)
     expect(res.code).toBe(0)
     const list = res.data.list || res.data || []
     expect(Array.isArray(list)).toBe(true)

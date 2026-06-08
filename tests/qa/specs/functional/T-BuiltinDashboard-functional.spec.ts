@@ -98,14 +98,14 @@ test('BD-3 内置仪表盘 components查询', async ({ authPage: page }) => {
 
   if (dashboardId) {
     await test.step('查询仪表盘组件', async () => {
-      const res = await API.get(page, `${API_BASE}/builtin-dashboards/components`)
+      const res = await API.get(page, `${API_BASE}/builtin-dashboards/${dashboardId}/components`)
       expect(res.code).toBe(0)
       expect(res.data).toBeDefined()
       await page.screenshot({ path: 'test-results/BD-3-02-组件查询.png', fullPage: false })
     })
 
     await test.step('验证组件结构', async () => {
-      const res = await API.get(page, `${API_BASE}/builtin-dashboards/components`)
+      const res = await API.get(page, `${API_BASE}/builtin-dashboards/${dashboardId}/components`)
       expect(res.code).toBe(0)
       const components = Array.isArray(res.data) ? res.data : res.data.list || []
       expect(Array.isArray(components)).toBe(true)

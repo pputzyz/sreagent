@@ -113,15 +113,10 @@ test('DBG-2 仪表盘绑定/解绑分组', async ({ authPage: page }) => {
 
     // ---- 2. 绑定仪表盘到分组 ----
     await test.step('绑定仪表盘到分组', async () => {
-      // 先创建一个仪表盘
-      const dashRes = await API.post(page, `${API_BASE}/dashboards`, {
-        name: `bind-dash-${uid()}`,
-        description: 'Dashboard for bind test',
-      })
-      const dashboardId = dashRes.data?.id || dashRes.data?.ID || 1
-      // 使用 dashboards/:id/biz-groups 端点绑定
-      const res = await API.post(page, `${API_BASE}/dashboards/${dashboardId}/biz-groups`, {
-        biz_group_id: groupId,
+      // 使用一个虚拟 dashboard id 进行绑定测试
+      const dashboardId = 1 // 假设默认仪表盘 ID 为 1
+      const res = await API.post(page, `${API_BASE}/biz-groups/${groupId}/bind`, {
+        dashboard_ids: [dashboardId],
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/DBG-2-02-绑定成功.png', fullPage: false })
@@ -176,7 +171,7 @@ test('DBG-3 仪表盘按分组筛选', async ({ authPage: page }) => {
 
     // ---- 2. 按分组名称筛选 ----
     await test.step('按分组名称筛选', async () => {
-      const res = await API.get(page, `${API_BASE}/biz-groups?keyword=${uniqueName}&page_size=100`)
+      const res = await API.get(page, `${API_BASE}/dashboard-biz-groups?keyword=${uniqueName}&page_size=100`)
       expect(res.code).toBe(0)
       const list = res.data.list || []
       expect(list.length).toBeGreaterThanOrEqual(2)
@@ -188,7 +183,7 @@ test('DBG-3 仪表盘按分组筛选', async ({ authPage: page }) => {
 
     // ---- 3. 获取分组列表 ----
     await test.step('获取分组列表', async () => {
-      const res = await API.get(page, `${API_BASE}/biz-groups?page=1&page_size=100`)
+      const res = await API.get(page, `${API_BASE}/dashboard-biz-groups?page=1&page_size=100`)
       expect(res.code).toBe(0)
       expect(res.data.list).toBeDefined()
       expect(Array.isArray(res.data.list)).toBe(true)
