@@ -12,16 +12,20 @@ function uid(): string {
 async function createDiagnosticWorkflow(page: any, overrides: Record<string, unknown> = {}) {
   const tag = uid()
   const payload = {
-    name: `dw-test-${tag}`,
-    description: 'Functional test diagnostic workflow',
-    status: 'active',
-    ...overrides,
+    workflow: {
+      name: `dw-test-${tag}`,
+      description: 'Functional test diagnostic workflow',
+      enabled: true,
+      ...overrides,
+    },
+    steps: [],
   }
   const res = await API.post(page, `${API_BASE}/diagnostic-workflows`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
-  expect(res.data.id).toBeGreaterThan(0)
-  return { ...res.data, _tag: tag, _payload: payload }
+  const id = res.data.id || res.data.ID
+  expect(id).toBeGreaterThan(0)
+  return { ...res.data, id, _tag: tag, _payload: payload }
 }
 
 /** Helper: delete a diagnostic workflow by ID, ignoring errors (for cleanup) */
@@ -48,8 +52,9 @@ test('DW-1 诊断工作流 CRUD', async ({ authPage: page }) => {
     await test.step('GET 验证诊断工作流已保存', async () => {
       const res = await API.get(page, `${API_BASE}/diagnostic-workflows/${workflowId}`)
       expect(res.code).toBe(0)
-      expect(res.data.id).toBe(workflowId)
-      expect(res.data.name).toContain('dw-test-')
+      const wf = res.data.workflow || res.data
+      expect(wf.id).toBe(workflowId)
+      expect(wf.name).toContain('dw-test-')
       await page.screenshot({ path: 'test-results/DW-1-02-GET验证.png', fullPage: false })
     })
 
@@ -65,7 +70,8 @@ test('DW-1 诊断工作流 CRUD', async ({ authPage: page }) => {
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/diagnostic-workflows/${workflowId}`)
       expect(res.code).toBe(0)
-      expect(res.data.description).toBe('Updated by functional test')
+      const wf = res.data.workflow || res.data
+      expect(wf.description).toBe('Updated by functional test')
       await page.screenshot({ path: 'test-results/DW-1-04-更新验证.png', fullPage: false })
     })
 

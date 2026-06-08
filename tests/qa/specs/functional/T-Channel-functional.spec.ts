@@ -247,13 +247,12 @@ test('CH-4 协作空间分派策略关联', async ({ authPage: page }) => {
     // ---- 2. 创建关联到空间的分派策略 ----
     await test.step('创建关联到空间的分派策略', async () => {
       const tag = uid()
-      const res = await API.post(page, `${API_BASE}/dispatch-policies`, {
+      const res = await API.post(page, `${API_BASE}/channels/${channelId}/dispatch-policies`, {
         name: `ch-dispatch-${tag}`,
         description: 'Channel dispatch policy test',
-        matchers: [{ name: 'severity', value: 'critical', is_regex: false }],
-        channel_id: channelId,
+        match_conditions: JSON.stringify([{name:'severity',value:'critical',is_regex:false}]),
         delay_seconds: 0,
-        status: 'active',
+        is_enabled: true,
       })
       expect(res.code).toBe(0)
       expect(res.data).toBeTruthy()

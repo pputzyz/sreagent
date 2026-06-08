@@ -14,16 +14,16 @@ async function createTaskTpl(page: any, overrides: Record<string, unknown> = {})
   const payload = {
     name: `task-tpl-${tag}`,
     description: 'Functional test task template',
-    script_type: 'shell',
-    script_content: 'echo "hello ${tag}"',
+    script: 'echo "hello"',
     timeout: 300,
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/task-tpls`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
-  expect(res.data.id).toBeGreaterThan(0)
-  return { ...res.data, _tag: tag, _payload: payload }
+  const id = res.data.id || res.data.ID
+  expect(id).toBeGreaterThan(0)
+  return { ...res.data, id, _tag: tag, _payload: payload }
 }
 
 /** Helper: delete a task template by ID, ignoring errors (for cleanup) */
