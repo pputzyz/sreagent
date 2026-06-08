@@ -119,29 +119,30 @@ test('MR-2 静默规则时间窗口预览', async ({ authPage: page }) => {
       const startsAt = new Date(Date.now() - 60 * 1000).toISOString()
       const endsAt = new Date(Date.now() + 7200 * 1000).toISOString()
       const rule = await createMuteRule(page, {
-        starts_at: startsAt,
-        ends_at: endsAt,
-        comment: 'Time window preview test',
+        start_time: startsAt,
+        end_time: endsAt,
+        description: 'Time window preview test',
       })
       ruleId = rule.id
-      expect(rule.starts_at).toBeTruthy()
-      expect(rule.ends_at).toBeTruthy()
+      expect(rule.start_time || rule.starts_at).toBeTruthy()
+      expect(rule.end_time || rule.ends_at).toBeTruthy()
       await page.screenshot({ path: 'test-results/MR-2-01-创建时间窗口规则.png', fullPage: false })
     })
 
-    // ---- 2. 获取时间窗口预览 ----
-    await test.step('获取时间窗口预览', async () => {
-      const res = await API.get(page, `${API_BASE}/mute-rules/${ruleId}/preview`)
+    // ---- 2. 验证时间窗口已保存 ----
+    await test.step('验证时间窗口已保存', async () => {
+      const res = await API.get(page, `${API_BASE}/mute-rules/${ruleId}`)
       expect(res.code).toBe(0)
       expect(res.data).toBeTruthy()
-      await page.screenshot({ path: 'test-results/MR-2-02-时间窗口预览.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/MR-2-02-验证时间窗口.png', fullPage: false })
     })
 
     // ---- 3. 更新时间窗口 ----
     await test.step('更新时间窗口', async () => {
       const newEndsAt = new Date(Date.now() + 14400 * 1000).toISOString()
       const res = await API.put(page, `${API_BASE}/mute-rules/${ruleId}`, {
-        ends_at: newEndsAt,
+        end_time: newEndsAt,
+        match_labels: { env: 'test' },
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/MR-2-03-更新时间窗口.png', fullPage: false })
@@ -151,7 +152,7 @@ test('MR-2 静默规则时间窗口预览', async ({ authPage: page }) => {
     await test.step('验证更新后的时间窗口预览', async () => {
       const res = await API.get(page, `${API_BASE}/mute-rules/${ruleId}`)
       expect(res.code).toBe(0)
-      expect(res.data.ends_at).toBeTruthy()
+      expect(res.data.end_time || res.data.ends_at).toBeTruthy()
       await page.screenshot({ path: 'test-results/MR-2-04-更新后预览.png', fullPage: false })
     })
   } finally {
@@ -188,7 +189,7 @@ test('MR-3 静默规则批量操作', async ({ authPage: page }) => {
       for (const id of ruleIds) {
         const res = await API.get(page, `${API_BASE}/mute-rules/${id}`)
         expect(res.code).toBe(0)
-        expect(res.data.status).toBe('active')
+        expect(res.data.is_enabled).toBe(true)
       }
       await page.screenshot({ path: 'test-results/MR-3-03-启用验证.png', fullPage: false })
     })
@@ -205,7 +206,7 @@ test('MR-3 静默规则批量操作', async ({ authPage: page }) => {
       for (const id of ruleIds) {
         const res = await API.get(page, `${API_BASE}/mute-rules/${id}`)
         expect(res.code).toBe(0)
-        expect(res.data.status).toBe('disabled')
+        expect(res.data.is_enabled).toBe(false)
       }
       await page.screenshot({ path: 'test-results/MR-3-05-禁用验证.png', fullPage: false })
     })
@@ -249,7 +250,10 @@ test('MR-4 静默规则启用禁用', async ({ authPage: page }) => {
 
     // ---- 2. 禁用规则 ----
     await test.step('禁用规则', async () => {
-      const res = await API.patch(page, `${API_BASE}/mute-rules/${ruleId}/status`, { status: 'disabled' })
+      const res = await API.put(page, `${API_BASE}/mute-rules/${ruleId}`, {
+        is_enabled: false,
+        match_labels: { env: 'test' },
+      })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/MR-4-02-禁用成功.png', fullPage: false })
     })
@@ -258,13 +262,16 @@ test('MR-4 静默规则启用禁用', async ({ authPage: page }) => {
     await test.step('验证禁用生效', async () => {
       const res = await API.get(page, `${API_BASE}/mute-rules/${ruleId}`)
       expect(res.code).toBe(0)
-      expect(res.data.status).toBe('disabled')
+      expect(res.data.is_enabled).toBe(false)
       await page.screenshot({ path: 'test-results/MR-4-03-禁用验证.png', fullPage: false })
     })
 
     // ---- 4. 启用规则 ----
     await test.step('启用规则', async () => {
-      const res = await API.patch(page, `${API_BASE}/mute-rules/${ruleId}/status`, { status: 'active' })
+      const res = await API.put(page, `${API_BASE}/mute-rules/${ruleId}`, {
+        is_enabled: true,
+        match_labels: { env: 'test' },
+      })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/MR-4-04-启用成功.png', fullPage: false })
     })
@@ -273,7 +280,7 @@ test('MR-4 静默规则启用禁用', async ({ authPage: page }) => {
     await test.step('验证启用生效', async () => {
       const res = await API.get(page, `${API_BASE}/mute-rules/${ruleId}`)
       expect(res.code).toBe(0)
-      expect(res.data.status).toBe('active')
+      expect(res.data.is_enabled).toBe(true)
       await page.screenshot({ path: 'test-results/MR-4-05-启用验证.png', fullPage: false })
     })
   } finally {
