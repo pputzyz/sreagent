@@ -14,7 +14,6 @@ async function createChannel(page: any, name?: string): Promise<number> {
   const res = await API.post(page, `${API_BASE}/channels`, {
     name: name || `test-ch-${tag}`,
     description: 'Functional test channel',
-    status: 'active',
     access_level: 'public',
   })
   expect(res.code).toBe(0)

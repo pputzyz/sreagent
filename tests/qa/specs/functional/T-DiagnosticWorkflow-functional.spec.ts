@@ -12,10 +12,13 @@ function uid(): string {
 async function createDiagnosticWorkflow(page: any, overrides: Record<string, unknown> = {}) {
   const tag = uid()
   const payload = {
-    name: `dw-test-${tag}`,
-    description: 'Functional test diagnostic workflow',
-    status: 'active',
-    ...overrides,
+    workflow: {
+      name: `dw-test-${tag}`,
+      description: 'Functional test diagnostic workflow',
+      is_enabled: true,
+      ...overrides,
+    },
+    steps: [],
   }
   const res = await API.post(page, `${API_BASE}/diagnostic-workflows`, payload)
   expect(res.code).toBe(0)

@@ -16,7 +16,7 @@ async function createRecordingRule(page: any, overrides: Record<string, unknown>
     prom_ql: `sum(rate(http_requests_total{job="test-${tag}"}[5m]))`,
     interval: '15s',
     datasource_type: 'prometheus',
-    status: 'active',
+    is_enabled: true,
     labels: { env: 'test', run: tag },
     ...overrides,
   }
@@ -49,7 +49,7 @@ test('RR-1 录制规则 CRUD', async ({ authPage: page }) => {
       ruleId = rule.id
       expect(rule.name).toContain('rr-test-')
       expect(rule.prom_ql).toContain('rate(http_requests_total')
-      expect(rule.status).toBe('active')
+      expect(rule.is_enabled).toBe(true)
       await page.screenshot({ path: 'test-results/RR-1-01-创建成功.png', fullPage: false })
     })
 
@@ -58,7 +58,7 @@ test('RR-1 录制规则 CRUD', async ({ authPage: page }) => {
       const res = await API.get(page, `${API_BASE}/recording-rules/${ruleId}`)
       expect(res.code).toBe(0)
       expect(res.data.id).toBe(ruleId)
-      expect(res.data.status).toBe('active')
+      expect(res.data.is_enabled).toBe(true)
       expect(res.data.prom_ql).toContain('rate(http_requests_total')
       await page.screenshot({ path: 'test-results/RR-1-02-GET验证.png', fullPage: false })
     })

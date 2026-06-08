@@ -247,13 +247,12 @@ test('CH-4 协作空间分派策略关联', async ({ authPage: page }) => {
     // ---- 2. 创建关联到空间的分派策略 ----
     await test.step('创建关联到空间的分派策略', async () => {
       const tag = uid()
-      const res = await API.post(page, `${API_BASE}/dispatch-policies`, {
+      const res = await API.post(page, `${API_BASE}/channels/${channelId}/dispatch-policies`, {
         name: `ch-dispatch-${tag}`,
         description: 'Channel dispatch policy test',
-        matchers: [{ name: 'severity', value: 'critical', is_regex: false }],
-        channel_id: channelId,
+        match_conditions: JSON.stringify([{name:'severity',value:'critical',is_regex:false}]),
         delay_seconds: 0,
-        status: 'active',
+        is_enabled: true,
       })
       expect(res.code).toBe(0)
       expect(res.data).toBeTruthy()
@@ -263,9 +262,11 @@ test('CH-4 协作空间分派策略关联', async ({ authPage: page }) => {
 
     // ---- 3. 验证分派策略关联到空间 ----
     await test.step('验证分派策略关联', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-policies/${dispatchPolicyId}`)
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/dispatch-policies`)
       expect(res.code).toBe(0)
-      expect(res.data.channel_id).toBe(channelId)
+      const policies = res.data?.list || res.data || []
+      const found = Array.isArray(policies) && policies.find((p: any) => (p.id || p.ID) === dispatchPolicyId)
+      expect(found).toBeTruthy()
       await page.screenshot({ path: 'test-results/CH-4-03-关联验证.png', fullPage: false })
     })
 
@@ -277,25 +278,21 @@ test('CH-4 协作空间分派策略关联', async ({ authPage: page }) => {
       await page.screenshot({ path: 'test-results/CH-4-04-空间分派策略.png', fullPage: false })
     })
 
-    // ---- 5. 修改分派策略关联到其他空间 ----
-    await test.step('修改分派策略关联', async () => {
-      // Create another channel first
-      const anotherChannel = await createChannel(page, { name: `another-${uid()}` })
-      const res = await API.put(page, `${API_BASE}/dispatch-policies/${dispatchPolicyId}`, {
-        channel_id: anotherChannel.id,
-      })
+    // ---- 5. 删除分派策略 ----
+    await test.step('删除分派策略', async () => {
+      const res = await API.del(page, `${API_BASE}/dispatch-policies/${dispatchPolicyId}`)
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/CH-4-05-修改关联.png', fullPage: false })
-      // Cleanup the other channel
-      await cleanupChannel(page, anotherChannel.id)
+      await page.screenshot({ path: 'test-results/CH-4-05-删除成功.png', fullPage: false })
     })
 
-    // ---- 6. 验证关联变更生效 ----
-    await test.step('验证关联变更生效', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-policies/${dispatchPolicyId}`)
+    // ---- 6. 验证删除生效 ----
+    await test.step('验证删除生效', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/dispatch-policies`)
       expect(res.code).toBe(0)
-      expect(res.data.channel_id).not.toBe(channelId)
-      await page.screenshot({ path: 'test-results/CH-4-06-变更验证.png', fullPage: false })
+      const policies = res.data?.list || res.data || []
+      const found = Array.isArray(policies) && policies.find((p: any) => (p.id || p.ID) === dispatchPolicyId)
+      expect(found).toBeFalsy()
+      await page.screenshot({ path: 'test-results/CH-4-06-删除验证.png', fullPage: false })
     })
   } finally {
     if (dispatchPolicyId) {

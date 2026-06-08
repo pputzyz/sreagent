@@ -188,7 +188,7 @@ test('MR-3 静默规则批量操作', async ({ authPage: page }) => {
       for (const id of ruleIds) {
         const res = await API.get(page, `${API_BASE}/mute-rules/${id}`)
         expect(res.code).toBe(0)
-        expect(res.data.status).toBe('active')
+        expect(res.data.is_enabled).toBe(true)
       }
       await page.screenshot({ path: 'test-results/MR-3-03-启用验证.png', fullPage: false })
     })
@@ -273,7 +273,7 @@ test('MR-4 静默规则启用禁用', async ({ authPage: page }) => {
     await test.step('验证启用生效', async () => {
       const res = await API.get(page, `${API_BASE}/mute-rules/${ruleId}`)
       expect(res.code).toBe(0)
-      expect(res.data.status).toBe('active')
+      expect(res.data.is_enabled).toBe(true)
       await page.screenshot({ path: 'test-results/MR-4-05-启用验证.png', fullPage: false })
     })
   } finally {

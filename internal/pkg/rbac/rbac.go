@@ -22,8 +22,11 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"notifications.view": true, "todos.manage": true,
 			"recording.write": true, "template.write": true,
 			"mcp.write": true, "skill.write": true, "llm.write": true,
-			"task.write": true, "inspection.write": true,
+			"task.write": true, "task.execute": true, "inspection.write": true,
 			"exclusion.write": true, "annotation.write": true,
+			"change.write": true, "diagnostic.write": true,
+			"knowledge.write": true, "metrics.write": true,
+			"routing.write": true,
 		}
 	case "team_lead":
 		return map[string]bool{
@@ -40,8 +43,11 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"notifications.view": true, "todos.manage": true,
 			"recording.write": true, "template.write": true,
 			"mcp.write": true, "skill.write": true, "llm.write": true,
-			"task.write": true, "inspection.write": true,
+			"task.write": true, "task.execute": true, "inspection.write": true,
 			"exclusion.write": true, "annotation.write": true,
+			"change.write": true, "diagnostic.write": true,
+			"knowledge.write": true, "metrics.write": true,
+			"routing.write": true,
 		}
 	case "member":
 		return map[string]bool{
