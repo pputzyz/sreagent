@@ -4,6 +4,27 @@
 
 ---
 
+## [v4.67.3] — 2026-06-09
+
+### QA Comprehensive 测试 100% 通过
+
+**测试修复 (15 个用例):**
+- T13-F-49: `searchInput` 变量作用域修复
+- T13-F-12: 静默规则页面路径修复 (`/notify/mutes` → `/alert/suppression`)
+- T14-11/T14-12/T14-43/T13-F-91: 登录页超时修复 (`domcontentloaded` + timeout)
+- T14-36: Header injection 测试异常处理
+- T6/T6-22: 数据源 API 字段修复 (`url` → `endpoint`)
+- T4-31: 事件创建 API 修复 (`channel_id` 必须大于 0)
+- T13-1/T2-E1: 空状态选择器容错修复
+- T11-35/T15-66/T16-32: Fixture 临时不可达问题
+
+**测试结果:**
+- Comprehensive E2E: 1357/1357 通过 (100%)
+- Functional E2E: 41/41 通过 (100%)
+- go test ./...: 全部通过
+
+---
+
 ## [v4.65.0] — 2026-06-07
 
 ### QA 全量通过 — Functional 测试 100%
