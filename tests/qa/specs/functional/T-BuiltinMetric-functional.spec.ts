@@ -13,7 +13,7 @@ async function createBuiltinMetric(page: any, overrides: Record<string, unknown>
   const tag = uid()
   const payload = {
     name: `bm-test-${tag}`,
-    prom_ql: `sum(rate(test_metric_${tag}[5m]))`,
+    expression: `sum(rate(test_metric_${tag}[5m]))`,
     description: 'Functional test builtin metric',
     unit: 'req/s',
     metric_type: 'counter',

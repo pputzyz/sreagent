@@ -17,7 +17,7 @@ async function createAnnotation(page: any, overrides: Record<string, unknown> = 
     content: 'Functional test annotation',
     start_time: now.toISOString(),
     end_time: new Date(now.getTime() + 3600000).toISOString(),
-    tags: ['functional-test', tag],
+    tags: { test: tag },
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/annotations`, payload)
