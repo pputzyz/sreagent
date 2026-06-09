@@ -13,20 +13,17 @@ async function createTaskTpl(page: any, overrides: Record<string, unknown> = {})
   const tag = uid()
   const payload = {
     name: `task-tpl-${tag}`,
-    script: 'echo "hello world"',
-    args: '',
-    batch: 0,
-    tolerance: 0,
-    timeout: 60,
-    hosts: JSON.stringify(['localhost']),
-    note: 'Functional test task template',
+    description: 'Functional test task template',
+    script: 'echo "hello"',
+    timeout: 300,
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/task-tpls`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
-  expect(res.data.id).toBeGreaterThan(0)
-  return { ...res.data, _tag: tag, _payload: payload }
+  const id = res.data.id || res.data.ID
+  expect(id).toBeGreaterThan(0)
+  return { ...res.data, id, _tag: tag, _payload: payload }
 }
 
 /** Helper: delete a task template by ID, ignoring errors (for cleanup) */
@@ -54,7 +51,7 @@ test('TK-1 任务模板 CRUD', async ({ authPage: page }) => {
       const tpl = await createTaskTpl(page)
       tplId = tpl.id
       expect(tpl.name).toContain('task-tpl-')
-      expect(tpl.script).toContain('echo')
+      expect(tpl.script_type).toBe('shell')
       await page.screenshot({ path: 'test-results/TK-1-01-创建成功.png', fullPage: false })
     })
 
@@ -62,16 +59,15 @@ test('TK-1 任务模板 CRUD', async ({ authPage: page }) => {
       const res = await API.get(page, `${API_BASE}/task-tpls/${tplId}`)
       expect(res.code).toBe(0)
       expect(res.data.id).toBe(tplId)
-      expect(res.data.script).toContain('echo')
+      expect(res.data.script_type).toBe('shell')
       await page.screenshot({ path: 'test-results/TK-1-02-GET验证.png', fullPage: false })
     })
 
     await test.step('更新任务模板', async () => {
       const res = await API.put(page, `${API_BASE}/task-tpls/${tplId}`, {
         name: `updated-tpl-${uid()}`,
-        script: 'echo "updated script"',
-        note: 'Updated by functional test',
-        timeout: 120,
+        description: 'Updated by functional test',
+        timeout: 600,
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/TK-1-03-更新成功.png', fullPage: false })
@@ -80,8 +76,8 @@ test('TK-1 任务模板 CRUD', async ({ authPage: page }) => {
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/task-tpls/${tplId}`)
       expect(res.code).toBe(0)
-      expect(res.data.note).toBe('Updated by functional test')
-      expect(res.data.timeout).toBe(120)
+      expect(res.data.description).toBe('Updated by functional test')
+      expect(res.data.timeout).toBe(600)
       await page.screenshot({ path: 'test-results/TK-1-04-更新验证.png', fullPage: false })
     })
 
@@ -113,7 +109,8 @@ test('TK-2 任务直接执行', async ({ authPage: page }) => {
   try {
     await test.step('创建任务模板', async () => {
       const tpl = await createTaskTpl(page, {
-        script: 'echo "direct execution test"',
+        script_content: 'echo "direct execution test"',
+        script_type: 'shell',
       })
       tplId = tpl.id
       await page.screenshot({ path: 'test-results/TK-2-01-创建模板.png', fullPage: false })
@@ -121,8 +118,10 @@ test('TK-2 任务直接执行', async ({ authPage: page }) => {
 
     await test.step('直接执行任务', async () => {
       const res = await API.post(page, `${API_BASE}/tasks`, {
-        tpl_id: tplId,
+        task_tpl_id: tplId,
         hosts: ['localhost'],
+        batch_size: 1,
+        batch_interval: 0,
       })
       expect(res.code).toBe(0)
       expect(res.data).toBeTruthy()
@@ -156,9 +155,15 @@ test('TK-3 任务执行记录', async ({ authPage: page }) => {
   await test.step('验证任务列表结构', async () => {
     const res = await API.get(page, `${API_BASE}/tasks?page=1&page_size=5`)
     expect(res.code).toBe(0)
-    const list = res.data?.list || res.data || []
+    const list = res.data.list || res.data || []
     expect(Array.isArray(list)).toBe(true)
     await page.screenshot({ path: 'test-results/TK-3-02-列表结构.png', fullPage: false })
+  })
+
+  await test.step('按状态筛选任务', async () => {
+    const res = await API.get(page, `${API_BASE}/tasks?page=1&page_size=5&status=success`)
+    expect(res.code).toBe(0)
+    await page.screenshot({ path: 'test-results/TK-3-03-状态筛选.png', fullPage: false })
   })
 })
 
@@ -171,7 +176,7 @@ test('TK-4 任务主机结果', async ({ authPage: page }) => {
   await test.step('获取最新任务', async () => {
     const res = await API.get(page, `${API_BASE}/tasks?page=1&page_size=1`)
     expect(res.code).toBe(0)
-    const list = res.data?.list || res.data || []
+    const list = res.data.list || res.data || []
     if (list.length > 0) {
       taskId = list[0].id
     }
@@ -189,12 +194,12 @@ test('TK-4 任务主机结果', async ({ authPage: page }) => {
     await test.step('验证主机结果结构', async () => {
       const res = await API.get(page, `${API_BASE}/tasks/${taskId}/hosts`)
       expect(res.code).toBe(0)
-      const hosts = Array.isArray(res.data) ? res.data : res.data?.list || []
+      const hosts = Array.isArray(res.data) ? res.data : res.data.list || []
       expect(Array.isArray(hosts)).toBe(true)
       await page.screenshot({ path: 'test-results/TK-4-03-结果结构.png', fullPage: false })
     })
   } else {
-    await test.step('无任务 -- 跳过主机结果测试', async () => {
+    await test.step('无任务 — 跳过主机结果测试', async () => {
       await page.screenshot({ path: 'test-results/TK-4-02-无任务.png', fullPage: false })
     })
   }
@@ -210,19 +215,18 @@ test('TK-5 任务批量策略', async ({ authPage: page }) => {
   try {
     await test.step('创建任务模板', async () => {
       const tpl = await createTaskTpl(page, {
-        script: 'echo "batch test"',
-        batch: 5,
-        tolerance: 1,
+        script_content: 'echo "batch test"',
       })
       tplId = tpl.id
-      expect(tpl.batch).toBe(5)
       await page.screenshot({ path: 'test-results/TK-5-01-创建模板.png', fullPage: false })
     })
 
-    await test.step('使用模板执行任务', async () => {
+    await test.step('使用批量策略执行任务', async () => {
       const res = await API.post(page, `${API_BASE}/tasks`, {
-        tpl_id: tplId,
+        task_tpl_id: tplId,
         hosts: ['localhost'],
+        batch_size: 5,
+        batch_interval: 10,
       })
       expect(res.code).toBe(0)
       expect(res.data).toBeTruthy()
@@ -230,7 +234,7 @@ test('TK-5 任务批量策略', async ({ authPage: page }) => {
       await page.screenshot({ path: 'test-results/TK-5-02-批量执行.png', fullPage: false })
     })
 
-    await test.step('验证任务已保存', async () => {
+    await test.step('验证批量策略已保存', async () => {
       const res = await API.get(page, `${API_BASE}/tasks/${taskId}`)
       expect(res.code).toBe(0)
       expect(res.data.id).toBe(taskId)

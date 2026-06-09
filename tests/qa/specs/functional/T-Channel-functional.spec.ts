@@ -121,12 +121,9 @@ test('CH-2 协作空间 star/unstar', async ({ authPage: page }) => {
 
     // ---- 3. 验证 Star 状态 ----
     await test.step('验证 Star 状态', async () => {
-      const res = await API.get(page, `${API_BASE}/channels?page=1&page_size=100`)
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}`)
       expect(res.code).toBe(0)
-      const list = res.data?.list || res.data || []
-      const found = Array.isArray(list) && list.find((c: any) => (c.id || c.ID) === channelId)
-      expect(found).toBeTruthy()
-      expect(found.is_starred).toBe(true)
+      expect(res.data.is_starred).toBe(true)
       await page.screenshot({ path: 'test-results/CH-2-03-Star验证.png', fullPage: false })
     })
 
@@ -139,12 +136,9 @@ test('CH-2 协作空间 star/unstar', async ({ authPage: page }) => {
 
     // ---- 5. 验证 Unstar 状态 ----
     await test.step('验证 Unstar 状态', async () => {
-      const res = await API.get(page, `${API_BASE}/channels?page=1&page_size=100`)
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}`)
       expect(res.code).toBe(0)
-      const list = res.data?.list || res.data || []
-      const found = Array.isArray(list) && list.find((c: any) => (c.id || c.ID) === channelId)
-      expect(found).toBeTruthy()
-      expect(found.is_starred).toBe(false)
+      expect(res.data.is_starred).toBe(false)
       await page.screenshot({ path: 'test-results/CH-2-05-Unstar验证.png', fullPage: false })
     })
 
@@ -152,12 +146,9 @@ test('CH-2 协作空间 star/unstar', async ({ authPage: page }) => {
     await test.step('再次 Star 验证可切换', async () => {
       const res = await API.post(page, `${API_BASE}/channels/${channelId}/star`, {})
       expect(res.code).toBe(0)
-      const verifyRes = await API.get(page, `${API_BASE}/channels?page=1&page_size=100`)
+      const verifyRes = await API.get(page, `${API_BASE}/channels/${channelId}`)
       expect(verifyRes.code).toBe(0)
-      const list = verifyRes.data?.list || verifyRes.data || []
-      const found = Array.isArray(list) && list.find((c: any) => (c.id || c.ID) === channelId)
-      expect(found).toBeTruthy()
-      expect(found.is_starred).toBe(true)
+      expect(verifyRes.data.is_starred).toBe(true)
       await page.screenshot({ path: 'test-results/CH-2-06-再次Star.png', fullPage: false })
     })
   } finally {
@@ -259,7 +250,7 @@ test('CH-4 协作空间分派策略关联', async ({ authPage: page }) => {
       const res = await API.post(page, `${API_BASE}/channels/${channelId}/dispatch-policies`, {
         name: `ch-dispatch-${tag}`,
         description: 'Channel dispatch policy test',
-        match_conditions: JSON.stringify([{ name: 'severity', value: 'critical', is_regex: false }]),
+        match_conditions: JSON.stringify([{name:'severity',value:'critical',is_regex:false}]),
         delay_seconds: 0,
         is_enabled: true,
       })
@@ -285,16 +276,17 @@ test('CH-4 协作空间分派策略关联', async ({ authPage: page }) => {
       await page.screenshot({ path: 'test-results/CH-4-04-空间分派策略.png', fullPage: false })
     })
 
-    // ---- 5. 修改分派策略 ----
-    await test.step('修改分派策略', async () => {
+    // ---- 5. 修改分派策略关联到其他空间 ----
+    await test.step('修改分派策略关联', async () => {
+      // Create another channel first
+      const anotherChannel = await createChannel(page, { name: `another-${uid()}` })
       const res = await API.put(page, `${API_BASE}/dispatch-policies/${dispatchPolicyId}`, {
-        name: `updated-dispatch-${uid()}`,
-        description: 'Updated dispatch policy',
-        match_conditions: '[]',
-        delay_seconds: 30,
+        channel_id: anotherChannel.id,
       })
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/CH-4-05-修改成功.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/CH-4-05-修改关联.png', fullPage: false })
+      // Cleanup the other channel
+      await cleanupChannel(page, anotherChannel.id)
     })
 
     // ---- 6. 验证关联变更生效 ----

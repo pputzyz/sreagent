@@ -1,0 +1,31 @@
+?   	github.com/sreagent/sreagent/cmd/server	[no test files]
+?   	github.com/sreagent/sreagent/internal/config	[no test files]
+ok  	github.com/sreagent/sreagent/internal/engine	0.577s
+?   	github.com/sreagent/sreagent/internal/engine/pipeline	[no test files]
+ok  	github.com/sreagent/sreagent/internal/engine/pipeline/processors	0.168s
+ok  	github.com/sreagent/sreagent/internal/handler	0.177s
+ok  	github.com/sreagent/sreagent/internal/middleware	1.329s
+?   	github.com/sreagent/sreagent/internal/model	[no test files]
+ok  	github.com/sreagent/sreagent/internal/pkg/crypto	0.483s
+?   	github.com/sreagent/sreagent/internal/pkg/datasource	[no test files]
+?   	github.com/sreagent/sreagent/internal/pkg/dbmigrate	[no test files]
+?   	github.com/sreagent/sreagent/internal/pkg/errors	[no test files]
+?   	github.com/sreagent/sreagent/internal/pkg/fingerprint	[no test files]
+ok  	github.com/sreagent/sreagent/internal/pkg/hashring	0.648s
+ok  	github.com/sreagent/sreagent/internal/pkg/labelmatch	0.423s
+ok  	github.com/sreagent/sreagent/internal/pkg/lark	4.453s
+?   	github.com/sreagent/sreagent/internal/pkg/ldapx	[no test files]
+?   	github.com/sreagent/sreagent/internal/pkg/mcp	[no test files]
+?   	github.com/sreagent/sreagent/internal/pkg/metrics	[no test files]
+ok  	github.com/sreagent/sreagent/internal/pkg/muterule	0.610s
+ok  	github.com/sreagent/sreagent/internal/pkg/rbac	0.444s
+?   	github.com/sreagent/sreagent/internal/pkg/redis	[no test files]
+ok  	github.com/sreagent/sreagent/internal/pkg/safehttp	0.969s
+?   	github.com/sreagent/sreagent/internal/pkg/tplx	[no test files]
+?   	github.com/sreagent/sreagent/internal/pkg/upload	[no test files]
+?   	github.com/sreagent/sreagent/internal/repository	[no test files]
+?   	github.com/sreagent/sreagent/internal/router	[no test files]
+ok  	github.com/sreagent/sreagent/internal/service	0.326s
+?   	github.com/sreagent/sreagent/internal/testutil	[no test files]
+?   	github.com/sreagent/sreagent/pkg/types	[no test files]
+?   	github.com/sreagent/sreagent/scripts/import-presets	[no test files]
