@@ -57,8 +57,11 @@ test('BM-1 内置指标 CRUD', async ({ authPage: page }) => {
 
     await test.step('更新内置指标', async () => {
       const res = await API.put(page, `${API_BASE}/builtin-metrics/${metricId}`, {
+        name: `bm-test-updated-${uid()}`,
+        expression: 'sum(rate(test_updated[5m]))',
         description: 'Updated by functional test',
         unit: 'ops/s',
+        metric_type: 'counter',
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/BM-1-03-更新成功.png', fullPage: false })

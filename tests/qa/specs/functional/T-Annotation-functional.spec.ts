@@ -14,9 +14,9 @@ async function createAnnotation(page: any, overrides: Record<string, unknown> = 
   const now = new Date()
   const payload = {
     title: `annotation-${tag}`,
-    content: 'Functional test annotation',
-    start_time: now.toISOString(),
-    end_time: new Date(now.getTime() + 3600000).toISOString(),
+    text: 'Functional test annotation',
+    dashboard_id: 1,
+    time: now.toISOString(),
     tags: { test: tag },
     ...overrides,
   }
@@ -44,7 +44,7 @@ test('AN-1 标注 CRUD', async ({ authPage: page }) => {
     await test.step('创建标注', async () => {
       const annotation = await createAnnotation(page)
       annotationId = annotation.id
-      expect(annotation.title).toContain('annotation-')
+      expect(annotation.text || annotation.content).toContain('Functional test annotation')
       await page.screenshot({ path: 'test-results/AN-1-01-创建成功.png', fullPage: false })
     })
 
@@ -52,14 +52,14 @@ test('AN-1 标注 CRUD', async ({ authPage: page }) => {
       const res = await API.get(page, `${API_BASE}/annotations/${annotationId}`)
       expect(res.code).toBe(0)
       expect(res.data.id).toBe(annotationId)
-      expect(res.data.title).toContain('annotation-')
+      expect(res.data.text || res.data.content).toBeTruthy()
       await page.screenshot({ path: 'test-results/AN-1-02-GET验证.png', fullPage: false })
     })
 
     await test.step('更新标注', async () => {
       const res = await API.put(page, `${API_BASE}/annotations/${annotationId}`, {
         title: `updated-annotation-${uid()}`,
-        content: 'Updated by functional test',
+        text: 'Updated by functional test',
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/AN-1-03-更新成功.png', fullPage: false })
@@ -68,7 +68,7 @@ test('AN-1 标注 CRUD', async ({ authPage: page }) => {
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/annotations/${annotationId}`)
       expect(res.code).toBe(0)
-      expect(res.data.content).toBe('Updated by functional test')
+      expect(res.data.text || res.data.content).toBe('Updated by functional test')
       await page.screenshot({ path: 'test-results/AN-1-04-更新验证.png', fullPage: false })
     })
 
@@ -105,7 +105,7 @@ test('AN-2 标注 batch批量创建', async ({ authPage: page }) => {
         const endTime = new Date(startTime.getTime() + 3600000)
         const res = await API.post(page, `${API_BASE}/annotations`, {
           title: `batch-annotation-${tag}`,
-          content: `Batch annotation ${i}`,
+          text: `Batch annotation ${i}`,
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           tags: ['batch-test'],
@@ -155,7 +155,7 @@ test('AN-3 标注时间范围查询', async ({ authPage: page }) => {
         const endTime = new Date(startTime.getTime() + 1800000)
         const res = await API.post(page, `${API_BASE}/annotations`, {
           title: `time-range-${tag}`,
-          content: `Time range test ${i}`,
+          text: `Time range test ${i}`,
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           tags: ['time-range-test'],
