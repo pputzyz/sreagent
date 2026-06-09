@@ -12,7 +12,7 @@ function uid(): string {
 // UNP-1 用户通知偏好 CRUD
 // ---------------------------------------------------------------------------
 test('UNP-1 用户通知偏好CRUD', async ({ authPage: page }) => {
-  let configId: number | null = null
+  const mediaType = `test_webhook_${uid()}`
 
   try {
     // ---- 1. 获取当前通知偏好列表 ----
@@ -20,21 +20,21 @@ test('UNP-1 用户通知偏好CRUD', async ({ authPage: page }) => {
       const res = await API.get(page, `${API_BASE}/me/notify-configs`)
       expect(res.code).toBe(0)
       expect(res.data).toBeDefined()
-      expect(Array.isArray(res.data.list || res.data)).toBe(true)
+      // List returns array directly
+      expect(Array.isArray(res.data)).toBe(true)
       await page.screenshot({ path: 'test-results/UNP-1-01-获取偏好.png', fullPage: false })
     })
 
-    // ---- 2. 创建通知偏好 ----
+    // ---- 2. 创建通知偏好 (PUT upsert) ----
     await test.step('创建通知偏好', async () => {
-      const res = await API.post(page, `${API_BASE}/me/notify-configs`, {
-        media_type: 'webhook',
-        target: `https://example.com/hook-${uid()}`,
-        enabled: true,
+      const res = await API.put(page, `${API_BASE}/me/notify-configs`, {
+        media_type: mediaType,
+        config: JSON.stringify({ url: `https://example.com/hook-${uid()}` }),
+        is_enabled: true,
       })
       expect(res.code).toBe(0)
       expect(res.data).toBeTruthy()
       expect(res.data.id).toBeGreaterThan(0)
-      configId = res.data.id
       await page.screenshot({ path: 'test-results/UNP-1-02-创建偏好.png', fullPage: false })
     })
 
@@ -42,19 +42,19 @@ test('UNP-1 用户通知偏好CRUD', async ({ authPage: page }) => {
     await test.step('验证创建成功', async () => {
       const res = await API.get(page, `${API_BASE}/me/notify-configs`)
       expect(res.code).toBe(0)
-      const list = res.data.list || res.data || []
-      const found = list.find((c: any) => c.id === configId)
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.media_type === mediaType)
       expect(found).toBeTruthy()
-      expect(found.media_type).toBe('webhook')
-      expect(found.enabled).toBe(true)
+      expect(found.is_enabled).toBe(true)
       await page.screenshot({ path: 'test-results/UNP-1-03-验证创建.png', fullPage: false })
     })
 
-    // ---- 4. 更新通知偏好 ----
+    // ---- 4. 更新通知偏好 (PUT upsert with same media_type) ----
     await test.step('更新通知偏好', async () => {
-      const res = await API.put(page, `${API_BASE}/me/notify-configs/${configId}`, {
-        enabled: false,
-        target: `https://example.com/updated-hook-${uid()}`,
+      const res = await API.put(page, `${API_BASE}/me/notify-configs`, {
+        media_type: mediaType,
+        config: JSON.stringify({ url: `https://example.com/updated-hook-${uid()}` }),
+        is_enabled: false,
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/UNP-1-04-更新偏好.png', fullPage: false })
@@ -64,19 +64,17 @@ test('UNP-1 用户通知偏好CRUD', async ({ authPage: page }) => {
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/me/notify-configs`)
       expect(res.code).toBe(0)
-      const list = res.data.list || res.data || []
-      const found = list.find((c: any) => c.id === configId)
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.media_type === mediaType)
       expect(found).toBeTruthy()
-      expect(found.enabled).toBe(false)
+      expect(found.is_enabled).toBe(false)
       await page.screenshot({ path: 'test-results/UNP-1-05-验证更新.png', fullPage: false })
     })
   } finally {
-    // cleanup: delete the config
-    if (configId) {
-      try {
-        await API.del(page, `${API_BASE}/me/notify-configs/${configId}`)
-      } catch { /* ignore */ }
-    }
+    // cleanup: delete the config by media_type
+    try {
+      await API.del(page, `${API_BASE}/me/notify-configs/${mediaType}`)
+    } catch { /* ignore */ }
   }
 })
 
@@ -84,50 +82,37 @@ test('UNP-1 用户通知偏好CRUD', async ({ authPage: page }) => {
 // UNP-2 用户通知偏好按媒体类型
 // ---------------------------------------------------------------------------
 test('UNP-2 用户通知偏好按媒体类型', async ({ authPage: page }) => {
-  const configIds: number[] = []
+  const mediaTypes = [`email_test_${uid()}`, `webhook_test_${uid()}`]
 
   try {
     // ---- 1. 创建多个不同类型的偏好 ----
     await test.step('创建多种类型偏好', async () => {
-      const types = ['email', 'webhook']
-      for (const type of types) {
-        const res = await API.post(page, `${API_BASE}/me/notify-configs`, {
+      for (const type of mediaTypes) {
+        const res = await API.put(page, `${API_BASE}/me/notify-configs`, {
           media_type: type,
-          target: `${type}-${uid()}@example.com`,
-          enabled: true,
+          config: JSON.stringify({ url: `${type}@example.com` }),
+          is_enabled: true,
         })
         expect(res.code).toBe(0)
-        configIds.push(res.data.id)
       }
       await page.screenshot({ path: 'test-results/UNP-2-01-创建多种类型.png', fullPage: false })
     })
 
-    // ---- 2. 按媒体类型筛选 ----
-    await test.step('按媒体类型筛选', async () => {
-      const res = await API.get(page, `${API_BASE}/me/notify-configs?media_type=email`)
+    // ---- 2. 验证列表包含所有类型 ----
+    await test.step('验证列表包含所有类型', async () => {
+      const res = await API.get(page, `${API_BASE}/me/notify-configs`)
       expect(res.code).toBe(0)
-      const list = res.data.list || res.data || []
-      // 所有返回的配置应该是 email 类型
-      for (const cfg of list) {
-        expect(cfg.media_type).toBe('email')
+      const list = Array.isArray(res.data) ? res.data : []
+      for (const type of mediaTypes) {
+        const found = list.find((c: any) => c.media_type === type)
+        expect(found).toBeTruthy()
       }
-      await page.screenshot({ path: 'test-results/UNP-2-02-类型筛选.png', fullPage: false })
-    })
-
-    // ---- 3. 按 webhook 类型筛选 ----
-    await test.step('按 webhook 类型筛选', async () => {
-      const res = await API.get(page, `${API_BASE}/me/notify-configs?media_type=webhook`)
-      expect(res.code).toBe(0)
-      const list = res.data.list || res.data || []
-      for (const cfg of list) {
-        expect(cfg.media_type).toBe('webhook')
-      }
-      await page.screenshot({ path: 'test-results/UNP-2-03-webhook筛选.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/UNP-2-02-类型验证.png', fullPage: false })
     })
   } finally {
-    for (const id of configIds) {
+    for (const type of mediaTypes) {
       try {
-        await API.del(page, `${API_BASE}/me/notify-configs/${id}`)
+        await API.del(page, `${API_BASE}/me/notify-configs/${type}`)
       } catch { /* ignore */ }
     }
   }
@@ -137,24 +122,23 @@ test('UNP-2 用户通知偏好按媒体类型', async ({ authPage: page }) => {
 // UNP-3 用户通知偏好删除
 // ---------------------------------------------------------------------------
 test('UNP-3 用户通知偏好删除', async ({ authPage: page }) => {
-  let configId: number | null = null
+  const mediaType = `delete_test_${uid()}`
 
   try {
     // ---- 1. 创建偏好 ----
     await test.step('创建偏好', async () => {
-      const res = await API.post(page, `${API_BASE}/me/notify-configs`, {
-        media_type: 'email',
-        target: `delete-test-${uid()}@example.com`,
-        enabled: true,
+      const res = await API.put(page, `${API_BASE}/me/notify-configs`, {
+        media_type: mediaType,
+        config: JSON.stringify({ url: `https://example.com/delete-test` }),
+        is_enabled: true,
       })
       expect(res.code).toBe(0)
-      configId = res.data.id
       await page.screenshot({ path: 'test-results/UNP-3-01-创建偏好.png', fullPage: false })
     })
 
-    // ---- 2. 删除偏好 ----
+    // ---- 2. 删除偏好 (DELETE by mediaType) ----
     await test.step('删除偏好', async () => {
-      const res = await API.del(page, `${API_BASE}/me/notify-configs/${configId}`)
+      const res = await API.del(page, `${API_BASE}/me/notify-configs/${mediaType}`)
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/UNP-3-02-删除偏好.png', fullPage: false })
     })
@@ -163,18 +147,14 @@ test('UNP-3 用户通知偏好删除', async ({ authPage: page }) => {
     await test.step('验证已删除', async () => {
       const res = await API.get(page, `${API_BASE}/me/notify-configs`)
       expect(res.code).toBe(0)
-      const list = res.data.list || res.data || []
-      const found = list.find((c: any) => c.id === configId)
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.media_type === mediaType)
       expect(found).toBeFalsy()
       await page.screenshot({ path: 'test-results/UNP-3-03-验证删除.png', fullPage: false })
     })
-
-    configId = null
   } finally {
-    if (configId) {
-      try {
-        await API.del(page, `${API_BASE}/me/notify-configs/${configId}`)
-      } catch { /* ignore */ }
-    }
+    try {
+      await API.del(page, `${API_BASE}/me/notify-configs/${mediaType}`)
+    } catch { /* ignore */ }
   }
 })

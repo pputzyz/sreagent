@@ -12,12 +12,12 @@ function uid(): string {
 async function createUserContact(page: any, overrides: Record<string, unknown> = {}) {
   const tag = uid()
   const payload = {
-    channel_type: 'email',
-    contact_value: `test-${tag}@example.com`,
-    is_default: false,
+    type: 'email',
+    value: `test-${tag}@example.com`,
+    name: `contact-${tag}`,
     ...overrides,
   }
-  const res = await API.post(page, `${API_BASE}/user-contacts`, payload)
+  const res = await API.post(page, `${API_BASE}/user/contacts`, payload)
   expect(res.code).toBe(0)
   expect(res.data).toBeTruthy()
   expect(res.data.id).toBeGreaterThan(0)
@@ -27,7 +27,7 @@ async function createUserContact(page: any, overrides: Record<string, unknown> =
 /** Helper: delete a user contact by ID, ignoring errors (for cleanup) */
 async function cleanupUserContact(page: any, id: number) {
   try {
-    await API.del(page, `${API_BASE}/user-contacts/${id}`)
+    await API.del(page, `${API_BASE}/user/contacts/${id}`)
   } catch { /* ignore */ }
 }
 
@@ -41,43 +41,53 @@ test('UC-1 用户联系人 CRUD', async ({ authPage: page }) => {
     await test.step('创建用户联系人', async () => {
       const contact = await createUserContact(page)
       contactId = contact.id
-      expect(contact.channel_type).toBe('email')
-      expect(contact.contact_value).toContain('@example.com')
+      expect(contact.type).toBe('email')
+      expect(contact.value).toContain('@example.com')
       await page.screenshot({ path: 'test-results/UC-1-01-创建成功.png', fullPage: false })
     })
 
     await test.step('GET 验证用户联系人已保存', async () => {
-      const res = await API.get(page, `${API_BASE}/user-contacts/${contactId}`)
+      const res = await API.get(page, `${API_BASE}/user/contacts`)
       expect(res.code).toBe(0)
-      expect(res.data.id).toBe(contactId)
-      expect(res.data.channel_type).toBe('email')
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.id === contactId)
+      expect(found).toBeTruthy()
+      expect(found.type).toBe('email')
       await page.screenshot({ path: 'test-results/UC-1-02-GET验证.png', fullPage: false })
     })
 
     await test.step('更新用户联系人', async () => {
-      const res = await API.put(page, `${API_BASE}/user-contacts/${contactId}`, {
-        contact_value: `updated-${uid()}@example.com`,
+      const res = await API.put(page, `${API_BASE}/user/contacts/${contactId}`, {
+        type: 'email',
+        value: `updated-${uid()}@example.com`,
+        name: 'updated-contact',
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/UC-1-03-更新成功.png', fullPage: false })
     })
 
     await test.step('验证更新生效', async () => {
-      const res = await API.get(page, `${API_BASE}/user-contacts/${contactId}`)
+      const res = await API.get(page, `${API_BASE}/user/contacts`)
       expect(res.code).toBe(0)
-      expect(res.data.contact_value).toContain('updated-')
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.id === contactId)
+      expect(found).toBeTruthy()
+      expect(found.value).toContain('updated-')
       await page.screenshot({ path: 'test-results/UC-1-04-更新验证.png', fullPage: false })
     })
 
     await test.step('删除用户联系人', async () => {
-      const res = await API.del(page, `${API_BASE}/user-contacts/${contactId}`)
+      const res = await API.del(page, `${API_BASE}/user/contacts/${contactId}`)
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/UC-1-05-删除成功.png', fullPage: false })
     })
 
     await test.step('验证删除生效', async () => {
-      const res = await API.get(page, `${API_BASE}/user-contacts/${contactId}`)
-      expect(res.code).not.toBe(0)
+      const res = await API.get(page, `${API_BASE}/user/contacts`)
+      expect(res.code).toBe(0)
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.id === contactId)
+      expect(found).toBeFalsy()
       await page.screenshot({ path: 'test-results/UC-1-06-删除验证.png', fullPage: false })
     })
 
@@ -104,24 +114,28 @@ test('UC-2 用户联系人 设为默认', async ({ authPage: page }) => {
     })
 
     await test.step('验证第一个为默认', async () => {
-      const res = await API.get(page, `${API_BASE}/user-contacts/${contact1Id}`)
+      const res = await API.get(page, `${API_BASE}/user/contacts`)
       expect(res.code).toBe(0)
-      expect(res.data.is_default).toBe(true)
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.id === contact1Id)
+      expect(found).toBeTruthy()
+      expect(found.is_default).toBe(true)
       await page.screenshot({ path: 'test-results/UC-2-02-验证默认.png', fullPage: false })
     })
 
     await test.step('将第二个设为默认', async () => {
-      const res = await API.put(page, `${API_BASE}/user-contacts/${contact2Id}`, {
-        is_default: true,
-      })
+      const res = await API.post(page, `${API_BASE}/user/contacts/${contact2Id}/default`)
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/UC-2-03-设为默认.png', fullPage: false })
     })
 
     await test.step('验证默认互斥', async () => {
-      const res2 = await API.get(page, `${API_BASE}/user-contacts/${contact2Id}`)
-      expect(res2.code).toBe(0)
-      expect(res2.data.is_default).toBe(true)
+      const res = await API.get(page, `${API_BASE}/user/contacts`)
+      expect(res.code).toBe(0)
+      const list = Array.isArray(res.data) ? res.data : []
+      const found = list.find((c: any) => c.id === contact2Id)
+      expect(found).toBeTruthy()
+      expect(found.is_default).toBe(true)
       await page.screenshot({ path: 'test-results/UC-2-04-互斥验证.png', fullPage: false })
     })
   } finally {
@@ -144,7 +158,7 @@ test('UC-3 用户联系人 验证', async ({ authPage: page }) => {
     })
 
     await test.step('发送验证请求', async () => {
-      const res = await API.post(page, `${API_BASE}/user-contacts/${contactId}/verify`)
+      const res = await API.post(page, `${API_BASE}/user/contacts/${contactId}/verify`)
       // May succeed or fail depending on SMTP config
       expect(res).toBeDefined()
       expect(res.code).toBeDefined()
@@ -169,10 +183,10 @@ test('UC-4 用户联系人 确认验证', async ({ authPage: page }) => {
     })
 
     await test.step('确认验证（使用测试码）', async () => {
-      const res = await API.post(page, `${API_BASE}/user-contacts/${contactId}/confirm`, {
+      const res = await API.post(page, `${API_BASE}/user/contacts/${contactId}/verify/confirm`, {
         code: '000000',
       })
-      // May fail with invalid code — that's expected
+      // May fail with invalid code -- that's expected
       expect(res).toBeDefined()
       expect(res.code).toBeDefined()
       await page.screenshot({ path: 'test-results/UC-4-02-确认验证.png', fullPage: false })

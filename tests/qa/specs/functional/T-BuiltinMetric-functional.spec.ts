@@ -14,7 +14,7 @@ async function createBuiltinMetric(page: any, overrides: Record<string, unknown>
   const payload = {
     name: `bm-test-${tag}`,
     expression: `sum(rate(test_metric_${tag}[5m]))`,
-    description: 'Functional test builtin metric',
+    note: 'Functional test builtin metric',
     unit: 'req/s',
     metric_type: 'counter',
     ...overrides,
@@ -26,10 +26,10 @@ async function createBuiltinMetric(page: any, overrides: Record<string, unknown>
   return { ...res.data, _tag: tag, _payload: payload }
 }
 
-/** Helper: delete a builtin metric by ID, ignoring errors (for cleanup) */
+/** Helper: delete a builtin metric by ID via POST /delete, ignoring errors (for cleanup) */
 async function cleanupBuiltinMetric(page: any, id: number) {
   try {
-    await API.del(page, `${API_BASE}/builtin-metrics/${id}`)
+    await API.post(page, `${API_BASE}/builtin-metrics/delete`, { ids: [id] })
   } catch { /* ignore */ }
 }
 
@@ -59,7 +59,7 @@ test('BM-1 内置指标 CRUD', async ({ authPage: page }) => {
       const res = await API.put(page, `${API_BASE}/builtin-metrics/${metricId}`, {
         name: `bm-test-updated-${uid()}`,
         expression: 'sum(rate(test_updated[5m]))',
-        description: 'Updated by functional test',
+        note: 'Updated by functional test',
         unit: 'ops/s',
         metric_type: 'counter',
       })
@@ -70,13 +70,13 @@ test('BM-1 内置指标 CRUD', async ({ authPage: page }) => {
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/builtin-metrics/${metricId}`)
       expect(res.code).toBe(0)
-      expect(res.data.description).toBe('Updated by functional test')
+      expect(res.data.note).toBe('Updated by functional test')
       expect(res.data.unit).toBe('ops/s')
       await page.screenshot({ path: 'test-results/BM-1-04-更新验证.png', fullPage: false })
     })
 
     await test.step('删除内置指标', async () => {
-      const res = await API.del(page, `${API_BASE}/builtin-metrics/${metricId}`)
+      const res = await API.post(page, `${API_BASE}/builtin-metrics/delete`, { ids: [metricId] })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/BM-1-05-删除成功.png', fullPage: false })
     })

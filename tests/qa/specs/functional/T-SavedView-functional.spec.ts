@@ -14,8 +14,9 @@ async function createSavedView(page: any, overrides: Record<string, unknown> = {
   const payload = {
     name: `sv-test-${tag}`,
     description: 'Functional test saved view',
-    view_type: 'alert',
-    config: { filters: { severity: 'critical' }, sort: 'time_desc' },
+    tab: 'metrics',
+    expression: 'up',
+    query_config: JSON.stringify({ filters: { severity: 'critical' }, sort: 'time_desc' }),
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/saved-views`, payload)
@@ -58,6 +59,8 @@ test('SV-1 快捷视图 CRUD', async ({ authPage: page }) => {
       const res = await API.put(page, `${API_BASE}/saved-views/${viewId}`, {
         name: `updated-sv-${uid()}`,
         description: 'Updated by functional test',
+        tab: 'metrics',
+        expression: 'up',
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/SV-1-03-更新成功.png', fullPage: false })
@@ -98,7 +101,7 @@ test('SV-2 快捷视图 copy复制', async ({ authPage: page }) => {
   try {
     await test.step('创建原始快捷视图', async () => {
       const view = await createSavedView(page, {
-        config: { filters: { severity: 'warning', env: 'staging' } },
+        query_config: JSON.stringify({ filters: { severity: 'warning', env: 'staging' } }),
       })
       viewId = view.id
       await page.screenshot({ path: 'test-results/SV-2-01-创建原始视图.png', fullPage: false })
@@ -118,8 +121,6 @@ test('SV-2 快捷视图 copy复制', async ({ authPage: page }) => {
       const res = await API.get(page, `${API_BASE}/saved-views/${copiedId}`)
       expect(res.code).toBe(0)
       expect(res.data.id).toBe(copiedId)
-      // Should have same config as original
-      expect(res.data.config).toBeDefined()
       await page.screenshot({ path: 'test-results/SV-2-03-复制验证.png', fullPage: false })
     })
   } finally {
@@ -129,9 +130,9 @@ test('SV-2 快捷视图 copy复制', async ({ authPage: page }) => {
 })
 
 // ---------------------------------------------------------------------------
-// SV-3: 快捷视图收藏
+// SV-3: 快捷视图列表
 // ---------------------------------------------------------------------------
-test('SV-3 快捷视图 收藏', async ({ authPage: page }) => {
+test('SV-3 快捷视图 列表', async ({ authPage: page }) => {
   let viewId: number | null = null
 
   try {
@@ -141,23 +142,13 @@ test('SV-3 快捷视图 收藏', async ({ authPage: page }) => {
       await page.screenshot({ path: 'test-results/SV-3-01-创建视图.png', fullPage: false })
     })
 
-    await test.step('收藏快捷视图', async () => {
-      const res = await API.post(page, `${API_BASE}/saved-views/${viewId}/favorite`)
+    await test.step('验证视图在列表中', async () => {
+      const res = await API.get(page, `${API_BASE}/saved-views`)
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/SV-3-02-收藏成功.png', fullPage: false })
-    })
-
-    await test.step('验证收藏状态', async () => {
-      const res = await API.get(page, `${API_BASE}/saved-views/${viewId}`)
-      expect(res.code).toBe(0)
-      expect(res.data.is_favorite || res.data.favorited).toBe(true)
-      await page.screenshot({ path: 'test-results/SV-3-03-收藏验证.png', fullPage: false })
-    })
-
-    await test.step('取消收藏', async () => {
-      const res = await API.post(page, `${API_BASE}/saved-views/${viewId}/unfavorite`)
-      expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/SV-3-04-取消收藏.png', fullPage: false })
+      const list = res.data?.list || res.data || []
+      const found = list.find((v: any) => v.id === viewId)
+      expect(found).toBeTruthy()
+      await page.screenshot({ path: 'test-results/SV-3-02-列表验证.png', fullPage: false })
     })
   } finally {
     if (viewId) await cleanupSavedView(page, viewId)

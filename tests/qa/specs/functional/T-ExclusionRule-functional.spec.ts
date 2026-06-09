@@ -126,115 +126,160 @@ test('ER-1 排除规则 CRUD', async ({ authPage: page }) => {
 // ---------------------------------------------------------------------------
 test('ER-2 排除规则关联 channel', async ({ authPage: page }) => {
   let ruleId: number | null = null
+  let channelId: number | null = null
 
   try {
-    // ---- 1. 创建排除规则 ----
+    // ---- 1. 创建排除规则（会自动关联到 channel） ----
     await test.step('创建排除规则', async () => {
-      const rule = await createExclusionRule(page, {
-        channel_ids: [],
-      })
+      const rule = await createExclusionRule(page, {})
       ruleId = rule.id
+      channelId = rule._channelId
       await page.screenshot({ path: 'test-results/ER-2-01-创建规则.png', fullPage: false })
     })
 
-    // ---- 2. 获取可用 channel 列表 ----
-    let channelId: number | null = null
-    await test.step('获取可用 channel 列表', async () => {
-      const res = await API.get(page, `${API_BASE}/channels?page_size=10`)
+    // ---- 2. 通过 channel 获取排除规则列表验证关联 ----
+    await test.step('验证排除规则已关联到 channel', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
       expect(res.code).toBe(0)
-      const list = res.data.list || []
-      if (list.length > 0) {
-        channelId = list[0].id
-      }
-      await page.screenshot({ path: 'test-results/ER-2-02-Channel列表.png', fullPage: false })
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.some((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBe(true)
+      await page.screenshot({ path: 'test-results/ER-2-02-关联验证.png', fullPage: false })
     })
 
-    // ---- 3. 关联 channel 到排除规则 ----
-    await test.step('关联 channel 到排除规则', async () => {
-      if (channelId) {
-        const res = await API.put(page, `${API_BASE}/exclusion-rules/${ruleId}`, {
-          channel_ids: [channelId],
-        })
-        expect(res.code).toBe(0)
-      }
-      await page.screenshot({ path: 'test-results/ER-2-03-关联Channel.png', fullPage: false })
-    })
-
-    // ---- 4. 验证关联生效 ----
-    await test.step('验证关联生效', async () => {
-      const res = await API.get(page, `${API_BASE}/exclusion-rules/${ruleId}`)
-      expect(res.code).toBe(0)
-      expect(res.data.channel_ids).toBeTruthy()
-      await page.screenshot({ path: 'test-results/ER-2-04-关联验证.png', fullPage: false })
-    })
-
-    // ---- 5. 解除关联 ----
-    await test.step('解除 channel 关联', async () => {
+    // ---- 3. 更新排除规则（修改名称和条件） ----
+    await test.step('更新排除规则', async () => {
       const res = await API.put(page, `${API_BASE}/exclusion-rules/${ruleId}`, {
-        channel_ids: [],
+        name: `updated-exclusion-${uid()}`,
+        description: 'Updated for channel association test',
       })
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/ER-2-05-解除关联.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/ER-2-03-更新规则.png', fullPage: false })
     })
 
-    // ---- 6. 验证解除关联生效 ----
-    await test.step('验证解除关联生效', async () => {
-      const res = await API.get(page, `${API_BASE}/exclusion-rules/${ruleId}`)
+    // ---- 4. 验证更新后规则仍在 channel 列表中 ----
+    await test.step('验证更新后规则仍在 channel 列表中', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
       expect(res.code).toBe(0)
-      expect(res.data.channel_ids).toHaveLength(0)
-      await page.screenshot({ path: 'test-results/ER-2-06-解除验证.png', fullPage: false })
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.find((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBeTruthy()
+      expect(found.description).toBe('Updated for channel association test')
+      await page.screenshot({ path: 'test-results/ER-2-04-更新验证.png', fullPage: false })
     })
+
+    // ---- 5. 删除排除规则 ----
+    await test.step('删除排除规则', async () => {
+      const res = await API.del(page, `${API_BASE}/exclusion-rules/${ruleId}`)
+      expect(res.code).toBe(0)
+      await page.screenshot({ path: 'test-results/ER-2-05-删除规则.png', fullPage: false })
+    })
+
+    // ---- 6. 验证删除后规则不在 channel 列表中 ----
+    await test.step('验证删除后规则不在 channel 列表中', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
+      expect(res.code).toBe(0)
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.find((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBeFalsy()
+      await page.screenshot({ path: 'test-results/ER-2-06-删除验证.png', fullPage: false })
+    })
+
+    ruleId = null
   } finally {
     if (ruleId) await cleanupExclusionRule(page, ruleId)
   }
 })
 
 // ---------------------------------------------------------------------------
-// ER-3 排除规则匹配预览
+// ER-3 排除规则条件管理
 // ---------------------------------------------------------------------------
-test('ER-3 排除规则匹配预览', async ({ authPage: page }) => {
+test('ER-3 排除规则条件管理', async ({ authPage: page }) => {
   let ruleId: number | null = null
+  let channelId: number | null = null
 
   try {
-    // ---- 1. 创建排除规则 ----
-    await test.step('创建排除规则', async () => {
+    // ---- 1. 创建带条件的排除规则 ----
+    await test.step('创建带条件的排除规则', async () => {
       const rule = await createExclusionRule(page, {
-        matchers: [
+        conditions: JSON.stringify([
           { name: 'env', value: 'production', is_regex: false },
           { name: 'job', value: 'api-.*', is_regex: true },
-        ],
-        description: 'Match preview test',
+        ]),
+        description: 'Conditions management test',
       })
       ruleId = rule.id
+      channelId = rule._channelId
       await page.screenshot({ path: 'test-results/ER-3-01-创建规则.png', fullPage: false })
     })
 
-    // ---- 2. 测试命中场景 ----
-    await test.step('测试命中场景', async () => {
-      const res = await API.post(page, `${API_BASE}/exclusion-rules/${ruleId}/preview`, {
-        labels: { env: 'production', job: 'api-server', severity: 'critical' },
-      })
+    // ---- 2. 验证条件已保存 ----
+    await test.step('验证条件已保存', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
       expect(res.code).toBe(0)
-      expect(res.data).toBeTruthy()
-      await page.screenshot({ path: 'test-results/ER-3-02-命中预览.png', fullPage: false })
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.find((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBeTruthy()
+      if (found) {
+        const conditions = JSON.parse(found.conditions)
+        expect(Array.isArray(conditions)).toBe(true)
+        expect(conditions.length).toBe(2)
+        expect(conditions[0].name).toBe('env')
+        expect(conditions[0].value).toBe('production')
+        expect(conditions[1].is_regex).toBe(true)
+      }
+      await page.screenshot({ path: 'test-results/ER-3-02-条件验证.png', fullPage: false })
     })
 
-    // ---- 3. 测试不命中场景 ----
-    await test.step('测试不命中场景', async () => {
-      const res = await API.post(page, `${API_BASE}/exclusion-rules/${ruleId}/preview`, {
-        labels: { env: 'staging', job: 'web-server', severity: 'warning' },
+    // ---- 3. 更新条件 ----
+    await test.step('更新排除规则条件', async () => {
+      const res = await API.put(page, `${API_BASE}/exclusion-rules/${ruleId}`, {
+        conditions: JSON.stringify([
+          { name: 'env', value: 'staging', is_regex: false },
+          { name: 'severity', value: 'warning', is_regex: false },
+        ]),
       })
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/ER-3-03-不命中预览.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/ER-3-03-更新条件.png', fullPage: false })
     })
 
-    // ---- 4. 测试部分匹配场景 ----
-    await test.step('测试部分匹配场景', async () => {
-      const res = await API.post(page, `${API_BASE}/exclusion-rules/${ruleId}/preview`, {
-        labels: { env: 'production', job: 'web-server' },
+    // ---- 4. 验证条件更新生效 ----
+    await test.step('验证条件更新生效', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
+      expect(res.code).toBe(0)
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.find((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBeTruthy()
+      if (found) {
+        const conditions = JSON.parse(found.conditions)
+        expect(conditions.length).toBe(2)
+        expect(conditions[0].name).toBe('env')
+        expect(conditions[0].value).toBe('staging')
+        expect(conditions[1].name).toBe('severity')
+      }
+      await page.screenshot({ path: 'test-results/ER-3-04-更新验证.png', fullPage: false })
+    })
+
+    // ---- 5. 启用/禁用排除规则 ----
+    await test.step('禁用排除规则', async () => {
+      const res = await API.put(page, `${API_BASE}/exclusion-rules/${ruleId}`, {
+        is_enabled: false,
       })
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/ER-3-04-部分匹配.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/ER-3-05-禁用规则.png', fullPage: false })
+    })
+
+    // ---- 6. 验证禁用生效 ----
+    await test.step('验证禁用生效', async () => {
+      const res = await API.get(page, `${API_BASE}/channels/${channelId}/exclusion-rules`)
+      expect(res.code).toBe(0)
+      const rules = res.data?.list || res.data || []
+      const found = Array.isArray(rules) && rules.find((r: any) => (r.id || r.ID) === ruleId)
+      expect(found).toBeTruthy()
+      if (found) {
+        expect(found.is_enabled).toBe(false)
+      }
+      await page.screenshot({ path: 'test-results/ER-3-06-禁用验证.png', fullPage: false })
     })
   } finally {
     if (ruleId) await cleanupExclusionRule(page, ruleId)

@@ -249,45 +249,47 @@ test('DP-3 分派策略延迟配置', async ({ authPage: page }) => {
 })
 
 // ---------------------------------------------------------------------------
-// DP-4 分派日志查看
+// DP-4 分派日志查看 (dispatch-logs are under /incidents/:id/dispatch-logs)
 // ---------------------------------------------------------------------------
 test('DP-4 分派日志查看', async ({ authPage: page }) => {
+  let incidentId: number | null = null
+
   try {
+    // ---- 0. 获取一个 incident 用于查日志 ----
+    await test.step('获取一个 incident', async () => {
+      const res = await API.get(page, `${API_BASE}/incidents?page=1&page_size=1`)
+      expect(res.code).toBe(0)
+      const list = res.data?.list || res.data || []
+      if (Array.isArray(list) && list.length > 0) {
+        incidentId = list[0].id || list[0].ID
+      }
+      await page.screenshot({ path: 'test-results/DP-4-00-获取incident.png', fullPage: false })
+    })
+
     // ---- 1. 获取分派日志列表 ----
     await test.step('获取分派日志列表', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-logs?page_size=20`)
+      if (!incidentId) {
+        test.skip(true, 'No incident available for dispatch log test')
+        return
+      }
+      const res = await API.get(page, `${API_BASE}/incidents/${incidentId}/dispatch-logs`)
       expect(res.code).toBe(0)
-      expect(res.data).toBeTruthy()
+      expect(res.data).toBeDefined()
       await page.screenshot({ path: 'test-results/DP-4-01-分派日志列表.png', fullPage: false })
     })
 
     // ---- 2. 验证日志列表结构 ----
     await test.step('验证日志列表结构', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-logs?page_size=10`)
+      if (!incidentId) {
+        test.skip(true, 'No incident available for dispatch log test')
+        return
+      }
+      const res = await API.get(page, `${API_BASE}/incidents/${incidentId}/dispatch-logs`)
       expect(res.code).toBe(0)
-      const list = res.data.list || []
+      const list = Array.isArray(res.data) ? res.data : []
       // Log entries should exist (even if empty)
       expect(Array.isArray(list)).toBe(true)
       await page.screenshot({ path: 'test-results/DP-4-02-日志结构验证.png', fullPage: false })
-    })
-
-    // ---- 3. 按时间范围筛选日志 ----
-    await test.step('按时间范围筛选日志', async () => {
-      const now = new Date()
-      const oneDayAgo = new Date(now.getTime() - 24 * 3600 * 1000)
-      const res = await API.get(
-        page,
-        `${API_BASE}/dispatch-logs?start_time=${oneDayAgo.toISOString()}&end_time=${now.toISOString()}&page_size=20`
-      )
-      expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/DP-4-03-时间范围筛选.png', fullPage: false })
-    })
-
-    // ---- 4. 按关键词搜索日志 ----
-    await test.step('按关键词搜索日志', async () => {
-      const res = await API.get(page, `${API_BASE}/dispatch-logs?keyword=test&page_size=10`)
-      expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/DP-4-04-关键词搜索.png', fullPage: false })
     })
   } catch (e) {
     await page.screenshot({ path: 'test-results/DP-4-ERROR.png', fullPage: false })

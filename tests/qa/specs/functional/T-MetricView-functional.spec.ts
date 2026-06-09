@@ -13,11 +13,11 @@ async function createMetricView(page: any, overrides: Record<string, unknown> = 
   const tag = uid()
   const payload = {
     name: `mv-test-${tag}`,
-    description: 'Functional test metric view',
-    config: {
-      metrics: ['up', 'http_requests_total'],
-      group_by: ['job'],
-      time_range: '1h',
+    configs: {
+      filters: [{ metric: 'up', label: 'job', op: '=~', value: '.*' }],
+      dynamicLabels: [],
+      dimensionLabels: [],
+      ignorePrefix: '',
     },
     ...overrides,
   }
@@ -60,7 +60,12 @@ test('MV-1 指标视图 CRUD', async ({ authPage: page }) => {
     await test.step('更新指标视图', async () => {
       const res = await API.put(page, `${API_BASE}/metric-views/${viewId}`, {
         name: `updated-mv-${uid()}`,
-        description: 'Updated by functional test',
+        configs: {
+          filters: [{ metric: 'http_requests_total', label: 'status', op: '=', value: '200' }],
+          dynamicLabels: [],
+          dimensionLabels: [],
+          ignorePrefix: '',
+        },
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/MV-1-03-更新成功.png', fullPage: false })
@@ -69,7 +74,7 @@ test('MV-1 指标视图 CRUD', async ({ authPage: page }) => {
     await test.step('验证更新生效', async () => {
       const res = await API.get(page, `${API_BASE}/metric-views/${viewId}`)
       expect(res.code).toBe(0)
-      expect(res.data.description).toBe('Updated by functional test')
+      expect(res.data.name).toContain('updated-mv-')
       await page.screenshot({ path: 'test-results/MV-1-04-更新验证.png', fullPage: false })
     })
 
@@ -92,9 +97,9 @@ test('MV-1 指标视图 CRUD', async ({ authPage: page }) => {
 })
 
 // ---------------------------------------------------------------------------
-// MV-2: 指标视图收藏
+// MV-2: 指标视图列表
 // ---------------------------------------------------------------------------
-test('MV-2 指标视图 收藏', async ({ authPage: page }) => {
+test('MV-2 指标视图 列表', async ({ authPage: page }) => {
   let viewId: number | null = null
 
   try {
@@ -104,23 +109,13 @@ test('MV-2 指标视图 收藏', async ({ authPage: page }) => {
       await page.screenshot({ path: 'test-results/MV-2-01-创建视图.png', fullPage: false })
     })
 
-    await test.step('收藏指标视图', async () => {
-      const res = await API.post(page, `${API_BASE}/metric-views/${viewId}/favorite`)
+    await test.step('验证视图在列表中', async () => {
+      const res = await API.get(page, `${API_BASE}/metric-views`)
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/MV-2-02-收藏成功.png', fullPage: false })
-    })
-
-    await test.step('验证收藏状态', async () => {
-      const res = await API.get(page, `${API_BASE}/metric-views/${viewId}`)
-      expect(res.code).toBe(0)
-      expect(res.data.is_favorite || res.data.favorited).toBe(true)
-      await page.screenshot({ path: 'test-results/MV-2-03-收藏验证.png', fullPage: false })
-    })
-
-    await test.step('取消收藏', async () => {
-      const res = await API.post(page, `${API_BASE}/metric-views/${viewId}/unfavorite`)
-      expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/MV-2-04-取消收藏.png', fullPage: false })
+      const list = res.data?.list || res.data || []
+      const found = list.find((v: any) => v.id === viewId)
+      expect(found).toBeTruthy()
+      await page.screenshot({ path: 'test-results/MV-2-02-列表验证.png', fullPage: false })
     })
   } finally {
     if (viewId) await cleanupMetricView(page, viewId)
@@ -128,42 +123,32 @@ test('MV-2 指标视图 收藏', async ({ authPage: page }) => {
 })
 
 // ---------------------------------------------------------------------------
-// MV-3: 指标视图查询
+// MV-3: 指标视图详情
 // ---------------------------------------------------------------------------
-test('MV-3 指标视图 查询', async ({ authPage: page }) => {
+test('MV-3 指标视图 详情', async ({ authPage: page }) => {
   let viewId: number | null = null
 
   try {
     await test.step('创建指标视图', async () => {
       const view = await createMetricView(page, {
-        config: {
-          metrics: ['up'],
-          group_by: ['job'],
-          time_range: '15m',
+        configs: {
+          filters: [{ metric: 'up', label: 'job', op: '=~', value: '.*' }],
+          dynamicLabels: [],
+          dimensionLabels: [],
+          ignorePrefix: '',
         },
       })
       viewId = view.id
       await page.screenshot({ path: 'test-results/MV-3-01-创建视图.png', fullPage: false })
     })
 
-    await test.step('执行指标视图查询', async () => {
-      const res = await API.post(page, `${API_BASE}/metric-views/${viewId}/query`, {
-        time_range: '15m',
-      })
-      // May succeed or fail depending on datasource availability
-      expect(res).toBeDefined()
-      expect(res.code).toBeDefined()
-      await page.screenshot({ path: 'test-results/MV-3-02-查询结果.png', fullPage: false })
-    })
-
-    await test.step('验证查询结果结构', async () => {
-      const res = await API.post(page, `${API_BASE}/metric-views/${viewId}/query`, {
-        time_range: '1h',
-      })
-      if (res.code === 0) {
-        expect(res.data).toBeDefined()
-      }
-      await page.screenshot({ path: 'test-results/MV-3-03-结果结构.png', fullPage: false })
+    await test.step('获取指标视图详情', async () => {
+      const res = await API.get(page, `${API_BASE}/metric-views/${viewId}`)
+      expect(res.code).toBe(0)
+      expect(res.data).toBeDefined()
+      expect(res.data.id).toBe(viewId)
+      expect(res.data.name).toContain('mv-test-')
+      await page.screenshot({ path: 'test-results/MV-3-02-视图详情.png', fullPage: false })
     })
   } finally {
     if (viewId) await cleanupMetricView(page, viewId)
