@@ -106,11 +106,17 @@ test('UC-2 用户联系人 设为默认', async ({ authPage: page }) => {
 
   try {
     await test.step('创建两个联系人', async () => {
-      const c1 = await createUserContact(page, { is_default: true })
+      const c1 = await createUserContact(page)
       contact1Id = c1.id
-      const c2 = await createUserContact(page, { is_default: false })
+      const c2 = await createUserContact(page)
       contact2Id = c2.id
       await page.screenshot({ path: 'test-results/UC-2-01-创建联系人.png', fullPage: false })
+    })
+
+    await test.step('将第一个设为默认', async () => {
+      const res = await API.post(page, `${API_BASE}/user/contacts/${contact1Id}/default`)
+      expect(res.code).toBe(0)
+      await page.screenshot({ path: 'test-results/UC-2-02-设为默认.png', fullPage: false })
     })
 
     await test.step('验证第一个为默认', async () => {
@@ -120,13 +126,13 @@ test('UC-2 用户联系人 设为默认', async ({ authPage: page }) => {
       const found = list.find((c: any) => c.id === contact1Id)
       expect(found).toBeTruthy()
       expect(found.is_default).toBe(true)
-      await page.screenshot({ path: 'test-results/UC-2-02-验证默认.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/UC-2-03-验证默认.png', fullPage: false })
     })
 
     await test.step('将第二个设为默认', async () => {
       const res = await API.post(page, `${API_BASE}/user/contacts/${contact2Id}/default`)
       expect(res.code).toBe(0)
-      await page.screenshot({ path: 'test-results/UC-2-03-设为默认.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/UC-2-04-设为默认.png', fullPage: false })
     })
 
     await test.step('验证默认互斥', async () => {
@@ -136,7 +142,7 @@ test('UC-2 用户联系人 设为默认', async ({ authPage: page }) => {
       const found = list.find((c: any) => c.id === contact2Id)
       expect(found).toBeTruthy()
       expect(found.is_default).toBe(true)
-      await page.screenshot({ path: 'test-results/UC-2-04-互斥验证.png', fullPage: false })
+      await page.screenshot({ path: 'test-results/UC-2-05-互斥验证.png', fullPage: false })
     })
   } finally {
     if (contact1Id) await cleanupUserContact(page, contact1Id)

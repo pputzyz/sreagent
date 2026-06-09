@@ -14,7 +14,7 @@ async function createMetricView(page: any, overrides: Record<string, unknown> = 
   const payload = {
     name: `mv-test-${tag}`,
     configs: {
-      filters: [{ metric: 'up', label: 'job', op: '=~', value: '.*' }],
+      filters: [{ label: 'job', oper: '=~', value: '.*' }],
       dynamicLabels: [],
       dimensionLabels: [],
       ignorePrefix: '',
@@ -61,7 +61,7 @@ test('MV-1 指标视图 CRUD', async ({ authPage: page }) => {
       const res = await API.put(page, `${API_BASE}/metric-views/${viewId}`, {
         name: `updated-mv-${uid()}`,
         configs: {
-          filters: [{ metric: 'http_requests_total', label: 'status', op: '=', value: '200' }],
+          filters: [{ label: 'status', oper: '=', value: '200' }],
           dynamicLabels: [],
           dimensionLabels: [],
           ignorePrefix: '',
@@ -132,7 +132,7 @@ test('MV-3 指标视图 详情', async ({ authPage: page }) => {
     await test.step('创建指标视图', async () => {
       const view = await createMetricView(page, {
         configs: {
-          filters: [{ metric: 'up', label: 'job', op: '=~', value: '.*' }],
+          filters: [{ label: 'job', oper: '=~', value: '.*' }],
           dynamicLabels: [],
           dimensionLabels: [],
           ignorePrefix: '',

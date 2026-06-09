@@ -61,6 +61,7 @@ test('SV-1 快捷视图 CRUD', async ({ authPage: page }) => {
         description: 'Updated by functional test',
         tab: 'metrics',
         expression: 'up',
+        datasource_id: 0,
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/SV-1-03-更新成功.png', fullPage: false })

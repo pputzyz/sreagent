@@ -180,8 +180,8 @@ test('MC-4 MCP服务器工具调用', async ({ authPage: page }) => {
       const tools = Array.isArray(toolsRes.data) ? toolsRes.data : toolsRes.data?.list || []
       if (tools.length > 0) {
         const toolName = tools[0].name || tools[0].tool_name || 'unknown'
-        const res = await API.post(page, `${API_BASE}/mcp-servers/${serverId}/tools/${toolName}/invoke`, {
-          params: {},
+        const res = await API.post(page, `${API_BASE}/mcp-servers/${serverId}/tools/${toolName}/call`, {
+          arguments: {},
         })
         expect(res).toBeDefined()
         await page.screenshot({ path: 'test-results/MC-4-03-工具调用.png', fullPage: false })

@@ -22,7 +22,7 @@ async function createDispatchPolicy(page: any, overrides: Record<string, unknown
   const payload = {
     name: `dispatch-${tag}`,
     description: `Functional test dispatch policy ${tag}`,
-    matchers: [{ name: 'severity', value: 'critical', is_regex: false }],
+    match_conditions: JSON.stringify([{ field: 'severity', operator: 'eq', value: 'critical' }]),
     delay_seconds: 0,
     ...overrides,
   }
@@ -130,15 +130,20 @@ test('DP-2 分派策略触发条件', async ({ authPage: page }) => {
   try {
     // ---- 1. 创建带触发条件的分派策略 ----
     await test.step('创建带触发条件的分派策略', async () => {
+      const conditions = [
+        { field: 'severity', operator: 'eq', value: 'critical' },
+        { field: 'env', operator: 'eq', value: 'production' },
+      ]
       const policy = await createDispatchPolicy(page, {
-        matchers: [
-          { name: 'severity', value: 'critical', is_regex: false },
-          { name: 'env', value: 'production', is_regex: false },
-        ],
+        match_conditions: JSON.stringify(conditions),
       })
       policyId = policy.id
-      expect(policy.matchers).toBeTruthy()
-      expect(policy.matchers.length).toBe(2)
+      // match_conditions is stored as a JSON string
+      expect(policy.match_conditions).toBeTruthy()
+      const parsed = typeof policy.match_conditions === 'string'
+        ? JSON.parse(policy.match_conditions)
+        : policy.match_conditions
+      expect(parsed.length).toBe(2)
       await page.screenshot({ path: 'test-results/DP-2-01-创建带条件策略.png', fullPage: false })
     })
 
@@ -146,21 +151,25 @@ test('DP-2 分派策略触发条件', async ({ authPage: page }) => {
     await test.step('验证触发条件保存正确', async () => {
       const res = await API.get(page, `${API_BASE}/dispatch-policies/${policyId}`)
       expect(res.code).toBe(0)
-      expect(res.data.matchers.length).toBe(2)
-      expect(res.data.matchers[0].name).toBe('severity')
-      expect(res.data.matchers[0].value).toBe('critical')
-      expect(res.data.matchers[1].name).toBe('env')
-      expect(res.data.matchers[1].value).toBe('production')
+      const conditions = typeof res.data.match_conditions === 'string'
+        ? JSON.parse(res.data.match_conditions)
+        : res.data.match_conditions
+      expect(conditions.length).toBe(2)
+      expect(conditions[0].field).toBe('severity')
+      expect(conditions[0].value).toBe('critical')
+      expect(conditions[1].field).toBe('env')
+      expect(conditions[1].value).toBe('production')
       await page.screenshot({ path: 'test-results/DP-2-02-条件验证.png', fullPage: false })
     })
 
     // ---- 3. 更新触发条件 ----
     await test.step('更新触发条件', async () => {
+      const conditions = [
+        { field: 'severity', operator: 'eq', value: 'warning' },
+        { field: 'job', operator: 'regex', value: 'api-.*' },
+      ]
       const res = await API.put(page, `${API_BASE}/dispatch-policies/${policyId}`, {
-        matchers: [
-          { name: 'severity', value: 'warning', is_regex: false },
-          { name: 'job', value: 'api-.*', is_regex: true },
-        ],
+        match_conditions: JSON.stringify(conditions),
       })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/DP-2-03-更新条件.png', fullPage: false })
@@ -170,9 +179,12 @@ test('DP-2 分派策略触发条件', async ({ authPage: page }) => {
     await test.step('验证更新后的触发条件', async () => {
       const res = await API.get(page, `${API_BASE}/dispatch-policies/${policyId}`)
       expect(res.code).toBe(0)
-      expect(res.data.matchers.length).toBe(2)
-      expect(res.data.matchers[0].value).toBe('warning')
-      expect(res.data.matchers[1].is_regex).toBe(true)
+      const conditions = typeof res.data.match_conditions === 'string'
+        ? JSON.parse(res.data.match_conditions)
+        : res.data.match_conditions
+      expect(conditions.length).toBe(2)
+      expect(conditions[0].value).toBe('warning')
+      expect(conditions[1].operator).toBe('regex')
       await page.screenshot({ path: 'test-results/DP-2-04-更新后验证.png', fullPage: false })
     })
 
@@ -180,9 +192,12 @@ test('DP-2 分派策略触发条件', async ({ authPage: page }) => {
     await test.step('测试正则匹配条件', async () => {
       const res = await API.get(page, `${API_BASE}/dispatch-policies/${policyId}`)
       expect(res.code).toBe(0)
-      const regexMatcher = res.data.matchers.find((m: any) => m.is_regex)
-      expect(regexMatcher).toBeTruthy()
-      expect(regexMatcher.value).toBe('api-.*')
+      const conditions = typeof res.data.match_conditions === 'string'
+        ? JSON.parse(res.data.match_conditions)
+        : res.data.match_conditions
+      const regexCondition = conditions.find((c: any) => c.operator === 'regex')
+      expect(regexCondition).toBeTruthy()
+      expect(regexCondition.value).toBe('api-.*')
       await page.screenshot({ path: 'test-results/DP-2-05-正则匹配验证.png', fullPage: false })
     })
   } finally {

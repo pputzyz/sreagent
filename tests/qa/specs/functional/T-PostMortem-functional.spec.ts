@@ -8,14 +8,32 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** Helper: get or create a channel ID for incident creation */
+async function getChannelId(page: any): Promise<number> {
+  const res = await API.get(page, `${API_BASE}/channels?page=1&page_size=10`)
+  if (res.code === 0) {
+    const list = res.data?.list || res.data || []
+    if (list.length > 0) return list[0].id
+  }
+  // Create a new channel
+  const tag = uid()
+  const createRes = await API.post(page, `${API_BASE}/channels`, {
+    name: `pm-test-channel-${tag}`,
+    description: 'Channel for post-mortem functional tests',
+  })
+  if (createRes.code === 0 && createRes.data?.id) return createRes.data.id
+  return 1 // fallback
+}
+
 /** Helper: create an incident via API and return the created object */
 async function createIncident(page: any, overrides: Record<string, unknown> = {}) {
   const tag = uid()
+  const channelId = await getChannelId(page)
   const payload = {
     title: `incident-${tag}`,
     description: `Functional test incident ${tag}`,
-    severity: 'critical',
-    status: 'open',
+    severity: 'warning',
+    channel_id: channelId,
     ...overrides,
   }
   const res = await API.post(page, `${API_BASE}/incidents`, payload)

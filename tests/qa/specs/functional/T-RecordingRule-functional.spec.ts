@@ -198,7 +198,7 @@ test('RR-3 录制规则 batch-delete', async ({ authPage: page }) => {
     })
 
     await test.step('批量删除', async () => {
-      const res = await API.post(page, `${API_BASE}/recording-rules/batch-delete`, { ids: ruleIds })
+      const res = await API.post(page, `${API_BASE}/recording-rules/batch-delete`, { group_id: 0, ids: ruleIds })
       expect(res.code).toBe(0)
       await page.screenshot({ path: 'test-results/RR-3-02-批量删除成功.png', fullPage: false })
     })
