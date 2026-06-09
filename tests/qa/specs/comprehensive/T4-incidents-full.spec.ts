@@ -15,12 +15,16 @@ function uid(prefix: string): string {
 
 /** 通过 API 创建测试事件 */
 async function createTestIncident(page: import('@playwright/test').Page, overrides?: Record<string, unknown>): Promise<number> {
+  // 先创建一个协作空间（channel_id 必须大于 0）
+  const channelId = await createTestChannel(page)
+  if (channelId === 0) return 0
+
   const name = uid('test_incident')
   const body = {
     title: name,
     description: 'E2E test incident',
     severity: 'warning',
-    channel_id: 0,
+    channel_id: channelId,
     ...overrides,
   }
   const res = await API.post(page, '/api/v1/incidents', body)

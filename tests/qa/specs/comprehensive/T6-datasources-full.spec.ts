@@ -19,7 +19,7 @@ async function createTestDatasource(page: import('@playwright/test').Page, overr
   const body = {
     name,
     type: 'prometheus',
-    url: 'http://localhost:9090',
+    endpoint: 'http://localhost:9090',
     is_default: false,
     status: 'active',
     ...overrides,
@@ -502,7 +502,7 @@ test.describe('T6 - 数据源完整测试', () => {
     let dsId = 0
 
     await test.step('通过 API 创建数据源', async () => {
-      dsId = await createTestDatasource(page, { name: uid('api_ds'), type: 'prometheus', url: 'http://localhost:9090' })
+      dsId = await createTestDatasource(page, { name: uid('api_ds'), type: 'prometheus', endpoint: 'http://localhost:9090' })
       expect(dsId).toBeGreaterThan(0)
     })
 

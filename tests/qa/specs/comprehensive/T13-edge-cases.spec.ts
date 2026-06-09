@@ -28,7 +28,7 @@ test.describe('T13 - Edge Cases Test Suite', () => {
     })
 
     await test.step('Check for empty state or table', async () => {
-      const emptyState = page.locator('.n-empty, [class*="empty"], [class*="no-data"], text=暂无数据, text=No data').first()
+      const emptyState = page.locator('.empty-state, .n-empty, [class*="empty"], [class*="no-data"], text=暂无数据, text=No data').first()
       const table = page.locator('table, .n-data-table, [class*="table"]').first()
       const hasEmpty = await emptyState.isVisible().catch(() => false)
       const hasTable = await table.isVisible().catch(() => false)

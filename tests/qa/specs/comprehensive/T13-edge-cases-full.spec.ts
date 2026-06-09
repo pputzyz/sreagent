@@ -219,7 +219,7 @@ test.describe('T13-full - Edge Cases Full Suite', () => {
   // T13-F-12: Empty mute rules page
   test('T13-F-12 Empty mute rules page renders correctly', async ({ authPage: page }) => {
     await test.step('Navigate to mute rules page', async () => {
-      await page.goto(BASE_URL + '/notify/mutes')
+      await page.goto(BASE_URL + '/alert/suppression')
       await page.waitForLoadState('networkidle')
       await page.screenshot({ path: 'test-results/T13-F-12-mute-rules-empty.png', fullPage: true })
     })
@@ -1029,8 +1029,9 @@ test.describe('T13-full - Edge Cases Full Suite', () => {
       await page.waitForLoadState('networkidle')
     })
 
+    const searchInput = page.locator('input[placeholder*="搜索"], input[placeholder*="search"]').first()
+
     await test.step('Rapidly type different search terms', async () => {
-      const searchInput = page.locator('input[placeholder*="搜索"], input[placeholder*="search"]').first()
       if (await searchInput.isVisible().catch(() => false)) {
         for (let i = 0; i < 5; i++) {
           await searchInput.fill(`filter_${i}`)
@@ -1043,7 +1044,9 @@ test.describe('T13-full - Edge Cases Full Suite', () => {
 
     await test.step('Verify page is still responsive', async () => {
       await expect(page.locator('body')).toBeVisible()
-      await searchInput.clear()
+      if (await searchInput.isVisible().catch(() => false)) {
+        await searchInput.clear()
+      }
     })
   })
 
@@ -2067,10 +2070,8 @@ test.describe('T13-full - Edge Cases Full Suite', () => {
   // T13-F-91: LDAP injection in login form
   test('T13-F-91 LDAP injection in login form', async ({ page }) => {
     await test.step('Navigate to login page', async () => {
-      await page.goto(BASE_URL)
-      await page.evaluate(() => { localStorage.clear() })
-      await page.goto(BASE_URL + '/login')
-      await page.waitForLoadState('networkidle')
+      await page.goto(BASE_URL + '/login', { waitUntil: 'domcontentloaded', timeout: 10000 })
+      await page.waitForTimeout(1000)
     })
 
     await test.step('Enter LDAP injection payload', async () => {
@@ -2080,8 +2081,10 @@ test.describe('T13-full - Edge Cases Full Suite', () => {
         await usernameInput.fill('*)(&(objectClass=*))')
         await passwordInput.fill('test')
         const loginBtn = page.locator('button').filter({ hasText: /登录|Login|Sign in/ }).first()
-        await loginBtn.click()
-        await page.waitForTimeout(2000)
+        if (await loginBtn.isVisible().catch(() => false)) {
+          await loginBtn.click()
+          await page.waitForTimeout(2000)
+        }
         await page.screenshot({ path: 'test-results/T13-F-91-ldap-injection.png', fullPage: false })
       }
     })

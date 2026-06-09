@@ -70,7 +70,7 @@ test.describe('T2-Edge - Alert Events Edge Cases', () => {
 
     await test.step('Verify empty state UI renders without crash', async () => {
       await expect(page.locator('body')).toBeVisible()
-      const emptyState = page.locator('.n-empty, [class*="empty"], [class*="no-data"], text=暂无数据, text=No data').first()
+      const emptyState = page.locator('.empty-state, .n-empty, [class*="empty"], [class*="no-data"], text=暂无数据, text=No data').first()
       const hasEmpty = await emptyState.isVisible().catch(() => false)
       expect(hasEmpty).toBeTruthy()
     })
