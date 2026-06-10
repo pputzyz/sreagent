@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, inject, onMounted, onUnmounted, onErrorCaptured, nextTick } from 'vue'
 import type { Ref } from 'vue'
-import { NIcon, NPopover, NPopselect, NResult, NModal, NDrawer, NDrawerContent } from 'naive-ui'
+import { NIcon, NPopover, NPopselect, NResult, NModal, NDrawer, NDrawerContent, NAlert } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useAppNav } from '@/composables/useAppNav'
 import { useCommandPalette } from '@/composables/useCommandPalette'
+import { useSessionGuard } from '@/composables/useSessionGuard'
 import { useAuthStore } from '@/stores/auth'
 import AppRail from '@/layouts/AppRail.vue'
 import AppSidebar from '@/layouts/AppSidebar.vue'
@@ -22,6 +23,17 @@ const { activeApp, switchApp, menuSections, activeMenuKey, pageTitle } = useAppN
 const { open: openPalette, registerAction } = useCommandPalette()
 
 const router = useRouter()
+
+// ===== Session Guard =====
+const { isOnline, sessionExpired, forceReconnect } = useSessionGuard()
+
+// When session expires, redirect to login
+watch(sessionExpired, (expired) => {
+  if (expired) {
+    authStore.logout()
+    router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
+  }
+})
 
 // ===== Error Boundary =====
 // Key-based re-render: incrementing the key forces Vue to destroy and re-create
@@ -228,6 +240,23 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     </div>
     <template v-else>
     <a href="#main-content" class="skip-to-content">{{ t('a11y.skipToContent') }}</a>
+
+    <!-- ===== Connection Status Banner ===== -->
+    <Transition name="banner">
+      <NAlert
+        v-if="!isOnline && !sessionExpired"
+        type="warning"
+        :bordered="false"
+        :show-icon="true"
+        class="connection-banner"
+      >
+        {{ t('session.serverUnreachable') || '服务器连接已断开，部分功能可能不可用' }}
+        <template #header>
+          {{ t('session.connectionLost') || '连接中断' }}
+        </template>
+      </NAlert>
+    </Transition>
+
     <!-- ===== Top Bar ===== -->
     <header class="topbar">
       <div class="topbar-start">
@@ -396,6 +425,27 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
    App Shell — v6.0 Warm Vibrant
    ============================================================ */
 .app-shell { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+
+/* ===== Connection Banner ===== */
+.connection-banner {
+  flex-shrink: 0;
+  border-radius: 0;
+}
+.banner-enter-active {
+  transition: all 300ms var(--sre-ease-out);
+}
+.banner-leave-active {
+  transition: all 200ms var(--sre-ease-out);
+}
+.banner-enter-from, .banner-leave-to {
+  opacity: 0;
+  transform: translateY(-100%);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
 
 /* ===== Top Bar ===== */
 .topbar {

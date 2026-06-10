@@ -3562,4 +3562,11 @@ export default {
     description: '您访问的页面不存在或已被移除',
     goHome: '返回首页',
   },
+
+  // ── Session Guard ──
+  session: {
+    connectionLost: '连接中断',
+    serverUnreachable: '服务器连接已断开，部分功能可能不可用',
+    sessionExpired: '会话已过期，请重新登录',
+  },
 }

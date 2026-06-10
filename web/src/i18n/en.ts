@@ -3543,4 +3543,11 @@ export default {
     description: 'The page you are looking for does not exist or has been removed',
     goHome: 'Go Home',
   },
+
+  // ── Session Guard ──
+  session: {
+    connectionLost: 'Connection Lost',
+    serverUnreachable: 'Server connection lost. Some features may be unavailable.',
+    sessionExpired: 'Session expired. Please log in again.',
+  },
 }
