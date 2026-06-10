@@ -25,7 +25,7 @@ const { open: openPalette, registerAction } = useCommandPalette()
 const router = useRouter()
 
 // ===== Session Guard =====
-const { isOnline, sessionExpired, serverRestarted } = useSessionGuard()
+const { isOnline, sessionExpired, serverRestarted, acceptCurrentServer, dismiss } = useSessionGuard()
 const showSessionExpiredModal = ref(false)
 const sessionRedirectCountdown = ref(10)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -56,6 +56,8 @@ const sessionExpiredDesc = computed(() => {
 function doSessionRedirect() {
   if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
   showSessionExpiredModal.value = false
+  // Clear started_at so re-login accepts the current server
+  localStorage.removeItem('sre.server_started_at')
   authStore.logout()
   router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
 }
@@ -63,6 +65,7 @@ function doSessionRedirect() {
 function dismissSessionExpired() {
   if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
   showSessionExpiredModal.value = false
+  dismiss()
 }
 
 // ===== Error Boundary =====
@@ -114,6 +117,9 @@ const toggleTheme = inject<() => void>('toggleTheme', () => {})
 // ===== Profile fetch =====
 onMounted(() => {
   if (authStore.isLoggedIn && !authStore.user) authStore.fetchProfile()
+
+  // Sync server started_at after login to prevent false restart detection
+  if (authStore.isLoggedIn) acceptCurrentServer()
 
   // ── Command palette actions ──────────────────────────────────
   registerAction({

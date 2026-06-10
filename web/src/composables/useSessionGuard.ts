@@ -21,6 +21,7 @@ export function useSessionGuard() {
   let inactivityTimer: ReturnType<typeof setTimeout> | null = null
   let consecutiveFailures = 0
   const MAX_FAILURES = 3
+  let alertDismissed = false // prevent re-triggering after user dismisses
 
   const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll']
 
@@ -33,6 +34,9 @@ export function useSessionGuard() {
   }
 
   async function checkHealth(): Promise<boolean> {
+    // Skip if user already dismissed the alert (prevents infinite loop)
+    if (alertDismissed) return true
+
     try {
       const res = await axios.get('/healthz', { timeout: 5000 })
       consecutiveFailures = 0
@@ -46,8 +50,11 @@ export function useSessionGuard() {
           console.warn('[session] Server restarted — forcing logout')
           serverRestarted.value = true
           sessionExpired.value = true
+          // Clear stored value to prevent re-triggering on next check
+          localStorage.removeItem(STARTED_AT_KEY)
           return true
         }
+        // Store current server's started_at
         localStorage.setItem(STARTED_AT_KEY, remoteStartedAt)
       }
 
@@ -62,6 +69,9 @@ export function useSessionGuard() {
   }
 
   async function validateSession() {
+    // Skip if alert is already showing (user hasn't acted yet)
+    if (sessionExpired.value) return
+
     const token = localStorage.getItem('token')
     if (!token) {
       sessionExpired.value = true
@@ -70,7 +80,7 @@ export function useSessionGuard() {
 
     const healthy = await checkHealth()
     if (!healthy) return
-    if (sessionExpired.value) return // already marked (e.g. server restart)
+    if (sessionExpired.value) return
 
     try {
       const res = await axios.post('/api/v1/auth/refresh', { token }, { timeout: 10000 })
@@ -89,6 +99,18 @@ export function useSessionGuard() {
         sessionExpired.value = true
       }
     }
+  }
+
+  /** Call this after successful login to accept the current server's started_at */
+  function acceptCurrentServer() {
+    alertDismissed = false
+    // Fetch current started_at and store it
+    axios.get('/healthz', { timeout: 5000 }).then(res => {
+      const remoteStartedAt = res.data?.started_at
+      if (remoteStartedAt) {
+        localStorage.setItem(STARTED_AT_KEY, remoteStartedAt)
+      }
+    }).catch(() => { /* ignore */ })
   }
 
   function handleVisibilityChange() {
@@ -130,8 +152,16 @@ export function useSessionGuard() {
   function forceReconnect() {
     sessionExpired.value = false
     serverRestarted.value = false
+    alertDismissed = false
     consecutiveFailures = 0
     validateSession()
+  }
+
+  /** Dismiss the alert without re-triggering */
+  function dismiss() {
+    sessionExpired.value = false
+    serverRestarted.value = false
+    alertDismissed = true
   }
 
   return {
@@ -140,5 +170,7 @@ export function useSessionGuard() {
     serverRestarted,
     validateSession,
     forceReconnect,
+    acceptCurrentServer,
+    dismiss,
   }
 }
