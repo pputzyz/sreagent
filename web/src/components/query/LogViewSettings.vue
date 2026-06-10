@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { NPopover, NSwitch, NInputNumber, NIcon, NButton, NDivider } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import { SettingsOutline } from '@vicons/ionicons5'
 
 export interface LogViewOptions {
@@ -63,31 +66,31 @@ const jsonExpandLevel = computed({
 
     <div class="log-view-settings">
       <div class="setting-row">
-        <span class="setting-label">Line Break</span>
+        <span class="setting-label">{{ t('explore.lineBreak') }}</span>
         <n-switch v-model:value="lineBreak" size="small" />
       </div>
 
       <div class="setting-row">
-        <span class="setting-label">Show Time</span>
+        <span class="setting-label">{{ t('explore.showTime') }}</span>
         <n-switch v-model:value="showTime" size="small" />
       </div>
 
       <div class="setting-row">
-        <span class="setting-label">Show Labels</span>
+        <span class="setting-label">{{ t('explore.showLabels') }}</span>
         <n-switch v-model:value="showLabels" size="small" />
       </div>
 
       <n-divider style="margin: 4px 0;" />
 
       <div class="setting-row">
-        <span class="setting-label">Show Line Numbers</span>
+        <span class="setting-label">{{ t('explore.showLineNumbers') }}</span>
         <n-switch v-model:value="showLineNum" size="small" />
       </div>
 
       <n-divider style="margin: 4px 0;" />
 
       <div class="setting-row">
-        <span class="setting-label">JSON Expand Level</span>
+        <span class="setting-label">{{ t('explore.jsonExpandLevel') }}</span>
         <n-input-number
           v-model:value="jsonExpandLevel"
           :min="1"

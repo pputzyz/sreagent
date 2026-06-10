@@ -560,7 +560,7 @@ async function handleSave() {
         <n-select
           v-model:value="templateCategory"
           :options="templateCategories.map(c => ({ label: c, value: c }))"
-          :placeholder="t('alert.category')"
+          :placeholder="t('placeholder.categoryExample')"
           size="small"
           clearable
           class="rfm-tpl-cat-select"
@@ -621,7 +621,7 @@ async function handleSave() {
               </n-gi>
             </n-grid>
             <n-form-item :label="t('common.description')">
-              <n-input v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
+              <n-input v-model:value="form.description" type="textarea" :placeholder="t('placeholder.ruleDescription')" :rows="2" />
             </n-form-item>
             <n-grid :x-gap="12" :cols="2">
               <n-gi>

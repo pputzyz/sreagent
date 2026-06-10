@@ -42,13 +42,13 @@ const rotationOptions = [
 ]
 
 const dayOfWeekOptions = [
-  { label: () => t('common.monday') || '周一', value: 1 },
-  { label: () => t('common.tuesday') || '周二', value: 2 },
-  { label: () => t('common.wednesday') || '周三', value: 3 },
-  { label: () => t('common.thursday') || '周四', value: 4 },
-  { label: () => t('common.friday') || '周五', value: 5 },
-  { label: () => t('common.saturday') || '周六', value: 6 },
-  { label: () => t('common.sunday') || '周日', value: 0 },
+  { label: () => t('schedule.monday'), value: 1 },
+  { label: () => t('schedule.tuesday'), value: 2 },
+  { label: () => t('schedule.wednesday'), value: 3 },
+  { label: () => t('schedule.thursday'), value: 4 },
+  { label: () => t('schedule.friday'), value: 5 },
+  { label: () => t('schedule.saturday'), value: 6 },
+  { label: () => t('schedule.sunday'), value: 0 },
 ]
 
 const timezoneOptions = [

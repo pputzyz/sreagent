@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { NButton, NInputNumber, NColorPicker, NIcon } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
 import type { ThresholdItem } from '@/types/dashboard'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   thresholds: ThresholdItem[]
@@ -69,7 +72,7 @@ function sortThresholds(items: ThresholdItem[]): ThresholdItem[] {
       </NButton>
     </div>
     <NButton dashed size="small" @click="addThreshold">
-      + Add Threshold
+      {{ t('dashboardEditor.addThreshold') }}
     </NButton>
   </div>
 </template>

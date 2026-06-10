@@ -80,7 +80,7 @@ function handleClose() {
           v-model:value="form.old_password"
           type="password"
           show-password-on="click"
-          :placeholder="t('profile.oldPassword')"
+          :placeholder="t('placeholder.currentPassword')"
         />
       </n-form-item>
       <n-form-item :label="t('profile.newPassword')">
@@ -88,7 +88,7 @@ function handleClose() {
           v-model:value="form.new_password"
           type="password"
           show-password-on="click"
-          :placeholder="t('profile.newPassword')"
+          :placeholder="t('placeholder.newPassword')"
         />
       </n-form-item>
       <n-form-item :label="t('profile.confirmPassword')">
@@ -96,7 +96,7 @@ function handleClose() {
           v-model:value="form.confirm_password"
           type="password"
           show-password-on="click"
-          :placeholder="t('profile.confirmPassword')"
+          :placeholder="t('placeholder.confirmPassword')"
           @keyup.enter="handleSubmit"
         />
       </n-form-item>

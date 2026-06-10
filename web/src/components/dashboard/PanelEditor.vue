@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NDrawer, NDrawerContent, NTabs, NTabPane, NButton, NSpace } from 'naive-ui'
+
+const { t } = useI18n()
 import type { PanelConfig, PanelOptions } from '@/types/dashboard'
 import type { DataSource } from '@/types'
 import PanelEditorGeneral from './PanelEditorGeneral.vue'
@@ -107,8 +110,8 @@ const varOpts = computed(() => props.variableOptions ?? [])
 
       <template #footer>
         <NSpace justify="end">
-          <NButton @click="handleCancel">Cancel</NButton>
-          <NButton type="primary" @click="handleSave">Save</NButton>
+          <NButton @click="handleCancel">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" @click="handleSave">{{ t('common.save') }}</NButton>
         </NSpace>
       </template>
     </NDrawerContent>

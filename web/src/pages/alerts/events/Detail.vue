@@ -533,37 +533,37 @@ onUnmounted(() => {
               <div class="evt-ai-head">
                 <div class="sre-label-eyebrow">
                   <n-icon :component="SparklesOutline" :size="12" />
-                  {{ t('alert.rootCauseAnalysis') || '根因分析' }}
+                  {{ t('alert.rootCauseAnalysis') }}
                 </div>
                 <n-button quaternary size="tiny" @click="generateRootCauseAnalysis">
-                  {{ rcaResult ? t('alert.regenerateReport') : (t('alert.rootCauseAnalysis') || '根因分析') }}
+                  {{ rcaResult ? t('alert.regenerateReport') : t('alert.rootCauseAnalysis') }}
                 </n-button>
               </div>
               <n-spin :show="rcaLoading">
                 <n-alert v-if="rcaError" type="error" :bordered="false" size="small">{{ rcaError }}</n-alert>
                 <div v-if="rcaResult" class="evt-ai-report">
                   <div v-if="rcaResult.summary" class="rca-section">
-                    <strong>{{ t('alert.summary') || '摘要' }}:</strong>
+                    <strong>{{ t('alert.summary') }}:</strong>
                     <p>{{ rcaResult.summary }}</p>
                   </div>
                   <div v-if="rcaResult.probable_causes?.length" class="rca-section">
-                    <strong>{{ t('alert.probableCauses') || '可能原因' }}:</strong>
+                    <strong>{{ t('alert.probableCauses') }}:</strong>
                     <ul>
                       <li v-for="(cause, i) in rcaResult.probable_causes" :key="i">{{ cause }}</li>
                     </ul>
                   </div>
                   <div v-if="rcaResult.impact" class="rca-section">
-                    <strong>{{ t('alert.impact') || '影响' }}:</strong>
+                    <strong>{{ t('alert.impact') }}:</strong>
                     <p>{{ rcaResult.impact }}</p>
                   </div>
                   <div v-if="rcaResult.recommended_steps?.length" class="rca-section">
-                    <strong>{{ t('alert.recommendedSteps') || '建议步骤' }}:</strong>
+                    <strong>{{ t('alert.recommendedSteps') }}:</strong>
                     <ol>
                       <li v-for="(step, i) in rcaResult.recommended_steps" :key="i">{{ step }}</li>
                     </ol>
                   </div>
                   <div v-if="rcaResult.root_cause_hint" class="rca-section">
-                    <strong>{{ t('alert.rootCauseHint') || '根因提示' }}:</strong>
+                    <strong>{{ t('alert.rootCauseHint') }}:</strong>
                     <p>{{ rcaResult.root_cause_hint }}</p>
                   </div>
                 </div>

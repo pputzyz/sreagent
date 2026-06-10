@@ -301,7 +301,7 @@ onMounted(() => { fetchList(); fetchAllUsers() })
           <NInput v-model:value="form.name" :placeholder="t('teamMgmt.namePlaceholder')" />
         </NFormItem>
         <NFormItem :label="t('common.description')">
-          <NInput v-model:value="form.description" type="textarea" :placeholder="t('common.description')" :rows="2" />
+          <NInput v-model:value="form.description" type="textarea" :placeholder="t('placeholder.teamDescription')" :rows="2" />
         </NFormItem>
         <NFormItem :label="t('settings.labels')">
           <KVEditor v-model="labelsKV" :add-label="t('settings.addTeamLabel')" />

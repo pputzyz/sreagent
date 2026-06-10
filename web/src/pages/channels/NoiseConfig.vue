@@ -384,10 +384,10 @@ onMounted(load)
     >
       <n-form label-placement="top" size="small">
         <n-form-item :label="t('channel.exclusionRuleName')" required>
-          <n-input v-model:value="newExclusionForm.name" :placeholder="t('channel.exclusionRuleName')" />
+          <n-input v-model:value="newExclusionForm.name" :placeholder="t('placeholder.ruleName')" />
         </n-form-item>
         <n-form-item :label="t('common.description')">
-          <n-input v-model:value="newExclusionForm.description" :placeholder="t('common.description')" />
+          <n-input v-model:value="newExclusionForm.description" :placeholder="t('placeholder.ruleDescription')" />
         </n-form-item>
         <n-form-item :label="t('channel.exclusionRuleConditions')">
           <n-input

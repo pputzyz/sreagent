@@ -327,7 +327,7 @@ onMounted(fetchEvents)
         v-model:value="filterService"
         size="small"
         :options="serviceOptions"
-        :placeholder="t('changeEvents.service')"
+        :placeholder="t('placeholder.serviceName')"
         clearable
         style="width: 160px"
         @update:value="() => { page = 1; fetchEvents() }"
@@ -336,7 +336,7 @@ onMounted(fetchEvents)
         v-model:value="filterEnvironment"
         size="small"
         :options="environmentOptions"
-        :placeholder="t('changeEvents.environment')"
+        :placeholder="t('placeholder.environmentName')"
         clearable
         style="width: 160px"
         @update:value="() => { page = 1; fetchEvents() }"
@@ -345,7 +345,7 @@ onMounted(fetchEvents)
         v-model:value="filterSource"
         size="small"
         :options="sourceOptions"
-        :placeholder="t('changeEvents.source')"
+        :placeholder="t('placeholder.source')"
         clearable
         style="width: 160px"
         @update:value="() => { page = 1; fetchEvents() }"

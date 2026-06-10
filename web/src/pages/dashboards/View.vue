@@ -602,13 +602,13 @@ onMounted(() => {
                   <template #trigger>
                     <NButton size="tiny" dashed>
                       <template #icon><AddOutline /></template>
-                      Filter
+                      {{ t('dashboard.filter') }}
                     </NButton>
                   </template>
                   <div style="display: flex; flex-direction: column; gap: 6px; min-width: 240px;">
-                    <NInput v-model:value="newAdhocKey" size="small" placeholder="Label key" />
+                    <NInput v-model:value="newAdhocKey" size="small" :placeholder="t('dashboard.labelKey')" />
                     <NSelect v-model:value="newAdhocOp" size="small" :options="['=', '!=', '=~', '!~'].map(o => ({ label: o, value: o }))" />
-                    <NInput v-model:value="newAdhocValue" size="small" placeholder="Value" />
+                    <NInput v-model:value="newAdhocValue" size="small" :placeholder="t('dashboard.value')" />
                   </div>
                 </NPopconfirm>
               </NSpace>

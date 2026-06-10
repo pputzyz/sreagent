@@ -246,8 +246,8 @@ const typeOptions = computed(() => [
   { label: t('media.channelType.wecom_app'), value: 'wecom_app' },
   { label: t('media.channelType.flashduty'), value: 'flashduty' },
   { label: t('media.channelType.pagerduty'), value: 'pagerduty' },
-  { label: t('media.channelType.tencent_sms') + ' (暂未实现)', value: 'tencent_sms', disabled: true },
-  { label: t('media.channelType.aliyun_sms') + ' (暂未实现)', value: 'aliyun_sms', disabled: true },
+  { label: t('media.channelType.tencent_sms') + ` (${t('common.notImplemented')})`, value: 'tencent_sms', disabled: true },
+  { label: t('media.channelType.aliyun_sms') + ` (${t('common.notImplemented')})`, value: 'aliyun_sms', disabled: true },
 ])
 
 const filterTypeOptions = computed(() => [

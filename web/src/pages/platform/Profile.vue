@@ -80,8 +80,8 @@ const themeOptions = [
   { label: 'Dark', value: 'dark' },
 ]
 const langOptions = [
-  { label: '中文', value: 'zh-CN' },
-  { label: 'English', value: 'en' },
+  { label: t('language.zh'), value: 'zh-CN' },
+  { label: t('language.en'), value: 'en' },
 ]
 const timeRangeOptions = [
   { label: '1h', value: '1h' },
@@ -240,13 +240,13 @@ async function handleSavePrefs() {
                 <NInput v-model:value="form.username" disabled />
               </NFormItem>
               <NFormItem :label="t('settings.displayName')">
-                <NInput v-model:value="form.display_name" :placeholder="t('settings.displayName')" />
+                <NInput v-model:value="form.display_name" :placeholder="t('placeholder.displayName')" />
               </NFormItem>
               <NFormItem :label="t('profile.email')">
                 <NInput v-model:value="form.email" placeholder="name@example.com" />
               </NFormItem>
               <NFormItem :label="t('settings.phone')">
-                <NInput v-model:value="form.phone" placeholder="+86 ..." />
+                <NInput v-model:value="form.phone" :placeholder="t('placeholder.phone')" />
               </NFormItem>
               <NFormItem>
                 <NButton type="primary" :loading="saving" @click="handleSave">

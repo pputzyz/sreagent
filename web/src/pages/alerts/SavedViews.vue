@@ -364,7 +364,7 @@ onMounted(() => {
           <n-form-item :label="t('common.name')" required>
             <n-input
               v-model:value="form.name"
-              :placeholder="t('common.name')"
+              :placeholder="t('placeholder.viewName')"
               maxlength="200"
               show-count
             />
@@ -373,7 +373,7 @@ onMounted(() => {
             <n-input
               v-model:value="form.description"
               type="textarea"
-              :placeholder="t('common.description')"
+              :placeholder="t('placeholder.viewDescription')"
               maxlength="500"
               show-count
               :rows="2"

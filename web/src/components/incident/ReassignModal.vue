@@ -113,7 +113,7 @@ async function doReassign() {
     </n-spin>
     <template #footer>
       <n-space justify="end">
-        <n-button @click="emit('update:show', false)">{{ t('incident.cancelBtn') }}</n-button>
+        <n-button @click="emit('update:show', false)">{{ t('common.cancel') }}</n-button>
         <n-button type="primary" :loading="loading" :disabled="!userId" @click="doReassign">
           {{ t('incident.confirmReassign') }}
         </n-button>

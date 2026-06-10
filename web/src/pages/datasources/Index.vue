@@ -150,7 +150,7 @@ async function testConnection() {
     message.success(`${r.status} · ${r.latency_ms}ms${r.version ? ' · ' + r.version : ''}`, { duration: 5000 })
   } catch (err: unknown) {
     const axiosErr = err as { response?: { data?: { message?: string } }; message?: string }
-    message.error(axiosErr?.response?.data?.message || axiosErr?.message || t('datasource.testConnectionFailed') || '连接失败')
+    message.error(axiosErr?.response?.data?.message || axiosErr?.message || t('datasource.testConnectionFailed'))
   } finally {
     testing.value = false
   }
@@ -490,7 +490,7 @@ onMounted(fetchList)
         <NSpace justify="end">
           <NButton @click="showModal = false">{{ t('common.cancel') }}</NButton>
           <NButton :loading="testing" @click="testConnection">
-            {{ t('datasource.testConnection') || '测试连接' }}
+            {{ t('datasource.testConnection') }}
           </NButton>
           <NButton type="primary" :loading="saving" @click="handleSave">
             {{ editingId ? t('common.update') : t('common.create') }}

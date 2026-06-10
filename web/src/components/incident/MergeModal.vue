@@ -97,7 +97,7 @@ async function doMerge() {
     <n-empty v-else-if="search && !searchLoading" :description="t('incident.noMatchingIncident')" class="merge-empty" />
     <template #footer>
       <n-space justify="end">
-        <n-button @click="emit('update:show', false)">{{ t('incident.cancelBtn') }}</n-button>
+        <n-button @click="emit('update:show', false)">{{ t('common.cancel') }}</n-button>
         <n-popconfirm @positive-click="doMerge">
           <template #trigger>
             <n-button type="error" :loading="loading" :disabled="!targetId">

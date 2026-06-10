@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NInput, NSelect, NSwitch, NFormItem } from 'naive-ui'
 import type { PanelType } from '@/types/dashboard'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   title: string
@@ -19,39 +23,39 @@ const emit = defineEmits<{
   (e: 'update:repeatByVariable', val: string | undefined): void
 }>()
 
-const panelTypeOptions = [
-  { label: 'Time Series', value: 'timeseries' },
-  { label: 'Stat', value: 'stat' },
-  { label: 'Gauge', value: 'gauge' },
-  { label: 'Bar', value: 'bar' },
-  { label: 'Pie', value: 'pie' },
-  { label: 'Table', value: 'table' },
-  { label: 'Text', value: 'text' },
-  { label: 'Row', value: 'row' },
-]
+const panelTypeOptions = computed(() => [
+  { label: t('dashboardEditor.panelTypeTimeSeries'), value: 'timeseries' },
+  { label: t('dashboardEditor.panelTypeStat'), value: 'stat' },
+  { label: t('dashboardEditor.panelTypeGauge'), value: 'gauge' },
+  { label: t('dashboardEditor.panelTypeBar'), value: 'bar' },
+  { label: t('dashboardEditor.panelTypePie'), value: 'pie' },
+  { label: t('dashboardEditor.panelTypeTable'), value: 'table' },
+  { label: t('dashboardEditor.panelTypeText'), value: 'text' },
+  { label: t('dashboardEditor.panelTypeRow'), value: 'row' },
+])
 </script>
 
 <template>
   <div class="panel-editor-general">
-    <NFormItem label="Title" label-placement="left">
+    <NFormItem :label="t('dashboardEditor.title')" label-placement="left">
       <NInput
         :value="title"
-        placeholder="Panel title"
+        :placeholder="t('dashboardEditor.panelTitle')"
         @update:value="(v: string) => emit('update:title', v)"
       />
     </NFormItem>
 
-    <NFormItem label="Description" label-placement="left">
+    <NFormItem :label="t('dashboardEditor.description')" label-placement="left">
       <NInput
         :value="description"
         type="textarea"
-        placeholder="Optional description"
+        :placeholder="t('dashboardEditor.optionalDescription')"
         :rows="2"
         @update:value="(v: string) => emit('update:description', v)"
       />
     </NFormItem>
 
-    <NFormItem label="Type" label-placement="left">
+    <NFormItem :label="t('dashboardEditor.type')" label-placement="left">
       <NSelect
         :value="type"
         :options="panelTypeOptions"
@@ -59,19 +63,19 @@ const panelTypeOptions = [
       />
     </NFormItem>
 
-    <NFormItem label="Transparent" label-placement="left">
+    <NFormItem :label="t('dashboardEditor.transparent')" label-placement="left">
       <NSwitch
         :value="transparent"
         @update:value="(v: boolean) => emit('update:transparent', v)"
       />
     </NFormItem>
 
-    <NFormItem v-if="variableOptions.length > 0" label="Repeat" label-placement="left">
+    <NFormItem v-if="variableOptions.length > 0" :label="t('dashboardEditor.repeat')" label-placement="left">
       <NSelect
         :value="repeatByVariable ?? undefined"
         :options="variableOptions"
         clearable
-        placeholder="Repeat by variable"
+        :placeholder="t('dashboardEditor.repeatByVariable')"
         @update:value="(v: string | undefined) => emit('update:repeatByVariable', v)"
       />
     </NFormItem>

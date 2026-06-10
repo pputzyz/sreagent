@@ -404,7 +404,7 @@ onMounted(() => {
       </NForm>
       <template #footer>
         <NSpace justify="end">
-          <NButton @click="showModal = false">{{ t('inspection.cancel') }}</NButton>
+          <NButton @click="showModal = false">{{ t('common.cancel') }}</NButton>
           <NButton type="primary" :loading="formLoading" @click="handleSubmit">
             {{ editingTask ? t('inspection.update') : t('inspection.create') }}
           </NButton>

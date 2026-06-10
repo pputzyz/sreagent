@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   NInput,
   NSelect,
@@ -13,6 +14,8 @@ import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 import type { VariableConfig } from '@/types/dashboard'
 import type { DataSource } from '@/types'
 
+const { t } = useI18n()
+
 const props = defineProps<{
   variable: VariableConfig
   datasources: DataSource[]
@@ -22,29 +25,29 @@ const emit = defineEmits<{
   'update:variable': [value: VariableConfig]
 }>()
 
-const typeOptions = [
-  { label: 'Query', value: 'query' },
-  { label: 'Custom', value: 'custom' },
-  { label: 'Interval', value: 'interval' },
-  { label: 'Datasource', value: 'datasource' },
-  { label: 'Textbox', value: 'textbox' },
-  { label: 'Constant', value: 'constant' },
-  { label: 'Adhoc', value: 'adhoc' },
-]
+const typeOptions = computed(() => [
+  { label: t('dashboardEditor.varTypeQuery'), value: 'query' },
+  { label: t('dashboardEditor.varTypeCustom'), value: 'custom' },
+  { label: t('dashboardEditor.varTypeInterval'), value: 'interval' },
+  { label: t('dashboardEditor.varTypeDatasource'), value: 'datasource' },
+  { label: t('dashboardEditor.varTypeTextbox'), value: 'textbox' },
+  { label: t('dashboardEditor.varTypeConstant'), value: 'constant' },
+  { label: t('dashboardEditor.varTypeAdhoc'), value: 'adhoc' },
+])
 
-const sortOptions = [
-  { label: 'Disabled', value: 'disabled' },
-  { label: 'Ascending', value: 'asc' },
-  { label: 'Descending', value: 'desc' },
-  { label: 'Numerical Asc', value: 'numerical-asc' },
-  { label: 'Numerical Desc', value: 'numerical-desc' },
-]
+const sortOptions = computed(() => [
+  { label: t('dashboardEditor.sortDisabled'), value: 'disabled' },
+  { label: t('dashboardEditor.sortAscending'), value: 'asc' },
+  { label: t('dashboardEditor.sortDescending'), value: 'desc' },
+  { label: t('dashboardEditor.sortNumAscending'), value: 'numerical-asc' },
+  { label: t('dashboardEditor.sortNumDescending'), value: 'numerical-desc' },
+])
 
-const refreshOptions = [
-  { label: 'On Load', value: 'onLoad' },
-  { label: 'On Time Range Change', value: 'onTimeRangeChange' },
-  { label: 'Never', value: 'never' },
-]
+const refreshOptions = computed(() => [
+  { label: t('dashboardEditor.refreshOnLoad'), value: 'onLoad' },
+  { label: t('dashboardEditor.refreshOnTimeChange'), value: 'onTimeRangeChange' },
+  { label: t('dashboardEditor.refreshNever'), value: 'never' },
+])
 
 const datasourceOptions = computed(() =>
   props.datasources.map(ds => ({ label: ds.name, value: ds.id }))
@@ -77,25 +80,25 @@ function updateOption(index: number, value: string) {
 <template>
   <div class="variable-editor-item">
     <!-- Name -->
-    <NFormItem label="Name" required>
+    <NFormItem :label="t('dashboardEditor.varName')" required>
       <NInput
         :value="variable.name"
-        placeholder="e.g. host"
+        :placeholder="t('dashboardEditor.placeholderName')"
         @update:value="(v: string) => update('name', v)"
       />
     </NFormItem>
 
     <!-- Label -->
-    <NFormItem label="Label">
+    <NFormItem :label="t('dashboardEditor.varLabel')">
       <NInput
         :value="variable.label"
-        placeholder="e.g. Host"
+        :placeholder="t('dashboardEditor.placeholderLabel')"
         @update:value="(v: string) => update('label', v)"
       />
     </NFormItem>
 
     <!-- Type -->
-    <NFormItem label="Type" required>
+    <NFormItem :label="t('dashboardEditor.varType')" required>
       <NSelect
         :value="variable.type"
         :options="typeOptions"
@@ -105,39 +108,39 @@ function updateOption(index: number, value: string) {
 
     <!-- Query type fields -->
     <template v-if="variable.type === 'query'">
-      <NFormItem label="Datasource">
+      <NFormItem :label="t('dashboardEditor.varDatasource')">
         <NSelect
           :value="variable.datasourceId"
           :options="datasourceOptions"
-          placeholder="Select datasource"
+          :placeholder="t('dashboardEditor.placeholderDatasource')"
           clearable
           @update:value="(v: number) => update('datasourceId', v)"
         />
       </NFormItem>
-      <NFormItem label="Query (PromQL)">
+      <NFormItem :label="t('dashboardEditor.varQuery')">
         <NInput
           type="textarea"
           :value="variable.query"
-          placeholder='label_values(up, job)'
+          :placeholder="t('dashboardEditor.placeholderQuery')"
           :rows="3"
           @update:value="(v: string) => update('query', v)"
         />
       </NFormItem>
-      <NFormItem label="Regex">
+      <NFormItem :label="t('dashboardEditor.varRegex')">
         <NInput
           :value="variable.regex"
-          placeholder="Optional regex filter"
+          :placeholder="t('dashboardEditor.placeholderRegex')"
           @update:value="(v: string) => update('regex', v)"
         />
       </NFormItem>
-      <NFormItem label="Sort">
+      <NFormItem :label="t('dashboardEditor.varSort')">
         <NSelect
           :value="variable.sort"
           :options="sortOptions"
           @update:value="(v: string) => update('sort', v as VariableConfig['sort'])"
         />
       </NFormItem>
-      <NFormItem label="Refresh">
+      <NFormItem :label="t('dashboardEditor.varRefresh')">
         <NSelect
           :value="variable.refresh"
           :options="refreshOptions"
@@ -148,13 +151,13 @@ function updateOption(index: number, value: string) {
 
     <!-- Custom type fields -->
     <template v-if="variable.type === 'custom'">
-      <NFormItem label="Options">
+      <NFormItem :label="t('dashboardEditor.varOptions')">
         <div class="custom-options">
           <div v-for="(opt, idx) in (variable.options || [])" :key="idx" class="option-row">
             <NInput
               :value="opt"
               size="small"
-              placeholder="Option value"
+              :placeholder="t('dashboardEditor.placeholderOptionValue')"
               @update:value="(v: string) => updateOption(idx, v)"
             />
             <NButton quaternary size="small" type="error" @click="removeOption(idx)">
@@ -163,7 +166,7 @@ function updateOption(index: number, value: string) {
           </div>
           <NButton size="small" dashed @click="addOption">
             <template #icon><NIcon :component="AddOutline" /></template>
-            Add Option
+            {{ t('dashboardEditor.addOption') }}
           </NButton>
         </div>
       </NFormItem>
@@ -171,7 +174,7 @@ function updateOption(index: number, value: string) {
 
     <!-- Interval type fields -->
     <template v-if="variable.type === 'interval'">
-      <NFormItem label="Interval Options">
+      <NFormItem :label="t('dashboardEditor.varIntervalOptions')">
         <div class="custom-options">
           <div v-for="(opt, idx) in (variable.options || ['1m', '5m', '10m', '30m', '1h'])" :key="idx" class="option-row">
             <NInput
@@ -186,7 +189,7 @@ function updateOption(index: number, value: string) {
           </div>
           <NButton size="small" dashed @click="addOption">
             <template #icon><NIcon :component="AddOutline" /></template>
-            Add Interval
+            {{ t('dashboardEditor.addInterval') }}
           </NButton>
         </div>
       </NFormItem>
@@ -194,19 +197,19 @@ function updateOption(index: number, value: string) {
 
     <!-- Datasource type fields -->
     <template v-if="variable.type === 'datasource'">
-      <NFormItem label="Datasource Filter">
+      <NFormItem :label="t('dashboardEditor.varDatasourceFilter')">
         <NSelect
           :value="variable.datasourceId"
           :options="datasourceOptions"
-          placeholder="Base datasource (optional)"
+          :placeholder="t('dashboardEditor.placeholderBaseDatasource')"
           clearable
           @update:value="(v: number) => update('datasourceId', v)"
         />
       </NFormItem>
-      <NFormItem label="Regex">
+      <NFormItem :label="t('dashboardEditor.varRegex')">
         <NInput
           :value="variable.regex"
-          placeholder="Filter datasource names"
+          :placeholder="t('dashboardEditor.placeholderFilterDatasource')"
           @update:value="(v: string) => update('regex', v)"
         />
       </NFormItem>
@@ -214,10 +217,10 @@ function updateOption(index: number, value: string) {
 
     <!-- Textbox type fields -->
     <template v-if="variable.type === 'textbox'">
-      <NFormItem label="Default Value">
+      <NFormItem :label="t('dashboardEditor.varDefaultValue')">
         <NInput
           :value="variable.defaultValue"
-          placeholder="Default text"
+          :placeholder="t('dashboardEditor.placeholderDefaultText')"
           @update:value="(v: string) => update('defaultValue', v)"
         />
       </NFormItem>
@@ -225,10 +228,10 @@ function updateOption(index: number, value: string) {
 
     <!-- Constant type fields -->
     <template v-if="variable.type === 'constant'">
-      <NFormItem label="Value">
+      <NFormItem :label="t('dashboardEditor.varDefaultValue')">
         <NInput
           :value="variable.defaultValue"
-          placeholder="Constant value"
+          :placeholder="t('dashboardEditor.placeholderConstantValue')"
           @update:value="(v: string) => update('defaultValue', v)"
         />
       </NFormItem>
@@ -236,11 +239,11 @@ function updateOption(index: number, value: string) {
 
     <!-- Adhoc type fields -->
     <template v-if="variable.type === 'adhoc'">
-      <NFormItem label="Datasource">
+      <NFormItem :label="t('dashboardEditor.varDatasource')">
         <NSelect
           :value="variable.datasourceId"
           :options="datasourceOptions"
-          placeholder="Select datasource for adhoc filters"
+          :placeholder="t('dashboardEditor.placeholderAdhocDatasource')"
           clearable
           @update:value="(v: number) => update('datasourceId', v)"
         />
@@ -248,29 +251,29 @@ function updateOption(index: number, value: string) {
     </template>
 
     <!-- Common fields: multi / includeAll / allValue / defaultValue -->
-    <NFormItem v-if="variable.type !== 'constant' && variable.type !== 'adhoc'" label="Default Value">
+    <NFormItem v-if="variable.type !== 'constant' && variable.type !== 'adhoc'" :label="t('dashboardEditor.varDefaultValue')">
       <NInput
         :value="variable.defaultValue"
-        placeholder="Default value"
+        :placeholder="t('dashboardEditor.placeholderDefaultValue')"
         @update:value="(v: string) => update('defaultValue', v)"
       />
     </NFormItem>
 
-    <NFormItem label="Multi Select">
+    <NFormItem :label="t('dashboardEditor.varMultiSelect')">
       <NSwitch
         :value="variable.multi"
         @update:value="(v: boolean) => update('multi', v)"
       />
     </NFormItem>
 
-    <NFormItem label="Include All">
+    <NFormItem :label="t('dashboardEditor.varIncludeAll')">
       <NSwitch
         :value="variable.includeAll"
         @update:value="(v: boolean) => update('includeAll', v)"
       />
     </NFormItem>
 
-    <NFormItem v-if="variable.includeAll" label="All Value">
+    <NFormItem v-if="variable.includeAll" :label="t('dashboardEditor.varAllValue')">
       <NInput
         :value="variable.allValue || '$__all'"
         placeholder="$__all"

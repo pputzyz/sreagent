@@ -5,6 +5,9 @@
  */
 import { computed } from 'vue'
 import { NSelect, NIcon, NTooltip } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import PromQLEditor from './PromQLEditor.vue'
 import LogsQLEditor from './LogsQLEditor.vue'
 import type { DataSource } from '@/types'
@@ -56,7 +59,7 @@ function typeBadge(tp: string): string {
     <NSelect
       :value="dsId"
       :options="datasourceOptions"
-      :placeholder="isLogs ? '日志数据源' : '指标数据源'"
+      :placeholder="isLogs ? t('explore.logDatasource') : t('explore.metricDatasource')"
       filterable
       size="small"
       class="query-ds-select"
@@ -67,7 +70,7 @@ function typeBadge(tp: string): string {
         v-if="isLogs"
         :model-value="expression"
         :datasource-id="dsId"
-        placeholder="输入 LogsQL 查询，如: _time:1h AND level:error"
+        :placeholder="t('explore.logsqlPlaceholder')"
         @update:model-value="(v: string) => emit('update:expression', v)"
         @execute="emit('execute')"
       />
@@ -75,7 +78,7 @@ function typeBadge(tp: string): string {
         v-else
         :model-value="expression"
         :datasource-id="dsId"
-        placeholder="输入 PromQL / MetricsQL 表达式"
+        :placeholder="t('explore.promqlPlaceholder')"
         @update:model-value="(v: string) => emit('update:expression', v)"
         @execute="emit('execute')"
       />
@@ -90,7 +93,7 @@ function typeBadge(tp: string): string {
           {{ enabled ? '●' : '○' }}
         </button>
       </template>
-      {{ enabled ? '隐藏序列' : '显示序列' }}
+      {{ enabled ? t('explore.hideSeries') : t('explore.showSeries') }}
     </NTooltip>
     <NTooltip>
       <template #trigger>
@@ -102,7 +105,7 @@ function typeBadge(tp: string): string {
           &times;
         </button>
       </template>
-      移除查询
+      {{ t('explore.removeQuery') }}
     </NTooltip>
   </div>
 </template>

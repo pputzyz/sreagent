@@ -411,7 +411,7 @@ onMounted(() => {
     >
       <n-form label-placement="top" size="small">
         <n-form-item :label="t('channel.name')" required>
-          <n-input v-model:value="form.name" :placeholder="t('channel.name')" />
+          <n-input v-model:value="form.name" :placeholder="t('placeholder.spaceName')" />
         </n-form-item>
         <n-form-item :label="t('channel.description')">
           <n-input v-model:value="form.description" type="textarea" :rows="2" />

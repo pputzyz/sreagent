@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NRadioGroup, NRadioButton, NSlider, NSwitch, NInputNumber, NInput, NFormItem } from 'naive-ui'
 import type { PanelOptions, ThresholdItem, ValueMapping, PanelType } from '@/types/dashboard'
 import PanelEditorThresholds from './PanelEditorThresholds.vue'
 import PanelEditorValueMapping from './PanelEditorValueMapping.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   type: PanelType
@@ -17,46 +21,46 @@ function patch(partial: Partial<PanelOptions>) {
   emit('update', { ...props.options, ...partial })
 }
 
-const drawStyleOptions = [
-  { label: 'Line', value: 'line' },
-  { label: 'Bars', value: 'bars' },
-  { label: 'Points', value: 'points' },
-]
+const drawStyleOptions = computed(() => [
+  { label: t('dashboardEditor.styleLine'), value: 'line' },
+  { label: t('dashboardEditor.styleBars'), value: 'bars' },
+  { label: t('dashboardEditor.stylePoints'), value: 'points' },
+])
 
-const stackingOptions = [
-  { label: 'None', value: 'none' },
-  { label: 'Normal', value: 'normal' },
-]
+const stackingOptions = computed(() => [
+  { label: t('dashboardEditor.stackingNone'), value: 'none' },
+  { label: t('dashboardEditor.stackingNormal'), value: 'normal' },
+])
 
-const legendPositionOptions = [
-  { label: 'Bottom', value: 'bottom' },
-  { label: 'Right', value: 'right' },
-  { label: 'Hidden', value: 'hidden' },
-]
+const legendPositionOptions = computed(() => [
+  { label: t('dashboardEditor.posBottom'), value: 'bottom' },
+  { label: t('dashboardEditor.posRight'), value: 'right' },
+  { label: t('dashboardEditor.posHidden'), value: 'hidden' },
+])
 
-const colorModeOptions = [
-  { label: 'Value', value: 'value' },
-  { label: 'Background', value: 'background' },
-]
+const colorModeOptions = computed(() => [
+  { label: t('dashboardEditor.colorValue'), value: 'value' },
+  { label: t('dashboardEditor.colorBackground'), value: 'background' },
+])
 
-const graphModeOptions = [
-  { label: 'None', value: 'none' },
-  { label: 'Area', value: 'area' },
-]
+const graphModeOptions = computed(() => [
+  { label: t('dashboardEditor.graphNone'), value: 'none' },
+  { label: t('dashboardEditor.graphArea'), value: 'area' },
+])
 
-const textModeOptions = [
-  { label: 'Auto', value: 'auto' },
-  { label: 'Value', value: 'value' },
-  { label: 'Name', value: 'name' },
-  { label: 'Value+Name', value: 'value_and_name' },
-]
+const textModeOptions = computed(() => [
+  { label: t('dashboardEditor.textAuto'), value: 'auto' },
+  { label: t('dashboardEditor.colorValue'), value: 'value' },
+  { label: t('dashboardEditor.textName'), value: 'name' },
+  { label: t('dashboardEditor.textValueName'), value: 'value_and_name' },
+])
 </script>
 
 <template>
   <div class="panel-editor-viz">
     <!-- Timeseries options -->
     <template v-if="type === 'timeseries'">
-      <NFormItem label="Draw Style" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.drawStyle')" label-placement="left">
         <NRadioGroup
           :value="options.drawStyle ?? 'line'"
           @update:value="(v: string) => patch({ drawStyle: v as PanelOptions['drawStyle'] })"
@@ -65,7 +69,7 @@ const textModeOptions = [
         </NRadioGroup>
       </NFormItem>
 
-      <NFormItem label="Fill Opacity" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.fillOpacity')" label-placement="left">
         <NSlider
           :value="options.fillOpacity ?? 0"
           :min="0"
@@ -77,7 +81,7 @@ const textModeOptions = [
         <span class="slider-val">{{ options.fillOpacity ?? 0 }}%</span>
       </NFormItem>
 
-      <NFormItem label="Stacking" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.stacking')" label-placement="left">
         <NRadioGroup
           :value="options.stacking ?? 'none'"
           @update:value="(v: string) => patch({ stacking: v as PanelOptions['stacking'] })"
@@ -86,7 +90,7 @@ const textModeOptions = [
         </NRadioGroup>
       </NFormItem>
 
-      <NFormItem label="Line Width" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.lineWidth')" label-placement="left">
         <NSlider
           :value="options.lineWidth ?? 1"
           :min="1"
@@ -98,14 +102,14 @@ const textModeOptions = [
         <span class="slider-val">{{ options.lineWidth ?? 1 }}px</span>
       </NFormItem>
 
-      <NFormItem label="Show Legend" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.showLegend')" label-placement="left">
         <NSwitch
           :value="options.showLegend ?? true"
           @update:value="(v: boolean) => patch({ showLegend: v })"
         />
       </NFormItem>
 
-      <NFormItem label="Legend Position" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.legendPosition')" label-placement="left">
         <NRadioGroup
           :value="options.legendPosition ?? 'bottom'"
           @update:value="(v: string) => patch({ legendPosition: v as PanelOptions['legendPosition'] })"
@@ -117,7 +121,7 @@ const textModeOptions = [
 
     <!-- Stat options -->
     <template v-if="type === 'stat'">
-      <NFormItem label="Color Mode" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.colorMode')" label-placement="left">
         <NRadioGroup
           :value="options.colorMode ?? 'value'"
           @update:value="(v: string) => patch({ colorMode: v as PanelOptions['colorMode'] })"
@@ -126,7 +130,7 @@ const textModeOptions = [
         </NRadioGroup>
       </NFormItem>
 
-      <NFormItem label="Graph Mode" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.graphMode')" label-placement="left">
         <NRadioGroup
           :value="options.graphMode ?? 'none'"
           @update:value="(v: string) => patch({ graphMode: v as PanelOptions['graphMode'] })"
@@ -135,7 +139,7 @@ const textModeOptions = [
         </NRadioGroup>
       </NFormItem>
 
-      <NFormItem label="Text Mode" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.textMode')" label-placement="left">
         <NRadioGroup
           :value="options.textMode ?? 'auto'"
           @update:value="(v: string) => patch({ textMode: v as PanelOptions['textMode'] })"
@@ -147,7 +151,7 @@ const textModeOptions = [
 
     <!-- Gauge options -->
     <template v-if="type === 'gauge'">
-      <NFormItem label="Min" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.min')" label-placement="left">
         <NInputNumber
           :value="options.min ?? 0"
           size="small"
@@ -155,7 +159,7 @@ const textModeOptions = [
           @update:value="(v: number | null) => patch({ min: v ?? 0 })"
         />
       </NFormItem>
-      <NFormItem label="Max" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.max')" label-placement="left">
         <NInputNumber
           :value="options.max ?? 100"
           size="small"
@@ -167,12 +171,12 @@ const textModeOptions = [
 
     <!-- Text options -->
     <template v-if="type === 'text'">
-      <NFormItem label="Content" label-placement="top">
+      <NFormItem :label="t('dashboardEditor.content')" label-placement="top">
         <NInput
           :value="options.content ?? ''"
           type="textarea"
           :rows="6"
-          placeholder="Markdown or HTML content"
+          :placeholder="t('dashboardEditor.placeholderMarkdown')"
           @update:value="(v: string) => patch({ content: v })"
         />
       </NFormItem>
@@ -182,17 +186,17 @@ const textModeOptions = [
     <template v-if="type !== 'row'">
       <div class="viz-section-divider" />
 
-      <NFormItem label="Unit" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.unit')" label-placement="left">
         <NInput
           :value="options.unit ?? ''"
           size="small"
-          placeholder="bytes, short, percent, seconds, etc."
+          :placeholder="t('dashboardEditor.placeholderUnit')"
           style="width: 220px"
           @update:value="(v: string) => patch({ unit: v })"
         />
       </NFormItem>
 
-      <NFormItem label="Decimals" label-placement="left">
+      <NFormItem :label="t('dashboardEditor.decimals')" label-placement="left">
         <NInputNumber
           :value="options.decimals"
           size="small"
@@ -204,7 +208,7 @@ const textModeOptions = [
       </NFormItem>
 
       <div class="viz-section">
-        <div class="viz-section-title">Thresholds</div>
+        <div class="viz-section-title">{{ t('dashboardEditor.thresholds') }}</div>
         <PanelEditorThresholds
           :thresholds="options.thresholds ?? []"
           @update="(items: ThresholdItem[]) => patch({ thresholds: items })"
@@ -212,7 +216,7 @@ const textModeOptions = [
       </div>
 
       <div class="viz-section">
-        <div class="viz-section-title">Value Mappings</div>
+        <div class="viz-section-title">{{ t('dashboardEditor.valueMappings') }}</div>
         <PanelEditorValueMapping
           :value-mappings="options.valueMappings ?? []"
           @update="(items: ValueMapping[]) => patch({ valueMappings: items })"

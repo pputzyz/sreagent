@@ -8,6 +8,9 @@ import { ref, computed } from 'vue'
 import {
   NInput, NPopover, NIcon, NProgress, NButton, NSpin, NBadge, NTooltip,
 } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import { AddCircleOutline, SearchOutline } from '@vicons/ionicons5'
 
 const props = withDefaults(defineProps<{
@@ -132,7 +135,7 @@ function computeTopValues(fieldName: string): TopValue[] {
     <div class="field-search">
       <NInput
         v-model:value="searchQuery"
-        placeholder="Search Fields"
+        :placeholder="t('explore.searchFields')"
         size="small"
         clearable
       >
@@ -152,7 +155,7 @@ function computeTopValues(fieldName: string): TopValue[] {
     <!-- Field list -->
     <div v-else class="field-list">
       <div v-if="!filteredFields.length" class="field-empty">
-        {{ searchQuery ? 'No matching fields' : 'No fields available' }}
+        {{ searchQuery ? t('explore.noMatchingFields') : t('explore.noFieldsAvailable') }}
       </div>
 
       <NPopover

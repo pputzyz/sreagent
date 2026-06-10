@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NButton, NSelect, NInput, NInputNumber, NColorPicker, NIcon } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
 import type { ValueMapping } from '@/types/dashboard'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   valueMappings: ValueMapping[]
@@ -11,18 +15,18 @@ const emit = defineEmits<{
   (e: 'update', mappings: ValueMapping[]): void
 }>()
 
-const typeOptions = [
-  { label: 'Value', value: 'value' },
-  { label: 'Range', value: 'range' },
-  { label: 'Special', value: 'special' },
-]
+const typeOptions = computed(() => [
+  { label: t('dashboardEditor.mappingTypeValue'), value: 'value' },
+  { label: t('dashboardEditor.mappingTypeRange'), value: 'range' },
+  { label: t('dashboardEditor.mappingTypeSpecial'), value: 'special' },
+])
 
-const specialOptions = [
-  { label: 'Null', value: 'null' },
+const specialOptions = computed(() => [
+  { label: t('dashboardEditor.mappingTypeNull'), value: 'null' },
   { label: 'NaN', value: 'NaN' },
-  { label: 'Empty', value: 'empty' },
-  { label: 'No Data', value: 'no_data' },
-]
+  { label: t('dashboardEditor.mappingTypeEmpty'), value: 'empty' },
+  { label: t('dashboardEditor.mappingTypeNoData'), value: 'no_data' },
+])
 
 function addMapping() {
   const updated = [...props.valueMappings, {
@@ -107,7 +111,7 @@ function updateResultColor(index: number, color: string) {
         <NInput
           :value="mapping.match?.value ?? ''"
           size="small"
-          placeholder="Match value"
+          :placeholder="t('dashboardEditor.matchValue')"
           style="width: 140px"
           @update:value="(v: string) => updateMatchValue(i, v)"
         />
@@ -116,7 +120,7 @@ function updateResultColor(index: number, color: string) {
         <NInputNumber
           :value="mapping.match?.from ?? 0"
           size="small"
-          placeholder="From"
+          :placeholder="t('dashboardEditor.from')"
           style="width: 90px"
           @update:value="(v: number | null) => updateMatchFrom(i, v)"
         />
@@ -124,7 +128,7 @@ function updateResultColor(index: number, color: string) {
         <NInputNumber
           :value="mapping.match?.to ?? 100"
           size="small"
-          placeholder="To"
+          :placeholder="t('dashboardEditor.to')"
           style="width: 90px"
           @update:value="(v: number | null) => updateMatchTo(i, v)"
         />
@@ -142,7 +146,7 @@ function updateResultColor(index: number, color: string) {
       <NInput
         :value="mapping.result?.text ?? ''"
         size="small"
-        placeholder="Display text"
+        :placeholder="t('dashboardEditor.displayText')"
         style="width: 120px"
         @update:value="(v: string) => updateResultText(i, v)"
       />
@@ -166,7 +170,7 @@ function updateResultColor(index: number, color: string) {
     </div>
 
     <NButton dashed size="small" @click="addMapping">
-      + Add Mapping
+      {{ t('dashboardEditor.addMapping') }}
     </NButton>
   </div>
 </template>

@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { NButton, NSelect, NInput, NSwitch, NIcon, NSpace } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
+
+const { t } = useI18n()
 import PromQLEditor from '@/components/query/PromQLEditor.vue'
 import type { PanelTarget } from '@/types/dashboard'
 import type { DataSource } from '@/types'
@@ -88,7 +91,7 @@ function updateTargetField<K extends keyof PanelTarget>(index: number, key: K, v
           :value="target.datasourceId"
           :options="datasourceOptions"
           size="small"
-          placeholder="Datasource"
+          :placeholder="t('dashboardEditor.datasource')"
           style="width: 180px"
           @update:value="(v: number) => updateTargetField(i, 'datasourceId', v)"
         />
@@ -105,7 +108,7 @@ function updateTargetField<K extends keyof PanelTarget>(index: number, key: K, v
         <PromQLEditor
           :model-value="target.expression"
           :datasource-id="target.datasourceId"
-          placeholder="PromQL expression"
+          :placeholder="t('dashboardEditor.promqlExpression')"
           @update:model-value="(v: string) => updateTargetField(i, 'expression', v)"
         />
       </div>
@@ -113,13 +116,13 @@ function updateTargetField<K extends keyof PanelTarget>(index: number, key: K, v
       <NInput
         :value="target.legendFormat"
         size="small"
-        placeholder="Legend: {{label_name}}"
+        :placeholder="t('dashboardEditor.legendPlaceholder')"
         @update:value="(v: string) => updateTargetField(i, 'legendFormat', v)"
       />
     </div>
 
     <NButton dashed size="small" @click="addTarget">
-      + Add Query
+      {{ t('dashboardEditor.addQuery') }}
     </NButton>
   </div>
 </template>
