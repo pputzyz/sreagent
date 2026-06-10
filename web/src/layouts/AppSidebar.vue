@@ -100,6 +100,7 @@ function handleMenuUpdate(key: string) {
     <nav class="sidebar-nav" :class="{ 'nav-hidden': collapsed && !pinned }" :aria-label="t('a11y.mainNav')">
       <div class="sidebar-nav-inner">
         <n-menu
+          :key="activeApp"
           :collapsed="false"
           :collapsed-width="64"
           :collapsed-icon-size="22"
