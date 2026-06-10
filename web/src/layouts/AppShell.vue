@@ -25,7 +25,7 @@ const { open: openPalette, registerAction } = useCommandPalette()
 const router = useRouter()
 
 // ===== Session Guard =====
-const { isOnline, sessionExpired, forceReconnect } = useSessionGuard()
+const { isOnline, sessionExpired, serverRestarted } = useSessionGuard()
 const showSessionExpiredModal = ref(false)
 const sessionRedirectCountdown = ref(10)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -42,6 +42,15 @@ watch(sessionExpired, (expired) => {
       }
     }, 1000)
   }
+})
+
+const sessionExpiredTitle = computed(() => {
+  if (serverRestarted.value) return t('session.serverRestarted') || '服务已重启'
+  return t('session.sessionExpired') || '会话已过期'
+})
+const sessionExpiredDesc = computed(() => {
+  if (serverRestarted.value) return t('session.serverRestartedDesc') || '服务已重启更新，请重新登录以使用最新版本。'
+  return t('session.expiredDesc') || '您的登录会话已过期，页面数据可能不是最新的。'
 })
 
 function doSessionRedirect() {
@@ -425,11 +434,11 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     </NModal>
 
     <!-- Session Expired Modal -->
-    <NModal v-model:show="showSessionExpiredModal" preset="card" :title="t('session.sessionExpired') || '会话已过期'" style="max-width: 420px" :closable="false" :mask-closable="false">
+    <NModal v-model:show="showSessionExpiredModal" preset="card" :title="sessionExpiredTitle" style="max-width: 420px" :closable="false" :mask-closable="false">
       <div style="text-align: center; padding: 12px 0;">
         <div style="font-size: 48px; margin-bottom: 16px;">🔐</div>
         <p style="font-size: 14px; color: var(--sre-text-secondary); margin-bottom: 8px;">
-          {{ t('session.expiredDesc') || '您的登录会话已过期，页面数据可能不是最新的。' }}
+          {{ sessionExpiredDesc }}
         </p>
         <p style="font-size: 13px; color: var(--sre-text-tertiary);">
           {{ t('session.autoRedirect') || '自动跳转倒计时' }}: <strong style="color: var(--sre-primary); font-size: 16px;">{{ sessionRedirectCountdown }}s</strong>

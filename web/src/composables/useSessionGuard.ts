@@ -1,27 +1,56 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
+const HEARTBEAT_INTERVAL_MS = 60 * 1000       // 1 minute
+const STARTED_AT_KEY = 'sre.server_started_at'
+
 /**
- * Session health guard — detects stale sessions and server unreachability.
- *
- * - visibilitychange: re-validates session when user returns to tab
- * - periodic heartbeat: every 5 min, pings /healthz
- * - exposes reactive state for UI banners
+ * Session health guard:
+ * 1. Server restart detection — compares /healthz started_at with stored value
+ * 2. Inactivity timeout — 30 min no user activity → force logout
+ * 3. Visibility change — re-validate when user returns to tab
+ * 4. Periodic heartbeat — every 1 min
  */
 export function useSessionGuard() {
   const isOnline = ref(true)
   const sessionExpired = ref(false)
+  const serverRestarted = ref(false)
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
-  let visibilityHandler: (() => void) | null = null
+  let inactivityTimer: ReturnType<typeof setTimeout> | null = null
   let consecutiveFailures = 0
   const MAX_FAILURES = 3
 
+  const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll']
+
+  function resetInactivityTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer)
+    inactivityTimer = setTimeout(() => {
+      console.warn('[session] Inactivity timeout — forcing logout')
+      sessionExpired.value = true
+    }, INACTIVITY_TIMEOUT_MS)
+  }
+
   async function checkHealth(): Promise<boolean> {
     try {
-      await axios.get('/healthz', { timeout: 5000 })
+      const res = await axios.get('/healthz', { timeout: 5000 })
       consecutiveFailures = 0
       isOnline.value = true
+
+      // Detect server restart
+      const remoteStartedAt = res.data?.started_at
+      if (remoteStartedAt) {
+        const localStartedAt = localStorage.getItem(STARTED_AT_KEY)
+        if (localStartedAt && localStartedAt !== remoteStartedAt) {
+          console.warn('[session] Server restarted — forcing logout')
+          serverRestarted.value = true
+          sessionExpired.value = true
+          return true
+        }
+        localStorage.setItem(STARTED_AT_KEY, remoteStartedAt)
+      }
+
       return true
     } catch {
       consecutiveFailures++
@@ -39,9 +68,9 @@ export function useSessionGuard() {
       return
     }
 
-    // First check if server is reachable
     const healthy = await checkHealth()
     if (!healthy) return
+    if (sessionExpired.value) return // already marked (e.g. server restart)
 
     try {
       const res = await axios.post('/api/v1/auth/refresh', { token }, { timeout: 10000 })
@@ -59,7 +88,6 @@ export function useSessionGuard() {
       if (status === 401 || status === 403) {
         sessionExpired.value = true
       }
-      // Network errors — server unreachable, handled by checkHealth
     }
   }
 
@@ -69,27 +97,39 @@ export function useSessionGuard() {
     }
   }
 
+  function handleActivity() {
+    resetInactivityTimer()
+  }
+
   onMounted(() => {
-    // Initial health check
+    // Initial checks
     checkHealth()
+    resetInactivityTimer()
 
-    // Listen for tab visibility changes
-    visibilityHandler = handleVisibilityChange
-    document.addEventListener('visibilitychange', visibilityHandler)
+    // Visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Periodic heartbeat (every 5 minutes)
-    heartbeatTimer = setInterval(checkHealth, 5 * 60 * 1000)
+    // User activity tracking
+    for (const evt of activityEvents) {
+      document.addEventListener(evt, handleActivity, { passive: true })
+    }
+
+    // Periodic heartbeat
+    heartbeatTimer = setInterval(checkHealth, HEARTBEAT_INTERVAL_MS)
   })
 
   onUnmounted(() => {
     if (heartbeatTimer) clearInterval(heartbeatTimer)
-    if (visibilityHandler) {
-      document.removeEventListener('visibilitychange', visibilityHandler)
+    if (inactivityTimer) clearTimeout(inactivityTimer)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+    for (const evt of activityEvents) {
+      document.removeEventListener(evt, handleActivity)
     }
   })
 
   function forceReconnect() {
     sessionExpired.value = false
+    serverRestarted.value = false
     consecutiveFailures = 0
     validateSession()
   }
@@ -97,6 +137,7 @@ export function useSessionGuard() {
   return {
     isOnline,
     sessionExpired,
+    serverRestarted,
     validateSession,
     forceReconnect,
   }

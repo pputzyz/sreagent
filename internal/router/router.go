@@ -15,6 +15,10 @@ import (
 	"github.com/sreagent/sreagent/internal/middleware"
 )
 
+// startedAt records the server startup timestamp (RFC3339).
+// Exposed via /healthz so the frontend can detect server restarts.
+var startedAt = time.Now().UTC().Format(time.RFC3339)
+
 // Handlers aggregates all handler instances.
 type Handlers struct {
 	Auth             *handler.AuthHandler
@@ -141,7 +145,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 	// server resources. Consider adding middleware.RateLimit or a dedicated
 	// health-check limiter (e.g. 100 req/s per IP).
 	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		c.JSON(200, gin.H{"status": "ok", "started_at": startedAt})
 	})
 
 	// Prometheus metrics endpoint (no auth) — exposes Go runtime + app metrics
