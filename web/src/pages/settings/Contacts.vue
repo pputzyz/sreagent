@@ -59,6 +59,19 @@ const contactTypes = computed(() => [
   { label: t('settings.contactTypeWebhook'), value: 'webhook' },
 ])
 
+// Dynamic placeholder based on selected contact type
+const contactValuePlaceholder = computed(() => {
+  const map: Record<string, string> = {
+    email: t('settings.contactPlaceholderEmail'),
+    phone: t('settings.contactPlaceholderPhone'),
+    feishu: t('settings.contactPlaceholderFeishu'),
+    wecom: t('settings.contactPlaceholderWecom'),
+    dingtalk: t('settings.contactPlaceholderDingtalk'),
+    webhook: t('settings.contactPlaceholderWebhook'),
+  }
+  return map[form.value.type] || t('settings.contactValuePlaceholder')
+})
+
 // Type icon mapping
 function typeIcon(type: string) {
   const map: Record<string, typeof MailOutline> = {
@@ -318,7 +331,7 @@ onMounted(fetchList)
         <NFormItem :label="t('settings.contactValue')" required>
           <NInput
             v-model:value="form.value"
-            :placeholder="t('settings.contactValuePlaceholder')"
+            :placeholder="contactValuePlaceholder"
           />
         </NFormItem>
         <NFormItem :label="t('settings.contactDefault')">
