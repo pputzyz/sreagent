@@ -213,8 +213,7 @@ func Load(cfgFile string) (*Config, error) {
 	if cfg.CORSAllowedOrigins == "" {
 		if v := os.Getenv("CORS_ALLOWED_ORIGINS"); v != "" {
 			cfg.CORSAllowedOrigins = v
-			// #14: Deprecation warning
-			fmt.Fprintf(os.Stderr, "WARNING: deprecated env var CORS_ALLOWED_ORIGINS is ignored; use SREAGENT_CORS_ALLOWED_ORIGINS instead\n")
+			fmt.Fprintf(os.Stderr, "WARNING: env var CORS_ALLOWED_ORIGINS is deprecated; please rename to SREAGENT_CORS_ALLOWED_ORIGINS\n")
 		}
 	}
 
