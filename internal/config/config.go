@@ -106,9 +106,10 @@ func (r *RedisConfig) Addr() string {
 }
 
 type JWTConfig struct {
-	Secret string `mapstructure:"secret"`
-	Expire int    `mapstructure:"expire"`
-	Issuer string `mapstructure:"issuer"`
+	Secret       string `mapstructure:"secret"`
+	Expire       int    `mapstructure:"expire"`
+	Issuer       string `mapstructure:"issuer"`
+	RefreshGrace int    `mapstructure:"refresh_grace"` // Refresh grace window in seconds (default 1800 = 30min)
 }
 
 type LogConfig struct {
@@ -165,6 +166,7 @@ func Load(cfgFile string) (*Config, error) {
 	_ = viper.BindEnv("redis.host", "SREAGENT_REDIS_HOST")
 	_ = viper.BindEnv("redis.port", "SREAGENT_REDIS_PORT")
 	_ = viper.BindEnv("jwt.secret", "SREAGENT_JWT_SECRET")
+	_ = viper.BindEnv("jwt.refresh_grace", "SREAGENT_JWT_REFRESH_GRACE")
 	_ = viper.BindEnv("metrics_token", "SREAGENT_METRICS_TOKEN")
 	_ = viper.BindEnv("cors_allowed_origins", "SREAGENT_CORS_ALLOWED_ORIGINS")
 	_ = viper.BindEnv("server.webhook_secret", "SREAGENT_WEBHOOK_SECRET")
@@ -187,6 +189,9 @@ func Load(cfgFile string) (*Config, error) {
 	// Defaults for fields that have no zero-value sentinel.
 	if cfg.Database.Charset == "" {
 		cfg.Database.Charset = "utf8mb4"
+	}
+	if cfg.JWT.RefreshGrace <= 0 {
+		cfg.JWT.RefreshGrace = 1800 // 30 minutes
 	}
 
 	// Validate JWT secret strength.

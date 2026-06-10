@@ -39,6 +39,7 @@ redis:
 jwt:
   secret: "change-me-in-production-please"   # override via SREAGENT_JWT_SECRET
   expire: 86400
+  refresh_grace: 1800  # Refresh grace window in seconds (default 30min). Env: SREAGENT_JWT_REFRESH_GRACE
   issuer: "sreagent"
 
 log:

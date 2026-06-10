@@ -50,6 +50,7 @@ redis:
 jwt:
   secret: "CHANGE_ME_TO_A_RANDOM_32_BYTE_HEX_STRING_OR_SET_ENV_VAR"  # Prefer SREAGENT_JWT_SECRET env var; must be >= 32 bytes
   expire: 86400              # Token TTL in seconds (default 24h)
+  refresh_grace: 1800        # Refresh grace window in seconds (default 30min). Env: SREAGENT_JWT_REFRESH_GRACE
   issuer: "sreagent"
 
 # ---------------------------------------------------------------------------

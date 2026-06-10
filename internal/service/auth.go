@@ -143,15 +143,18 @@ func (s *AuthService) GetProfile(ctx context.Context, userID uint) (*model.User,
 //
 // This avoids storing refresh tokens in the DB while still limiting the refresh window.
 func (s *AuthService) RefreshToken(ctx context.Context, tokenString string) (string, int, error) {
-	const refreshGraceDays = 7
+	graceSeconds := s.jwtCfg.RefreshGrace
+	if graceSeconds <= 0 {
+		graceSeconds = 1800 // default 30 minutes
+	}
 
 	claims, err := middleware.ParseTokenIgnoreExpiry(tokenString, s.jwtCfg.Secret)
 	if err != nil {
 		return "", 0, apperr.ErrInvalidCreds
 	}
 
-	// Reject tokens issued more than refreshGraceDays days ago
-	if claims.IssuedAt == nil || time.Since(claims.IssuedAt.Time) > time.Duration(refreshGraceDays)*24*time.Hour {
+	// Reject tokens issued more than RefreshGrace seconds ago
+	if claims.IssuedAt == nil || time.Since(claims.IssuedAt.Time) > time.Duration(graceSeconds)*time.Second {
 		return "", 0, apperr.WithMessage(apperr.ErrInvalidCreds, "token is too old to refresh, please log in again")
 	}
 
