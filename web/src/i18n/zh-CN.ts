@@ -3567,6 +3567,10 @@ export default {
   session: {
     connectionLost: '连接中断',
     serverUnreachable: '服务器连接已断开，部分功能可能不可用',
-    sessionExpired: '会话已过期，请重新登录',
+    sessionExpired: '会话已过期',
+    expiredDesc: '您的登录会话已过期，页面数据可能不是最新的。',
+    autoRedirect: '自动跳转倒计时',
+    stayHere: '暂不跳转',
+    goLogin: '立即登录',
   },
 }

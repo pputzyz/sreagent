@@ -26,14 +26,35 @@ const router = useRouter()
 
 // ===== Session Guard =====
 const { isOnline, sessionExpired, forceReconnect } = useSessionGuard()
+const showSessionExpiredModal = ref(false)
+const sessionRedirectCountdown = ref(10)
+let countdownTimer: ReturnType<typeof setInterval> | null = null
 
-// When session expires, redirect to login
 watch(sessionExpired, (expired) => {
   if (expired) {
-    authStore.logout()
-    router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
+    showSessionExpiredModal.value = true
+    sessionRedirectCountdown.value = 10
+    countdownTimer = setInterval(() => {
+      sessionRedirectCountdown.value--
+      if (sessionRedirectCountdown.value <= 0) {
+        if (countdownTimer) clearInterval(countdownTimer)
+        doSessionRedirect()
+      }
+    }, 1000)
   }
 })
+
+function doSessionRedirect() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
+  showSessionExpiredModal.value = false
+  authStore.logout()
+  router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
+}
+
+function dismissSessionExpired() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
+  showSessionExpiredModal.value = false
+}
 
 // ===== Error Boundary =====
 // Key-based re-render: incrementing the key forces Vue to destroy and re-create
@@ -403,6 +424,29 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </div>
     </NModal>
 
+    <!-- Session Expired Modal -->
+    <NModal v-model:show="showSessionExpiredModal" preset="card" :title="t('session.sessionExpired') || '会话已过期'" style="max-width: 420px" :closable="false" :mask-closable="false">
+      <div style="text-align: center; padding: 12px 0;">
+        <div style="font-size: 48px; margin-bottom: 16px;">🔐</div>
+        <p style="font-size: 14px; color: var(--sre-text-secondary); margin-bottom: 8px;">
+          {{ t('session.expiredDesc') || '您的登录会话已过期，页面数据可能不是最新的。' }}
+        </p>
+        <p style="font-size: 13px; color: var(--sre-text-tertiary);">
+          {{ t('session.autoRedirect') || '自动跳转倒计时' }}: <strong style="color: var(--sre-primary); font-size: 16px;">{{ sessionRedirectCountdown }}s</strong>
+        </p>
+      </div>
+      <template #action>
+        <div style="display: flex; justify-content: center; gap: 12px;">
+          <button class="session-btn session-btn-secondary" @click="dismissSessionExpired">
+            {{ t('session.stayHere') || '暂不跳转' }}
+          </button>
+          <button class="session-btn session-btn-primary" @click="doSessionRedirect">
+            {{ t('session.goLogin') || '立即登录' }}
+          </button>
+        </div>
+      </template>
+    </NModal>
+
     <!-- AI Chat floating button + drawer -->
     <AIChatButton :active="showAIChat" @click="toggleAIChat()" />
     <AIChatPanel v-model:show="showAIChat" />
@@ -622,6 +666,32 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
   transition: background var(--sre-duration-fast) var(--sre-ease-out), color var(--sre-duration-fast) var(--sre-ease-out);
 }
 .error-copy-btn:hover { background: var(--sre-bg-hover); color: var(--sre-primary); }
+
+/* ===== Session Expired Modal ===== */
+.session-btn {
+  padding: 8px 24px;
+  border: none;
+  border-radius: var(--sre-radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--sre-duration-fast) var(--sre-ease-out);
+  font-family: var(--sre-font-sans);
+}
+.session-btn:hover { opacity: 0.85; }
+.session-btn-primary {
+  background: var(--sre-primary);
+  color: #fff;
+}
+.session-btn-secondary {
+  background: transparent;
+  color: var(--sre-text-secondary);
+  border: 1px solid var(--sre-border);
+}
+.session-btn-secondary:hover {
+  background: var(--sre-bg-hover);
+  color: var(--sre-text-primary);
+}
 
 /* ===== Keyboard Shortcuts (FE8-6) ===== */
 .shortcuts-list {

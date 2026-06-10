@@ -3548,6 +3548,10 @@ export default {
   session: {
     connectionLost: 'Connection Lost',
     serverUnreachable: 'Server connection lost. Some features may be unavailable.',
-    sessionExpired: 'Session expired. Please log in again.',
+    sessionExpired: 'Session Expired',
+    expiredDesc: 'Your login session has expired. Page data may be outdated.',
+    autoRedirect: 'Auto-redirect in',
+    stayHere: 'Stay Here',
+    goLogin: 'Log In Now',
   },
 }
