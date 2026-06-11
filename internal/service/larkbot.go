@@ -424,6 +424,16 @@ func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, sign
 			zap.Uint("event_id", eventID), zap.Uint64("assign_to", assignTo), zap.Uint("operator", operatorID))
 		return lark.BuildAckResponseCard(event.AlertName), nil
 
+	case "resolve":
+		if err := s.eventSvc.Resolve(ctx, eventID, operatorID, "Resolved via Lark card action"); err != nil {
+			s.logger.Warn("card action resolve failed",
+				zap.Uint("event_id", eventID), zap.Error(err))
+			return lark.BuildErrorResponseCard(fmt.Sprintf("确认解决失败: %v", err)), nil
+		}
+		s.logger.Info("alert resolved via card action",
+			zap.Uint("event_id", eventID), zap.Uint("operator", operatorID))
+		return lark.BuildAckResponseCard(event.AlertName), nil
+
 	case "retry":
 		// Retry the original action — re-dispatch to self
 		originalAction, _ := req.Action.Value["original_action"].(string)
@@ -441,6 +451,7 @@ func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, sign
 }
 
 // handleMessageEvent processes a received message event.
+// Priority: slash commands → Agent NL → legacy NL mapping → fallback message.
 func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventRequest, cfg LarkConfig) error {
 	if req.Event == nil || req.Event.Message == nil {
 		return nil
@@ -469,38 +480,34 @@ func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventR
 	}
 	text = strings.TrimSpace(text)
 
-	// If commands are disabled, ignore all messages
-	if !cfg.CommandsEnabled {
-		s.logger.Debug("lark bot commands disabled, ignoring message")
-		return nil
-	}
-
-	// Parse command and args
-	parts := strings.Fields(text)
-	if len(parts) == 0 {
+	if text == "" {
 		return s.SendMessage(ctx, chatID, "请发送命令。可用命令: /health, /oncall, /ack, /status\n或直接用自然语言描述您的问题。")
 	}
 
-	command := parts[0]
-	args := parts[1:]
+	// Fast path: explicit slash commands always take priority.
+	if strings.HasPrefix(text, "/") {
+		parts := strings.Fields(text)
+		return s.HandleCommand(ctx, parts[0], parts[1:], chatID, userID)
+	}
 
-	// If not a slash command and natural language is enabled, try to map it
-	if !strings.HasPrefix(command, "/") && cfg.NaturalLanguageEnabled {
+	// NL path: if NL enabled, try Agent tool-calling first.
+	if cfg.NaturalLanguageEnabled && s.aiSvc != nil {
+		return s.handleAgentConversation(ctx, text, chatID, msg.ChatID, userID)
+	}
+
+	// Fallback: legacy NL mapping (if commands enabled).
+	if cfg.CommandsEnabled {
 		mappedCmd, mappedArgs := s.mapNaturalLanguage(text)
 		if mappedCmd != "" {
-			command = mappedCmd
-			args = mappedArgs
 			s.logger.Debug("natural language mapped",
 				zap.String("input", text),
 				zap.String("mapped_command", mappedCmd),
 			)
-		} else if s.aiSvc != nil {
-			// No command mapping found — forward to AI conversation
-			return s.handleAIConversation(ctx, text, chatID, msg.ChatID)
+			return s.HandleCommand(ctx, mappedCmd, mappedArgs, chatID, userID)
 		}
 	}
 
-	return s.HandleCommand(ctx, command, args, chatID, userID)
+	return s.SendMessage(ctx, chatID, "我不太理解您的意思。可用命令: /health, /oncall, /ack, /status")
 }
 
 // HandleCommand routes and executes bot commands.
@@ -895,4 +902,41 @@ func (s *LarkBotService) handleAIConversation(ctx context.Context, question stri
 
 	// Fallback: send as plain text
 	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))
+}
+
+// handleAgentConversation routes a natural language message through the AgentService
+// tool-calling pipeline. The agent has access to SRE tools (query_alert_events,
+// alert_statistics, get_oncall, acknowledge_alert) and produces structured answers.
+func (s *LarkBotService) handleAgentConversation(ctx context.Context, question, chatID, larkChatID, userID string) error {
+	if s.aiSvc == nil {
+		return s.SendMessage(ctx, chatID, "AI 助手未配置，请在系统设置中启用 AI。")
+	}
+
+	systemPrompt := `你是 SREAgent 智能运维助手，通过飞书群与用户交互。
+你可以查询告警、统计数据、查看值班、认领告警等。
+回答简洁专业，使用中文。如果用户的问题涉及数据查询，请使用提供的工具获取实时数据。
+如果问题不明确，请给出通用的排查建议。`
+
+	// Run agent with tool-calling (max 10 steps).
+	result, err := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
+	if err != nil {
+		s.logger.Warn("agent conversation failed", zap.Error(err))
+		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", err))
+	}
+
+	// Send as a card.
+	cfg, _ := s.loadConfig(ctx)
+	card := lark.BuildAIResponseCard(question, result, "")
+
+	if cfg.AppID != "" && cfg.AppSecret != "" && s.tokenCache != nil {
+		bot := lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache, lark.BaseURLForDomain(cfg.Domain))
+		if _, sendErr := bot.SendMessage(ctx, larkChatID, card); sendErr != nil {
+			s.logger.Warn("agent card send failed, falling back to text", zap.Error(sendErr))
+			return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", result))
+		}
+		s.recordMessageSuccess()
+		return nil
+	}
+
+	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", result))
 }

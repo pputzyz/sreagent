@@ -21,6 +21,7 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/datasource"
 	"github.com/sreagent/sreagent/internal/pkg/hashring"
+	"github.com/sreagent/sreagent/internal/pkg/lark"
 	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
 	"github.com/sreagent/sreagent/internal/repository"
 	"github.com/sreagent/sreagent/internal/router"
@@ -80,8 +81,10 @@ type Dependencies struct {
 	oidcMu     sync.RWMutex           // protects oidcSvc during reload
 	oidcHdlr   *handler.OIDCHandler   // for SetService on reload
 
-	// Inspection scheduler (for graceful shutdown)
+	// Schedulers (for graceful shutdown)
 	InspectionSched *service.InspectionScheduler
+	ReportSched     *service.ReportScheduler
+	EventSource     service.EventSource
 
 	// Noise reducer (for graceful shutdown of GC goroutine)
 	NoiseReducer *service.NoiseReducer
@@ -192,6 +195,8 @@ type repoBundle struct {
 	DiagnosticWorkflow *repository.DiagnosticWorkflowRepository
 	ChangeEvent       *repository.ChangeEventRepository
 	Inspection        *repository.InspectionRepository
+	LarkCard          *repository.LarkCardRepository
+	ReportTask        *repository.ReportTaskRepository
 	RecordingRule     *repository.RecordingRuleRepository
 	BuiltinMetric     *repository.BuiltinMetricRepository
 	MetricFilter      *repository.MetricFilterRepository
@@ -267,6 +272,8 @@ func initRepositories(db *gorm.DB) *repoBundle {
 		DiagnosticWorkflow: repository.NewDiagnosticWorkflowRepository(db),
 		ChangeEvent:       repository.NewChangeEventRepository(db),
 		Inspection:        repository.NewInspectionRepository(db),
+		LarkCard:          repository.NewLarkCardRepository(db),
+		ReportTask:        repository.NewReportTaskRepository(db),
 		RecordingRule:     repository.NewRecordingRuleRepository(db),
 		BuiltinMetric:     repository.NewBuiltinMetricRepository(db),
 		MetricFilter:      repository.NewMetricFilterRepository(db),
@@ -338,6 +345,9 @@ type serviceBundle struct {
 	ChangeEventSvc     *service.ChangeEventService
 	DiagnosticWorkflowSvc *service.DiagnosticWorkflowService
 	InspectionExecutor *service.InspectionExecutor
+	LarkCardStateSvc   *service.LarkCardStateService
+	ReportTaskSvc      *service.ReportTaskService
+	ReportExecutor     *service.ReportExecutor
 	RecordingRuleSvc   *service.RecordingRuleService
 	AnnotationSvc      *service.AnnotationService
 	SavedViewSvc       *service.SavedViewService
@@ -494,6 +504,10 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 
 	// Inspection executor (scheduler created after engine block for Leader access)
 	svcs.InspectionExecutor = service.NewInspectionExecutor(repos.Inspection, svcs.AgentSvc, zapLogger)
+
+	// Report task service + executor (scheduler created after engine block)
+	svcs.ReportTaskSvc = service.NewReportTaskService(repos.ReportTask)
+	svcs.ReportExecutor = service.NewReportExecutor(repos.ReportTask, svcs.AgentSvc, zapLogger)
 
 	// Recording rule service
 	svcs.RecordingRuleSvc = service.NewRecordingRuleService(repos.RecordingRule, zapLogger)
@@ -917,6 +931,35 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Inspection scheduler (created after engine block so d.Leader is set)
 	inspectionSched := service.NewInspectionScheduler(repos.Inspection, svcs.InspectionExecutor, d.Leader, svcs.LarkBotSvc, zapLogger)
 
+	// Report scheduler
+	d.ReportSched = service.NewReportScheduler(repos.ReportTask, svcs.ReportExecutor, d.Leader, svcs.LarkBotSvc, zapLogger)
+
+	// LarkCardStateService (CardKit card lifecycle)
+	if redisClient != nil {
+		larkCfg, _ := svcs.SettingSvc.GetLarkConfig(context.Background())
+		baseURL := lark.BaseURLForDomain(larkCfg.Domain)
+		var botClient *lark.BotClient
+		if larkCfg.AppID != "" && larkCfg.AppSecret != "" {
+			botClient = lark.NewBotClient(larkCfg.AppID, larkCfg.AppSecret, baseURL)
+		}
+		if botClient != nil {
+			cardKit := lark.NewCardKitClient(botClient, lark.NewRateLimiter())
+			svcs.LarkCardStateSvc = service.NewLarkCardStateService(repos.LarkCard, cardKit, svcs.SettingSvc, zapLogger)
+			svcs.LarkSvc.SetCardService(svcs.LarkCardStateSvc)
+		}
+
+		// ConversationStore for Lark bot multi-turn context
+		convStore := service.NewConversationStore(redisClient.Raw())
+		_ = convStore // injected into LarkBotService below if needed
+
+		// EventSource: WebSocket or HTTP based on config
+		dedup := service.NewEventDedup(redisClient.Raw(), zapLogger)
+		if larkCfg.ConnectionMode == "websocket" && larkCfg.AppID != "" {
+			wsSource := service.NewWSEventSource(larkCfg.AppID, larkCfg.AppSecret, larkCfg.Domain, nil, dedup, zapLogger)
+			d.EventSource = wsSource
+		}
+	}
+
 	// --------------- AI 工具注册表 ---------------
 	toolRegistry := service.NewAIToolRegistry(zapLogger)
 	toolRegistry.RegisterBuiltinTools(svcs.DSSvc, svcs.RuleSvc, svcs.IncidentSvc, svcs.AuditLogSvc, svcs.EventSvc, svcs.KnowledgeSvc,
@@ -935,6 +978,20 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	// Start inspection scheduler (loads enabled tasks from DB)
 	if err := inspectionSched.Start(context.Background()); err != nil {
 		zapLogger.Error("巡检调度器启动失败", zap.Error(err))
+	}
+
+	// Start report scheduler
+	if d.ReportSched != nil {
+		if err := d.ReportSched.Start(context.Background()); err != nil {
+			zapLogger.Error("报告调度器启动失败", zap.Error(err))
+		}
+	}
+
+	// Start event source (WebSocket)
+	if d.EventSource != nil {
+		if err := d.EventSource.Start(appCtx); err != nil {
+			zapLogger.Error("事件源启动失败", zap.Error(err))
+		}
 	}
 
 	// --------------- Handlers ---------------
@@ -1004,6 +1061,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		DiagnosticWorkflow:  handler.NewDiagnosticWorkflowHandler(svcs.DiagnosticWorkflowSvc),
 		ChangeEvent:         handler.NewChangeEventHandler(svcs.ChangeEventSvc),
 		Inspection:          handler.NewInspectionHandler(service.NewInspectionService(repos.Inspection), inspectionSched, svcs.InspectionExecutor),
+		ReportTask:          handler.NewReportTaskHandler(svcs.ReportTaskSvc, d.ReportSched, svcs.ReportExecutor),
 		RecordingRule:       handler.NewRecordingRuleHandler(svcs.RecordingRuleSvc, zapLogger),
 		BuiltinMetric:       handler.NewBuiltinMetricHandler(svcs.BuiltinMetricSvc, svcs.MetricFilterSvc, zapLogger),
 		EventPipeline:       handler.NewEventPipelineHandler(service.NewEventPipelineService(repos.EventPipeline), service.NewEventPipelineExecutionService(repos.EventPipelineExec), svcs.PipelineEngine, svcs.EventSvc, zapLogger),
@@ -1216,6 +1274,16 @@ func (d *Dependencies) Shutdown() {
 	// 4.5 Stop inspection scheduler
 	if d.InspectionSched != nil {
 		d.InspectionSched.Stop()
+	}
+
+	// 4.5.1 Stop report scheduler
+	if d.ReportSched != nil {
+		d.ReportSched.Stop()
+	}
+
+	// 4.5.2 Stop event source (WebSocket)
+	if d.EventSource != nil {
+		d.EventSource.Stop()
 	}
 
 	// 4.6 Stop noise reducer GC goroutine

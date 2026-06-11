@@ -221,4 +221,22 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 			inspUtil.POST("/validate-cron", h.Inspection.ValidateCron)
 		}
 	}
+
+	// Report Tasks (定时报告)
+	if h.ReportTask != nil {
+		reportTasks := auth.Group("/report-tasks")
+		{
+			reportTasks.GET("", h.ReportTask.ListTasks)
+			reportTasks.GET("/:id", h.ReportTask.GetTask)
+			reportTasks.POST("", manage, h.ReportTask.CreateTask)
+			reportTasks.PUT("/:id", manage, h.ReportTask.UpdateTask)
+			reportTasks.DELETE("/:id", manage, h.ReportTask.DeleteTask)
+			reportTasks.POST("/:id/run", operate, h.ReportTask.RunNow)
+		}
+		reportRuns := auth.Group("/report-runs")
+		{
+			reportRuns.GET("", h.ReportTask.ListRuns)
+			reportRuns.GET("/:id", h.ReportTask.GetRun)
+		}
+	}
 }

@@ -73,6 +73,7 @@ type Handlers struct {
 	DiagnosticWorkflow  *handler.DiagnosticWorkflowHandler // 诊断工作流 (AIOps Phase 2)
 	ChangeEvent         *handler.ChangeEventHandler        // 变更事件 (AIOps Phase 2)
 	Inspection          *handler.InspectionHandler         // 定时巡检 Agent
+	ReportTask          *handler.ReportTaskHandler         // 定时报告任务
 	RecordingRule       *handler.RecordingRuleHandler      // 录制规则 (Recording Rules)
 	BuiltinMetric       *handler.BuiltinMetricHandler      // 内置指标目录 (Metrics Builtin)
 	EventPipeline       *handler.EventPipelineHandler      // 事件管道 (Event Pipeline)

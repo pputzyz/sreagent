@@ -29,6 +29,13 @@ type LarkService struct {
 	botClientSecret  string
 	// Shared token cache — can be injected so multiple services share one cache.
 	tokenCache *lark.TokenCache
+	// cardSvc manages CardKit card entities (v2 path). Nil when CardKit not configured.
+	cardSvc *LarkCardStateService
+}
+
+// SetCardService injects the CardKit card state service for the v2 send path.
+func (s *LarkService) SetCardService(cardSvc *LarkCardStateService) {
+	s.cardSvc = cardSvc
 }
 
 // NewLarkService creates a new LarkService.
@@ -201,6 +208,23 @@ func (s *LarkService) SendEnrichedAlertNotificationViaBot(ctx context.Context, e
 		return "", fmt.Errorf("lark bot credentials not configured")
 	}
 
+	// v2 path: CardKit entity-based card.
+	if larkCfg.CardSchemaVersion == "v2" && s.cardSvc != nil {
+		entity, err := s.cardSvc.EnsureCardForEvent(ctx, event, chatID)
+		if err != nil {
+			s.logger.Error("CardKit send failed, falling back to legacy",
+				zap.Uint("event_id", event.ID), zap.Error(err))
+			// fall through to legacy path
+		} else {
+			s.logger.Info("alert card sent via CardKit",
+				zap.Uint("event_id", event.ID),
+				zap.String("card_id", entity.CardID),
+			)
+			return entity.CardID, nil
+		}
+	}
+
+	// v1 path: legacy PATCH-based card.
 	card := s.buildEnrichedCard(event, analysis, true)
 	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret, lark.BaseURLForDomain(larkCfg.Domain))
 
@@ -337,6 +361,12 @@ func (s *LarkService) HandleCardLifecycle(ctx context.Context, event *model.Aler
 		return nil
 	}
 
+	// v2 path: CardKit entity-based status sync.
+	if larkCfg.CardSchemaVersion == "v2" && s.cardSvc != nil {
+		return s.cardSvc.SyncCardStatus(ctx, event)
+	}
+
+	// v1 path: legacy PATCH-based card lifecycle.
 	// For resolved/closed alerts, check the resolve strategy
 	if event.Status == model.EventStatusResolved || event.Status == model.EventStatusClosed {
 		if larkCfg.ResolveStrategy == "delete" {
