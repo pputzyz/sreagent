@@ -258,7 +258,7 @@ export function useCrudPage<T extends { id: number }>(
 
   function confirmBatchDelete(ids: number[]) {
     if (!ids.length) return
-    const confirmMsg = t('common.confirmBatchDelete', { count: ids.length }) || `Delete ${ids.length} items?`
+    const confirmMsg = t('common.confirmBatchDelete', { count: ids.length })
     dialog.warning({
       title: t('common.confirmDelete'),
       content: confirmMsg,

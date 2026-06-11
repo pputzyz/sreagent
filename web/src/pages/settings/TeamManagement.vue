@@ -99,8 +99,8 @@ const addMemberLoading = ref(false)
 const allUsers = ref<User[]>([])
 
 const memberRoleOptions = [
-  { label: t('settings.roleMember') || 'Member', value: 'member' },
-  { label: t('settings.roleTeamLead') || 'Team Lead', value: 'team_lead' },
+  { label: t('settings.roleMember'), value: 'member' },
+  { label: t('settings.roleTeamLead'), value: 'team_lead' },
 ]
 
 const allUserOptions = computed(() =>

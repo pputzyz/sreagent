@@ -572,6 +572,72 @@ func Test_OnCallResult_fields(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// parseHandoffTime tests (P1-8)
+// ---------------------------------------------------------------------------
+
+func Test_parseHandoffTime_ShortForm_ReturnsDefault(t *testing.T) {
+	// "8:30" is only 4 chars, below the 5-char minimum, so it returns the default.
+	hour, min, err := parseHandoffTime("8:30")
+	assert.NoError(t, err)
+	assert.Equal(t, 9, hour, "short form returns default hour 9")
+	assert.Equal(t, 0, min, "short form returns default minute 0")
+}
+
+func Test_parseHandoffTime_StandardForm_ParsedCorrectly(t *testing.T) {
+	hour, min, err := parseHandoffTime("09:00")
+	assert.NoError(t, err)
+	assert.Equal(t, 9, hour)
+	assert.Equal(t, 0, min)
+}
+
+func Test_parseHandoffTime_Midnight_ParsedCorrectly(t *testing.T) {
+	hour, min, err := parseHandoffTime("00:00")
+	assert.NoError(t, err)
+	assert.Equal(t, 0, hour)
+	assert.Equal(t, 0, min)
+}
+
+func Test_parseHandoffTime_EndOfDay_ParsedCorrectly(t *testing.T) {
+	hour, min, err := parseHandoffTime("23:59")
+	assert.NoError(t, err)
+	assert.Equal(t, 23, hour)
+	assert.Equal(t, 59, min)
+}
+
+func Test_parseHandoffTime_Invalid_ReturnsError(t *testing.T) {
+	// "abc" is 3 chars, below the 5-char minimum, so it returns default (no error).
+	// A 5-char string that doesn't match HH:MM format returns an error.
+	_, _, err := parseHandoffTime("abcde")
+	assert.Error(t, err, "invalid 5-char handoff_time should return an error")
+}
+
+func Test_parseHandoffTime_Empty_ReturnsDefault(t *testing.T) {
+	hour, min, err := parseHandoffTime("")
+	assert.NoError(t, err, "empty handoff_time should return default, not error")
+	assert.Equal(t, 9, hour, "default hour should be 9")
+	assert.Equal(t, 0, min, "default minute should be 0")
+}
+
+func Test_parseHandoffTime_TooShort_ReturnsDefault(t *testing.T) {
+	hour, min, err := parseHandoffTime("1:2")
+	assert.NoError(t, err, "short handoff_time should return default, not error")
+	assert.Equal(t, 9, hour)
+	assert.Equal(t, 0, min)
+}
+
+func Test_parseHandoffTime_OutOfRangeHour_ReturnsError(t *testing.T) {
+	_, _, err := parseHandoffTime("25:00")
+	assert.Error(t, err, "hour 25 should be rejected")
+	assert.Contains(t, err.Error(), "out of range")
+}
+
+func Test_parseHandoffTime_OutOfRangeMinute_ReturnsError(t *testing.T) {
+	_, _, err := parseHandoffTime("09:60")
+	assert.Error(t, err, "minute 60 should be rejected")
+	assert.Contains(t, err.Error(), "out of range")
+}
+
+// ---------------------------------------------------------------------------
 // Integration tests (require SREAGENT_TEST_DSN)
 // ---------------------------------------------------------------------------
 
@@ -1133,4 +1199,153 @@ func Test_Schedule_OverridePriority_DB(t *testing.T) {
 			"override user should be on-call when override is active")
 		assert.NotNil(t, result.Override)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// P0-3: GenerateRotationShifts preserves manual shifts
+// ---------------------------------------------------------------------------
+
+func Test_GenerateRotationShifts_PreservesManualShifts(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	logger := testutil.TestLogger()
+	scheduleRepo := repository.NewScheduleRepository(db)
+	participantRepo := repository.NewScheduleParticipantRepository(db)
+	overrideRepo := repository.NewScheduleOverrideRepository(db)
+	shiftRepo := repository.NewOnCallShiftRepository(db)
+	policyRepo := repository.NewEscalationPolicyRepository(db)
+	stepRepo := repository.NewEscalationStepRepository(db)
+
+	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
+
+	// Create user
+	user := testutil.SeedUser(t, db, "rotation-user", model.RoleMember)
+	manualUser := testutil.SeedUser(t, db, "manual-user", model.RoleMember)
+
+	// Create schedule with daily rotation
+	schedule := &model.Schedule{
+		Name:         "preserve-manual-schedule",
+		RotationType: model.RotationDaily,
+		Timezone:     "UTC",
+		HandoffTime:  "09:00",
+		IsEnabled:    true,
+	}
+	require.NoError(t, svc.CreateSchedule(context.Background(), schedule))
+
+	// Add participant
+	require.NoError(t, db.Create(&model.ScheduleParticipant{
+		ScheduleID: schedule.ID,
+		UserID:     user.ID,
+		Position:   0,
+	}).Error)
+
+	// Create a manual shift in the time range that GenerateRotationShifts will cover.
+	// GenerateRotationShifts generates from (today - 1 day) at handoff time for N weeks.
+	now := time.Now()
+	manualStart := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 0, 0, time.UTC)
+	manualEnd := manualStart.Add(24 * time.Hour)
+
+	require.NoError(t, db.Create(&model.OnCallShift{
+		ScheduleID: schedule.ID,
+		UserID:     manualUser.ID,
+		StartTime:  manualStart,
+		EndTime:    manualEnd,
+		Source:     "manual",
+	}).Error)
+
+	// Generate rotation shifts (1 week ahead)
+	err := svc.GenerateRotationShifts(context.Background(), schedule.ID, 1)
+	require.NoError(t, err)
+
+	// Verify the manual shift still exists
+	shifts, err := shiftRepo.ListBySchedule(context.Background(), schedule.ID,
+		manualStart.Add(-time.Hour), manualEnd.Add(time.Hour))
+	require.NoError(t, err)
+
+	var foundManual bool
+	for _, s := range shifts {
+		if s.Source == "manual" && s.UserID == manualUser.ID {
+			foundManual = true
+			break
+		}
+	}
+	assert.True(t, foundManual, "manual shift should be preserved after GenerateRotationShifts")
+}
+
+// Test_GenerateRotationShifts_OnlyDeletesRotationSource verifies that
+// DeleteByScheduleAndTimeRange with source='rotation' filter preserves manual shifts.
+// This is a regression test for P0-3: the transactional RegenerateShifts must only
+// delete source='rotation' shifts, not source='manual' ones.
+func Test_GenerateRotationShifts_OnlyDeletesRotationSource(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	shiftRepo := repository.NewOnCallShiftRepository(db)
+
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, 7) // 1 week
+
+	// Create a schedule first (FK constraint)
+	scheduleRepo := repository.NewScheduleRepository(db)
+	schedule := &model.Schedule{
+		Name:         "rotation-source-filter",
+		RotationType: model.RotationDaily,
+		Timezone:     "UTC",
+		HandoffTime:  "09:00",
+		IsEnabled:    true,
+	}
+	require.NoError(t, scheduleRepo.Create(context.Background(), schedule))
+
+	// Insert a rotation shift and a manual shift in the same range
+	user1 := testutil.SeedUser(t, db, "rot-source-user1", model.RoleMember)
+	user2 := testutil.SeedUser(t, db, "rot-source-user2", model.RoleMember)
+
+	rotationShift := &model.OnCallShift{
+		ScheduleID: schedule.ID,
+		UserID:     user1.ID,
+		StartTime:  start,
+		EndTime:    start.Add(24 * time.Hour),
+		Source:     "rotation",
+	}
+	manualShift := &model.OnCallShift{
+		ScheduleID: schedule.ID,
+		UserID:     user2.ID,
+		StartTime:  start.Add(24 * time.Hour),
+		EndTime:    start.Add(48 * time.Hour),
+		Source:     "manual",
+	}
+
+	require.NoError(t, shiftRepo.Create(context.Background(), rotationShift))
+	require.NoError(t, shiftRepo.Create(context.Background(), manualShift))
+
+	// Call DeleteRotationShiftsByScheduleAndTimeRange (the method used by RegenerateShifts)
+	err := shiftRepo.DeleteRotationShiftsByScheduleAndTimeRange(context.Background(), schedule.ID, start, end)
+	require.NoError(t, err)
+
+	// Rotation shift should be gone
+	remaining, err := shiftRepo.ListBySchedule(context.Background(), schedule.ID, start.Add(-time.Hour), end.Add(time.Hour))
+	require.NoError(t, err)
+
+	for _, s := range remaining {
+		assert.NotEqual(t, "rotation", s.Source,
+			"rotation shifts should have been deleted")
+	}
+
+	// Manual shift should still exist
+	var foundManual bool
+	for _, s := range remaining {
+		if s.Source == "manual" {
+			foundManual = true
+			assert.Equal(t, user2.ID, s.UserID)
+		}
+	}
+	assert.True(t, foundManual, "manual shift should survive rotation-only deletion")
 }

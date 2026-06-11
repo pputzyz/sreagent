@@ -25,15 +25,15 @@ const defaultRoleOptions = computed(() => [
   { label: t('settings.admin'), value: 'admin' },
   { label: t('settings.teamLead'), value: 'team_lead' },
   { label: t('settings.member'), value: 'member' },
-  { label: t('settings.viewer') || 'Viewer', value: 'viewer' },
-  { label: t('settings.globalViewer') || 'Global Viewer', value: 'global_viewer' },
+  { label: t('settings.viewer'), value: 'viewer' },
+  { label: t('settings.globalViewer'), value: 'global_viewer' },
 ])
 
 async function saveProvider() {
   if (form.enabled) {
     if (!form.host?.trim()) { message.warning(t('settings.ldapHost')); return }
     if (!form.base_dn?.trim()) { message.warning(t('settings.ldapBaseDn')); return }
-    if (!form.bind_password?.trim()) { message.warning(t('settings.ldapBindPasswordEmpty') || 'Bind password is empty — LDAP authentication may fail') }
+    if (!form.bind_password?.trim()) { message.warning(t('settings.ldapBindPasswordEmpty')) }
   }
   savingProvider.value = true
   try {

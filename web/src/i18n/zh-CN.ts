@@ -48,6 +48,7 @@ export default {
     saveFailed: '保存失败',
     confirmDelete: '确认删除',
     confirmDeleteMsg: '确认删除？删除后无法恢复。',
+    confirmBatchDelete: '确认删除 {count} 条记录？',
     deleteSuccess: '删除成功',
     deleteFailed: '删除失败',
     batchDeletePartialFail: '{fail} 条删除失败',
@@ -1076,7 +1077,6 @@ export default {
     impact: '影响评估',
     recommendedSteps: '处置建议',
     rootCauseHint: '根因提示',
-    regenerateReport: '重新生成',
     // Rule form
     datasourceChangeWarning: '切换数据源将清空当前查询条件',
     datasourceChangeDescription: '切换数据源将清空当前表达式和查询条件，是否继续？',
@@ -1656,7 +1656,6 @@ export default {
     rotationPeriodDays: '轮换周期（天）',
     tabOverrides: '替班管理',
     addOverride: '添加替班',
-    noOverrides: '暂无替班',
     overrideStart: '开始时间',
     overrideEnd: '结束时间',
     overrideReasonPlaceholder: '可选，填写替班原因',

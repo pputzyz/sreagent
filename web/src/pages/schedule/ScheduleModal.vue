@@ -169,10 +169,10 @@ defineExpose({ openCreate, openEdit })
           </n-form-item>
         </n-gi>
       </n-grid>
-      <n-form-item v-if="form.rotation_type === 'weekly'" :label="t('schedule.handoffDay') || 'Handoff Day'">
+      <n-form-item v-if="form.rotation_type === 'weekly'" :label="t('schedule.handoffDay')">
         <n-select v-model:value="form.handoff_day" :options="dayOfWeekOptions" />
       </n-form-item>
-      <n-form-item v-if="form.rotation_type === 'custom'" :label="t('schedule.rotationPeriodDays') || 'Rotation Period (days)'">
+      <n-form-item v-if="form.rotation_type === 'custom'" :label="t('schedule.rotationPeriodDays')">
         <n-input-number v-model:value="form.rotation_period_days" :min="1" :max="365" style="width: 100%" />
       </n-form-item>
       <n-form-item :label="t('common.enabled')">

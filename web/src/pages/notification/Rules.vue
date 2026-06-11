@@ -410,7 +410,7 @@ onMounted(fetchList)
           <template v-for="(v, k) in (r.match_labels || {})" :key="k">
             <code class="label-chip">{{ k }}={{ v }}</code>
           </template>
-          <span v-if="!Object.keys(r.match_labels || {}).length" class="muted">{{ t('common.noMatchLabels') || '—' }}</span>
+          <span v-if="!Object.keys(r.match_labels || {}).length" class="muted">{{ t('common.noMatchLabels') }}</span>
           <span class="arrow">→</span>
           <span v-for="m in summarizeMedia(r)" :key="m" class="media-chip">{{ m }}</span>
         </div>
@@ -482,11 +482,11 @@ onMounted(fetchList)
           </div>
         </n-form-item>
 
-        <n-form-item :label="t('notifyRule.template') || 'Message Template'">
+        <n-form-item :label="t('notifyRule.template')">
           <n-select
             v-model:value="form.template_id"
             :options="templateOptions"
-            :placeholder="t('notifyRule.selectTemplate') || 'Select template (optional)'"
+            :placeholder="t('notifyRule.selectTemplate')"
             clearable
             filterable
           />
@@ -494,22 +494,22 @@ onMounted(fetchList)
 
         <n-grid :x-gap="12" :cols="2">
           <n-gi>
-            <n-form-item :label="t('notifyRule.targetUsers') || 'Target Users'">
+            <n-form-item :label="t('notifyRule.targetUsers')">
               <n-select
                 v-model:value="form.user_ids"
                 :options="userOptions"
-                :placeholder="t('notifyRule.selectUsers') || 'Select users (optional)'"
+                :placeholder="t('notifyRule.selectUsers')"
                 multiple
                 filterable
               />
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item :label="t('notifyRule.targetTeams') || 'Target Teams'">
+            <n-form-item :label="t('notifyRule.targetTeams')">
               <n-select
                 v-model:value="form.team_ids"
                 :options="teamOptions"
-                :placeholder="t('notifyRule.selectTeams') || 'Select teams (optional)'"
+                :placeholder="t('notifyRule.selectTeams')"
                 multiple
                 filterable
               />

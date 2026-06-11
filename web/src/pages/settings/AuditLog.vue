@@ -217,7 +217,7 @@ onMounted(fetchList)
         <EmptyState
           v-if="!logs.length"
           :icon="ListOutline"
-          :title="t('settings.auditLog') || 'Audit Log'"
+          :title="t('settings.auditLog')"
           :description="t('settings.auditNoRecordsInRange')"
         />
         <div v-else class="audit-list sre-stagger">

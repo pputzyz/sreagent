@@ -493,3 +493,74 @@ func Test_Evaluator_StopThenRestart_NewContextNotCancelled(t *testing.T) {
 		// OK: new context is healthy
 	}
 }
+
+// ---------------------------------------------------------------------------
+// P0-5 regression: Stop() waits for in-flight evaluation goroutines
+// ---------------------------------------------------------------------------
+
+// Test_Evaluator_Stop_WaitsForInflightEvaluation verifies that Stop() blocks
+// until all in-flight rule evaluation goroutines (tracked via runWG) have
+// completed. This prevents downstream resource teardown (Redis, DB) from
+// happening while evaluators are still writing.
+func Test_Evaluator_Stop_WaitsForInflightEvaluation(t *testing.T) {
+	logger := zap.NewNop()
+	eval := NewEvaluator(nil, nil, nil, nil, nil, nil, logger)
+	eval.stopCancelDelay = 50 * time.Millisecond
+
+	// Manually start the evaluator (bypass Start() which needs a real DB).
+	eval.ctx, eval.cancel = context.WithCancel(context.Background())
+	eval.startMu.Lock()
+	eval.started = true
+	eval.startMu.Unlock()
+
+	// Simulate an in-flight evaluation goroutine: Add(1) to runWG and hold it.
+	eval.runWG.Add(1)
+	done := make(chan struct{})
+
+	// Inject a "running" evaluator so Stop() has something to stop.
+	re := &RuleEvaluator{
+		stopCh: make(chan struct{}),
+		ctx:    eval.ctx,
+		logger: logger,
+	}
+	eval.mu.Lock()
+	eval.evaluators[999] = re
+	eval.mu.Unlock()
+
+	// Simulate a slow evaluation in a goroutine
+	go func() {
+		// This goroutine holds the runWG open for 200ms to simulate a slow eval.
+		time.Sleep(200 * time.Millisecond)
+		eval.runWG.Done()
+		close(done)
+	}()
+
+	// Call Stop() — it should block until runWG is drained.
+	stopReturned := make(chan struct{})
+	go func() {
+		eval.Stop()
+		close(stopReturned)
+	}()
+
+	// Stop() should NOT return immediately because runWG is still open.
+	select {
+	case <-stopReturned:
+		// If Stop() returned before 200ms, the fix is broken.
+		select {
+		case <-done:
+			// The slow goroutine already finished — this is a timing edge case, pass.
+		default:
+			t.Fatal("Stop() returned before in-flight evaluation completed — P0-5 regression")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Stop() did not return within 500ms — possible deadlock")
+	case <-done:
+		// Slow evaluation finished — now Stop() should return promptly.
+		select {
+		case <-stopReturned:
+			// Good: Stop() returned after the evaluation completed.
+		case <-time.After(1 * time.Second):
+			t.Fatal("Stop() did not return after in-flight evaluation completed")
+		}
+	}
+}

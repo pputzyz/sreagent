@@ -170,7 +170,7 @@ onMounted(() => { loadECharts() })
 <template>
   <div class="log-histogram-wrapper">
     <div class="histogram-header">
-      <span class="histogram-title">{{ $t('query.allLogStats') || 'All log statistics' }}</span>
+      <span class="histogram-title">{{ $t('query.allLogStats') }}</span>
       <span v-if="totalLogs > 0" class="histogram-total">{{ totalLogs.toLocaleString() }}</span>
       <NSpin v-if="loading" size="small" style="margin-left: 8px;" />
     </div>
@@ -187,7 +187,7 @@ onMounted(() => { loadECharts() })
         />
       </template>
       <div v-else-if="!buckets?.length" class="histogram-empty">
-        {{ $t('query.noHistogramData') || 'No histogram data' }}
+        {{ $t('query.noHistogramData') }}
       </div>
     </div>
   </div>

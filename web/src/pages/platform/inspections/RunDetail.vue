@@ -103,13 +103,13 @@ function exportReport() {
       <NTag v-if="run" :type="statusType" size="small">{{ run.status }}</NTag>
       <NSpace v-if="findings.length > 0" size="small" style="margin-left: 8px">
         <NTag v-if="severityCounts.critical > 0" type="error" size="small" :bordered="false">
-          {{ severityCounts.critical }} {{ t('inspection.critical') || 'critical' }}
+          {{ severityCounts.critical }} {{ t('inspection.critical') }}
         </NTag>
         <NTag v-if="severityCounts.warning > 0" type="warning" size="small" :bordered="false">
-          {{ severityCounts.warning }} {{ t('inspection.warning') || 'warning' }}
+          {{ severityCounts.warning }} {{ t('inspection.warning') }}
         </NTag>
         <NTag v-if="severityCounts.info > 0" type="info" size="small" :bordered="false">
-          {{ severityCounts.info }} {{ t('inspection.info') || 'info' }}
+          {{ severityCounts.info }} {{ t('inspection.info') }}
         </NTag>
       </NSpace>
       <div style="margin-left: auto;">
@@ -120,7 +120,7 @@ function exportReport() {
           @click="exportReport"
         >
           <template #icon><NIcon><DownloadOutline /></NIcon></template>
-          {{ t('common.export') || 'Export' }}
+          {{ t('common.export') }}
         </NButton>
       </div>
     </div>

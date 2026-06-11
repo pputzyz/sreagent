@@ -330,7 +330,7 @@ const hasFilters = computed(() =>
         @update:checked="toggleSelectAll"
         class="select-all-checkbox"
       >
-        {{ t('common.selectAll') || 'Select all' }}
+        {{ t('common.selectAll') }}
       </n-checkbox>
 
       <n-input
@@ -442,7 +442,7 @@ const hasFilters = computed(() =>
           :loading="bulkLoading"
           @click="confirmBulkAction('acknowledge')"
         >
-          {{ t('incident.bulkAcknowledge') || 'Bulk Acknowledge' }}
+          {{ t('incident.bulkAcknowledge') }}
         </n-button>
         <n-button
           size="small"
@@ -450,7 +450,7 @@ const hasFilters = computed(() =>
           :loading="bulkLoading"
           @click="confirmBulkAction('close')"
         >
-          {{ t('incident.bulkClose') || 'Bulk Close' }}
+          {{ t('incident.bulkClose') }}
         </n-button>
         <n-button size="small" quaternary @click="clearSelection">
           {{ t('common.cancel') }}
@@ -475,7 +475,7 @@ const hasFilters = computed(() =>
           <n-select
             v-model:value="createForm.channel_id"
             :options="channelOptions"
-            :placeholder="t('incident.channelPlaceholder') || 'Select channel'"
+            :placeholder="t('incident.channelPlaceholder')"
             filterable
           />
         </n-form-item>

@@ -241,7 +241,7 @@ async function handleCreateOverride() {
       end_time: overrideForm.value.end_time,
       reason: overrideForm.value.reason,
     })
-    message.success(t('schedule.overrideCreated') || 'Override created')
+    message.success(t('schedule.overrideCreated'))
     showOverrideModal.value = false
     fetchOverrides()
   } catch (err: unknown) {
@@ -253,7 +253,7 @@ async function handleDeleteOverride(overrideId: number) {
   if (!selectedSchedule.value) return
   try {
     await scheduleApi.deleteOverride(selectedSchedule.value.id, overrideId)
-    message.success(t('schedule.overrideDeleted') || 'Override deleted')
+    message.success(t('schedule.overrideDeleted'))
     fetchOverrides()
   } catch (err: unknown) {
     message.error(getErrorMessage(err))
@@ -561,16 +561,16 @@ onMounted(() => {
                 />
               </n-tab-pane>
 
-              <n-tab-pane name="overrides" :tab="t('schedule.tabOverrides') || 'Substitutes'">
+              <n-tab-pane name="overrides" :tab="t('schedule.tabOverrides')">
                 <div class="overrides-section">
                   <div class="overrides-header">
                     <n-button size="small" type="primary" @click="openOverrideCreate">
-                      + {{ t('schedule.addOverride') || 'Add Substitute' }}
+                      + {{ t('schedule.addOverride') }}
                     </n-button>
                   </div>
                   <n-spin :show="overridesLoading">
                     <div v-if="overrides.length === 0" class="overrides-empty">
-                      {{ t('schedule.noOverrides') || 'No substitutes configured' }}
+                      {{ t('schedule.noOverrides') }}
                     </div>
                     <div v-else class="overrides-list">
                       <div v-for="ov in overrides" :key="ov.id" class="override-item">
@@ -620,24 +620,24 @@ onMounted(() => {
     />
 
     <!-- Override (Substitute) Modal -->
-    <n-modal v-model:show="showOverrideModal" preset="card" :title="t('schedule.addOverride') || 'Add Substitute'" style="width: 460px" :bordered="false">
+    <n-modal v-model:show="showOverrideModal" preset="card" :title="t('schedule.addOverride')" style="width: 460px" :bordered="false">
       <n-form label-placement="top">
-        <n-form-item :label="t('schedule.overrideUser') || 'Substitute User'" required>
+        <n-form-item :label="t('schedule.overrideUser')" required>
           <n-select
             v-model:value="overrideForm.user_id"
             :options="users.map(u => ({ label: u.display_name || u.username, value: u.id }))"
-            :placeholder="t('schedule.selectUser') || 'Select user'"
+            :placeholder="t('schedule.selectUser')"
             filterable
           />
         </n-form-item>
-        <n-form-item :label="t('schedule.overrideStart') || 'Start Time'" required>
+        <n-form-item :label="t('schedule.overrideStart')" required>
           <n-date-picker v-model:formatted-value="overrideForm.start_time" type="datetime" value-format="yyyy-MM-dd'T'HH:mm" />
         </n-form-item>
-        <n-form-item :label="t('schedule.overrideEnd') || 'End Time'" required>
+        <n-form-item :label="t('schedule.overrideEnd')" required>
           <n-date-picker v-model:formatted-value="overrideForm.end_time" type="datetime" value-format="yyyy-MM-dd'T'HH:mm" />
         </n-form-item>
-        <n-form-item :label="t('schedule.overrideReason') || 'Reason'">
-          <n-input v-model:value="overrideForm.reason" :placeholder="t('schedule.overrideReasonPlaceholder') || 'Optional reason'" />
+        <n-form-item :label="t('schedule.overrideReason')">
+          <n-input v-model:value="overrideForm.reason" :placeholder="t('schedule.overrideReasonPlaceholder')" />
         </n-form-item>
       </n-form>
       <template #action>

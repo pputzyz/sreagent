@@ -48,6 +48,7 @@ export default {
     saveFailed: 'Failed to save',
     confirmDelete: 'Confirm delete',
     confirmDeleteMsg: 'Confirm deletion? This cannot be undone.',
+    confirmBatchDelete: 'Delete {count} {count, plural, one {item} other {items}}?',
     deleteSuccess: 'Deleted successfully',
     deleteFailed: 'Failed to delete',
     batchDeletePartialFail: '{fail} {fail, plural, one {deletion} other {deletions}} failed',
@@ -1067,7 +1068,6 @@ export default {
     impact: 'Impact Assessment',
     recommendedSteps: 'Recommended Steps',
     rootCauseHint: 'Root Cause Hint',
-    regenerateReport: 'Regenerate',
     // Rule form
     datasourceChangeWarning: 'Switching datasource will clear current query',
     datasourceChangeDescription: 'Switching datasource will clear the current expression and query conditions. Continue?',
@@ -1647,7 +1647,6 @@ export default {
     rotationPeriodDays: 'Rotation Period (days)',
     tabOverrides: 'Substitutes',
     addOverride: 'Add Substitute',
-    noOverrides: 'No substitutes configured',
     overrideStart: 'Start Time',
     overrideEnd: 'End Time',
     overrideReasonPlaceholder: 'Optional reason',

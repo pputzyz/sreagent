@@ -380,7 +380,7 @@ function copyShareUrl() {
   url.searchParams.set('ds', String(selectedDsId.value))
   url.searchParams.set('expr', queryExpression.value)
   navigator.clipboard.writeText(url.toString()).then(() => {
-    message.success(t('common.copied') || 'URL copied')
+    message.success(t('common.copied'))
   }).catch(() => {
     message.error(t('common.failed'))
   })
@@ -407,7 +407,7 @@ onMounted(async () => {
     <!-- Header -->
     <div class="mv-header">
       <div class="mv-header-left">
-        <h2 class="mv-title">{{ t('menu.metricViews') || 'Metric Views' }}</h2>
+        <h2 class="mv-title">{{ t('menu.metricViews') }}</h2>
         <!-- Time range -->
         <div class="mv-time-bar">
           <NButton
@@ -440,11 +440,11 @@ onMounted(async () => {
         </NButton>
         <NButton size="small" quaternary @click="copyShareUrl" :disabled="!queryExpression.trim()">
           <template #icon><NIcon><CopyOutline /></NIcon></template>
-          {{ t('common.share') || 'Share' }}
+          {{ t('common.share') }}
         </NButton>
         <NButton size="small" quaternary @click="goToExplore" :disabled="!queryExpression.trim()">
           <template #icon><NIcon><SearchOutline /></NIcon></template>
-          {{ t('query.openInExplore') || 'Open in Explore' }}
+          {{ t('query.openInExplore') }}
         </NButton>
       </div>
     </div>
@@ -570,7 +570,7 @@ onMounted(async () => {
 
           <!-- Empty -->
           <div v-else-if="!selectedMetric" class="mv-chart-empty">
-            <NEmpty :description="t('query.selectMetric') || 'Select a metric to view chart'" size="small" />
+            <NEmpty :description="t('query.selectMetric')" size="small" />
           </div>
 
           <div v-else-if="chartData !== null && !chartData.series?.length" class="mv-chart-empty">

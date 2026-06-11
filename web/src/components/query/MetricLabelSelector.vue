@@ -194,7 +194,7 @@ defineExpose({ refreshAll, filters })
 <template>
   <div class="label-selector">
     <div class="label-selector-header">
-      <span class="label-selector-title">{{ t('query.labelFilters') || 'Label Filters' }}</span>
+      <span class="label-selector-title">{{ t('query.labelFilters') }}</span>
       <NButton size="tiny" quaternary @click="addFilter" :disabled="!datasourceId || availableLabelOptions.length === 0">
         <template #icon><NIcon size="14"><AddOutline /></NIcon></template>
         {{ t('common.add') }}
@@ -210,7 +210,7 @@ defineExpose({ refreshAll, filters })
     </div>
 
     <div v-else-if="filters.length === 0" class="label-empty">
-      {{ t('query.noLabelFilters') || 'No label filters. Click + to add.' }}
+      {{ t('query.noLabelFilters') }}
     </div>
 
     <div v-else class="label-filters">
@@ -219,7 +219,7 @@ defineExpose({ refreshAll, filters })
         <NSelect
           v-model:value="filter.label"
           :options="availableLabelOptions"
-          :placeholder="t('query.labelName') || 'Label'"
+          :placeholder="t('query.labelName')"
           filterable
           size="small"
           class="filter-label-select"
@@ -237,7 +237,7 @@ defineExpose({ refreshAll, filters })
         <NSelect
           v-model:value="filter.value"
           :options="valueOptions(filter)"
-          :placeholder="filter.loadingValues ? (t('common.loading') || 'Loading...') : (t('query.labelValue') || 'Value')"
+          :placeholder="filter.loadingValues ? t('common.loading') : t('query.labelValue')"
           filterable
           :loading="filter.loadingValues"
           size="small"

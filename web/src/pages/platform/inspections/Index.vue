@@ -119,7 +119,7 @@ const taskColumns = [
         h(NButton, { size: 'small', secondary: true, onClick: () => openEdit(row) }, {
           icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
         }),
-        h(NButton, { size: 'small', secondary: true, onClick: () => cloneTask(row), title: t('inspection.clone') || 'Clone' }, {
+        h(NButton, { size: 'small', secondary: true, onClick: () => cloneTask(row), title: t('inspection.clone') }, {
           icon: () => h(NIcon, null, { default: () => h(CopyOutline) }),
         }),
         h(NPopconfirm, { onPositiveClick: () => deleteTask(row) }, {
@@ -366,7 +366,7 @@ onMounted(() => {
           <CronInput v-model="form.cron_expr" />
         </NFormItem>
         <!-- FE7-9: Cron scheduling preview -->
-        <NFormItem v-if="cronPreview.length > 0 || cronPreviewLoading" :label="t('inspection.nextRuns') || 'Next runs'">
+        <NFormItem v-if="cronPreview.length > 0 || cronPreviewLoading" :label="t('inspection.nextRuns')">
           <div v-if="cronPreviewLoading" style="font-size: 12px; color: var(--sre-text-tertiary);">
             {{ t('common.loading') }}
           </div>

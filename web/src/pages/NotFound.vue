@@ -17,8 +17,8 @@ function goHome() {
   <div class="not-found-page">
     <NResult
       status="404"
-      :title="t('notFound.title') || 'Page Not Found'"
-      :description="t('notFound.description') || 'The page you are looking for does not exist or has been moved.'"
+      :title="t('notFound.title')"
+      :description="t('notFound.description')"
     >
       <template #icon>
         <NIcon :component="AlertCircleOutline" :size="64" />
@@ -26,7 +26,7 @@ function goHome() {
       <template #footer>
         <NButton type="primary" @click="goHome">
           <template #icon><NIcon :component="HomeOutline" /></template>
-          {{ t('notFound.goHome') || 'Go Home' }}
+          {{ t('notFound.goHome') }}
         </NButton>
       </template>
     </NResult>

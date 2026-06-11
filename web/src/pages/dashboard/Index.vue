@@ -289,7 +289,7 @@ onMounted(refresh)
             <span class="rule-status active"></span>
             <div class="rule-info"><div class="rule-name">{{ r.alert_name }}</div></div>
             <!-- FE4-12: Drill-down to alert events filtered by this rule -->
-            <n-button v-if="r.rule_id" quaternary circle size="tiny" :title="t('query.openInExplore') || 'Open in Explore'" @click.stop="router.push({ path: '/alert/events', query: { rule_id: String(r.rule_id) } })">
+            <n-button v-if="r.rule_id" quaternary circle size="tiny" :title="t('query.openInExplore')" @click.stop="router.push({ path: '/alert/events', query: { rule_id: String(r.rule_id) } })">
               <template #icon><n-icon :component="SearchOutline" :size="12" /></template>
             </n-button>
             <span class="rule-fire">{{ r.count }}</span>

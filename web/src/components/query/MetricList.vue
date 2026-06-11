@@ -118,7 +118,7 @@ defineExpose({ refresh: loadMetrics, selectedMetric })
     <div class="metric-search">
       <NInput
         v-model:value="searchQuery"
-        :placeholder="t('query.searchMetrics') || 'Search metrics...'"
+        :placeholder="t('query.searchMetrics')"
         size="small"
         clearable
       >
