@@ -2020,6 +2020,13 @@ export default {
     larkBotSubtitle: '飞书机器人用于私信、告警卡片更新和斜杠命令。回调端点：',
     larkAppCredentials: '应用凭据',
     larkAppCredentialsDesc: '从飞书开放平台开发者控制台获取这些值，用于您的自定义应用。',
+    // 连接与卡片设置
+    larkConnection: '连接与卡片',
+    larkConnectionDesc: '配置 API 区域、事件通道、卡片交互模式和卡片版本。',
+    larkDomain: 'API 区域',
+    larkConnectionMode: '事件通道',
+    larkCardInteraction: '卡片交互',
+    larkCardSchema: '卡片版本',
     larkDefaults: '默认配置',
     larkDefaultsDesc: '当通知规则未指定自己的目标时，使用默认 Webhook。',
     larkWebhookRequired: '需要默认 Webhook 地址才能发送测试卡片',

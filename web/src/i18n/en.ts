@@ -2004,6 +2004,13 @@ export default {
     larkBotSubtitle: 'Lark bot for direct messages, alert card updates, and slash commands. Callback endpoint:',
     larkAppCredentials: 'App Credentials',
     larkAppCredentialsDesc: 'Obtain these values from the Lark Open Platform developer console for your custom app.',
+    // Connection & Card section
+    larkConnection: 'Connection & Card',
+    larkConnectionDesc: 'Configure API region, event channel, card interaction mode, and card schema version.',
+    larkDomain: 'API Region',
+    larkConnectionMode: 'Event Channel',
+    larkCardInteraction: 'Card Interaction',
+    larkCardSchema: 'Card Schema',
     larkDefaults: 'Defaults',
     larkDefaultsDesc: 'The default webhook is used when a notification rule does not specify its own target.',
     larkWebhookRequired: 'Default webhook URL is required to send a test card',

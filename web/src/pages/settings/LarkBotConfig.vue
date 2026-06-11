@@ -120,6 +120,45 @@ onMounted(() => {
           </div>
         </section>
 
+        <!-- Section 1.5: Connection & Card -->
+        <section class="sre-config-section">
+          <h3 class="sre-config-section-title">{{ t('settings.larkConnection') }}</h3>
+          <p class="sre-config-section-desc">{{ t('settings.larkConnectionDesc') }}</p>
+          <div class="sre-config-form-grid">
+            <NFormItem :label="t('settings.larkDomain')">
+              <NSelect v-model:value="form.domain" :options="[
+                { label: 'Lark (International)', value: 'larksuite' },
+                { label: 'Feishu (China)', value: 'feishu' },
+              ]" />
+            </NFormItem>
+            <NFormItem :label="t('settings.larkConnectionMode')">
+              <NSelect v-model:value="form.connection_mode" :options="[
+                { label: 'WebSocket', value: 'websocket' },
+                { label: 'HTTP Callback', value: 'http_callback' },
+              ]" />
+            </NFormItem>
+            <NFormItem :label="t('settings.larkCardInteraction')">
+              <NSelect v-model:value="form.card_interaction_mode" :options="[
+                { label: 'Open URL (no callback)', value: 'open_url' },
+                { label: 'Callback (HTTP)', value: 'callback_http' },
+                { label: 'Callback (WS)', value: 'callback_ws' },
+              ]" />
+            </NFormItem>
+            <NFormItem :label="t('settings.larkCardSchema')">
+              <NSelect v-model:value="form.card_schema_version" :options="[
+                { label: 'Card 2.0 + CardKit', value: 'v2' },
+                { label: 'Card 1.0 (Legacy)', value: 'v1' },
+              ]" />
+            </NFormItem>
+          </div>
+          <div class="section-footer">
+            <NButton type="primary" size="small" :loading="savingCredentials" @click="saveSection('credentials')">
+              <template #icon><NIcon :component="SaveOutline" /></template>
+              {{ t('common.save') }}
+            </NButton>
+          </div>
+        </section>
+
         <!-- Section 2: Behavior -->
         <section class="sre-config-section">
           <h3 class="sre-config-section-title">{{ t('settings.larkBehavior') }}</h3>
