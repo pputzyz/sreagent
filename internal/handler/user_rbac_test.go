@@ -28,13 +28,15 @@ func Test_maskNotifyTarget_ChannelUser_Masked(t *testing.T) {
 	assert.Empty(t, u.NotifyTarget, "channel user's NotifyTarget should be masked for non-admin")
 }
 
-func Test_maskNotifyTarget_HumanUser_Unchanged(t *testing.T) {
+func Test_maskNotifyTarget_HumanUser_Masked(t *testing.T) {
+	// Human users' NotifyTarget carries personal contact details (phone/email)
+	// and must also be hidden from non-admin callers.
 	u := &model.User{
 		UserType:     model.UserTypeHuman,
-		NotifyTarget: "some-value",
+		NotifyTarget: `{"phone":"13800138000","email":"alice@example.com"}`,
 	}
 	maskNotifyTarget(u)
-	assert.Equal(t, "some-value", u.NotifyTarget, "human user's NotifyTarget should not be masked")
+	assert.Empty(t, u.NotifyTarget, "human user's NotifyTarget (personal contact info) must be masked for non-admin")
 }
 
 func Test_isCallerAdmin_Admin_ReturnsTrue(t *testing.T) {
@@ -76,7 +78,7 @@ func Test_ListUsers_NonAdmin_NotifyTargetMasked(t *testing.T) {
 		},
 		{
 			UserType:     model.UserTypeHuman,
-			NotifyTarget: "",
+			NotifyTarget: `{"phone":"13800138000"}`,
 			Username:     "alice",
 		},
 		{
@@ -98,7 +100,7 @@ func Test_ListUsers_NonAdmin_NotifyTargetMasked(t *testing.T) {
 	}
 
 	assert.Empty(t, users[0].NotifyTarget, "bot user NotifyTarget must be masked")
-	assert.Empty(t, users[1].NotifyTarget, "human user NotifyTarget stays empty")
+	assert.Empty(t, users[1].NotifyTarget, "human user NotifyTarget (contact info) must be masked")
 	assert.Empty(t, users[2].NotifyTarget, "channel user NotifyTarget must be masked")
 }
 

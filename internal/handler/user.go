@@ -38,12 +38,12 @@ func isCallerAdmin(c *gin.Context) bool {
 	return ok && roleStr == string(model.RoleAdmin)
 }
 
-// maskNotifyTarget clears NotifyTarget for bot/channel users to prevent
-// leaking webhook URLs to non-admin callers.
+// maskNotifyTarget clears NotifyTarget for non-admin callers. For bot/channel
+// users the field contains a credential-grade webhook URL; for human users it
+// contains personal contact details (phone/email) — neither should be exposed
+// to arbitrary authenticated users.
 func maskNotifyTarget(u *model.User) {
-	if u.UserType == model.UserTypeBot || u.UserType == model.UserTypeChannel {
-		u.NotifyTarget = ""
-	}
+	u.NotifyTarget = ""
 }
 
 // CreateUserRequest is the request body for creating a user.
