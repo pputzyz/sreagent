@@ -562,6 +562,12 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	svcs.LarkBotSvc = service.NewLarkBotService(svcs.SettingSvc, svcs.EventSvc, svcs.ScheduleSvc, repos.User, zapLogger)
 	svcs.LarkBotSvc.SetAgentService(svcs.AgentSvc)
 
+	// Shared Lark token cache — one cache across LarkSvc, LarkBotSvc, NotifyMediaSvc.
+	larkTokenCache := lark.NewTokenCache()
+	svcs.LarkSvc.SetTokenCache(larkTokenCache)
+	svcs.LarkBotSvc.SetTokenCache(larkTokenCache)
+	svcs.NotifyMediaSvc.SetTokenCache(larkTokenCache)
+
 	// LDAP + OAuth2 services
 	svcs.LDAPSvc = service.NewLDAPService(svcs.SettingSvc, repos.User, zapLogger)
 	svcs.OAuth2Svc = service.NewOAuth2Service(svcs.SettingSvc, repos.User, zapLogger)

@@ -50,7 +50,8 @@ type circuitState struct {
 type NotifyMediaService struct {
 	repo        *repository.NotifyMediaRepository
 	logger      *zap.Logger
-	feishuTokenCache sync.Map // key: appID, value: *feishuTokenEntry
+	feishuTokenCache sync.Map        // key: appID, value: *feishuTokenEntry (legacy fallback)
+	tokenCache  *lark.TokenCache    // shared cache (injected); avoids duplicate token fetches
 
 	// B5-10: Global concurrency cap for outbound notification sends.
 	sendSem chan struct{}
@@ -83,6 +84,13 @@ func NewNotifyMediaService(
 		sendSem:   make(chan struct{}, maxConcurrent),
 		breakers:  make(map[uint]*circuitState),
 	}
+}
+
+// SetTokenCache injects a shared token cache so that NotifyMediaService,
+// LarkService, and LarkBotService share a single cache, avoiding redundant
+// tenant_access_token fetches.
+func (s *NotifyMediaService) SetTokenCache(cache *lark.TokenCache) {
+	s.tokenCache = cache
 }
 
 // checkCircuit returns true if the circuit is open (should skip send).
@@ -1318,7 +1326,14 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 }
 
 func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, appSecret string) (string, error) {
-	// Check cache — refresh 60s before expiry to avoid stale tokens.
+	// Fast path: shared token cache (avoids duplicate fetches across services).
+	if s.tokenCache != nil {
+		if tok, ok := s.tokenCache.Get(); ok {
+			return tok, nil
+		}
+	}
+
+	// Legacy fallback: per-appID cache in sync.Map.
 	if cached, ok := s.feishuTokenCache.Load(appID); ok {
 		if entry, ok := cached.(*feishuTokenEntry); ok {
 			if time.Now().Before(entry.expiresAt.Add(-60 * time.Second)) {
@@ -1358,14 +1373,17 @@ func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, ap
 		return "", fmt.Errorf("feishu token error %d: %s", result.Code, result.Msg)
 	}
 
-	// Cache the token (default 2h if expire not provided)
-	ttl := time.Duration(result.Expire) * time.Second
+	// Populate both caches.
+	ttl := result.Expire
 	if ttl <= 0 {
-		ttl = 2 * time.Hour
+		ttl = 7200 // default 2h
+	}
+	if s.tokenCache != nil {
+		s.tokenCache.Set(result.TenantAccessToken, ttl)
 	}
 	s.feishuTokenCache.Store(appID, &feishuTokenEntry{
 		token:     result.TenantAccessToken,
-		expiresAt: time.Now().Add(ttl),
+		expiresAt: time.Now().Add(time.Duration(ttl) * time.Second),
 	})
 
 	return result.TenantAccessToken, nil
