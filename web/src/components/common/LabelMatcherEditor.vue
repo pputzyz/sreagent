@@ -74,20 +74,20 @@ function removeRow(i: number) {
 
 function onKeyChange(i: number, key: string) {
   const updated = [...props.modelValue]
-  updated[i] = { ...updated[i], key }
+  updated[i] = patchRow(updated[i], { key })
   emit('update:modelValue', updated)
   if (key) loadValues(key)
 }
 
 function onOpChange(i: number, op: string) {
   const updated = [...props.modelValue]
-  updated[i] = { ...updated[i], op }
+  updated[i] = patchRow(updated[i], { op })
   emit('update:modelValue', updated)
 }
 
 function onValueChange(i: number, value: string) {
   const updated = [...props.modelValue]
-  updated[i] = { ...updated[i], value }
+  updated[i] = patchRow(updated[i], { value })
   emit('update:modelValue', updated)
 }
 
@@ -97,6 +97,15 @@ function rowId(row: object): number {
   let id = _rowIdMap.get(row)
   if (id === undefined) { id = ++_nextLmeId; _rowIdMap.set(row, id) }
   return id
+}
+/** Replace a row immutably while carrying its id over so :key stays stable.
+ *  Without this, every keystroke creates a new object with a NEW id ->
+ *  Vue rebuilds the row -> the input loses focus on each character. */
+function patchRow(row: LabelMatcher, patch: Partial<LabelMatcher>): LabelMatcher {
+  const next = { ...row, ...patch }
+  const id = _rowIdMap.get(row)
+  if (id !== undefined) _rowIdMap.set(next, id)
+  return next
 }
 
 function keyAutocomplete(key: string) {

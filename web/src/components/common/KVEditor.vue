@@ -67,6 +67,13 @@ function rowId(row: object): number {
   if (id === undefined) { id = ++_nextKvId; _rowIdMap.set(row, id) }
   return id
 }
+/** Carry the row id over to a replacement object so :key stays stable.
+ *  Without this, every keystroke (which creates a new object via spread)
+ *  would get a NEW id -> Vue rebuilds the row -> the input loses focus. */
+function inheritRowId(oldRow: object, newRow: object) {
+  const id = _rowIdMap.get(oldRow)
+  if (id !== undefined) _rowIdMap.set(newRow, id)
+}
 
 export interface KVItem {
   key: string
@@ -140,9 +147,12 @@ function removeItem(index: number) {
 }
 
 function onFieldChange(index: number, field: 'key' | 'value', val: string) {
-  const updated = props.modelValue.map((item, i) =>
-    i === index ? { ...item, [field]: val } : item,
-  )
+  const updated = props.modelValue.map((item, i) => {
+    if (i !== index) return item
+    const next = { ...item, [field]: val }
+    inheritRowId(item, next)
+    return next
+  })
   emit('update:modelValue', updated)
   if (field === 'key') emit('keyChange', index, val)
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NInput,
@@ -58,31 +58,48 @@ function update<K extends keyof VariableConfig>(key: K, value: VariableConfig[K]
   emit('update:variable', { ...props.variable, [key]: value })
 }
 
-// Custom options management
+// Custom options management.
+// options is a string[] so rows can't carry their own identity — keep a
+// parallel array of stable ids, maintained positionally on add/remove and
+// left UNTOUCHED on edit. Keying by the option value (or index) would
+// regenerate the key on every keystroke and rebuild the input (focus loss).
 let _nextOptId = 0
-const _optIdMap = new Map<string, number>()
-function optId(opt: string, idx: number): number {
-  // Use index as part of key to handle duplicate values
-  const mapKey = `${idx}:${opt}`
-  let id = _optIdMap.get(mapKey)
-  if (id === undefined) { id = ++_nextOptId; _optIdMap.set(mapKey, id) }
-  return id
+const optIds = ref<number[]>([])
+
+// Resync when the options array is replaced externally (e.g. switching the
+// edited variable). Length-based: grow with fresh ids, trim from the end.
+watch(
+  () => (props.variable.options || []).length,
+  (len) => {
+    while (optIds.value.length < len) optIds.value.push(++_nextOptId)
+    if (optIds.value.length > len) optIds.value.length = len
+  },
+  { immediate: true },
+)
+
+function optKey(idx: number): number | string {
+  // Fallback covers the interval type's implicit default options
+  // (variable.options undefined) which have no tracked ids.
+  return optIds.value[idx] ?? `d${idx}`
 }
 
 function addOption() {
   const opts = [...(props.variable.options || []), '']
+  optIds.value.push(++_nextOptId)
   update('options', opts)
 }
 
 function removeOption(index: number) {
   const opts = [...(props.variable.options || [])]
   opts.splice(index, 1)
+  optIds.value.splice(index, 1)
   update('options', opts)
 }
 
 function updateOption(index: number, value: string) {
   const opts = [...(props.variable.options || [])]
   opts[index] = value
+  // ids untouched: same row, same key, input keeps focus
   update('options', opts)
 }
 </script>
@@ -163,7 +180,7 @@ function updateOption(index: number, value: string) {
     <template v-if="variable.type === 'custom'">
       <NFormItem :label="t('dashboardEditor.varOptions')">
         <div class="custom-options">
-          <div v-for="(opt, idx) in (variable.options || [])" :key="optId(opt, idx)" class="option-row">
+          <div v-for="(opt, idx) in (variable.options || [])" :key="optKey(idx)" class="option-row">
             <NInput
               :value="opt"
               size="small"
@@ -186,7 +203,7 @@ function updateOption(index: number, value: string) {
     <template v-if="variable.type === 'interval'">
       <NFormItem :label="t('dashboardEditor.varIntervalOptions')">
         <div class="custom-options">
-          <div v-for="(opt, idx) in (variable.options || ['1m', '5m', '10m', '30m', '1h'])" :key="optId(opt, idx)" class="option-row">
+          <div v-for="(opt, idx) in (variable.options || ['1m', '5m', '10m', '30m', '1h'])" :key="optKey(idx)" class="option-row">
             <NInput
               :value="opt"
               size="small"

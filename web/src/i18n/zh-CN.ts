@@ -465,6 +465,8 @@ export default {
     addFirst: '添加第一个数据源',
     noData: '尚未配置数据源',
     healthCheck: '健康检查',
+    testConnection: '测试连接',
+    testConnectionFailed: '连接测试失败',
     endpoint: '地址',
     endpointUrl: 'Endpoint URL',
     authType: '认证方式',
@@ -1060,6 +1062,9 @@ export default {
     saveAndEnable: '直接启用并保存',
     aiInhibitionPlaceholder: '描述你想要的抑制规则，例如：当同一命名空间的 critical 告警触发时，抑制同级 warning 告警',
     aiMutePlaceholder: '描述你想要的屏蔽规则，例如：每周六凌晨 2-4 点屏蔽所有 info 级别的网络探测告警',
+    aiDescriptionPlaceholder: '描述你想要的告警规则，例如：当任一节点 CPU 使用率持续 5 分钟超过 90% 时触发 critical 告警',
+    selectDatasource: '选择数据源',
+    selectAlert: '选择告警',
     aiImprove: 'AI 优化',
     aiImproveTitle: 'AI 优化规则',
     aiImproveDesc: '描述需要改进的地方，AI 将优化规则',
@@ -1080,7 +1085,6 @@ export default {
     // Rule form
     datasourceChangeWarning: '切换数据源将清空当前查询条件',
     datasourceChangeDescription: '切换数据源将清空当前表达式和查询条件，是否继续？',
-    Description: '描述',
   },
   errorCode: {
     invalidCredentials: '用户名或密码错误',
