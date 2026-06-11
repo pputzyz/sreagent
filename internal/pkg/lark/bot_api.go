@@ -16,12 +16,25 @@ import (
 )
 
 const (
-	larkBaseURL       = "https://open.feishu.cn/open-apis"
+	// DefaultLarkBaseURL is the default API base for the China (Feishu) region.
+	DefaultLarkBaseURL = "https://open.feishu.cn/open-apis"
+	// LarkSuiteBaseURL is the API base for the international (Lark) region.
+	LarkSuiteBaseURL = "https://open.larksuite.com/open-apis"
+
 	tokenEndpoint     = "/auth/v3/tenant_access_token/internal"
 	sendMsgEndpoint   = "/im/v1/messages"
 	patchMsgEndpoint  = "/im/v1/messages/%s"
 	deleteMsgEndpoint = "/im/v1/messages/%s"
 )
+
+// BaseURLForDomain returns the API base URL for the given domain setting.
+// "larksuite" → international, anything else → China (Feishu).
+func BaseURLForDomain(domain string) string {
+	if domain == "larksuite" {
+		return LarkSuiteBaseURL
+	}
+	return DefaultLarkBaseURL
+}
 
 // LarkError represents an error returned by the Lark API.
 type LarkError struct {
@@ -135,27 +148,37 @@ type BotClient struct {
 	appID      string
 	appSecret  string
 	tokenCache *TokenCache
+	baseURL    string // configurable: DefaultLarkBaseURL or LarkSuiteBaseURL
 }
 
 // NewBotClient creates a new BotClient with SSRF protection.
-func NewBotClient(appID, appSecret string) *BotClient {
+// baseURL selects the API region; pass empty string for DefaultLarkBaseURL.
+func NewBotClient(appID, appSecret, baseURL string) *BotClient {
+	if baseURL == "" {
+		baseURL = DefaultLarkBaseURL
+	}
 	return &BotClient{
 		httpClient: safehttp.NewSafeClient(10 * time.Second),
 		appID:      appID,
 		appSecret:  appSecret,
 		tokenCache: NewTokenCache(),
+		baseURL:    baseURL,
 	}
 }
 
 // NewBotClientWithCache creates a new BotClient that shares an existing TokenCache.
 // This allows multiple BotClient instances (e.g. LarkService and NotifyMediaService)
 // to share a single token cache, avoiding redundant token fetches.
-func NewBotClientWithCache(appID, appSecret string, cache *TokenCache) *BotClient {
+func NewBotClientWithCache(appID, appSecret string, cache *TokenCache, baseURL string) *BotClient {
+	if baseURL == "" {
+		baseURL = DefaultLarkBaseURL
+	}
 	return &BotClient{
 		httpClient: safehttp.NewSafeClient(10 * time.Second),
 		appID:      appID,
 		appSecret:  appSecret,
 		tokenCache: cache,
+		baseURL:    baseURL,
 	}
 }
 
@@ -178,7 +201,7 @@ func (c *BotClient) getTenantAccessToken(ctx context.Context) (string, error) {
 
 	_, err := doWithRetry(ctx, func() (larkAPIResult, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-			larkBaseURL+tokenEndpoint, bytes.NewReader(body))
+			c.baseURL+tokenEndpoint, bytes.NewReader(body))
 		if err != nil {
 			return larkAPIResult{}, err
 		}
@@ -264,7 +287,7 @@ func (c *BotClient) sendRaw(ctx context.Context, receiveIDType, receiveID, msgTy
 
 	_, err = doWithRetry(ctx, func() (larkAPIResult, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-			larkBaseURL+sendMsgEndpoint+"?receive_id_type="+receiveIDType,
+			c.baseURL+sendMsgEndpoint+"?receive_id_type="+receiveIDType,
 			bytes.NewReader(body))
 		if err != nil {
 			return larkAPIResult{}, err
@@ -307,7 +330,7 @@ func (c *BotClient) UpdateMessage(ctx context.Context, messageID string, card *C
 		"content":  string(cardJSON),
 	}
 	body, _ := json.Marshal(payload)
-	url := larkBaseURL + fmt.Sprintf(patchMsgEndpoint, messageID)
+	url := c.baseURL + fmt.Sprintf(patchMsgEndpoint, messageID)
 
 	_, err = doWithRetry(ctx, func() (larkAPIResult, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(body))
@@ -340,7 +363,7 @@ func (c *BotClient) DeleteMessage(ctx context.Context, messageID string) error {
 		return err
 	}
 
-	url := larkBaseURL + fmt.Sprintf(deleteMsgEndpoint, messageID)
+	url := c.baseURL + fmt.Sprintf(deleteMsgEndpoint, messageID)
 
 	_, err = doWithRetry(ctx, func() (larkAPIResult, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)

@@ -662,9 +662,9 @@ func (s *LarkBotService) SendMessage(ctx context.Context, chatID, content string
 	if cfg.AppID != "" && cfg.AppSecret != "" && chatID != "" {
 		var bot *lark.BotClient
 		if s.tokenCache != nil {
-			bot = lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache)
+			bot = lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache, lark.BaseURLForDomain(cfg.Domain))
 		} else {
-			bot = lark.NewBotClient(cfg.AppID, cfg.AppSecret)
+			bot = lark.NewBotClient(cfg.AppID, cfg.AppSecret, lark.BaseURLForDomain(cfg.Domain))
 		}
 		if _, err := bot.SendText(ctx, "chat_id", chatID, content); err != nil {
 			s.recordMessageError(err)
@@ -729,7 +729,7 @@ func (s *LarkBotService) TestBotAPI(ctx context.Context) error {
 	if cfg.AppID == "" || cfg.AppSecret == "" {
 		return fmt.Errorf("AppID and AppSecret must be configured")
 	}
-	bot := lark.NewBotClient(cfg.AppID, cfg.AppSecret)
+	bot := lark.NewBotClient(cfg.AppID, cfg.AppSecret, lark.BaseURLForDomain(cfg.Domain))
 	// SendText to an invalid chat_id — if credentials are wrong, we get a
 	// LarkError during token acquisition. If credentials are valid, the API
 	// returns a routing error (invalid chat_id) which is expected.
@@ -883,7 +883,7 @@ func (s *LarkBotService) handleAIConversation(ctx context.Context, question stri
 	if s.tokenCache != nil {
 		cfg, cfgErr := s.loadConfig(ctx)
 		if cfgErr == nil && cfg.AppID != "" && cfg.AppSecret != "" {
-			bot := lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache)
+			bot := lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache, lark.BaseURLForDomain(cfg.Domain))
 			if _, sendErr := bot.SendMessage(ctx, larkChatID, card); sendErr != nil {
 				s.logger.Warn("AI card send failed, falling back to text", zap.Error(sendErr))
 				return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))

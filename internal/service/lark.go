@@ -54,16 +54,16 @@ func (s *LarkService) SetTokenCache(cache *lark.TokenCache) {
 }
 
 // getBotClient returns a cached BotClient, creating a new one if credentials changed.
-func (s *LarkService) getBotClient(appID, appSecret string) *lark.BotClient {
+func (s *LarkService) getBotClient(appID, appSecret, baseURL string) *lark.BotClient {
 	s.botClientMu.Lock()
 	defer s.botClientMu.Unlock()
 	if s.botClient != nil && s.botClientAppID == appID && s.botClientSecret == appSecret {
 		return s.botClient
 	}
 	if s.tokenCache != nil {
-		s.botClient = lark.NewBotClientWithCache(appID, appSecret, s.tokenCache)
+		s.botClient = lark.NewBotClientWithCache(appID, appSecret, s.tokenCache, baseURL)
 	} else {
-		s.botClient = lark.NewBotClient(appID, appSecret)
+		s.botClient = lark.NewBotClient(appID, appSecret, baseURL)
 	}
 	s.botClientAppID = appID
 	s.botClientSecret = appSecret
@@ -202,7 +202,7 @@ func (s *LarkService) SendEnrichedAlertNotificationViaBot(ctx context.Context, e
 	}
 
 	card := s.buildEnrichedCard(event, analysis, true)
-	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret, lark.BaseURLForDomain(larkCfg.Domain))
 
 	msgID, err := botClient.SendMessage(ctx, chatID, card)
 	if err != nil {
@@ -231,7 +231,7 @@ func (s *LarkService) SendTestNotificationViaBot(ctx context.Context, chatID str
 		return fmt.Errorf("lark bot credentials not configured")
 	}
 	card := lark.BuildTestCard()
-	bot := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	bot := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret, lark.BaseURLForDomain(larkCfg.Domain))
 	if _, err := bot.SendMessage(ctx, chatID, card); err != nil {
 		s.logger.Error("failed to send lark test card via Bot API",
 			zap.String("chat_id", chatID), zap.Error(err))
@@ -261,7 +261,7 @@ func (s *LarkService) SendAlertCardToUser(ctx context.Context, event *model.Aler
 	}
 
 	card := s.buildEnrichedCard(event, analysis, true)
-	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret, lark.BaseURLForDomain(larkCfg.Domain))
 
 	msgID, err := botClient.SendDirectMessage(ctx, receiveIDType, receiveID, card)
 	if err != nil {
@@ -299,7 +299,7 @@ func (s *LarkService) UpdateAlertCard(ctx context.Context, event *model.AlertEve
 	}
 
 	card := s.buildEnrichedCard(event, nil, true)
-	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
+	botClient := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret, lark.BaseURLForDomain(larkCfg.Domain))
 
 	if err := botClient.UpdateMessage(ctx, messageID, card); err != nil {
 		s.logger.Error("failed to update lark card",
@@ -347,7 +347,7 @@ func (s *LarkService) HandleCardLifecycle(ctx context.Context, event *model.Aler
 				)
 				return nil
 			}
-			bot := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret)
+			bot := s.getBotClient(larkCfg.AppID, larkCfg.AppSecret, lark.BaseURLForDomain(larkCfg.Domain))
 			if err := bot.DeleteMessage(ctx, event.LarkMessageID); err != nil {
 				return fmt.Errorf("delete lark card: %w", err)
 			}

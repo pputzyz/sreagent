@@ -75,6 +75,12 @@ type LarkConfig struct {
 	EncryptKey        string `json:"encrypt_key"`
 	BotEnabled        bool   `json:"bot_enabled"`
 
+	// Section 2: region and connection
+	Domain              string `json:"domain"`                // "feishu" | "larksuite", default "larksuite"
+	ConnectionMode      string `json:"connection_mode"`       // "websocket" | "http_callback", default "websocket"
+	CardInteractionMode string `json:"card_interaction_mode"` // "callback_ws" | "callback_http" | "open_url", default "open_url"
+	CardSchemaVersion   string `json:"card_schema_version"`   // "v2" | "v1", default "v2"
+
 	// Section 3: message behavior
 	ResolveStrategy         string `json:"resolve_strategy"`           // "update" | "delete" | "none", default "update"
 	UpdateOnStateChange     bool   `json:"update_on_state_change"`     // default true
@@ -550,6 +556,23 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 		bhEnd = "18:00"
 	}
 
+	domain := kv["domain"]
+	if domain == "" {
+		domain = "larksuite"
+	}
+	connMode := kv["connection_mode"]
+	if connMode == "" {
+		connMode = "websocket"
+	}
+	cardInterMode := kv["card_interaction_mode"]
+	if cardInterMode == "" {
+		cardInterMode = "open_url"
+	}
+	cardSchema := kv["card_schema_version"]
+	if cardSchema == "" {
+		cardSchema = "v2"
+	}
+
 	cfg := LarkConfig{
 		AppID:             kv["app_id"],
 		AppSecret:         s.getDecrypted(groupLark, "app_secret", kv["app_secret"]),
@@ -557,6 +580,11 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 		VerificationToken: s.getDecrypted(groupLark, "verification_token", kv["verification_token"]),
 		EncryptKey:        s.getDecrypted(groupLark, "encrypt_key", kv["encrypt_key"]),
 		BotEnabled:        parseBool(kv["bot_enabled"]),
+
+		Domain:              domain,
+		ConnectionMode:      connMode,
+		CardInteractionMode: cardInterMode,
+		CardSchemaVersion:   cardSchema,
 
 		ResolveStrategy:         resolveStrategy,
 		UpdateOnStateChange:     parseBoolDef(kv["update_on_state_change"], true),
@@ -582,6 +610,10 @@ func (s *SystemSettingService) SaveLarkConfig(ctx context.Context, cfg LarkConfi
 		"app_id":                    cfg.AppID,
 		"default_webhook":           cfg.DefaultWebhook,
 		"bot_enabled":               strconv.FormatBool(cfg.BotEnabled),
+		"domain":                    cfg.Domain,
+		"connection_mode":           cfg.ConnectionMode,
+		"card_interaction_mode":     cfg.CardInteractionMode,
+		"card_schema_version":       cfg.CardSchemaVersion,
 		"resolve_strategy":          cfg.ResolveStrategy,
 		"update_on_state_change":    strconv.FormatBool(cfg.UpdateOnStateChange),
 		"delete_only_in_business_hours": strconv.FormatBool(cfg.DeleteOnlyInBusinessHours),
