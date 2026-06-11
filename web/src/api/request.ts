@@ -89,6 +89,8 @@ function redirectToLogin() {
 // Response interceptor — auto-refresh token on 401 before giving up
 request.interceptors.response.use(
   (response) => {
+    // Blob responses (e.g. file downloads) pass through as-is
+    if (response.config.responseType === 'blob') return response
     const data = response.data as ApiResponse
     if (data.code !== 0) {
       const msg = localizeError(data.code, data.message || 'Unknown error')

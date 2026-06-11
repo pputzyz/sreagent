@@ -74,6 +74,10 @@ type RuleEvaluator struct {
 
 	// Reliability: consecutive query error tracking
 	consecutiveErrors atomic.Int64
+
+	// runWG tracks this evaluator's Run() goroutine for graceful shutdown.
+	// If non-nil, Done() is called when Run() exits.
+	runWG *sync.WaitGroup
 }
 
 // Stop signals the evaluator to stop its Run loop.
@@ -145,6 +149,10 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 	}
 	ev := newRuleEvaluatorFromDeps(rule, ds, deps)
 	p.rules.Store(rule.ID, &ruleVersion{version: rule.Version, evaluator: ev})
+	// P0-5: Track goroutine in shared WaitGroup for graceful shutdown
+	if ev.runWG != nil {
+		ev.runWG.Add(1)
+	}
 	go ev.Run()
 	p.log.Info("rule added to datasource bucket",
 		zap.Uint("rule_id", rule.ID),
@@ -218,6 +226,7 @@ type evaluatorDeps struct {
 	labelRegistryRepo *repository.LabelRegistryRepository
 	ctx              context.Context
 	logger           *zap.Logger
+	runWG            *sync.WaitGroup // P0-5: shared WaitGroup for graceful shutdown tracking
 }
 
 // newRuleEvaluatorFromDeps creates a RuleEvaluator from bundled deps.
@@ -251,6 +260,7 @@ func newRuleEvaluatorFromDeps(rule *model.AlertRule, ds *model.DataSource, deps 
 		stopCh:              make(chan struct{}),
 		logger:              deps.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
 		fallbackSem:         make(chan struct{}, 16),
+		runWG:               deps.runWG,
 	}
 }
 
@@ -313,6 +323,14 @@ type Evaluator struct {
 	// next tick, ensuring rules pick up changed datasource endpoints.
 	forceSync    atomic.Bool
 	forceSyncDSs sync.Map // map[uint]bool — specific datasource IDs to restart (empty = all)
+
+	// runWG tracks in-flight rule evaluation goroutines so Stop() can wait
+	// for them to finish before returning (P0-5 graceful shutdown fix).
+	runWG sync.WaitGroup
+
+	// stopCancelDelay is the delay before the safety-net context cancellation
+	// in Stop(). Defaults to 30s; override in tests for faster turnaround.
+	stopCancelDelay time.Duration
 }
 
 // AlertWorkerPoolSubmiter is the subset of AlertWorkerPool used by the evaluator.
@@ -339,10 +357,11 @@ func NewEvaluator(
 		timelineRepo: timelineRepo,
 		queryClient:  queryClient,
 		evaluators:   make(map[uint]*RuleEvaluator),
-		suppressor:   NewLevelSuppressor(),
-		logger:       logger,
-		stopCh:       make(chan struct{}),
-		syncInterval: 9 * time.Second, // match Nightingale's 9s sync frequency for faster rule propagation
+		suppressor:      NewLevelSuppressor(),
+		logger:          logger,
+		stopCh:          make(chan struct{}),
+		syncInterval:    9 * time.Second, // match Nightingale's 9s sync frequency for faster rule propagation
+		stopCancelDelay: 30 * time.Second,
 	}
 }
 
@@ -396,6 +415,7 @@ func (e *Evaluator) buildEvaluatorDeps() evaluatorDeps {
 		labelRegistryRepo: e.labelRegistryRepo,
 		ctx:               e.ctx,
 		logger:            e.logger,
+		runWG:             &e.runWG,
 	}
 }
 
@@ -596,9 +616,14 @@ func (e *Evaluator) Stop() {
 
 		// Cancel the evaluator context AFTER stopping evaluators so that
 		// in-flight operations can finish gracefully before context is cancelled.
-		// Safety net: if evaluators are slow to stop, force-cancel after 30s.
+		// Safety net: if evaluators are slow to stop, force-cancel after delay.
+		// P0-4 fix: capture cancel as local variable to prevent race with Restart()
+		// which replaces e.cancel. Without the capture, the AfterFunc closure would
+		// call the NEW context's cancel if Restart() happened in between.
 		if e.cancel != nil {
-			time.AfterFunc(30*time.Second, func() { e.cancel() })
+			cancel := e.cancel
+			delay := e.stopCancelDelay
+			time.AfterFunc(delay, cancel)
 		}
 
 		// Clean up per-datasource buckets
@@ -608,6 +633,17 @@ func (e *Evaluator) Stop() {
 			}
 			return true
 		})
+
+		// P0-5: Wait for in-flight rule evaluation goroutines to finish
+		// before returning, so downstream code (e.g. Redis/DB teardown) is safe.
+		// Use a separate goroutine + channel so we can enforce a timeout.
+		done := make(chan struct{})
+		go func() { e.runWG.Wait(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(e.stopCancelDelay + 5*time.Second):
+			e.logger.Warn("evaluator stop timed out waiting for in-flight evaluations")
+		}
 
 		// Wait for background goroutines (e.g. sync loop) to exit
 		e.wg.Wait()
@@ -890,6 +926,7 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 		stopCh:              make(chan struct{}),
 		logger:              e.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
 		fallbackSem:         make(chan struct{}, 16),
+		runWG:               &e.runWG,
 	}
 
 	e.mu.Lock()
@@ -899,6 +936,7 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 	e.evaluators[rule.ID] = re
 	e.mu.Unlock()
 
+	e.runWG.Add(1)
 	go re.Run()
 
 	e.logger.Info("started evaluator for rule",

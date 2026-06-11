@@ -120,6 +120,30 @@ func (r *OnCallShiftRepository) DeleteByScheduleAndTimeRange(ctx context.Context
 		Delete(&model.OnCallShift{}).Error
 }
 
+// DeleteRotationShiftsByScheduleAndTimeRange removes only auto-generated (rotation)
+// shifts for a schedule within [start, end), preserving manual shift overrides.
+func (r *OnCallShiftRepository) DeleteRotationShiftsByScheduleAndTimeRange(ctx context.Context, scheduleID uint, start, end time.Time) error {
+	return r.db.WithContext(ctx).
+		Where("schedule_id = ? AND start_time >= ? AND start_time < ? AND source = 'rotation'", scheduleID, start, end).
+		Delete(&model.OnCallShift{}).Error
+}
+
+// RegenerateShifts atomically deletes rotation shifts and creates new ones in a single transaction.
+func (r *OnCallShiftRepository) RegenerateShifts(ctx context.Context, scheduleID uint, start, end time.Time, shifts []model.OnCallShift) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("schedule_id = ? AND start_time >= ? AND start_time < ? AND source = 'rotation'", scheduleID, start, end).
+			Delete(&model.OnCallShift{}).Error; err != nil {
+			return err
+		}
+		if len(shifts) > 0 {
+			if err := tx.Create(&shifts).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // GetCurrentShiftsForSchedules returns the active shift for each of the given
 // schedule IDs at the given time, in a single query. Returns a map keyed by scheduleID.
 func (r *OnCallShiftRepository) GetCurrentShiftsForSchedules(ctx context.Context, scheduleIDs []uint, now time.Time) (map[uint]*model.OnCallShift, error) {

@@ -471,23 +471,31 @@ function clearCrossPageSelection() {
 }
 
 // ===== Export =====
-function handleExportCSV() {
-  const tr = getTimeRange()
-  const params = new URLSearchParams()
-  const sf = statusFilterArray()
-  if (sf) params.set('status', sf.join(','))
-  if (severityFilter.value) params.set('severity', severityFilter.value)
-  if (search.value) params.set('alert_name', search.value)
-  if (tr.start_time) params.set('start_time', tr.start_time)
-  if (tr.end_time) params.set('end_time', tr.end_time)
-  params.set('view_mode', viewMode.value)
-  const url = `/api/v1/alert-events/export?${params.toString()}`
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `alert-events-${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+const exportLoading = ref(false)
+async function handleExportCSV() {
+  try {
+    exportLoading.value = true
+    const tr = getTimeRange()
+    const params = new URLSearchParams()
+    const sf = statusFilterArray()
+    if (sf) params.set('status', sf.join(','))
+    if (severityFilter.value) params.set('severity', severityFilter.value)
+    if (search.value) params.set('alert_name', search.value)
+    if (tr.start_time) params.set('start_time', tr.start_time)
+    if (tr.end_time) params.set('end_time', tr.end_time)
+    params.set('view_mode', viewMode.value)
+    const res = await alertEventApi.exportCSV(params.toString())
+    const blobUrl = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = `alert-events-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(blobUrl)
+  } catch {
+    message.error(t('alert.exportFailed'))
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 // ===== Auto-refresh (防重入锁：前一次请求未完成时跳过本轮) =====
@@ -538,7 +546,7 @@ const EllipsisIcon = () => h(NIcon, { component: EllipsisHorizontalOutline })
         <NButton circle quaternary size="small" :loading="loading" @click="fetchList">
           <template #icon><NIcon :component="RefreshOutline" /></template>
         </NButton>
-        <NButton size="small" @click="handleExportCSV">
+        <NButton size="small" :loading="exportLoading" @click="handleExportCSV">
           <template #icon><NIcon :component="DownloadOutline" /></template>
           {{ t('alert.exportCSV') }}
         </NButton>

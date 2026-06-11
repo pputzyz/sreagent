@@ -143,16 +143,18 @@ func (s *AlertEventService) GetByID(ctx context.Context, id uint) (*model.AlertE
 // Acknowledge marks an alert as acknowledged.
 func (s *AlertEventService) Acknowledge(ctx context.Context, eventID, userID uint) error {
 	now := time.Now()
-	ok, err := s.repo.TransitionStatus(ctx, eventID, []model.AlertEventStatus{model.EventStatusFiring}, map[string]interface{}{
-		"status":   model.EventStatusAcknowledged,
-		"acked_by": userID,
-		"acked_at": now,
-	})
+	ok, err := s.repo.TransitionStatus(ctx, eventID,
+		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAssigned},
+		map[string]interface{}{
+			"status":   model.EventStatusAcknowledged,
+			"acked_by": userID,
+			"acked_at": now,
+		})
 	if err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 	if !ok {
-		return apperr.WithMessage(apperr.ErrBadRequest, "alert is not in firing state")
+		return apperr.WithMessage(apperr.ErrBadRequest, "alert is not in a state that can be acknowledged")
 	}
 
 	event, err := s.repo.GetByID(ctx, eventID)
@@ -213,7 +215,12 @@ func (s *AlertEventService) Assign(ctx context.Context, eventID, assignTo, opera
 func (s *AlertEventService) Resolve(ctx context.Context, eventID, userID uint, resolution string) error {
 	now := time.Now()
 	ok, err := s.repo.TransitionStatus(ctx, eventID,
-		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAcknowledged},
+		[]model.AlertEventStatus{
+			model.EventStatusFiring,
+			model.EventStatusAcknowledged,
+			model.EventStatusAssigned,
+			model.EventStatusSilenced,
+		},
 		map[string]interface{}{
 			"status":      model.EventStatusResolved,
 			"resolved_at": now,
@@ -246,7 +253,13 @@ func (s *AlertEventService) Resolve(ctx context.Context, eventID, userID uint, r
 func (s *AlertEventService) Close(ctx context.Context, eventID, userID uint, note string) error {
 	now := time.Now()
 	ok, err := s.repo.TransitionStatus(ctx, eventID,
-		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAcknowledged, model.EventStatusResolved},
+		[]model.AlertEventStatus{
+			model.EventStatusFiring,
+			model.EventStatusAcknowledged,
+			model.EventStatusAssigned,
+			model.EventStatusSilenced,
+			model.EventStatusResolved,
+		},
 		map[string]interface{}{
 			"status":    model.EventStatusClosed,
 			"closed_at": now,

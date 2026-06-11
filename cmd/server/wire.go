@@ -57,9 +57,10 @@ type Dependencies struct {
 
 	// Engine components
 	AlertWorkerPool    *engine.AlertWorkerPool
-	HeartbeatChecker   *engine.HeartbeatChecker
-	AlertGroupMgr      *service.AlertGroupManager
-	EscalationExecutor *engine.EscalationExecutor
+	HeartbeatChecker    *engine.HeartbeatChecker
+	SilenceExpiryChecker *engine.SilenceExpiryChecker
+	AlertGroupMgr       *service.AlertGroupManager
+	EscalationExecutor  *engine.EscalationExecutor
 	Evaluator          *engine.Evaluator // nil if engine disabled
 	RecordingRuleEngine *engine.RecordingRuleEngine
 
@@ -894,6 +895,13 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	heartbeatChecker.Start()
 
+	// Initialize and start the silence expiry checker
+	silenceExpiryChecker := engine.NewSilenceExpiryChecker(repos.Event, repos.Timeline, zapLogger)
+	if d.Leader != nil {
+		silenceExpiryChecker.SetLeaderElection(d.Leader)
+	}
+	silenceExpiryChecker.Start()
+
 	// Initialize and start the recording rule engine
 	recordingRuleEngine := engine.NewRecordingRuleEngine(
 		repos.RecordingRule, repos.DS, db, svcs.QueryClient, zapLogger,
@@ -1078,6 +1086,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	d.LabelRegistrySvc = svcs.LabelRegistrySvc
 	d.AlertWorkerPool = svcs.AlertWorkerPool
 	d.HeartbeatChecker = heartbeatChecker
+	d.SilenceExpiryChecker = silenceExpiryChecker
 	d.AlertGroupMgr = alertGroupMgr
 	d.EscalationExecutor = escalationExecutor
 	d.Evaluator = evaluator
@@ -1183,6 +1192,11 @@ func (d *Dependencies) Shutdown() {
 
 	// 2. Stop heartbeat checker
 	d.HeartbeatChecker.Stop()
+
+	// 2.5. Stop silence expiry checker
+	if d.SilenceExpiryChecker != nil {
+		d.SilenceExpiryChecker.Stop()
+	}
 
 	// 3. Stop alert group manager (flush remaining buffered alerts)
 	d.AlertGroupMgr.Stop()

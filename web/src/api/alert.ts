@@ -92,6 +92,9 @@ export const alertEventApi = {
 
   batchClose: (ids: number[]) =>
     request.post<ApiResponse<null>>('/alert-events/batch/close', { ids }),
+
+  exportCSV: (queryString: string) =>
+    request.get<Blob>(`/alert-events/export?${queryString}`, { responseType: 'blob' }),
 }
 
 // ===== Alert Channel API =====

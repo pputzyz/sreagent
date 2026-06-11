@@ -725,12 +725,6 @@ func (s *ScheduleService) GenerateRotationShifts(ctx context.Context, scheduleID
 		periodDays = 7
 	}
 
-	// Remove existing auto-generated shifts in range
-	if err := s.shiftRepo.DeleteByScheduleAndTimeRange(ctx, scheduleID, genStart, genEnd); err != nil {
-		s.logger.Error("failed to clean up existing shifts", zap.Error(err))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
 	// Build new shifts
 	var shifts []model.OnCallShift
 	cursor := genStart
@@ -749,8 +743,9 @@ func (s *ScheduleService) GenerateRotationShifts(ctx context.Context, scheduleID
 		idx++
 	}
 
-	if err := s.shiftRepo.BulkCreate(ctx, shifts); err != nil {
-		s.logger.Error("failed to bulk create shifts", zap.Error(err))
+	// Atomically delete rotation shifts and create new ones (preserves manual overrides)
+	if err := s.shiftRepo.RegenerateShifts(ctx, scheduleID, genStart, genEnd, shifts); err != nil {
+		s.logger.Error("failed to regenerate shifts", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
 

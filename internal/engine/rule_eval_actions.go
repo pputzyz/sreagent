@@ -199,7 +199,11 @@ func (re *RuleEvaluator) resolveAlertEvent(state *AlertState) error {
 
 	now := time.Now()
 	ok, err := re.eventRepo.TransitionStatus(ctx, state.EventID,
-		[]model.AlertEventStatus{model.EventStatusFiring},
+		[]model.AlertEventStatus{
+			model.EventStatusFiring,
+			model.EventStatusAssigned,
+			model.EventStatusSilenced,
+		},
 		map[string]interface{}{
 			"status":      model.EventStatusResolved,
 			"resolved_at": now,

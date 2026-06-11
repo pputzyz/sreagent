@@ -59,7 +59,59 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 
 	// Firing alert
 	if existing != nil {
-		// Dedup: increment fire count
+		// Re-fire: if the alert was previously resolved, transition back to firing
+		if existing.Status == model.EventStatusResolved {
+			now := time.Now()
+			existing.Status = model.EventStatusFiring
+			existing.FiredAt = now
+			existing.ResolvedAt = nil
+			existing.FireCount++
+			if err := s.repo.Update(ctx, existing); err != nil {
+				return err
+			}
+			s.addTimeline(ctx, existing.ID, model.TimelineActionReopened, nil, "Alert re-fired after resolve")
+			s.triggerLarkCardUpdate(existing)
+
+			// Trigger notification routing for the re-fired alert
+			if s.notifySvc != nil {
+				eventID := existing.ID
+				dispatch := func(ctx context.Context) {
+					if err := s.notifySvc.RouteAlert(ctx, existing); err != nil {
+						s.logger.Error("failed to route re-fired alert notification",
+							zap.Uint("event_id", eventID),
+							zap.Error(err),
+						)
+					}
+				}
+				if s.workerPool != nil {
+					if !s.workerPool.Submit(s.bgCtx(), dispatch) {
+						s.logger.Warn("worker pool full, re-fire notification deferred",
+							zap.Uint("event_id", eventID),
+						)
+					}
+				} else {
+					select {
+					case s.dispatchSem <- struct{}{}:
+						go func() {
+							defer func() { <-s.dispatchSem }()
+							defer func() {
+								if r := recover(); r != nil {
+									s.logger.Error("re-fire notification dispatch panic recovered", zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+								}
+							}()
+							dispatch(s.bgCtx())
+						}()
+					default:
+						s.logger.Warn("dispatch semaphore full, dropping re-fire notification dispatch",
+							zap.Uint("event_id", eventID),
+						)
+					}
+				}
+			}
+			return nil
+		}
+
+		// Dedup: already firing, just increment fire count
 		existing.FireCount++
 		return s.repo.Update(ctx, existing)
 	}

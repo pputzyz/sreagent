@@ -19,6 +19,12 @@ import (
 
 // Run is the main loop for a single rule evaluator.
 func (re *RuleEvaluator) Run() {
+	// P0-5: Signal the parent WaitGroup when this goroutine exits so Stop()
+	// can wait for in-flight evaluations to complete before tearing down
+	// shared resources (Redis, DB connections, etc.).
+	if re.runWG != nil {
+		defer re.runWG.Done()
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			re.logger.Error("rule evaluator Run() panic recovered",

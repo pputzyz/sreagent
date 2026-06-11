@@ -881,6 +881,7 @@ export default {
     sourceFilter: 'Filter by source',
     resetFilters: 'Reset Filters',
     exportCSV: 'Export CSV',
+    exportFailed: 'Export failed',
     groupedView: 'Grouped View',
     flatView: 'Flat View',
     groupTotal: '{n} alerts',

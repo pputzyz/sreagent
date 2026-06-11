@@ -888,6 +888,7 @@ export default {
     sourceFilter: '来源筛选',
     resetFilters: '重置筛选',
     exportCSV: '导出 CSV',
+    exportFailed: '导出失败',
     groupedView: '分组视图',
     flatView: '列表视图',
     groupTotal: '共 {n} 条',

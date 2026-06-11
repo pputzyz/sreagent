@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -444,3 +445,51 @@ var _ AlertWorkerPoolSubmiter = (*mockWorkerPool)(nil)
 // ---------------------------------------------------------------------------
 // DB helper (reused by integration tests)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// P0-4 regression: Stop+Restart must not cancel the new context
+// ---------------------------------------------------------------------------
+
+func Test_Evaluator_StopThenRestart_NewContextNotCancelled(t *testing.T) {
+	logger := zap.NewNop()
+	eval := NewEvaluator(nil, nil, nil, nil, nil, nil, logger)
+
+	// Use a very short delay so the test doesn't wait 30s
+	eval.stopCancelDelay = 50 * time.Millisecond
+
+	// Simulate a "started" evaluator by manually setting up context and state.
+	// We can't call Start() because it requires a real DB for syncRules().
+	eval.ctx, eval.cancel = context.WithCancel(context.Background())
+	eval.startedAt = time.Now()
+	eval.startMu.Lock()
+	eval.started = true
+	eval.startMu.Unlock()
+
+	// Verify context is live
+	select {
+	case <-eval.ctx.Done():
+		t.Fatal("context should not be cancelled right after setup")
+	default:
+	}
+
+	// Call Stop — this fires the AfterFunc(cancel) after 50ms
+	eval.Stop()
+
+	// Immediately simulate what Restart does: create a new context
+	eval.ctx, eval.cancel = context.WithCancel(context.Background())
+	eval.stopOnce = sync.Once{}
+	eval.stopCh = make(chan struct{})
+
+	// The old AfterFunc fires after 50ms. If P0-4 is NOT fixed,
+	// it calls the OLD e.cancel which now points to the NEW context's cancel.
+	// Wait for the delay + a safety buffer.
+	time.Sleep(150 * time.Millisecond)
+
+	// Verify the new context is still alive
+	select {
+	case <-eval.ctx.Done():
+		t.Fatal("new context was cancelled by stale AfterFunc — P0-4 regression")
+	default:
+		// OK: new context is healthy
+	}
+}
