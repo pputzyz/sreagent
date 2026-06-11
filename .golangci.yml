@@ -1,0 +1,20 @@
+run:
+  timeout: 5m
+
+linters:
+  disable:
+    - exhaustruct      # too strict for existing codebase
+    - depguard          # not needed
+    - ireturn           # too strict
+    - varnamelen        # too strict
+    - wsl               # style-only, slow
+    - nlreturn          # style-only
+    - godot             # style-only
+    - testpackage       # too strict for _test.go in same package
+
+issues:
+  exclude-dirs:
+    - web
+    - vendor
+    - docs
+    - cmd/larkpoc

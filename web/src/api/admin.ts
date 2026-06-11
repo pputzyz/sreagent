@@ -228,9 +228,9 @@ export const auditLogApi = {
 // ===== Lark Bot API =====
 export const larkBotApi = {
   getConfig: () =>
-    request.get<ApiResponse<{ app_id: string; app_secret: string; default_webhook: string; verification_token: string; encrypt_key: string; bot_enabled: boolean; resolve_strategy: string; update_on_state_change: boolean; delete_only_in_business_hours: boolean; business_hours_start: string; business_hours_end: string; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean }>>('/lark/bot/config'),
+    request.get<ApiResponse<{ app_id: string; app_secret: string; default_webhook: string; verification_token: string; encrypt_key: string; bot_enabled: boolean; domain: string; connection_mode: string; card_interaction_mode: string; card_schema_version: string; resolve_strategy: string; update_on_state_change: boolean; delete_only_in_business_hours: boolean; business_hours_start: string; business_hours_end: string; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean }>>('/lark/bot/config'),
 
-  updateConfig: (data: { app_id?: string; app_secret?: string; default_webhook?: string; verification_token?: string; encrypt_key?: string; bot_enabled?: boolean; resolve_strategy?: string; update_on_state_change?: boolean; delete_only_in_business_hours?: boolean; business_hours_start?: string; business_hours_end?: string; commands_enabled?: boolean; natural_language_enabled?: boolean; debug_mode?: boolean }) =>
+  updateConfig: (data: { app_id?: string; app_secret?: string; default_webhook?: string; verification_token?: string; encrypt_key?: string; bot_enabled?: boolean; domain?: string; connection_mode?: string; card_interaction_mode?: string; card_schema_version?: string; resolve_strategy?: string; update_on_state_change?: boolean; delete_only_in_business_hours?: boolean; business_hours_start?: string; business_hours_end?: string; commands_enabled?: boolean; natural_language_enabled?: boolean; debug_mode?: boolean }) =>
     request.put<ApiResponse<null>>('/lark/bot/config', data),
 
   testBotAPI: () =>
