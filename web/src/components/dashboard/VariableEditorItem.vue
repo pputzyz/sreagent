@@ -59,6 +59,16 @@ function update<K extends keyof VariableConfig>(key: K, value: VariableConfig[K]
 }
 
 // Custom options management
+let _nextOptId = 0
+const _optIdMap = new Map<string, number>()
+function optId(opt: string, idx: number): number {
+  // Use index as part of key to handle duplicate values
+  const mapKey = `${idx}:${opt}`
+  let id = _optIdMap.get(mapKey)
+  if (id === undefined) { id = ++_nextOptId; _optIdMap.set(mapKey, id) }
+  return id
+}
+
 function addOption() {
   const opts = [...(props.variable.options || []), '']
   update('options', opts)
@@ -153,7 +163,7 @@ function updateOption(index: number, value: string) {
     <template v-if="variable.type === 'custom'">
       <NFormItem :label="t('dashboardEditor.varOptions')">
         <div class="custom-options">
-          <div v-for="(opt, idx) in (variable.options || [])" :key="idx" class="option-row">
+          <div v-for="(opt, idx) in (variable.options || [])" :key="optId(opt, idx)" class="option-row">
             <NInput
               :value="opt"
               size="small"
@@ -176,7 +186,7 @@ function updateOption(index: number, value: string) {
     <template v-if="variable.type === 'interval'">
       <NFormItem :label="t('dashboardEditor.varIntervalOptions')">
         <div class="custom-options">
-          <div v-for="(opt, idx) in (variable.options || ['1m', '5m', '10m', '30m', '1h'])" :key="idx" class="option-row">
+          <div v-for="(opt, idx) in (variable.options || ['1m', '5m', '10m', '30m', '1h'])" :key="optId(opt, idx)" class="option-row">
             <NInput
               :value="opt"
               size="small"

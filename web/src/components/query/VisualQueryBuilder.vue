@@ -188,12 +188,12 @@ defineExpose({ reset: resetAll, state })
   <div class="visual-query-builder">
     <NCollapse v-model:value="collapseValue" :accordion="false" class="builder-collapse">
       <!-- Metric Selection -->
-      <NCollapseItem name="metric" :title="t('query.vqbMetric') || 'Metric'">
+      <NCollapseItem name="metric" :title="t('query.vqbMetric')">
         <div class="builder-section">
           <NSelect
             v-model:value="state.metricName"
             :options="metricOptions"
-            :placeholder="t('query.vqbSelectMetric') || 'Select a metric...'"
+            :placeholder="t('query.vqbSelectMetric')"
             filterable
             clearable
             :loading="metricLoading"
@@ -205,17 +205,17 @@ defineExpose({ reset: resetAll, state })
       </NCollapseItem>
 
       <!-- Label Filters -->
-      <NCollapseItem name="labels" :title="t('query.vqbLabelFilters') || 'Label Filters'">
+      <NCollapseItem name="labels" :title="t('query.vqbLabelFilters')">
         <div class="builder-section">
           <div v-if="state.labelFilters.length === 0" class="builder-empty">
-            {{ t('query.vqbNoFilters') || 'No label filters. Click + to add.' }}
+            {{ t('query.vqbNoFilters') }}
           </div>
           <div v-for="filter in state.labelFilters" :key="filter.id" class="filter-row">
             <!-- Label key -->
             <NSelect
               :value="filter.key"
               :options="labelNameOptions"
-              :placeholder="t('query.vqbLabelKey') || 'Label'"
+              :placeholder="t('query.vqbLabelKey')"
               filterable
               :loading="labelLoading"
               size="small"
@@ -233,7 +233,7 @@ defineExpose({ reset: resetAll, state })
             <NSelect
               v-model:value="filter.value"
               :options="labelValueOptions(filter.id)"
-              :placeholder="labelValueLoading[filter.id] ? (t('common.loading') || 'Loading...') : (t('query.vqbLabelValue') || 'Value')"
+              :placeholder="labelValueLoading[filter.id] ? t('common.loading') : t('query.vqbLabelValue')"
               filterable
               tag
               :loading="labelValueLoading[filter.id]"
@@ -247,16 +247,16 @@ defineExpose({ reset: resetAll, state })
           </div>
           <NButton size="tiny" quaternary @click="addLabelFilter" :disabled="!datasourceId">
             <template #icon><NIcon size="14"><AddOutline /></NIcon></template>
-            {{ t('common.add') || 'Add' }}
+            {{ t('common.add') }}
           </NButton>
         </div>
       </NCollapseItem>
 
       <!-- Range Function -->
-      <NCollapseItem name="function" :title="t('query.vqbFunction') || 'Function'">
+      <NCollapseItem name="function" :title="t('query.vqbFunction')">
         <div class="builder-section">
           <div class="toggle-row">
-            <span class="toggle-label">{{ t('query.vqbEnableFunction') || 'Wrap with function' }}</span>
+            <span class="toggle-label">{{ t('query.vqbEnableFunction') }}</span>
             <NButton
               size="tiny"
               :type="state.rangeFunction.enabled ? 'primary' : 'default'"
@@ -276,7 +276,7 @@ defineExpose({ reset: resetAll, state })
             <NSelect
               v-model:value="state.rangeFunction.range"
               :options="durationOptions"
-              :placeholder="t('query.vqbDuration') || 'Duration'"
+              :placeholder="t('query.vqbDuration')"
               filterable
               tag
               size="small"
@@ -287,10 +287,10 @@ defineExpose({ reset: resetAll, state })
       </NCollapseItem>
 
       <!-- Aggregation -->
-      <NCollapseItem name="aggregation" :title="t('query.vqbAggregation') || 'Aggregation'">
+      <NCollapseItem name="aggregation" :title="t('query.vqbAggregation')">
         <div class="builder-section">
           <div class="toggle-row">
-            <span class="toggle-label">{{ t('query.vqbEnableAggregation') || 'Apply aggregation' }}</span>
+            <span class="toggle-label">{{ t('query.vqbEnableAggregation') }}</span>
             <NButton
               size="tiny"
               :type="state.aggregation.enabled ? 'primary' : 'default'"
@@ -317,7 +317,7 @@ defineExpose({ reset: resetAll, state })
               <NSelect
                 v-model:value="state.aggregation.groupLabels"
                 :options="labelNameOptions"
-                :placeholder="t('query.vqbGroupLabels') || 'Group by labels...'"
+                :placeholder="t('query.vqbGroupLabels')"
                 filterable
                 multiple
                 :loading="labelLoading"
@@ -368,7 +368,7 @@ defineExpose({ reset: resetAll, state })
           </div>
           <NButton size="tiny" quaternary @click="addBinaryOperand">
             <template #icon><NIcon size="14"><AddOutline /></NIcon></template>
-            {{ t('common.add') || 'Add' }}
+            {{ t('common.add') }}
           </NButton>
         </div>
       </NCollapseItem>

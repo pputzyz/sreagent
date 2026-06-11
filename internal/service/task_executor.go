@@ -365,6 +365,11 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, password, scri
 	select {
 	case <-ctx.Done():
 		_ = session.Signal(ssh.SIGKILL)
+		// Wait for the goroutine to finish writing to buffers before reading.
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+		}
 		return stdoutBuf.String(), stderrBuf.String(), -1, ctx.Err()
 	case runErr := <-done:
 		if runErr != nil {
@@ -376,6 +381,11 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, password, scri
 		return stdoutBuf.String(), stderrBuf.String(), 0, nil
 	case <-time.After(timeout):
 		_ = session.Signal(ssh.SIGKILL)
+		// Wait for the goroutine to finish writing to buffers before reading.
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+		}
 		return stdoutBuf.String(), stderrBuf.String(), -1, fmt.Errorf("execution timed out after %s", timeout)
 	}
 }

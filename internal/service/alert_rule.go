@@ -278,12 +278,12 @@ func (s *AlertRuleService) Delete(ctx context.Context, id uint) error {
 		return apperr.ErrRuleNotFound
 	}
 
-	s.recordHistory(ctx, existing, "deleted")
-
 	if err := s.repo.Delete(ctx, id); err != nil {
 		s.logger.Error("failed to delete alert rule", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
 	}
+
+	s.recordHistory(ctx, existing, "deleted")
 
 	return nil
 }
@@ -403,19 +403,20 @@ func (s *AlertRuleService) BatchDelete(ctx context.Context, ids []uint) error {
 	if len(ids) == 0 {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "ids must not be empty")
 	}
-	// Record history before deletion (snapshot captured while rule still exists)
-	rules, err := s.repo.GetByIDs(ctx, ids)
-	if err != nil {
-		s.logger.Error("failed to fetch rules for history recording before delete", zap.Error(err))
-		// continue with deletion even if history fetch fails
-	} else {
-		for i := range rules {
-			s.recordHistory(ctx, &rules[i], "deleted")
-		}
+	// Capture snapshot for history before deletion (while rules still exist in DB).
+	rules, fetchErr := s.repo.GetByIDs(ctx, ids)
+	if fetchErr != nil {
+		s.logger.Error("failed to fetch rules for history recording before delete", zap.Error(fetchErr))
 	}
 	if err := s.repo.BatchDelete(ctx, ids); err != nil {
 		s.logger.Error("failed to batch delete alert rules", zap.Error(err))
 		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	// Record history after successful deletion.
+	if fetchErr == nil {
+		for i := range rules {
+			s.recordHistory(ctx, &rules[i], "deleted")
+		}
 	}
 	return nil
 }

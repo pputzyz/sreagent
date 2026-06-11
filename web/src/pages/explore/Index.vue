@@ -352,10 +352,16 @@ const chartOption = computed(() => {
 })
 
 // ===== Execute =====
+// requestId pattern: only the latest runAll invocation writes to reactive state,
+// preventing stale responses from overwriting newer results during auto-refresh.
+let runAllRequestId = 0
+
 async function runAll() {
   const enabledQueries = queries.value.filter(q => q.enabled && q.dsId && q.expression.trim())
   if (!enabledQueries.length) return
   if (rangeMin.value !== -1) now.value = Date.now()
+
+  const id = ++runAllRequestId
 
   loading.value = true
   errorMsg.value = ''
@@ -374,6 +380,7 @@ async function runAll() {
         end: timeEnd.value,
         limit: logLimit.value,
       })
+      if (id !== runAllRequestId) return
       const data = res.data?.data
       if (data) {
         logEntries.value = (data.entries || []).map((e: LogEntry, i: number) => ({ ...e, _key: i }))
@@ -393,15 +400,18 @@ async function runAll() {
             end: timeEnd.value,
             step: resolveStep(),
           })
+          if (id !== runAllRequestId) return
           const data = res.data?.data
           if (data?.series) {
             lastRangeData = data
             allSeries.push(...data.series)
           }
         } catch (e: any) {
+          if (id !== runAllRequestId) return
           console.warn(`[Explore] Query failed for Q${q.id}:`, e)
         }
       }
+      if (id !== runAllRequestId) return
       if (allSeries.length > metricLimit.value) allSeries.length = metricLimit.value
       resultData.value = { result_type: 'matrix', series: allSeries, raw_count: allSeries.length }
 
@@ -409,14 +419,16 @@ async function runAll() {
       try {
         const q0 = enabledQueries[0]
         const instantRes = await datasourceApi.query(q0.dsId!, { expression: q0.expression })
+        if (id !== runAllRequestId) return
         instantData.value = instantRes.data?.data || null
-      } catch { instantData.value = null }
+      } catch { if (id !== runAllRequestId) return; instantData.value = null }
     }
     queryDuration.value = Math.round(performance.now() - t0)
   } catch (e: any) {
+    if (id !== runAllRequestId) return
     errorMsg.value = e?.response?.data?.error || e?.response?.data?.message || e?.message || t('query.queryFailed')
   } finally {
-    loading.value = false
+    if (id === runAllRequestId) loading.value = false
   }
 }
 

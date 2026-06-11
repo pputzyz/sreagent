@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -35,6 +36,7 @@ type AlertGroupManager struct {
 	logger        *zap.Logger
 	stopCh        chan struct{}
 	stopped       bool
+	stoppedAtomic atomic.Bool // lock-free check for ProcessEvent hot path
 	serverCtx     context.Context // server lifecycle context for timer callbacks
 }
 
@@ -71,6 +73,11 @@ func (m *AlertGroupManager) WithBatchRouteFunc(fn func(ctx context.Context, even
 // according to group_wait/group_interval settings on the alert rule.
 // For resolved events it dispatches immediately (no grouping).
 func (m *AlertGroupManager) ProcessEvent(ctx context.Context, event *model.AlertEvent) error {
+	// After Stop, route synchronously — don't buffer or register timers.
+	if m.stoppedAtomic.Load() {
+		return m.routeFunc(ctx, event)
+	}
+
 	// Resolution events bypass grouping — send immediately.
 	if event.Status == model.EventStatusResolved {
 		return m.routeFunc(ctx, event)
@@ -229,6 +236,8 @@ func (m *AlertGroupManager) getGroupKey(ctx context.Context, event *model.AlertE
 
 // Stop cancels all pending timers and prevents new events from being buffered.
 func (m *AlertGroupManager) Stop() {
+	m.stoppedAtomic.Store(true)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

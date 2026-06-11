@@ -247,7 +247,7 @@ export function useCrudPage<T extends { id: number }>(
     const successCount = results.filter((r) => r.status === 'fulfilled').length
     const failCount = results.length - successCount
     if (failCount > 0) {
-      message.error(t('common.deleteFailed') || `${failCount} deletions failed`)
+      message.error(t('common.batchDeletePartialFail', { fail: failCount }))
     }
     if (successCount > 0) {
       const msg = options.i18nKeys.deleted ? t(options.i18nKeys.deleted) : t('common.deleteSuccess')

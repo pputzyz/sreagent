@@ -161,13 +161,18 @@ func (e *Evaluator) GetStatus() EngineStatus {
 		isLeader = e.leader.IsLeader()
 	}
 
+	e.hashRingMu.RLock()
+	hashRingMode := e.hashRing != nil
+	instanceID := e.instanceID
+	e.hashRingMu.RUnlock()
+
 	return EngineStatus{
 		Running:      running,
 		TotalRules:   len(evals),
 		ActiveAlerts: activeAlerts,
 		Uptime:       uptime,
 		IsLeader:     isLeader,
-		HashRingMode: e.hashRing != nil,
-		InstanceID:   e.instanceID,
+		HashRingMode: hashRingMode,
+		InstanceID:   instanceID,
 	}
 }

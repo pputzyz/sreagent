@@ -51,6 +51,12 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchProfile()
   }
 
+  /** Update token ref and localStorage without fetching profile (used by silent refresh) */
+  function updateToken(newToken: string) {
+    token.value = newToken
+    localStorage.setItem('token', newToken)
+  }
+
   async function fetchProfile() {
     try {
       const { data } = await authApi.getProfile()
@@ -97,6 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
     canOperate,
     login,
     setToken,
+    updateToken,
     fetchProfile,
     logout,
   }

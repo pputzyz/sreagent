@@ -64,6 +64,32 @@ func (r *AlertEventRepository) GetByIDs(ctx context.Context, ids []uint) ([]mode
 	return events, err
 }
 
+// GetIDsByStatus returns the subset of ids whose current status matches the given status.
+func (r *AlertEventRepository) GetIDsByStatus(ctx context.Context, ids []uint, status model.AlertEventStatus) ([]uint, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var result []uint
+	err := r.db.WithContext(ctx).
+		Model(&model.AlertEvent{}).
+		Where("id IN ? AND status = ?", ids, status).
+		Pluck("id", &result).Error
+	return result, err
+}
+
+// GetIDsNotInStatus returns the subset of ids whose current status is NOT in the given set.
+func (r *AlertEventRepository) GetIDsNotInStatus(ctx context.Context, ids []uint, statuses []model.AlertEventStatus) ([]uint, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var result []uint
+	err := r.db.WithContext(ctx).
+		Model(&model.AlertEvent{}).
+		Where("id IN ? AND status NOT IN ?", ids, statuses).
+		Pluck("id", &result).Error
+	return result, err
+}
+
 func (r *AlertEventRepository) GetByFingerprint(ctx context.Context, fingerprint string) (*model.AlertEvent, error) {
 	var event model.AlertEvent
 	err := r.db.WithContext(ctx).

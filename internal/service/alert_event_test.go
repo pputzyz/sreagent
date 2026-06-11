@@ -149,3 +149,95 @@ func Test_Resolve_FromSilenced_Succeeds(t *testing.T) {
 	assert.Equal(t, model.EventStatusResolved, updated.Status,
 		"event should be in resolved status after Resolve from silenced")
 }
+
+// ---------------------------------------------------------------------------
+// P1-11 regression: BatchAcknowledge on already-acked events must not duplicate timeline
+// ---------------------------------------------------------------------------
+
+func Test_BatchAcknowledge_AlreadyAcked_NoDuplicateTimeline(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	ctx := context.Background()
+	eventRepo := repository.NewAlertEventRepository(db)
+	timelineRepo := repository.NewAlertTimelineRepository(db)
+	userRepo := repository.NewUserRepository(db)
+	logger := testutil.TestLogger()
+
+	svc := NewAlertEventService(eventRepo, timelineRepo, userRepo, nil, nil, nil, nil, logger)
+
+	// Seed one firing event and one already-acknowledged event.
+	firingEvent := seedAlertEvent(t, eventRepo, model.EventStatusFiring)
+	ackedEvent := seedAlertEvent(t, eventRepo, model.EventStatusAcknowledged)
+
+	// First batch ack — should transition the firing event, skip the acked one.
+	success, failed, err := svc.BatchAcknowledge(ctx, []uint{firingEvent.ID, ackedEvent.ID}, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, success, "only the firing event should be acknowledged")
+	assert.Equal(t, 1, failed, "the already-acked event should count as failed")
+
+	// Verify exactly 1 acknowledge timeline entry for the firing event.
+	timeline, err := timelineRepo.ListByEventID(ctx, firingEvent.ID)
+	require.NoError(t, err)
+	ackCount := 0
+	for _, entry := range timeline {
+		if entry.Action == model.TimelineActionAcknowledged {
+			ackCount++
+		}
+	}
+	assert.Equal(t, 1, ackCount, "firing event should have exactly 1 acknowledge timeline entry")
+
+	// Verify no timeline entries were written for the already-acked event.
+	ackedTimeline, err := timelineRepo.ListByEventID(ctx, ackedEvent.ID)
+	require.NoError(t, err)
+	assert.Empty(t, ackedTimeline, "already-acked event should have no new timeline entries")
+}
+
+// ---------------------------------------------------------------------------
+// P1-11 regression: BatchClose on already-closed events must not duplicate timeline
+// ---------------------------------------------------------------------------
+
+func Test_BatchClose_AlreadyClosed_NoDuplicateTimeline(t *testing.T) {
+	db := testutil.TestDB(t)
+	if db == nil {
+		t.Skip("SREAGENT_TEST_DSN not set")
+	}
+	t.Cleanup(func() { testutil.CleanupDB(t, db) })
+
+	ctx := context.Background()
+	eventRepo := repository.NewAlertEventRepository(db)
+	timelineRepo := repository.NewAlertTimelineRepository(db)
+	userRepo := repository.NewUserRepository(db)
+	logger := testutil.TestLogger()
+
+	svc := NewAlertEventService(eventRepo, timelineRepo, userRepo, nil, nil, nil, nil, logger)
+
+	// Seed one firing event and one already-closed event.
+	firingEvent := seedAlertEvent(t, eventRepo, model.EventStatusFiring)
+	closedEvent := seedAlertEvent(t, eventRepo, model.EventStatusClosed)
+
+	// Batch close — should transition the firing event, skip the closed one.
+	success, failed, err := svc.BatchClose(ctx, []uint{firingEvent.ID, closedEvent.ID}, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, success, "only the firing event should be closed")
+	assert.Equal(t, 1, failed, "the already-closed event should count as failed")
+
+	// Verify exactly 1 close timeline entry for the firing event.
+	timeline, err := timelineRepo.ListByEventID(ctx, firingEvent.ID)
+	require.NoError(t, err)
+	closeCount := 0
+	for _, entry := range timeline {
+		if entry.Action == model.TimelineActionClosed {
+			closeCount++
+		}
+	}
+	assert.Equal(t, 1, closeCount, "firing event should have exactly 1 close timeline entry")
+
+	// Verify no timeline entries were written for the already-closed event.
+	closedTimeline, err := timelineRepo.ListByEventID(ctx, closedEvent.ID)
+	require.NoError(t, err)
+	assert.Empty(t, closedTimeline, "already-closed event should have no new timeline entries")
+}

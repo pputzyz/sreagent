@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
 )
@@ -25,6 +26,24 @@ func NewUserHandler(svc *service.UserService, logger ...*zap.Logger) *UserHandle
 
 func (h *UserHandler) SetAuditService(svc *service.AuditLogService) {
 	h.auditSvc = svc
+}
+
+// isCallerAdmin checks if the current request is made by an admin user.
+func isCallerAdmin(c *gin.Context) bool {
+	role, exists := c.Get(middleware.ContextKeyRole)
+	if !exists {
+		return false
+	}
+	roleStr, ok := role.(string)
+	return ok && roleStr == string(model.RoleAdmin)
+}
+
+// maskNotifyTarget clears NotifyTarget for bot/channel users to prevent
+// leaking webhook URLs to non-admin callers.
+func maskNotifyTarget(u *model.User) {
+	if u.UserType == model.UserTypeBot || u.UserType == model.UserTypeChannel {
+		u.NotifyTarget = ""
+	}
 }
 
 // CreateUserRequest is the request body for creating a user.
@@ -119,6 +138,10 @@ func (h *UserHandler) Get(c *gin.Context) {
 		return
 	}
 
+	if !isCallerAdmin(c) {
+		maskNotifyTarget(user)
+	}
+
 	Success(c, user)
 }
 
@@ -132,6 +155,12 @@ func (h *UserHandler) List(c *gin.Context) {
 	if err != nil {
 		Error(c, err)
 		return
+	}
+
+	if !isCallerAdmin(c) {
+		for i := range list {
+			maskNotifyTarget(&list[i])
+		}
 	}
 
 	SuccessPage(c, list, total, pq.Page, pq.PageSize)

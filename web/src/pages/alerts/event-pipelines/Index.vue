@@ -61,6 +61,14 @@ const processorTypes = ref<string[]>([])
 
 const canWrite = computed(() => hasPerm('rules.write'))
 
+let _nextRowId = 0
+const _rowIdMap = new WeakMap<object, number>()
+function rowId(row: object): number {
+  let id = _rowIdMap.get(row)
+  if (id === undefined) { id = ++_nextRowId; _rowIdMap.set(row, id) }
+  return id
+}
+
 const filterOptions = computed(() => [
   { label: t('common.all'), value: '' },
   { label: t('common.enabled'), value: 'false' },
@@ -528,7 +536,7 @@ onMounted(() => {
           <div v-if="form.label_filters.length === 0" class="empty-hint">
             {{ t('common.noData') }}
           </div>
-          <div v-for="(filter, idx) in form.label_filters" :key="idx" class="filter-row">
+          <div v-for="(filter, idx) in form.label_filters" :key="rowId(filter)" class="filter-row">
             <NInput v-model:value="filter.key" :placeholder="t('eventPipeline.filterKey')" size="small" style="width: 140px;" />
             <NSelect v-model:value="filter.func" :options="filterFuncOptions" size="small" style="width: 100px;" />
             <NInput v-model:value="filter.value" :placeholder="t('eventPipeline.filterValue')" size="small" style="flex: 1;" />
@@ -549,7 +557,7 @@ onMounted(() => {
           <div v-if="form.processors.length === 0" class="empty-hint">
             {{ t('common.noData') }}
           </div>
-          <div v-for="(proc, idx) in form.processors" :key="idx" class="processor-card">
+          <div v-for="(proc, idx) in form.processors" :key="rowId(proc)" class="processor-card">
             <div class="processor-header">
               <NSelect
                 :value="proc.typ"

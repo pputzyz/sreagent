@@ -11,8 +11,8 @@ func (h *Handlers) registerTeamRoutes(auth *gin.RouterGroup, adminOnly, manage g
 	// Users — admin only for management
 	users := auth.Group("/users")
 	{
-		users.GET("", h.User.List)
-		users.GET("/:id", h.User.Get)
+		users.GET("", middleware.RequirePerm("user.read"), h.User.List)
+		users.GET("/:id", middleware.RequirePerm("user.read"), h.User.Get)
 		users.POST("", adminOnly, middleware.RequirePerm("user.write"), h.User.Create)
 		users.POST("/virtual", adminOnly, middleware.RequirePerm("user.write"), h.User.CreateVirtual)
 		users.PUT("/:id", adminOnly, middleware.RequirePerm("user.write"), h.User.Update)

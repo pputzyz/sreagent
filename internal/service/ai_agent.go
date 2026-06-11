@@ -571,11 +571,12 @@ func (s *AgentService) ListToolCalls(ctx context.Context, conversationID uint) (
 func (s *AgentService) GetTask(id string) (*AgentTask, bool) {
 	s.mu.RLock()
 	task, exists := s.tasks[id]
-	s.mu.RUnlock()
-
 	if exists {
-		return copyTask(task), true
+		cp := copyTask(task)
+		s.mu.RUnlock()
+		return cp, true
 	}
+	s.mu.RUnlock()
 
 	// Fallback: check Redis for completed task state (cross-instance support).
 	if s.redisClient != nil {

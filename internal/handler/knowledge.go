@@ -184,6 +184,10 @@ func (h *KnowledgeHandler) Search(c *gin.Context) {
 			pageSize = 20
 		}
 	}
+	// Clamp to reasonable upper bounds to prevent abuse.
+	if pageSize > 100 {
+		pageSize = 100
+	}
 
 	docs, total, err := h.svc.Search(c.Request.Context(), req.Query, req.Source, page, pageSize)
 	if err != nil {

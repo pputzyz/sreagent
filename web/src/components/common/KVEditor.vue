@@ -1,6 +1,6 @@
 <template>
   <div class="kv-editor">
-    <div v-for="(item, idx) in modelValue" :key="idx" class="kv-row">
+    <div v-for="(item, idx) in modelValue" :key="rowId(item)" class="kv-row">
       <n-select
         v-if="keyOptions"
         :value="item.key || undefined"
@@ -59,6 +59,14 @@ import { AddOutline, CloseOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+let _nextKvId = 0
+const _rowIdMap = new WeakMap<object, number>()
+function rowId(row: object): number {
+  let id = _rowIdMap.get(row)
+  if (id === undefined) { id = ++_nextKvId; _rowIdMap.set(row, id) }
+  return id
+}
 
 export interface KVItem {
   key: string

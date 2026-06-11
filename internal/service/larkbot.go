@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -241,9 +242,14 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte, signature
 		if !verifyLarkSignature(timestamp, nonce, cfg.EncryptKey, body, signature) {
 			return nil, fmt.Errorf("invalid lark event signature")
 		}
-	} else if cfg.VerificationToken != "" && req.Header != nil && req.Header.Token != cfg.VerificationToken {
+	} else if cfg.EncryptKey == "" && cfg.VerificationToken != "" {
 		// Fallback: plaintext token verification when no encrypt key configured.
-		return nil, fmt.Errorf("invalid event token")
+		if req.Header == nil || req.Header.Token == "" {
+			return nil, fmt.Errorf("missing event verification token")
+		}
+		if subtle.ConstantTimeCompare([]byte(req.Header.Token), []byte(cfg.VerificationToken)) != 1 {
+			return nil, fmt.Errorf("invalid event token")
+		}
 	} else if cfg.EncryptKey != "" && signature == "" {
 		// EncryptKey configured but no signature provided — reject.
 		return nil, fmt.Errorf("missing lark event signature")

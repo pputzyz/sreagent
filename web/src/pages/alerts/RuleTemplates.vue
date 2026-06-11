@@ -115,8 +115,11 @@ const form = ref({
 })
 
 // KV editor state for labels/annotations
-const labelPairs = ref<Array<{ key: string; value: string }>>([])
-const annotationPairs = ref<Array<{ key: string; value: string }>>([])
+const labelPairs = ref<Array<{ key: string; value: string; _id: number }>>([])
+const annotationPairs = ref<Array<{ key: string; value: string; _id: number }>>([])
+
+let _nextPairId = 0
+function newPairId() { return ++_nextPairId }
 
 function pairsToRecord(pairs: Array<{ key: string; value: string }>): Record<string, string> {
   const result: Record<string, string> = {}
@@ -126,8 +129,8 @@ function pairsToRecord(pairs: Array<{ key: string; value: string }>): Record<str
   return result
 }
 
-function recordToPairs(record: Record<string, string>): Array<{ key: string; value: string }> {
-  return Object.entries(record || {}).map(([key, value]) => ({ key, value }))
+function recordToPairs(record: Record<string, string>): Array<{ key: string; value: string; _id: number }> {
+  return Object.entries(record || {}).map(([key, value]) => ({ key, value, _id: newPairId() }))
 }
 
 // Apply dialog state
@@ -372,13 +375,13 @@ async function handleApply() {
 
 // Label/Annotation KV helpers
 function addLabelPair() {
-  labelPairs.value.push({ key: '', value: '' })
+  labelPairs.value.push({ key: '', value: '', _id: newPairId() })
 }
 function removeLabelPair(index: number) {
   labelPairs.value.splice(index, 1)
 }
 function addAnnotationPair() {
-  annotationPairs.value.push({ key: '', value: '' })
+  annotationPairs.value.push({ key: '', value: '', _id: newPairId() })
 }
 function removeAnnotationPair(index: number) {
   annotationPairs.value.splice(index, 1)
@@ -524,7 +527,7 @@ onMounted(() => {
           <!-- Labels KV editor -->
           <n-form-item :label="t('alert.labels')">
             <div class="kv-editor">
-              <div v-for="(pair, idx) in labelPairs" :key="idx" class="kv-row">
+              <div v-for="(pair, idx) in labelPairs" :key="pair._id" class="kv-row">
                 <n-input v-model:value="pair.key" size="small" :placeholder="t('common.key')" class="kv-key" />
                 <n-input v-model:value="pair.value" size="small" :placeholder="t('common.value')" class="kv-value" />
                 <n-button quaternary circle size="small" type="error" @click="removeLabelPair(idx)">
@@ -538,7 +541,7 @@ onMounted(() => {
           <!-- Annotations KV editor -->
           <n-form-item :label="t('alert.annotations')">
             <div class="kv-editor">
-              <div v-for="(pair, idx) in annotationPairs" :key="idx" class="kv-row">
+              <div v-for="(pair, idx) in annotationPairs" :key="pair._id" class="kv-row">
                 <n-input v-model:value="pair.key" size="small" :placeholder="t('common.key')" class="kv-key" />
                 <n-input v-model:value="pair.value" size="small" :placeholder="t('common.value')" class="kv-value" />
                 <n-button quaternary circle size="small" type="error" @click="removeAnnotationPair(idx)">

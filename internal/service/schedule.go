@@ -324,7 +324,14 @@ func (s *ScheduleService) GetCurrentOnCall(ctx context.Context, scheduleID uint)
 	// Check for active override first — overrides always take precedence
 	// over regular shifts and rotation calculations.
 	override, err := s.overrideRepo.GetActiveOverride(ctx, scheduleID, now)
-	if err == nil && override != nil {
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("failed to query override",
+				zap.Uint("schedule_id", scheduleID),
+				zap.Error(err),
+			)
+		}
+	} else if override != nil {
 		return &OnCallResult{
 			User:       &override.User,
 			Schedule:   schedule,

@@ -91,6 +91,14 @@ function onValueChange(i: number, value: string) {
   emit('update:modelValue', updated)
 }
 
+let _nextLmeId = 0
+const _rowIdMap = new WeakMap<object, number>()
+function rowId(row: object): number {
+  let id = _rowIdMap.get(row)
+  if (id === undefined) { id = ++_nextLmeId; _rowIdMap.set(row, id) }
+  return id
+}
+
 function keyAutocomplete(key: string) {
   if (!key) return keyOptions.value.map(k => ({ label: k, value: k }))
   return keyOptions.value
@@ -109,7 +117,7 @@ function valueAutocomplete(item: LabelMatcher) {
 
 <template>
   <div class="lme">
-    <div v-for="(item, i) in modelValue" :key="i" class="lme-row">
+    <div v-for="(item, i) in modelValue" :key="rowId(item)" class="lme-row">
       <n-auto-complete
         :value="item.key"
         :options="keyAutocomplete(item.key)"

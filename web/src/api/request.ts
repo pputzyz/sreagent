@@ -126,6 +126,11 @@ request.interceptors.response.use(
           }
           const newToken = await refreshPromise
           localStorage.setItem('token', newToken)
+          // Sync Pinia auth store so consumers reading authStore.token get the fresh value
+          try {
+            const { useAuthStore } = await import('@/stores/auth')
+            useAuthStore().updateToken(newToken)
+          } catch { /* store not yet initialized — localStorage is already set */ }
           originalRequest.headers.Authorization = `Bearer ${newToken}`
           return request(originalRequest)
         } catch {

@@ -83,6 +83,9 @@ type Dependencies struct {
 	// Inspection scheduler (for graceful shutdown)
 	InspectionSched *service.InspectionScheduler
 
+	// Noise reducer (for graceful shutdown of GC goroutine)
+	NoiseReducer *service.NoiseReducer
+
 	// Shutdown
 	appCtx    context.Context    // cancelled on shutdown
 	appCancel context.CancelFunc // cancels background workers
@@ -1095,6 +1098,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	d.StateStore = stateStore
 	d.Handlers = handlers
 	d.InspectionSched = inspectionSched
+	d.NoiseReducer = svcs.NoiseReducer
 
 	return d, nil
 }
@@ -1212,6 +1216,11 @@ func (d *Dependencies) Shutdown() {
 	// 4.5 Stop inspection scheduler
 	if d.InspectionSched != nil {
 		d.InspectionSched.Stop()
+	}
+
+	// 4.6 Stop noise reducer GC goroutine
+	if d.NoiseReducer != nil {
+		d.NoiseReducer.Stop()
 	}
 
 	// 5. Wait for in-flight worker pool tasks to complete

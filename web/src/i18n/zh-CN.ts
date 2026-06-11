@@ -50,6 +50,7 @@ export default {
     confirmDeleteMsg: '确认删除？删除后无法恢复。',
     deleteSuccess: '删除成功',
     deleteFailed: '删除失败',
+    batchDeletePartialFail: '{fail} 条删除失败',
     filters: '筛选',
     responders: '响应人',
     noResponders: '暂无响应人',
@@ -91,6 +92,9 @@ export default {
     unknownError: '未知错误',
     optional: '可选',
     filtered: '已筛选',
+    export: '导出',
+    invalid: '无效',
+    menu: '菜单',
   },
   error: {
     renderError: '页面渲染出错',
@@ -680,6 +684,26 @@ export default {
     searchMetrics: '搜索指标...',
     selectMetric: '选择一个指标查看图表',
     openInExplore: '在查询页打开',
+    // Visual Query Builder
+    vqbMetric: '指标',
+    vqbSelectMetric: '选择指标...',
+    vqbLabelFilters: '标签筛选',
+    vqbNoFilters: '暂无标签筛选，点击 + 添加',
+    vqbLabelKey: '标签',
+    vqbLabelValue: '值',
+    vqbFunction: '函数',
+    vqbEnableFunction: '使用函数包装',
+    vqbDuration: '持续时间',
+    vqbAggregation: '聚合',
+    vqbEnableAggregation: '应用聚合',
+    vqbGroupLabels: '按标签分组...',
+    vqbBinaryOps: '二元运算',
+    vqbNoBinary: '暂无二元运算，点击 + 添加',
+    vqbScalarValue: '例如 1024',
+    vqbMetricExpr: '例如 metric_name{...}',
+    vqbPreview: '预览',
+    // Log histogram
+    allLogStats: '全部日志统计',
   },
   dashboardV2: {
     title: '仪表盘',
@@ -1042,6 +1066,21 @@ export default {
     aiImproveFailed: 'AI 优化失败',
     kbdNav: '上下导航',
     kbdOpen: '打开详情',
+    // Card visibility toggles
+    showLabels: '显示标签',
+    showSource: '显示来源',
+    showAssignee: '显示处理人',
+    // RCA
+    rootCauseAnalysis: '根因分析',
+    probableCauses: '可能原因',
+    impact: '影响评估',
+    recommendedSteps: '处置建议',
+    rootCauseHint: '根因提示',
+    regenerateReport: '重新生成',
+    // Rule form
+    datasourceChangeWarning: '切换数据源将清空当前查询条件',
+    datasourceChangeDescription: '切换数据源将清空当前表达式和查询条件，是否继续？',
+    Description: '描述',
   },
   errorCode: {
     invalidCredentials: '用户名或密码错误',
@@ -1279,6 +1318,13 @@ export default {
     testSent: '测试通知已发送',
     testFailed: '测试失败',
     testResults: '发送结果',
+    // Notification rule form additions
+    template: '消息模板',
+    selectTemplate: '选择模板（可选）',
+    targetUsers: '目标用户',
+    selectUsers: '选择用户（可选）',
+    targetTeams: '目标团队',
+    selectTeams: '选择团队（可选）',
   },
   media: {
     title: '通知媒介',
@@ -1599,6 +1645,21 @@ export default {
     fri: '周五',
     sat: '周六',
     sun: '周日',
+    monday: '周一',
+    tuesday: '周二',
+    wednesday: '周三',
+    thursday: '周四',
+    friday: '周五',
+    saturday: '周六',
+    sunday: '周日',
+    // Rotation / Substitute
+    rotationPeriodDays: '轮换周期（天）',
+    tabOverrides: '替班管理',
+    addOverride: '添加替班',
+    noOverrides: '暂无替班',
+    overrideStart: '开始时间',
+    overrideEnd: '结束时间',
+    overrideReasonPlaceholder: '可选，填写替班原因',
   },
   escalation: {
     policies: '升级策略',
@@ -1914,6 +1975,13 @@ export default {
     ssoTabOidc: 'OIDC',
     ssoTabLdap: 'LDAP',
     ssoTabOauth2: 'OAuth2',
+    // Role options
+    viewer: '查看者',
+    globalViewer: '全局查看者',
+    roleMember: '成员',
+    roleTeamLead: '团队负责人',
+    // LDAP validation
+    ldapBindPasswordEmpty: '绑定密码为空 — LDAP 认证可能失败',
     // Auth additions
     oauth2Login: '使用 {name} 登录',
     // AI Config additions
@@ -2280,6 +2348,12 @@ export default {
     object: '对象',
     detail: '详情',
     invalidRunId: '无效的运行 ID',
+    // Severity labels for run detail
+    critical: '严重',
+    warning: '警告',
+    info: '信息',
+    clone: '克隆',
+    nextRuns: '最近触发时间',
   },
   // iCal Export
   ical: {
@@ -2342,6 +2416,7 @@ export default {
     edit: '编辑',
     delete: '删除',
     unassignedTeam: '未分配团队',
+    selectTeam: '选择团队',
     teamFilter: '按团队筛选',
     // noise reduction
     noiseTab: '降噪配置',
@@ -2552,6 +2627,7 @@ export default {
     startDiagnosis: '发起诊断',
     relatedChanges: '相关变更',
     noRelatedChanges: '暂无相关变更',
+    channelPlaceholder: '选择协作空间',
   },
 
   // ===== v2: Alerts view =====
@@ -2665,6 +2741,11 @@ export default {
     opRegex: '=~ (正则匹配)',
     opNotRegex: '!~ (正则不匹配)',
     opIn: 'in (包含)',
+    opNotIn: 'not in (不包含)',
+    opContains: 'contains (包含)',
+    opNotContains: 'not contains (不包含)',
+    selectIntegration: '集成',
+    selectIntegrationPlaceholder: '选择集成',
   },
 
   // ===== AI Chat =====
@@ -2713,6 +2794,7 @@ export default {
     hintOncall: '值班',
     hintAlert: '告警',
     hintPlatform: '平台',
+    openHint: '打开命令面板',
   },
 
   // ===== Command Palette Actions =====
@@ -3554,6 +3636,11 @@ export default {
     statusCompleted: '已完成',
     statusFailed: '失败',
     runDetail: '执行 #{id}',
+    // Step types
+    stepLabelCheck: '标签检查',
+    stepChangeCorrelation: '变更关联',
+    stepMetricCorrelation: '指标关联',
+    stepHttpProbe: 'HTTP 探测',
   },
   changeEvents: {
     title: '变更事件',

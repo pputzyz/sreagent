@@ -50,6 +50,7 @@ export default {
     confirmDeleteMsg: 'Confirm deletion? This cannot be undone.',
     deleteSuccess: 'Deleted successfully',
     deleteFailed: 'Failed to delete',
+    batchDeletePartialFail: '{fail} {fail, plural, one {deletion} other {deletions}} failed',
     filters: 'Filters',
     responders: 'Responders',
     noResponders: 'No responders yet',
@@ -91,6 +92,9 @@ export default {
     unknownError: 'Unknown error',
     optional: 'Optional',
     filtered: 'filtered',
+    export: 'Export',
+    invalid: 'invalid',
+    menu: 'Menu',
   },
   error: {
     renderError: 'Render error',
@@ -680,6 +684,26 @@ export default {
     searchMetrics: 'Search metrics...',
     selectMetric: 'Select a metric to view chart',
     openInExplore: 'Open in Explore',
+    // Visual Query Builder
+    vqbMetric: 'Metric',
+    vqbSelectMetric: 'Select a metric...',
+    vqbLabelFilters: 'Label Filters',
+    vqbNoFilters: 'No label filters. Click + to add.',
+    vqbLabelKey: 'Label',
+    vqbLabelValue: 'Value',
+    vqbFunction: 'Function',
+    vqbEnableFunction: 'Wrap with function',
+    vqbDuration: 'Duration',
+    vqbAggregation: 'Aggregation',
+    vqbEnableAggregation: 'Apply aggregation',
+    vqbGroupLabels: 'Group by labels...',
+    vqbBinaryOps: 'Binary Operations',
+    vqbNoBinary: 'No binary operations. Click + to add.',
+    vqbScalarValue: 'e.g. 1024',
+    vqbMetricExpr: 'e.g. metric_name{...}',
+    vqbPreview: 'Preview',
+    // Log histogram
+    allLogStats: 'All log statistics',
   },
   dashboardV2: {
     title: 'Dashboards',
@@ -1033,6 +1057,21 @@ export default {
     aiImproveFailed: 'AI improvement failed',
     kbdNav: 'navigate',
     kbdOpen: 'open detail',
+    // Card visibility toggles
+    showLabels: 'Show Labels',
+    showSource: 'Show Source',
+    showAssignee: 'Show Assignee',
+    // RCA
+    rootCauseAnalysis: 'Root Cause Analysis',
+    probableCauses: 'Probable Causes',
+    impact: 'Impact Assessment',
+    recommendedSteps: 'Recommended Steps',
+    rootCauseHint: 'Root Cause Hint',
+    regenerateReport: 'Regenerate',
+    // Rule form
+    datasourceChangeWarning: 'Switching datasource will clear current query',
+    datasourceChangeDescription: 'Switching datasource will clear the current expression and query conditions. Continue?',
+    Description: 'Description',
   },
   errorCode: {
     invalidCredentials: 'Invalid username or password',
@@ -1270,6 +1309,13 @@ export default {
     testSent: 'Test notification sent',
     testFailed: 'Test failed',
     testResults: 'Results',
+    // Notification rule form additions
+    template: 'Message Template',
+    selectTemplate: 'Select template (optional)',
+    targetUsers: 'Target Users',
+    selectUsers: 'Select users (optional)',
+    targetTeams: 'Target Teams',
+    selectTeams: 'Select teams (optional)',
   },
   media: {
     title: 'Notify Media',
@@ -1590,6 +1636,21 @@ export default {
     fri: 'Fri',
     sat: 'Sat',
     sun: 'Sun',
+    monday: 'Mon',
+    tuesday: 'Tue',
+    wednesday: 'Wed',
+    thursday: 'Thu',
+    friday: 'Fri',
+    saturday: 'Sat',
+    sunday: 'Sun',
+    // Rotation / Substitute
+    rotationPeriodDays: 'Rotation Period (days)',
+    tabOverrides: 'Substitutes',
+    addOverride: 'Add Substitute',
+    noOverrides: 'No substitutes configured',
+    overrideStart: 'Start Time',
+    overrideEnd: 'End Time',
+    overrideReasonPlaceholder: 'Optional reason',
   },
   escalation: {
     policies: 'Escalation Policies',
@@ -1898,6 +1959,13 @@ export default {
     ssoTabOidc: 'OIDC',
     ssoTabLdap: 'LDAP',
     ssoTabOauth2: 'OAuth2',
+    // Role options
+    viewer: 'Viewer',
+    globalViewer: 'Global Viewer',
+    roleMember: 'Member',
+    roleTeamLead: 'Team Lead',
+    // LDAP validation
+    ldapBindPasswordEmpty: 'Bind password is empty — LDAP authentication may fail',
     // Auth additions
     oauth2Login: 'Sign in with {name}',
     // AI Config additions
@@ -2201,6 +2269,12 @@ export default {
     object: 'Object',
     detail: 'Detail',
     invalidRunId: 'Invalid run ID',
+    // Severity labels for run detail
+    critical: 'critical',
+    warning: 'warning',
+    info: 'info',
+    clone: 'Clone',
+    nextRuns: 'Next runs',
   },
   ical: {
     exportCalendar: 'Export Calendar',
@@ -2262,6 +2336,7 @@ export default {
     edit: 'Edit',
     delete: 'Delete',
     unassignedTeam: 'Unassigned',
+    selectTeam: 'Select Team',
     // noise reduction
     noiseTab: 'Noise Reduction',
     aggregation: 'Aggregation Rules',
@@ -2472,6 +2547,7 @@ export default {
     startDiagnosis: 'Start Diagnosis',
     relatedChanges: 'Related Changes',
     noRelatedChanges: 'No related changes',
+    channelPlaceholder: 'Select channel',
   },
 
   // ===== v2: Alerts view =====
@@ -2585,6 +2661,11 @@ export default {
     opRegex: '=~ (Regex Match)',
     opNotRegex: '!~ (Not Regex)',
     opIn: 'in (In)',
+    opNotIn: 'not in (Not In)',
+    opContains: 'contains (Contains)',
+    opNotContains: 'not contains (Not Contains)',
+    selectIntegration: 'Integration',
+    selectIntegrationPlaceholder: 'Select integration',
   },
 
   // ===== AI Chat =====
@@ -2633,6 +2714,7 @@ export default {
     hintOncall: 'On-Call',
     hintAlert: 'Alert',
     hintPlatform: 'Platform',
+    openHint: 'Open command palette',
   },
 
   // ===== Command Palette Actions =====
@@ -3535,6 +3617,11 @@ export default {
     statusCompleted: 'Completed',
     statusFailed: 'Failed',
     runDetail: 'Run #{id}',
+    // Step types
+    stepLabelCheck: 'Label Check',
+    stepChangeCorrelation: 'Change Correlation',
+    stepMetricCorrelation: 'Metric Correlation',
+    stepHttpProbe: 'HTTP Probe',
   },
   changeEvents: {
     title: 'Change Events',

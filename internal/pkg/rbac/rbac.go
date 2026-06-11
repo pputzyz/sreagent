@@ -15,7 +15,7 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 			"mute.write": true, "inhibition.write": true,
 			"notify.write": true, "channels.write": true, "dispatch.write": true,
 			"datasource.write": true, "integration.write": true,
-			"team.write": true, "user.write": true,
+			"team.write": true, "user.write": true, "user.read": true,
 			"settings.manage": true, "audit.view": true,
 			"datasources.manage": true, "dashboards.manage": true,
 			"incidents.manage": true, "incidents.create": true, "incident.write": true,
@@ -30,7 +30,7 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 		}
 	case "team_lead":
 		return map[string]bool{
-			"teams.manage": true,
+			"teams.manage": true, "user.read": true,
 			"rules.manage": true, "rules.create": true, "rules.edit": true,
 			"rules.write": true,
 			"events.manage": true, "events.ack": true, "events.assign": true,
@@ -51,6 +51,7 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 		}
 	case "member":
 		return map[string]bool{
+			"user.read": true,
 			"rules.view": true, "rules.create": true,
 			"events.ack": true, "events.assign": true,
 			"schedules.view": true, "channels.view": true,
@@ -60,6 +61,7 @@ func PermissionsByGlobalRole(role string) map[string]bool {
 		}
 	case "viewer", "global_viewer":
 		return map[string]bool{
+			"user.read": true,
 			"rules.view": true, "events.view": true,
 			"schedules.view": true, "channels.view": true,
 			"datasources.view": true, "dashboards.view": true,
