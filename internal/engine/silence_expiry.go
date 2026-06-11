@@ -114,10 +114,12 @@ func (s *SilenceExpiryChecker) runOnce(ctx context.Context) {
 		ids[i] = events[i].ID
 	}
 
-	// Step 2: Bulk update to firing.
+	// Step 2: Bulk update to firing. The status guard makes this a CAS:
+	// an event resolved/closed by a user between Step 1 and here must NOT
+	// be forced back to firing.
 	result := s.eventRepo.DB().WithContext(ctx).
 		Model(&model.AlertEvent{}).
-		Where("id IN ?", ids).
+		Where("id IN ? AND status = ?", ids, model.EventStatusSilenced).
 		Updates(map[string]interface{}{
 			"status":          model.EventStatusFiring,
 			"silenced_until":  nil,

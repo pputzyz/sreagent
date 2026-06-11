@@ -28,11 +28,17 @@ type AlertWorkerPool interface {
 	Submit(ctx context.Context, fn func(context.Context)) bool
 }
 
+// alertRouter abstracts NotificationService.RouteAlert so tests can observe
+// notification dispatch without wiring a full NotificationService.
+type alertRouter interface {
+	RouteAlert(ctx context.Context, event *model.AlertEvent) error
+}
+
 type AlertEventService struct {
 	repo               *repository.AlertEventRepository
 	timelineRepo       *repository.AlertTimelineRepository
 	userRepo           *repository.UserRepository
-	notifySvc          *NotificationService
+	notifySvc          alertRouter
 	onCallSvc          OnCallResolver
 	larkSvc            *LarkService
 	incidentAggregator *IncidentAggregator // P1-03: bridges resolve/close to incident lifecycle
@@ -92,17 +98,22 @@ func NewAlertEventService(
 	workerPool AlertWorkerPool,
 	logger *zap.Logger,
 ) *AlertEventService {
-	return &AlertEventService{
+	s := &AlertEventService{
 		repo:         repo,
 		timelineRepo: timelineRepo,
 		userRepo:     userRepo,
-		notifySvc:    notifySvc,
 		onCallSvc:    onCallSvc,
 		larkSvc:      larkSvc,
 		workerPool:   workerPool,
 		dispatchSem:  make(chan struct{}, defaultDispatchConcurrency),
 		logger:       logger,
 	}
+	// Assign only when non-nil: storing a nil *NotificationService into the
+	// interface field would make `s.notifySvc != nil` checks pass (typed nil).
+	if notifySvc != nil {
+		s.notifySvc = notifySvc
+	}
+	return s
 }
 
 // SetIncidentAggregator attaches an IncidentAggregator for P1-03 manual resolve/close linking.

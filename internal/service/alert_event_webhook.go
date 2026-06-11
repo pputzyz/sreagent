@@ -44,15 +44,28 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 	}
 
 	if alert.Status == "resolved" {
-		if existing != nil && existing.Status != model.EventStatusClosed {
+		if existing != nil && existing.Status != model.EventStatusClosed && existing.Status != model.EventStatusResolved {
 			now := time.Now()
-			existing.Status = model.EventStatusResolved
-			existing.ResolvedAt = &now
-			if err := s.repo.Update(ctx, existing); err != nil {
-				return err
+			// CAS transition: a targeted UPDATE so a concurrent Acknowledge/Assign
+			// is never overwritten by a stale full-row Save.
+			ok, err := s.repo.TransitionStatus(ctx, existing.ID, []model.AlertEventStatus{
+				model.EventStatusFiring,
+				model.EventStatusAcknowledged,
+				model.EventStatusAssigned,
+				model.EventStatusSilenced,
+			}, map[string]interface{}{
+				"status":      model.EventStatusResolved,
+				"resolved_at": now,
+			})
+			if err != nil {
+				return apperr.Wrap(apperr.ErrDatabase, err)
 			}
-			s.addTimeline(ctx, existing.ID, model.TimelineActionResolved, nil, "Auto-resolved by AlertManager")
-			s.triggerLarkCardUpdate(existing)
+			if ok {
+				existing.Status = model.EventStatusResolved
+				existing.ResolvedAt = &now
+				s.addTimeline(ctx, existing.ID, model.TimelineActionResolved, nil, "Auto-resolved by AlertManager")
+				s.triggerLarkCardUpdate(existing)
+			}
 		}
 		return nil
 	}
@@ -62,13 +75,26 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 		// Re-fire: if the alert was previously resolved, transition back to firing
 		if existing.Status == model.EventStatusResolved {
 			now := time.Now()
+			ok, err := s.repo.TransitionStatus(ctx, existing.ID, []model.AlertEventStatus{
+				model.EventStatusResolved,
+			}, map[string]interface{}{
+				"status":      model.EventStatusFiring,
+				"fired_at":    now,
+				"resolved_at": nil,
+				"fire_count":  gorm.Expr("fire_count + 1"),
+			})
+			if err != nil {
+				return apperr.Wrap(apperr.ErrDatabase, err)
+			}
+			if !ok {
+				// Lost the race: someone else already transitioned the event
+				// (e.g. closed by a user). Treat as a dedup increment.
+				return s.repo.IncrFireCount(ctx, existing.ID)
+			}
 			existing.Status = model.EventStatusFiring
 			existing.FiredAt = now
 			existing.ResolvedAt = nil
 			existing.FireCount++
-			if err := s.repo.Update(ctx, existing); err != nil {
-				return err
-			}
 			s.addTimeline(ctx, existing.ID, model.TimelineActionReopened, nil, "Alert re-fired after resolve")
 			s.triggerLarkCardUpdate(existing)
 
@@ -111,9 +137,9 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 			return nil
 		}
 
-		// Dedup: already firing, just increment fire count
-		existing.FireCount++
-		return s.repo.Update(ctx, existing)
+		// Dedup: already active, just increment fire count atomically.
+		// Avoids the read-modify-Save pattern that loses concurrent updates.
+		return s.repo.IncrFireCount(ctx, existing.ID)
 	}
 
 	// Determine severity from labels

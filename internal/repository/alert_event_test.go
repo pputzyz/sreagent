@@ -59,11 +59,13 @@ func Test_GetLatestByFingerprints_ReturnsNewestPerFingerprint(t *testing.T) {
 	got, ok := result[fp]
 	require.True(t, ok, "result should contain the fingerprint key")
 
-	// The result should be one of the two events (which one depends on DB ordering).
-	// Both have the same fingerprint so either is valid, but the contract is that
-	// exactly one is returned per fingerprint.
-	assert.Equal(t, fp, got.Fingerprint)
-	assert.Equal(t, model.EventStatusFiring, got.Status)
+	// The contract is "latest": it must be the NEWER of the two events.
+	// Without an explicit ORDER BY the DB may return either row first, so
+	// this assertion is the regression guard for the missing Order clause.
+	assert.Equal(t, newerEvent.ID, got.ID,
+		"must return the event with the most recent fired_at, got ID %d (older is %d)", got.ID, olderEvent.ID)
+	assert.WithinDuration(t, newerTime, got.FiredAt, time.Second,
+		"returned event's fired_at must be the newer timestamp")
 }
 
 func Test_GetLatestByFingerprints_MultipleFingerprints(t *testing.T) {

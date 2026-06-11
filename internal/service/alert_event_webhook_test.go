@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -50,6 +51,26 @@ func newTestWebhookService(t *testing.T, db *gorm.DB) *AlertEventService {
 	}
 }
 
+// mockAlertRouter records RouteAlert calls so tests can assert that
+// notification routing was actually triggered.
+type mockAlertRouter struct {
+	mu     sync.Mutex
+	events []*model.AlertEvent
+}
+
+func (m *mockAlertRouter) RouteAlert(_ context.Context, event *model.AlertEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.events = append(m.events, event)
+	return nil
+}
+
+func (m *mockAlertRouter) callCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.events)
+}
+
 
 func Test_HandleWebhook_ResolvedAlertRefires_ReopensAndNotifies(t *testing.T) {
 	db := testWebhookDB(t)
@@ -72,8 +93,12 @@ func Test_HandleWebhook_ResolvedAlertRefires_ReopensAndNotifies(t *testing.T) {
 	require.NoError(t, db.Create(existing).Error)
 	originalFiredAt := existing.FiredAt
 
-	// Build service (nil notifySvc — we verify the code path doesn't panic)
+	// Build service with a mock router so we can assert the re-fired alert
+	// actually triggers notification routing (the original bug silently
+	// swallowed re-fires: no status change, no notification).
 	svc := newTestWebhookService(t, db)
+	router := &mockAlertRouter{}
+	svc.notifySvc = router
 
 	// Build a firing webhook payload with the same fingerprint
 	payload := &model.AlertManagerPayload{
@@ -129,6 +154,12 @@ func Test_HandleWebhook_ResolvedAlertRefires_ReopensAndNotifies(t *testing.T) {
 	}
 	assert.True(t, hasReopenedEntry,
 		"timeline should have a reopened entry for re-fired alert")
+
+	// Assert: notification routing was triggered for the re-fired alert.
+	// Dispatch is async (dispatchSem goroutine), so poll briefly.
+	assert.Eventually(t, func() bool { return router.callCount() == 1 },
+		2*time.Second, 10*time.Millisecond,
+		"RouteAlert must be called exactly once for a re-fired alert")
 }
 
 func Test_HandleWebhook_AlreadyFiring_IncrementsFireCount(t *testing.T) {

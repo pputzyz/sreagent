@@ -122,14 +122,15 @@ func (r *AlertEventRepository) GetLatestByFingerprints(ctx context.Context, fing
 	var events []model.AlertEvent
 	err := r.db.WithContext(ctx).
 		Where("fingerprint IN ? AND status != ?", fingerprints, model.EventStatusClosed).
+		Order("fired_at DESC, id DESC").
 		Find(&events).Error
 	if err != nil {
 		return nil, err
 	}
 	result := make(map[string]*model.AlertEvent, len(events))
 	for i := range events {
-		// Keep the first match per fingerprint (latest by fired_at is already
-		// the default ordering from the DB, but we guard against duplicates).
+		// Rows are ordered newest-first, so the first match per fingerprint
+		// is the latest event; later (older) duplicates are skipped.
 		if _, exists := result[events[i].Fingerprint]; !exists {
 			result[events[i].Fingerprint] = &events[i]
 		}
@@ -257,7 +258,7 @@ func (r *AlertEventRepository) TransitionStatus(ctx context.Context, eventID uin
 	return q.RowsAffected > 0, nil
 }
 
-// IncrFireCount atomically increments the fire_count for a firing or acknowledged event.
+// IncrFireCount atomically increments the fire_count for an active (non-terminal) event.
 // It is a targeted UPDATE that avoids a prior SELECT, used by the alert engine on every
 // evaluation cycle to keep DB round-trips to a minimum.
 func (r *AlertEventRepository) IncrFireCount(ctx context.Context, eventID uint) error {
@@ -266,6 +267,8 @@ func (r *AlertEventRepository) IncrFireCount(ctx context.Context, eventID uint) 
 		Where("id = ? AND status IN ?", eventID, []string{
 			string(model.EventStatusFiring),
 			string(model.EventStatusAcknowledged),
+			string(model.EventStatusAssigned),
+			string(model.EventStatusSilenced),
 		}).
 		UpdateColumn("fire_count", gorm.Expr("fire_count + 1")).
 		Error
