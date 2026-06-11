@@ -68,11 +68,11 @@ const fieldOptions = [
 const operatorOptions = computed(() => [
   { label: t('routingRule.opEq'), value: 'eq' },
   { label: t('routingRule.opNe'), value: 'ne' },
-  { label: t('routingRule.opContains') || 'contains', value: 'contains' },
-  { label: t('routingRule.opNotContains') || 'not_contains', value: 'not_contains' },
+  { label: t('routingRule.opContains'), value: 'contains' },
+  { label: t('routingRule.opNotContains'), value: 'not_contains' },
   { label: t('routingRule.opRegex'), value: 'regex' },
   { label: t('routingRule.opIn'), value: 'in' },
-  { label: t('routingRule.opNotIn') || 'not_in', value: 'not_in' },
+  { label: t('routingRule.opNotIn'), value: 'not_in' },
 ])
 
 function parseConditions(json: string): ConditionItem[] {
@@ -308,11 +308,11 @@ onMounted(() => {
   <div class="routing-rules">
     <!-- Integration selector (standalone mode) -->
     <div v-if="!props.integrationId && integrations.length > 0" class="rr-integration-select">
-      <span class="rr-integration-label">{{ t('routingRule.selectIntegration') || 'Integration' }}</span>
+      <span class="rr-integration-label">{{ t('routingRule.selectIntegration') }}</span>
       <n-select
         :value="selectedIntegrationId"
         :options="integrationOptions"
-        :placeholder="t('routingRule.selectIntegrationPlaceholder') || 'Select integration'"
+        :placeholder="t('routingRule.selectIntegrationPlaceholder')"
         filterable
         style="width: 300px"
         @update:value="onIntegrationChange"

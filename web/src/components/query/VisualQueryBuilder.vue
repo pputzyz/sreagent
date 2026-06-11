@@ -330,10 +330,10 @@ defineExpose({ reset: resetAll, state })
       </NCollapseItem>
 
       <!-- Binary Operations -->
-      <NCollapseItem name="binary" :title="t('query.vqbBinaryOps') || 'Binary Operations'">
+      <NCollapseItem name="binary" :title="t('query.vqbBinaryOps')">
         <div class="builder-section">
           <div v-if="state.binaryOperands.length === 0" class="builder-empty">
-            {{ t('query.vqbNoBinary') || 'No binary operations. Click + to add.' }}
+            {{ t('query.vqbNoBinary') }}
           </div>
           <div v-for="operand in state.binaryOperands" :key="operand.id" class="binary-row">
             <NSelect
@@ -351,14 +351,14 @@ defineExpose({ reset: resetAll, state })
             <NInput
               v-if="operand.type === 'scalar'"
               v-model:value="operand.scalarValue"
-              :placeholder="t('query.vqbScalarValue') || 'e.g. 1024'"
+              :placeholder="t('query.vqbScalarValue')"
               size="small"
               class="binary-input"
             />
             <NInput
               v-else
               v-model:value="operand.metricExpression"
-              :placeholder="t('query.vqbMetricExpr') || 'e.g. metric_name{...}'"
+              :placeholder="t('query.vqbMetricExpr')"
               size="small"
               class="binary-input"
             />
@@ -376,7 +376,7 @@ defineExpose({ reset: resetAll, state })
 
     <!-- Preview -->
     <div class="builder-preview">
-      <span class="preview-label">{{ t('query.vqbPreview') || 'Preview' }}</span>
+      <span class="preview-label">{{ t('query.vqbPreview') }}</span>
       <code class="preview-expr">{{ generatedPromQL || '(empty)' }}</code>
     </div>
   </div>

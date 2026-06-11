@@ -136,7 +136,7 @@ onMounted(() => {
               :loading="loadingMore"
               @click="loadMore"
             >
-              {{ t('ai.loadMore') || 'Load earlier messages' }}
+              {{ t('ai.loadMore') }}
             </n-button>
           </div>
 

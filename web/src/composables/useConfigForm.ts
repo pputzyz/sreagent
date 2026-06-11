@@ -132,7 +132,7 @@ export function useConfigForm<T extends object>(options: UseConfigFormOptions<T>
   onBeforeRouteLeave((_to, _from) => {
     if (isDirty.value && !confirmedLeave) {
       // Naive UI's useMessage can't show dialogs here, so we use native confirm
-      const ok = window.confirm(t('common.unsavedChanges') || 'You have unsaved changes. Leave anyway?')
+      const ok = window.confirm(t('common.unsavedChanges'))
       if (!ok) return false
     }
     return true

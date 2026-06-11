@@ -131,7 +131,7 @@ function timelineDotSeverity(action: string): string {
 // ── Copy ──
 function copyText(value: string, hint = t('common.copied')) {
   navigator.clipboard.writeText(value).then(() => message.success(hint)).catch(() => {
-    message.error(t('common.copyFailed') || 'Copy failed')
+    message.error(t('common.copyFailed'))
   })
 }
 

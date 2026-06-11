@@ -416,11 +416,11 @@ onMounted(() => {
         <n-form-item :label="t('channel.description')">
           <n-input v-model:value="form.description" type="textarea" :rows="2" />
         </n-form-item>
-        <n-form-item :label="t('channel.team') || 'Team'">
+        <n-form-item :label="t('channel.team')">
           <n-select
             v-model:value="form.team_id"
             :options="teamOptions"
-            :placeholder="t('channel.selectTeam') || 'Select team'"
+            :placeholder="t('channel.selectTeam')"
             clearable
           />
         </n-form-item>

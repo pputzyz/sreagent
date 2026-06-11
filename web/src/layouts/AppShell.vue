@@ -222,9 +222,9 @@ let clockInterval: ReturnType<typeof setInterval>
 
 // FE8-6: Keyboard shortcut help overlay (Ctrl+? / Cmd+?)
 const shortcuts = computed(() => [
-  { keys: 'Ctrl + K / Cmd + K', desc: t('commandPalette.openHint') || 'Open command palette' },
-  { keys: 'Ctrl + ? / Cmd + ?', desc: t('shortcuts.showHelp') || 'Show keyboard shortcuts' },
-  { keys: 'Escape', desc: t('shortcuts.closeOverlay') || 'Close overlay / modal' },
+  { keys: 'Ctrl + K / Cmd + K', desc: t('commandPalette.openHint') },
+  { keys: 'Ctrl + ? / Cmd + ?', desc: t('shortcuts.showHelp') },
+  { keys: 'Escape', desc: t('shortcuts.closeOverlay') },
 ])
 
 function handleGlobalKeydown(e: KeyboardEvent) {
@@ -269,7 +269,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         <template #footer>
           <div class="error-actions">
             <button class="error-reset-btn" @click="resetError">{{ t('common.retry') }}</button>
-            <button class="error-copy-btn" @click="copyErrorDetails">{{ copiedOk ? (t('common.copied') || 'Copied!') : (t('error.copyDetails') || 'Copy error details') }}</button>
+            <button class="error-copy-btn" @click="copyErrorDetails">{{ copiedOk ? t('common.copied') : t('error.copyDetails') }}</button>
           </div>
         </template>
       </NResult>
@@ -306,7 +306,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
       </div>
 
       <!-- Mobile hamburger (hidden on desktop via CSS) -->
-      <button class="topbar-btn mobile-hamburger" @click="showMobileNav = true" :aria-label="t('common.menu') || 'Menu'">
+      <button class="topbar-btn mobile-hamburger" @click="showMobileNav = true" :aria-label="t('common.menu')">
         <n-icon :component="MenuOutline" :size="20" />
       </button>
 
@@ -351,7 +351,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
         </button>
 
         <!-- Shortcuts help (FE8-6) -->
-        <button v-ripple class="topbar-btn" @click="showShortcuts = true" :title="t('shortcuts.title') || 'Keyboard Shortcuts'" :aria-label="t('shortcuts.title') || 'Keyboard Shortcuts'">
+        <button v-ripple class="topbar-btn" @click="showShortcuts = true" :title="t('shortcuts.title')" :aria-label="t('shortcuts.title')">
           <n-icon :component="HelpOutline" :size="15" />
         </button>
 
@@ -430,7 +430,7 @@ function handleLangChange(val: string) { locale.value = val; localStorage.setIte
     <CommandPalette />
 
     <!-- Keyboard Shortcuts Help (FE8-6) -->
-    <NModal v-model:show="showShortcuts" preset="card" :title="t('shortcuts.title') || 'Keyboard Shortcuts'" style="max-width: 480px">
+    <NModal v-model:show="showShortcuts" preset="card" :title="t('shortcuts.title')" style="max-width: 480px">
       <div class="shortcuts-list">
         <div v-for="s in shortcuts" :key="s.keys" class="shortcut-row">
           <kbd class="shortcut-keys">{{ s.keys }}</kbd>

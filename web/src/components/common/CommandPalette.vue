@@ -71,7 +71,7 @@ const groupLabel = computed<Record<string, string>>(() => ({
   recent:   t('palette.recent'),
   navigate: t('palette.navigate'),
   action:   t('palette.actions'),
-  settings: t('palette.settings') || 'Settings',
+  settings: t('palette.settings'),
 }))
 
 // FE8-7: Split actions into sub-categories (settings, general actions)
