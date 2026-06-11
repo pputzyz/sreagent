@@ -45,9 +45,9 @@ func (h *PermissionsHandler) GetMyPermissions(c *gin.Context) {
 	}
 
 	Success(c, gin.H{
-		"role":   roleStr,
-		"perms":  perms,
-		"teams":  teams,
+		"role":  roleStr,
+		"perms": perms,
+		"teams": teams,
 	})
 }
 
@@ -65,4 +65,3 @@ func (h *PermissionsHandler) getTeamRoles(c *gin.Context, userID uint) []gin.H {
 	}
 	return result
 }
-

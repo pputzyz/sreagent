@@ -28,16 +28,16 @@ type alertGroup struct {
 // after group_wait (first batch) or group_interval (subsequent batches),
 // implementing Alertmanager-style notification grouping.
 type AlertGroupManager struct {
-	groups        map[string]*alertGroup
-	mu            sync.RWMutex
-	routeFunc     func(ctx context.Context, event *model.AlertEvent) error
+	groups         map[string]*alertGroup
+	mu             sync.RWMutex
+	routeFunc      func(ctx context.Context, event *model.AlertEvent) error
 	batchRouteFunc func(ctx context.Context, events []*model.AlertEvent) error // optional: aggregated batch routing
-	ruleRepo      *repository.AlertRuleRepository
-	logger        *zap.Logger
-	stopCh        chan struct{}
-	stopped       bool
-	stoppedAtomic atomic.Bool // lock-free check for ProcessEvent hot path
-	serverCtx     context.Context // server lifecycle context for timer callbacks
+	ruleRepo       *repository.AlertRuleRepository
+	logger         *zap.Logger
+	stopCh         chan struct{}
+	stopped        bool
+	stoppedAtomic  atomic.Bool     // lock-free check for ProcessEvent hot path
+	serverCtx      context.Context // server lifecycle context for timer callbacks
 }
 
 // NewAlertGroupManager creates a new AlertGroupManager.

@@ -60,12 +60,12 @@ type CreateAlertRuleRequest struct {
 	// Source indicates the origin of this rule (e.g. "ai", "import", "manual").
 	Source string `json:"source"`
 	// Evaluation
-	EvalInterval     int    `json:"eval_interval"`
-	RuleType         string `json:"rule_type"`
-	RecoveryHold     string `json:"recovery_hold"`
-	NoDataEnabled    bool   `json:"nodata_enabled"`
-	NoDataDuration   string `json:"nodata_duration"`
-	SuppressEnabled  bool   `json:"suppress_enabled"`
+	EvalInterval    int    `json:"eval_interval"`
+	RuleType        string `json:"rule_type"`
+	RecoveryHold    string `json:"recovery_hold"`
+	NoDataEnabled   bool   `json:"nodata_enabled"`
+	NoDataDuration  string `json:"nodata_duration"`
+	SuppressEnabled bool   `json:"suppress_enabled"`
 	// Ownership
 	BizGroupID *uint `json:"biz_group_id"`
 	TeamID     *uint `json:"team_id"`
@@ -88,28 +88,28 @@ type CreateAlertRuleRequest struct {
 // UpdateAlertRuleRequest uses pointer types so nil = "not sent in JSON".
 // The Update handler only overwrites fields that are explicitly provided.
 type UpdateAlertRuleRequest struct {
-	Name                 *string               `json:"name"`
-	DisplayName          *string               `json:"display_name"`
-	Description          *string               `json:"description"`
-	DataSourceID         *uint                 `json:"datasource_id"`
-	DatasourceType       *model.DataSourceType `json:"datasource_type"`
-	Expression           *string               `json:"expression"`
-	ForDuration          *string               `json:"for_duration"`
-	Severity             *model.AlertSeverity  `json:"severity"`
-	Labels               *model.JSONLabels     `json:"labels"`
-	Annotations          *model.JSONLabels     `json:"annotations"`
-	GroupName            *string               `json:"group_name"`
-	Category             *string               `json:"category"`
-	GroupWaitSeconds     *int                  `json:"group_wait_seconds"`
-	GroupIntervalSeconds *int                  `json:"group_interval_seconds"`
+	Name                 *string                `json:"name"`
+	DisplayName          *string                `json:"display_name"`
+	Description          *string                `json:"description"`
+	DataSourceID         *uint                  `json:"datasource_id"`
+	DatasourceType       *model.DataSourceType  `json:"datasource_type"`
+	Expression           *string                `json:"expression"`
+	ForDuration          *string                `json:"for_duration"`
+	Severity             *model.AlertSeverity   `json:"severity"`
+	Labels               *model.JSONLabels      `json:"labels"`
+	Annotations          *model.JSONLabels      `json:"annotations"`
+	GroupName            *string                `json:"group_name"`
+	Category             *string                `json:"category"`
+	GroupWaitSeconds     *int                   `json:"group_wait_seconds"`
+	GroupIntervalSeconds *int                   `json:"group_interval_seconds"`
 	Status               *model.AlertRuleStatus `json:"status"`
 	// Evaluation
-	EvalInterval     *int    `json:"eval_interval"`
-	RuleType         *string `json:"rule_type"`
-	RecoveryHold     *string `json:"recovery_hold"`
-	NoDataEnabled    *bool   `json:"nodata_enabled"`
-	NoDataDuration   *string `json:"nodata_duration"`
-	SuppressEnabled  *bool   `json:"suppress_enabled"`
+	EvalInterval    *int    `json:"eval_interval"`
+	RuleType        *string `json:"rule_type"`
+	RecoveryHold    *string `json:"recovery_hold"`
+	NoDataEnabled   *bool   `json:"nodata_enabled"`
+	NoDataDuration  *string `json:"nodata_duration"`
+	SuppressEnabled *bool   `json:"suppress_enabled"`
 	// Ownership
 	BizGroupID *uint `json:"biz_group_id"`
 	TeamID     *uint `json:"team_id"`
@@ -194,12 +194,12 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		Status:               status,
 		CreatedBy:            userID,
 		// Evaluation
-		EvalInterval:     req.EvalInterval,
-		RuleType:         model.AlertRuleType(req.RuleType),
-		RecoveryHold:     req.RecoveryHold,
-		NoDataEnabled:    req.NoDataEnabled,
-		NoDataDuration:   req.NoDataDuration,
-		SuppressEnabled:  req.SuppressEnabled,
+		EvalInterval:    req.EvalInterval,
+		RuleType:        model.AlertRuleType(req.RuleType),
+		RecoveryHold:    req.RecoveryHold,
+		NoDataEnabled:   req.NoDataEnabled,
+		NoDataDuration:  req.NoDataDuration,
+		SuppressEnabled: req.SuppressEnabled,
 		// Ownership
 		BizGroupID: req.BizGroupID,
 		TeamID:     req.TeamID,

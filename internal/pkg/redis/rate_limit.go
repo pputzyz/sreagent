@@ -15,7 +15,7 @@ const rateLimitPrefix = "sreagent:ratelimit:"
 // It uses a fixed-window token bucket: INCR + EXPIRE on a per-second window key.
 type RedisRateLimiter struct {
 	client *Client
-	burst  int    // max requests per window
+	burst  int     // max requests per window
 	rate   float64 // tokens per second (used to compute window TTL)
 }
 

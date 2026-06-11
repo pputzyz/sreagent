@@ -77,14 +77,14 @@ const (
 	tokEOF tokenKind = iota
 	tokIdent
 	tokString
-	tokDot     // .
-	tokEq      // ==
-	tokNeq     // !=
-	tokLParen  // (
-	tokRParen  // )
-	tokNot     // NOT
-	tokAnd     // AND
-	tokOr      // OR
+	tokDot    // .
+	tokEq     // ==
+	tokNeq    // !=
+	tokLParen // (
+	tokRParen // )
+	tokNot    // NOT
+	tokAnd    // AND
+	tokOr     // OR
 )
 
 type token struct {

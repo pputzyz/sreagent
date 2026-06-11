@@ -93,9 +93,9 @@ type Card struct {
 // Text instead of Title for locale-aware display. Currently Title.PlainText
 // is used; upgrade path: set Text with a "zh_cn"/"en_us" map.
 type CardHeader struct {
-	Title    CardText   `json:"title"`
-	Template string     `json:"template"`
-	Text     *CardText  `json:"text,omitempty"`
+	Title    CardText  `json:"title"`
+	Template string    `json:"template"`
+	Text     *CardText `json:"text,omitempty"`
 }
 
 // CardText represents a text element.
@@ -133,11 +133,11 @@ type CardButton struct {
 
 // CardSelectMenu represents a select_static dropdown in a Lark card form.
 type CardSelectMenu struct {
-	Tag          string            `json:"tag"`
-	Placeholder  *CardText         `json:"placeholder,omitempty"`
-	Name         string            `json:"name"`
+	Tag          string             `json:"tag"`
+	Placeholder  *CardText          `json:"placeholder,omitempty"`
+	Name         string             `json:"name"`
 	Options      []CardSelectOption `json:"options"`
-	DefaultValue string            `json:"value,omitempty"`
+	DefaultValue string             `json:"value,omitempty"`
 }
 
 // CardSelectOption is a single option in a select_static menu.
@@ -747,8 +747,8 @@ func BuildSilenceFormCard(eventID uint, alertName string) *CardMessage {
 			Tag: "form",
 			Elements: []interface{}{
 				CardSelectMenu{
-					Tag: "select_static",
-					Name: "duration",
+					Tag:         "select_static",
+					Name:        "duration",
 					Placeholder: &CardText{Tag: "plain_text", Content: "选择静默时长"},
 					Options: []CardSelectOption{
 						{Text: CardText{Tag: "plain_text", Content: "15 分钟"}, Value: "15"},
@@ -811,10 +811,10 @@ func BuildAssignFormCard(eventID uint, alertName string, users []UserOption) *Ca
 			Tag: "form",
 			Elements: []interface{}{
 				CardSelectMenu{
-					Tag: "select_static",
-					Name: "assignee",
+					Tag:         "select_static",
+					Name:        "assignee",
 					Placeholder: &CardText{Tag: "plain_text", Content: "选择值班人员"},
-					Options: options,
+					Options:     options,
 				},
 				CardInput{
 					Tag:         "input",

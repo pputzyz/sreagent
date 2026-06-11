@@ -13,11 +13,11 @@ type LLMConfig struct {
 	gorm.Model
 
 	Name        string `json:"name" gorm:"size:128;not null;uniqueIndex"`
-	Provider    string `json:"provider" gorm:"size:32;not null"`   // openai, azure, ollama, anthropic, custom
+	Provider    string `json:"provider" gorm:"size:32;not null"` // openai, azure, ollama, anthropic, custom
 	APIURL      string `json:"api_url" gorm:"size:512"`
-	APIKey      string `json:"-" gorm:"size:512"`                  // AES-256-GCM encrypted
+	APIKey      string `json:"-" gorm:"size:512"` // AES-256-GCM encrypted
 	ModelName   string `json:"model" gorm:"size:128;column:model"`
-	ExtraConfig string `json:"extra_config" gorm:"type:text"`      // JSON
+	ExtraConfig string `json:"extra_config" gorm:"type:text"` // JSON
 	Enabled     bool   `json:"enabled" gorm:"default:true"`
 	IsDefault   bool   `json:"is_default" gorm:"default:false"`
 	Description string `json:"description" gorm:"size:512"`

@@ -187,10 +187,10 @@ func (s *InspectionScheduler) runWithLeaderCheck(task *model.InspectionTask) {
 
 // OutputChannel 输出渠道配置
 type OutputChannel struct {
-	Type string `json:"type"` // lark_bot, email, webhook
-	BotID string `json:"bot_id,omitempty"`
+	Type  string   `json:"type"` // lark_bot, email, webhook
+	BotID string   `json:"bot_id,omitempty"`
 	To    []string `json:"to,omitempty"`
-	URL   string `json:"url,omitempty"`
+	URL   string   `json:"url,omitempty"`
 }
 
 // notifyResult 将巡检结果发送到配置的输出渠道
@@ -224,11 +224,11 @@ func (s *InspectionScheduler) notifyResult(task *model.InspectionTask, run *mode
 				continue
 			}
 			payload := map[string]interface{}{
-				"task_id":   task.ID,
-				"task_name": task.Name,
-				"status":    run.Status,
-				"summary":   run.ReportSummary,
-				"started_at": run.StartedAt,
+				"task_id":     task.ID,
+				"task_name":   task.Name,
+				"status":      run.Status,
+				"summary":     run.ReportSummary,
+				"started_at":  run.StartedAt,
 				"finished_at": run.FinishedAt,
 			}
 			body, _ := json.Marshal(payload)

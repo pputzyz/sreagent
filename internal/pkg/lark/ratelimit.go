@@ -19,9 +19,9 @@ type RateLimiter struct {
 // NewRateLimiter creates a RateLimiter with default limits.
 func NewRateLimiter() *RateLimiter {
 	return &RateLimiter{
-		perChat: newLRUBuckets(1000, 4, 4),   // 4 QPS, burst 4
-		global:  newTokenBucket(45, 45),       // 45 QPS, burst 45
-		perCard: newLRUBuckets(500, 10, 10),   // 10 QPS, burst 10
+		perChat: newLRUBuckets(1000, 4, 4),  // 4 QPS, burst 4
+		global:  newTokenBucket(45, 45),     // 45 QPS, burst 45
+		perCard: newLRUBuckets(500, 10, 10), // 10 QPS, burst 10
 	}
 }
 

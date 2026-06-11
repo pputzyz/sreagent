@@ -35,15 +35,15 @@ func Test_CardKitClient_CreateCardEntity(t *testing.T) {
 		assert.Contains(t, r.URL.Path, "/cardkit/v1/cards")
 
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		assert.Equal(t, "card_json", body["type"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 0,
 			"msg":  "success",
 			"data": map[string]string{"card_id": "card-abc123"},
-		})
+		}))
 	})
 	defer srv.Close()
 
@@ -55,10 +55,10 @@ func Test_CardKitClient_CreateCardEntity(t *testing.T) {
 func Test_CardKitClient_CreateCardEntity_Error(t *testing.T) {
 	srv, client := newTestCardKitServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 10003,
 			"msg":  "invalid params",
-		})
+		}))
 	})
 	defer srv.Close()
 
@@ -71,15 +71,15 @@ func Test_CardKitClient_UpdateCardEntity(t *testing.T) {
 		assert.Equal(t, http.MethodPut, r.Method)
 
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		assert.Equal(t, float64(5), body["sequence"])
 		assert.Equal(t, "idem-123", body["uuid"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 0,
 			"msg":  "success",
-		})
+		}))
 	})
 	defer srv.Close()
 
@@ -90,10 +90,10 @@ func Test_CardKitClient_UpdateCardEntity(t *testing.T) {
 func Test_CardKitClient_UpdateCardEntity_SequenceError(t *testing.T) {
 	srv, client := newTestCardKitServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 300317,
 			"msg":  "sequence error",
-		})
+		}))
 	})
 	defer srv.Close()
 
@@ -106,10 +106,10 @@ func Test_CardKitClient_UpdateCardEntity_SequenceError(t *testing.T) {
 func Test_CardKitClient_UpdateCardEntity_ExpiredError(t *testing.T) {
 	srv, client := newTestCardKitServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 230031,
 			"msg":  "card expired",
-		})
+		}))
 	})
 	defer srv.Close()
 
@@ -125,11 +125,11 @@ func Test_CardKitClient_SendCardByID(t *testing.T) {
 		assert.Contains(t, r.URL.Path, "/im/v1/messages")
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 0,
 			"msg":  "success",
 			"data": map[string]string{"message_id": "msg-xyz"},
-		})
+		}))
 	})
 	defer srv.Close()
 

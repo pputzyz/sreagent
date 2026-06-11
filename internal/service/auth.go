@@ -17,7 +17,7 @@ import (
 
 // Login rate-limit constants (ported from Nightingale).
 const (
-	LoginFailMax    = 5               // max failures before lockout
+	LoginFailMax    = 5                // max failures before lockout
 	LoginFailWindow = 15 * time.Minute // counter TTL
 )
 

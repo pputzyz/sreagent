@@ -1,20 +1,20 @@
+version: "2"
+
 run:
-  timeout: 5m
+  timeout: 3m
 
 linters:
+  default: standard
   disable:
-    - exhaustruct      # too strict for existing codebase
-    - depguard          # not needed
-    - ireturn           # too strict
-    - varnamelen        # too strict
-    - wsl               # style-only, slow
-    - nlreturn          # style-only
-    - godot             # style-only
-    - testpackage       # too strict for _test.go in same package
+    - exhaustruct
+    - depguard
+    - ireturn
+    - varnamelen
+    - wsl
+    - nlreturn
+    - godot
+    - testpackage
 
-issues:
-  exclude-dirs:
-    - web
-    - vendor
-    - docs
-    - cmd/larkpoc
+formatters:
+  enable:
+    - gofmt

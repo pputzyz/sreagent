@@ -15,19 +15,19 @@ type BuiltinMetric struct {
 	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 
-	Collector     string `json:"collector" gorm:"column:collector;size:191;not null;default:''"`
-	Typ           string `json:"typ" gorm:"column:typ;size:191;not null;default:''"`
-	Name          string `json:"name" gorm:"column:name;size:191;not null;default:''"`
-	Unit          string `json:"unit" gorm:"column:unit;size:191;not null;default:''"`
-	Note          string `json:"note" gorm:"column:note;size:4096;not null;default:''"`
-	Lang          string `json:"lang" gorm:"column:lang;size:32;not null;default:'zh'"`
-	Expression    string `json:"expression" gorm:"column:expression;size:4096;not null;default:''"`
+	Collector      string `json:"collector" gorm:"column:collector;size:191;not null;default:''"`
+	Typ            string `json:"typ" gorm:"column:typ;size:191;not null;default:''"`
+	Name           string `json:"name" gorm:"column:name;size:191;not null;default:''"`
+	Unit           string `json:"unit" gorm:"column:unit;size:191;not null;default:''"`
+	Note           string `json:"note" gorm:"column:note;size:4096;not null;default:''"`
+	Lang           string `json:"lang" gorm:"column:lang;size:32;not null;default:'zh'"`
+	Expression     string `json:"expression" gorm:"column:expression;size:4096;not null;default:''"`
 	ExpressionType string `json:"expression_type" gorm:"column:expression_type;size:32;not null;default:'metric_name'"`
-	MetricType    string `json:"metric_type" gorm:"column:metric_type;size:64;not null;default:''"`
-	ExtraFields   string `json:"extra_fields" gorm:"column:extra_fields;type:text"`
-	Translation   string `json:"translation" gorm:"column:translation;type:text"`
-	CreatedBy     string `json:"created_by" gorm:"column:created_by;size:64;not null;default:''"`
-	UpdatedBy     string `json:"updated_by" gorm:"column:updated_by;size:64;not null;default:''"`
+	MetricType     string `json:"metric_type" gorm:"column:metric_type;size:64;not null;default:''"`
+	ExtraFields    string `json:"extra_fields" gorm:"column:extra_fields;type:text"`
+	Translation    string `json:"translation" gorm:"column:translation;type:text"`
+	CreatedBy      string `json:"created_by" gorm:"column:created_by;size:64;not null;default:''"`
+	UpdatedBy      string `json:"updated_by" gorm:"column:updated_by;size:64;not null;default:''"`
 
 	// Frontend-facing fields
 	ExtraFieldsJSON map[string]string  `json:"extra_fields_json" gorm:"-"`
@@ -50,11 +50,11 @@ type MetricFilter struct {
 	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 
-	Name        string `json:"name" gorm:"column:name;size:191;not null;default:''"`
-	Configs     string `json:"configs" gorm:"column:configs;size:4096;not null;default:'[]'"`
-	GroupsPerm  string `json:"groups_perm" gorm:"column:groups_perm;type:text"`
-	CreatedBy   string `json:"created_by" gorm:"column:created_by;size:64;not null;default:''"`
-	UpdatedBy   string `json:"updated_by" gorm:"column:updated_by;size:64;not null;default:''"`
+	Name       string `json:"name" gorm:"column:name;size:191;not null;default:''"`
+	Configs    string `json:"configs" gorm:"column:configs;size:4096;not null;default:'[]'"`
+	GroupsPerm string `json:"groups_perm" gorm:"column:groups_perm;type:text"`
+	CreatedBy  string `json:"created_by" gorm:"column:created_by;size:64;not null;default:''"`
+	UpdatedBy  string `json:"updated_by" gorm:"column:updated_by;size:64;not null;default:''"`
 
 	// Frontend-facing
 	ConfigsJSON    []FilterConfig `json:"configs_json" gorm:"-"`

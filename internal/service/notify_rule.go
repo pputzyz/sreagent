@@ -28,8 +28,8 @@ type NotifyRuleService struct {
 	mediaRepo      *repository.NotifyMediaRepository
 	templateRepo   *repository.MessageTemplateRepository
 	recordRepo     *repository.NotifyRecordRepository
-	alertRuleRepo  *repository.AlertRuleRepository   // for loading AlertRule (template enrichment)
-	dsRepo         *repository.DataSourceRepository  // for loading DataSource name (template enrichment)
+	alertRuleRepo  *repository.AlertRuleRepository  // for loading AlertRule (template enrichment)
+	dsRepo         *repository.DataSourceRepository // for loading DataSource name (template enrichment)
 	mediaSvc       *NotifyMediaService
 	templateSvc    *MessageTemplateService
 	pipeline       *AlertPipeline
@@ -724,8 +724,8 @@ func (s *NotifyRuleService) isThrottled(ctx context.Context, rule *model.NotifyR
 func (s *NotifyRuleService) createRecord(ctx context.Context, eventID, mediaID, ruleID uint, fingerprint, status, response string) {
 	record := &model.NotifyRecord{
 		EventID:     eventID,
-		ChannelID:   mediaID,   // NOTE: column named channel_id but stores the notify media ID
-		PolicyID:    ruleID,    // NOTE: column named policy_id but stores the notify rule ID
+		ChannelID:   mediaID, // NOTE: column named channel_id but stores the notify media ID
+		PolicyID:    ruleID,  // NOTE: column named policy_id but stores the notify rule ID
 		Fingerprint: fingerprint,
 		Status:      status,
 		Response:    response,

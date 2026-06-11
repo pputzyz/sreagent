@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"html/template"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -40,24 +40,24 @@ type TemplateData struct {
 	AIAnalysis *AlertAnalysis `json:"ai_analysis,omitempty"`
 
 	// Extended fields (Nightingale parity)
-	RuleID           uint              `json:"rule_id"`           // alert rule ID
-	RuleNote         string            `json:"rule_note"`         // alert rule note/description
-	Cate             string            `json:"cate"`              // alert rule category (datasource type)
-	GroupName        string            `json:"group_name"`        // business group name
-	TargetIdent      string            `json:"target_ident"`      // target host/instance identifier (from labels)
-	TargetNote       string            `json:"target_note"`       // target note/description
-	TriggerValue     string            `json:"trigger_value"`     // raw trigger value
-	TriggerValues    map[string]string `json:"trigger_values"`    // per-query trigger values (for multi-query rules)
+	RuleID           uint              `json:"rule_id"`            // alert rule ID
+	RuleNote         string            `json:"rule_note"`          // alert rule note/description
+	Cate             string            `json:"cate"`               // alert rule category (datasource type)
+	GroupName        string            `json:"group_name"`         // business group name
+	TargetIdent      string            `json:"target_ident"`       // target host/instance identifier (from labels)
+	TargetNote       string            `json:"target_note"`        // target note/description
+	TriggerValue     string            `json:"trigger_value"`      // raw trigger value
+	TriggerValues    map[string]string `json:"trigger_values"`     // per-query trigger values (for multi-query rules)
 	FirstTriggerTime time.Time         `json:"first_trigger_time"` // first time this alert fired
-	LastEvalTime     time.Time         `json:"last_eval_time"`    // last evaluation time
-	Callbacks        []string          `json:"callbacks"`         // callback URLs
-	TagsJSON         []string          `json:"tags_json"`         // labels as "key=value" string array
-	IsRecovered      bool              `json:"is_recovered"`      // true if resolved
-	DatasourceID     uint              `json:"datasource_id"`     // datasource ID
-	DatasourceName   string            `json:"datasource_name"`   // datasource name
-	RunbookURL       string            `json:"runbook_url"`       // runbook URL
-	GeneratorURL     string            `json:"generator_url"`     // source URL that generated the alert
-	FireCount        int               `json:"fire_count"`        // number of times this alert has fired
+	LastEvalTime     time.Time         `json:"last_eval_time"`     // last evaluation time
+	Callbacks        []string          `json:"callbacks"`          // callback URLs
+	TagsJSON         []string          `json:"tags_json"`          // labels as "key=value" string array
+	IsRecovered      bool              `json:"is_recovered"`       // true if resolved
+	DatasourceID     uint              `json:"datasource_id"`      // datasource ID
+	DatasourceName   string            `json:"datasource_name"`    // datasource name
+	RunbookURL       string            `json:"runbook_url"`        // runbook URL
+	GeneratorURL     string            `json:"generator_url"`      // source URL that generated the alert
+	FireCount        int               `json:"fire_count"`         // number of times this alert has fired
 }
 
 // MessageTemplateService provides CRUD and rendering for message templates.

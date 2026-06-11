@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"runtime/debug"
 
 	larksdk "github.com/larksuite/oapi-sdk-go/v3"
@@ -224,17 +222,6 @@ func (w *WSEventSource) convertMessageEvent(event *larkim.P2MessageReceiveV1) *L
 	}
 
 	return req
-}
-
-// wsEventToCardRequest is a helper to reconstruct a LarkCardActionRequest from
-// raw JSON when card actions arrive over WebSocket (if card_interaction_mode is "callback_ws").
-// This is kept as a standalone function for testability.
-func wsEventToCardRequest(raw json.RawMessage) (*LarkCardActionRequest, error) {
-	var req LarkCardActionRequest
-	if err := json.Unmarshal(raw, &req); err != nil {
-		return nil, fmt.Errorf("failed to parse card action from WS: %w", err)
-	}
-	return &req, nil
 }
 
 // Ensure WSEventSource implements EventSource at compile time.

@@ -23,7 +23,7 @@ type InspectionHandler struct {
 
 // NewInspectionHandler creates a new InspectionHandler.
 func NewInspectionHandler(
-	taskSvc  *service.InspectionService,
+	taskSvc *service.InspectionService,
 	schedSvc *service.InspectionScheduler,
 	execSvc *service.InspectionExecutor,
 ) *InspectionHandler {

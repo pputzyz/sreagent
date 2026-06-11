@@ -7,10 +7,10 @@ import "time"
 // sent to N chats via lark_card_messages.
 type LarkCardEntity struct {
 	BaseModel
-	EventID    *uint  `json:"event_id" gorm:"index"`
-	CardID     string `json:"card_id" gorm:"size:128;not null"`
-	Sequence   int64  `json:"sequence" gorm:"not null;default:0"`
-	CardStatus string `json:"card_status" gorm:"size:32;not null;default:active"` // active | expired | superseded
+	EventID    *uint     `json:"event_id" gorm:"index"`
+	CardID     string    `json:"card_id" gorm:"size:128;not null"`
+	Sequence   int64     `json:"sequence" gorm:"not null;default:0"`
+	CardStatus string    `json:"card_status" gorm:"size:32;not null;default:active"` // active | expired | superseded
 	ExpiresAt  time.Time `json:"expires_at" gorm:"not null"`
 }
 

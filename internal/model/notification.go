@@ -33,8 +33,8 @@ func (NotifyChannel) TableName() string {
 type NotifyRecord struct {
 	BaseModel
 	EventID     uint   `json:"event_id" gorm:"index;not null"`
-	ChannelID   uint   `json:"channel_id" gorm:"index;not null"` // actually stores mediaID (see createRecord)
-	PolicyID    uint   `json:"policy_id" gorm:"index"`           // actually stores notifyRuleID (see createRecord)
+	ChannelID   uint   `json:"channel_id" gorm:"index;not null"`  // actually stores mediaID (see createRecord)
+	PolicyID    uint   `json:"policy_id" gorm:"index"`            // actually stores notifyRuleID (see createRecord)
 	Fingerprint string `json:"fingerprint" gorm:"index;size:256"` // alert fingerprint for per-alert throttle/dedup
 	Status      string `json:"status" gorm:"size:32;not null"`    // sent, failed, throttled
 	Response    string `json:"response" gorm:"type:text"`         // API response for debugging

@@ -11,9 +11,9 @@ import (
 )
 
 type BuiltinDashboardService struct {
-	repo      *repository.BuiltinDashboardRepository
-	dashRepo  *repository.DashboardRepository
-	logger    *zap.Logger
+	repo     *repository.BuiltinDashboardRepository
+	dashRepo *repository.DashboardRepository
+	logger   *zap.Logger
 }
 
 func NewBuiltinDashboardService(

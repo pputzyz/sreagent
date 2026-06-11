@@ -31,10 +31,10 @@ func Test_autoMatchDatasource_match(t *testing.T) {
 
 	// Seed a datasource with cluster label
 	ds := &model.DataSource{
-		Name:     "prom-prod",
-		Type:     model.DSTypePrometheus,
-		Endpoint: "http://localhost:9090",
-		Labels:   model.JSONLabels{"cluster": "prod-cn"},
+		Name:      "prom-prod",
+		Type:      model.DSTypePrometheus,
+		Endpoint:  "http://localhost:9090",
+		Labels:    model.JSONLabels{"cluster": "prod-cn"},
 		IsEnabled: true,
 	}
 	require.NoError(t, dsRepo.Create(context.Background(), ds))
@@ -57,10 +57,10 @@ func Test_autoMatchDatasource_no_match(t *testing.T) {
 
 	// Seed a datasource with a different cluster label
 	ds := &model.DataSource{
-		Name:     "prom-staging",
-		Type:     model.DSTypePrometheus,
-		Endpoint: "http://localhost:9090",
-		Labels:   model.JSONLabels{"cluster": "staging"},
+		Name:      "prom-staging",
+		Type:      model.DSTypePrometheus,
+		Endpoint:  "http://localhost:9090",
+		Labels:    model.JSONLabels{"cluster": "staging"},
 		IsEnabled: true,
 	}
 	require.NoError(t, dsRepo.Create(context.Background(), ds))

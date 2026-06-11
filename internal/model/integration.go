@@ -93,7 +93,7 @@ type RoutingRule struct {
 	TargetChannelID uint     `json:"target_channel_id" gorm:"index;not null"`
 	TargetChannel   *Channel `json:"target_channel,omitempty" gorm:"foreignKey:TargetChannelID"`
 	// Priority: lower number = higher priority, evaluated top-to-bottom.
-	Priority int  `json:"priority" gorm:"default:0;index"`
+	Priority  int  `json:"priority" gorm:"default:0;index"`
 	IsEnabled bool `json:"is_enabled" gorm:"default:true"`
 }
 

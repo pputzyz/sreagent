@@ -104,8 +104,8 @@ func (h *Handlers) registerAdminRoutes(auth *gin.RouterGroup, adminOnly, manage,
 	if h.RoutingRule != nil {
 		rr := auth.Group("/routing-rules")
 		{
-			rr.GET("", h.RoutingRule.ListByIntegration) // ?integration_id=X
-			rr.POST("", manage, middleware.RequirePerm("routing.write"), h.RoutingRule.Create)   // body: integration_id
+			rr.GET("", h.RoutingRule.ListByIntegration)                                        // ?integration_id=X
+			rr.POST("", manage, middleware.RequirePerm("routing.write"), h.RoutingRule.Create) // body: integration_id
 			rr.PUT("/:id", manage, middleware.RequirePerm("routing.write"), h.RoutingRule.Update)
 			rr.DELETE("/:id", manage, middleware.RequirePerm("routing.write"), h.RoutingRule.Delete)
 		}

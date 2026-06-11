@@ -9,24 +9,24 @@ import (
 
 // AISkill represents a structured skill package (SKILL.md + files).
 type AISkill struct {
-	ID          uint           `json:"id" gorm:"primaryKey"`
-	Name        string         `json:"name" gorm:"size:128;not null;uniqueIndex"`
-	Description string         `json:"description" gorm:"size:4096"`
-	Instructions string        `json:"instructions" gorm:"type:text"` // SKILL.md body (markdown)
-	License     string         `json:"license" gorm:"size:255"`
-	Compatibility string       `json:"compatibility" gorm:"size:255"`
-	AllowedTools string        `json:"allowed_tools" gorm:"size:4096"` // space-separated tool whitelist
-	Metadata    string         `json:"metadata" gorm:"type:text"` // JSON map[string]string
-	Enabled     bool           `json:"enabled" gorm:"default:true;index"`
-	CreatedBy   string         `json:"created_by" gorm:"size:64"`
-	UpdatedBy   string         `json:"updated_by" gorm:"size:64"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
+	ID            uint           `json:"id" gorm:"primaryKey"`
+	Name          string         `json:"name" gorm:"size:128;not null;uniqueIndex"`
+	Description   string         `json:"description" gorm:"size:4096"`
+	Instructions  string         `json:"instructions" gorm:"type:text"` // SKILL.md body (markdown)
+	License       string         `json:"license" gorm:"size:255"`
+	Compatibility string         `json:"compatibility" gorm:"size:255"`
+	AllowedTools  string         `json:"allowed_tools" gorm:"size:4096"` // space-separated tool whitelist
+	Metadata      string         `json:"metadata" gorm:"type:text"`      // JSON map[string]string
+	Enabled       bool           `json:"enabled" gorm:"default:true;index"`
+	CreatedBy     string         `json:"created_by" gorm:"size:64"`
+	UpdatedBy     string         `json:"updated_by" gorm:"size:64"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
 
 	// Runtime fields (not persisted)
-	Files    []*AISkillFile `json:"files,omitempty" gorm:"-"`
-	Builtin  bool           `json:"builtin" gorm:"-"` // true if CreatedBy == "system"
+	Files   []*AISkillFile `json:"files,omitempty" gorm:"-"`
+	Builtin bool           `json:"builtin" gorm:"-"` // true if CreatedBy == "system"
 }
 
 func (AISkill) TableName() string { return "ai_skills" }

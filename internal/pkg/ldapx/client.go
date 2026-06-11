@@ -24,12 +24,12 @@ import (
 type berTag uint8
 
 const (
-	berSequence     berTag = 0x30 // SEQUENCE (constructed, universal)
-	berEnumerated   berTag = 0x0A // ENUMERATED (primitive, universal)
-	berOctetString  berTag = 0x04 // OCTET STRING (primitive, universal)
-	berBindRequest  berTag = 0x60 // Application 0 (BindRequest)
-	berBindResponse berTag = 0x61 // Application 1 (BindResponse)
-	berSearchRequest berTag = 0x63 // Application 3 (SearchRequest)
+	berSequence          berTag = 0x30 // SEQUENCE (constructed, universal)
+	berEnumerated        berTag = 0x0A // ENUMERATED (primitive, universal)
+	berOctetString       berTag = 0x04 // OCTET STRING (primitive, universal)
+	berBindRequest       berTag = 0x60 // Application 0 (BindRequest)
+	berBindResponse      berTag = 0x61 // Application 1 (BindResponse)
+	berSearchRequest     berTag = 0x63 // Application 3 (SearchRequest)
 	berSearchResultEntry berTag = 0x64 // Application 4 (SearchResultEntry)
 	berSearchResultDone  berTag = 0x65 // Application 5 (SearchResultDone)
 	berFilterEquality    berTag = 0xA3 // Context-specific, constructed (EqualityMatch)
@@ -142,8 +142,8 @@ func decodeChildren(content []byte) ([]*berElement, error) {
 
 // Conn represents an LDAP connection.
 type Conn struct {
-	conn    net.Conn
-	reader  io.Reader
+	conn      net.Conn
+	reader    io.Reader
 	messageID uint32
 }
 
@@ -311,8 +311,8 @@ type SearchResult struct {
 }
 
 const (
-	ScopeBaseObject = 0
-	ScopeSingleLevel = 1
+	ScopeBaseObject   = 0
+	ScopeSingleLevel  = 1
 	ScopeWholeSubtree = 2
 )
 
@@ -374,7 +374,7 @@ func (c *Conn) Search(req SearchRequest) (*SearchResult, error) {
 			}
 			result.Entries = append(result.Entries, entry)
 		case berSearchResultDone:
-		resultCode := parseInt(resp.children[1].children[0].value)
+			resultCode := parseInt(resp.children[1].children[0].value)
 			if resultCode != 0 {
 				errMsg := ""
 				if len(resp.children[1].children) >= 3 {

@@ -25,7 +25,7 @@ type HeartbeatChecker struct {
 	eventRepo    *repository.AlertEventRepository
 	timelineRepo *repository.AlertTimelineRepository
 	onAlert      func(ctx context.Context, event *model.AlertEvent)
-	leader       LeaderElection // optional; nil = always run
+	leader       LeaderElection   // optional; nil = always run
 	pool         *AlertWorkerPool // optional; nil = use fallback semaphore
 	logger       *zap.Logger
 

@@ -29,7 +29,7 @@ type LarkCardStateService struct {
 	settingSvc *SystemSettingService
 	logger     *zap.Logger
 
-	mu            sync.Mutex
+	mu             sync.Mutex
 	debounceTimers map[uint]*time.Timer // eventID → pending update timer
 }
 

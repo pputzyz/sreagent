@@ -67,7 +67,7 @@ type GenerateContext struct {
 
 // RuleGenerateResult is the AI-generated rule.
 type RuleGenerateResult struct {
-	Type        string `json:"type"` // "alert" or "inhibition"
+	Type string `json:"type"` // "alert" or "inhibition"
 	// For alert rules
 	Expression  string            `json:"expression,omitempty"`
 	ForDuration string            `json:"for_duration,omitempty"`
@@ -80,11 +80,11 @@ type RuleGenerateResult struct {
 	TargetLabels []string `json:"target_labels,omitempty"`
 	EqualLabels  []string `json:"equal_labels,omitempty"`
 	// Common
-	Name               string              `json:"name"`
-	Description        string              `json:"description"`
-	Confidence         float64             `json:"confidence"`
-	Warnings           []string            `json:"warnings"`
-	SuggestedChannel   *ChannelSuggestion  `json:"suggested_channel,omitempty"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	Confidence       float64            `json:"confidence"`
+	Warnings         []string           `json:"warnings"`
+	SuggestedChannel *ChannelSuggestion `json:"suggested_channel,omitempty"`
 }
 
 // ChannelSuggestion is an AI-suggested notification channel.
@@ -199,20 +199,20 @@ func (s *RuleGeneratorService) GenerateInhibition(ctx context.Context, descripti
 
 // MuteRuleGenerateResult is the AI-generated mute rule.
 type MuteRuleGenerateResult struct {
-	Type          string   `json:"type"`
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
+	Type          string            `json:"type"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
 	MatchLabels   map[string]string `json:"match_labels"`
-	Severities    []string `json:"severities"`
-	StartTime     string   `json:"start_time,omitempty"`
-	EndTime       string   `json:"end_time,omitempty"`
-	PeriodicStart string   `json:"periodic_start,omitempty"`
-	PeriodicEnd   string   `json:"periodic_end,omitempty"`
-	DaysOfWeek    []string `json:"days_of_week"`
-	Timezone      string   `json:"timezone"`
-	RuleIDs       []uint   `json:"rule_ids,omitempty"`
-	Confidence    float64  `json:"confidence"`
-	Warnings      []string `json:"warnings"`
+	Severities    []string          `json:"severities"`
+	StartTime     string            `json:"start_time,omitempty"`
+	EndTime       string            `json:"end_time,omitempty"`
+	PeriodicStart string            `json:"periodic_start,omitempty"`
+	PeriodicEnd   string            `json:"periodic_end,omitempty"`
+	DaysOfWeek    []string          `json:"days_of_week"`
+	Timezone      string            `json:"timezone"`
+	RuleIDs       []uint            `json:"rule_ids,omitempty"`
+	Confidence    float64           `json:"confidence"`
+	Warnings      []string          `json:"warnings"`
 }
 
 // GenerateMute generates a mute rule from natural language.
@@ -255,7 +255,7 @@ func (s *RuleGeneratorService) GenerateMute(ctx context.Context, description str
 - 如果信息不足，在 warnings 中列出需要确认的事项
 - confidence: 0.0-1.0，信息越完整越高
 
-` + fewShotMute() + `
+`+fewShotMute()+`
 
 例子：
 用户: "凌晨 2 点到 6 点静默 staging 环境的告警"
@@ -300,17 +300,17 @@ func (s *RuleGeneratorService) SaveDraft(ctx context.Context, result *RuleGenera
 	}
 
 	rule := &model.AlertRule{
-		Name:           result.Name,
-		Description:    result.Description,
-		DataSourceID:   datasourceID,
-		Expression:     result.Expression,
-		ForDuration:    result.ForDuration,
-		Severity:       model.AlertSeverity(result.Severity),
-		Labels:         labels,
-		Annotations:    annotations,
-		Status:         model.RuleStatusDraft,
-		CreatedBy:      userID,
-		UpdatedBy:      userID,
+		Name:         result.Name,
+		Description:  result.Description,
+		DataSourceID: datasourceID,
+		Expression:   result.Expression,
+		ForDuration:  result.ForDuration,
+		Severity:     model.AlertSeverity(result.Severity),
+		Labels:       labels,
+		Annotations:  annotations,
+		Status:       model.RuleStatusDraft,
+		CreatedBy:    userID,
+		UpdatedBy:    userID,
 	}
 
 	if err := s.ruleSvc.Create(ctx, rule, "ai_draft"); err != nil {

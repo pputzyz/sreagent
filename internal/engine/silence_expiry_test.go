@@ -124,16 +124,16 @@ func Test_SilenceExpiryChecker_ExpiresSilencedEvents_DB(t *testing.T) {
 	// Seed a silenced event whose silence has already expired.
 	pastTime := time.Now().Add(-5 * time.Minute)
 	event := &model.AlertEvent{
-		Fingerprint:    "test-fp-expired-silence",
-		AlertName:      "ExpiredSilenceAlert",
-		Severity:       model.SeverityWarning,
-		Status:         model.EventStatusSilenced,
-		Labels:         model.JSONLabels{"alertname": "ExpiredSilenceAlert"},
-		Source:         "test",
-		FiredAt:        time.Now().Add(-10 * time.Minute),
-		FireCount:      1,
-		SilencedUntil:  &pastTime,
-		SilenceReason:  "test silence",
+		Fingerprint:   "test-fp-expired-silence",
+		AlertName:     "ExpiredSilenceAlert",
+		Severity:      model.SeverityWarning,
+		Status:        model.EventStatusSilenced,
+		Labels:        model.JSONLabels{"alertname": "ExpiredSilenceAlert"},
+		Source:        "test",
+		FiredAt:       time.Now().Add(-10 * time.Minute),
+		FireCount:     1,
+		SilencedUntil: &pastTime,
+		SilenceReason: "test silence",
 	}
 	require.NoError(t, eventRepo.Create(ctx, event))
 
@@ -165,16 +165,16 @@ func Test_SilenceExpiryChecker_IgnoresActiveSilence_DB(t *testing.T) {
 	// Seed a silenced event whose silence is still active (expires in 1 hour).
 	futureTime := time.Now().Add(1 * time.Hour)
 	event := &model.AlertEvent{
-		Fingerprint:    "test-fp-active-silence",
-		AlertName:      "ActiveSilenceAlert",
-		Severity:       model.SeverityWarning,
-		Status:         model.EventStatusSilenced,
-		Labels:         model.JSONLabels{"alertname": "ActiveSilenceAlert"},
-		Source:         "test",
-		FiredAt:        time.Now().Add(-5 * time.Minute),
-		FireCount:      1,
-		SilencedUntil:  &futureTime,
-		SilenceReason:  "test silence",
+		Fingerprint:   "test-fp-active-silence",
+		AlertName:     "ActiveSilenceAlert",
+		Severity:      model.SeverityWarning,
+		Status:        model.EventStatusSilenced,
+		Labels:        model.JSONLabels{"alertname": "ActiveSilenceAlert"},
+		Source:        "test",
+		FiredAt:       time.Now().Add(-5 * time.Minute),
+		FireCount:     1,
+		SilencedUntil: &futureTime,
+		SilenceReason: "test silence",
 	}
 	require.NoError(t, eventRepo.Create(ctx, event))
 

@@ -16,10 +16,10 @@ const (
 type Alert struct {
 	BaseModel
 	// AlertKey is the deduplication key (e.g. hash of rule_id + labels subset).
-	AlertKey string      `json:"alert_key" gorm:"size:128;uniqueIndex;not null"`
-	Title    string      `json:"title" gorm:"size:512;not null;index"`
+	AlertKey string        `json:"alert_key" gorm:"size:128;uniqueIndex;not null"`
+	Title    string        `json:"title" gorm:"size:512;not null;index"`
 	Severity AlertSeverity `json:"severity" gorm:"size:32;not null;index;default:warning"`
-	Status   AlertStatus `json:"status" gorm:"size:32;not null;index;default:firing"`
+	Status   AlertStatus   `json:"status" gorm:"size:32;not null;index;default:firing"`
 
 	// Source alert rule (optional — webhook-based alerts may not have a rule)
 	RuleID *uint      `json:"rule_id" gorm:"index"`
@@ -75,7 +75,7 @@ type AlertEventV2 struct {
 	EventSeverity AlertSeverity      `json:"event_severity" gorm:"size:32;not null"`
 	Labels        JSONLabels         `json:"labels" gorm:"type:json"`
 	Annotations   JSONLabels         `json:"annotations" gorm:"type:json"`
-	Value         float64            `json:"value"`     // metric value at evaluation time
+	Value         float64            `json:"value"`                           // metric value at evaluation time
 	Timestamp     time.Time          `json:"timestamp" gorm:"not null;index"` // when the event was generated
 
 	// Fingerprint for deduplication within the alert

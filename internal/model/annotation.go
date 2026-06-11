@@ -12,7 +12,7 @@ type Annotation struct {
 	EndTime     *time.Time `json:"end_time"`
 	Text        string     `json:"text" gorm:"size:1024"`
 	Tags        JSONLabels `json:"tags" gorm:"type:json"`
-	Source      string     `json:"source" gorm:"size:64"`  // 'user' | 'alert' | 'system'
+	Source      string     `json:"source" gorm:"size:64"` // 'user' | 'alert' | 'system'
 	CreatedBy   uint       `json:"created_by"`
 }
 

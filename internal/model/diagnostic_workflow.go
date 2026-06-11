@@ -20,17 +20,17 @@ func (DiagnosticWorkflow) TableName() string { return "diagnostic_workflows" }
 
 // DiagnosticWorkflowStep defines a single step in a diagnostic workflow.
 type DiagnosticWorkflowStep struct {
-	ID             uint   `json:"id" gorm:"primaryKey"`
-	WorkflowID     uint   `json:"workflow_id" gorm:"index;not null"`
-	StepOrder      int    `json:"step_order" gorm:"default:0"`
-	Name           string `json:"name" gorm:"size:255;not null"`
-	StepType       string `json:"step_type" gorm:"size:20;default:query"`
-	DatasourceID   *uint  `json:"datasource_id"`
-	Expression     string `json:"expression" gorm:"type:text"`
-	ConditionExpr  string `json:"condition_expr" gorm:"size:500"`
-	AutoAdvance    bool   `json:"auto_advance" gorm:"default:true"`
-	TimeoutSeconds int    `json:"timeout_seconds" gorm:"default:30"`
-	OnFailure      string `json:"on_failure" gorm:"size:20;default:continue"`
+	ID             uint      `json:"id" gorm:"primaryKey"`
+	WorkflowID     uint      `json:"workflow_id" gorm:"index;not null"`
+	StepOrder      int       `json:"step_order" gorm:"default:0"`
+	Name           string    `json:"name" gorm:"size:255;not null"`
+	StepType       string    `json:"step_type" gorm:"size:20;default:query"`
+	DatasourceID   *uint     `json:"datasource_id"`
+	Expression     string    `json:"expression" gorm:"type:text"`
+	ConditionExpr  string    `json:"condition_expr" gorm:"size:500"`
+	AutoAdvance    bool      `json:"auto_advance" gorm:"default:true"`
+	TimeoutSeconds int       `json:"timeout_seconds" gorm:"default:30"`
+	OnFailure      string    `json:"on_failure" gorm:"size:20;default:continue"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 

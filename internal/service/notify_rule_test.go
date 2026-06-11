@@ -134,9 +134,9 @@ func Test_FindMatchingRules_ByLabels(t *testing.T) {
 
 	// Create a rule that matches env=prod
 	rule := &model.NotifyRule{
-		Name:         "prod-rule",
-		IsEnabled:    true,
-		MatchLabels:  model.JSONLabels{"env": "prod"},
+		Name:          "prod-rule",
+		IsEnabled:     true,
+		MatchLabels:   model.JSONLabels{"env": "prod"},
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, rule))
@@ -171,20 +171,20 @@ func Test_FindMatchingRules_BySeverity(t *testing.T) {
 
 	// Rule that only matches critical alerts
 	criticalRule := &model.NotifyRule{
-		Name:         "critical-only",
-		IsEnabled:    true,
-		Severities:   "critical",
-		MatchLabels:  model.JSONLabels{"env": "prod"},
+		Name:          "critical-only",
+		IsEnabled:     true,
+		Severities:    "critical",
+		MatchLabels:   model.JSONLabels{"env": "prod"},
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, criticalRule))
 
 	// Rule that matches all severities (empty = all)
 	allRule := &model.NotifyRule{
-		Name:         "all-severities",
-		IsEnabled:    true,
-		Severities:   "",
-		MatchLabels:  model.JSONLabels{"env": "prod"},
+		Name:          "all-severities",
+		IsEnabled:     true,
+		Severities:    "",
+		MatchLabels:   model.JSONLabels{"env": "prod"},
 		NotifyConfigs: `[{"media_id":2}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, allRule))
@@ -224,9 +224,9 @@ func Test_FindMatchingRules_DisabledRule_Excluded(t *testing.T) {
 	ctx := context.Background()
 
 	disabledRule := &model.NotifyRule{
-		Name:         "disabled-rule",
-		IsEnabled:    false,
-		MatchLabels:  model.JSONLabels{"env": "prod"},
+		Name:          "disabled-rule",
+		IsEnabled:     false,
+		MatchLabels:   model.JSONLabels{"env": "prod"},
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, disabledRule))
@@ -261,9 +261,9 @@ func Test_FindMatchingRules_NoMatch(t *testing.T) {
 	ctx := context.Background()
 
 	rule := &model.NotifyRule{
-		Name:         "prod-only",
-		IsEnabled:    true,
-		MatchLabels:  model.JSONLabels{"env": "prod"},
+		Name:          "prod-only",
+		IsEnabled:     true,
+		MatchLabels:   model.JSONLabels{"env": "prod"},
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, rule))
@@ -297,9 +297,9 @@ func Test_ProcessEvent_DisabledRule_Skips(t *testing.T) {
 
 	// Create a disabled rule
 	rule := &model.NotifyRule{
-		Name:         "disabled-for-process",
-		IsEnabled:    false,
-		Severities:   "critical,warning",
+		Name:          "disabled-for-process",
+		IsEnabled:     false,
+		Severities:    "critical,warning",
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, rule))
@@ -333,9 +333,9 @@ func TestProcessEvent_SeverityMismatch_Skips(t *testing.T) {
 
 	// Rule only accepts critical
 	rule := &model.NotifyRule{
-		Name:         "critical-process",
-		IsEnabled:    true,
-		Severities:   "critical",
+		Name:          "critical-process",
+		IsEnabled:     true,
+		Severities:    "critical",
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, rule))

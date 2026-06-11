@@ -294,9 +294,9 @@ func Test_IsMutedByRule_time_window_outside_no_match(t *testing.T) {
 func Test_IsMutedByRule_combined_all_criteria_pass(t *testing.T) {
 	ruleID := uint(42)
 	rule := &model.MuteRule{
-		MatchLabels: model.JSONLabels{"env": "prod"},
-		Severities:  "critical,warning",
-		RuleIDs:     "42",
+		MatchLabels:   model.JSONLabels{"env": "prod"},
+		Severities:    "critical,warning",
+		RuleIDs:       "42",
 		PeriodicStart: "00:00",
 		PeriodicEnd:   "23:59",
 		Timezone:      "UTC",
@@ -311,9 +311,9 @@ func Test_IsMutedByRule_combined_all_criteria_pass(t *testing.T) {
 func Test_IsMutedByRule_combined_one_criterion_fails(t *testing.T) {
 	ruleID := uint(42)
 	rule := &model.MuteRule{
-		MatchLabels: model.JSONLabels{"env": "prod"},
-		Severities:  "critical,warning",
-		RuleIDs:     "42",
+		MatchLabels:   model.JSONLabels{"env": "prod"},
+		Severities:    "critical,warning",
+		RuleIDs:       "42",
 		PeriodicStart: "00:00",
 		PeriodicEnd:   "23:59",
 		Timezone:      "UTC",

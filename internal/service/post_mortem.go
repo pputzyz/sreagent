@@ -14,9 +14,9 @@ import (
 
 // PostMortemService manages incident post-mortems (故障复盘).
 type PostMortemService struct {
-	repo        *repository.PostMortemRepository
+	repo         *repository.PostMortemRepository
 	incidentRepo *repository.IncidentRepository
-	logger      *zap.Logger
+	logger       *zap.Logger
 }
 
 func NewPostMortemService(

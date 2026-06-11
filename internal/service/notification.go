@@ -15,13 +15,13 @@ import (
 // NotificationService is the notification routing engine.
 // It dispatches alert events through the v2 notify-rule pipeline.
 type NotificationService struct {
-	subscribeSvc    *SubscribeRuleService
-	notifyRuleSvc   *NotifyRuleService
-	ruleRepo        *repository.AlertRuleRepository
-	inhibitionSvc   *InhibitionRuleService // optional — inhibition check before routing
-	muteSvc         *MuteRuleService       // optional — mute rule check before routing
-	eventRepo       *repository.AlertEventRepository // optional — for fetching firing events
-	logger          *zap.Logger
+	subscribeSvc  *SubscribeRuleService
+	notifyRuleSvc *NotifyRuleService
+	ruleRepo      *repository.AlertRuleRepository
+	inhibitionSvc *InhibitionRuleService           // optional — inhibition check before routing
+	muteSvc       *MuteRuleService                 // optional — mute rule check before routing
+	eventRepo     *repository.AlertEventRepository // optional — for fetching firing events
+	logger        *zap.Logger
 }
 
 // NewNotificationService creates a new NotificationService.

@@ -71,7 +71,6 @@ func (m *mockAlertRouter) callCount() int {
 	return len(m.events)
 }
 
-
 func Test_HandleWebhook_ResolvedAlertRefires_ReopensAndNotifies(t *testing.T) {
 	db := testWebhookDB(t)
 

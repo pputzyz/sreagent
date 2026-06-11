@@ -30,14 +30,14 @@ func (h *MetricViewHandler) SetAuditService(svc *service.AuditLogService) {
 
 // CreateMetricViewRequest is the request body for creating a metric view.
 type CreateMetricViewRequest struct {
-	Name        string                  `json:"name" binding:"required,max=200"`
-	Configs     *model.MetricViewConfig `json:"configs" binding:"required"`
+	Name    string                  `json:"name" binding:"required,max=200"`
+	Configs *model.MetricViewConfig `json:"configs" binding:"required"`
 }
 
 // UpdateMetricViewRequest is the request body for updating a metric view.
 type UpdateMetricViewRequest struct {
-	Name        string                  `json:"name" binding:"required,max=200"`
-	Configs     *model.MetricViewConfig `json:"configs" binding:"required"`
+	Name    string                  `json:"name" binding:"required,max=200"`
+	Configs *model.MetricViewConfig `json:"configs" binding:"required"`
 }
 
 // --- Handler methods ---

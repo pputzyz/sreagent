@@ -14,17 +14,17 @@ import (
 // recordingRuleAllowedFields is the allowlist for UpdateFields.
 // Only these columns may be updated via the partial-update endpoint.
 var recordingRuleAllowedFields = map[string]bool{
-	"name":          true,
-	"prom_ql":       true,
+	"name":           true,
+	"prom_ql":        true,
 	"datasource_ids": true,
-	"cron_pattern":  true,
-	"disabled":      true,
-	"write_back":    true,
-	"append_tags":   true,
-	"note":          true,
-	"query_configs": true,
-	"updated_by":    true,
-	"updated_at":    true,
+	"cron_pattern":   true,
+	"disabled":       true,
+	"write_back":     true,
+	"append_tags":    true,
+	"note":           true,
+	"query_configs":  true,
+	"updated_by":     true,
+	"updated_at":     true,
 }
 
 type RecordingRuleService struct {

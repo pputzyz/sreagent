@@ -2,8 +2,8 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -207,8 +207,8 @@ func (h *InhibitionRuleHandler) Delete(c *gin.Context) {
 
 // InhibitionPreviewItem is the response item for a single inhibition rule preview.
 type InhibitionPreviewItem struct {
-	RuleID       uint              `json:"rule_id"`
-	RuleName     string            `json:"rule_name"`
+	RuleID       uint               `json:"rule_id"`
+	RuleName     string             `json:"rule_name"`
 	TargetEvents []model.AlertEvent `json:"target_events"`
 	SourceEvents []model.AlertEvent `json:"source_events"`
 }

@@ -24,11 +24,11 @@ var LoginRateLimiter RateLimiterBackend
 
 // RateLimiter provides per-key rate limiting using a token bucket algorithm.
 type RateLimiter struct {
-	mu       sync.Mutex
-	buckets  map[string]*bucket
-	rate     float64 // tokens per second
-	burst    int     // max tokens
-	cleanup  time.Duration
+	mu      sync.Mutex
+	buckets map[string]*bucket
+	rate    float64 // tokens per second
+	burst   int     // max tokens
+	cleanup time.Duration
 }
 
 type bucket struct {

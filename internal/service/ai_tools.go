@@ -483,10 +483,10 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 			}
 
 			return marshalJSONOrError(map[string]interface{}{
-				"total":   len(resp.Data),
+				"total":    len(resp.Data),
 				"filtered": len(metrics),
-				"prefix":  prefix,
-				"metrics": metrics,
+				"prefix":   prefix,
+				"metrics":  metrics,
 			}), nil
 		},
 	})
@@ -583,10 +583,10 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 			}
 
 			return marshalJSONOrError(map[string]interface{}{
-				"total":      len(resp.Data),
-				"returned":   len(values),
-				"label_key":  labelKey,
-				"values":     values,
+				"total":     len(resp.Data),
+				"returned":  len(values),
+				"label_key": labelKey,
+				"values":    values,
 			}), nil
 		},
 	})
@@ -896,8 +896,8 @@ func (r *AIToolRegistry) RegisterMCPTools(mcpSvc *MCPServerService) {
 			// available. Until then, the conservative "write" default and explicit read-hint
 			// matching provide a reasonable safety net but may produce false negatives for
 			// write operations described with read-like verbs.
-			ioType := "write"     // conservative default
-			riskLevel := int8(1)  // moderate risk default
+			ioType := "write"    // conservative default
+			riskLevel := int8(1) // moderate risk default
 			descLower := strings.ToLower(toolDesc)
 			readHints := []string{"read", "list", "get", "query", "search", "fetch", "find", "show", "describe"}
 			for _, hint := range readHints {

@@ -43,7 +43,7 @@ func (s *AlertRuleTemplateService) Update(ctx context.Context, tpl *model.AlertR
 		return apperr.ErrNotFound
 	}
 	if existing.IsBuiltin {
-		return apperr.WithMessage(apperr.ErrBuiltinDelete,"built-in templates cannot be modified")
+		return apperr.WithMessage(apperr.ErrBuiltinDelete, "built-in templates cannot be modified")
 	}
 	// Merge updates into existing template (preserve created_at, etc.)
 	existing.Name = tpl.Name
@@ -69,7 +69,7 @@ func (s *AlertRuleTemplateService) Delete(ctx context.Context, id uint) error {
 		return apperr.ErrNotFound
 	}
 	if tpl.IsBuiltin {
-		return apperr.WithMessage(apperr.ErrBuiltinDelete,"built-in templates cannot be deleted")
+		return apperr.WithMessage(apperr.ErrBuiltinDelete, "built-in templates cannot be deleted")
 	}
 	return s.repo.Delete(ctx, id)
 }

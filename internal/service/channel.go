@@ -13,9 +13,9 @@ import (
 
 // ChannelService provides business logic for collaboration channels (协作空间).
 type ChannelService struct {
-	repo        *repository.ChannelRepository
+	repo         *repository.ChannelRepository
 	incidentRepo *repository.IncidentRepository // optional, for active incident checks
-	logger      *zap.Logger
+	logger       *zap.Logger
 }
 
 func NewChannelService(repo *repository.ChannelRepository, logger *zap.Logger) *ChannelService {

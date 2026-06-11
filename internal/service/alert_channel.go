@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
-	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -143,6 +143,7 @@ func (s *AlertChannelService) TestChannel(ctx context.Context, id uint) error {
 
 	return nil
 }
+
 // FindMatchingChannels returns all enabled channels whose MatchLabels are a
 // subset of the event's labels AND whose severity filter (if set) matches.
 // dataSourceID is the datasource of the alert rule (nil = skip datasource filtering).

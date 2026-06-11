@@ -97,18 +97,18 @@ func (p *EventPipeline) Verify() error {
 
 // EventPipelineExecution records a single execution of a pipeline.
 type EventPipelineExecution struct {
-	ID           string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	PipelineID   uint       `json:"pipeline_id" gorm:"index;not null"`
-	PipelineName string     `json:"pipeline_name" gorm:"size:128"`
-	EventID      uint       `json:"event_id" gorm:"index;default:0"`
-	Mode         string     `json:"mode" gorm:"size:16;default:event"`
-	Status       string     `json:"status" gorm:"size:20;not null;default:success"`
-	NodeResults  string     `json:"node_results" gorm:"type:json"`
-	ErrorMessage string     `json:"error_message" gorm:"type:text"`
-	DurationMs   int64      `json:"duration_ms" gorm:"default:0"`
-	TriggerBy    string     `json:"trigger_by" gorm:"size:64"`
-	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	FinishedAt   time.Time  `json:"finished_at"`
+	ID           string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	PipelineID   uint      `json:"pipeline_id" gorm:"index;not null"`
+	PipelineName string    `json:"pipeline_name" gorm:"size:128"`
+	EventID      uint      `json:"event_id" gorm:"index;default:0"`
+	Mode         string    `json:"mode" gorm:"size:16;default:event"`
+	Status       string    `json:"status" gorm:"size:20;not null;default:success"`
+	NodeResults  string    `json:"node_results" gorm:"type:json"`
+	ErrorMessage string    `json:"error_message" gorm:"type:text"`
+	DurationMs   int64     `json:"duration_ms" gorm:"default:0"`
+	TriggerBy    string    `json:"trigger_by" gorm:"size:64"`
+	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime"`
+	FinishedAt   time.Time `json:"finished_at"`
 }
 
 // TableName returns the table name for EventPipelineExecution.

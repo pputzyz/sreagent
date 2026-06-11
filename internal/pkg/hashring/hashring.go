@@ -30,8 +30,8 @@ const DefaultReplicas = 500
 type Ring struct {
 	mu       sync.RWMutex
 	replicas int
-	keys     []uint32        // sorted virtual-node positions
-	hashMap  map[uint32]string // virtual-node position -> physical node name
+	keys     []uint32            // sorted virtual-node positions
+	hashMap  map[uint32]string   // virtual-node position -> physical node name
 	nodes    map[string]struct{} // set of physical nodes
 }
 

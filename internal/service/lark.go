@@ -23,10 +23,10 @@ type LarkService struct {
 	// settingSvc provides Lark bot credentials for Bot API calls.
 	settingSvc *SystemSettingService
 	// Cached bot client to avoid fetching a new token on every call.
-	botClientMu      sync.Mutex
-	botClient        *lark.BotClient
-	botClientAppID   string
-	botClientSecret  string
+	botClientMu     sync.Mutex
+	botClient       *lark.BotClient
+	botClientAppID  string
+	botClientSecret string
 	// Shared token cache — can be injected so multiple services share one cache.
 	tokenCache *lark.TokenCache
 	// cardSvc manages CardKit card entities (v2 path). Nil when CardKit not configured.

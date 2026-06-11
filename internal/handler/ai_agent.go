@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/sreagent/sreagent/internal/model"
-	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	sredis "github.com/sreagent/sreagent/internal/pkg/redis"
 	"github.com/sreagent/sreagent/internal/service"
 )
 

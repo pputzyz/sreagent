@@ -56,14 +56,14 @@ var TemplateFuncMap = template.FuncMap{
 	"div": Divide,
 
 	// Encoding
-	"b64enc":     B64Enc,
-	"b64dec":     B64Dec,
+	"b64enc":      B64Enc,
+	"b64dec":      B64Dec,
 	"jsonMarshal": JsonMarshal,
 
 	// HTML / template helpers
-	"unescaped":  Unescaped,
-	"safeHtml":   SafeHtml,
-	"printf":     Printf,
+	"unescaped": Unescaped,
+	"safeHtml":  SafeHtml,
+	"printf":    Printf,
 
 	// Map helpers
 	"tagsMapToStr":  TagsMapToStr,

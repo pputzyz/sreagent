@@ -24,19 +24,19 @@ import (
 // OAuth2Config holds generic OAuth2 SSO configuration stored in the DB.
 type OAuth2Config struct {
 	Enabled       bool   `json:"enabled"`
-	Name          string `json:"name"`            // display name, e.g. "GitHub"
+	Name          string `json:"name"` // display name, e.g. "GitHub"
 	ClientID      string `json:"client_id"`
-	ClientSecret  string `json:"client_secret"`   // encrypted
+	ClientSecret  string `json:"client_secret"` // encrypted
 	AuthURL       string `json:"auth_url"`
 	TokenURL      string `json:"token_url"`
 	UserInfoURL   string `json:"user_info_url"`
 	RedirectURL   string `json:"redirect_url"`
-	Scopes        string `json:"scopes"`          // comma-separated
-	UserIDField   string `json:"user_id_field"`   // field in userinfo JSON
+	Scopes        string `json:"scopes"`        // comma-separated
+	UserIDField   string `json:"user_id_field"` // field in userinfo JSON
 	EmailField    string `json:"email_field"`
 	UsernameField string `json:"username_field"`
-	DefaultRole   string `json:"default_role"`     // default "viewer"
-	AutoProvision bool   `json:"auto_provision"`   // default true
+	DefaultRole   string `json:"default_role"`   // default "viewer"
+	AutoProvision bool   `json:"auto_provision"` // default true
 }
 
 // OAuth2UserInfo holds user information from the OAuth2 provider.

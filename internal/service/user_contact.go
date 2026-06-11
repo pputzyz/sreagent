@@ -36,10 +36,10 @@ var phoneRegex = regexp.MustCompile(`^\+?[0-9\-]{5,20}$`)
 
 // UserContactService provides CRUD operations for user contacts.
 type UserContactService struct {
-	repo      *repository.UserContactRepository
-	rdb       *redis.Client
+	repo       *repository.UserContactRepository
+	rdb        *redis.Client
 	settingSvc *SystemSettingService
-	logger    *zap.Logger
+	logger     *zap.Logger
 }
 
 // NewUserContactService creates a new UserContactService.

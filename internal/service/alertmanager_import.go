@@ -55,27 +55,27 @@ type alertmanagerConfig struct {
 
 // alertRoute represents a routing tree node.
 type alertRoute struct {
-	Receiver        string        `yaml:"receiver"`
-	GroupBy         []string      `yaml:"group_by"`
-	GroupWait       string        `yaml:"group_wait"`
-	GroupInterval   string        `yaml:"group_interval"`
-	RepeatInterval  string        `yaml:"repeat_interval"`
-	Matchers        []string      `yaml:"matchers"`
-	Match           interface{}   `yaml:"match"`
-	Continue        bool          `yaml:"continue"`
-	Routes          []*alertRoute `yaml:"routes"`
+	Receiver       string        `yaml:"receiver"`
+	GroupBy        []string      `yaml:"group_by"`
+	GroupWait      string        `yaml:"group_wait"`
+	GroupInterval  string        `yaml:"group_interval"`
+	RepeatInterval string        `yaml:"repeat_interval"`
+	Matchers       []string      `yaml:"matchers"`
+	Match          interface{}   `yaml:"match"`
+	Continue       bool          `yaml:"continue"`
+	Routes         []*alertRoute `yaml:"routes"`
 }
 
 // alertReceiver represents a notification receiver.
 type alertReceiver struct {
-	Name           string                 `yaml:"name"`
-	WebhookConfigs []alertWebhookConfig   `yaml:"webhook_configs"`
+	Name           string               `yaml:"name"`
+	WebhookConfigs []alertWebhookConfig `yaml:"webhook_configs"`
 }
 
 // alertWebhookConfig represents a webhook endpoint.
 type alertWebhookConfig struct {
-	URL           string `yaml:"url"`
-	SendResolved  bool   `yaml:"send_resolved"`
+	URL          string `yaml:"url"`
+	SendResolved bool   `yaml:"send_resolved"`
 }
 
 // alertInhibitRule represents an Alertmanager inhibition rule.
@@ -126,10 +126,10 @@ func (s *AlertmanagerImportService) ImportConfig(ctx context.Context, yamlConten
 		}
 
 		ch := &model.Channel{
-			Name:             recv.Name,
-			Description:      fmt.Sprintf("Imported from Alertmanager receiver %q", recv.Name),
-			Status:           model.ChannelStatusActive,
-			AccessLevel:      model.ChannelAccessPublic,
+			Name:              recv.Name,
+			Description:       fmt.Sprintf("Imported from Alertmanager receiver %q", recv.Name),
+			Status:            model.ChannelStatusActive,
+			AccessLevel:       model.ChannelAccessPublic,
 			AggregationConfig: string(webhookData),
 		}
 
@@ -242,4 +242,3 @@ func parseAlertmanagerMatchers(matchers []string) (model.JSONLabels, error) {
 	}
 	return labels, nil
 }
-

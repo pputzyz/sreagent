@@ -13,13 +13,13 @@ import (
 
 // SSOUserInfo holds user information from an SSO provider (LDAP, OAuth2, OIDC).
 type SSOUserInfo struct {
-	Subject     string   // OIDC subject or "oauth2:<id>"; empty for pure LDAP
+	Subject     string // OIDC subject or "oauth2:<id>"; empty for pure LDAP
 	Username    string
 	DisplayName string
 	Email       string
-	Avatar      string   // picture URL (OIDC only)
+	Avatar      string     // picture URL (OIDC only)
 	Role        model.Role // override role from OIDC claims; empty to use default
-	Source      string   // "ldap", "oauth2", "oidc" (for logging)
+	Source      string     // "ldap", "oauth2", "oidc" (for logging)
 }
 
 // LookupSSOUser finds an existing user by subject, email, then username.

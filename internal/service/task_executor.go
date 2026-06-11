@@ -21,10 +21,10 @@ import (
 
 // TaskExecutor executes task templates against remote hosts via SSH.
 type TaskExecutor struct {
-	tplRepo          *repository.TaskTplRepository
-	recRepo          *repository.TaskRecordRepository
-	logger           *zap.Logger
-	knownHostsFile   string // path to SSH known_hosts file
+	tplRepo        *repository.TaskTplRepository
+	recRepo        *repository.TaskRecordRepository
+	logger         *zap.Logger
+	knownHostsFile string // path to SSH known_hosts file
 }
 
 // NewTaskExecutor creates a new TaskExecutor.

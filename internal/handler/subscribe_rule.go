@@ -2,8 +2,8 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/service"
@@ -26,18 +26,18 @@ func NewSubscribeRuleHandler(svc *service.SubscribeRuleService, logger ...*zap.L
 
 // CreateSubscribeRuleRequest is the request body for creating a subscribe rule.
 type CreateSubscribeRuleRequest struct {
-	Name          string           `json:"name" binding:"required"`
-	Description   string           `json:"description"`
-	IsEnabled     *bool            `json:"is_enabled"`
-	MatchLabels   model.JSONLabels `json:"match_labels"`
-	Severities    string           `json:"severities"`
+	Name          string            `json:"name" binding:"required"`
+	Description   string            `json:"description"`
+	IsEnabled     *bool             `json:"is_enabled"`
+	MatchLabels   model.JSONLabels  `json:"match_labels"`
+	Severities    string            `json:"severities"`
 	TagFilters    []model.TagFilter `json:"tag_filters"`
-	DatasourceIDs []uint           `json:"datasource_ids"`
-	RuleIDs       []uint           `json:"rule_ids"`
-	ForDuration   int              `json:"for_duration"`
-	NotifyRuleID  uint             `json:"notify_rule_id" binding:"required"`
-	UserID        *uint            `json:"user_id"`
-	TeamID        *uint            `json:"team_id"`
+	DatasourceIDs []uint            `json:"datasource_ids"`
+	RuleIDs       []uint            `json:"rule_ids"`
+	ForDuration   int               `json:"for_duration"`
+	NotifyRuleID  uint              `json:"notify_rule_id" binding:"required"`
+	UserID        *uint             `json:"user_id"`
+	TeamID        *uint             `json:"team_id"`
 }
 
 // UpdateSubscribeRuleRequest is the request body for updating a subscribe rule.

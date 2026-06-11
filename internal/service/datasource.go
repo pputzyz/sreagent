@@ -44,7 +44,7 @@ type DataSourceService struct {
 	logger      *zap.Logger
 	queryClient *datasource.QueryClient
 	ruleCountFn func(ctx context.Context, dsID uint) (int64, error) // P1-11: optional cascade check
-	onChange    DatasourceChangeCallback // optional; notified on endpoint/config changes
+	onChange    DatasourceChangeCallback                            // optional; notified on endpoint/config changes
 }
 
 func NewDataSourceService(repo *repository.DataSourceRepository, logger *zap.Logger) *DataSourceService {

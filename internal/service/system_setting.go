@@ -20,23 +20,23 @@ import (
 // Deprecated: Use AIProviderConfig / AIProvidersConfig for multi-provider support.
 // Retained for backward compatibility with existing callers.
 type AIConfig struct {
-	Provider        string  `json:"provider"`      // openai, azure, ollama, custom, anthropic
+	Provider        string  `json:"provider"` // openai, azure, ollama, custom, anthropic
 	APIKey          string  `json:"api_key"`
 	BaseURL         string  `json:"base_url"`
 	Model           string  `json:"model"`
 	Enabled         bool    `json:"enabled"`
-	Temperature     float64 `json:"temperature"`     // 0.0-2.0, default 0.3
-	MaxTokens       int     `json:"max_tokens"`      // default 1024
-	TopP            float64 `json:"top_p"`           // 0.0-1.0, default 1.0
-	SystemPrompt    string  `json:"system_prompt"`   // custom system prompt prefix
-	RetryMax        int     `json:"retry_max"`       // LLM call retries, default 2
+	Temperature     float64 `json:"temperature"`       // 0.0-2.0, default 0.3
+	MaxTokens       int     `json:"max_tokens"`        // default 1024
+	TopP            float64 `json:"top_p"`             // 0.0-1.0, default 1.0
+	SystemPrompt    string  `json:"system_prompt"`     // custom system prompt prefix
+	RetryMax        int     `json:"retry_max"`         // LLM call retries, default 2
 	ContextMaxChars int     `json:"context_max_chars"` // context text char limit, default 8000
 }
 
 // AIProviderConfig describes a single named AI provider configuration.
 type AIProviderConfig struct {
-	Key             string  `json:"key"`       // unique identifier, e.g. "openai-main"
-	Provider        string  `json:"provider"`  // openai, azure, ollama, custom, anthropic
+	Key             string  `json:"key"`      // unique identifier, e.g. "openai-main"
+	Provider        string  `json:"provider"` // openai, azure, ollama, custom, anthropic
 	APIKey          string  `json:"api_key"`
 	BaseURL         string  `json:"base_url"`
 	Model           string  `json:"model"`
@@ -58,12 +58,12 @@ type AIProvidersConfig struct {
 
 // AIGlobalConfig holds platform-wide AI settings (Tab 3 in unified AI settings page).
 type AIGlobalConfig struct {
-	RetryMax           int     `json:"retry_max"`              // default 2
-	ContextMaxChars    int     `json:"context_max_chars"`      // default 8000
-	DefaultTemperature float64 `json:"default_temperature"`    // default 0.3
-	DefaultMaxTokens   int     `json:"default_max_tokens"`     // default 1024
-	MonthlyTokenBudget int64   `json:"monthly_token_budget"`   // 0 = unlimited
-	DataMaskingEnabled bool    `json:"data_masking_enabled"`   // default false
+	RetryMax           int     `json:"retry_max"`            // default 2
+	ContextMaxChars    int     `json:"context_max_chars"`    // default 8000
+	DefaultTemperature float64 `json:"default_temperature"`  // default 0.3
+	DefaultMaxTokens   int     `json:"default_max_tokens"`   // default 1024
+	MonthlyTokenBudget int64   `json:"monthly_token_budget"` // 0 = unlimited
+	DataMaskingEnabled bool    `json:"data_masking_enabled"` // default false
 }
 
 // LarkConfig holds Lark/Feishu bot configuration stored in the DB.
@@ -82,11 +82,11 @@ type LarkConfig struct {
 	CardSchemaVersion   string `json:"card_schema_version"`   // "v2" | "v1", default "v2"
 
 	// Section 3: message behavior
-	ResolveStrategy         string `json:"resolve_strategy"`           // "update" | "delete" | "none", default "update"
-	UpdateOnStateChange     bool   `json:"update_on_state_change"`     // default true
-	DeleteOnlyInBusinessHours bool `json:"delete_only_in_business_hours"` // default false
-	BusinessHoursStart      string `json:"business_hours_start"`       // "09:00"
-	BusinessHoursEnd        string `json:"business_hours_end"`         // "18:00"
+	ResolveStrategy           string `json:"resolve_strategy"`              // "update" | "delete" | "none", default "update"
+	UpdateOnStateChange       bool   `json:"update_on_state_change"`        // default true
+	DeleteOnlyInBusinessHours bool   `json:"delete_only_in_business_hours"` // default false
+	BusinessHoursStart        string `json:"business_hours_start"`          // "09:00"
+	BusinessHoursEnd          string `json:"business_hours_end"`            // "18:00"
 
 	// Section 4: interaction capabilities
 	CommandsEnabled        bool `json:"commands_enabled"`         // default true
@@ -100,12 +100,12 @@ type SecurityConfig struct {
 }
 
 const (
-	groupAI      = "ai"
-	groupLark    = "lark"
-	groupOIDC    = "oidc"
-	groupOAuth2  = "oauth2"
-	groupLDAP    = "ldap"
-	groupSMTP    = "smtp"
+	groupAI       = "ai"
+	groupLark     = "lark"
+	groupOIDC     = "oidc"
+	groupOAuth2   = "oauth2"
+	groupLDAP     = "ldap"
+	groupSMTP     = "smtp"
 	groupSecurity = "security"
 	groupSiteInfo = "site_info"
 
@@ -149,8 +149,8 @@ type OIDCConfigDB struct {
 	ClientSecret  string `json:"client_secret"`
 	RedirectURL   string `json:"redirect_url"`
 	Scopes        string `json:"scopes"`         // comma-separated, e.g. "openid,profile,email"
-	UsernameClaim string `json:"username_claim"`  // default "preferred_username"
-	EmailClaim    string `json:"email_claim"`     // default "email"
+	UsernameClaim string `json:"username_claim"` // default "preferred_username"
+	EmailClaim    string `json:"email_claim"`    // default "email"
 	RoleClaim     string `json:"role_claim"`     // default "realm_access.roles"
 	RoleMapping   string `json:"role_mapping"`   // JSON object string, e.g. {"sre-admin":"admin"}
 	DefaultRole   string `json:"default_role"`   // default "viewer"
@@ -275,11 +275,11 @@ func (s *SystemSettingService) GetAIConfig(ctx context.Context) (AIConfig, error
 		return AIConfig{}, err
 	}
 	cfg := AIConfig{
-		Provider:     strDef(kv["provider"], "openai"),
-		APIKey:       s.getDecrypted(groupAI, "api_key", kv["api_key"]),
-		BaseURL:      strDef(kv["base_url"], "https://api.openai.com/v1"),
-		Model:        strDef(kv["model"], "gpt-4o"),
-		Enabled:      parseBool(kv["enabled"]),
+		Provider:        strDef(kv["provider"], "openai"),
+		APIKey:          s.getDecrypted(groupAI, "api_key", kv["api_key"]),
+		BaseURL:         strDef(kv["base_url"], "https://api.openai.com/v1"),
+		Model:           strDef(kv["model"], "gpt-4o"),
+		Enabled:         parseBool(kv["enabled"]),
 		Temperature:     parseFloatDef(kv["temperature"], 0.3),
 		MaxTokens:       parseIntDef(kv["max_tokens"], 1024),
 		SystemPrompt:    kv["system_prompt"],
@@ -298,10 +298,10 @@ func (s *SystemSettingService) GetAIConfig(ctx context.Context) (AIConfig, error
 // Empty api_key means "do not overwrite the existing key".
 func (s *SystemSettingService) SaveAIConfig(ctx context.Context, cfg AIConfig) error {
 	kv := map[string]string{
-		"provider":      cfg.Provider,
-		"base_url":      cfg.BaseURL,
-		"model":         cfg.Model,
-		"enabled":       strconv.FormatBool(cfg.Enabled),
+		"provider":          cfg.Provider,
+		"base_url":          cfg.BaseURL,
+		"model":             cfg.Model,
+		"enabled":           strconv.FormatBool(cfg.Enabled),
 		"temperature":       strconv.FormatFloat(cfg.Temperature, 'f', -1, 64),
 		"max_tokens":        strconv.Itoa(cfg.MaxTokens),
 		"system_prompt":     cfg.SystemPrompt,
@@ -586,14 +586,14 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 		CardInteractionMode: cardInterMode,
 		CardSchemaVersion:   cardSchema,
 
-		ResolveStrategy:         resolveStrategy,
-		UpdateOnStateChange:     parseBoolDef(kv["update_on_state_change"], true),
+		ResolveStrategy:           resolveStrategy,
+		UpdateOnStateChange:       parseBoolDef(kv["update_on_state_change"], true),
 		DeleteOnlyInBusinessHours: parseBool(kv["delete_only_in_business_hours"]),
-		BusinessHoursStart:      bhStart,
-		BusinessHoursEnd:        bhEnd,
-		CommandsEnabled:         parseBoolDef(kv["commands_enabled"], true),
-		NaturalLanguageEnabled:  parseBool(kv["natural_language_enabled"]),
-		DebugMode:               parseBool(kv["debug_mode"]),
+		BusinessHoursStart:        bhStart,
+		BusinessHoursEnd:          bhEnd,
+		CommandsEnabled:           parseBoolDef(kv["commands_enabled"], true),
+		NaturalLanguageEnabled:    parseBool(kv["natural_language_enabled"]),
+		DebugMode:                 parseBool(kv["debug_mode"]),
 	}
 
 	s.larkMu.Lock()
@@ -607,21 +607,21 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 // Empty secret fields are not overwritten (same pattern as AI).
 func (s *SystemSettingService) SaveLarkConfig(ctx context.Context, cfg LarkConfig) error {
 	kv := map[string]string{
-		"app_id":                    cfg.AppID,
-		"default_webhook":           cfg.DefaultWebhook,
-		"bot_enabled":               strconv.FormatBool(cfg.BotEnabled),
-		"domain":                    cfg.Domain,
-		"connection_mode":           cfg.ConnectionMode,
-		"card_interaction_mode":     cfg.CardInteractionMode,
-		"card_schema_version":       cfg.CardSchemaVersion,
-		"resolve_strategy":          cfg.ResolveStrategy,
-		"update_on_state_change":    strconv.FormatBool(cfg.UpdateOnStateChange),
+		"app_id":                        cfg.AppID,
+		"default_webhook":               cfg.DefaultWebhook,
+		"bot_enabled":                   strconv.FormatBool(cfg.BotEnabled),
+		"domain":                        cfg.Domain,
+		"connection_mode":               cfg.ConnectionMode,
+		"card_interaction_mode":         cfg.CardInteractionMode,
+		"card_schema_version":           cfg.CardSchemaVersion,
+		"resolve_strategy":              cfg.ResolveStrategy,
+		"update_on_state_change":        strconv.FormatBool(cfg.UpdateOnStateChange),
 		"delete_only_in_business_hours": strconv.FormatBool(cfg.DeleteOnlyInBusinessHours),
-		"business_hours_start":      cfg.BusinessHoursStart,
-		"business_hours_end":        cfg.BusinessHoursEnd,
-		"commands_enabled":          strconv.FormatBool(cfg.CommandsEnabled),
-		"natural_language_enabled":  strconv.FormatBool(cfg.NaturalLanguageEnabled),
-		"debug_mode":                strconv.FormatBool(cfg.DebugMode),
+		"business_hours_start":          cfg.BusinessHoursStart,
+		"business_hours_end":            cfg.BusinessHoursEnd,
+		"commands_enabled":              strconv.FormatBool(cfg.CommandsEnabled),
+		"natural_language_enabled":      strconv.FormatBool(cfg.NaturalLanguageEnabled),
+		"debug_mode":                    strconv.FormatBool(cfg.DebugMode),
 	}
 
 	encryptField := func(group, key, value string) (string, error) {
@@ -886,21 +886,21 @@ func (s *SystemSettingService) GetAIModules(ctx context.Context) (*AIModuleConfi
 // UpdateAIModules persists the AI module configuration to DB.
 func (s *SystemSettingService) UpdateAIModules(ctx context.Context, cfg *AIModuleConfig) error {
 	kv := map[string]string{
-		"platform_enabled":        strconv.FormatBool(cfg.Platform.Enabled),
-		"platform_desc":           cfg.Platform.Desc,
-		"platform_provider_key":   cfg.Platform.ProviderKey,
-		"chat_enabled":            strconv.FormatBool(cfg.Chat.Enabled),
-		"chat_desc":               cfg.Chat.Desc,
-		"chat_provider_key":       cfg.Chat.ProviderKey,
-		"rule_gen_enabled":        strconv.FormatBool(cfg.RuleGen.Enabled),
-		"rule_gen_desc":           cfg.RuleGen.Desc,
-		"rule_gen_provider_key":   cfg.RuleGen.ProviderKey,
-		"analysis_enabled":        strconv.FormatBool(cfg.Analysis.Enabled),
-		"analysis_desc":           cfg.Analysis.Desc,
-		"analysis_provider_key":   cfg.Analysis.ProviderKey,
-		"agent_enabled":           strconv.FormatBool(cfg.Agent.Enabled),
-		"agent_desc":              cfg.Agent.Desc,
-		"agent_provider_key":      cfg.Agent.ProviderKey,
+		"platform_enabled":      strconv.FormatBool(cfg.Platform.Enabled),
+		"platform_desc":         cfg.Platform.Desc,
+		"platform_provider_key": cfg.Platform.ProviderKey,
+		"chat_enabled":          strconv.FormatBool(cfg.Chat.Enabled),
+		"chat_desc":             cfg.Chat.Desc,
+		"chat_provider_key":     cfg.Chat.ProviderKey,
+		"rule_gen_enabled":      strconv.FormatBool(cfg.RuleGen.Enabled),
+		"rule_gen_desc":         cfg.RuleGen.Desc,
+		"rule_gen_provider_key": cfg.RuleGen.ProviderKey,
+		"analysis_enabled":      strconv.FormatBool(cfg.Analysis.Enabled),
+		"analysis_desc":         cfg.Analysis.Desc,
+		"analysis_provider_key": cfg.Analysis.ProviderKey,
+		"agent_enabled":         strconv.FormatBool(cfg.Agent.Enabled),
+		"agent_desc":            cfg.Agent.Desc,
+		"agent_provider_key":    cfg.Agent.ProviderKey,
 	}
 	if err := s.repo.SetGroup(ctx, "ai_modules", kv); err != nil {
 		return err
@@ -1011,13 +1011,13 @@ func (s *SystemSettingService) SaveLabelValidationConfig(ctx context.Context, cf
 
 // SiteInfo holds site-wide branding and customization settings.
 type SiteInfo struct {
-	SiteName    string `json:"site_name"`
-	LogoURL     string `json:"logo_url"`
-	FaviconURL  string `json:"favicon_url"`
-	LoginTitle  string `json:"login_title"`
+	SiteName      string `json:"site_name"`
+	LogoURL       string `json:"logo_url"`
+	FaviconURL    string `json:"favicon_url"`
+	LoginTitle    string `json:"login_title"`
 	LoginSubTitle string `json:"login_subtitle"`
-	FooterText  string `json:"footer_text"`
-	CustomCSS   string `json:"custom_css"`
+	FooterText    string `json:"footer_text"`
+	CustomCSS     string `json:"custom_css"`
 }
 
 // GetSiteInfo loads site branding configuration from DB.
@@ -1040,13 +1040,13 @@ func (s *SystemSettingService) GetSiteInfo(ctx context.Context) (SiteInfo, error
 // SaveSiteInfo persists site branding configuration to DB.
 func (s *SystemSettingService) SaveSiteInfo(ctx context.Context, cfg SiteInfo) error {
 	kv := map[string]string{
-		"site_name":    cfg.SiteName,
-		"logo_url":     cfg.LogoURL,
-		"favicon_url":  cfg.FaviconURL,
-		"login_title":  cfg.LoginTitle,
+		"site_name":      cfg.SiteName,
+		"logo_url":       cfg.LogoURL,
+		"favicon_url":    cfg.FaviconURL,
+		"login_title":    cfg.LoginTitle,
 		"login_subtitle": cfg.LoginSubTitle,
-		"footer_text":  cfg.FooterText,
-		"custom_css":   cfg.CustomCSS,
+		"footer_text":    cfg.FooterText,
+		"custom_css":     cfg.CustomCSS,
 	}
 	return s.repo.SetGroup(ctx, groupSiteInfo, kv)
 }

@@ -25,16 +25,16 @@ func (MetricView) TableName() string { return "metric_views" }
 
 // MetricViewConfig holds the full configuration for a metric view.
 type MetricViewConfig struct {
-	Filters        []MetricViewFilter        `json:"filters"`
-	DynamicLabels  []MetricViewDynamicLabel  `json:"dynamicLabels"`
+	Filters         []MetricViewFilter       `json:"filters"`
+	DynamicLabels   []MetricViewDynamicLabel `json:"dynamicLabels"`
 	DimensionLabels [][]string               `json:"dimensionLabels"`
-	IgnorePrefix   string                    `json:"ignorePrefix"`
+	IgnorePrefix    string                   `json:"ignorePrefix"`
 }
 
 // MetricViewFilter is a single label filter condition.
 type MetricViewFilter struct {
 	Label string `json:"label"`
-	Oper  string `json:"oper"`  // =, !=, =~, !~
+	Oper  string `json:"oper"` // =, !=, =~, !~
 	Value string `json:"value"`
 }
 

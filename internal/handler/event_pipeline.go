@@ -16,10 +16,10 @@ import (
 type EventPipelineHandler struct {
 	pipelineSvc *service.EventPipelineService
 	execSvc     *service.EventPipelineExecutionService
-	engine       *pipeline.Engine
-	eventSvc     *service.AlertEventService
-	auditSvc     *service.AuditLogService
-	log          *zap.Logger
+	engine      *pipeline.Engine
+	eventSvc    *service.AlertEventService
+	auditSvc    *service.AuditLogService
+	log         *zap.Logger
 }
 
 // NewEventPipelineHandler creates a new EventPipelineHandler.
@@ -102,14 +102,14 @@ func (h *EventPipelineHandler) Create(c *gin.Context) {
 
 	userID := GetCurrentUserID(c)
 	p := &model.EventPipeline{
-		Name:         req.Name,
-		Description:  req.Description,
-		Disabled:     req.Disabled,
-		FilterEnable: req.FilterEnable,
-		LabelFilters: req.LabelFilters,
+		Name:             req.Name,
+		Description:      req.Description,
+		Disabled:         req.Disabled,
+		FilterEnable:     req.FilterEnable,
+		LabelFilters:     req.LabelFilters,
 		ProcessorConfigs: req.ProcessorConfigs,
-		CreatedBy:    userID,
-		UpdatedBy:    userID,
+		CreatedBy:        userID,
+		UpdatedBy:        userID,
 	}
 	if p.LabelFilters == nil {
 		p.LabelFilters = []model.TagFilter{}

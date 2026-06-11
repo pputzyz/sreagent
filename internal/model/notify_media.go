@@ -88,10 +88,10 @@ type MediaVariable struct {
 //	{{.Annotations}}  - annotation map
 type CustomHTTPConfig struct {
 	URL           string            `json:"url"`
-	Method        string            `json:"method"`           // GET, POST, PUT
+	Method        string            `json:"method"` // GET, POST, PUT
 	Headers       map[string]string `json:"headers"`
-	Body          string            `json:"body"`             // Go template
-	Timeout       int               `json:"timeout"`          // milliseconds, default 30000
-	RetryTimes    int               `json:"retry_times"`      // default 3
-	RetryInterval int               `json:"retry_interval"`   // milliseconds, default 100
+	Body          string            `json:"body"`           // Go template
+	Timeout       int               `json:"timeout"`        // milliseconds, default 30000
+	RetryTimes    int               `json:"retry_times"`    // default 3
+	RetryInterval int               `json:"retry_interval"` // milliseconds, default 100
 }

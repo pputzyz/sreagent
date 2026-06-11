@@ -19,11 +19,11 @@ const incidentAutoCloseInterval = 5 * time.Minute
 
 // IncidentService provides business logic for incidents (故障).
 type IncidentService struct {
-	repo          *repository.IncidentRepository
-	channelSvc    *ChannelService
-	alertRepo     *repository.AlertRepository          // optional, for merge alert migration
-	escStepRepo   *repository.EscalationStepRepository // optional, for escalation upper-bound check
-	logger        *zap.Logger
+	repo        *repository.IncidentRepository
+	channelSvc  *ChannelService
+	alertRepo   *repository.AlertRepository          // optional, for merge alert migration
+	escStepRepo *repository.EscalationStepRepository // optional, for escalation upper-bound check
+	logger      *zap.Logger
 
 	// onStatusChange is called when an incident transitions to processing (ack) or closed.
 	// Used to cancel pending scheduled dispatches.
@@ -65,8 +65,8 @@ var validTransitions = map[model.IncidentStatus][]model.IncidentStatus{
 
 // allowedActionStates defines which statuses allow non-status-changing actions.
 var allowedActionStates = map[string][]model.IncidentStatus{
-	"reassign":  {model.IncidentStatusTriggered, model.IncidentStatusProcessing},
-	"escalate":  {model.IncidentStatusTriggered, model.IncidentStatusProcessing},
+	"reassign": {model.IncidentStatusTriggered, model.IncidentStatusProcessing},
+	"escalate": {model.IncidentStatusTriggered, model.IncidentStatusProcessing},
 }
 
 // validateTransition checks whether a status transition is allowed.
@@ -261,7 +261,7 @@ func (s *IncidentService) Close(ctx context.Context, id, userID uint) error {
 // Uses atomic CAS: UPDATE ... WHERE status = 'closed'. No read-then-write race.
 func (s *IncidentService) Reopen(ctx context.Context, id, userID uint) error {
 	updates := map[string]interface{}{
-		"closed_at":                 nil,
+		"closed_at":               nil,
 		"current_escalation_step": 0,
 	}
 	err := s.repo.TransitionStatus(ctx, id, model.IncidentStatusClosed, model.IncidentStatusTriggered, updates)

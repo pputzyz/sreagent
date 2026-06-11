@@ -285,10 +285,10 @@ type chatCompletionRequest struct {
 
 // ChatMessage represents a single message in a chat conversation.
 type ChatMessage struct {
-	Role       string      `json:"role"`
-	Content    string      `json:"content"`
-	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
-	ToolCallID string      `json:"tool_call_id,omitempty"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
 }
 
 // ToolCall represents a tool call from the LLM.
@@ -323,12 +323,12 @@ type chatCompletionResponse struct {
 
 // anthropicRequest represents an Anthropic Messages API request.
 type anthropicRequest struct {
-	Model       string           `json:"model"`
-	MaxTokens   int              `json:"max_tokens"`
-	System      string           `json:"system,omitempty"`
-	Messages    []ChatMessage    `json:"messages"`
-	Temperature *float64         `json:"temperature,omitempty"`
-	TopP        *float64         `json:"top_p,omitempty"`
+	Model       string        `json:"model"`
+	MaxTokens   int           `json:"max_tokens"`
+	System      string        `json:"system,omitempty"`
+	Messages    []ChatMessage `json:"messages"`
+	Temperature *float64      `json:"temperature,omitempty"`
+	TopP        *float64      `json:"top_p,omitempty"`
 }
 
 // anthropicResponse represents an Anthropic Messages API response.

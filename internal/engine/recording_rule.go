@@ -24,19 +24,19 @@ import (
 // and writes results back as new time series via remote_write (Phase 2).
 // Execution outcomes (success/failure/duration) are recorded for audit.
 type RecordingRuleEngine struct {
-	ruleRepo  *repository.RecordingRuleRepository
-	dsRepo    *repository.DataSourceRepository
-	execDB    *gorm.DB // for direct insert of execution records
-	queryCli  *datasource.QueryClient
-	leader    LeaderElection // optional; nil = always run
-	logger    *zap.Logger
+	ruleRepo *repository.RecordingRuleRepository
+	dsRepo   *repository.DataSourceRepository
+	execDB   *gorm.DB // for direct insert of execution records
+	queryCli *datasource.QueryClient
+	leader   LeaderElection // optional; nil = always run
+	logger   *zap.Logger
 
-	cron    *cron.Cron
+	cron     *cron.Cron
 	entries  map[uint]cron.EntryID // ruleID → cron entry
 	patterns map[uint]string       // ruleID → cron pattern (for change detection)
-	mu      sync.Mutex
-	stopCh  chan struct{}
-	stopped bool
+	mu       sync.Mutex
+	stopCh   chan struct{}
+	stopped  bool
 }
 
 // NewRecordingRuleEngine creates a new recording rule execution engine.
@@ -53,10 +53,10 @@ func NewRecordingRuleEngine(
 		execDB:   db,
 		queryCli: queryCli,
 		logger:   logger,
-		cron:      cron.New(),
-		entries:   make(map[uint]cron.EntryID),
-		patterns:  make(map[uint]string),
-		stopCh:    make(chan struct{}),
+		cron:     cron.New(),
+		entries:  make(map[uint]cron.EntryID),
+		patterns: make(map[uint]string),
+		stopCh:   make(chan struct{}),
 	}
 }
 
@@ -476,4 +476,3 @@ func splitTag(tag string) []string {
 	}
 	return nil
 }
-

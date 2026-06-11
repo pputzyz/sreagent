@@ -19,9 +19,9 @@ func SeedBuiltinDashboards() []BuiltinDashboard {
 func hostMonitoringDashboard() BuiltinDashboard {
 	panels := []panelConfig{
 		{
-			ID:    1,
-			Title: "CPU Usage",
-			Type:  "timeseries",
+			ID:      1,
+			Title:   "CPU Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle",instance="$instance"}[5m])) * 100)`, LegendFormat: "CPU Usage"},
@@ -29,9 +29,9 @@ func hostMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "percent", Min: floatPtr(0), Max: floatPtr(100)},
 		},
 		{
-			ID:    2,
-			Title: "Memory Usage",
-			Type:  "timeseries",
+			ID:      2,
+			Title:   "Memory Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `(1 - node_memory_MemAvailable_bytes{instance="$instance"} / node_memory_MemTotal_bytes{instance="$instance"}) * 100`, LegendFormat: "Memory Usage"},
@@ -39,9 +39,9 @@ func hostMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "percent", Min: floatPtr(0), Max: floatPtr(100)},
 		},
 		{
-			ID:    3,
-			Title: "Disk Usage",
-			Type:  "timeseries",
+			ID:      3,
+			Title:   "Disk Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 8, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `(1 - node_filesystem_avail_bytes{instance="$instance",fstype!~"tmpfs|fuse.lxcfs"} / node_filesystem_size_bytes) * 100`, LegendFormat: "{{mountpoint}}"},
@@ -49,9 +49,9 @@ func hostMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "percent", Min: floatPtr(0), Max: floatPtr(100)},
 		},
 		{
-			ID:    4,
-			Title: "Network Traffic",
-			Type:  "timeseries",
+			ID:      4,
+			Title:   "Network Traffic",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 8, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(node_network_receive_bytes_total{instance="$instance",device!~"lo|veth.*|docker.*|br-.*"}[5m])`, LegendFormat: "Receive {{device}}"},
@@ -60,9 +60,9 @@ func hostMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "Bps"},
 		},
 		{
-			ID:    5,
-			Title: "System Load",
-			Type:  "timeseries",
+			ID:      5,
+			Title:   "System Load",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 16, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `node_load1{instance="$instance"}`, LegendFormat: "Load 1m"},
@@ -71,9 +71,9 @@ func hostMonitoringDashboard() BuiltinDashboard {
 			},
 		},
 		{
-			ID:    6,
-			Title: "Disk I/O",
-			Type:  "timeseries",
+			ID:      6,
+			Title:   "Disk I/O",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 16, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(node_disk_read_bytes_total{instance="$instance"}[5m])`, LegendFormat: "Read {{device}}"},
@@ -104,9 +104,9 @@ func hostMonitoringDashboard() BuiltinDashboard {
 func containerMonitoringDashboard() BuiltinDashboard {
 	panels := []panelConfig{
 		{
-			ID:    1,
-			Title: "Pod CPU Usage",
-			Type:  "timeseries",
+			ID:      1,
+			Title:   "Pod CPU Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(rate(container_cpu_usage_seconds_total{namespace="$namespace",pod=~"$pod",container!=""}[5m])) by(pod,container)`, LegendFormat: "{{pod}} - {{container}}"},
@@ -114,9 +114,9 @@ func containerMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    2,
-			Title: "Pod Memory Usage",
-			Type:  "timeseries",
+			ID:      2,
+			Title:   "Pod Memory Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(container_memory_working_set_bytes{namespace="$namespace",pod=~"$pod",container!=""}) by(pod,container)`, LegendFormat: "{{pod}} - {{container}}"},
@@ -124,9 +124,9 @@ func containerMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "bytes"},
 		},
 		{
-			ID:    3,
-			Title: "Pod Restart Count",
-			Type:  "timeseries",
+			ID:      3,
+			Title:   "Pod Restart Count",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 8, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(kube_pod_container_status_restarts_total{namespace="$namespace",pod=~"$pod"}) by(pod)`, LegendFormat: "{{pod}}"},
@@ -134,9 +134,9 @@ func containerMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    4,
-			Title: "Pod Status Phase",
-			Type:  "stat",
+			ID:      4,
+			Title:   "Pod Status Phase",
+			Type:    "stat",
 			GridPos: gridPos{X: 12, Y: 8, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `count(kube_pod_status_phase{namespace="$namespace",phase="Running"})`, LegendFormat: "Running"},
@@ -145,9 +145,9 @@ func containerMonitoringDashboard() BuiltinDashboard {
 			},
 		},
 		{
-			ID:    5,
-			Title: "Container Memory Limit Usage %",
-			Type:  "timeseries",
+			ID:      5,
+			Title:   "Container Memory Limit Usage %",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 16, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `container_memory_working_set_bytes{namespace="$namespace",pod=~"$pod",container!=""} / container_spec_memory_limit_bytes{container!=""} * 100`, LegendFormat: "{{pod}} - {{container}}"},
@@ -155,9 +155,9 @@ func containerMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "percent", Min: floatPtr(0)},
 		},
 		{
-			ID:    6,
-			Title: "Network Receive/Transmit",
-			Type:  "timeseries",
+			ID:      6,
+			Title:   "Network Receive/Transmit",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 16, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(rate(container_network_receive_bytes_total{namespace="$namespace",pod=~"$pod"}[5m])) by(pod)`, LegendFormat: "Receive {{pod}}"},
@@ -189,9 +189,9 @@ func containerMonitoringDashboard() BuiltinDashboard {
 func httpMonitoringDashboard() BuiltinDashboard {
 	panels := []panelConfig{
 		{
-			ID:    1,
-			Title: "Request Rate",
-			Type:  "timeseries",
+			ID:      1,
+			Title:   "Request Rate",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(rate(http_requests_total{job="$job"}[5m])) by(status)`, LegendFormat: "{{status}}"},
@@ -199,9 +199,9 @@ func httpMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "reqps"},
 		},
 		{
-			ID:    2,
-			Title: "Error Rate (5xx)",
-			Type:  "timeseries",
+			ID:      2,
+			Title:   "Error Rate (5xx)",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(rate(http_requests_total{job="$job",status=~"5.."}[5m])) / sum(rate(http_requests_total{job="$job"}[5m])) * 100`, LegendFormat: "5xx Error %"},
@@ -209,9 +209,9 @@ func httpMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "percent", Min: floatPtr(0)},
 		},
 		{
-			ID:    3,
-			Title: "Request Latency P50/P90/P99",
-			Type:  "timeseries",
+			ID:      3,
+			Title:   "Request Latency P50/P90/P99",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 8, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job="$job"}[5m])) by(le))`, LegendFormat: "P50"},
@@ -221,36 +221,36 @@ func httpMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "s"},
 		},
 		{
-			ID:    4,
-			Title: "Request Duration Heatmap",
-			Type:  "heatmap",
+			ID:      4,
+			Title:   "Request Duration Heatmap",
+			Type:    "heatmap",
 			GridPos: gridPos{X: 12, Y: 8, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(rate(http_request_duration_seconds_bucket{job="$job"}[5m])) by(le)`, LegendFormat: "{{le}}"},
 			},
 		},
 		{
-			ID:    5,
-			Title: "Active Connections",
-			Type:  "stat",
+			ID:      5,
+			Title:   "Active Connections",
+			Type:    "stat",
 			GridPos: gridPos{X: 0, Y: 16, W: 6, H: 4},
 			Targets: []targetConfig{
 				{Expr: `sum(http_connections_active{job="$job"})`, LegendFormat: "Active"},
 			},
 		},
 		{
-			ID:    6,
-			Title: "Total Requests (24h)",
-			Type:  "stat",
+			ID:      6,
+			Title:   "Total Requests (24h)",
+			Type:    "stat",
 			GridPos: gridPos{X: 6, Y: 16, W: 6, H: 4},
 			Targets: []targetConfig{
 				{Expr: `sum(increase(http_requests_total{job="$job"}[24h]))`, LegendFormat: "Total"},
 			},
 		},
 		{
-			ID:    7,
-			Title: "Status Code Distribution",
-			Type:  "piechart",
+			ID:      7,
+			Title:   "Status Code Distribution",
+			Type:    "piechart",
 			GridPos: gridPos{X: 12, Y: 16, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `sum(increase(http_requests_total{job="$job"}[1h])) by(status)`, LegendFormat: "{{status}}"},
@@ -279,27 +279,27 @@ func httpMonitoringDashboard() BuiltinDashboard {
 func mysqlMonitoringDashboard() BuiltinDashboard {
 	panels := []panelConfig{
 		{
-			ID:    1,
-			Title: "MySQL Up",
-			Type:  "stat",
+			ID:      1,
+			Title:   "MySQL Up",
+			Type:    "stat",
 			GridPos: gridPos{X: 0, Y: 0, W: 6, H: 4},
 			Targets: []targetConfig{
 				{Expr: `mysql_up{instance="$instance"}`, LegendFormat: "Up"},
 			},
 		},
 		{
-			ID:    2,
-			Title: "Current Connections",
-			Type:  "stat",
+			ID:      2,
+			Title:   "Current Connections",
+			Type:    "stat",
 			GridPos: gridPos{X: 6, Y: 0, W: 6, H: 4},
 			Targets: []targetConfig{
 				{Expr: `mysql_global_status_threads_connected{instance="$instance"}`, LegendFormat: "Connected"},
 			},
 		},
 		{
-			ID:    3,
-			Title: "Queries Per Second",
-			Type:  "timeseries",
+			ID:      3,
+			Title:   "Queries Per Second",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(mysql_global_status_queries{instance="$instance"}[5m])`, LegendFormat: "QPS"},
@@ -308,9 +308,9 @@ func mysqlMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    4,
-			Title: "Connection Usage",
-			Type:  "timeseries",
+			ID:      4,
+			Title:   "Connection Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 4, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `mysql_global_status_threads_connected{instance="$instance"}`, LegendFormat: "Connected"},
@@ -319,9 +319,9 @@ func mysqlMonitoringDashboard() BuiltinDashboard {
 			},
 		},
 		{
-			ID:    5,
-			Title: "Slow Queries",
-			Type:  "timeseries",
+			ID:      5,
+			Title:   "Slow Queries",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 12, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(mysql_global_status_slow_queries{instance="$instance"}[5m])`, LegendFormat: "Slow Queries/s"},
@@ -329,9 +329,9 @@ func mysqlMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    6,
-			Title: "Replication Lag",
-			Type:  "timeseries",
+			ID:      6,
+			Title:   "Replication Lag",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 12, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `mysql_slave_status_seconds_behind_master{instance="$instance"}`, LegendFormat: "Lag (s)"},
@@ -339,9 +339,9 @@ func mysqlMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "s"},
 		},
 		{
-			ID:    7,
-			Title: "Command Breakdown",
-			Type:  "timeseries",
+			ID:      7,
+			Title:   "Command Breakdown",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 20, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(mysql_global_status_commands_total{instance="$instance",command=~"select|insert|update|delete"}[5m])`, LegendFormat: "{{command}}"},
@@ -349,9 +349,9 @@ func mysqlMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    8,
-			Title: "Buffer Pool Usage",
-			Type:  "timeseries",
+			ID:      8,
+			Title:   "Buffer Pool Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 20, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `mysql_global_status_innodb_buffer_pool_pages_total{instance="$instance"} * mysql_global_variables_innodb_page_size{instance="$instance"}`, LegendFormat: "Total"},
@@ -383,27 +383,27 @@ func mysqlMonitoringDashboard() BuiltinDashboard {
 func redisMonitoringDashboard() BuiltinDashboard {
 	panels := []panelConfig{
 		{
-			ID:    1,
-			Title: "Redis Up",
-			Type:  "stat",
+			ID:      1,
+			Title:   "Redis Up",
+			Type:    "stat",
 			GridPos: gridPos{X: 0, Y: 0, W: 6, H: 4},
 			Targets: []targetConfig{
 				{Expr: `redis_up{instance="$instance"}`, LegendFormat: "Up"},
 			},
 		},
 		{
-			ID:    2,
-			Title: "Connected Clients",
-			Type:  "stat",
+			ID:      2,
+			Title:   "Connected Clients",
+			Type:    "stat",
 			GridPos: gridPos{X: 6, Y: 0, W: 6, H: 4},
 			Targets: []targetConfig{
 				{Expr: `redis_connected_clients{instance="$instance"}`, LegendFormat: "Clients"},
 			},
 		},
 		{
-			ID:    3,
-			Title: "Memory Usage",
-			Type:  "timeseries",
+			ID:      3,
+			Title:   "Memory Usage",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 0, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `redis_memory_used_bytes{instance="$instance"}`, LegendFormat: "Used"},
@@ -413,9 +413,9 @@ func redisMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "bytes"},
 		},
 		{
-			ID:    4,
-			Title: "Commands Per Second",
-			Type:  "timeseries",
+			ID:      4,
+			Title:   "Commands Per Second",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 4, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(redis_commands_processed_total{instance="$instance"}[5m])`, LegendFormat: "Commands/s"},
@@ -423,9 +423,9 @@ func redisMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    5,
-			Title: "Hit/Miss Rate",
-			Type:  "timeseries",
+			ID:      5,
+			Title:   "Hit/Miss Rate",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 12, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(redis_keyspace_hits_total{instance="$instance"}[5m])`, LegendFormat: "Hits/s"},
@@ -434,9 +434,9 @@ func redisMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    6,
-			Title: "Keys per DB",
-			Type:  "timeseries",
+			ID:      6,
+			Title:   "Keys per DB",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 12, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `redis_db_keys{instance="$instance"}`, LegendFormat: "db{{db}}"},
@@ -444,9 +444,9 @@ func redisMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "short"},
 		},
 		{
-			ID:    7,
-			Title: "Network I/O",
-			Type:  "timeseries",
+			ID:      7,
+			Title:   "Network I/O",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 0, Y: 20, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `rate(redis_net_input_bytes_total{instance="$instance"}[5m])`, LegendFormat: "Input"},
@@ -455,9 +455,9 @@ func redisMonitoringDashboard() BuiltinDashboard {
 			FieldConfig: fieldConfig{Unit: "Bps"},
 		},
 		{
-			ID:    8,
-			Title: "Command Latency",
-			Type:  "timeseries",
+			ID:      8,
+			Title:   "Command Latency",
+			Type:    "timeseries",
 			GridPos: gridPos{X: 12, Y: 20, W: 12, H: 8},
 			Targets: []targetConfig{
 				{Expr: `redis_commands_duration_seconds_total{instance="$instance",cmd="get"} / redis_commands_total{instance="$instance",cmd="get"}`, LegendFormat: "GET"},
@@ -496,7 +496,7 @@ type panelConfig struct {
 	Type        string         `json:"type"`
 	GridPos     gridPos        `json:"gridPos"`
 	Targets     []targetConfig `json:"targets"`
-	FieldConfig  fieldConfig    `json:"fieldConfig,omitempty"`
+	FieldConfig fieldConfig    `json:"fieldConfig,omitempty"`
 }
 
 type gridPos struct {

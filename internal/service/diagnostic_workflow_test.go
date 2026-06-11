@@ -99,8 +99,8 @@ func Test_diagnostic_label_check_matching_labels(t *testing.T) {
 		ConditionExpr: `{"env":"prod","job":"api-server"}`,
 	}
 	triggerLabels := model.JSONLabels{
-		"env": "prod",
-		"job": "api-server",
+		"env":  "prod",
+		"job":  "api-server",
 		"team": "sre",
 	}
 

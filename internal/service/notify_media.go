@@ -48,16 +48,16 @@ type circuitState struct {
 
 // NotifyMediaService provides CRUD and notification dispatch for media backends.
 type NotifyMediaService struct {
-	repo        *repository.NotifyMediaRepository
-	logger      *zap.Logger
-	feishuTokenCache sync.Map        // key: appID, value: *feishuTokenEntry (legacy fallback)
-	tokenCache  *lark.TokenCache    // shared cache (injected); avoids duplicate token fetches
+	repo             *repository.NotifyMediaRepository
+	logger           *zap.Logger
+	feishuTokenCache sync.Map         // key: appID, value: *feishuTokenEntry (legacy fallback)
+	tokenCache       *lark.TokenCache // shared cache (injected); avoids duplicate token fetches
 
 	// B5-10: Global concurrency cap for outbound notification sends.
 	sendSem chan struct{}
 
 	// B5-15: Per-media circuit breaker to avoid cascading failures.
-	cbMu    sync.Mutex
+	cbMu     sync.Mutex
 	breakers map[uint]*circuitState // key: media ID
 }
 
@@ -79,10 +79,10 @@ func NewNotifyMediaService(
 	}
 	logger.Info("notification dispatch concurrency cap initialized", zap.Int("max_concurrent", maxConcurrent))
 	return &NotifyMediaService{
-		repo:      repo,
-		logger:    logger,
-		sendSem:   make(chan struct{}, maxConcurrent),
-		breakers:  make(map[uint]*circuitState),
+		repo:     repo,
+		logger:   logger,
+		sendSem:  make(chan struct{}, maxConcurrent),
+		breakers: make(map[uint]*circuitState),
 	}
 }
 
@@ -926,7 +926,6 @@ func (s *NotifyMediaService) doHTTPPostWithRetryTyped(ctx context.Context, url, 
 	return lastErr
 }
 
-
 // --- DingTalk Webhook ---
 
 type dingTalkWebhookConfig struct {
@@ -1221,9 +1220,9 @@ func (s *NotifyMediaService) sendFeishuCard(ctx context.Context, media *model.No
 // --- Feishu App (send via tenant_access_token) ---
 
 type feishuAppConfig struct {
-	AppID        string `json:"app_id"`
-	AppSecret    string `json:"app_secret"`
-	ReceiveID    string `json:"receive_id"`
+	AppID         string `json:"app_id"`
+	AppSecret     string `json:"app_secret"`
+	ReceiveID     string `json:"receive_id"`
 	ReceiveIDType string `json:"receive_id_type"` // open_id, user_id, chat_id, email
 }
 
@@ -1525,12 +1524,12 @@ func (s *NotifyMediaService) sendFlashDuty(ctx context.Context, media *model.Not
 		return fmt.Errorf("flashduty integration_url is empty")
 	}
 	payload := map[string]interface{}{
-		"event_id":   fmt.Sprintf("%d", data.EventID),
-		"alert_name": data.AlertName,
-		"severity":   strings.ToUpper(data.Severity),
-		"status":     strings.ToUpper(data.Status),
+		"event_id":    fmt.Sprintf("%d", data.EventID),
+		"alert_name":  data.AlertName,
+		"severity":    strings.ToUpper(data.Severity),
+		"status":      strings.ToUpper(data.Status),
 		"description": content,
-		"labels":     data.Labels,
+		"labels":      data.Labels,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -1766,8 +1765,8 @@ func severityToColor(severity string) int {
 	case "warning":
 		return 16744448 // orange #FF8000
 	case "info":
-		return 3447003  // blue #3498DB
+		return 3447003 // blue #3498DB
 	default:
-		return 9807270  // grey #95A5A6
+		return 9807270 // grey #95A5A6
 	}
 }

@@ -12,9 +12,9 @@ import (
 )
 
 type BuiltinMetricHandler struct {
-	svc        *service.BuiltinMetricService
-	filterSvc  *service.MetricFilterService
-	log        *zap.Logger
+	svc       *service.BuiltinMetricService
+	filterSvc *service.MetricFilterService
+	log       *zap.Logger
 }
 
 func NewBuiltinMetricHandler(svc *service.BuiltinMetricService, filterSvc *service.MetricFilterService, log *zap.Logger) *BuiltinMetricHandler {
@@ -68,19 +68,19 @@ func (h *BuiltinMetricHandler) Create(c *gin.Context) {
 	uidStr := strconv.FormatUint(uint64(userID), 10)
 
 	m := &model.BuiltinMetric{
-		Collector:      req.Collector,
-		Typ:            req.Typ,
-		Name:           req.Name,
-		Unit:           req.Unit,
-		Note:           req.Note,
-		Lang:           req.Lang,
-		Expression:     req.Expression,
-		ExpressionType: req.ExpressionType,
-		MetricType:     req.MetricType,
+		Collector:       req.Collector,
+		Typ:             req.Typ,
+		Name:            req.Name,
+		Unit:            req.Unit,
+		Note:            req.Note,
+		Lang:            req.Lang,
+		Expression:      req.Expression,
+		ExpressionType:  req.ExpressionType,
+		MetricType:      req.MetricType,
 		ExtraFieldsJSON: req.ExtraFields,
 		TranslationJSON: req.Translation,
-		CreatedBy:      uidStr,
-		UpdatedBy:      uidStr,
+		CreatedBy:       uidStr,
+		UpdatedBy:       uidStr,
 	}
 	if m.Lang == "" {
 		m.Lang = "zh"
@@ -297,41 +297,41 @@ func (h *BuiltinMetricHandler) DeleteFilter(c *gin.Context) {
 // --- Request types ---
 
 type CreateBuiltinMetricRequest struct {
-	Collector      string                 `json:"collector"`
-	Typ            string                 `json:"typ"`
-	Name           string                 `json:"name" binding:"required"`
-	Unit           string                 `json:"unit"`
-	Note           string                 `json:"note"`
-	Lang           string                 `json:"lang"`
-	Expression     string                 `json:"expression" binding:"required"`
-	ExpressionType string                 `json:"expression_type"`
-	MetricType     string                 `json:"metric_type"`
-	ExtraFields    map[string]string      `json:"extra_fields"`
+	Collector      string                   `json:"collector"`
+	Typ            string                   `json:"typ"`
+	Name           string                   `json:"name" binding:"required"`
+	Unit           string                   `json:"unit"`
+	Note           string                   `json:"note"`
+	Lang           string                   `json:"lang"`
+	Expression     string                   `json:"expression" binding:"required"`
+	ExpressionType string                   `json:"expression_type"`
+	MetricType     string                   `json:"metric_type"`
+	ExtraFields    map[string]string        `json:"extra_fields"`
 	Translation    []model.TranslationEntry `json:"translation"`
 }
 
 type UpdateBuiltinMetricRequest struct {
-	Collector      string                 `json:"collector"`
-	Typ            string                 `json:"typ"`
-	Name           string                 `json:"name" binding:"required"`
-	Unit           string                 `json:"unit"`
-	Note           string                 `json:"note"`
-	Expression     string                 `json:"expression" binding:"required"`
-	ExpressionType string                 `json:"expression_type"`
-	MetricType     string                 `json:"metric_type"`
-	ExtraFields    map[string]string      `json:"extra_fields"`
+	Collector      string                   `json:"collector"`
+	Typ            string                   `json:"typ"`
+	Name           string                   `json:"name" binding:"required"`
+	Unit           string                   `json:"unit"`
+	Note           string                   `json:"note"`
+	Expression     string                   `json:"expression" binding:"required"`
+	ExpressionType string                   `json:"expression_type"`
+	MetricType     string                   `json:"metric_type"`
+	ExtraFields    map[string]string        `json:"extra_fields"`
 	Translation    []model.TranslationEntry `json:"translation"`
 }
 
 type CreateMetricFilterRequest struct {
-	Name        string              `json:"name" binding:"required"`
-	Configs     []model.FilterConfig `json:"configs"`
-	GroupsPerm  []model.GroupPerm    `json:"groups_perm"`
+	Name       string               `json:"name" binding:"required"`
+	Configs    []model.FilterConfig `json:"configs"`
+	GroupsPerm []model.GroupPerm    `json:"groups_perm"`
 }
 
 type UpdateMetricFilterRequest struct {
-	ID          uint                `json:"id" binding:"required"`
-	Name        string              `json:"name" binding:"required"`
-	Configs     []model.FilterConfig `json:"configs"`
-	GroupsPerm  []model.GroupPerm    `json:"groups_perm"`
+	ID         uint                 `json:"id" binding:"required"`
+	Name       string               `json:"name" binding:"required"`
+	Configs    []model.FilterConfig `json:"configs"`
+	GroupsPerm []model.GroupPerm    `json:"groups_perm"`
 }

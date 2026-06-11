@@ -14,7 +14,7 @@ import (
 
 // ChangeEventHandler handles change event API endpoints.
 type ChangeEventHandler struct {
-	svc        *service.ChangeEventService
+	svc         *service.ChangeEventService
 	incidentSvc *service.IncidentService
 }
 

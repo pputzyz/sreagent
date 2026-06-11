@@ -72,16 +72,16 @@ type sseSubscriber struct {
 // AgentService manages AI Agent tasks with two execution models:
 //
 // Execution Model A — Plan-then-Execute ("plan-execute"):
-//   1. LLM generates a full execution plan (JSON steps) upfront via planSteps
-//   2. Steps are executed sequentially via executeStep (tool.Execute)
-//   3. LLM summarizes all results via summarize
-//   Used by: StartAgent (async), RunAgent (sync)
+//  1. LLM generates a full execution plan (JSON steps) upfront via planSteps
+//  2. Steps are executed sequentially via executeStep (tool.Execute)
+//  3. LLM summarizes all results via summarize
+//     Used by: StartAgent (async), RunAgent (sync)
 //
 // Execution Model B — Tool-Calling Loop ("tool-calling", DEFAULT):
-//   1. LLM receives tools as OpenAI function definitions
-//   2. LLM autonomously decides which tools to call in a loop (callLLMWithToolsCustom)
-//   3. Loop continues until LLM produces a final text answer (no more tool_calls)
-//   Used by: RunUntilDone (direct chat with tool access), StartAgent (async via feature flag)
+//  1. LLM receives tools as OpenAI function definitions
+//  2. LLM autonomously decides which tools to call in a loop (callLLMWithToolsCustom)
+//  3. Loop continues until LLM produces a final text answer (no more tool_calls)
+//     Used by: RunUntilDone (direct chat with tool access), StartAgent (async via feature flag)
 //
 // Feature flag: SREAGENT_AGENT_MODEL
 //   - "tool-calling" (default): StartAgent uses Model B's tool-calling loop internally
@@ -839,9 +839,9 @@ func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *A
 		// 更新调用记录状态
 		if callID > 0 {
 			if updateErr := s.convRepo.UpdateToolCall(ctx, &model.AIToolCall{
-				ID:       callID,
-				Status:   "failed",
-				Error:    err.Error(),
+				ID:         callID,
+				Status:     "failed",
+				Error:      err.Error(),
 				DurationMs: step.Duration,
 			}); updateErr != nil {
 				s.logger.Error("failed to update tool call status to failed", zap.Uint("call_id", callID), zap.Error(updateErr))
@@ -914,8 +914,8 @@ func (s *AgentService) shouldContinue(ctx context.Context, task *AgentTask, fail
 
 // RunResult 是 RunUntilDone 的返回值
 type RunResult struct {
-	ConversationID uint              `json:"conversation_id"`
-	FinalAnswer    string            `json:"final_answer"`
+	ConversationID uint             `json:"conversation_id"`
+	FinalAnswer    string           `json:"final_answer"`
 	ToolCalls      []ToolCallRecord `json:"tool_calls,omitempty"`
 }
 

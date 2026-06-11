@@ -20,11 +20,11 @@ import (
 // alerts ever produce the same fingerprint, they would be merged into one incident.
 // If this becomes a concern, add a secondary check comparing the full label map.
 type IncidentAggregator struct {
-	incidentSvc    *IncidentService
-	eventRepo      *repository.AlertEventRepository
-	incidentRepo   *repository.IncidentRepository
+	incidentSvc      *IncidentService
+	eventRepo        *repository.AlertEventRepository
+	incidentRepo     *repository.IncidentRepository
 	defaultChannelID uint // injected from pipeline
-	logger         *zap.Logger
+	logger           *zap.Logger
 }
 
 func NewIncidentAggregator(
@@ -35,11 +35,11 @@ func NewIncidentAggregator(
 	logger *zap.Logger,
 ) *IncidentAggregator {
 	return &IncidentAggregator{
-		incidentSvc:    incidentSvc,
-		eventRepo:      eventRepo,
-		incidentRepo:   incidentRepo,
+		incidentSvc:      incidentSvc,
+		eventRepo:        eventRepo,
+		incidentRepo:     incidentRepo,
 		defaultChannelID: defaultChannelID,
-		logger:         logger,
+		logger:           logger,
 	}
 }
 

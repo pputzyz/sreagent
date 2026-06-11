@@ -219,4 +219,3 @@ func (h *KnowledgeHandler) Helpful(c *gin.Context) {
 
 	Success(c, nil)
 }
-

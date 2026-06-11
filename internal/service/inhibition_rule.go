@@ -190,8 +190,8 @@ func (s *InhibitionRuleService) MatchesInhibition(rule *model.InhibitionRule, ta
 
 // InhibitionPreviewResult holds the preview result for a single inhibition rule.
 type InhibitionPreviewResult struct {
-	RuleID       uint              `json:"rule_id"`
-	RuleName     string            `json:"rule_name"`
+	RuleID       uint               `json:"rule_id"`
+	RuleName     string             `json:"rule_name"`
 	TargetEvents []model.AlertEvent `json:"target_events"`
 	SourceEvents []model.AlertEvent `json:"source_events"`
 }

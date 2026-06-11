@@ -63,4 +63,3 @@ func (s *AlertV2Service) ListEvents(ctx context.Context, alertID uint, page, pag
 	}
 	return list, total, nil
 }
-

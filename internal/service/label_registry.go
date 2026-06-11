@@ -218,4 +218,3 @@ func (s *LabelRegistryService) GetKeysFallback(datasourceIDs []uint) []string {
 
 	return keys
 }
-

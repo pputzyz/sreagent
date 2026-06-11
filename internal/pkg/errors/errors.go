@@ -57,7 +57,7 @@ var (
 	ErrUnauthorized = &AppError{Code: 10100, Message: "unauthorized"}
 
 	// 40001: Canonical unauthorized (CLAUDE.md spec)
-	ErrUnauth = &AppError{Code: 40001, Message: "unauthorized"}
+	ErrUnauth       = &AppError{Code: 40001, Message: "unauthorized"}
 	ErrInvalidToken = &AppError{Code: 10101, Message: "invalid or expired token"}
 	ErrInvalidCreds = &AppError{Code: 10102, Message: "invalid credentials"}
 

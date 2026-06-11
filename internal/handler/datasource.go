@@ -452,9 +452,9 @@ func (h *DataSourceHandler) LogHistogram(c *gin.Context) {
 		Expression string  `json:"expression" binding:"required"`
 		Start      float64 `json:"start" binding:"required"`
 		End        float64 `json:"end" binding:"required"`
-		Step       string  `json:"step"`        // e.g. "1m", "5m", "1h"
-		Index      string  `json:"index"`       // Elasticsearch index
-		DateField  string  `json:"date_field"`  // Elasticsearch date field
+		Step       string  `json:"step"`       // e.g. "1m", "5m", "1h"
+		Index      string  `json:"index"`      // Elasticsearch index
+		DateField  string  `json:"date_field"` // Elasticsearch date field
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
@@ -584,7 +584,7 @@ func (h *DataSourceHandler) DsQuery(c *gin.Context) {
 	}
 
 	type queryResult struct {
-		Index  int         `json:"index"`
+		Index int         `json:"index"`
 		Data  interface{} `json:"data"`
 		Error string      `json:"error,omitempty"`
 	}

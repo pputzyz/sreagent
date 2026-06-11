@@ -9,7 +9,7 @@ import (
 
 // SSOSettingsHandler manages LDAP and OAuth2 configuration stored in the DB.
 type SSOSettingsHandler struct {
-	ldapSvc  *service.LDAPService
+	ldapSvc   *service.LDAPService
 	oauth2Svc *service.OAuth2Service
 }
 

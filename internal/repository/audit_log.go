@@ -29,7 +29,7 @@ type AuditLogFilter struct {
 	Username     string // P1-26: filter by username
 	Action       string
 	ResourceType string
-	Keyword      string    // P1-26: free-text search across resource_name, action
+	Keyword      string // P1-26: free-text search across resource_name, action
 	StartTime    *time.Time
 	EndTime      *time.Time
 }

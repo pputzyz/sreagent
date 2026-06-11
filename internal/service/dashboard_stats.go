@@ -123,8 +123,8 @@ type ExportDaySummary struct {
 
 // ExportTopRule holds a top-rule row in the export.
 type ExportTopRule struct {
-	AlertName        string
-	Cnt              int64
+	AlertName               string
+	Cnt                     int64
 	Critical, Warning, Info int64
 }
 
@@ -150,12 +150,12 @@ type ChannelStatsRow struct {
 
 // TeamStatsRow holds aggregated stats for a single team.
 type TeamStatsRow struct {
-	TeamID      uint    `json:"team_id"`
-	TeamName    string  `json:"team_name"`
-	Total       int64   `json:"total"`
-	Closed      int64   `json:"closed"`
-	Critical    int64   `json:"critical"`
-	AvgMTTR     float64 `json:"avg_mttr_seconds"`
+	TeamID   uint    `json:"team_id"`
+	TeamName string  `json:"team_name"`
+	Total    int64   `json:"total"`
+	Closed   int64   `json:"closed"`
+	Critical int64   `json:"critical"`
+	AvgMTTR  float64 `json:"avg_mttr_seconds"`
 }
 
 // IncidentTrendPoint holds one day of incident counts.

@@ -105,4 +105,3 @@ func (r *LabelRegistryRepository) GetKeys(ctx context.Context, datasourceIDs []u
 func (r *LabelRegistryRepository) DeleteByDatasource(ctx context.Context, datasourceID uint) error {
 	return r.db.WithContext(ctx).Where("datasource_id = ?", datasourceID).Delete(&model.LabelRegistry{}).Error
 }
-

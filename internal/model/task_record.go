@@ -8,13 +8,13 @@ type TaskRecord struct {
 	EventID   uint   `gorm:"index" json:"event_id"` // 0 if manual
 	Title     string `gorm:"size:256" json:"title"`
 	Account   string `gorm:"size:64" json:"account"`
-	Password  string `gorm:"size:256" json:"-"`         // SSH password (encrypted)
+	Password  string `gorm:"size:256" json:"-"` // SSH password (encrypted)
 	Batch     int    `json:"batch"`
 	Tolerance int    `json:"tolerance"`
 	Timeout   int    `json:"timeout"`
 	Script    string `gorm:"type:longtext" json:"script"`
 	Args      string `gorm:"size:512" json:"args"`
-	Hosts     string `gorm:"type:text" json:"hosts"` // JSON array
+	Hosts     string `gorm:"type:text" json:"hosts"`  // JSON array
 	Status    int    `gorm:"default:0" json:"status"` // 0=pending 1=running 2=success 3=fail
 	CreateBy  string `gorm:"size:64" json:"create_by"`
 }

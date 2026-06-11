@@ -13,11 +13,11 @@ import (
 func Test_LarkCardStateService_buildEventCardJSON_Firing(t *testing.T) {
 	// We can test the card JSON builder without a full service setup.
 	event := &model.AlertEvent{
-		BaseModel:  model.BaseModel{ID: 1},
-		AlertName:  "CPU High",
-		Severity:   model.SeverityCritical,
-		Status:     model.EventStatusFiring,
-		Labels:     model.JSONLabels{"env": "prod", "region": "us-east-1"},
+		BaseModel: model.BaseModel{ID: 1},
+		AlertName: "CPU High",
+		Severity:  model.SeverityCritical,
+		Status:    model.EventStatusFiring,
+		Labels:    model.JSONLabels{"env": "prod", "region": "us-east-1"},
 	}
 
 	// Build card using the same logic as the service.

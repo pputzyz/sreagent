@@ -2,8 +2,8 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
@@ -72,7 +72,6 @@ type UpdateUserRequest struct {
 type ToggleActiveRequest struct {
 	IsActive bool `json:"is_active"`
 }
-
 
 // Create creates a new user.
 func (h *UserHandler) Create(c *gin.Context) {

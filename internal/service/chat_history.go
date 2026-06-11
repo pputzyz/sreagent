@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	defaultChatHistoryLimit  = 50
-	maxChatHistoryPerMode    = 200
+	defaultChatHistoryLimit = 50
+	maxChatHistoryPerMode   = 200
 )
 
 // ChatHistoryService provides business logic for chat history management.

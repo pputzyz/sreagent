@@ -48,7 +48,6 @@ type AlertEventService struct {
 	serverCtx          context.Context // server lifecycle context for background goroutines
 }
 
-
 // AlertGroupRawRow is a single row from the grouped alert query.
 type AlertGroupRawRow struct {
 	AlertName    string
@@ -310,9 +309,9 @@ func (s *AlertEventService) Silence(ctx context.Context, eventID, userID uint, d
 	ok, err := s.repo.TransitionStatus(ctx, eventID,
 		[]model.AlertEventStatus{model.EventStatusFiring, model.EventStatusAcknowledged, model.EventStatusAssigned},
 		map[string]interface{}{
-			"status":          model.EventStatusSilenced,
-			"silenced_until":  silencedUntil,
-			"silence_reason":  reason,
+			"status":         model.EventStatusSilenced,
+			"silenced_until": silencedUntil,
+			"silence_reason": reason,
 		})
 	if err != nil {
 		return apperr.Wrap(apperr.ErrDatabase, err)

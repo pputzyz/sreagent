@@ -19,14 +19,14 @@ type StreamMessage struct {
 
 // SSE event types published to the stream.
 const (
-	SSEEventInit    = "init"    // stream existence marker (not forwarded to client)
-	SSEEventTask    = "task"    // full AgentTask snapshot
-	SSEEventToken   = "token"   // LLM streaming token
-	SSEEventStep    = "step"    // agent step progress
-	SSEEventTool    = "tool"    // tool call result
-	SSEEventDone    = "done"    // task completed
-	SSEEventError   = "error"   // task failed
-	SSEEventFinish  = "finish"  // stream termination marker (not forwarded to client)
+	SSEEventInit   = "init"   // stream existence marker (not forwarded to client)
+	SSEEventTask   = "task"   // full AgentTask snapshot
+	SSEEventToken  = "token"  // LLM streaming token
+	SSEEventStep   = "step"   // agent step progress
+	SSEEventTool   = "tool"   // tool call result
+	SSEEventDone   = "done"   // task completed
+	SSEEventError  = "error"  // task failed
+	SSEEventFinish = "finish" // stream termination marker (not forwarded to client)
 )
 
 // streamBus constants (aligned with Nightingale).

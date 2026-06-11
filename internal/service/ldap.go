@@ -17,20 +17,20 @@ import (
 
 // LDAPConfig holds LDAP server configuration stored in the DB.
 type LDAPConfig struct {
-	Enabled           bool   `json:"enabled"`
-	Host              string `json:"host"`
-	Port              int    `json:"port"`               // default 389
-	BaseDN            string `json:"base_dn"`
-	BindDN            string `json:"bind_dn"`             // service account
-	BindPassword      string `json:"bind_password"`
-	UserFilter        string `json:"user_filter"`         // e.g. "(uid=%s)"
-	UserAttr          string `json:"user_attr"`           // default "uid"
-	EmailAttr         string `json:"email_attr"`          // default "mail"
-	DisplayNameAttr   string `json:"display_name_attr"`   // default "displayName"
-	StartTLS          bool   `json:"start_tls"`
-	SkipVerify        bool   `json:"skip_verify"`
-	DefaultRole       string `json:"default_role"`        // default "viewer"
-	AutoProvision     bool   `json:"auto_provision"`      // default true
+	Enabled         bool   `json:"enabled"`
+	Host            string `json:"host"`
+	Port            int    `json:"port"` // default 389
+	BaseDN          string `json:"base_dn"`
+	BindDN          string `json:"bind_dn"` // service account
+	BindPassword    string `json:"bind_password"`
+	UserFilter      string `json:"user_filter"`       // e.g. "(uid=%s)"
+	UserAttr        string `json:"user_attr"`         // default "uid"
+	EmailAttr       string `json:"email_attr"`        // default "mail"
+	DisplayNameAttr string `json:"display_name_attr"` // default "displayName"
+	StartTLS        bool   `json:"start_tls"`
+	SkipVerify      bool   `json:"skip_verify"`
+	DefaultRole     string `json:"default_role"`   // default "viewer"
+	AutoProvision   bool   `json:"auto_provision"` // default true
 }
 
 // LDAPUserInfo holds user information extracted from LDAP.
@@ -88,19 +88,19 @@ func (s *LDAPService) GetConfig(ctx context.Context) (LDAPConfig, error) {
 // SaveConfig persists the LDAP configuration to the DB.
 func (s *LDAPService) SaveConfig(ctx context.Context, cfg LDAPConfig) error {
 	kv := map[string]string{
-		"enabled":            fmt.Sprintf("%t", cfg.Enabled),
-		"host":               cfg.Host,
-		"port":               fmt.Sprintf("%d", cfg.Port),
-		"base_dn":            cfg.BaseDN,
-		"bind_dn":            cfg.BindDN,
-		"user_filter":        cfg.UserFilter,
-		"user_attr":          cfg.UserAttr,
-		"email_attr":         cfg.EmailAttr,
-		"display_name_attr":  cfg.DisplayNameAttr,
-		"start_tls":          fmt.Sprintf("%t", cfg.StartTLS),
-		"skip_verify":        fmt.Sprintf("%t", cfg.SkipVerify),
-		"default_role":       cfg.DefaultRole,
-		"auto_provision":     fmt.Sprintf("%t", cfg.AutoProvision),
+		"enabled":           fmt.Sprintf("%t", cfg.Enabled),
+		"host":              cfg.Host,
+		"port":              fmt.Sprintf("%d", cfg.Port),
+		"base_dn":           cfg.BaseDN,
+		"bind_dn":           cfg.BindDN,
+		"user_filter":       cfg.UserFilter,
+		"user_attr":         cfg.UserAttr,
+		"email_attr":        cfg.EmailAttr,
+		"display_name_attr": cfg.DisplayNameAttr,
+		"start_tls":         fmt.Sprintf("%t", cfg.StartTLS),
+		"skip_verify":       fmt.Sprintf("%t", cfg.SkipVerify),
+		"default_role":      cfg.DefaultRole,
+		"auto_provision":    fmt.Sprintf("%t", cfg.AutoProvision),
 	}
 	// Only save bind_password when caller provided a non-empty value.
 	if cfg.BindPassword != "" {
@@ -322,4 +322,3 @@ func firstAttr(attrs map[string][]string, name, def string) string {
 	}
 	return def
 }
-

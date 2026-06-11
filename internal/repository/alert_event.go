@@ -13,10 +13,10 @@ import (
 type AlertEventFilter struct {
 	Status    string
 	Severity  string
-	AlertName string    // FE4-1: partial match on alert_name (LIKE %value%)
-	RuleID    *uint     // FE4-4: exact match on rule_id
-	ViewMode  string    // "mine" | "unassigned" | "all"
-	UserID    uint      // current user ID (for "mine" mode)
+	AlertName string // FE4-1: partial match on alert_name (LIKE %value%)
+	RuleID    *uint  // FE4-4: exact match on rule_id
+	ViewMode  string // "mine" | "unassigned" | "all"
+	UserID    uint   // current user ID (for "mine" mode)
 	StartTime *time.Time
 	EndTime   *time.Time
 	Page      int

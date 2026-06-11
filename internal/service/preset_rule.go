@@ -166,10 +166,10 @@ func (s *PresetRuleService) autoMatchDatasource(ctx context.Context, cluster str
 
 // BatchApplyResult holds the result of a single preset application in a batch.
 type BatchApplyResult struct {
-	PresetID       uint   `json:"preset_id"`
-	AlertRuleID    uint   `json:"alert_rule_id,omitempty"`
-	DatasourceID   uint   `json:"matched_datasource_id,omitempty"`
-	Error          string `json:"error,omitempty"`
+	PresetID     uint   `json:"preset_id"`
+	AlertRuleID  uint   `json:"alert_rule_id,omitempty"`
+	DatasourceID uint   `json:"matched_datasource_id,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 // BatchApply applies multiple preset rules at once.
@@ -354,7 +354,7 @@ func (s *PresetRuleService) ImportPresetInhibitions(ctx context.Context) error {
 		labels := model.JSONLabels{
 			"source_match": encodeLabelsToString(p.SourceLabels),
 			"target_match": encodeLabelsToString(p.TargetLabels),
-			"equal_labels":  strings.Join(p.EqualLabels, ","),
+			"equal_labels": strings.Join(p.EqualLabels, ","),
 		}
 
 		annotations := model.JSONLabels{

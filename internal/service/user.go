@@ -46,9 +46,9 @@ type TokenBlacklister interface {
 }
 
 type UserService struct {
-	repo       *repository.UserRepository
+	repo        *repository.UserRepository
 	blacklister TokenBlacklister // optional — nil when Redis is not configured
-	logger     *zap.Logger
+	logger      *zap.Logger
 }
 
 func NewUserService(repo *repository.UserRepository, logger *zap.Logger) *UserService {

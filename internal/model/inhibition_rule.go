@@ -8,8 +8,8 @@ package model
 // listed in EqualLabels (if EqualLabels is empty, the target is always suppressed).
 type InhibitionRule struct {
 	BaseModel
-	Name        string     `json:"name" gorm:"size:128;not null"`
-	Description string     `json:"description" gorm:"size:512;not null;default:''"`
+	Name        string `json:"name" gorm:"size:128;not null"`
+	Description string `json:"description" gorm:"size:512;not null;default:''"`
 	// SourceMatch holds the label matchers for the inhibiting (source) alert.
 	// Example: {"alertname":"DatabaseDown","severity":"critical"}
 	SourceMatch JSONLabels `json:"source_match" gorm:"type:json;not null"`

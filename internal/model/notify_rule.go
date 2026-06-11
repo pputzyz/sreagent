@@ -25,7 +25,7 @@ type NotifyRule struct {
 	NotifyConfigs string `json:"notify_configs" gorm:"type:text"`
 	// Throttle
 	RepeatInterval   int `json:"repeat_interval" gorm:"default:3600"` // seconds between repeated notifications
-	MaxNotifications int `json:"max_notifications" gorm:"default:0"`   // 0 = unlimited; caps total sent notifications per rule+media
+	MaxNotifications int `json:"max_notifications" gorm:"default:0"`  // 0 = unlimited; caps total sent notifications per rule+media
 	// Callback URL (optional, called when event is processed)
 	CallbackURL string `json:"callback_url" gorm:"size:512"`
 	// GroupAggregate: when true, all events in a notification group flush are

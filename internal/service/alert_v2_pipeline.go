@@ -47,6 +47,7 @@ var v2PipelineDropped int64
 //
 //	wrapped := pipeline.WrapOnAlert(existingOnAlert)
 //	evaluator.SetOnAlert(wrapped)
+//
 // maxAsyncPipelineTasks caps concurrent async v2 pipeline goroutines.
 const maxAsyncPipelineTasks = 100
 

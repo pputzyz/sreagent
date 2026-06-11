@@ -18,7 +18,7 @@ import (
 // NoiseReduceResult is the outcome of noise reduction for one alert event.
 type NoiseReduceResult struct {
 	// Excluded: the alert matched an exclusion rule and should be dropped.
-	Excluded bool
+	Excluded      bool
 	ExcludeReason string
 
 	// AggregationKey: computed from channel's aggregation dimensions.
@@ -43,9 +43,9 @@ type NoiseReduceResult struct {
 // + GC approach is sufficient for single-instance deployments and prevents
 // unbounded memory growth.
 type NoiseReducer struct {
-	channelRepo      *repository.ChannelRepository
-	exclusionRepo    *repository.ExclusionRuleRepository
-	logger           *zap.Logger
+	channelRepo   *repository.ChannelRepository
+	exclusionRepo *repository.ExclusionRuleRepository
+	logger        *zap.Logger
 
 	// defaultChannelID is the fallback channel used when an alert event
 	// does not carry a _channel_id label (e.g. engine-fired alerts).
@@ -56,7 +56,7 @@ type NoiseReducer struct {
 	flapStates map[string]*flapState
 
 	// In-memory storm tracker: key = "channelID", value = storm counter
-	stormMu      sync.Mutex
+	stormMu       sync.Mutex
 	stormCounters map[string]*stormCounter
 
 	// GC goroutine lifecycle
@@ -65,15 +65,15 @@ type NoiseReducer struct {
 }
 
 type flapState struct {
-	Changes    []time.Time // timestamps of state changes in the observation window
-	Silenced   bool
+	Changes     []time.Time // timestamps of state changes in the observation window
+	Silenced    bool
 	SilentUntil time.Time
 }
 
 type stormCounter struct {
-	Count      int
+	Count       int
 	WindowStart time.Time
-	Notified   map[int]bool // which thresholds have already been notified
+	Notified    map[int]bool // which thresholds have already been notified
 }
 
 func NewNoiseReducer(

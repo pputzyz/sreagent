@@ -33,8 +33,8 @@ type EscalationExecutor struct {
 	userNotifyConfigRepo *repository.UserNotifyConfigRepository
 	teamRepo             service.TeamRepository
 	onCallShiftRepo      *repository.OnCallShiftRepository
-	larkSvc              *service.LarkService          // optional — enables lark_personal DM
-	settingSvc           *service.SystemSettingService // optional — enables personal email via global SMTP
+	larkSvc              *service.LarkService            // optional — enables lark_personal DM
+	settingSvc           *service.SystemSettingService   // optional — enables personal email via global SMTP
 	templateSvc          *service.MessageTemplateService // optional — enables template rendering
 	logger               *zap.Logger
 
@@ -821,10 +821,10 @@ func parseLarkPersonalConfig(raw string) (receiveIDType, receiveID string, err e
 		return "", "", fmt.Errorf("lark_personal config is empty")
 	}
 	var c struct {
-		UserID      string `json:"user_id"`
-		OpenID      string `json:"open_id"`
-		UnionID     string `json:"union_id"`
-		LarkUserID  string `json:"lark_user_id"`
+		UserID     string `json:"user_id"`
+		OpenID     string `json:"open_id"`
+		UnionID    string `json:"union_id"`
+		LarkUserID string `json:"lark_user_id"`
 	}
 	if err := json.Unmarshal([]byte(raw), &c); err != nil {
 		return "", "", fmt.Errorf("parse lark_personal config: %w", err)

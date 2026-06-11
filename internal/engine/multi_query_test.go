@@ -95,28 +95,28 @@ func TestParseTriggerExp(t *testing.T) {
 		expected  *triggerExpParts
 	}{
 		{
-			name: "greater than",
-			exp:  "$A > 100",
+			name:     "greater than",
+			exp:      "$A > 100",
 			expected: &triggerExpParts{ref: "A", op: ">", threshold: 100},
 		},
 		{
-			name: "less than",
-			exp:  "$B < 50",
+			name:     "less than",
+			exp:      "$B < 50",
 			expected: &triggerExpParts{ref: "B", op: "<", threshold: 50},
 		},
 		{
-			name: "greater or equal",
-			exp:  "$A >= 80.5",
+			name:     "greater or equal",
+			exp:      "$A >= 80.5",
 			expected: &triggerExpParts{ref: "A", op: ">=", threshold: 80.5},
 		},
 		{
-			name: "var-to-var greater than",
-			exp:  "$A > $B",
+			name:     "var-to-var greater than",
+			exp:      "$A > $B",
 			expected: &triggerExpParts{ref: "A", op: ">", isVarRef: true, rightRef: "B"},
 		},
 		{
-			name: "var-to-var less or equal",
-			exp:  "$A <= $C",
+			name:     "var-to-var less or equal",
+			exp:      "$A <= $C",
 			expected: &triggerExpParts{ref: "A", op: "<=", isVarRef: true, rightRef: "C"},
 		},
 		{

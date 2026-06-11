@@ -135,7 +135,7 @@ func (h *RecordingRuleHandler) Create(c *gin.Context) {
 		})
 	}
 	Success(c, gin.H{
-		"rule": rule,
+		"rule":    rule,
 		"warning": "Recording rules are in Phase 1: queries are validated and executed but results are NOT written back to the datasource as new time series. This is an experimental feature.",
 	})
 }
@@ -296,27 +296,27 @@ func (h *RecordingRuleHandler) UpdateFields(c *gin.Context) {
 // --------------- Request types ---------------
 
 type CreateRecordingRuleRequest struct {
-	GroupID       uint               `json:"group_id" binding:"required"`
-	Name          string             `json:"name" binding:"required"`
-	PromQL        string             `json:"prom_ql" binding:"required"`
-	DatasourceIDs []int64            `json:"datasource_ids"`
-	CronPattern   string             `json:"cron_pattern"`
-	Disabled      int                `json:"disabled"`
-	WriteBack     *int               `json:"write_back"`
-	AppendTags    []string           `json:"append_tags"`
-	Note          string             `json:"note"`
+	GroupID       uint                `json:"group_id" binding:"required"`
+	Name          string              `json:"name" binding:"required"`
+	PromQL        string              `json:"prom_ql" binding:"required"`
+	DatasourceIDs []int64             `json:"datasource_ids"`
+	CronPattern   string              `json:"cron_pattern"`
+	Disabled      int                 `json:"disabled"`
+	WriteBack     *int                `json:"write_back"`
+	AppendTags    []string            `json:"append_tags"`
+	Note          string              `json:"note"`
 	QueryConfigs  []model.QueryConfig `json:"query_configs"`
 }
 
 type UpdateRecordingRuleRequest struct {
-	Name          string             `json:"name" binding:"required"`
-	PromQL        string             `json:"prom_ql" binding:"required"`
-	DatasourceIDs []int64            `json:"datasource_ids"`
-	CronPattern   string             `json:"cron_pattern"`
-	Disabled      int                `json:"disabled"`
-	WriteBack     *int               `json:"write_back"`
-	AppendTags    []string           `json:"append_tags"`
-	Note          string             `json:"note"`
+	Name          string              `json:"name" binding:"required"`
+	PromQL        string              `json:"prom_ql" binding:"required"`
+	DatasourceIDs []int64             `json:"datasource_ids"`
+	CronPattern   string              `json:"cron_pattern"`
+	Disabled      int                 `json:"disabled"`
+	WriteBack     *int                `json:"write_back"`
+	AppendTags    []string            `json:"append_tags"`
+	Note          string              `json:"note"`
 	QueryConfigs  []model.QueryConfig `json:"query_configs"`
 }
 

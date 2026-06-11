@@ -73,9 +73,9 @@ func Test_shared_integration_channel_reset_per_alert(t *testing.T) {
 	// reset to integ.ChannelID each iteration.
 	integDefaultChannelID := uint(5)
 	type alertResult struct {
-		title      string
-		severity   string
-		channelID  uint
+		title     string
+		severity  string
+		channelID uint
 	}
 	var results []alertResult
 

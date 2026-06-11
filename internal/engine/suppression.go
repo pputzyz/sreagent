@@ -202,7 +202,10 @@ func (s *LevelSuppressor) gc() {
 	changeThreshold := now.Add(-7 * 24 * time.Hour)
 
 	// Phase 1: collect keys to delete under read lock.
-	type gcKey struct{ ruleID uint; fp string }
+	type gcKey struct {
+		ruleID uint
+		fp     string
+	}
 	var toDelete []gcKey
 
 	s.mu.RLock()

@@ -40,7 +40,7 @@ type AlertEvent struct {
 	Labels      JSONLabels       `json:"labels" gorm:"type:json"`
 	Annotations JSONLabels       `json:"annotations" gorm:"type:json"`
 	// Source information
-	Source       string `json:"source" gorm:"size:128"` // datasource name or external
+	Source       string `json:"source" gorm:"size:128"`     // datasource name or external
 	DataSourceID *uint  `json:"datasource_id" gorm:"index"` // which datasource triggered this event
 	GeneratorURL string `json:"generator_url" gorm:"size:512"`
 	// Timestamps
@@ -111,8 +111,8 @@ type AlertTimeline struct {
 	OperatorID       *uint               `json:"operator_id" gorm:"index"`
 	Operator         *User               `json:"operator,omitempty" gorm:"foreignKey:OperatorID"`
 	Note             string              `json:"note" gorm:"type:text"`
-	Extra            string              `json:"extra" gorm:"type:json"`                          // additional context as JSON
-	EscalationStepID *uint               `json:"escalation_step_id,omitempty" gorm:"index"`       // links to escalation_steps.id for dedup
+	Extra            string              `json:"extra" gorm:"type:json"`                    // additional context as JSON
+	EscalationStepID *uint               `json:"escalation_step_id,omitempty" gorm:"index"` // links to escalation_steps.id for dedup
 }
 
 func (AlertTimeline) TableName() string {
@@ -122,16 +122,16 @@ func (AlertTimeline) TableName() string {
 // ViewAlertEvent is the API response type for the v2 alert events endpoint.
 // It mirrors the old AlertEventV2 JSON shape so the frontend does not need changes.
 type ViewAlertEvent struct {
-	ID            uint              `json:"id"`
-	AlertID       uint              `json:"alert_id"`
+	ID            uint               `json:"id"`
+	AlertID       uint               `json:"alert_id"`
 	EventStatus   AlertEventV2Status `json:"event_status"`
-	EventSeverity AlertSeverity     `json:"event_severity"`
-	Labels        JSONLabels        `json:"labels"`
-	Annotations   JSONLabels        `json:"annotations"`
-	Value         float64           `json:"value"`
-	Timestamp     time.Time         `json:"timestamp"`
-	Fingerprint   string            `json:"fingerprint"`
-	CreatedAt     time.Time         `json:"created_at"`
+	EventSeverity AlertSeverity      `json:"event_severity"`
+	Labels        JSONLabels         `json:"labels"`
+	Annotations   JSONLabels         `json:"annotations"`
+	Value         float64            `json:"value"`
+	Timestamp     time.Time          `json:"timestamp"`
+	Fingerprint   string             `json:"fingerprint"`
+	CreatedAt     time.Time          `json:"created_at"`
 }
 
 // ToViewAlertEvent converts an AlertEvent to the ViewAlertEvent API response format.

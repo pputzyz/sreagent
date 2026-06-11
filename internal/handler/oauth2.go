@@ -13,8 +13,8 @@ import (
 
 // OAuth2Handler handles OAuth2 SSO login flow endpoints.
 type OAuth2Handler struct {
-	svc     *service.OAuth2Service
-	jwtCfg  *jwtConfigAdapter
+	svc    *service.OAuth2Service
+	jwtCfg *jwtConfigAdapter
 }
 
 // jwtConfigAdapter wraps the JWT config for the OAuth2 service.

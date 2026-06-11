@@ -121,9 +121,9 @@ func (s *SilenceExpiryChecker) runOnce(ctx context.Context) {
 		Model(&model.AlertEvent{}).
 		Where("id IN ? AND status = ?", ids, model.EventStatusSilenced).
 		Updates(map[string]interface{}{
-			"status":          model.EventStatusFiring,
-			"silenced_until":  nil,
-			"silence_reason":  "",
+			"status":         model.EventStatusFiring,
+			"silenced_until": nil,
+			"silence_reason": "",
 		})
 	if result.Error != nil {
 		s.logger.Error("silence expiry: failed to update events", zap.Error(result.Error))

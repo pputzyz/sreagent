@@ -27,15 +27,15 @@ var integrationDropped int64
 // NormalizedAlert is a canonical representation of an inbound alert,
 // regardless of whether it came from standard/AlertManager/Grafana format.
 type NormalizedAlert struct {
-	Title       string
-	Description string
-	Severity    model.AlertSeverity
-	Status      string // "firing" | "resolved"
-	Labels      map[string]string
-	Annotations map[string]string
+	Title        string
+	Description  string
+	Severity     model.AlertSeverity
+	Status       string // "firing" | "resolved"
+	Labels       map[string]string
+	Annotations  map[string]string
 	GeneratorURL string
-	StartsAt    time.Time
-	EndsAt      *time.Time
+	StartsAt     time.Time
+	EndsAt       *time.Time
 }
 
 // ---- Rate limiter (fixed-window counter, per integration) ----
@@ -319,15 +319,15 @@ func (s *IntegrationService) injectAndRoute(ctx context.Context, integ *model.In
 	}
 
 	syntheticEvent := &model.AlertEvent{
-		AlertName:   alert.Title,
-		Severity:    alert.Severity,
-		Status:      status,
-		Labels:      labels,
-		Annotations: annotations,
-		Source:      string(integ.Type),
-		Fingerprint: generateIntegrationFingerprint(integ.ID, alert.Labels, alert.Title),
+		AlertName:    alert.Title,
+		Severity:     alert.Severity,
+		Status:       status,
+		Labels:       labels,
+		Annotations:  annotations,
+		Source:       string(integ.Type),
+		Fingerprint:  generateIntegrationFingerprint(integ.ID, alert.Labels, alert.Title),
 		GeneratorURL: alert.GeneratorURL,
-		FiredAt:     alert.StartsAt,
+		FiredAt:      alert.StartsAt,
 	}
 
 	select {
@@ -438,12 +438,12 @@ func (s *IntegrationService) normaliseStandard(body []byte) ([]NormalizedAlert, 
 func (s *IntegrationService) normaliseAlertManager(body []byte) ([]NormalizedAlert, error) {
 	var payload struct {
 		Alerts []struct {
-			Status string `json:"status"` // "firing" | "resolved"
-			Labels map[string]string `json:"labels"`
-			Annotations map[string]string `json:"annotations"`
-			StartsAt    string `json:"startsAt"`
-			EndsAt      string `json:"endsAt"`
-			GeneratorURL string `json:"generatorURL"`
+			Status       string            `json:"status"` // "firing" | "resolved"
+			Labels       map[string]string `json:"labels"`
+			Annotations  map[string]string `json:"annotations"`
+			StartsAt     string            `json:"startsAt"`
+			EndsAt       string            `json:"endsAt"`
+			GeneratorURL string            `json:"generatorURL"`
 		} `json:"alerts"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -486,13 +486,13 @@ func (s *IntegrationService) normaliseAlertManager(body []byte) ([]NormalizedAle
 func (s *IntegrationService) normaliseGrafana(body []byte) ([]NormalizedAlert, error) {
 	var payload struct {
 		Alerts []struct {
-			Title       string            `json:"title"`
-			State       string            `json:"state"` // alerting | ok | no_data | pending
-			Labels      map[string]string `json:"labels"`
-			Annotations map[string]string `json:"annotations"`
-			GeneratorURL string           `json:"generatorURL"`
-			StartsAt    string            `json:"startsAt"`
-			ValueString string            `json:"valueString"`
+			Title        string            `json:"title"`
+			State        string            `json:"state"` // alerting | ok | no_data | pending
+			Labels       map[string]string `json:"labels"`
+			Annotations  map[string]string `json:"annotations"`
+			GeneratorURL string            `json:"generatorURL"`
+			StartsAt     string            `json:"startsAt"`
+			ValueString  string            `json:"valueString"`
 		} `json:"alerts"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {

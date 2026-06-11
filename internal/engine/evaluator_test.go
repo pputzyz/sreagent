@@ -323,7 +323,7 @@ func Test_stateTTL(t *testing.T) {
 	}{
 		// stateTTL returns max(1 hour, 10 * interval) for better crash recovery
 		{"default 60s", 0, 1 * time.Hour},
-		{"30s interval", 30, 1 * time.Hour},    // 10*30s = 300s < 1h → 1h
+		{"30s interval", 30, 1 * time.Hour},     // 10*30s = 300s < 1h → 1h
 		{"120s interval", 120, 1 * time.Hour},   // 10*120s = 1200s < 1h → 1h
 		{"30min interval", 1800, 5 * time.Hour}, // 10*1800s = 5h > 1h → 5h
 	}

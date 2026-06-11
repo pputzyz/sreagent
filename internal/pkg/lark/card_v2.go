@@ -15,7 +15,7 @@ const (
 
 // CardV2 is the top-level Card 2.0 message body.
 type CardV2 struct {
-	Schema   string       `json:"schema"`              // must be "2.0"
+	Schema   string        `json:"schema"` // must be "2.0"
 	Config   *CardV2Config `json:"config,omitempty"`
 	Header   *CardV2Header `json:"header,omitempty"`
 	Body     *CardV2Body   `json:"body,omitempty"`
@@ -23,17 +23,17 @@ type CardV2 struct {
 }
 
 type CardV2Config struct {
-	WideScreenMode bool   `json:"wide_screen_mode,omitempty"`
-	EnableForward  bool   `json:"enable_forward,omitempty"`
-	WidthMode      string `json:"width_mode,omitempty"` // "default" | "fill"
-	Summary        *CardV2Text `json:"summary,omitempty"` // chat list preview
+	WideScreenMode bool        `json:"wide_screen_mode,omitempty"`
+	EnableForward  bool        `json:"enable_forward,omitempty"`
+	WidthMode      string      `json:"width_mode,omitempty"` // "default" | "fill"
+	Summary        *CardV2Text `json:"summary,omitempty"`    // chat list preview
 }
 
 type CardLink struct {
-	URL         string `json:"url"`
-	AndroidURL  string `json:"android_url,omitempty"`
-	IOSURL      string `json:"ios_url,omitempty"`
-	PCURL       string `json:"pc_url,omitempty"`
+	URL        string `json:"url"`
+	AndroidURL string `json:"android_url,omitempty"`
+	IOSURL     string `json:"ios_url,omitempty"`
+	PCURL      string `json:"pc_url,omitempty"`
 }
 
 type CardV2Header struct {
@@ -44,12 +44,12 @@ type CardV2Header struct {
 }
 
 type UdIcon struct {
-	Tag  string `json:"tag"`            // "standard-icon" | "custom-icon"
+	Tag   string `json:"tag"`             // "standard-icon" | "custom-icon"
 	Token string `json:"token,omitempty"` // standard icon token
 }
 
 type CardV2Text struct {
-	Tag     string `json:"tag"`               // "plain_text" | "lark_md"
+	Tag     string `json:"tag"` // "plain_text" | "lark_md"
 	Content string `json:"content"`
 }
 
@@ -72,14 +72,14 @@ type DividerElement struct {
 
 // ColumnSetElement is a multi-column layout container.
 type ColumnSetElement struct {
-	Tag     string           `json:"tag"` // "column_set"`
+	Tag      string          `json:"tag"`                 // "column_set"`
 	FlexMode string          `json:"flex_mode,omitempty"` // "none" | "stretch" | "bisect"
 	Columns  []ColumnElement `json:"columns"`
 }
 
 type ColumnElement struct {
-	Tag      string        `json:"tag"` // "column"
-	Width    string        `json:"width,omitempty"` // "weighted" | "auto"
+	Tag      string        `json:"tag"`              // "column"
+	Width    string        `json:"width,omitempty"`  // "weighted" | "auto"
 	Weight   int           `json:"weight,omitempty"` // 1-10, used when width="weighted"
 	Elements []interface{} `json:"elements"`
 }
@@ -92,16 +92,16 @@ type NoteElement struct {
 
 // ImageElement displays an image.
 type ImageElement struct {
-	Tag      string `json:"tag"` // "img"
-	ImgKey   string `json:"img_key"`
-	Alt      *CardV2Text `json:"alt"`
-	Title    *CardV2Text `json:"title,omitempty"`
+	Tag    string      `json:"tag"` // "img"
+	ImgKey string      `json:"img_key"`
+	Alt    *CardV2Text `json:"alt"`
+	Title  *CardV2Text `json:"title,omitempty"`
 }
 
 // ActionElement wraps interactive components (buttons, selects, forms).
 type ActionElement struct {
-	Tag      string        `json:"tag"` // "action"
-	Actions  []interface{} `json:"actions"`
+	Tag     string        `json:"tag"` // "action"
+	Actions []interface{} `json:"actions"`
 }
 
 // FormElement wraps form inputs with a submit button.
@@ -113,11 +113,11 @@ type FormElement struct {
 
 // CollapsiblePanelElement is a collapsible panel container.
 type CollapsiblePanelElement struct {
-	Tag            string        `json:"tag"` // "collapsible_panel"`
-	Expanded       bool          `json:"expanded"`
-	Header         *PanelHeader  `json:"header"`
-	Border         *PanelBorder  `json:"border,omitempty"`
-	Elements       []interface{} `json:"elements"`
+	Tag      string        `json:"tag"` // "collapsible_panel"`
+	Expanded bool          `json:"expanded"`
+	Header   *PanelHeader  `json:"header"`
+	Border   *PanelBorder  `json:"border,omitempty"`
+	Elements []interface{} `json:"elements"`
 }
 
 type PanelHeader struct {
@@ -132,38 +132,38 @@ type PanelBorder struct {
 
 // ChartElement embeds a VChart spec for inline charts.
 type ChartElement struct {
-	Tag          string      `json:"tag"` // "chart"
-	AspectRatio  string      `json:"aspect_ratio,omitempty"` // "1:1" | "2:1" | "4:3" | "16:9"
-	ChartSpec    interface{} `json:"chart_spec"` // VChart JSON spec
+	Tag         string      `json:"tag"`                    // "chart"
+	AspectRatio string      `json:"aspect_ratio,omitempty"` // "1:1" | "2:1" | "4:3" | "16:9"
+	ChartSpec   interface{} `json:"chart_spec"`             // VChart JSON spec
 }
 
 // --- Button components ---
 
 // ButtonV2 is a Card 2.0 button with behaviors array.
 type ButtonV2 struct {
-	Tag      string      `json:"tag"` // "button"
-	Text     *CardV2Text `json:"text"`
-	Type     string      `json:"type,omitempty"` // "primary" | "danger" | "default"
-	Size     string      `json:"size,omitempty"`  // "tiny" | "small" | "medium" | "large"
-	Behaviors []Behavior `json:"behaviors,omitempty"`
-	Name     string      `json:"name,omitempty"` // form field name
-	Disabled bool        `json:"disabled,omitempty"`
+	Tag       string      `json:"tag"` // "button"
+	Text      *CardV2Text `json:"text"`
+	Type      string      `json:"type,omitempty"` // "primary" | "danger" | "default"
+	Size      string      `json:"size,omitempty"` // "tiny" | "small" | "medium" | "large"
+	Behaviors []Behavior  `json:"behaviors,omitempty"`
+	Name      string      `json:"name,omitempty"` // form field name
+	Disabled  bool        `json:"disabled,omitempty"`
 }
 
 // Behavior defines a button action.
 type Behavior struct {
-	Type  string      `json:"type"` // "callback" | "open_url"
-	Value interface{} `json:"value,omitempty"` // callback payload
-	DefaultURL string `json:"default_url,omitempty"` // open_url target
+	Type       string      `json:"type"`                  // "callback" | "open_url"
+	Value      interface{} `json:"value,omitempty"`       // callback payload
+	DefaultURL string      `json:"default_url,omitempty"` // open_url target
 }
 
 // SelectMenuV2 is a Card 2.0 select dropdown.
 type SelectMenuV2 struct {
-	Tag         string        `json:"tag"` // "select_static" | "select_person"
-	Placeholder *CardV2Text   `json:"placeholder"`
-	Name        string        `json:"name"`
-	Options     []OptionV2    `json:"options,omitempty"`
-	Value       interface{}   `json:"value,omitempty"`
+	Tag         string      `json:"tag"` // "select_static" | "select_person"
+	Placeholder *CardV2Text `json:"placeholder"`
+	Name        string      `json:"name"`
+	Options     []OptionV2  `json:"options,omitempty"`
+	Value       interface{} `json:"value,omitempty"`
 }
 
 type OptionV2 struct {
@@ -173,15 +173,15 @@ type OptionV2 struct {
 
 // InputV2 is a Card 2.0 text input.
 type InputV2 struct {
-	Tag         string     `json:"tag"` // "input"`
+	Tag         string      `json:"tag"` // "input"`
 	Placeholder *CardV2Text `json:"placeholder"`
-	Name        string     `json:"name"`
-	MaxLines    int        `json:"max_lines,omitempty"`
+	Name        string      `json:"name"`
+	MaxLines    int         `json:"max_lines,omitempty"`
 }
 
 // PersonElement displays a person avatar + name.
 type PersonElement struct {
-	Tag     string   `json:"tag"` // "person"`
+	Tag     string   `json:"tag"`            // "person"`
 	Mode    string   `json:"mode,omitempty"` // "name" | "avatar"
 	Size    string   `json:"size,omitempty"` // "medium" | "large"
 	OpenIDs []string `json:"open_ids"`
@@ -339,9 +339,10 @@ func NewButton(text, action, style string, value map[string]interface{}) ButtonV
 		Type: style,
 		Size: "small",
 	}
-	if action == "callback" {
+	switch action {
+	case "callback":
 		btn.Behaviors = []Behavior{{Type: "callback", Value: value}}
-	} else if action == "open_url" {
+	case "open_url":
 		if url, ok := value["default_url"].(string); ok {
 			btn.Behaviors = []Behavior{{Type: "open_url", DefaultURL: url}}
 		}

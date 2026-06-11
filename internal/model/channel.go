@@ -104,12 +104,12 @@ type FilterCondition struct {
 // ChannelExclusionRule filters events before they become alerts.
 type ChannelExclusionRule struct {
 	BaseModel
-	ChannelID   uint              `json:"channel_id" gorm:"index;not null"`
-	Name        string            `json:"name" gorm:"size:128;not null"`
-	Description string            `json:"description" gorm:"size:512"`
-	Conditions  string            `json:"conditions" gorm:"type:json"` // []FilterCondition JSON
-	IsEnabled   bool              `json:"is_enabled" gorm:"default:true"`
-	Priority    int               `json:"priority" gorm:"default:0;index"`
+	ChannelID   uint   `json:"channel_id" gorm:"index;not null"`
+	Name        string `json:"name" gorm:"size:128;not null"`
+	Description string `json:"description" gorm:"size:512"`
+	Conditions  string `json:"conditions" gorm:"type:json"` // []FilterCondition JSON
+	IsEnabled   bool   `json:"is_enabled" gorm:"default:true"`
+	Priority    int    `json:"priority" gorm:"default:0;index"`
 }
 
 func (ChannelExclusionRule) TableName() string {

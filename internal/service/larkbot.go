@@ -31,20 +31,20 @@ type LarkBotService struct {
 	settingSvc  *SystemSettingService
 	eventSvc    *AlertEventService
 	scheduleSvc *ScheduleService
-	aiSvc       *AIService           // optional; enables AI conversation in groups
-	agentSvc    *AgentService        // optional; enables tool-calling NL conversation
-	cardSvc     *LarkCardStateService // optional; enables streaming card replies
+	aiSvc       *AIService                 // optional; enables AI conversation in groups
+	agentSvc    *AgentService              // optional; enables tool-calling NL conversation
+	cardSvc     *LarkCardStateService      // optional; enables streaming card replies
 	userRepo    *repository.UserRepository // optional; enables OpenID→User mapping
 	client      *http.Client
 	tokenCache  *lark.TokenCache // shared token cache (optional)
 	logger      *zap.Logger
 
 	// Runtime lifecycle metrics (in-memory, not persisted).
-	lastMessageAt       time.Time
-	lastError           string
-	lastErrorAt         time.Time
-	consecutiveErrors   int
-	mu                  sync.Mutex
+	lastMessageAt     time.Time
+	lastError         string
+	lastErrorAt       time.Time
+	consecutiveErrors int
+	mu                sync.Mutex
 }
 
 // NewLarkBotService creates a new LarkBotService backed by DB-stored configuration.
@@ -188,11 +188,11 @@ type LarkMention struct {
 
 // LarkCardActionRequest represents the incoming Lark card action callback payload.
 type LarkCardActionRequest struct {
-	Operator  *LarkCardOperator    `json:"operator"`
-	Action    *LarkCardAction      `json:"action"`
-	Token     string               `json:"token"`
-	Type      string               `json:"type"`
-	FormData  map[string]interface{} `json:"form_data,omitempty"`
+	Operator *LarkCardOperator      `json:"operator"`
+	Action   *LarkCardAction        `json:"action"`
+	Token    string                 `json:"token"`
+	Type     string                 `json:"type"`
+	FormData map[string]interface{} `json:"form_data,omitempty"`
 }
 
 // LarkCardOperator identifies the user who clicked the button.
@@ -767,16 +767,16 @@ func (s *LarkBotService) TestBotAPI(ctx context.Context) error {
 
 // BotStatus holds diagnostic info about the bot connection.
 type BotStatus struct {
-	Configured       bool   `json:"configured"`
-	AppID            string `json:"app_id,omitempty"`
-	WebhookSet       bool   `json:"webhook_set"`
-	CommandsEnabled  bool   `json:"commands_enabled"`
-	NLEnabled        bool   `json:"natural_language_enabled"`
-	DebugMode        bool   `json:"debug_mode"`
-	LastMessageAt    string `json:"last_message_at,omitempty"`
-	LastError        string `json:"last_error,omitempty"`
-	LastErrorAt      string `json:"last_error_at,omitempty"`
-	ConsecutiveErrors int   `json:"consecutive_errors"`
+	Configured        bool   `json:"configured"`
+	AppID             string `json:"app_id,omitempty"`
+	WebhookSet        bool   `json:"webhook_set"`
+	CommandsEnabled   bool   `json:"commands_enabled"`
+	NLEnabled         bool   `json:"natural_language_enabled"`
+	DebugMode         bool   `json:"debug_mode"`
+	LastMessageAt     string `json:"last_message_at,omitempty"`
+	LastError         string `json:"last_error,omitempty"`
+	LastErrorAt       string `json:"last_error_at,omitempty"`
+	ConsecutiveErrors int    `json:"consecutive_errors"`
 }
 
 // GetBotStatus returns the current bot connection status and diagnostics.
@@ -794,12 +794,12 @@ func (s *LarkBotService) GetBotStatus(ctx context.Context) (*BotStatus, error) {
 	s.mu.Unlock()
 
 	status := &BotStatus{
-		Configured:       cfg.AppID != "" && cfg.AppSecret != "",
-		AppID:            cfg.AppID,
-		WebhookSet:       cfg.DefaultWebhook != "",
-		CommandsEnabled:  cfg.CommandsEnabled,
-		NLEnabled:        cfg.NaturalLanguageEnabled,
-		DebugMode:        cfg.DebugMode,
+		Configured:        cfg.AppID != "" && cfg.AppSecret != "",
+		AppID:             cfg.AppID,
+		WebhookSet:        cfg.DefaultWebhook != "",
+		CommandsEnabled:   cfg.CommandsEnabled,
+		NLEnabled:         cfg.NaturalLanguageEnabled,
+		DebugMode:         cfg.DebugMode,
 		ConsecutiveErrors: consecErrs,
 	}
 	if !lastMsg.IsZero() {
@@ -869,51 +869,6 @@ func (s *LarkBotService) mapNaturalLanguage(text string) (string, []string) {
 	}
 
 	return "", nil
-}
-
-// handleAIConversation forwards a user message to the AI service and replies
-// with an AI response card. Used when natural language is enabled but no
-// command mapping is found.
-func (s *LarkBotService) handleAIConversation(ctx context.Context, question string, chatID string, larkChatID string) error {
-	if s.aiSvc == nil {
-		return s.SendMessage(ctx, chatID, "AI 助手未配置，请在系统设置中启用 AI。")
-	}
-
-	systemPrompt := `你是 SREAgent 智能运维助手。用户通过飞书群向你提问。
-请简洁、专业地回答关于告警、监控、值班、故障排查等 SRE 相关问题。
-如果问题不明确，请给出通用的排查建议。回答使用中文。`
-
-	answer, err := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
-	if err != nil {
-		s.logger.Warn("AI conversation failed", zap.Error(err))
-		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", err))
-	}
-
-	// Send as a card with "View in SREAgent" button
-	cfg, _ := s.loadConfig(ctx)
-	viewURL := "" // Will be populated if platform URL is configured
-	_ = cfg
-
-	// Try to get platform URL from lark service settings for deep-link
-	// For now, send the card without the view URL (platform URL not available in bot context)
-	card := lark.BuildAIResponseCard(question, answer, viewURL)
-
-	// Send card via Bot API if available
-	if s.tokenCache != nil {
-		cfg, cfgErr := s.loadConfig(ctx)
-		if cfgErr == nil && cfg.AppID != "" && cfg.AppSecret != "" {
-			bot := lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache, lark.BaseURLForDomain(cfg.Domain))
-			if _, sendErr := bot.SendMessage(ctx, larkChatID, card); sendErr != nil {
-				s.logger.Warn("AI card send failed, falling back to text", zap.Error(sendErr))
-				return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))
-			}
-			s.recordMessageSuccess()
-			return nil
-		}
-	}
-
-	// Fallback: send as plain text
-	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))
 }
 
 // handleAgentConversation routes a natural language message through the AgentService

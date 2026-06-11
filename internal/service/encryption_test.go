@@ -121,4 +121,3 @@ func Test_EncryptString_via_service(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "test-secret", decrypted)
 }
-

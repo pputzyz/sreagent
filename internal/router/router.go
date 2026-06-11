@@ -21,77 +21,77 @@ var startedAt = time.Now().UTC().Format(time.RFC3339)
 
 // Handlers aggregates all handler instances.
 type Handlers struct {
-	Auth             *handler.AuthHandler
-	OIDC             *handler.OIDCHandler // nil if OIDC is not configured
-	OIDCSettings     *handler.OIDCSettingsHandler
-	OAuth2           *handler.OAuth2Handler      // nil if OAuth2 is not configured
-	SSOSettings      *handler.SSOSettingsHandler  // LDAP + OAuth2 settings
-	DataSource       *handler.DataSourceHandler
-	AlertRule        *handler.AlertRuleHandler
-	AlertEvent       *handler.AlertEventHandler
-	User             *handler.UserHandler
-	Team             *handler.TeamHandler
-	Schedule         *handler.ScheduleHandler
-	Dashboard        *handler.DashboardHandler
-	AI               *handler.AIHandler
-	LarkBot          *handler.LarkBotHandler
-	Engine           *handler.EngineHandler
-	AlertAction      *handler.AlertActionHandler
-	MuteRule         *handler.MuteRuleHandler
-	NotifyRule       *handler.NotifyRuleHandler
-	NotifyMedia      *handler.NotifyMediaHandler
-	MessageTemplate  *handler.MessageTemplateHandler
-	SubscribeRule    *handler.SubscribeRuleHandler
-	BizGroup         *handler.BizGroupHandler
-	AlertChannel     *handler.AlertChannelHandler
-	UserNotifyConfig *handler.UserNotifyConfigHandler
-	AuditLog         *handler.AuditLogHandler
-	SMTPSettings     *handler.SMTPSettingsHandler
-	SecuritySettings *handler.SecuritySettingsHandler
-	InhibitionRule   *handler.InhibitionRuleHandler
-	Heartbeat        *handler.HeartbeatHandler
-	LabelRegistry    *handler.LabelRegistryHandler
-	DashboardV2         *handler.DashboardV2Handler
-	AlertRuleTemplate   *handler.AlertRuleTemplateHandler
-	ChannelV2      *handler.ChannelHandler        // v2 collaboration channels (协作空间)
-	IncidentV2     *handler.IncidentHandler       // v2 incidents (故障)
-	AlertV2        *handler.AlertV2Handler        // v2 alerts (告警)
-	ExclusionRule  *handler.ExclusionRuleHandler  // channel exclusion rules (排除规则)
-	DispatchPolicy *handler.DispatchHandler       // channel dispatch policies (分派策略)
-	Integration    *handler.IntegrationHandler    // webhook integrations (集成中心)
-	RoutingRule    *handler.RoutingRuleHandler    // routing rules for shared integrations (路由规则)
-	PostMortem     *handler.PostMortemHandler     // incident post-mortems (故障复盘)
-	StatusService  *handler.StatusServiceHandler  // status page services (状态页面)
-	PresetRule          *handler.PresetRuleHandler          // preset rules (预设规则)
-	AIRule              *handler.AIRuleHandler              // AI rule generation (AI 规则生成)
-	AlertmanagerImport  *handler.AlertmanagerImportHandler  // alertmanager config import
-	UserPreference      *handler.UserPreferenceHandler     // user preferences (用户偏好)
-	UserNotification    *handler.UserNotificationHandler   // notification center (通知中心)
-	Permissions         *handler.PermissionsHandler        // RBAC permissions (权限查询)
-	Agent               *handler.AgentHandler              // AI Agent (自主执行)
-	Knowledge           *handler.KnowledgeHandler          // 知识库 (Knowledge Base)
-	DiagnosticWorkflow  *handler.DiagnosticWorkflowHandler // 诊断工作流 (AIOps Phase 2)
-	ChangeEvent         *handler.ChangeEventHandler        // 变更事件 (AIOps Phase 2)
-	Inspection          *handler.InspectionHandler         // 定时巡检 Agent
-	ReportTask          *handler.ReportTaskHandler         // 定时报告任务
-	RecordingRule       *handler.RecordingRuleHandler      // 录制规则 (Recording Rules)
-	BuiltinMetric       *handler.BuiltinMetricHandler      // 内置指标目录 (Metrics Builtin)
-	EventPipeline       *handler.EventPipelineHandler      // 事件管道 (Event Pipeline)
-	Annotation          *handler.AnnotationHandler         // 仪表盘标注 (Annotations)
-	SavedView           *handler.SavedViewHandler          // 快捷视图 (Saved Views)
-	MetricView          *handler.MetricViewHandler         // 指标视图 (Metric Views)
-	LLMConfig           *handler.LLMConfigHandler         // LLM 配置管理 (LLM Configs)
-	MCPServer           *handler.MCPServerHandler          // MCP 服务器管理 (MCP Servers)
-	AISkill             *handler.AISkillHandler            // AI 技能管理 (AI Skills)
-	ESIndexPattern      *handler.ESIndexPatternHandler     // ES 索引模式 (ES Index Patterns)
-	SiteInfo            *handler.SiteInfoHandler            // 站点信息 (Site Info)
-	TaskTpl             *handler.TaskTplHandler            // 任务模板管理 (Task Templates)
-	Task                *handler.TaskHandler               // 任务执行 (Task Execution)
-	BuiltinDashboard    *handler.BuiltinDashboardHandler   // 内置仪表盘库 (Builtin Dashboards)
-	UserContact         *handler.UserContactHandler        // 用户联系人 (User Contacts)
-	StatusSubscription  *handler.StatusSubscriptionHandler // 状态页邮件订阅 (Status Page Subscriptions)
-	TeamNotifyChannel   *handler.TeamNotifyChannelHandler  // 团队通知渠道 (Team Notify Channels)
-	UserTeamNotifyPref  *handler.UserTeamNotifyPrefHandler // 用户团队通知偏好 (User Team Notify Prefs)
+	Auth               *handler.AuthHandler
+	OIDC               *handler.OIDCHandler // nil if OIDC is not configured
+	OIDCSettings       *handler.OIDCSettingsHandler
+	OAuth2             *handler.OAuth2Handler      // nil if OAuth2 is not configured
+	SSOSettings        *handler.SSOSettingsHandler // LDAP + OAuth2 settings
+	DataSource         *handler.DataSourceHandler
+	AlertRule          *handler.AlertRuleHandler
+	AlertEvent         *handler.AlertEventHandler
+	User               *handler.UserHandler
+	Team               *handler.TeamHandler
+	Schedule           *handler.ScheduleHandler
+	Dashboard          *handler.DashboardHandler
+	AI                 *handler.AIHandler
+	LarkBot            *handler.LarkBotHandler
+	Engine             *handler.EngineHandler
+	AlertAction        *handler.AlertActionHandler
+	MuteRule           *handler.MuteRuleHandler
+	NotifyRule         *handler.NotifyRuleHandler
+	NotifyMedia        *handler.NotifyMediaHandler
+	MessageTemplate    *handler.MessageTemplateHandler
+	SubscribeRule      *handler.SubscribeRuleHandler
+	BizGroup           *handler.BizGroupHandler
+	AlertChannel       *handler.AlertChannelHandler
+	UserNotifyConfig   *handler.UserNotifyConfigHandler
+	AuditLog           *handler.AuditLogHandler
+	SMTPSettings       *handler.SMTPSettingsHandler
+	SecuritySettings   *handler.SecuritySettingsHandler
+	InhibitionRule     *handler.InhibitionRuleHandler
+	Heartbeat          *handler.HeartbeatHandler
+	LabelRegistry      *handler.LabelRegistryHandler
+	DashboardV2        *handler.DashboardV2Handler
+	AlertRuleTemplate  *handler.AlertRuleTemplateHandler
+	ChannelV2          *handler.ChannelHandler            // v2 collaboration channels (协作空间)
+	IncidentV2         *handler.IncidentHandler           // v2 incidents (故障)
+	AlertV2            *handler.AlertV2Handler            // v2 alerts (告警)
+	ExclusionRule      *handler.ExclusionRuleHandler      // channel exclusion rules (排除规则)
+	DispatchPolicy     *handler.DispatchHandler           // channel dispatch policies (分派策略)
+	Integration        *handler.IntegrationHandler        // webhook integrations (集成中心)
+	RoutingRule        *handler.RoutingRuleHandler        // routing rules for shared integrations (路由规则)
+	PostMortem         *handler.PostMortemHandler         // incident post-mortems (故障复盘)
+	StatusService      *handler.StatusServiceHandler      // status page services (状态页面)
+	PresetRule         *handler.PresetRuleHandler         // preset rules (预设规则)
+	AIRule             *handler.AIRuleHandler             // AI rule generation (AI 规则生成)
+	AlertmanagerImport *handler.AlertmanagerImportHandler // alertmanager config import
+	UserPreference     *handler.UserPreferenceHandler     // user preferences (用户偏好)
+	UserNotification   *handler.UserNotificationHandler   // notification center (通知中心)
+	Permissions        *handler.PermissionsHandler        // RBAC permissions (权限查询)
+	Agent              *handler.AgentHandler              // AI Agent (自主执行)
+	Knowledge          *handler.KnowledgeHandler          // 知识库 (Knowledge Base)
+	DiagnosticWorkflow *handler.DiagnosticWorkflowHandler // 诊断工作流 (AIOps Phase 2)
+	ChangeEvent        *handler.ChangeEventHandler        // 变更事件 (AIOps Phase 2)
+	Inspection         *handler.InspectionHandler         // 定时巡检 Agent
+	ReportTask         *handler.ReportTaskHandler         // 定时报告任务
+	RecordingRule      *handler.RecordingRuleHandler      // 录制规则 (Recording Rules)
+	BuiltinMetric      *handler.BuiltinMetricHandler      // 内置指标目录 (Metrics Builtin)
+	EventPipeline      *handler.EventPipelineHandler      // 事件管道 (Event Pipeline)
+	Annotation         *handler.AnnotationHandler         // 仪表盘标注 (Annotations)
+	SavedView          *handler.SavedViewHandler          // 快捷视图 (Saved Views)
+	MetricView         *handler.MetricViewHandler         // 指标视图 (Metric Views)
+	LLMConfig          *handler.LLMConfigHandler          // LLM 配置管理 (LLM Configs)
+	MCPServer          *handler.MCPServerHandler          // MCP 服务器管理 (MCP Servers)
+	AISkill            *handler.AISkillHandler            // AI 技能管理 (AI Skills)
+	ESIndexPattern     *handler.ESIndexPatternHandler     // ES 索引模式 (ES Index Patterns)
+	SiteInfo           *handler.SiteInfoHandler           // 站点信息 (Site Info)
+	TaskTpl            *handler.TaskTplHandler            // 任务模板管理 (Task Templates)
+	Task               *handler.TaskHandler               // 任务执行 (Task Execution)
+	BuiltinDashboard   *handler.BuiltinDashboardHandler   // 内置仪表盘库 (Builtin Dashboards)
+	UserContact        *handler.UserContactHandler        // 用户联系人 (User Contacts)
+	StatusSubscription *handler.StatusSubscriptionHandler // 状态页邮件订阅 (Status Page Subscriptions)
+	TeamNotifyChannel  *handler.TeamNotifyChannelHandler  // 团队通知渠道 (Team Notify Channels)
+	UserTeamNotifyPref *handler.UserTeamNotifyPrefHandler // 用户团队通知偏好 (User Team Notify Prefs)
 }
 
 // Setup initializes the Gin router with all routes and middleware.

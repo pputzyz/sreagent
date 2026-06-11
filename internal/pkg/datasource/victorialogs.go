@@ -87,8 +87,9 @@ const vlogsQueryLimit = 10000
 // which returns a single JSON object with the count, avoiding the overhead of streaming
 // and parsing thousands of NDJSON lines. This would significantly reduce memory and CPU
 // usage for high-volume log queries. Example:
-//   query := expression + " | stats count()"
-//   // Response: {"count": 12345}
+//
+//	query := expression + " | stats count()"
+//	// Response: {"count": 12345}
 func VictoriaLogsInstantQuery(ctx context.Context, endpoint, authType, authConfig, expression string, lookback time.Duration) ([]QueryResult, error) {
 	if lookback <= 0 {
 		lookback = 5 * time.Minute
@@ -312,9 +313,9 @@ type LogEntry struct {
 
 // LogQueryResponse holds the parsed result of a VictoriaLogs log query.
 type LogQueryResponse struct {
-	Entries    []LogEntry `json:"entries"`
-	Total      int        `json:"total"`
-	Truncated  bool       `json:"truncated"`
+	Entries   []LogEntry `json:"entries"`
+	Total     int        `json:"total"`
+	Truncated bool       `json:"truncated"`
 }
 
 // QueryLogsParams holds parameters for a log query.

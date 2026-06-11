@@ -5,10 +5,10 @@ import "time"
 // RuleQuery represents a single query within a multi-query alert rule.
 // Each query has a reference label (A, B, C...) and its own PromQL expression.
 type RuleQuery struct {
-	Ref          string `json:"ref"`            // A, B, C...
-	DatasourceID uint   `json:"datasource_id"`  // datasource to query against
-	Expr         string `json:"expr"`           // PromQL / LogsQL expression
-	Legend       string `json:"legend"`         // display format for the result
+	Ref          string `json:"ref"`           // A, B, C...
+	DatasourceID uint   `json:"datasource_id"` // datasource to query against
+	Expr         string `json:"expr"`          // PromQL / LogsQL expression
+	Legend       string `json:"legend"`        // display format for the result
 }
 
 // AlertSeverity defines the severity level of an alert.
@@ -47,7 +47,7 @@ func (s AlertSeverity) IsValid() bool {
 type AlertRuleStatus string
 
 const (
-	RuleStatusDraft    AlertRuleStatus = "draft"    // AI-generated, not yet activated
+	RuleStatusDraft    AlertRuleStatus = "draft" // AI-generated, not yet activated
 	RuleStatusActive   AlertRuleStatus = "active"
 	RuleStatusDisabled AlertRuleStatus = "disabled"
 )
@@ -93,11 +93,11 @@ type VarParam struct {
 type AlertRule struct {
 	BaseModel
 	// RuleType controls the evaluation strategy. Default is "threshold".
-	RuleType    AlertRuleType `json:"rule_type" gorm:"size:32;not null;default:threshold"`
-	Name         string     `json:"name" gorm:"size:256;not null;index"`
-	TeamID       *uint      `json:"team_id" gorm:"index"` // optional: which team owns this rule
-	DisplayName  string     `json:"display_name" gorm:"size:256"`
-	Description  string     `json:"description" gorm:"type:text"`
+	RuleType       AlertRuleType  `json:"rule_type" gorm:"size:32;not null;default:threshold"`
+	Name           string         `json:"name" gorm:"size:256;not null;index"`
+	TeamID         *uint          `json:"team_id" gorm:"index"` // optional: which team owns this rule
+	DisplayName    string         `json:"display_name" gorm:"size:256"`
+	Description    string         `json:"description" gorm:"type:text"`
 	DataSourceID   *uint          `json:"datasource_id" gorm:"index"`
 	DataSource     *DataSource    `json:"datasource,omitempty" gorm:"foreignKey:DataSourceID"`
 	DatasourceType DataSourceType `json:"datasource_type" gorm:"size:32;index"`
@@ -136,10 +136,10 @@ type AlertRule struct {
 	//   2. Results are joined according to JoinType and JoinKeys
 	//   3. TriggerExp is evaluated against the combined results (referencing $A, $B, etc.)
 	// When Queries is empty, the rule falls back to single Expression evaluation (backward compatible).
-	Queries    []RuleQuery `json:"queries" gorm:"serializer:json"`    // multiple queries
-	TriggerExp string      `json:"trigger_exp" gorm:"size:512"`       // trigger expression referencing $A, $B
-	JoinType   string      `json:"join_type" gorm:"size:32"`          // inner_join, left_join, right_join, none
-	JoinKeys   []string    `json:"join_keys" gorm:"serializer:json"`  // label keys to join on
+	Queries    []RuleQuery `json:"queries" gorm:"serializer:json"`   // multiple queries
+	TriggerExp string      `json:"trigger_exp" gorm:"size:512"`      // trigger expression referencing $A, $B
+	JoinType   string      `json:"join_type" gorm:"size:32"`         // inner_join, left_join, right_join, none
+	JoinKeys   []string    `json:"join_keys" gorm:"serializer:json"` // label keys to join on
 
 	// Business group
 	BizGroupID *uint `json:"biz_group_id" gorm:"index"`
@@ -149,11 +149,11 @@ type AlertRule struct {
 
 	// Heartbeat monitoring (only relevant when RuleType="heartbeat")
 	// HeartbeatToken is the unique token embedded in the ping URL: POST /heartbeat/:token
-	HeartbeatToken    string     `json:"heartbeat_token" gorm:"size:128;not null;default:'';uniqueIndex"`
+	HeartbeatToken string `json:"heartbeat_token" gorm:"size:128;not null;default:'';uniqueIndex"`
 	// HeartbeatInterval is the expected ping interval in seconds.
-	HeartbeatInterval int        `json:"heartbeat_interval" gorm:"not null;default:300"`
+	HeartbeatInterval int `json:"heartbeat_interval" gorm:"not null;default:300"`
 	// HeartbeatLastAt is the timestamp of the last received ping.
-	HeartbeatLastAt   *time.Time `json:"heartbeat_last_at"`
+	HeartbeatLastAt *time.Time `json:"heartbeat_last_at"`
 
 	// SLA (Service Level Agreement) — 0 means disabled.
 	// If AckSlaMinutes > 0 and the event is not acknowledged within this window, an escalation is triggered.

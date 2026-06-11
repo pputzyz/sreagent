@@ -24,10 +24,10 @@ import (
 )
 
 type AuthHandler struct {
-	svc      *service.AuthService
-	userSvc  *service.UserService
-	ldapSvc  *service.LDAPService  // optional — nil when LDAP is not configured
-	redis    *sredis.Client // optional — nil when Redis is not configured
+	svc     *service.AuthService
+	userSvc *service.UserService
+	ldapSvc *service.LDAPService // optional — nil when LDAP is not configured
+	redis   *sredis.Client       // optional — nil when Redis is not configured
 }
 
 // SetUserService wires the user service for /me endpoints.

@@ -60,7 +60,7 @@ func (h *DiagnosticWorkflowHandler) Get(c *gin.Context) {
 func (h *DiagnosticWorkflowHandler) Create(c *gin.Context) {
 	var req struct {
 		Workflow model.DiagnosticWorkflow       `json:"workflow"`
-		Steps    []model.DiagnosticWorkflowStep  `json:"steps"`
+		Steps    []model.DiagnosticWorkflowStep `json:"steps"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))

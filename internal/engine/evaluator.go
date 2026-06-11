@@ -54,23 +54,23 @@ type AlertState struct {
 
 // RuleEvaluator evaluates a single alert rule.
 type RuleEvaluator struct {
-	rule              *model.AlertRule
-	datasource        *model.DataSource
-	decryptedAuthConfig string // decrypted AuthConfig; never persisted back to DB
-	states            sync.Map // map[string]*stateLock, key is fingerprint — per-fp locking
-	db                *gorm.DB
-	eventRepo         *repository.AlertEventRepository
-	queryClient       *datasource.QueryClient
-	stateStore        StateStore // optional; nil = in-memory only
-	suppressor        *LevelSuppressor
-	workerPool        AlertWorkerPoolSubmiter // optional bounded goroutine pool
-	onAlert           func(ctx context.Context, event *model.AlertEvent)
-	onLabelRecord     func(datasourceID uint, labels map[string]string) // passive label recording for all DS types
-	labelRegistryRepo *repository.LabelRegistryRepository // optional; for variable filling
-	ctx               context.Context // cancelled when evaluator stops
-	stopCh            chan struct{}
-	logger            *zap.Logger
-	fallbackSem       chan struct{} // semaphore for onAlert when workerPool is nil (cap=16)
+	rule                *model.AlertRule
+	datasource          *model.DataSource
+	decryptedAuthConfig string   // decrypted AuthConfig; never persisted back to DB
+	states              sync.Map // map[string]*stateLock, key is fingerprint — per-fp locking
+	db                  *gorm.DB
+	eventRepo           *repository.AlertEventRepository
+	queryClient         *datasource.QueryClient
+	stateStore          StateStore // optional; nil = in-memory only
+	suppressor          *LevelSuppressor
+	workerPool          AlertWorkerPoolSubmiter // optional bounded goroutine pool
+	onAlert             func(ctx context.Context, event *model.AlertEvent)
+	onLabelRecord       func(datasourceID uint, labels map[string]string) // passive label recording for all DS types
+	labelRegistryRepo   *repository.LabelRegistryRepository               // optional; for variable filling
+	ctx                 context.Context                                   // cancelled when evaluator stops
+	stopCh              chan struct{}
+	logger              *zap.Logger
+	fallbackSem         chan struct{} // semaphore for onAlert when workerPool is nil (cap=16)
 
 	// Reliability: consecutive query error tracking
 	consecutiveErrors atomic.Int64
@@ -94,7 +94,7 @@ func (re *RuleEvaluator) Stop() {
 // Each datasource owns its own bucket so a DS outage doesn't affect others.
 type PerDatasourceEvaluator struct {
 	DatasourceID uint
-	rules        sync.Map // map[uint]*RuleEvaluator, key is ruleID
+	rules        sync.Map         // map[uint]*RuleEvaluator, key is ruleID
 	suppressor   *LevelSuppressor // shared; used to clean up entries on rule removal
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -216,18 +216,18 @@ func (p *PerDatasourceEvaluator) RuleCount() int {
 
 // evaluatorDeps bundles dependencies for creating a RuleEvaluator.
 type evaluatorDeps struct {
-	db               *gorm.DB
-	eventRepo        *repository.AlertEventRepository
-	queryClient      *datasource.QueryClient
-	stateStore       StateStore
-	suppressor       *LevelSuppressor
-	workerPool       AlertWorkerPoolSubmiter
-	onAlert          func(ctx context.Context, event *model.AlertEvent)
-	onLabelRecord    func(datasourceID uint, labels map[string]string)
+	db                *gorm.DB
+	eventRepo         *repository.AlertEventRepository
+	queryClient       *datasource.QueryClient
+	stateStore        StateStore
+	suppressor        *LevelSuppressor
+	workerPool        AlertWorkerPoolSubmiter
+	onAlert           func(ctx context.Context, event *model.AlertEvent)
+	onLabelRecord     func(datasourceID uint, labels map[string]string)
 	labelRegistryRepo *repository.LabelRegistryRepository
-	ctx              context.Context
-	logger           *zap.Logger
-	runWG            *sync.WaitGroup // P0-5: shared WaitGroup for graceful shutdown tracking
+	ctx               context.Context
+	logger            *zap.Logger
+	runWG             *sync.WaitGroup // P0-5: shared WaitGroup for graceful shutdown tracking
 }
 
 // newRuleEvaluatorFromDeps creates a RuleEvaluator from bundled deps.
@@ -267,52 +267,52 @@ func newRuleEvaluatorFromDeps(rule *model.AlertRule, ds *model.DataSource, deps 
 
 // EngineStatus represents the status of the evaluation engine.
 type EngineStatus struct {
-	Running       bool   `json:"running"`
-	TotalRules    int    `json:"total_rules"`
-	ActiveAlerts  int    `json:"active_alerts"`
-	Uptime        string `json:"uptime"`
-	IsLeader      bool   `json:"is_leader"`
-	HashRingMode  bool   `json:"hash_ring_mode"`
-	InstanceID    string `json:"instance_id,omitempty"`
+	Running      bool   `json:"running"`
+	TotalRules   int    `json:"total_rules"`
+	ActiveAlerts int    `json:"active_alerts"`
+	Uptime       string `json:"uptime"`
+	IsLeader     bool   `json:"is_leader"`
+	HashRingMode bool   `json:"hash_ring_mode"`
+	InstanceID   string `json:"instance_id,omitempty"`
 }
 
 // Evaluator manages all rule evaluators.
 type Evaluator struct {
-	db           *gorm.DB
-	dsRepo       *repository.DataSourceRepository
-	ruleRepo     *repository.AlertRuleRepository
-	eventRepo    *repository.AlertEventRepository
-	timelineRepo *repository.AlertTimelineRepository
-	queryClient  *datasource.QueryClient
-	stateStore   StateStore              // optional; nil = in-memory only
-	workerPool   AlertWorkerPoolSubmiter // optional bounded goroutine pool
+	db                *gorm.DB
+	dsRepo            *repository.DataSourceRepository
+	ruleRepo          *repository.AlertRuleRepository
+	eventRepo         *repository.AlertEventRepository
+	timelineRepo      *repository.AlertTimelineRepository
+	queryClient       *datasource.QueryClient
+	stateStore        StateStore              // optional; nil = in-memory only
+	workerPool        AlertWorkerPoolSubmiter // optional bounded goroutine pool
 	evaluators        map[uint]*RuleEvaluator // key: rule ID
 	onAlert           func(ctx context.Context, event *model.AlertEvent)
 	onLabelRecord     func(datasourceID uint, labels map[string]string) // passive label recording for all DS types
-	labelRegistryRepo *repository.LabelRegistryRepository // optional; for variable filling
+	labelRegistryRepo *repository.LabelRegistryRepository               // optional; for variable filling
 	suppressor        *LevelSuppressor
-	mu           sync.RWMutex
-	logger       *zap.Logger
-	ctx          context.Context    // cancelled on Stop()
-	cancel       context.CancelFunc // cancels ctx
-	stopCh       chan struct{}
-	startedAt    time.Time
-	syncInterval time.Duration
-	perDS        sync.Map           // map[uint]*PerDatasourceEvaluator, key is datasourceID
-	perDSEval    bool               // feature flag: per-datasource bucket evaluation
-	leader     LeaderElection // optional; nil = single-instance mode (no election)
-	startMu    sync.Mutex     // guards started flag — replaces sync.Once to allow Restart()
-	started    bool           // set by Start(), cleared by Stop()
-	stopOnce   sync.Once
-	wg         sync.WaitGroup
-	restartMu  sync.Mutex     // serializes Restart() to prevent concurrent restarts
+	mu                sync.RWMutex
+	logger            *zap.Logger
+	ctx               context.Context    // cancelled on Stop()
+	cancel            context.CancelFunc // cancels ctx
+	stopCh            chan struct{}
+	startedAt         time.Time
+	syncInterval      time.Duration
+	perDS             sync.Map       // map[uint]*PerDatasourceEvaluator, key is datasourceID
+	perDSEval         bool           // feature flag: per-datasource bucket evaluation
+	leader            LeaderElection // optional; nil = single-instance mode (no election)
+	startMu           sync.Mutex     // guards started flag — replaces sync.Once to allow Restart()
+	started           bool           // set by Start(), cleared by Stop()
+	stopOnce          sync.Once
+	wg                sync.WaitGroup
+	restartMu         sync.Mutex // serializes Restart() to prevent concurrent restarts
 
 	// Hash ring mode: distribute rules across multiple instances.
 	// When enabled, leader election is bypassed — all instances run
 	// independently and each evaluates only its assigned rules.
-	hashRingMu   sync.RWMutex   // protects hashRing and instanceID
-	hashRing     *hashring.Ring // consistent hash ring for rule distribution
-	instanceID   string         // this instance's identifier in the ring (e.g. hostname:pid)
+	hashRingMu sync.RWMutex   // protects hashRing and instanceID
+	hashRing   *hashring.Ring // consistent hash ring for rule distribution
+	instanceID string         // this instance's identifier in the ring (e.g. hostname:pid)
 
 	// Firing events TTL cache — reduces lock contention for high-frequency callers.
 	firingCache    []*AlertState
@@ -351,13 +351,13 @@ func NewEvaluator(
 	logger *zap.Logger,
 ) *Evaluator {
 	return &Evaluator{
-		db:           db,
-		dsRepo:       dsRepo,
-		ruleRepo:     ruleRepo,
-		eventRepo:    eventRepo,
-		timelineRepo: timelineRepo,
-		queryClient:  queryClient,
-		evaluators:   make(map[uint]*RuleEvaluator),
+		db:              db,
+		dsRepo:          dsRepo,
+		ruleRepo:        ruleRepo,
+		eventRepo:       eventRepo,
+		timelineRepo:    timelineRepo,
+		queryClient:     queryClient,
+		evaluators:      make(map[uint]*RuleEvaluator),
 		suppressor:      NewLevelSuppressor(),
 		logger:          logger,
 		stopCh:          make(chan struct{}),
@@ -926,20 +926,20 @@ func (e *Evaluator) startRuleEvaluator(rule *model.AlertRule, ds *model.DataSour
 		datasource:          ds,
 		decryptedAuthConfig: ac,
 		// states is zero-value sync.Map, ready to use
-		db:                  e.db,
-		eventRepo:           e.eventRepo,
-		queryClient:         e.queryClient,
-		stateStore:          e.stateStore,
-		suppressor:          e.suppressor,
-		workerPool:          e.workerPool,
-		onAlert:             e.onAlert,
-		onLabelRecord:       e.onLabelRecord,
-		labelRegistryRepo:   e.labelRegistryRepo,
-		ctx:                 e.ctx,
-		stopCh:              make(chan struct{}),
-		logger:              e.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
-		fallbackSem:         make(chan struct{}, 16),
-		runWG:               &e.runWG,
+		db:                e.db,
+		eventRepo:         e.eventRepo,
+		queryClient:       e.queryClient,
+		stateStore:        e.stateStore,
+		suppressor:        e.suppressor,
+		workerPool:        e.workerPool,
+		onAlert:           e.onAlert,
+		onLabelRecord:     e.onLabelRecord,
+		labelRegistryRepo: e.labelRegistryRepo,
+		ctx:               e.ctx,
+		stopCh:            make(chan struct{}),
+		logger:            e.logger.With(zap.Uint("rule_id", rule.ID), zap.String("rule_name", rule.Name)),
+		fallbackSem:       make(chan struct{}, 16),
+		runWG:             &e.runWG,
 	}
 
 	e.mu.Lock()

@@ -448,13 +448,13 @@ func (re *RuleEvaluator) evaluateVarToVar(results []datasource.QueryResult, part
 
 // triggerExpParts holds parsed components of a trigger expression.
 type triggerExpParts struct {
-	ref       string  // A, B, C...
-	op        string  // >, <, >=, <=, ==, !=
+	ref       string // A, B, C...
+	op        string // >, <, >=, <=, ==, !=
 	threshold float64
 
 	// Var-to-var fields ($A op $B)
-	isVarRef  bool   // true when comparing two variable references
-	rightRef  string // B, C, etc. (the right-hand variable)
+	isVarRef bool   // true when comparing two variable references
+	rightRef string // B, C, etc. (the right-hand variable)
 }
 
 // parseTriggerExp parses a trigger expression in one of two forms:

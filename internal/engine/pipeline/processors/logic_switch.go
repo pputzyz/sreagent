@@ -33,8 +33,8 @@ func init() {
 // The "cases" maps field values to child processor chains. The special key "default"
 // is used when no other case matches.
 type logicSwitchProcessor struct {
-	field  string
-	cases  map[string][]pipeline.Processor
+	field string
+	cases map[string][]pipeline.Processor
 }
 
 func newLogicSwitch(config map[string]interface{}) (pipeline.Processor, error) {

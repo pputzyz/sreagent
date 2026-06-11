@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	leaderLockKey  = "sreagent:leader:engine"
-	leaderLockTTL  = 15 * time.Second
-	renewInterval  = 5 * time.Second // renew at TTL/3
+	leaderLockKey = "sreagent:leader:engine"
+	leaderLockTTL = 15 * time.Second
+	renewInterval = 5 * time.Second // renew at TTL/3
 )
 
 // checkAndExtendScript atomically checks if we hold the lock and extends its TTL.

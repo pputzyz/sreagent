@@ -33,37 +33,37 @@ import (
 // startup wiring and graceful shutdown.
 type Dependencies struct {
 	// Repositories
-	DSRepo          *repository.DataSourceRepository
-	RuleRepo        *repository.AlertRuleRepository
-	EventRepo       *repository.AlertEventRepository
-	TimelineRepo    *repository.AlertTimelineRepository
-	UserRepo        *repository.UserRepository
-	ChannelRepo     *repository.NotifyChannelRepository
-	TeamRepo        *repository.TeamRepository
-	EscPolicyRepo   *repository.EscalationPolicyRepository
-	EscStepRepo     *repository.EscalationStepRepository
-	OnCallShiftRepo *repository.OnCallShiftRepository
+	DSRepo               *repository.DataSourceRepository
+	RuleRepo             *repository.AlertRuleRepository
+	EventRepo            *repository.AlertEventRepository
+	TimelineRepo         *repository.AlertTimelineRepository
+	UserRepo             *repository.UserRepository
+	ChannelRepo          *repository.NotifyChannelRepository
+	TeamRepo             *repository.TeamRepository
+	EscPolicyRepo        *repository.EscalationPolicyRepository
+	EscStepRepo          *repository.EscalationStepRepository
+	OnCallShiftRepo      *repository.OnCallShiftRepository
 	AlertRuleHistoryRepo *repository.AlertRuleHistoryRepository
 
 	// Services
-	SettingSvc      *service.SystemSettingService
-	EventSvc        *service.AlertEventService
-	NotifySvc       *service.NotificationService
-	ScheduleSvc     *service.ScheduleService
-	MuteRuleSvc     *service.MuteRuleService
-	InhibRuleSvc    *service.InhibitionRuleService
-	BizGroupSvc     *service.BizGroupService
-	AlertV2Pipeline *service.AlertV2Pipeline
+	SettingSvc       *service.SystemSettingService
+	EventSvc         *service.AlertEventService
+	NotifySvc        *service.NotificationService
+	ScheduleSvc      *service.ScheduleService
+	MuteRuleSvc      *service.MuteRuleService
+	InhibRuleSvc     *service.InhibitionRuleService
+	BizGroupSvc      *service.BizGroupService
+	AlertV2Pipeline  *service.AlertV2Pipeline
 	LabelRegistrySvc *service.LabelRegistryService
 
 	// Engine components
-	AlertWorkerPool    *engine.AlertWorkerPool
-	HeartbeatChecker    *engine.HeartbeatChecker
+	AlertWorkerPool      *engine.AlertWorkerPool
+	HeartbeatChecker     *engine.HeartbeatChecker
 	SilenceExpiryChecker *engine.SilenceExpiryChecker
-	AlertGroupMgr       *service.AlertGroupManager
-	EscalationExecutor  *engine.EscalationExecutor
-	Evaluator          *engine.Evaluator // nil if engine disabled
-	RecordingRuleEngine *engine.RecordingRuleEngine
+	AlertGroupMgr        *service.AlertGroupManager
+	EscalationExecutor   *engine.EscalationExecutor
+	Evaluator            *engine.Evaluator // nil if engine disabled
+	RecordingRuleEngine  *engine.RecordingRuleEngine
 
 	// Optional
 	RedisClient *sredis.Client
@@ -74,12 +74,12 @@ type Dependencies struct {
 	Handlers *router.Handlers
 
 	// OIDC hot reload
-	cfg        *config.Config
-	logger     *zap.Logger
-	db         *gorm.DB
-	oidcSvc    *service.OIDCService    // current OIDC service (may be nil)
-	oidcMu     sync.RWMutex           // protects oidcSvc during reload
-	oidcHdlr   *handler.OIDCHandler   // for SetService on reload
+	cfg      *config.Config
+	logger   *zap.Logger
+	db       *gorm.DB
+	oidcSvc  *service.OIDCService // current OIDC service (may be nil)
+	oidcMu   sync.RWMutex         // protects oidcSvc during reload
+	oidcHdlr *handler.OIDCHandler // for SetService on reload
 
 	// Schedulers (for graceful shutdown)
 	InspectionSched *service.InspectionScheduler
@@ -143,231 +143,231 @@ func (a *tokenRevocationAdapter) GetUserTokenRevokedAt(userID uint) time.Time {
 
 // repoBundle holds all repository instances created from a single *gorm.DB.
 type repoBundle struct {
-	DS                *repository.DataSourceRepository
-	Rule              *repository.AlertRuleRepository
-	Event             *repository.AlertEventRepository
-	Timeline          *repository.AlertTimelineRepository
-	User              *repository.UserRepository
-	Channel           *repository.NotifyChannelRepository
-	Record            *repository.NotifyRecordRepository
-	Schedule          *repository.ScheduleRepository
-	Participant       *repository.ScheduleParticipantRepository
-	Override          *repository.ScheduleOverrideRepository
-	OnCallShift       *repository.OnCallShiftRepository
-	EscalationPolicy  *repository.EscalationPolicyRepository
-	EscalationStep    *repository.EscalationStepRepository
-	StepExec          *repository.EscalationStepExecutionRepository
-	Team              *repository.TeamRepository
-	MuteRule          *repository.MuteRuleRepository
-	InhibitionRule    *repository.InhibitionRuleRepository
-	AlertRuleHistory  *repository.AlertRuleHistoryRepository
-	NotifyRule        *repository.NotifyRuleRepository
-	NotifyMedia       *repository.NotifyMediaRepository
-	MessageTemplate   *repository.MessageTemplateRepository
-	SubscribeRule     *repository.SubscribeRuleRepository
-	BizGroup          *repository.BizGroupRepository
-	LabelRegistry     *repository.LabelRegistryRepository
-	AuditLog          *repository.AuditLogRepository
-	Knowledge         *repository.KnowledgeRepository
-	DashboardV2       *repository.DashboardRepository
-	DashboardBizGroup *repository.DashboardBizGroupRepository
-	AlertRuleTemplate *repository.AlertRuleTemplateRepository
-	ChannelV2         *repository.ChannelRepository
-	Incident          *repository.IncidentRepository
-	AlertV2           *repository.AlertRepository
-	ExclusionRule     *repository.ExclusionRuleRepository
-	DispatchPolicy    *repository.DispatchPolicyRepository
-	DispatchLog       *repository.DispatchLogRepository
-	Integration       *repository.IntegrationRepository
-	RoutingRule       *repository.RoutingRuleRepository
-	PostMortem        *repository.PostMortemRepository
-	AlertChannel      *repository.AlertChannelRepository
-	UserNotifyConfig  *repository.UserNotifyConfigRepository
-	SystemSetting     *repository.SystemSettingRepository
-	ScheduledDispatch *repository.ScheduledDispatchRepository
-	StatusService     *repository.StatusServiceRepository
-	ChatHistory       *repository.ChatHistoryRepository
-	AIConversation    *repository.AIConversationRepository
-	PresetRule        *repository.PresetRuleRepository
-	UserPreference    *repository.UserPreferenceRepository
-	UserContact       *repository.UserContactRepository
-	UserNotification  *repository.UserNotificationRepository
+	DS                 *repository.DataSourceRepository
+	Rule               *repository.AlertRuleRepository
+	Event              *repository.AlertEventRepository
+	Timeline           *repository.AlertTimelineRepository
+	User               *repository.UserRepository
+	Channel            *repository.NotifyChannelRepository
+	Record             *repository.NotifyRecordRepository
+	Schedule           *repository.ScheduleRepository
+	Participant        *repository.ScheduleParticipantRepository
+	Override           *repository.ScheduleOverrideRepository
+	OnCallShift        *repository.OnCallShiftRepository
+	EscalationPolicy   *repository.EscalationPolicyRepository
+	EscalationStep     *repository.EscalationStepRepository
+	StepExec           *repository.EscalationStepExecutionRepository
+	Team               *repository.TeamRepository
+	MuteRule           *repository.MuteRuleRepository
+	InhibitionRule     *repository.InhibitionRuleRepository
+	AlertRuleHistory   *repository.AlertRuleHistoryRepository
+	NotifyRule         *repository.NotifyRuleRepository
+	NotifyMedia        *repository.NotifyMediaRepository
+	MessageTemplate    *repository.MessageTemplateRepository
+	SubscribeRule      *repository.SubscribeRuleRepository
+	BizGroup           *repository.BizGroupRepository
+	LabelRegistry      *repository.LabelRegistryRepository
+	AuditLog           *repository.AuditLogRepository
+	Knowledge          *repository.KnowledgeRepository
+	DashboardV2        *repository.DashboardRepository
+	DashboardBizGroup  *repository.DashboardBizGroupRepository
+	AlertRuleTemplate  *repository.AlertRuleTemplateRepository
+	ChannelV2          *repository.ChannelRepository
+	Incident           *repository.IncidentRepository
+	AlertV2            *repository.AlertRepository
+	ExclusionRule      *repository.ExclusionRuleRepository
+	DispatchPolicy     *repository.DispatchPolicyRepository
+	DispatchLog        *repository.DispatchLogRepository
+	Integration        *repository.IntegrationRepository
+	RoutingRule        *repository.RoutingRuleRepository
+	PostMortem         *repository.PostMortemRepository
+	AlertChannel       *repository.AlertChannelRepository
+	UserNotifyConfig   *repository.UserNotifyConfigRepository
+	SystemSetting      *repository.SystemSettingRepository
+	ScheduledDispatch  *repository.ScheduledDispatchRepository
+	StatusService      *repository.StatusServiceRepository
+	ChatHistory        *repository.ChatHistoryRepository
+	AIConversation     *repository.AIConversationRepository
+	PresetRule         *repository.PresetRuleRepository
+	UserPreference     *repository.UserPreferenceRepository
+	UserContact        *repository.UserContactRepository
+	UserNotification   *repository.UserNotificationRepository
 	DiagnosticWorkflow *repository.DiagnosticWorkflowRepository
-	ChangeEvent       *repository.ChangeEventRepository
-	Inspection        *repository.InspectionRepository
-	LarkCard          *repository.LarkCardRepository
-	ReportTask        *repository.ReportTaskRepository
-	RecordingRule     *repository.RecordingRuleRepository
-	BuiltinMetric     *repository.BuiltinMetricRepository
-	MetricFilter      *repository.MetricFilterRepository
-	EventPipeline     *repository.EventPipelineRepository
-	EventPipelineExec *repository.EventPipelineExecutionRepository
-	Annotation        *repository.AnnotationRepository
-	LLMConfig         *repository.LLMConfigRepository
-	BuiltinDashboard  *repository.BuiltinDashboardRepository
-	TaskTpl           *repository.TaskTplRepository
-	TaskRecord        *repository.TaskRecordRepository
-	TeamNotifyChannel *repository.TeamNotifyChannelRepository
+	ChangeEvent        *repository.ChangeEventRepository
+	Inspection         *repository.InspectionRepository
+	LarkCard           *repository.LarkCardRepository
+	ReportTask         *repository.ReportTaskRepository
+	RecordingRule      *repository.RecordingRuleRepository
+	BuiltinMetric      *repository.BuiltinMetricRepository
+	MetricFilter       *repository.MetricFilterRepository
+	EventPipeline      *repository.EventPipelineRepository
+	EventPipelineExec  *repository.EventPipelineExecutionRepository
+	Annotation         *repository.AnnotationRepository
+	LLMConfig          *repository.LLMConfigRepository
+	BuiltinDashboard   *repository.BuiltinDashboardRepository
+	TaskTpl            *repository.TaskTplRepository
+	TaskRecord         *repository.TaskRecordRepository
+	TeamNotifyChannel  *repository.TeamNotifyChannelRepository
 	UserTeamNotifyPref *repository.UserTeamNotifyPrefRepository
 	StatusSubscription *repository.StatusSubscriptionRepository
-	SavedView         *repository.SavedViewRepository
-	MetricView        *repository.MetricViewRepository
-	MCPServer         *repository.MCPServerRepository
-	AISkill           *repository.AISkillRepository
-	ESIndexPattern    *repository.ESIndexPatternRepository
+	SavedView          *repository.SavedViewRepository
+	MetricView         *repository.MetricViewRepository
+	MCPServer          *repository.MCPServerRepository
+	AISkill            *repository.AISkillRepository
+	ESIndexPattern     *repository.ESIndexPatternRepository
 }
 
 // initRepositories creates all repository instances from a single database connection.
 func initRepositories(db *gorm.DB) *repoBundle {
 	return &repoBundle{
-		DS:                repository.NewDataSourceRepository(db),
-		Rule:              repository.NewAlertRuleRepository(db),
-		Event:             repository.NewAlertEventRepository(db),
-		Timeline:          repository.NewAlertTimelineRepository(db),
-		User:              repository.NewUserRepository(db),
-		Channel:           repository.NewNotifyChannelRepository(db),
-		Record:            repository.NewNotifyRecordRepository(db),
-		Schedule:          repository.NewScheduleRepository(db),
-		Participant:       repository.NewScheduleParticipantRepository(db),
-		Override:          repository.NewScheduleOverrideRepository(db),
-		OnCallShift:       repository.NewOnCallShiftRepository(db),
-		EscalationPolicy:  repository.NewEscalationPolicyRepository(db),
-		EscalationStep:    repository.NewEscalationStepRepository(db),
-		StepExec:          repository.NewEscalationStepExecutionRepository(db),
-		Team:              repository.NewTeamRepository(db),
-		MuteRule:          repository.NewMuteRuleRepository(db),
-		InhibitionRule:    repository.NewInhibitionRuleRepository(db),
-		AlertRuleHistory:  repository.NewAlertRuleHistoryRepository(db),
-		NotifyRule:        repository.NewNotifyRuleRepository(db),
-		NotifyMedia:       repository.NewNotifyMediaRepository(db),
-		MessageTemplate:   repository.NewMessageTemplateRepository(db),
-		SubscribeRule:     repository.NewSubscribeRuleRepository(db),
-		BizGroup:          repository.NewBizGroupRepository(db),
-		LabelRegistry:     repository.NewLabelRegistryRepository(db),
-		AuditLog:          repository.NewAuditLogRepository(db),
-		Knowledge:         repository.NewKnowledgeRepository(db),
-		DashboardV2:       repository.NewDashboardRepository(db),
-		DashboardBizGroup: repository.NewDashboardBizGroupRepository(db),
-		AlertRuleTemplate: repository.NewAlertRuleTemplateRepository(db),
-		ChannelV2:         repository.NewChannelV2Repository(db),
-		Incident:          repository.NewIncidentRepository(db),
-		AlertV2:           repository.NewAlertRepository(db),
-		ExclusionRule:     repository.NewExclusionRuleRepository(db),
-		DispatchPolicy:    repository.NewDispatchPolicyRepository(db),
-		DispatchLog:       repository.NewDispatchLogRepository(db),
-		Integration:       repository.NewIntegrationRepository(db),
-		RoutingRule:       repository.NewRoutingRuleRepository(db),
-		PostMortem:        repository.NewPostMortemRepository(db),
-		AlertChannel:      repository.NewAlertChannelRepository(db),
-		UserNotifyConfig:  repository.NewUserNotifyConfigRepository(db),
-		SystemSetting:     repository.NewSystemSettingRepository(db),
-		ScheduledDispatch: repository.NewScheduledDispatchRepository(db),
-		StatusService:     repository.NewStatusServiceRepository(db),
-		ChatHistory:       repository.NewChatHistoryRepository(db),
-		AIConversation:    repository.NewAIConversationRepository(db),
-		PresetRule:        repository.NewPresetRuleRepository(db),
-		UserPreference:    repository.NewUserPreferenceRepository(db),
-		UserContact:       repository.NewUserContactRepository(db),
-		UserNotification:  repository.NewUserNotificationRepository(db),
+		DS:                 repository.NewDataSourceRepository(db),
+		Rule:               repository.NewAlertRuleRepository(db),
+		Event:              repository.NewAlertEventRepository(db),
+		Timeline:           repository.NewAlertTimelineRepository(db),
+		User:               repository.NewUserRepository(db),
+		Channel:            repository.NewNotifyChannelRepository(db),
+		Record:             repository.NewNotifyRecordRepository(db),
+		Schedule:           repository.NewScheduleRepository(db),
+		Participant:        repository.NewScheduleParticipantRepository(db),
+		Override:           repository.NewScheduleOverrideRepository(db),
+		OnCallShift:        repository.NewOnCallShiftRepository(db),
+		EscalationPolicy:   repository.NewEscalationPolicyRepository(db),
+		EscalationStep:     repository.NewEscalationStepRepository(db),
+		StepExec:           repository.NewEscalationStepExecutionRepository(db),
+		Team:               repository.NewTeamRepository(db),
+		MuteRule:           repository.NewMuteRuleRepository(db),
+		InhibitionRule:     repository.NewInhibitionRuleRepository(db),
+		AlertRuleHistory:   repository.NewAlertRuleHistoryRepository(db),
+		NotifyRule:         repository.NewNotifyRuleRepository(db),
+		NotifyMedia:        repository.NewNotifyMediaRepository(db),
+		MessageTemplate:    repository.NewMessageTemplateRepository(db),
+		SubscribeRule:      repository.NewSubscribeRuleRepository(db),
+		BizGroup:           repository.NewBizGroupRepository(db),
+		LabelRegistry:      repository.NewLabelRegistryRepository(db),
+		AuditLog:           repository.NewAuditLogRepository(db),
+		Knowledge:          repository.NewKnowledgeRepository(db),
+		DashboardV2:        repository.NewDashboardRepository(db),
+		DashboardBizGroup:  repository.NewDashboardBizGroupRepository(db),
+		AlertRuleTemplate:  repository.NewAlertRuleTemplateRepository(db),
+		ChannelV2:          repository.NewChannelV2Repository(db),
+		Incident:           repository.NewIncidentRepository(db),
+		AlertV2:            repository.NewAlertRepository(db),
+		ExclusionRule:      repository.NewExclusionRuleRepository(db),
+		DispatchPolicy:     repository.NewDispatchPolicyRepository(db),
+		DispatchLog:        repository.NewDispatchLogRepository(db),
+		Integration:        repository.NewIntegrationRepository(db),
+		RoutingRule:        repository.NewRoutingRuleRepository(db),
+		PostMortem:         repository.NewPostMortemRepository(db),
+		AlertChannel:       repository.NewAlertChannelRepository(db),
+		UserNotifyConfig:   repository.NewUserNotifyConfigRepository(db),
+		SystemSetting:      repository.NewSystemSettingRepository(db),
+		ScheduledDispatch:  repository.NewScheduledDispatchRepository(db),
+		StatusService:      repository.NewStatusServiceRepository(db),
+		ChatHistory:        repository.NewChatHistoryRepository(db),
+		AIConversation:     repository.NewAIConversationRepository(db),
+		PresetRule:         repository.NewPresetRuleRepository(db),
+		UserPreference:     repository.NewUserPreferenceRepository(db),
+		UserContact:        repository.NewUserContactRepository(db),
+		UserNotification:   repository.NewUserNotificationRepository(db),
 		DiagnosticWorkflow: repository.NewDiagnosticWorkflowRepository(db),
-		ChangeEvent:       repository.NewChangeEventRepository(db),
-		Inspection:        repository.NewInspectionRepository(db),
-		LarkCard:          repository.NewLarkCardRepository(db),
-		ReportTask:        repository.NewReportTaskRepository(db),
-		RecordingRule:     repository.NewRecordingRuleRepository(db),
-		BuiltinMetric:     repository.NewBuiltinMetricRepository(db),
-		MetricFilter:      repository.NewMetricFilterRepository(db),
-		EventPipeline:     repository.NewEventPipelineRepository(db),
-		EventPipelineExec: repository.NewEventPipelineExecutionRepository(db),
-		Annotation:        repository.NewAnnotationRepository(db),
-		LLMConfig:         repository.NewLLMConfigRepository(db),
-		BuiltinDashboard:  repository.NewBuiltinDashboardRepository(db),
-		TaskTpl:           repository.NewTaskTplRepository(db),
-		TaskRecord:        repository.NewTaskRecordRepository(db),
-		TeamNotifyChannel: repository.NewTeamNotifyChannelRepository(db),
+		ChangeEvent:        repository.NewChangeEventRepository(db),
+		Inspection:         repository.NewInspectionRepository(db),
+		LarkCard:           repository.NewLarkCardRepository(db),
+		ReportTask:         repository.NewReportTaskRepository(db),
+		RecordingRule:      repository.NewRecordingRuleRepository(db),
+		BuiltinMetric:      repository.NewBuiltinMetricRepository(db),
+		MetricFilter:       repository.NewMetricFilterRepository(db),
+		EventPipeline:      repository.NewEventPipelineRepository(db),
+		EventPipelineExec:  repository.NewEventPipelineExecutionRepository(db),
+		Annotation:         repository.NewAnnotationRepository(db),
+		LLMConfig:          repository.NewLLMConfigRepository(db),
+		BuiltinDashboard:   repository.NewBuiltinDashboardRepository(db),
+		TaskTpl:            repository.NewTaskTplRepository(db),
+		TaskRecord:         repository.NewTaskRecordRepository(db),
+		TeamNotifyChannel:  repository.NewTeamNotifyChannelRepository(db),
 		UserTeamNotifyPref: repository.NewUserTeamNotifyPrefRepository(db),
 		StatusSubscription: repository.NewStatusSubscriptionRepository(db),
-		SavedView:         repository.NewSavedViewRepository(db),
-		MetricView:        repository.NewMetricViewRepository(db),
-		MCPServer:         repository.NewMCPServerRepository(db),
-		AISkill:           repository.NewAISkillRepository(db),
-		ESIndexPattern:    repository.NewESIndexPatternRepository(db),
+		SavedView:          repository.NewSavedViewRepository(db),
+		MetricView:         repository.NewMetricViewRepository(db),
+		MCPServer:          repository.NewMCPServerRepository(db),
+		AISkill:            repository.NewAISkillRepository(db),
+		ESIndexPattern:     repository.NewESIndexPatternRepository(db),
 	}
 }
 
 // serviceBundle holds all service instances and shared components.
 type serviceBundle struct {
 	// Core services
-	SettingSvc         *service.SystemSettingService
-	DSSvc              *service.DataSourceService
-	RuleSvc            *service.AlertRuleService
-	AuthSvc            *service.AuthService
-	LarkSvc            *service.LarkService
-	AISvc              *service.AIService
-	QueryClient        *datasource.QueryClient
-	AlertPipeline      *service.AlertPipeline
-	NotifyMediaSvc     *service.NotifyMediaService
-	MessageTemplateSvc *service.MessageTemplateService
-	NotifyRuleSvc      *service.NotifyRuleService
-	SubscribeRuleSvc   *service.SubscribeRuleService
-	NotifySvc          *service.NotificationService
-	UserSvc            *service.UserService
-	TeamSvc            *service.TeamService
-	ScheduleSvc        *service.ScheduleService
-	MuteRuleSvc        *service.MuteRuleService
-	InhibitionRuleSvc  *service.InhibitionRuleService
-	BizGroupSvc        *service.BizGroupService
-	LabelRegistrySvc   *service.LabelRegistryService
-	AuditLogSvc        *service.AuditLogService
-	KnowledgeSvc       *service.KnowledgeBaseService
-	DashboardV2Svc     *service.DashboardService
-	TemplateSvc        *service.AlertRuleTemplateService
-	ChannelV2Svc       *service.ChannelService
-	IncidentSvc        *service.IncidentService
-	AlertV2Svc         *service.AlertV2Service
-	ExclusionRuleSvc   *service.ExclusionRuleService
-	NoiseReducer       *service.NoiseReducer
-	DispatchSvc        *service.DispatchService
-	ScheduledDispatchSvc *service.ScheduledDispatchService
-	PostMortemSvc      *service.PostMortemService
-	AlertChannelSvc    *service.AlertChannelService
-	UserNotifyConfigSvc *service.UserNotifyConfigService
-	TeamNotifyChannelSvc *service.TeamNotifyChannelService
+	SettingSvc            *service.SystemSettingService
+	DSSvc                 *service.DataSourceService
+	RuleSvc               *service.AlertRuleService
+	AuthSvc               *service.AuthService
+	LarkSvc               *service.LarkService
+	AISvc                 *service.AIService
+	QueryClient           *datasource.QueryClient
+	AlertPipeline         *service.AlertPipeline
+	NotifyMediaSvc        *service.NotifyMediaService
+	MessageTemplateSvc    *service.MessageTemplateService
+	NotifyRuleSvc         *service.NotifyRuleService
+	SubscribeRuleSvc      *service.SubscribeRuleService
+	NotifySvc             *service.NotificationService
+	UserSvc               *service.UserService
+	TeamSvc               *service.TeamService
+	ScheduleSvc           *service.ScheduleService
+	MuteRuleSvc           *service.MuteRuleService
+	InhibitionRuleSvc     *service.InhibitionRuleService
+	BizGroupSvc           *service.BizGroupService
+	LabelRegistrySvc      *service.LabelRegistryService
+	AuditLogSvc           *service.AuditLogService
+	KnowledgeSvc          *service.KnowledgeBaseService
+	DashboardV2Svc        *service.DashboardService
+	TemplateSvc           *service.AlertRuleTemplateService
+	ChannelV2Svc          *service.ChannelService
+	IncidentSvc           *service.IncidentService
+	AlertV2Svc            *service.AlertV2Service
+	ExclusionRuleSvc      *service.ExclusionRuleService
+	NoiseReducer          *service.NoiseReducer
+	DispatchSvc           *service.DispatchService
+	ScheduledDispatchSvc  *service.ScheduledDispatchService
+	PostMortemSvc         *service.PostMortemService
+	AlertChannelSvc       *service.AlertChannelService
+	UserNotifyConfigSvc   *service.UserNotifyConfigService
+	TeamNotifyChannelSvc  *service.TeamNotifyChannelService
 	UserTeamNotifyPrefSvc *service.UserTeamNotifyPrefService
-	StatusServiceSvc   *service.StatusServiceService
-	StatusSubSvc       *service.StatusSubscriptionService
-	ChatHistorySvc     *service.ChatHistoryService
-	PresetRuleSvc      *service.PresetRuleService
-	UserPreferenceSvc  *service.UserPreferenceService
-	UserNotificationSvc *service.UserNotificationService
-	RuleGenSvc         *service.RuleGeneratorService
-	AgentSvc           *service.AgentService
-	ChangeEventSvc     *service.ChangeEventService
+	StatusServiceSvc      *service.StatusServiceService
+	StatusSubSvc          *service.StatusSubscriptionService
+	ChatHistorySvc        *service.ChatHistoryService
+	PresetRuleSvc         *service.PresetRuleService
+	UserPreferenceSvc     *service.UserPreferenceService
+	UserNotificationSvc   *service.UserNotificationService
+	RuleGenSvc            *service.RuleGeneratorService
+	AgentSvc              *service.AgentService
+	ChangeEventSvc        *service.ChangeEventService
 	DiagnosticWorkflowSvc *service.DiagnosticWorkflowService
-	InspectionExecutor *service.InspectionExecutor
-	LarkCardStateSvc   *service.LarkCardStateService
-	ReportTaskSvc      *service.ReportTaskService
-	ReportExecutor     *service.ReportExecutor
-	RecordingRuleSvc   *service.RecordingRuleService
-	AnnotationSvc      *service.AnnotationService
-	SavedViewSvc       *service.SavedViewService
-	MetricViewSvc      *service.MetricViewService
-	MCPServerSvc       *service.MCPServerService
-	LLMConfigSvc       *service.LLMConfigService
-	AISkillSvc         *service.AISkillService
-	ESIndexPatternSvc  *service.ESIndexPatternService
-	BuiltinDashboardSvc *service.BuiltinDashboardService
-	TaskTplSvc         *service.TaskTplService
-	TaskExecutor       *service.TaskExecutor
-	BuiltinMetricSvc   *service.BuiltinMetricService
-	MetricFilterSvc    *service.MetricFilterService
+	InspectionExecutor    *service.InspectionExecutor
+	LarkCardStateSvc      *service.LarkCardStateService
+	ReportTaskSvc         *service.ReportTaskService
+	ReportExecutor        *service.ReportExecutor
+	RecordingRuleSvc      *service.RecordingRuleService
+	AnnotationSvc         *service.AnnotationService
+	SavedViewSvc          *service.SavedViewService
+	MetricViewSvc         *service.MetricViewService
+	MCPServerSvc          *service.MCPServerService
+	LLMConfigSvc          *service.LLMConfigService
+	AISkillSvc            *service.AISkillService
+	ESIndexPatternSvc     *service.ESIndexPatternService
+	BuiltinDashboardSvc   *service.BuiltinDashboardService
+	TaskTplSvc            *service.TaskTplService
+	TaskExecutor          *service.TaskExecutor
+	BuiltinMetricSvc      *service.BuiltinMetricService
+	MetricFilterSvc       *service.MetricFilterService
 	AlertmanagerImportSvc *service.AlertmanagerImportService
-	EventSvc           *service.AlertEventService
-	LarkBotSvc         *service.LarkBotService
-	LDAPSvc            *service.LDAPService
-	OAuth2Svc          *service.OAuth2Service
-	UserContactSvc     *service.UserContactService
-	DashboardStatsSvc  *service.DashboardStatsService
+	EventSvc              *service.AlertEventService
+	LarkBotSvc            *service.LarkBotService
+	LDAPSvc               *service.LDAPService
+	OAuth2Svc             *service.OAuth2Service
+	UserContactSvc        *service.UserContactService
+	DashboardStatsSvc     *service.DashboardStatsService
 
 	// Shared engine components
 	AlertWorkerPool *engine.AlertWorkerPool
@@ -443,7 +443,7 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	svcs.ChannelV2Svc = service.NewChannelService(repos.ChannelV2, zapLogger)
 	svcs.ChannelV2Svc.SetIncidentRepository(repos.Incident) // for active incident check on delete
 	svcs.IncidentSvc = service.NewIncidentService(repos.Incident, svcs.ChannelV2Svc, zapLogger)
-	svcs.IncidentSvc.SetAlertRepository(repos.AlertV2)               // for incident merge alert migration
+	svcs.IncidentSvc.SetAlertRepository(repos.AlertV2)                 // for incident merge alert migration
 	svcs.IncidentSvc.SetEscalationStepRepository(repos.EscalationStep) // for escalation upper-bound check
 	svcs.AlertV2Svc = service.NewAlertV2Service(repos.AlertV2, zapLogger)
 	svcs.ExclusionRuleSvc = service.NewExclusionRuleService(repos.ExclusionRule, zapLogger)
@@ -1017,77 +1017,83 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	statusSubHandler := handler.NewStatusSubscriptionHandler(svcs.StatusSubSvc, zapLogger)
 
 	handlers := &router.Handlers{
-		Auth:             func() *handler.AuthHandler { h := handler.NewAuthHandler(svcs.AuthSvc); h.SetUserService(svcs.UserSvc); h.SetRedis(redisClient); h.SetLDAPService(svcs.LDAPSvc); return h }(),
-		OIDC:             oidcHandler,
-		OIDCSettings:     handler.NewOIDCSettingsHandler(svcs.SettingSvc, d.ReloadOIDC),
-		OAuth2:           handler.NewOAuth2Handler(svcs.OAuth2Svc, cfg.JWT.Secret, cfg.JWT.Expire),
-		SSOSettings:      handler.NewSSOSettingsHandler(svcs.LDAPSvc, svcs.OAuth2Svc),
-		DataSource:       handler.NewDataSourceHandler(svcs.DSSvc, zapLogger),
-		AlertRule:        handler.NewAlertRuleHandler(svcs.RuleSvc, zapLogger),
-		AlertEvent:       handler.NewAlertEventHandler(svcs.EventSvc, zapLogger),
-		User:             handler.NewUserHandler(svcs.UserSvc, zapLogger),
-		Team:             handler.NewTeamHandler(svcs.TeamSvc, zapLogger),
-		Schedule:         handler.NewScheduleHandler(svcs.ScheduleSvc, zapLogger),
-		Dashboard:        handler.NewDashboardHandler(svcs.DashboardStatsSvc),
-		AI:               handler.NewAIHandler(svcs.AISvc, svcs.SettingSvc, svcs.EventSvc, svcs.ChatHistorySvc),
-		LarkBot:          handler.NewLarkBotHandler(svcs.LarkBotSvc),
-		Engine:           engineHandler,
-		AlertAction:      handler.NewAlertActionHandler(svcs.EventSvc, svcs.UserSvc, cfg.JWT.Secret, zapLogger),
-		MuteRule:         handler.NewMuteRuleHandler(svcs.MuteRuleSvc, svcs.EventSvc, zapLogger),
-		NotifyRule:       handler.NewNotifyRuleHandler(svcs.NotifyRuleSvc, zapLogger),
-		NotifyMedia:      handler.NewNotifyMediaHandler(svcs.NotifyMediaSvc, zapLogger),
-		MessageTemplate:  handler.NewMessageTemplateHandler(svcs.MessageTemplateSvc, zapLogger),
-		SubscribeRule:    handler.NewSubscribeRuleHandler(svcs.SubscribeRuleSvc, zapLogger),
-		BizGroup:         handler.NewBizGroupHandler(svcs.BizGroupSvc, zapLogger),
-		AlertChannel:     handler.NewAlertChannelHandler(svcs.AlertChannelSvc, zapLogger),
-		UserNotifyConfig: handler.NewUserNotifyConfigHandler(svcs.UserNotifyConfigSvc),
-		AuditLog:         handler.NewAuditLogHandler(svcs.AuditLogSvc),
-		SMTPSettings:     handler.NewSMTPSettingsHandler(svcs.SettingSvc),
-		SecuritySettings: handler.NewSecuritySettingsHandler(svcs.SettingSvc, &cfg.JWT),
-		InhibitionRule:   handler.NewInhibitionRuleHandler(svcs.InhibitionRuleSvc, svcs.EventSvc, zapLogger),
-		Heartbeat:        handler.NewHeartbeatHandler(svcs.RuleSvc),
-		LabelRegistry:    handler.NewLabelRegistryHandler(svcs.LabelRegistrySvc, appCtx),
-		DashboardV2:      handler.NewDashboardV2Handler(svcs.DashboardV2Svc),
-		AlertRuleTemplate:   handler.NewAlertRuleTemplateHandler(svcs.TemplateSvc),
-		ChannelV2:           handler.NewChannelHandler(svcs.ChannelV2Svc),
-		IncidentV2:          handler.NewIncidentHandler(svcs.IncidentSvc),
-		AlertV2:             handler.NewAlertV2Handler(svcs.AlertV2Svc),
-		ExclusionRule:       handler.NewExclusionRuleHandler(svcs.ExclusionRuleSvc),
-		DispatchPolicy:      handler.NewDispatchHandler(svcs.DispatchSvc),
-		Integration:         handler.NewIntegrationHandler(integrationSvc, zapLogger),
-		RoutingRule:         handler.NewRoutingRuleHandler(service.NewRoutingRuleService(repos.RoutingRule)),
-		PostMortem:          handler.NewPostMortemHandler(svcs.PostMortemSvc, svcs.AISvc),
-		StatusService:       handler.NewStatusServiceHandler(svcs.StatusServiceSvc),
-		PresetRule:          handler.NewPresetRuleHandler(svcs.PresetRuleSvc),
-		AIRule:              handler.NewAIRuleHandler(svcs.RuleGenSvc),
-		AlertmanagerImport:  handler.NewAlertmanagerImportHandler(svcs.AlertmanagerImportSvc),
-		UserPreference:      handler.NewUserPreferenceHandler(svcs.UserPreferenceSvc),
-		UserNotification:    handler.NewUserNotificationHandler(svcs.UserNotificationSvc),
-		Permissions:         handler.NewPermissionsHandler(svcs.TeamSvc),
-		Agent:               handler.NewAgentHandler(svcs.AgentSvc),
-		Knowledge:           handler.NewKnowledgeHandler(svcs.KnowledgeSvc),
-		DiagnosticWorkflow:  handler.NewDiagnosticWorkflowHandler(svcs.DiagnosticWorkflowSvc),
-		ChangeEvent:         handler.NewChangeEventHandler(svcs.ChangeEventSvc),
-		Inspection:          handler.NewInspectionHandler(service.NewInspectionService(repos.Inspection), inspectionSched, svcs.InspectionExecutor),
-		ReportTask:          handler.NewReportTaskHandler(svcs.ReportTaskSvc, d.ReportSched, svcs.ReportExecutor),
-		RecordingRule:       handler.NewRecordingRuleHandler(svcs.RecordingRuleSvc, zapLogger),
-		BuiltinMetric:       handler.NewBuiltinMetricHandler(svcs.BuiltinMetricSvc, svcs.MetricFilterSvc, zapLogger),
-		EventPipeline:       handler.NewEventPipelineHandler(service.NewEventPipelineService(repos.EventPipeline), service.NewEventPipelineExecutionService(repos.EventPipelineExec), svcs.PipelineEngine, svcs.EventSvc, zapLogger),
-		Annotation:          handler.NewAnnotationHandler(svcs.AnnotationSvc, zapLogger),
-		SavedView:           handler.NewSavedViewHandler(svcs.SavedViewSvc, zapLogger),
-		MetricView:          handler.NewMetricViewHandler(svcs.MetricViewSvc, zapLogger),
-		MCPServer:           handler.NewMCPServerHandler(svcs.MCPServerSvc, zapLogger),
-		LLMConfig:           handler.NewLLMConfigHandler(svcs.LLMConfigSvc, zapLogger),
-		AISkill:             handler.NewAISkillHandler(svcs.AISkillSvc, zapLogger),
-		ESIndexPattern:      handler.NewESIndexPatternHandler(svcs.ESIndexPatternSvc, zapLogger),
-		SiteInfo:            handler.NewSiteInfoHandler(svcs.SettingSvc),
-		TaskTpl:             handler.NewTaskTplHandler(svcs.TaskTplSvc, zapLogger),
-		Task:                handler.NewTaskHandler(svcs.TaskExecutor, service.NewTaskRecordService(repos.TaskRecord), zapLogger),
-		UserContact:         handler.NewUserContactHandler(svcs.UserContactSvc, zapLogger),
-		BuiltinDashboard:    handler.NewBuiltinDashboardHandler(svcs.BuiltinDashboardSvc),
-		StatusSubscription:  statusSubHandler,
-		TeamNotifyChannel:   teamNotifyChannelHandler,
-		UserTeamNotifyPref:  userTeamNotifyPrefHandler,
+		Auth: func() *handler.AuthHandler {
+			h := handler.NewAuthHandler(svcs.AuthSvc)
+			h.SetUserService(svcs.UserSvc)
+			h.SetRedis(redisClient)
+			h.SetLDAPService(svcs.LDAPSvc)
+			return h
+		}(),
+		OIDC:               oidcHandler,
+		OIDCSettings:       handler.NewOIDCSettingsHandler(svcs.SettingSvc, d.ReloadOIDC),
+		OAuth2:             handler.NewOAuth2Handler(svcs.OAuth2Svc, cfg.JWT.Secret, cfg.JWT.Expire),
+		SSOSettings:        handler.NewSSOSettingsHandler(svcs.LDAPSvc, svcs.OAuth2Svc),
+		DataSource:         handler.NewDataSourceHandler(svcs.DSSvc, zapLogger),
+		AlertRule:          handler.NewAlertRuleHandler(svcs.RuleSvc, zapLogger),
+		AlertEvent:         handler.NewAlertEventHandler(svcs.EventSvc, zapLogger),
+		User:               handler.NewUserHandler(svcs.UserSvc, zapLogger),
+		Team:               handler.NewTeamHandler(svcs.TeamSvc, zapLogger),
+		Schedule:           handler.NewScheduleHandler(svcs.ScheduleSvc, zapLogger),
+		Dashboard:          handler.NewDashboardHandler(svcs.DashboardStatsSvc),
+		AI:                 handler.NewAIHandler(svcs.AISvc, svcs.SettingSvc, svcs.EventSvc, svcs.ChatHistorySvc),
+		LarkBot:            handler.NewLarkBotHandler(svcs.LarkBotSvc),
+		Engine:             engineHandler,
+		AlertAction:        handler.NewAlertActionHandler(svcs.EventSvc, svcs.UserSvc, cfg.JWT.Secret, zapLogger),
+		MuteRule:           handler.NewMuteRuleHandler(svcs.MuteRuleSvc, svcs.EventSvc, zapLogger),
+		NotifyRule:         handler.NewNotifyRuleHandler(svcs.NotifyRuleSvc, zapLogger),
+		NotifyMedia:        handler.NewNotifyMediaHandler(svcs.NotifyMediaSvc, zapLogger),
+		MessageTemplate:    handler.NewMessageTemplateHandler(svcs.MessageTemplateSvc, zapLogger),
+		SubscribeRule:      handler.NewSubscribeRuleHandler(svcs.SubscribeRuleSvc, zapLogger),
+		BizGroup:           handler.NewBizGroupHandler(svcs.BizGroupSvc, zapLogger),
+		AlertChannel:       handler.NewAlertChannelHandler(svcs.AlertChannelSvc, zapLogger),
+		UserNotifyConfig:   handler.NewUserNotifyConfigHandler(svcs.UserNotifyConfigSvc),
+		AuditLog:           handler.NewAuditLogHandler(svcs.AuditLogSvc),
+		SMTPSettings:       handler.NewSMTPSettingsHandler(svcs.SettingSvc),
+		SecuritySettings:   handler.NewSecuritySettingsHandler(svcs.SettingSvc, &cfg.JWT),
+		InhibitionRule:     handler.NewInhibitionRuleHandler(svcs.InhibitionRuleSvc, svcs.EventSvc, zapLogger),
+		Heartbeat:          handler.NewHeartbeatHandler(svcs.RuleSvc),
+		LabelRegistry:      handler.NewLabelRegistryHandler(svcs.LabelRegistrySvc, appCtx),
+		DashboardV2:        handler.NewDashboardV2Handler(svcs.DashboardV2Svc),
+		AlertRuleTemplate:  handler.NewAlertRuleTemplateHandler(svcs.TemplateSvc),
+		ChannelV2:          handler.NewChannelHandler(svcs.ChannelV2Svc),
+		IncidentV2:         handler.NewIncidentHandler(svcs.IncidentSvc),
+		AlertV2:            handler.NewAlertV2Handler(svcs.AlertV2Svc),
+		ExclusionRule:      handler.NewExclusionRuleHandler(svcs.ExclusionRuleSvc),
+		DispatchPolicy:     handler.NewDispatchHandler(svcs.DispatchSvc),
+		Integration:        handler.NewIntegrationHandler(integrationSvc, zapLogger),
+		RoutingRule:        handler.NewRoutingRuleHandler(service.NewRoutingRuleService(repos.RoutingRule)),
+		PostMortem:         handler.NewPostMortemHandler(svcs.PostMortemSvc, svcs.AISvc),
+		StatusService:      handler.NewStatusServiceHandler(svcs.StatusServiceSvc),
+		PresetRule:         handler.NewPresetRuleHandler(svcs.PresetRuleSvc),
+		AIRule:             handler.NewAIRuleHandler(svcs.RuleGenSvc),
+		AlertmanagerImport: handler.NewAlertmanagerImportHandler(svcs.AlertmanagerImportSvc),
+		UserPreference:     handler.NewUserPreferenceHandler(svcs.UserPreferenceSvc),
+		UserNotification:   handler.NewUserNotificationHandler(svcs.UserNotificationSvc),
+		Permissions:        handler.NewPermissionsHandler(svcs.TeamSvc),
+		Agent:              handler.NewAgentHandler(svcs.AgentSvc),
+		Knowledge:          handler.NewKnowledgeHandler(svcs.KnowledgeSvc),
+		DiagnosticWorkflow: handler.NewDiagnosticWorkflowHandler(svcs.DiagnosticWorkflowSvc),
+		ChangeEvent:        handler.NewChangeEventHandler(svcs.ChangeEventSvc),
+		Inspection:         handler.NewInspectionHandler(service.NewInspectionService(repos.Inspection), inspectionSched, svcs.InspectionExecutor),
+		ReportTask:         handler.NewReportTaskHandler(svcs.ReportTaskSvc, d.ReportSched, svcs.ReportExecutor),
+		RecordingRule:      handler.NewRecordingRuleHandler(svcs.RecordingRuleSvc, zapLogger),
+		BuiltinMetric:      handler.NewBuiltinMetricHandler(svcs.BuiltinMetricSvc, svcs.MetricFilterSvc, zapLogger),
+		EventPipeline:      handler.NewEventPipelineHandler(service.NewEventPipelineService(repos.EventPipeline), service.NewEventPipelineExecutionService(repos.EventPipelineExec), svcs.PipelineEngine, svcs.EventSvc, zapLogger),
+		Annotation:         handler.NewAnnotationHandler(svcs.AnnotationSvc, zapLogger),
+		SavedView:          handler.NewSavedViewHandler(svcs.SavedViewSvc, zapLogger),
+		MetricView:         handler.NewMetricViewHandler(svcs.MetricViewSvc, zapLogger),
+		MCPServer:          handler.NewMCPServerHandler(svcs.MCPServerSvc, zapLogger),
+		LLMConfig:          handler.NewLLMConfigHandler(svcs.LLMConfigSvc, zapLogger),
+		AISkill:            handler.NewAISkillHandler(svcs.AISkillSvc, zapLogger),
+		ESIndexPattern:     handler.NewESIndexPatternHandler(svcs.ESIndexPatternSvc, zapLogger),
+		SiteInfo:           handler.NewSiteInfoHandler(svcs.SettingSvc),
+		TaskTpl:            handler.NewTaskTplHandler(svcs.TaskTplSvc, zapLogger),
+		Task:               handler.NewTaskHandler(svcs.TaskExecutor, service.NewTaskRecordService(repos.TaskRecord), zapLogger),
+		UserContact:        handler.NewUserContactHandler(svcs.UserContactSvc, zapLogger),
+		BuiltinDashboard:   handler.NewBuiltinDashboardHandler(svcs.BuiltinDashboardSvc),
+		StatusSubscription: statusSubHandler,
+		TeamNotifyChannel:  teamNotifyChannelHandler,
+		UserTeamNotifyPref: userTeamNotifyPrefHandler,
 	}
 
 	// Inject audit service into handlers that support it
@@ -1130,7 +1136,6 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			Status:       model.AuditResultDenied,
 		})
 	}
-
 
 	// Store references needed for shutdown and hot reload
 	d.DSRepo = repos.DS

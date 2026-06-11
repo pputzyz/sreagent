@@ -17,17 +17,17 @@ const (
 
 // ConversationTurn represents a single turn in a Lark bot conversation.
 type ConversationTurn struct {
-	Role      string    `json:"role"`       // "user" or "assistant"
-	Content   string    `json:"content"`    // message text
-	Timestamp time.Time `json:"timestamp"`  // when the turn occurred
+	Role      string    `json:"role"`      // "user" or "assistant"
+	Content   string    `json:"content"`   // message text
+	Timestamp time.Time `json:"timestamp"` // when the turn occurred
 }
 
 // ConversationContext holds the conversation history for a Lark chat + user pair.
 type ConversationContext struct {
-	ChatID  string            `json:"chat_id"`
-	UserID  string            `json:"user_id"`
+	ChatID  string             `json:"chat_id"`
+	UserID  string             `json:"user_id"`
 	Turns   []ConversationTurn `json:"turns"`
-	Updated time.Time         `json:"updated"`
+	Updated time.Time          `json:"updated"`
 }
 
 // ConversationStore manages conversation context in Redis for Lark bot multi-turn sessions.

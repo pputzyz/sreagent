@@ -287,4 +287,3 @@ func ValidateMigrationSequence(logger *zap.Logger) {
 		zap.Int("total_versions", len(versionNums)),
 	)
 }
-

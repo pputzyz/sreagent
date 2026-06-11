@@ -112,22 +112,22 @@ func (IncidentAssignee) TableName() string {
 type IncidentTimelineAction string
 
 const (
-	IncidentActionTriggered    IncidentTimelineAction = "triggered"
-	IncidentActionAcknowledged IncidentTimelineAction = "acknowledged"
-	IncidentActionUnacked      IncidentTimelineAction = "unacknowledged" // cancel ack
-	IncidentActionSnoozed      IncidentTimelineAction = "snoozed"
-	IncidentActionSnoozeExpired IncidentTimelineAction = "snooze_expired"
-	IncidentActionEscalated    IncidentTimelineAction = "escalated"
-	IncidentActionReassigned   IncidentTimelineAction = "reassigned"
-	IncidentActionAddedAssignee IncidentTimelineAction = "added_assignee"
-	IncidentActionResolved     IncidentTimelineAction = "resolved"
-	IncidentActionClosed       IncidentTimelineAction = "closed"
-	IncidentActionReopened     IncidentTimelineAction = "reopened"
-	IncidentActionMerged       IncidentTimelineAction = "merged"
-	IncidentActionCommented    IncidentTimelineAction = "commented"
-	IncidentActionNotified     IncidentTimelineAction = "notified"
-	IncidentActionAlertMerged  IncidentTimelineAction = "alert_merged"  // new alert merged in
-	IncidentActionStormWarning IncidentTimelineAction = "storm_warning" // storm threshold hit
+	IncidentActionTriggered       IncidentTimelineAction = "triggered"
+	IncidentActionAcknowledged    IncidentTimelineAction = "acknowledged"
+	IncidentActionUnacked         IncidentTimelineAction = "unacknowledged" // cancel ack
+	IncidentActionSnoozed         IncidentTimelineAction = "snoozed"
+	IncidentActionSnoozeExpired   IncidentTimelineAction = "snooze_expired"
+	IncidentActionEscalated       IncidentTimelineAction = "escalated"
+	IncidentActionReassigned      IncidentTimelineAction = "reassigned"
+	IncidentActionAddedAssignee   IncidentTimelineAction = "added_assignee"
+	IncidentActionResolved        IncidentTimelineAction = "resolved"
+	IncidentActionClosed          IncidentTimelineAction = "closed"
+	IncidentActionReopened        IncidentTimelineAction = "reopened"
+	IncidentActionMerged          IncidentTimelineAction = "merged"
+	IncidentActionCommented       IncidentTimelineAction = "commented"
+	IncidentActionNotified        IncidentTimelineAction = "notified"
+	IncidentActionAlertMerged     IncidentTimelineAction = "alert_merged"  // new alert merged in
+	IncidentActionStormWarning    IncidentTimelineAction = "storm_warning" // storm threshold hit
 	IncidentActionSeverityChanged IncidentTimelineAction = "severity_changed"
 	IncidentActionTitleChanged    IncidentTimelineAction = "title_changed"
 )
@@ -140,7 +140,7 @@ type IncidentTimeline struct {
 	ActorID    *uint                  `json:"actor_id" gorm:"index"`
 	Actor      *User                  `json:"actor,omitempty" gorm:"foreignKey:ActorID"`
 	Content    string                 `json:"content" gorm:"type:text"` // human-readable description or comment text
-	Extra      string                 `json:"extra" gorm:"type:json"`  // additional structured data
+	Extra      string                 `json:"extra" gorm:"type:json"`   // additional structured data
 }
 
 func (IncidentTimeline) TableName() string {
@@ -155,9 +155,9 @@ type PostMortem struct {
 	Title      string    `json:"title" gorm:"size:256;not null"`
 	Content    string    `json:"content" gorm:"type:longtext"` // Markdown content
 	// Status: draft / published
-	Status    string `json:"status" gorm:"size:32;default:draft"`
-	AuthorID  *uint  `json:"author_id" gorm:"index"`
-	Author    *User  `json:"author,omitempty" gorm:"foreignKey:AuthorID"`
+	Status      string     `json:"status" gorm:"size:32;default:draft"`
+	AuthorID    *uint      `json:"author_id" gorm:"index"`
+	Author      *User      `json:"author,omitempty" gorm:"foreignKey:AuthorID"`
 	PublishedAt *time.Time `json:"published_at"`
 }
 

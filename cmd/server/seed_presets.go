@@ -245,112 +245,112 @@ func seedPresetRules(db *gorm.DB, logger *zap.Logger) {
 		{
 			Name: "inhibit-host-p0-cascade", DisplayName: "主机 P0 抑制 P1/P2/P3", Category: "inhibition", SubCategory: "severity", Component: "engine",
 			Expression: `{"source_match":{"severity":"P0"},"target_match":{"severity":"~P1|P2|P3"},"equal_labels":["biz_project","category","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "severity=P0", "target_match": "severity=~P1|P2|P3", "equal_labels": "biz_project,category,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "severity=P0", "target_match": "severity=~P1|P2|P3", "equal_labels": "biz_project,category,instance,project"},
 			Description: "P0 告警触发时，抑制同业务线同实例的 P1/P2/P3 告警",
 		},
 		// 2. Host severity cascade — P1 suppresses P2/P3
 		{
 			Name: "inhibit-host-p1-cascade", DisplayName: "主机 P1 抑制 P2/P3", Category: "inhibition", SubCategory: "severity", Component: "engine",
 			Expression: `{"source_match":{"severity":"P1"},"target_match":{"severity":"~P2|P3"},"equal_labels":["biz_project","category","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "severity=P1", "target_match": "severity=~P2|P3", "equal_labels": "biz_project,category,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "severity=P1", "target_match": "severity=~P2|P3", "equal_labels": "biz_project,category,instance,project"},
 			Description: "P1 告警触发时，抑制同业务线同实例的 P2/P3 告警",
 		},
 		// 3. Container severity cascade — P0 suppresses P1/P2/P3
 		{
 			Name: "inhibit-container-p0-cascade", DisplayName: "容器 P0 抑制 P1/P2/P3", Category: "inhibition", SubCategory: "severity", Component: "engine",
 			Expression: `{"source_match":{"severity":"P0","category":"container"},"target_match":{"severity":"~P1|P2|P3","category":"container"},"equal_labels":["biz_project","namespace","pod","container","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "severity=P0,category=container", "target_match": "severity=~P1|P2|P3,category=container", "equal_labels": "biz_project,namespace,pod,container,project"},
+			Labels:      model.JSONLabels{"source_match": "severity=P0,category=container", "target_match": "severity=~P1|P2|P3,category=container", "equal_labels": "biz_project,namespace,pod,container,project"},
 			Description: "容器 P0 告警触发时，抑制同 Pod 的 P1/P2/P3 容器告警",
 		},
 		// 4. Container severity cascade — P1 suppresses P2/P3
 		{
 			Name: "inhibit-container-p1-cascade", DisplayName: "容器 P1 抑制 P2/P3", Category: "inhibition", SubCategory: "severity", Component: "engine",
 			Expression: `{"source_match":{"severity":"P1","category":"container"},"target_match":{"severity":"~P2|P3","category":"container"},"equal_labels":["biz_project","namespace","pod","container","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "severity=P1,category=container", "target_match": "severity=~P2|P3,category=container", "equal_labels": "biz_project,namespace,pod,container,project"},
+			Labels:      model.JSONLabels{"source_match": "severity=P1,category=container", "target_match": "severity=~P2|P3,category=container", "equal_labels": "biz_project,namespace,pod,container,project"},
 			Description: "容器 P1 告警触发时，抑制同 Pod 的 P2/P3 容器告警",
 		},
 		// 5. NodeExporterDown suppresses all severities
 		{
 			Name: "inhibit-node-down-cascade", DisplayName: "主机宕机抑制所有告警", Category: "inhibition", SubCategory: "availability", Component: "engine",
 			Expression: `{"source_match":{"alertname":"NodeExporterDown"},"target_match":{"severity":"~P0|P1|P2|P3"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=NodeExporterDown", "target_match": "severity=~P0|P1|P2|P3", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=NodeExporterDown", "target_match": "severity=~P0|P1|P2|P3", "equal_labels": "biz_project,instance,project"},
 			Description: "NodeExporterDown 时抑制该主机的所有严重等级告警",
 		},
 		// 6. KubeNodeNotReady suppresses container alerts
 		{
 			Name: "inhibit-kube-node-notready-container", DisplayName: "K8s 节点 NotReady 抑制容器告警", Category: "inhibition", SubCategory: "kubernetes", Component: "engine",
 			Expression: `{"source_match":{"alertname":"KubeNodeNotReady"},"target_match":{"category":"container"},"equal_labels":["biz_project","node","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=KubeNodeNotReady", "target_match": "category=container", "equal_labels": "biz_project,node,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=KubeNodeNotReady", "target_match": "category=container", "equal_labels": "biz_project,node,project"},
 			Description: "K8s 节点 NotReady 时抑制该节点上的容器告警",
 		},
 		// 7. KubeNodeNotReady suppresses pod alerts
 		{
 			Name: "inhibit-kube-node-notready-pod", DisplayName: "K8s 节点 NotReady 抑制 Pod 告警", Category: "inhibition", SubCategory: "kubernetes", Component: "engine",
 			Expression: `{"source_match":{"alertname":"KubeNodeNotReady"},"target_match":{"category":"pod"},"equal_labels":["biz_project","node","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=KubeNodeNotReady", "target_match": "category=pod", "equal_labels": "biz_project,node,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=KubeNodeNotReady", "target_match": "category=pod", "equal_labels": "biz_project,node,project"},
 			Description: "K8s 节点 NotReady 时抑制该节点上的 Pod 告警",
 		},
 		// 8. KafkaExporterDown suppresses kafka alerts
 		{
 			Name: "inhibit-kafka-down-cascade", DisplayName: "Kafka Down 抑制同实例告警", Category: "inhibition", SubCategory: "middleware", Component: "engine",
 			Expression: `{"source_match":{"alertname":"KafkaExporterDown"},"target_match":{"category":"kafka"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=KafkaExporterDown", "target_match": "category=kafka", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=KafkaExporterDown", "target_match": "category=kafka", "equal_labels": "biz_project,instance,project"},
 			Description: "Kafka Down 时抑制同实例的 Kafka 类告警",
 		},
 		// 9. RedisDown suppresses redis alerts
 		{
 			Name: "inhibit-redis-down-cascade", DisplayName: "Redis Down 抑制同实例告警", Category: "inhibition", SubCategory: "database", Component: "engine",
 			Expression: `{"source_match":{"alertname":"RedisDown"},"target_match":{"category":"redis"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=RedisDown", "target_match": "category=redis", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=RedisDown", "target_match": "category=redis", "equal_labels": "biz_project,instance,project"},
 			Description: "Redis Down 时抑制同实例的 Redis 类告警",
 		},
 		// 10. ElasticsearchClusterRed suppresses Yellow
 		{
 			Name: "inhibit-es-red-cascade", DisplayName: "ES Red 抑制 Yellow 告警", Category: "inhibition", SubCategory: "database", Component: "engine",
 			Expression: `{"source_match":{"alertname":"ElasticsearchClusterRed"},"target_match":{"alertname":"ElasticsearchClusterYellow"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=ElasticsearchClusterRed", "target_match": "alertname=ElasticsearchClusterYellow", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=ElasticsearchClusterRed", "target_match": "alertname=ElasticsearchClusterYellow", "equal_labels": "biz_project,instance,project"},
 			Description: "ES 集群 Red 时抑制同实例的 Yellow 告警",
 		},
 		// 11. MongoDBDown suppresses mongodb alerts
 		{
 			Name: "inhibit-mongodb-down-cascade", DisplayName: "MongoDB Down 抑制同实例告警", Category: "inhibition", SubCategory: "database", Component: "engine",
 			Expression: `{"source_match":{"alertname":"MongoDBDown"},"target_match":{"category":"mongodb"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=MongoDBDown", "target_match": "category=mongodb", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=MongoDBDown", "target_match": "category=mongodb", "equal_labels": "biz_project,instance,project"},
 			Description: "MongoDB Down 时抑制同实例的 MongoDB 类告警",
 		},
 		// 12. RabbitMQDown suppresses rabbitmq alerts
 		{
 			Name: "inhibit-rabbitmq-down-cascade", DisplayName: "RabbitMQ Down 抑制同实例告警", Category: "inhibition", SubCategory: "middleware", Component: "engine",
 			Expression: `{"source_match":{"alertname":"RabbitMQDown"},"target_match":{"category":"rabbitmq"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=RabbitMQDown", "target_match": "category=rabbitmq", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=RabbitMQDown", "target_match": "category=rabbitmq", "equal_labels": "biz_project,instance,project"},
 			Description: "RabbitMQ Down 时抑制同实例的 RabbitMQ 类告警",
 		},
 		// 13. NacosDown suppresses nacos alerts
 		{
 			Name: "inhibit-nacos-down-cascade", DisplayName: "Nacos Down 抑制同实例告警", Category: "inhibition", SubCategory: "middleware", Component: "engine",
 			Expression: `{"source_match":{"alertname":"NacosDown"},"target_match":{"category":"nacos"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=NacosDown", "target_match": "category=nacos", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=NacosDown", "target_match": "category=nacos", "equal_labels": "biz_project,instance,project"},
 			Description: "Nacos Down 时抑制同实例的 Nacos 类告警",
 		},
 		// 14. RocketMQExporterDown suppresses rocketmq alerts
 		{
 			Name: "inhibit-rocketmq-down-cascade", DisplayName: "RocketMQ Down 抑制同实例告警", Category: "inhibition", SubCategory: "middleware", Component: "engine",
 			Expression: `{"source_match":{"alertname":"RocketMQExporterDown"},"target_match":{"category":"rocketmq"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=RocketMQExporterDown", "target_match": "category=rocketmq", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=RocketMQExporterDown", "target_match": "category=rocketmq", "equal_labels": "biz_project,instance,project"},
 			Description: "RocketMQ Down 时抑制同实例的 RocketMQ 类告警",
 		},
 		// 15. BlackboxHttpProbeFailed suppresses latency/status/DNS alerts
 		{
 			Name: "inhibit-http-probe-failed-cascade", DisplayName: "HTTP 探测失败级联抑制", Category: "inhibition", SubCategory: "probe", Component: "engine",
 			Expression: `{"source_match":{"alertname":"BlackboxHttpProbeFailed"},"target_match":{"alertname":"~BlackboxHttpProbeLatency.*|BlackboxHttpStatus5xx|BlackboxHttpDnsLatencyHigh"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=BlackboxHttpProbeFailed", "target_match": "alertname=~BlackboxHttpProbeLatency.*|BlackboxHttpStatus5xx|BlackboxHttpDnsLatencyHigh", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=BlackboxHttpProbeFailed", "target_match": "alertname=~BlackboxHttpProbeLatency.*|BlackboxHttpStatus5xx|BlackboxHttpDnsLatencyHigh", "equal_labels": "biz_project,instance,project"},
 			Description: "HTTP 探测失败时抑制同实例的延迟、状态码和 DNS 延迟告警",
 		},
 		// 16. BlackboxTcpProbeFailed suppresses latency alerts
 		{
 			Name: "inhibit-tcp-probe-failed-cascade", DisplayName: "TCP 探测失败级联抑制", Category: "inhibition", SubCategory: "probe", Component: "engine",
 			Expression: `{"source_match":{"alertname":"BlackboxTcpProbeFailed"},"target_match":{"alertname":"~BlackboxTcpProbeLatency.*"},"equal_labels":["biz_project","instance","project"]}`, Severity: "info", AlertType: "inhibition",
-			Labels: model.JSONLabels{"source_match": "alertname=BlackboxTcpProbeFailed", "target_match": "alertname=~BlackboxTcpProbeLatency.*", "equal_labels": "biz_project,instance,project"},
+			Labels:      model.JSONLabels{"source_match": "alertname=BlackboxTcpProbeFailed", "target_match": "alertname=~BlackboxTcpProbeLatency.*", "equal_labels": "biz_project,instance,project"},
 			Description: "TCP 探测失败时抑制同实例的延迟告警",
 		},
 	}
