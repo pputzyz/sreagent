@@ -54,6 +54,12 @@ type RedisLeaderElection struct {
 	cancel    context.CancelFunc
 	startOnce sync.Once
 	wg        sync.WaitGroup
+	// lastRenewOK is the UnixNano timestamp of the last successful lock
+	// acquire/extend. Used to fail-safe step down when Redis is unreachable:
+	// once we cannot prove lock ownership for longer than the lock TTL,
+	// another instance may already hold it — continuing as leader would
+	// mean two instances evaluating rules (split-brain, duplicate alerts).
+	lastRenewOK atomic.Int64
 }
 
 // NewRedisLeaderElection creates a new Redis-based leader election instance.
@@ -77,6 +83,7 @@ func (l *RedisLeaderElection) TryAcquire(ctx context.Context) bool {
 	}
 	if ok {
 		l.isLeader.Store(true)
+		l.lastRenewOK.Store(time.Now().UnixNano())
 		l.logger.Info("leader election: acquired leadership")
 		return true
 	}
@@ -89,6 +96,7 @@ func (l *RedisLeaderElection) TryAcquire(ctx context.Context) bool {
 	}
 	if result == 1 {
 		l.isLeader.Store(true)
+		l.lastRenewOK.Store(time.Now().UnixNano())
 		l.logger.Info("leader election: re-acquired existing lock")
 		return true
 	}
@@ -137,6 +145,16 @@ func (l *RedisLeaderElection) renew(ctx context.Context) {
 		result, err := checkAndExtendScript.Run(ctx, l.rdb, []string{leaderLockKey}, l.value, int(leaderLockTTL.Seconds())).Int()
 		if err != nil {
 			l.logger.Warn("leader election: failed to renew lock", zap.Error(err))
+			// Fail-safe degradation: if we haven't successfully renewed for
+			// longer than the lock TTL, the lock has expired in Redis and
+			// another instance may have taken it. Step down rather than
+			// risk split-brain (two leaders evaluating rules concurrently).
+			last := l.lastRenewOK.Load()
+			if last > 0 && time.Since(time.Unix(0, last)) > leaderLockTTL {
+				l.isLeader.Store(false)
+				metrics.SetEngineLeaderStatus(false)
+				l.logger.Error("leader election: renew has been failing beyond lock TTL, stepping down to avoid split-brain")
+			}
 			return
 		}
 		if result == 0 {
@@ -145,6 +163,7 @@ func (l *RedisLeaderElection) renew(ctx context.Context) {
 			// Export metric
 			metrics.SetEngineLeaderStatus(false)
 		} else {
+			l.lastRenewOK.Store(time.Now().UnixNano())
 			l.logger.Debug("leader election: renewed lock")
 		}
 	} else {

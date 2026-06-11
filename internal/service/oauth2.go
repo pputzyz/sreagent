@@ -17,6 +17,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
@@ -210,7 +211,9 @@ func (s *OAuth2Service) exchangeToken(ctx context.Context, cfg OAuth2Config, cod
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	// SSRF-safe client: TokenURL is admin-configurable, so block requests
+	// to loopback/link-local/metadata addresses (same as the OIDC/Lark paths).
+	client := safehttp.NewSafeClient(15 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("oauth2: token exchange request failed: %w", err)
@@ -259,7 +262,8 @@ func (s *OAuth2Service) fetchUserInfo(ctx context.Context, cfg OAuth2Config, acc
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	// SSRF-safe client: UserInfoURL is admin-configurable (see exchangeToken).
+	client := safehttp.NewSafeClient(15 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("oauth2: userinfo request failed: %w", err)

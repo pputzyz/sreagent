@@ -264,60 +264,41 @@ func Test_buildCombinations_within_limit(t *testing.T) {
 // P1-3: Panic in evaluate() should be recovered and not crash the Run loop
 // ---------------------------------------------------------------------------
 
-// Test_RuleEvaluator_Run_PanicInEvaluate_ContinuesNextTick verifies that if
-// evaluate() panics, the Run() goroutine does NOT crash — the deferred
-// recover() catches it and the evaluator continues to run on the next tick.
-//
-// This is a behavioral test: we create a RuleEvaluator with a minimal setup,
-// start Run() in a goroutine, and verify the evaluator is still alive after
-// a simulated panic. The real evaluate() path is too heavy to invoke in a
-// unit test, so we verify the recover-in-Run pattern works by injecting a
-// state that triggers a known code path.
-func Test_RuleEvaluator_Run_PanicInEvaluate_ContinuesNextTick(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	logger := zap.NewNop()
+// Test_RuleEvaluator_safeTick_PanicRecovered_NextTickStillRuns verifies the
+// actual P1-3 guarantee: a panic inside one evaluation tick is recovered by
+// safeTick (NOT by the Run-level recover, which would terminate the loop and
+// silently stop the rule), so the next tick still executes.
+func Test_RuleEvaluator_safeTick_PanicRecovered_NextTickStillRuns(t *testing.T) {
 	re := &RuleEvaluator{
 		rule: &model.AlertRule{
-			BaseModel:    model.BaseModel{ID: 1},
-			Name:         "panic-test-rule",
-			EvalInterval: 1, // 1 second
-			Expression:   "up == 0",
-			Severity:     model.SeverityWarning,
+			BaseModel: model.BaseModel{ID: 1},
+			Name:      "panic-test-rule",
 		},
-		ctx:    ctx,
-		stopCh: make(chan struct{}),
-		logger: logger,
+		logger: zap.NewNop(),
 	}
 
-	// Start Run() — it will call evaluate() which will fail (no datasource)
-	// but should NOT panic. We verify Run() doesn't crash.
-	go re.Run()
+	calls := 0
+	tick := func() {
+		calls++
+		if calls == 1 {
+			panic("boom: injected evaluation panic")
+		}
+	}
 
-	// Let it tick a few times
-	time.Sleep(2500 * time.Millisecond)
-
-	// Stop it gracefully
-	re.Stop()
-
-	// If we reach here, Run() did not crash despite missing datasource/DB.
-	// The defer-recover in Run() catches any unexpected panics.
+	// First tick panics — safeTick must swallow it instead of propagating
+	// (propagation would unwind Run() and kill the evaluator permanently).
+	assert.NotPanics(t, func() { re.safeTick("evaluate", tick) },
+		"a panic inside a tick must be recovered inside safeTick")
+	// Second tick must still run — this is the "rule keeps evaluating" guarantee.
+	assert.NotPanics(t, func() { re.safeTick("evaluate", tick) })
+	assert.Equal(t, 2, calls, "the tick after a recovered panic must still execute")
 }
 
-// Test_RuleEvaluator_Run_RecoverPatternExists is a code-verification test that
-// asserts the deferred recover() pattern exists in the Run() function.
-// This is a lightweight alternative to the full behavioral test above.
-func Test_RuleEvaluator_Run_RecoverPatternExists(t *testing.T) {
-	// The Run() function in rule_eval.go contains:
-	//   defer func() {
-	//       if r := recover(); r != nil {
-	//           re.logger.Error(...)
-	//       }
-	//   }()
-	//
-	// We verify this by checking that a RuleEvaluator with a nil logger
-	// doesn't panic when Run() is called and a panic would occur.
+// Test_RuleEvaluator_Run_UsesSafeTick_LoopSurvivesPanickingTicks runs the real
+// Run() loop with a short interval; evaluate() fails internally (no datasource)
+// but the loop must keep ticking and exit cleanly on Stop() — proving the
+// per-tick guard is wired into the loop, not just defined.
+func Test_RuleEvaluator_Run_UsesSafeTick_LoopSurvivesPanickingTicks(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -326,6 +307,7 @@ func Test_RuleEvaluator_Run_RecoverPatternExists(t *testing.T) {
 			BaseModel:    model.BaseModel{ID: 1},
 			Name:         "recover-test-rule",
 			EvalInterval: 1,
+			Expression:   "up == 0",
 			Severity:     model.SeverityWarning,
 		},
 		ctx:    ctx,
@@ -333,7 +315,6 @@ func Test_RuleEvaluator_Run_RecoverPatternExists(t *testing.T) {
 		logger: zap.NewNop(),
 	}
 
-	// Start Run and immediately stop — verifying no crash
 	done := make(chan struct{})
 	go func() {
 		re.Run()
@@ -345,7 +326,7 @@ func Test_RuleEvaluator_Run_RecoverPatternExists(t *testing.T) {
 
 	select {
 	case <-done:
-		// Good: Run() exited cleanly
+		// Run() exited cleanly via stopCh — not via a panic unwind.
 	case <-time.After(2 * time.Second):
 		t.Fatal("Run() did not exit after Stop()")
 	}

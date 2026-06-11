@@ -1,10 +1,14 @@
 package engine
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestRedisLeaderElection_IsLeader_DefaultFalse(t *testing.T) {
@@ -44,46 +48,52 @@ func TestRedisLeaderElection_ConcurrentIsLeader(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// P1-4: renew() step-down when lock TTL expired
+// P1-4: renew() must fail-safe step down when Redis is unreachable beyond TTL
 // ---------------------------------------------------------------------------
 
-// Test_LeaderElection_RenewLockLost_StepsDown verifies that when the Redis
-// lock is lost (checkAndExtendScript returns 0), renew() sets isLeader to
-// false. This is a pure state-management test that doesn't require a real
-// Redis connection — it verifies the code path by directly testing the
-// atomic bool transition.
-func Test_LeaderElection_RenewLockLost_StepsDown(t *testing.T) {
-	l := &RedisLeaderElection{}
-
-	// Start as leader
-	l.isLeader.Store(true)
-	assert.True(t, l.IsLeader(), "should start as leader")
-
-	// Simulate what renew() does when checkAndExtendScript returns 0
-	// (lock held by another instance or TTL expired):
-	//   if result == 0 { l.isLeader.Store(false) }
-	l.isLeader.Store(false)
-
-	assert.False(t, l.IsLeader(),
-		"should step down when Redis lock is lost")
+// newUnreachableElection returns an election whose Redis client points at a
+// closed port, so every renew() call fails with a connection error. This
+// exercises the REAL renew() error path (not a hand-simulated state change).
+func newUnreachableElection(t *testing.T) *RedisLeaderElection {
+	t.Helper()
+	rdb := redis.NewClient(&redis.Options{
+		Addr:        "127.0.0.1:1", // nothing listens here
+		DialTimeout: 100 * time.Millisecond,
+		ReadTimeout: 100 * time.Millisecond,
+		MaxRetries:  -1, // fail fast, no backoff
+	})
+	return &RedisLeaderElection{
+		rdb:    rdb,
+		logger: zap.NewNop(),
+		value:  "test-instance",
+	}
 }
 
-// Test_LeaderElection_IsLeader_AtomicTransitions verifies that isLeader
-// transitions between true and false are consistent under concurrent access,
-// simulating the renew() goroutine calling Store(false) while IsLeader() is
-// being read from the main evaluator loop.
-func Test_LeaderElection_IsLeader_AtomicTransitions(t *testing.T) {
-	l := &RedisLeaderElection{}
-
-	// Simulate the lifecycle: acquire -> lose -> re-acquire
+// Test_LeaderElection_RenewFailsBeyondTTL_StepsDown: the lock in Redis has
+// long expired (last successful renew > leaderLockTTL ago) and Redis is
+// unreachable — renew() must step down instead of staying a phantom leader
+// while another instance may have acquired the lock (split-brain).
+func Test_LeaderElection_RenewFailsBeyondTTL_StepsDown(t *testing.T) {
+	l := newUnreachableElection(t)
 	l.isLeader.Store(true)
-	assert.True(t, l.IsLeader())
+	l.lastRenewOK.Store(time.Now().Add(-2 * leaderLockTTL).UnixNano())
 
-	// Lock lost (renew failed)
-	l.isLeader.Store(false)
-	assert.False(t, l.IsLeader())
+	l.renew(context.Background())
 
-	// Re-acquired
+	assert.False(t, l.IsLeader(),
+		"renew failing beyond the lock TTL must step down to avoid split-brain")
+}
+
+// Test_LeaderElection_RenewFailsWithinTTL_StaysLeader: a transient Redis
+// blip within the lock TTL must NOT cause a step-down — the lock is still
+// held in Redis, so flapping here would cause unnecessary leader churn.
+func Test_LeaderElection_RenewFailsWithinTTL_StaysLeader(t *testing.T) {
+	l := newUnreachableElection(t)
 	l.isLeader.Store(true)
-	assert.True(t, l.IsLeader())
+	l.lastRenewOK.Store(time.Now().UnixNano())
+
+	l.renew(context.Background())
+
+	assert.True(t, l.IsLeader(),
+		"a single renew failure within the lock TTL must not step down")
 }

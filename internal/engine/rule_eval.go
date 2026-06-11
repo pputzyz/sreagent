@@ -25,6 +25,7 @@ func (re *RuleEvaluator) Run() {
 	if re.runWG != nil {
 		defer re.runWG.Done()
 	}
+	// Last-resort recover: anything outside the per-tick guards below.
 	defer func() {
 		if r := recover(); r != nil {
 			re.logger.Error("rule evaluator Run() panic recovered",
@@ -50,7 +51,7 @@ func (re *RuleEvaluator) Run() {
 	re.loadPersistedState()
 
 	// Run first evaluation immediately
-	re.evaluate()
+	re.safeTick("evaluate", re.evaluate)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -62,14 +63,32 @@ func (re *RuleEvaluator) Run() {
 	for {
 		select {
 		case <-ticker.C:
-			re.evaluate()
+			re.safeTick("evaluate", re.evaluate)
 		case <-gcTicker.C:
-			re.gcStates()
+			re.safeTick("gc_states", re.gcStates)
 		case <-re.stopCh:
 			re.logger.Info("rule evaluator stopped")
 			return
 		}
 	}
+}
+
+// safeTick runs fn with a panic guard so a single bad evaluation cannot kill
+// this evaluator's Run loop permanently. Without it, a panic in evaluate()
+// would terminate Run() while the evaluator stays registered (same Version),
+// so syncRules would never restart it — the rule silently stops evaluating.
+func (re *RuleEvaluator) safeTick(op string, fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			re.logger.Error("rule evaluator tick panic recovered",
+				zap.String("op", op),
+				zap.Any("recover", r),
+				zap.Uint("rule_id", re.rule.ID),
+				zap.String("rule_name", re.rule.Name),
+			)
+		}
+	}()
+	fn()
 }
 
 // evaluate performs one evaluation cycle.

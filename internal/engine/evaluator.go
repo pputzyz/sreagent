@@ -132,8 +132,9 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 		p.suppressor = deps.suppressor
 	}
 	if old, loaded := p.rules.Load(rule.ID); loaded {
-		rv, ok := old.(*ruleVersion)
-		if !ok {
+		if rv, ok := old.(*ruleVersion); !ok {
+			// Unexpected entry type — drop it and fall through to recreate.
+			// Must NOT touch rv here: it is nil when the assertion fails.
 			p.rules.Delete(rule.ID)
 		} else if rv.version == rule.Version {
 			return // same version — no change, keep running evaluator
@@ -141,11 +142,11 @@ func (p *PerDatasourceEvaluator) AddRule(rule *model.AlertRule, ds *model.DataSo
 			// Version changed — stop old evaluator before creating new one
 			p.rules.Delete(rule.ID)
 			rv.evaluator.Stop()
+			p.log.Info("rule version changed, restarting evaluator",
+				zap.Uint("rule_id", rule.ID),
+				zap.Int("old_version", rv.version),
+				zap.Int("new_version", rule.Version))
 		}
-		p.log.Info("rule version changed, restarting evaluator",
-			zap.Uint("rule_id", rule.ID),
-			zap.Int("old_version", rv.version),
-			zap.Int("new_version", rule.Version))
 	}
 	ev := newRuleEvaluatorFromDeps(rule, ds, deps)
 	p.rules.Store(rule.ID, &ruleVersion{version: rule.Version, evaluator: ev})
@@ -555,6 +556,7 @@ func (e *Evaluator) Start() {
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
+		// Last-resort recover: anything outside the per-tick guard below.
 		defer func() {
 			if r := recover(); r != nil {
 				e.logger.Error("evaluator sync loop panic recovered", zap.Any("recover", r))
@@ -562,6 +564,17 @@ func (e *Evaluator) Start() {
 		}()
 		ticker := time.NewTicker(e.syncInterval)
 		defer ticker.Stop()
+
+		// Per-tick panic guard: a single syncRules panic must not kill the
+		// sync loop permanently (it would silently stop all rule syncing).
+		safeTick := func(fn func()) {
+			defer func() {
+				if r := recover(); r != nil {
+					e.logger.Error("evaluator sync tick panic recovered", zap.Any("recover", r))
+				}
+			}()
+			fn()
+		}
 
 		for {
 			select {
@@ -571,13 +584,13 @@ func (e *Evaluator) Start() {
 				e.hashRingMu.RUnlock()
 				if hasRing {
 					// Hash ring mode: always sync (ring membership may change)
-					e.syncRules()
+					safeTick(e.syncRules)
 				} else if e.leader != nil && !e.leader.IsLeader() {
 					// Not leader — stop any running evaluators and skip sync
-					e.stopAllEvaluators()
+					safeTick(e.stopAllEvaluators)
 					continue
 				} else {
-					e.syncRules()
+					safeTick(e.syncRules)
 				}
 			case <-e.stopCh:
 				return
