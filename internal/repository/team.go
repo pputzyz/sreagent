@@ -75,6 +75,42 @@ func (r *TeamRepository) Update(ctx context.Context, team *model.Team) error {
 	return r.db.WithContext(ctx).Save(team).Error
 }
 
+// CountReferences returns the number of records in other tables that still
+// reference this team, keyed by a human-readable resource name. Used as a
+// pre-delete guard so removing a team cannot leave dangling team_id pointers
+// or escalation steps that silently resolve to nobody.
+func (r *TeamRepository) CountReferences(ctx context.Context, teamID uint) (map[string]int64, error) {
+	db := r.db.WithContext(ctx)
+	refs := make(map[string]int64)
+
+	var c int64
+	if err := db.Model(&model.AlertRule{}).Where("team_id = ?", teamID).Count(&c).Error; err != nil {
+		return nil, err
+	}
+	if c > 0 {
+		refs["alert rules"] = c
+	}
+	if err := db.Model(&model.Schedule{}).Where("team_id = ?", teamID).Count(&c).Error; err != nil {
+		return nil, err
+	}
+	if c > 0 {
+		refs["schedules"] = c
+	}
+	if err := db.Model(&model.EscalationPolicy{}).Where("team_id = ?", teamID).Count(&c).Error; err != nil {
+		return nil, err
+	}
+	if c > 0 {
+		refs["escalation policies"] = c
+	}
+	if err := db.Model(&model.EscalationStep{}).Where("target_type = ? AND target_id = ?", "team", teamID).Count(&c).Error; err != nil {
+		return nil, err
+	}
+	if c > 0 {
+		refs["escalation steps"] = c
+	}
+	return refs, nil
+}
+
 func (r *TeamRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Remove all team members first

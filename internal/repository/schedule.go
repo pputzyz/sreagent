@@ -334,6 +334,18 @@ func (r *EscalationStepRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.EscalationStep{}, id).Error
 }
 
+// CountByTarget counts escalation steps referencing the given target
+// (target_type: "user" | "team" | "schedule"). Used as a pre-delete guard
+// so removing a schedule/team cannot leave dangling escalation targets.
+func (r *EscalationStepRepository) CountByTarget(ctx context.Context, targetType string, targetID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.EscalationStep{}).
+		Where("target_type = ? AND target_id = ?", targetType, targetID).
+		Count(&count).Error
+	return count, err
+}
+
 // DeleteByPolicyID deletes all escalation steps for a given policy.
 func (r *EscalationStepRepository) DeleteByPolicyID(ctx context.Context, policyID uint) error {
 	return r.db.WithContext(ctx).

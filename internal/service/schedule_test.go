@@ -575,12 +575,13 @@ func Test_OnCallResult_fields(t *testing.T) {
 // parseHandoffTime tests (P1-8)
 // ---------------------------------------------------------------------------
 
-func Test_parseHandoffTime_ShortForm_ReturnsDefault(t *testing.T) {
-	// "8:30" is only 4 chars, below the 5-char minimum, so it returns the default.
+func Test_parseHandoffTime_ShortForm_ParsedCorrectly(t *testing.T) {
+	// "8:30" is a legal, un-zero-padded handoff time and must be honored —
+	// silently replacing it with the 09:00 default shifts every rotation.
 	hour, min, err := parseHandoffTime("8:30")
 	assert.NoError(t, err)
-	assert.Equal(t, 9, hour, "short form returns default hour 9")
-	assert.Equal(t, 0, min, "short form returns default minute 0")
+	assert.Equal(t, 8, hour, "un-padded hour must be parsed, not defaulted")
+	assert.Equal(t, 30, min, "minutes must be parsed, not defaulted")
 }
 
 func Test_parseHandoffTime_StandardForm_ParsedCorrectly(t *testing.T) {
@@ -605,10 +606,10 @@ func Test_parseHandoffTime_EndOfDay_ParsedCorrectly(t *testing.T) {
 }
 
 func Test_parseHandoffTime_Invalid_ReturnsError(t *testing.T) {
-	// "abc" is 3 chars, below the 5-char minimum, so it returns default (no error).
-	// A 5-char string that doesn't match HH:MM format returns an error.
-	_, _, err := parseHandoffTime("abcde")
-	assert.Error(t, err, "invalid 5-char handoff_time should return an error")
+	for _, input := range []string{"abc", "abcde", "9", ":30"} {
+		_, _, err := parseHandoffTime(input)
+		assert.Error(t, err, "non-empty malformed handoff_time %q must return an error, not the silent default", input)
+	}
 }
 
 func Test_parseHandoffTime_Empty_ReturnsDefault(t *testing.T) {
@@ -618,11 +619,11 @@ func Test_parseHandoffTime_Empty_ReturnsDefault(t *testing.T) {
 	assert.Equal(t, 0, min, "default minute should be 0")
 }
 
-func Test_parseHandoffTime_TooShort_ReturnsDefault(t *testing.T) {
+func Test_parseHandoffTime_SingleDigits_ParsedCorrectly(t *testing.T) {
 	hour, min, err := parseHandoffTime("1:2")
-	assert.NoError(t, err, "short handoff_time should return default, not error")
-	assert.Equal(t, 9, hour)
-	assert.Equal(t, 0, min)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, hour)
+	assert.Equal(t, 2, min)
 }
 
 func Test_parseHandoffTime_OutOfRangeHour_ReturnsError(t *testing.T) {

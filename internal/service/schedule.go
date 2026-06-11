@@ -132,9 +132,21 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule *model.Sc
 }
 
 // DeleteSchedule deletes a schedule and its participants/overrides/shifts atomically.
+// Deletion is blocked while any escalation policy step still targets this
+// schedule — otherwise the escalation chain would silently resolve to nobody.
 func (s *ScheduleService) DeleteSchedule(ctx context.Context, id uint) error {
 	if _, err := s.scheduleRepo.GetByID(ctx, id); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "schedule not found")
+	}
+
+	refs, err := s.stepRepo.CountByTarget(ctx, "schedule", id)
+	if err != nil {
+		s.logger.Error("failed to check escalation step references", zap.Error(err), zap.Uint("schedule_id", id))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if refs > 0 {
+		return apperr.WithMessage(apperr.ErrBusiness,
+			fmt.Sprintf("schedule is referenced by %d escalation policy step(s); update those policies first", refs))
 	}
 
 	if err := s.scheduleRepo.DeleteCascade(ctx, id); err != nil {
@@ -460,10 +472,12 @@ func rotationPeriodDays(schedule *model.Schedule) int {
 	}
 }
 
-// parseHandoffTime parses a "HH:MM" string and returns hour, minute, and error.
-// Returns (9, 0, nil) as default if the string is empty or malformed.
+// parseHandoffTime parses an "H:MM"/"HH:MM" string and returns hour, minute, and error.
+// Only an EMPTY string falls back to the 09:00 default; any non-empty value is
+// parsed strictly so inputs like "8:30" are honored instead of being silently
+// replaced by the default (which would shift every rotation calculation).
 func parseHandoffTime(s string) (hour, min int, err error) {
-	if len(s) < 5 {
+	if s == "" {
 		return 9, 0, nil
 	}
 	n, err := fmt.Sscanf(s, "%d:%d", &hour, &min)

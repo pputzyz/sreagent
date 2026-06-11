@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -26,6 +28,7 @@ type TeamRepository interface {
 	GetMember(ctx context.Context, teamID, userID uint) (*model.TeamMember, error)
 	UpdateMember(ctx context.Context, member *model.TeamMember) error
 	ListByUser(ctx context.Context, userID uint) ([]model.TeamMember, error)
+	CountReferences(ctx context.Context, teamID uint) (map[string]int64, error)
 }
 
 // TeamService provides team management operations.
@@ -97,9 +100,28 @@ func (s *TeamService) Update(ctx context.Context, team *model.Team) error {
 }
 
 // Delete deletes a team by its ID.
+// Deletion is blocked while other resources (alert rules, schedules,
+// escalation policies/steps) still reference the team — deleting anyway
+// would leave dangling team_id pointers and escalation targets that
+// silently resolve to nobody.
 func (s *TeamService) Delete(ctx context.Context, id uint) error {
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		return apperr.WithMessage(apperr.ErrNotFound, "team not found")
+	}
+
+	refs, err := s.repo.CountReferences(ctx, id)
+	if err != nil {
+		s.logger.Error("failed to check team references", zap.Error(err), zap.Uint("team_id", id))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	if len(refs) > 0 {
+		parts := make([]string, 0, len(refs))
+		for name, count := range refs {
+			parts = append(parts, fmt.Sprintf("%d %s", count, name))
+		}
+		sort.Strings(parts)
+		return apperr.WithMessage(apperr.ErrBusiness,
+			fmt.Sprintf("team is still referenced by %s; reassign or remove those first", strings.Join(parts, ", ")))
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {
