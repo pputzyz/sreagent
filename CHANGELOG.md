@@ -4,6 +4,37 @@
 
 ---
 
+## [v4.70.2] — 2026-06-11
+
+### 第二轮整改（补丁驱动，25 个文件 +511/-167 行）
+
+**引擎健壮性 (P1-2/P1-3/P1-4):**
+- P1-2: `oauth2.go` exchangeToken/fetchUserInfo 裸 `http.Client` → `safehttp.NewSafeClient` 防 SSRF
+- P1-3: `rule_eval.go` 新增 `safeTick` 方法，evaluate/gcStates 全部经 safeTick 调用（panic 只杀当次 tick 不杀循环）；`evaluator.go` sync loop 内新增 per-tick recover 闭包；`AddRule` 的 `!ok` 分支 nil 解引用修复
+- P1-4: `leader_election.go` 新增 `lastRenewOK atomic.Int64`；renew 失败且距上次成功超过 lockTTL 时自动降级，防止 split-brain
+
+**告警事件正确性 (P1-5/P1-6/P0-1/P0-2):**
+- P1-5: `alert_event_webhook.go` resolved 分支改 `TransitionStatus`（CAS）；dedup 分支改 `IncrFireCount`（原子自增）；re-fire 分支也改 CAS，竞争失败回退为 IncrFireCount
+- P1-6: `alert_event.go` (repo) `GetLatestByFingerprints` 加 `Order("fired_at DESC, id DESC")` 确保返回最新事件
+- P0-1: `alert_event.go` (service) `notifySvc` 字段改为 `alertRouter` 小接口，构造函数防 typed-nil；re-fire 测试新增 mockAlertRouter + `assert.Eventually` 断言通知路由被调用
+- P0-2: `silence_expiry.go` 批量 UPDATE 加 `AND status = 'silenced'` 守卫，防止用户 resolve 的事件被打回 firing
+
+**排班与团队 (P1-7/P1-8):**
+- P1-7: 新增 `EscalationStepRepository.CountByTarget`；`DeleteSchedule` 前检查 schedule 引用；新增 `TeamRepository.CountReferences`（查 alert_rules/schedules/escalation_policies/escalation_steps 四处）；`TeamService.Delete` 有引用时返回 10002 业务错误
+- P1-8: `parseHandoffTime` 只对空串返回默认值，"8:30"/"1:2" 正确解析，其他非法输入报错
+
+**用户信息脱敏 (P1-1):**
+- `handler/user.go` `maskNotifyTarget` 改为对所有非 admin 一律清空（human 用户的手机/邮箱也属敏感）
+
+**前端失焦修复 + i18n (P2-8/P1-12):**
+- P2-8: `KVEditor.vue` 新增 `inheritRowId` 保持 `:key` 稳定；`LabelMatcherEditor.vue` 同方案 `patchRow`；`VariableEditorItem.vue` 改为平行 `optIds` 数组，消除 Map 无限增长内存泄漏
+- P1-12: 补 5 个缺失 i18n key；修 4 处 vue-i18n 不支持的 ICU 复数语法（改为 `item(s)` 风格）；删除无引用死 key `alert.Description`
+
+**IncrFireCount 状态集扩展:**
+- WHERE 状态集从 {firing, acknowledged} 扩展为 {firing, acknowledged, assigned, silenced}
+
+---
+
 ## [v4.67.3] — 2026-06-09
 
 ### QA Comprehensive 测试 100% 通过
