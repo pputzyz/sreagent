@@ -30,6 +30,14 @@
 //     is authoritative. AutoMigrate is purely a safety net for table existence.
 package model
 
+// LarkCardModels returns models for the CardKit card entity/message system.
+func LarkCardModels() []interface{} {
+	return []interface{}{
+		&LarkCardEntity{},
+		&LarkCardMessage{},
+	}
+}
+
 // NotificationV2Models returns all new notification system v2 models
 // that need to be auto-migrated. This function is called by main.go
 // during database initialization.
