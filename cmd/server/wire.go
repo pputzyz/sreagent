@@ -560,6 +560,7 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	svcs.EventSvc = service.NewAlertEventService(repos.Event, repos.Timeline, repos.User, svcs.NotifySvc, svcs.ScheduleSvc, svcs.LarkSvc, svcs.AlertWorkerPool, zapLogger)
 
 	svcs.LarkBotSvc = service.NewLarkBotService(svcs.SettingSvc, svcs.EventSvc, svcs.ScheduleSvc, repos.User, zapLogger)
+	svcs.LarkBotSvc.SetAgentService(svcs.AgentSvc)
 
 	// LDAP + OAuth2 services
 	svcs.LDAPSvc = service.NewLDAPService(svcs.SettingSvc, repos.User, zapLogger)
@@ -946,6 +947,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 			cardKit := lark.NewCardKitClient(botClient, lark.NewRateLimiter())
 			svcs.LarkCardStateSvc = service.NewLarkCardStateService(repos.LarkCard, cardKit, svcs.SettingSvc, zapLogger)
 			svcs.LarkSvc.SetCardService(svcs.LarkCardStateSvc)
+			svcs.LarkBotSvc.SetCardService(svcs.LarkCardStateSvc)
 		}
 
 		// ConversationStore for Lark bot multi-turn context

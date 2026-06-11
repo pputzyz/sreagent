@@ -998,6 +998,77 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 	}, nil
 }
 
+// StepCallback is called after each agent tool step during streaming execution.
+// step is the 1-based step number, content is the tool result or intermediate text.
+type StepCallback func(step int, toolName, content string)
+
+// RunWithStreaming is like RunUntilDone but calls onStep after each tool execution,
+// allowing the caller to progressively update a card (e.g. Lark streaming card).
+// The callback is called synchronously within the agent loop; if it blocks, the
+// agent loop will slow down accordingly.
+func (s *AgentService) RunWithStreaming(
+	ctx context.Context,
+	userID uint,
+	systemPrompt, userPrompt string,
+	allowedTools []string,
+	maxSteps int,
+	onStep StepCallback,
+) (*RunResult, error) {
+	if maxSteps <= 0 {
+		maxSteps = 15
+	}
+
+	cfg, err := s.aiSvc.loadConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+	}
+	if !cfg.Enabled {
+		return nil, fmt.Errorf("AI 未启用")
+	}
+
+	tools := s.toolReg.ToOpenAIToolsFiltered(allowedTools)
+	toolList := s.toolReg.ListFiltered(allowedTools)
+	toolMap := make(map[string]*AITool, len(toolList))
+	for _, t := range toolList {
+		toolMap[t.Name] = t
+	}
+
+	stepCounter := 0
+	executor := func(execCtx context.Context, name string, params map[string]interface{}) (string, error) {
+		tool, ok := toolMap[name]
+		if !ok {
+			return "", fmt.Errorf("工具 %q 不在允许列表中", name)
+		}
+		toolCtx, cancel := context.WithTimeout(execCtx, agentStepTimeout)
+		defer cancel()
+		result, execErr := tool.Execute(toolCtx, params)
+
+		stepCounter++
+		if onStep != nil {
+			content := result
+			if execErr != nil {
+				content = fmt.Sprintf("工具 %s 执行失败: %v", name, execErr)
+			}
+			onStep(stepCounter, name, content)
+		}
+
+		if execErr != nil {
+			return fmt.Sprintf("工具执行失败: %v", execErr), nil
+		}
+		return result, nil
+	}
+
+	finalAnswer, records, err := s.aiSvc.callLLMWithToolsCustom(ctx, cfg, systemPrompt, userPrompt, tools, executor, maxSteps)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RunResult{
+		FinalAnswer: finalAnswer,
+		ToolCalls:   records,
+	}, nil
+}
+
 // summarize 让 LLM 汇总所有步骤结果
 func (s *AgentService) summarize(ctx context.Context, task *AgentTask) (string, error) {
 	systemPrompt := "你是一个 SRE 运维助手。请根据以下 Agent 任务的执行结果，生成一份简洁的中文汇总报告。\n" +

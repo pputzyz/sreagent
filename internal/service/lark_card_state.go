@@ -233,3 +233,118 @@ func severityEmoji(severity string) string {
 		return "⚪"
 	}
 }
+
+// --- Streaming card support for T4-3 ---
+
+// CreateStreamingCard creates a new CardKit card entity in "streaming" mode
+// and sends it to the given chat. Returns the card entity ID for subsequent
+// AppendContent / FinalizeCard calls.
+func (s *LarkCardStateService) CreateStreamingCard(ctx context.Context, chatID, question string) (*model.LarkCardEntity, error) {
+	cardJSON, err := lark.NewCardV2Builder().
+		Config(&lark.CardV2Config{
+			WideScreenMode: true,
+			Summary:        &lark.CardV2Text{Tag: "plain_text", Content: "🤔 分析中..."},
+		}).
+		Header("🤖 SRE Agent", "blue").
+		AddMarkdown("🤔 **正在分析您的问题...**\n\n" + question).
+		BuildJSON()
+	if err != nil {
+		return nil, fmt.Errorf("build streaming card: %w", err)
+	}
+
+	cardID, err := s.cardKit.CreateCardEntity(ctx, cardJSON)
+	if err != nil {
+		return nil, fmt.Errorf("create streaming card entity: %w", err)
+	}
+
+	entity := &model.LarkCardEntity{
+		CardID:     cardID,
+		Sequence:   1,
+		CardStatus: "active",
+		ExpiresAt:  time.Now().Add(cardExpiryDuration),
+	}
+	if err := s.cardRepo.CreateEntity(ctx, entity); err != nil {
+		return nil, fmt.Errorf("save streaming card entity: %w", err)
+	}
+
+	// Send to the target chat.
+	msgID, err := s.cardKit.SendCardByID(ctx, chatID, cardID)
+	if err != nil {
+		s.logger.Warn("failed to send streaming card to chat",
+			zap.String("chat_id", chatID), zap.Error(err))
+	} else {
+		_ = s.cardRepo.CreateMessage(ctx, &model.LarkCardMessage{
+			CardEntityID: entity.ID,
+			ChatID:       chatID,
+			MessageID:    msgID,
+		})
+	}
+
+	return entity, nil
+}
+
+// AppendStreamingContent appends a tool step result to a streaming card.
+// Each call updates the card entity with the accumulated content so far.
+func (s *LarkCardStateService) AppendStreamingContent(ctx context.Context, entityID uint, step int, toolName, content string) error {
+	entity, err := s.cardRepo.GetEntityByID(ctx, entityID)
+	if err != nil {
+		return fmt.Errorf("get streaming entity: %w", err)
+	}
+
+	// Build updated card with the new step appended.
+	cardJSON, err := lark.NewCardV2Builder().
+		Config(&lark.CardV2Config{
+			WideScreenMode: true,
+			Summary:        &lark.CardV2Text{Tag: "plain_text", Content: fmt.Sprintf("⏳ 步骤 %d: %s", step, toolName)},
+		}).
+		Header("🤖 SRE Agent", "blue").
+		AddMarkdown(fmt.Sprintf("⏳ **步骤 %d: `%s`** 已完成", step, toolName)).
+		AddCollapsiblePanel(fmt.Sprintf("步骤 %d 结果", step), false,
+			lark.NewMarkdown(truncateForCard(content, 2000))).
+		BuildJSON()
+	if err != nil {
+		return fmt.Errorf("build append card: %w", err)
+	}
+
+	seq, err := s.cardRepo.IncrementSequence(ctx, entity.ID)
+	if err != nil {
+		return fmt.Errorf("increment sequence: %w", err)
+	}
+
+	return s.cardKit.UpdateCardEntity(ctx, entity.CardID, cardJSON, seq, "")
+}
+
+// FinalizeStreamingCard updates the streaming card with the final answer.
+func (s *LarkCardStateService) FinalizeStreamingCard(ctx context.Context, entityID uint, question, answer string) error {
+	entity, err := s.cardRepo.GetEntityByID(ctx, entityID)
+	if err != nil {
+		return fmt.Errorf("get streaming entity: %w", err)
+	}
+
+	cardJSON, err := lark.NewCardV2Builder().
+		Config(&lark.CardV2Config{
+			WideScreenMode: true,
+			Summary:        &lark.CardV2Text{Tag: "plain_text", Content: truncateForCard(answer, 100)},
+		}).
+		Header("🤖 SRE Agent", "green").
+		AddMarkdown(fmt.Sprintf("**问题:** %s\n\n---\n\n**回答:**\n%s", question, answer)).
+		BuildJSON()
+	if err != nil {
+		return fmt.Errorf("build finalize card: %w", err)
+	}
+
+	seq, err := s.cardRepo.IncrementSequence(ctx, entity.ID)
+	if err != nil {
+		return fmt.Errorf("increment sequence: %w", err)
+	}
+
+	return s.cardKit.UpdateCardEntity(ctx, entity.CardID, cardJSON, seq, "")
+}
+
+// truncateForCard truncates text to a maximum length for card display.
+func truncateForCard(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}

@@ -32,6 +32,8 @@ type LarkBotService struct {
 	eventSvc    *AlertEventService
 	scheduleSvc *ScheduleService
 	aiSvc       *AIService           // optional; enables AI conversation in groups
+	agentSvc    *AgentService        // optional; enables tool-calling NL conversation
+	cardSvc     *LarkCardStateService // optional; enables streaming card replies
 	userRepo    *repository.UserRepository // optional; enables OpenID→User mapping
 	client      *http.Client
 	tokenCache  *lark.TokenCache // shared token cache (optional)
@@ -65,6 +67,16 @@ func (s *LarkBotService) SetTokenCache(cache *lark.TokenCache) {
 // SetAIService injects the AI service for natural language conversation in Lark groups.
 func (s *LarkBotService) SetAIService(svc *AIService) {
 	s.aiSvc = svc
+}
+
+// SetAgentService injects the AgentService for tool-calling NL conversation.
+func (s *LarkBotService) SetAgentService(svc *AgentService) {
+	s.agentSvc = svc
+}
+
+// SetCardService injects the LarkCardStateService for streaming card replies.
+func (s *LarkBotService) SetCardService(svc *LarkCardStateService) {
+	s.cardSvc = svc
 }
 
 // resolveUserID maps a Lark open_id to a DB user ID.
@@ -905,8 +917,8 @@ func (s *LarkBotService) handleAIConversation(ctx context.Context, question stri
 }
 
 // handleAgentConversation routes a natural language message through the AgentService
-// tool-calling pipeline. The agent has access to SRE tools (query_alert_events,
-// alert_statistics, get_oncall, acknowledge_alert) and produces structured answers.
+// tool-calling pipeline. When cardSvc and agentSvc are available, uses streaming
+// card updates; otherwise falls back to simple Chat.
 func (s *LarkBotService) handleAgentConversation(ctx context.Context, question, chatID, larkChatID, userID string) error {
 	if s.aiSvc == nil {
 		return s.SendMessage(ctx, chatID, "AI 助手未配置，请在系统设置中启用 AI。")
@@ -917,17 +929,20 @@ func (s *LarkBotService) handleAgentConversation(ctx context.Context, question, 
 回答简洁专业，使用中文。如果用户的问题涉及数据查询，请使用提供的工具获取实时数据。
 如果问题不明确，请给出通用的排查建议。`
 
-	// Run agent with tool-calling (max 10 steps).
+	// Streaming path: agentSvc + cardSvc → streaming card with tool step updates.
+	if s.agentSvc != nil && s.cardSvc != nil {
+		return s.handleStreamingAgentConversation(ctx, question, chatID, larkChatID, systemPrompt)
+	}
+
+	// Fallback: simple Chat without streaming.
 	result, err := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
 	if err != nil {
 		s.logger.Warn("agent conversation failed", zap.Error(err))
 		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", err))
 	}
 
-	// Send as a card.
 	cfg, _ := s.loadConfig(ctx)
 	card := lark.BuildAIResponseCard(question, result, "")
-
 	if cfg.AppID != "" && cfg.AppSecret != "" && s.tokenCache != nil {
 		bot := lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache, lark.BaseURLForDomain(cfg.Domain))
 		if _, sendErr := bot.SendMessage(ctx, larkChatID, card); sendErr != nil {
@@ -938,5 +953,54 @@ func (s *LarkBotService) handleAgentConversation(ctx context.Context, question, 
 		return nil
 	}
 
+	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", result))
+}
+
+// handleStreamingAgentConversation runs the agent with streaming card updates.
+func (s *LarkBotService) handleStreamingAgentConversation(ctx context.Context, question, chatID, larkChatID, systemPrompt string) error {
+	// Resolve operator for RBAC (0 = system user).
+	var operatorID uint
+	if resolved, err := s.resolveUserID(ctx, chatID); err == nil {
+		operatorID = resolved
+	}
+
+	// Create streaming card.
+	entity, err := s.cardSvc.CreateStreamingCard(ctx, larkChatID, question)
+	if err != nil {
+		s.logger.Warn("streaming card creation failed, falling back to text", zap.Error(err))
+		return s.handleAgentConversationFallback(ctx, question, chatID, larkChatID, systemPrompt)
+	}
+
+	// Run agent with streaming callback.
+	result, err := s.agentSvc.RunWithStreaming(ctx, operatorID, systemPrompt, question, nil, 10,
+		func(step int, toolName, content string) {
+			if updateErr := s.cardSvc.AppendStreamingContent(ctx, entity.ID, step, toolName, content); updateErr != nil {
+				s.logger.Warn("streaming card append failed",
+					zap.Int("step", step), zap.Error(updateErr))
+			}
+		},
+	)
+	if err != nil {
+		s.logger.Warn("streaming agent failed", zap.Error(err))
+		// Update card with error state.
+		_ = s.cardSvc.FinalizeStreamingCard(ctx, entity.ID, question, fmt.Sprintf("❌ 执行失败: %v", err))
+		return nil
+	}
+
+	// Finalize card with the complete answer.
+	if err := s.cardSvc.FinalizeStreamingCard(ctx, entity.ID, question, result.FinalAnswer); err != nil {
+		s.logger.Warn("streaming card finalize failed", zap.Error(err))
+	}
+
+	s.recordMessageSuccess()
+	return nil
+}
+
+// handleAgentConversationFallback is the non-streaming fallback.
+func (s *LarkBotService) handleAgentConversationFallback(ctx context.Context, question, chatID, larkChatID, systemPrompt string) error {
+	result, err := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
+	if err != nil {
+		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", err))
+	}
 	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", result))
 }
