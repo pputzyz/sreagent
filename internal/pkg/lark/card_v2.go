@@ -278,6 +278,27 @@ func (b *CardV2Builder) AddActions(buttons ...interface{}) *CardV2Builder {
 	return b
 }
 
+// AddColumnSet appends a multi-column layout row.
+func (b *CardV2Builder) AddColumnSet(columns ...ColumnElement) *CardV2Builder {
+	b.elements = append(b.elements, ColumnSetElement{
+		Tag:      "column_set",
+		FlexMode: "stretch",
+		Columns:  columns,
+	})
+	b.size += 60
+	return b
+}
+
+// NewColumn creates a weighted column containing the given elements.
+func NewColumn(weight int, elements ...interface{}) ColumnElement {
+	return ColumnElement{
+		Tag:      "column",
+		Width:    "weighted",
+		Weight:   weight,
+		Elements: elements,
+	}
+}
+
 // AddPerson appends a person display element.
 func (b *CardV2Builder) AddPerson(openIDs ...string) *CardV2Builder {
 	b.elements = append(b.elements, PersonElement{Tag: "person", Mode: "name", OpenIDs: openIDs})
@@ -292,23 +313,104 @@ func (b *CardV2Builder) AddNote(elements ...interface{}) *CardV2Builder {
 	return b
 }
 
-// Build finalizes the card and returns it. Returns an error if the estimated size exceeds 30KB.
+// Build finalizes the card and returns it. If the serialized card exceeds the
+// 30KB limit, oversized content is degraded progressively instead of failing:
+//  1. markdown inside collapsible panels is truncated to 500 chars each
+//  2. collapsible panels are dropped entirely and a note is appended
+//
+// Only if the card is STILL oversized after both passes is an error returned.
 func (b *CardV2Builder) Build() (*CardV2, error) {
-	b.card.Body = &CardV2Body{Elements: b.elements}
-
-	if len(b.elements) > maxCardComponents {
-		return nil, fmt.Errorf("card has %d elements, limit is %d", len(b.elements), maxCardComponents)
+	if n := countComponents(b.elements); n > maxCardComponents {
+		return nil, fmt.Errorf("card has %d components (incl. nested), limit is %d", n, maxCardComponents)
 	}
 
+	b.card.Body = &CardV2Body{Elements: b.elements}
 	data, err := json.Marshal(b.card)
 	if err != nil {
 		return nil, fmt.Errorf("marshal card: %w", err)
 	}
-	if len(data) > maxCardBytes {
-		return nil, fmt.Errorf("card size %d bytes exceeds %d byte limit", len(data), maxCardBytes)
+	if len(data) <= maxCardBytes {
+		return &b.card, nil
 	}
 
+	// Pass 1: truncate markdown inside collapsible panels.
+	truncated := truncatePanels(b.elements, 500)
+	b.card.Body = &CardV2Body{Elements: truncated}
+	if data, err = json.Marshal(b.card); err != nil {
+		return nil, fmt.Errorf("marshal card: %w", err)
+	}
+	if len(data) <= maxCardBytes {
+		return &b.card, nil
+	}
+
+	// Pass 2: drop collapsible panels entirely, append a notice.
+	stripped := make([]interface{}, 0, len(truncated))
+	for _, el := range truncated {
+		if _, isPanel := el.(CollapsiblePanelElement); isPanel {
+			continue
+		}
+		stripped = append(stripped, el)
+	}
+	stripped = append(stripped, MarkdownElement{Tag: "markdown", Content: "*⚠️ 内容过长，部分详情已省略，请打开平台查看完整信息*"})
+	b.card.Body = &CardV2Body{Elements: stripped}
+	if data, err = json.Marshal(b.card); err != nil {
+		return nil, fmt.Errorf("marshal card: %w", err)
+	}
+	if len(data) > maxCardBytes {
+		return nil, fmt.Errorf("card size %d bytes exceeds %d byte limit even after truncation", len(data), maxCardBytes)
+	}
 	return &b.card, nil
+}
+
+// countComponents counts elements including those nested in containers.
+func countComponents(elements []interface{}) int {
+	n := 0
+	for _, el := range elements {
+		n++
+		switch v := el.(type) {
+		case CollapsiblePanelElement:
+			n += countComponents(v.Elements)
+		case ColumnSetElement:
+			for _, col := range v.Columns {
+				n++
+				n += countComponents(col.Elements)
+			}
+		case ActionElement:
+			n += len(v.Actions)
+		case FormElement:
+			n += countComponents(v.Elements)
+		case NoteElement:
+			n += countComponents(v.Elements)
+		}
+	}
+	return n
+}
+
+// truncatePanels returns a copy of elements where markdown content inside
+// collapsible panels is truncated to maxLen runes.
+func truncatePanels(elements []interface{}, maxLen int) []interface{} {
+	out := make([]interface{}, 0, len(elements))
+	for _, el := range elements {
+		panel, isPanel := el.(CollapsiblePanelElement)
+		if !isPanel {
+			out = append(out, el)
+			continue
+		}
+		inner := make([]interface{}, 0, len(panel.Elements))
+		for _, ie := range panel.Elements {
+			if md, ok := ie.(MarkdownElement); ok {
+				if runes := []rune(md.Content); len(runes) > maxLen {
+					md.Content = string(runes[:maxLen]) + "\n*…（已截断）*"
+				}
+				inner = append(inner, md)
+				continue
+			}
+			inner = append(inner, ie)
+		}
+		panel.Elements = inner
+		out = append(out, panel)
+	}
+	return out
 }
 
 // BuildJSON returns the card as a JSON string (for CardKit CreateCardEntity).
@@ -348,6 +450,50 @@ func NewButton(text, action, style string, value map[string]interface{}) ButtonV
 		}
 	}
 	return btn
+}
+
+// --- Chart spec helpers (VChart) ---
+//
+// Field names verified against the official Lark chart component docs
+// (open.larksuite.com … card-json-v2-components/content-components/chart):
+//   line/bar: xField + yField;  pie: valueField + categoryField (NOT angleField).
+
+// NewLineChartSpec builds a VChart line chart spec.
+// values: e.g. []map[string]interface{}{{"time":"10:00","count":3}, ...}
+func NewLineChartSpec(title string, values []map[string]interface{}, xField, yField string) map[string]interface{} {
+	return map[string]interface{}{
+		"type":   "line",
+		"title":  map[string]interface{}{"text": title},
+		"data":   map[string]interface{}{"values": values},
+		"xField": xField,
+		"yField": yField,
+	}
+}
+
+// NewPieChartSpec builds a VChart pie chart spec.
+// values: e.g. []map[string]interface{}{{"type":"critical","value":3}, ...}
+func NewPieChartSpec(title string, values []map[string]interface{}, valueField, categoryField string) map[string]interface{} {
+	return map[string]interface{}{
+		"type":          "pie",
+		"title":         map[string]interface{}{"text": title},
+		"data":          map[string]interface{}{"values": values},
+		"valueField":    valueField,
+		"categoryField": categoryField,
+		"outerRadius":   0.9,
+		"legends":       map[string]interface{}{"visible": true, "orient": "right"},
+		"label":         map[string]interface{}{"visible": true},
+	}
+}
+
+// NewBarChartSpec builds a VChart bar chart spec.
+func NewBarChartSpec(title string, values []map[string]interface{}, xField, yField string) map[string]interface{} {
+	return map[string]interface{}{
+		"type":   "bar",
+		"title":  map[string]interface{}{"text": title},
+		"data":   map[string]interface{}{"values": values},
+		"xField": xField,
+		"yField": yField,
+	}
 }
 
 // SeverityToTemplate maps alert severity to Card 2.0 header color template.

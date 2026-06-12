@@ -92,6 +92,11 @@ type LarkConfig struct {
 	CommandsEnabled        bool `json:"commands_enabled"`         // default true
 	NaturalLanguageEnabled bool `json:"natural_language_enabled"` // default false
 	DebugMode              bool `json:"debug_mode"`               // default false
+
+	// BotAllowedTools is a comma-separated whitelist of AI tools the Lark bot
+	// agent may call. Empty = built-in safe default (read-only + ack); it is
+	// NEVER expanded to the full registry.
+	BotAllowedTools string `json:"bot_allowed_tools"`
 }
 
 // SecurityConfig holds security-related settings stored in the DB.
@@ -594,6 +599,7 @@ func (s *SystemSettingService) GetLarkConfig(ctx context.Context) (LarkConfig, e
 		CommandsEnabled:           parseBoolDef(kv["commands_enabled"], true),
 		NaturalLanguageEnabled:    parseBool(kv["natural_language_enabled"]),
 		DebugMode:                 parseBool(kv["debug_mode"]),
+		BotAllowedTools:           kv["bot_allowed_tools"],
 	}
 
 	s.larkMu.Lock()
@@ -622,6 +628,7 @@ func (s *SystemSettingService) SaveLarkConfig(ctx context.Context, cfg LarkConfi
 		"commands_enabled":              strconv.FormatBool(cfg.CommandsEnabled),
 		"natural_language_enabled":      strconv.FormatBool(cfg.NaturalLanguageEnabled),
 		"debug_mode":                    strconv.FormatBool(cfg.DebugMode),
+		"bot_allowed_tools":             cfg.BotAllowedTools,
 	}
 
 	encryptField := func(group, key, value string) (string, error) {

@@ -59,11 +59,20 @@ func Test_CardV2Builder_WithCollapsiblePanel(t *testing.T) {
 func Test_CardV2Builder_WithColumnSet(t *testing.T) {
 	card, err := NewCardV2Builder().
 		Header("Summary", "green").
-		AddMarkdown("Status: resolved").
+		AddColumnSet(
+			NewColumn(1, NewMarkdown("**Total:** 47")),
+			NewColumn(1, NewMarkdown("**Critical:** 2")),
+		).
 		Build()
 
 	require.NoError(t, err)
-	assert.NotNil(t, card.Body)
+	require.Len(t, card.Body.Elements, 1)
+	cs, ok := card.Body.Elements[0].(ColumnSetElement)
+	require.True(t, ok, "element must be a column_set")
+	assert.Equal(t, "column_set", cs.Tag)
+	require.Len(t, cs.Columns, 2)
+	assert.Equal(t, "weighted", cs.Columns[0].Width)
+	assert.Equal(t, 1, cs.Columns[0].Weight)
 }
 
 func Test_CardV2Builder_WithConfig(t *testing.T) {
@@ -110,16 +119,62 @@ func Test_CardV2Builder_ComponentLimit(t *testing.T) {
 	}
 	_, err := b.Build()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "201 elements")
+	assert.Contains(t, err.Error(), "201 components")
 }
 
-func Test_CardV2Builder_30KBLimit(t *testing.T) {
+func Test_CardV2Builder_ComponentLimit_CountsNested(t *testing.T) {
+	// 100 panels × (1 panel + 2 nested markdown) = 300 components — over the
+	// 200 limit even though only 100 TOP-LEVEL elements exist. Counting only
+	// top-level elements would wrongly accept this card.
+	b := NewCardV2Builder().Header("Nested", "red")
+	for i := 0; i < 100; i++ {
+		b.AddCollapsiblePanel("p", false, NewMarkdown("a"), NewMarkdown("b"))
+	}
+	_, err := b.Build()
+	assert.Error(t, err, "nested components must count toward the 200 limit")
+}
+
+func Test_CardV2Builder_Oversize_TruncatesPanels(t *testing.T) {
+	// Oversize content INSIDE collapsible panels must be truncated/dropped
+	// (degrade gracefully), not returned as an error.
+	b := NewCardV2Builder().Header("Big", "red").AddMarkdown("summary line")
+	big := strings.Repeat("y", 20*1024)
+	b.AddCollapsiblePanel("Labels", false, NewMarkdown(big))
+	b.AddCollapsiblePanel("Annotations", false, NewMarkdown(big))
+
+	card, err := b.Build()
+	require.NoError(t, err, "oversize panel content must degrade, not fail")
+	data, mErr := json.Marshal(card)
+	require.NoError(t, mErr)
+	assert.LessOrEqual(t, len(data), maxCardBytes, "degraded card must fit in 30KB")
+}
+
+func Test_CardV2Builder_30KBLimit_TopLevelOversizeStillErrors(t *testing.T) {
+	// A giant TOP-LEVEL markdown can't be silently degraded — that's the
+	// caller's primary content. This must surface as an error.
 	b := NewCardV2Builder().Header("Big", "red")
-	bigContent := strings.Repeat("x", 30*1024)
+	bigContent := strings.Repeat("x", 31*1024)
 	b.AddMarkdown(bigContent)
 	_, err := b.Build()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "30")
+}
+
+func Test_NewPieChartSpec_UsesValueAndCategoryFields(t *testing.T) {
+	// VChart pie uses valueField/categoryField — NOT angleField (a G2 field
+	// name the original draft got wrong). Guard against regressions.
+	spec := NewPieChartSpec("dist", []map[string]interface{}{{"type": "critical", "value": 3}}, "value", "type")
+	assert.Equal(t, "pie", spec["type"])
+	assert.Equal(t, "value", spec["valueField"])
+	assert.Equal(t, "type", spec["categoryField"])
+	assert.NotContains(t, spec, "angleField")
+}
+
+func Test_NewLineChartSpec_Fields(t *testing.T) {
+	spec := NewLineChartSpec("trend", []map[string]interface{}{{"t": "10:00", "c": 5}}, "t", "c")
+	assert.Equal(t, "line", spec["type"])
+	assert.Equal(t, "t", spec["xField"])
+	assert.Equal(t, "c", spec["yField"])
 }
 
 func Test_CardV2Builder_BuildJSON(t *testing.T) {

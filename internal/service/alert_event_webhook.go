@@ -240,11 +240,12 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 	return nil
 }
 
-// triggerLarkCardUpdate patches or deletes the Lark card in the background when
-// the alert was originally sent via Bot API (LarkMessageID is non-empty).
-// Uses the bounded worker pool when available.
+// triggerLarkCardUpdate patches or deletes the Lark card in the background on
+// status changes. v1 cards are tracked via event.LarkMessageID; v2 (CardKit)
+// cards via lark_card_entities — so the message-ID check lives inside
+// HandleCardLifecycle, not here (gating here would skip every v2 card).
 func (s *AlertEventService) triggerLarkCardUpdate(event *model.AlertEvent) {
-	if s.larkSvc == nil || event.LarkMessageID == "" {
+	if s.larkSvc == nil {
 		return
 	}
 	e := event
