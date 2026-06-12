@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
@@ -108,7 +106,7 @@ func (h *AlertForwarderHandler) Create(c *gin.Context) {
 
 // GetByID returns an alert forwarder by its ID.
 func (h *AlertForwarderHandler) GetByID(c *gin.Context) {
-	id, err := parseUintID(c, "id")
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
@@ -125,7 +123,8 @@ func (h *AlertForwarderHandler) GetByID(c *gin.Context) {
 
 // List returns a paginated list of alert forwarders.
 func (h *AlertForwarderHandler) List(c *gin.Context) {
-	page, pageSize := parsePagination(c)
+	pq := GetPageQuery(c)
+	page, pageSize := pq.Page, pq.PageSize
 	direction := c.Query("direction")
 
 	var enabled *bool
@@ -140,17 +139,12 @@ func (h *AlertForwarderHandler) List(c *gin.Context) {
 		return
 	}
 
-	Success(c, gin.H{
-		"list":  forwarders,
-		"total": total,
-		"page":  page,
-		"size":  pageSize,
-	})
+	SuccessPage(c, forwarders, total, page, pageSize)
 }
 
 // Update updates an existing alert forwarder.
 func (h *AlertForwarderHandler) Update(c *gin.Context) {
-	id, err := parseUintID(c, "id")
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
@@ -198,7 +192,7 @@ func (h *AlertForwarderHandler) Update(c *gin.Context) {
 
 // Delete deletes an alert forwarder.
 func (h *AlertForwarderHandler) Delete(c *gin.Context) {
-	id, err := parseUintID(c, "id")
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
@@ -220,7 +214,7 @@ func (h *AlertForwarderHandler) Delete(c *gin.Context) {
 
 // Enable enables an alert forwarder.
 func (h *AlertForwarderHandler) Enable(c *gin.Context) {
-	id, err := parseUintID(c, "id")
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
@@ -242,7 +236,7 @@ func (h *AlertForwarderHandler) Enable(c *gin.Context) {
 
 // Disable disables an alert forwarder.
 func (h *AlertForwarderHandler) Disable(c *gin.Context) {
-	id, err := parseUintID(c, "id")
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
@@ -341,7 +335,7 @@ func (h *AlertForwarderHandler) GetStats(c *gin.Context) {
 
 // TestForwarder tests a forwarder configuration.
 func (h *AlertForwarderHandler) TestForwarder(c *gin.Context) {
-	id, err := parseUintID(c, "id")
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
@@ -364,7 +358,7 @@ func (h *AlertForwarderHandler) TestForwarder(c *gin.Context) {
 
 // HandleInbound handles inbound alert webhook requests.
 func (h *AlertForwarderHandler) HandleInbound(c *gin.Context) {
-	id, err := parseUintID(c, "id")
+	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))
 		return
@@ -383,39 +377,3 @@ func (h *AlertForwarderHandler) HandleInbound(c *gin.Context) {
 	Success(c, gin.H{"status": "accepted"})
 }
 
-// parsePagination extracts page and pageSize from query parameters.
-func parsePagination(c *gin.Context) (int, int) {
-	page := 1
-	pageSize := 20
-
-	if p := c.Query("page"); p != "" {
-		if v, err := parseUint(c, "page"); err == nil && v > 0 {
-			page = int(v)
-		}
-	}
-	if ps := c.Query("page_size"); ps != "" {
-		if v, err := parseUint(c, "page_size"); err == nil && v > 0 && v <= 100 {
-			pageSize = int(v)
-		}
-	}
-
-	return page, pageSize
-}
-
-// parseUintID extracts a uint ID from the URL parameter.
-func parseUintID(c *gin.Context, param string) (uint, error) {
-	return parseUint(c, param)
-}
-
-// parseUint parses a uint from a URL parameter.
-func parseUint(c *gin.Context, param string) (uint, error) {
-	val := c.Param(param)
-	if val == "" {
-		val = c.Query(param)
-	}
-	var id uint
-	if _, err := fmt.Sscanf(val, "%d", &id); err != nil {
-		return 0, err
-	}
-	return id, nil
-}
