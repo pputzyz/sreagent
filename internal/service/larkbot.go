@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,7 +20,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/lark"
+	"github.com/sreagent/sreagent/internal/pkg/rbac"
 	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 	"github.com/sreagent/sreagent/internal/repository"
 )
@@ -35,9 +38,15 @@ type LarkBotService struct {
 	agentSvc    *AgentService              // optional; enables tool-calling NL conversation
 	cardSvc     *LarkCardStateService      // optional; enables streaming card replies
 	userRepo    *repository.UserRepository // optional; enables OpenID→User mapping
+	eventDedup  *EventDedup                // optional; Redis-backed event_id idempotency
+	convStore   *ConversationStore         // optional; multi-turn conversation memory
 	client      *http.Client
 	tokenCache  *lark.TokenCache // shared token cache (optional)
 	logger      *zap.Logger
+
+	// eventSourceStatus reports the WS long-connection state ("connected",
+	// "reconnecting", …) when the WebSocket event source is active.
+	eventSourceStatus func() string
 
 	// Runtime lifecycle metrics (in-memory, not persisted).
 	lastMessageAt     time.Time
@@ -79,6 +88,24 @@ func (s *LarkBotService) SetCardService(svc *LarkCardStateService) {
 	s.cardSvc = svc
 }
 
+// SetEventDedup injects the Redis-backed event idempotency checker. Used by
+// BOTH transports (WebSocket and HTTP callback) so duplicate deliveries —
+// e.g. Lark re-pushing after a slow ack — are processed exactly once.
+func (s *LarkBotService) SetEventDedup(d *EventDedup) {
+	s.eventDedup = d
+}
+
+// SetConversationStore injects the multi-turn conversation memory.
+func (s *LarkBotService) SetConversationStore(store *ConversationStore) {
+	s.convStore = store
+}
+
+// SetEventSourceStatusFn wires a status reporter for the WS event source so
+// GetBotStatus can surface the long-connection state to the UI.
+func (s *LarkBotService) SetEventSourceStatusFn(fn func() string) {
+	s.eventSourceStatus = fn
+}
+
 // resolveUserID maps a Lark open_id to a DB user ID.
 // Returns an error if the user repo is not configured, the open_id is empty,
 // or the open_id is not mapped to any system user. No admin fallback.
@@ -91,6 +118,23 @@ func (s *LarkBotService) resolveUserID(ctx context.Context, larkOpenID string) (
 		return 0, fmt.Errorf("lark user %s not mapped to system user, please bind account first", larkOpenID)
 	}
 	return user.ID, nil
+}
+
+// authorizeCardAction verifies the operator's platform role grants the given
+// permission. Identity (resolveUserID) only proves WHO clicked; this proves
+// they are ALLOWED to perform the mutation.
+func (s *LarkBotService) authorizeCardAction(ctx context.Context, operatorID uint, perm string) error {
+	if s.userRepo == nil {
+		return fmt.Errorf("user repo not configured")
+	}
+	user, err := s.userRepo.GetByID(ctx, operatorID)
+	if err != nil {
+		return fmt.Errorf("load operator %d: %w", operatorID, err)
+	}
+	if !rbac.HasPerm(string(user.Role), perm) {
+		return fmt.Errorf("role %q lacks permission %q", user.Role, perm)
+	}
+	return nil
 }
 
 // loadConfig fetches the current Lark config from the DB.
@@ -193,6 +237,10 @@ type LarkCardActionRequest struct {
 	Token    string                 `json:"token"`
 	Type     string                 `json:"type"`
 	FormData map[string]interface{} `json:"form_data,omitempty"`
+	// Context of the click, filled by the WS transport (HTTP payloads carry it
+	// in a different envelope; unused there).
+	OpenMessageID string `json:"open_message_id,omitempty"`
+	OpenChatID    string `json:"open_chat_id,omitempty"`
 }
 
 // LarkCardOperator identifies the user who clicked the button.
@@ -267,15 +315,59 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte, signature
 		return nil, fmt.Errorf("missing lark event signature")
 	}
 
-	// Handle message events
+	// Handle message events through the transport-agnostic entry: dedup +
+	// async processing, so the HTTP callback is acked within Lark's 3-second
+	// window even when the NL path runs a long LLM tool-calling loop.
 	if req.Header != nil && req.Header.EventType == "im.message.receive_v1" {
-		if err := s.handleMessageEvent(ctx, &req, cfg); err != nil {
+		if err := s.HandleMessageEvent(ctx, &req); err != nil {
 			s.logger.Error("failed to handle message event", zap.Error(err))
 			return nil, err
 		}
 	}
 
 	return map[string]string{"status": "ok"}, nil
+}
+
+// HandleMessageEvent is the transport-agnostic entry for im.message.receive_v1
+// events (called by both the WebSocket source and the HTTP callback path,
+// AFTER transport-level verification). It deduplicates by event_id and then
+// processes the message asynchronously: Lark requires the event to be acked
+// within 3 seconds, while the NL path may run an LLM loop for much longer.
+// Returning nil here acks the event; failures inside the async worker are
+// logged and answered in-chat, not retried by Lark.
+func (s *LarkBotService) HandleMessageEvent(ctx context.Context, req *LarkEventRequest) error {
+	if s.eventDedup != nil && req.Header != nil && req.Header.EventID != "" {
+		dup, err := s.eventDedup.IsDuplicate(ctx, req.Header.EventID)
+		if err != nil {
+			s.logger.Warn("event dedup check failed, processing anyway", zap.Error(err))
+		} else if dup {
+			s.logger.Debug("duplicate message event skipped", zap.String("event_id", req.Header.EventID))
+			return nil
+		}
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("async message event handler panic recovered",
+					zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+			}
+		}()
+		// Detach from the request context: the HTTP response (the ack) returns
+		// immediately, but processing may legitimately take minutes.
+		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		cfg, err := s.loadConfig(bgCtx)
+		if err != nil {
+			s.logger.Error("async message event: failed to load lark config", zap.Error(err))
+			return
+		}
+		if err := s.handleMessageEvent(bgCtx, req, cfg); err != nil {
+			s.logger.Error("async message event handling failed", zap.Error(err))
+		}
+	}()
+	return nil
 }
 
 // verifyLarkSignature verifies the HMAC-SHA256 signature from Lark event callbacks.
@@ -293,10 +385,12 @@ func verifyLarkSignature(timestamp, nonce, encryptKey string, body []byte, expec
 	return hmac.Equal([]byte(computed), []byte(expectedSignature))
 }
 
-// HandleCardAction processes a Lark card action callback (button clicks on alert cards).
-// The callback body contains the operator (who clicked) and the action value (what to do).
-// Returns an updated card to replace the original, or an error card.
-func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, signature, timestamp, nonce string) (*lark.CardMessage, error) {
+// HandleCardAction processes a Lark card action callback (button clicks on
+// alert cards) arriving over HTTP. It performs transport verification and
+// delegates the action routing to processCardAction.
+// The response is either a legacy replacement card (v1 cards) or a toast
+// object (v2 CardKit cards, whose content refreshes via entity updates).
+func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, signature, timestamp, nonce string) (interface{}, error) {
 	var req LarkCardActionRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, fmt.Errorf("failed to parse card action: %w", err)
@@ -313,83 +407,131 @@ func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, sign
 		return nil, fmt.Errorf("lark verification not configured")
 	}
 
-	// Anti-replay check
-	if timestamp != "" {
-		ts, parseErr := strconv.ParseInt(timestamp, 10, 64)
-		if parseErr != nil {
-			return nil, fmt.Errorf("invalid lark request timestamp")
-		}
-		if diff := time.Now().Unix() - ts; diff < -300 || diff > 300 {
-			return nil, fmt.Errorf("lark request timestamp out of acceptable window")
-		}
+	// Anti-replay: mandatory, mirroring HandleEvent (an empty timestamp must
+	// not silently skip the window check).
+	if timestamp == "" {
+		return nil, fmt.Errorf("missing lark request timestamp")
+	}
+	ts, parseErr := strconv.ParseInt(timestamp, 10, 64)
+	if parseErr != nil {
+		return nil, fmt.Errorf("invalid lark request timestamp")
+	}
+	if diff := time.Now().Unix() - ts; diff < -300 || diff > 300 {
+		return nil, fmt.Errorf("lark request timestamp out of acceptable window")
 	}
 
 	if cfg.EncryptKey != "" && signature != "" {
 		if !verifyLarkSignature(timestamp, nonce, cfg.EncryptKey, body, signature) {
 			return nil, fmt.Errorf("invalid lark card action signature")
 		}
-	} else if cfg.VerificationToken != "" && req.Token != cfg.VerificationToken {
-		return nil, fmt.Errorf("invalid card action token")
 	} else if cfg.EncryptKey != "" && signature == "" {
 		return nil, fmt.Errorf("missing lark card action signature")
+	} else if cfg.VerificationToken != "" {
+		if req.Token == "" || subtle.ConstantTimeCompare([]byte(req.Token), []byte(cfg.VerificationToken)) != 1 {
+			return nil, fmt.Errorf("invalid card action token")
+		}
 	}
 
+	return s.processCardAction(ctx, &req)
+}
+
+// HandleCardActionEvent routes a pre-verified card action (e.g. delivered over
+// the WebSocket long connection, which authenticates at the connection level).
+func (s *LarkBotService) HandleCardActionEvent(ctx context.Context, req *LarkCardActionRequest) (interface{}, error) {
+	return s.processCardAction(ctx, req)
+}
+
+// cardActionPerms maps card actions to the RBAC permission they require.
+// Identity mapping alone is NOT authorization: a viewer-role user with a bound
+// Lark account must not be able to mutate alerts from a group chat.
+var cardActionPerms = map[string]string{
+	"ack":         "events.ack",
+	"silence":     "events.ack",
+	"silence_form": "events.ack",
+	"resolve":     "events.ack",
+	"assign_form": "events.assign",
+}
+
+// processCardAction validates, authorizes and executes a card button action.
+// Transport verification (HTTP signature / WS connection auth) must already
+// have happened.
+func (s *LarkBotService) processCardAction(ctx context.Context, req *LarkCardActionRequest) (interface{}, error) {
 	// Validate action payload
 	if req.Action == nil || req.Action.Value == nil {
-		return lark.BuildErrorResponseCard("无效的操作请求"), nil
+		return s.cardActionError(ctx, 0, "无效的操作请求"), nil
 	}
 	if req.Operator == nil || req.Operator.OpenID == "" {
-		return lark.BuildErrorResponseCard("无法识别操作者"), nil
+		return s.cardActionError(ctx, 0, "无法识别操作者"), nil
 	}
 
 	action, _ := req.Action.Value["action"].(string)
 	eventIDFloat, _ := req.Action.Value["event_id"].(float64)
 	eventID := uint(eventIDFloat)
 
-	if action == "" || eventID == 0 {
-		return lark.BuildErrorResponseCard("操作参数不完整"), nil
+	// "retry" wraps another action — unwrap once (no recursion).
+	if action == "retry" {
+		original, _ := req.Action.Value["original_action"].(string)
+		if original == "" || original == "retry" {
+			return s.cardActionError(ctx, eventID, "缺少原始操作类型"), nil
+		}
+		action = original
 	}
 
-	// Resolve operator to system user
+	if action == "" || eventID == 0 {
+		return s.cardActionError(ctx, eventID, "操作参数不完整"), nil
+	}
+
+	// Resolve operator to system user (identity).
 	operatorID, err := s.resolveUserID(ctx, req.Operator.OpenID)
 	if err != nil {
 		s.logger.Warn("card action: operator not mapped",
 			zap.String("open_id", req.Operator.OpenID), zap.Error(err))
-		return lark.BuildErrorResponseCard("未绑定系统账号，请先在 SREAgent 中绑定 Lark 账号"), nil
+		return s.cardActionError(ctx, eventID, "未绑定系统账号，请先在 SREAgent 中绑定 Lark 账号"), nil
+	}
+
+	// Authorize (RBAC): the operator's platform role must grant the action.
+	if perm, known := cardActionPerms[action]; known {
+		if err := s.authorizeCardAction(ctx, operatorID, perm); err != nil {
+			s.logger.Warn("card action denied by RBAC",
+				zap.Uint("operator", operatorID), zap.String("action", action))
+			return s.cardActionError(ctx, eventID, "权限不足：当前账号无权执行该操作"), nil
+		}
 	}
 
 	// Fetch event for response card
 	event, err := s.eventSvc.GetByID(ctx, eventID)
 	if err != nil {
-		return lark.BuildErrorResponseCard(fmt.Sprintf("告警 #%d 不存在", eventID)), nil
+		return s.cardActionError(ctx, eventID, fmt.Sprintf("告警 #%d 不存在", eventID)), nil
 	}
 
 	// Route to the appropriate action
 	switch action {
 	case "ack":
 		if err := s.eventSvc.Acknowledge(ctx, eventID, operatorID); err != nil {
-			s.logger.Warn("card action ack failed",
-				zap.Uint("event_id", eventID), zap.Error(err))
-			return lark.BuildErrorResponseCard(fmt.Sprintf("认领失败: %v", err)), nil
+			s.logger.Warn("card action ack failed", zap.Uint("event_id", eventID), zap.Error(err))
+			return s.cardActionError(ctx, eventID, fmt.Sprintf("认领失败: %v", err)), nil
 		}
 		s.logger.Info("alert acknowledged via card action",
 			zap.Uint("event_id", eventID), zap.Uint("operator", operatorID))
-		return lark.BuildAckResponseCard(event.AlertName), nil
+		return s.cardActionSuccess(ctx, event, "已认领", lark.BuildAckResponseCard), nil
 
 	case "silence":
-		// Default silence duration: 60 minutes
-		if err := s.eventSvc.Silence(ctx, eventID, operatorID, 60, "Lark card action"); err != nil {
-			s.logger.Warn("card action silence failed",
-				zap.Uint("event_id", eventID), zap.Error(err))
-			return lark.BuildErrorResponseCard(fmt.Sprintf("静默失败: %v", err)), nil
+		// Duration comes from the button value (静默 1h / 24h buttons); the
+		// legacy form path is handled by silence_form below.
+		durationMinutes := 60
+		if d, ok := req.Action.Value["duration"].(float64); ok && d > 0 {
+			durationMinutes = int(d)
+		}
+		if err := s.eventSvc.Silence(ctx, eventID, operatorID, durationMinutes, "Lark card action"); err != nil {
+			s.logger.Warn("card action silence failed", zap.Uint("event_id", eventID), zap.Error(err))
+			return s.cardActionError(ctx, eventID, fmt.Sprintf("静默失败: %v", err)), nil
 		}
 		s.logger.Info("alert silenced via card action",
-			zap.Uint("event_id", eventID), zap.Uint("operator", operatorID))
-		return lark.BuildSilenceResponseCard(event.AlertName), nil
+			zap.Uint("event_id", eventID), zap.Int("duration", durationMinutes), zap.Uint("operator", operatorID))
+		return s.cardActionSuccess(ctx, event, fmt.Sprintf("已静默 %d 分钟", durationMinutes), lark.BuildSilenceResponseCard), nil
 
 	case "silence_form":
-		// Form-based silence: read duration and reason from form_data
-		durationMinutes := 60 // default
+		durationMinutes := 60
 		reason := "Lark card action"
 		if req.FormData != nil {
 			if durStr, ok := req.FormData["duration"].(string); ok {
@@ -402,64 +544,78 @@ func (s *LarkBotService) HandleCardAction(ctx context.Context, body []byte, sign
 			}
 		}
 		if err := s.eventSvc.Silence(ctx, eventID, operatorID, durationMinutes, reason); err != nil {
-			s.logger.Warn("card action silence_form failed",
-				zap.Uint("event_id", eventID), zap.Error(err))
-			return lark.BuildErrorResponseCard(fmt.Sprintf("静默失败: %v", err)), nil
+			s.logger.Warn("card action silence_form failed", zap.Uint("event_id", eventID), zap.Error(err))
+			return s.cardActionError(ctx, eventID, fmt.Sprintf("静默失败: %v", err)), nil
 		}
 		s.logger.Info("alert silenced via silence form",
 			zap.Uint("event_id", eventID), zap.Int("duration", durationMinutes), zap.Uint("operator", operatorID))
-		return lark.BuildSilenceResponseCard(event.AlertName), nil
+		return s.cardActionSuccess(ctx, event, fmt.Sprintf("已静默 %d 分钟", durationMinutes), lark.BuildSilenceResponseCard), nil
 
 	case "assign_form":
-		// Form-based assign: read assignee and note from form_data
 		if req.FormData == nil {
-			return lark.BuildErrorResponseCard("表单数据缺失"), nil
+			return s.cardActionError(ctx, eventID, "表单数据缺失"), nil
 		}
 		assigneeStr, _ := req.FormData["assignee"].(string)
 		if assigneeStr == "" {
-			return lark.BuildErrorResponseCard("请选择指派人"), nil
+			return s.cardActionError(ctx, eventID, "请选择指派人"), nil
 		}
 		assignTo, err := strconv.ParseUint(assigneeStr, 10, 64)
 		if err != nil || assignTo == 0 {
-			return lark.BuildErrorResponseCard("无效的指派人"), nil
+			return s.cardActionError(ctx, eventID, "无效的指派人"), nil
 		}
 		note, _ := req.FormData["note"].(string)
 		if note == "" {
 			note = fmt.Sprintf("Assigned via Lark by operator %d", operatorID)
 		}
 		if err := s.eventSvc.Assign(ctx, eventID, uint(assignTo), operatorID, note); err != nil {
-			s.logger.Warn("card action assign_form failed",
-				zap.Uint("event_id", eventID), zap.Error(err))
-			return lark.BuildErrorResponseCard(fmt.Sprintf("指派失败: %v", err)), nil
+			s.logger.Warn("card action assign_form failed", zap.Uint("event_id", eventID), zap.Error(err))
+			return s.cardActionError(ctx, eventID, fmt.Sprintf("指派失败: %v", err)), nil
 		}
 		s.logger.Info("alert assigned via assign form",
 			zap.Uint("event_id", eventID), zap.Uint64("assign_to", assignTo), zap.Uint("operator", operatorID))
-		return lark.BuildAckResponseCard(event.AlertName), nil
+		return s.cardActionSuccess(ctx, event, "已指派", lark.BuildAckResponseCard), nil
 
 	case "resolve":
 		if err := s.eventSvc.Resolve(ctx, eventID, operatorID, "Resolved via Lark card action"); err != nil {
-			s.logger.Warn("card action resolve failed",
-				zap.Uint("event_id", eventID), zap.Error(err))
-			return lark.BuildErrorResponseCard(fmt.Sprintf("确认解决失败: %v", err)), nil
+			s.logger.Warn("card action resolve failed", zap.Uint("event_id", eventID), zap.Error(err))
+			return s.cardActionError(ctx, eventID, fmt.Sprintf("确认解决失败: %v", err)), nil
 		}
 		s.logger.Info("alert resolved via card action",
 			zap.Uint("event_id", eventID), zap.Uint("operator", operatorID))
-		return lark.BuildAckResponseCard(event.AlertName), nil
-
-	case "retry":
-		// Retry the original action — re-dispatch to self
-		originalAction, _ := req.Action.Value["original_action"].(string)
-		if originalAction == "" {
-			return lark.BuildErrorResponseCard("缺少原始操作类型"), nil
-		}
-		// Rebuild the action value with the original action
-		req.Action.Value["action"] = originalAction
-		delete(req.Action.Value, "original_action")
-		return s.HandleCardAction(ctx, body, signature, timestamp, nonce)
+		return s.cardActionSuccess(ctx, event, "已标记解决", lark.BuildAckResponseCard), nil
 
 	default:
-		return lark.BuildErrorResponseCard(fmt.Sprintf("未知操作: %s", action)), nil
+		return s.cardActionError(ctx, eventID, fmt.Sprintf("未知操作: %s", action)), nil
 	}
+}
+
+// isV2CardEvent reports whether the event's card is CardKit-managed (v2).
+func (s *LarkBotService) isV2CardEvent(ctx context.Context, eventID uint) bool {
+	return eventID != 0 && s.cardSvc != nil && s.cardSvc.HasEntityForEvent(ctx, eventID)
+}
+
+// cardActionSuccess builds the callback response after a successful action.
+// v2 (CardKit) cards: toast only — the card content itself is refreshed through
+// the entity-update path triggered by the status change, keeping ONE update
+// channel (returning a replacement card here would fight with CardKit).
+// v1 cards: legacy replacement card via the supplied builder.
+func (s *LarkBotService) cardActionSuccess(ctx context.Context, event *model.AlertEvent, toastMsg string, v1Builder func(string) *lark.CardMessage) interface{} {
+	if s.isV2CardEvent(ctx, event.ID) {
+		return map[string]interface{}{
+			"toast": map[string]interface{}{"type": "success", "content": toastMsg},
+		}
+	}
+	return v1Builder(event.AlertName)
+}
+
+// cardActionError builds the failure response (toast for v2, error card for v1).
+func (s *LarkBotService) cardActionError(ctx context.Context, eventID uint, msg string) interface{} {
+	if s.isV2CardEvent(ctx, eventID) {
+		return map[string]interface{}{
+			"toast": map[string]interface{}{"type": "error", "content": msg},
+		}
+	}
+	return lark.BuildErrorResponseCard(msg)
 }
 
 // handleMessageEvent processes a received message event.
@@ -496,27 +652,31 @@ func (s *LarkBotService) handleMessageEvent(ctx context.Context, req *LarkEventR
 		return s.SendMessage(ctx, chatID, "请发送命令。可用命令: /health, /oncall, /ack, /status\n或直接用自然语言描述您的问题。")
 	}
 
-	// Fast path: explicit slash commands always take priority.
+	// Fast path 1: explicit slash commands — gated by CommandsEnabled so the
+	// admin switch actually disables them.
 	if strings.HasPrefix(text, "/") {
+		if !cfg.CommandsEnabled {
+			return s.SendMessage(ctx, chatID, "命令功能未启用，请在系统设置中开启。")
+		}
 		parts := strings.Fields(text)
 		return s.HandleCommand(ctx, parts[0], parts[1:], chatID, userID)
 	}
 
-	// NL path: if NL enabled, try Agent tool-calling first.
-	if cfg.NaturalLanguageEnabled && s.aiSvc != nil {
-		return s.handleAgentConversation(ctx, text, chatID, msg.ChatID, userID)
-	}
-
-	// Fallback: legacy NL mapping (if commands enabled).
+	// Fast path 2: unambiguous NL patterns ("ack 123") map straight to
+	// commands — zero LLM latency/cost for the common cases.
 	if cfg.CommandsEnabled {
-		mappedCmd, mappedArgs := s.mapNaturalLanguage(text)
-		if mappedCmd != "" {
+		if mappedCmd, mappedArgs := s.mapNaturalLanguage(text); mappedCmd != "" {
 			s.logger.Debug("natural language mapped",
 				zap.String("input", text),
 				zap.String("mapped_command", mappedCmd),
 			)
 			return s.HandleCommand(ctx, mappedCmd, mappedArgs, chatID, userID)
 		}
+	}
+
+	// Everything else: Agent tool-calling conversation.
+	if cfg.NaturalLanguageEnabled && s.aiSvc != nil {
+		return s.handleAgentConversation(ctx, text, chatID, msg.ChatID, userID)
 	}
 
 	return s.SendMessage(ctx, chatID, "我不太理解您的意思。可用命令: /health, /oncall, /ack, /status")
@@ -663,6 +823,34 @@ func (s *LarkBotService) cmdStatus(ctx context.Context, chatID string) error {
 	return s.SendMessage(ctx, chatID, msg)
 }
 
+// SendCardJSON sends a raw interactive card (e.g. a Card 2.0 JSON string) to a
+// chat via the Bot API. Used by the report scheduler for chart-rich report cards.
+func (s *LarkBotService) SendCardJSON(ctx context.Context, chatID, cardJSON string) error {
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load lark config: %w", err)
+	}
+	if cfg.AppID == "" || cfg.AppSecret == "" {
+		return fmt.Errorf("lark bot credentials not configured")
+	}
+	if chatID == "" {
+		return fmt.Errorf("chat_id is empty")
+	}
+
+	var bot *lark.BotClient
+	if s.tokenCache != nil {
+		bot = lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache, lark.BaseURLForDomain(cfg.Domain))
+	} else {
+		bot = lark.NewBotClient(cfg.AppID, cfg.AppSecret, lark.BaseURLForDomain(cfg.Domain))
+	}
+	if _, err := bot.SendInteractiveJSON(ctx, "chat_id", chatID, cardJSON); err != nil {
+		s.recordMessageError(err)
+		return fmt.Errorf("lark card send failed: %w", err)
+	}
+	s.recordMessageSuccess()
+	return nil
+}
+
 // SendMessage sends a text message to a Lark chat.
 //
 // Routing preference:
@@ -773,6 +961,8 @@ type BotStatus struct {
 	CommandsEnabled   bool   `json:"commands_enabled"`
 	NLEnabled         bool   `json:"natural_language_enabled"`
 	DebugMode         bool   `json:"debug_mode"`
+	ConnectionMode    string `json:"connection_mode,omitempty"`
+	EventSourceStatus string `json:"event_source_status,omitempty"` // WS long connection: connected/reconnecting/...
 	LastMessageAt     string `json:"last_message_at,omitempty"`
 	LastError         string `json:"last_error,omitempty"`
 	LastErrorAt       string `json:"last_error_at,omitempty"`
@@ -800,7 +990,11 @@ func (s *LarkBotService) GetBotStatus(ctx context.Context) (*BotStatus, error) {
 		CommandsEnabled:   cfg.CommandsEnabled,
 		NLEnabled:         cfg.NaturalLanguageEnabled,
 		DebugMode:         cfg.DebugMode,
+		ConnectionMode:    cfg.ConnectionMode,
 		ConsecutiveErrors: consecErrs,
+	}
+	if s.eventSourceStatus != nil {
+		status.EventSourceStatus = s.eventSourceStatus()
 	}
 	if !lastMsg.IsZero() {
 		status.LastMessageAt = lastMsg.Format(time.RFC3339)
@@ -871,91 +1065,139 @@ func (s *LarkBotService) mapNaturalLanguage(text string) (string, []string) {
 	return "", nil
 }
 
-// handleAgentConversation routes a natural language message through the AgentService
-// tool-calling pipeline. When cardSvc and agentSvc are available, uses streaming
-// card updates; otherwise falls back to simple Chat.
-func (s *LarkBotService) handleAgentConversation(ctx context.Context, question, chatID, larkChatID, userID string) error {
+// defaultLarkBotTools is the tool whitelist used when the admin hasn't
+// configured one. Read-only queries + acknowledge — deliberately NOT the full
+// registry: an empty allowList means "everything" downstream (including MCP
+// write tools), which must never be the default for a chat-driven agent.
+var defaultLarkBotTools = []string{
+	"query_alert_events",
+	"alert_statistics",
+	"get_oncall",
+	"acknowledge_alert",
+	"run_inspection",
+	"query_instant",
+	"list_alert_rules",
+	"search_similar_alerts",
+	"search_knowledge",
+}
+
+// botAllowedTools resolves the effective tool whitelist for the Lark bot.
+func botAllowedTools(cfg LarkConfig) []string {
+	raw := strings.TrimSpace(cfg.BotAllowedTools)
+	if raw == "" {
+		return defaultLarkBotTools
+	}
+	parts := strings.Split(raw, ",")
+	tools := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			tools = append(tools, p)
+		}
+	}
+	if len(tools) == 0 {
+		return defaultLarkBotTools
+	}
+	return tools
+}
+
+// handleAgentConversation routes a natural language message through the
+// AgentService tool-calling pipeline. senderOpenID is the Lark open_id of the
+// MESSAGE SENDER (not the chat) and is mapped to a platform user for tool
+// authorization; unmapped senders run with operatorID 0 (read-only: write
+// tools reject a zero operator).
+func (s *LarkBotService) handleAgentConversation(ctx context.Context, question, chatID, larkChatID, senderOpenID string) error {
 	if s.aiSvc == nil {
 		return s.SendMessage(ctx, chatID, "AI 助手未配置，请在系统设置中启用 AI。")
 	}
 
 	systemPrompt := `你是 SREAgent 智能运维助手，通过飞书群与用户交互。
-你可以查询告警、统计数据、查看值班、认领告警等。
-回答简洁专业，使用中文。如果用户的问题涉及数据查询，请使用提供的工具获取实时数据。
+你可以查询告警、统计数据、查看值班、触发巡检、认领告警等。
+回答简洁专业，使用中文。涉及数据的问题必须使用提供的工具获取实时数据，禁止编造数字。
 如果问题不明确，请给出通用的排查建议。`
 
-	// Streaming path: agentSvc + cardSvc → streaming card with tool step updates.
-	if s.agentSvc != nil && s.cardSvc != nil {
-		return s.handleStreamingAgentConversation(ctx, question, chatID, larkChatID, systemPrompt)
-	}
-
-	// Fallback: simple Chat without streaming.
-	result, err := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
-	if err != nil {
-		s.logger.Warn("agent conversation failed", zap.Error(err))
-		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", err))
-	}
-
-	cfg, _ := s.loadConfig(ctx)
-	card := lark.BuildAIResponseCard(question, result, "")
-	if cfg.AppID != "" && cfg.AppSecret != "" && s.tokenCache != nil {
-		bot := lark.NewBotClientWithCache(cfg.AppID, cfg.AppSecret, s.tokenCache, lark.BaseURLForDomain(cfg.Domain))
-		if _, sendErr := bot.SendMessage(ctx, larkChatID, card); sendErr != nil {
-			s.logger.Warn("agent card send failed, falling back to text", zap.Error(sendErr))
-			return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", result))
+	// Multi-turn memory: prepend recent turns so follow-up questions
+	// ("那 web-01 呢？") keep their context.
+	if s.convStore != nil {
+		if conv, err := s.convStore.Get(ctx, larkChatID, senderOpenID); err == nil && conv != nil && len(conv.Turns) > 0 {
+			var b strings.Builder
+			b.WriteString("\n\n以下是本会话此前的对话记录（供理解上下文）：\n")
+			for _, turn := range conv.Turns {
+				fmt.Fprintf(&b, "[%s] %s\n", turn.Role, truncateForCard(turn.Content, 500))
+			}
+			systemPrompt += b.String()
 		}
-		s.recordMessageSuccess()
-		return nil
 	}
 
-	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", result))
+	// Streaming path: agentSvc + cardSvc → streaming card with tool step updates.
+	var answer string
+	var convErr error
+	if s.agentSvc != nil && s.cardSvc != nil {
+		answer, convErr = s.runStreamingAgentConversation(ctx, question, chatID, larkChatID, senderOpenID, systemPrompt)
+	} else {
+		// Fallback: simple Chat without streaming/tools.
+		answer, convErr = s.aiSvc.Chat(ctx, systemPrompt, nil, question)
+		if convErr == nil {
+			convErr = s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))
+		}
+	}
+	if convErr != nil {
+		s.logger.Warn("agent conversation failed", zap.Error(convErr))
+		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", convErr))
+	}
+
+	// Persist the turn for follow-up questions (best-effort).
+	if s.convStore != nil && answer != "" {
+		_ = s.convStore.Append(ctx, larkChatID, senderOpenID, ConversationTurn{Role: "user", Content: question})
+		_ = s.convStore.Append(ctx, larkChatID, senderOpenID, ConversationTurn{Role: "assistant", Content: truncateForCard(answer, 1000)})
+	}
+	return nil
 }
 
-// handleStreamingAgentConversation runs the agent with streaming card updates.
-func (s *LarkBotService) handleStreamingAgentConversation(ctx context.Context, question, chatID, larkChatID, systemPrompt string) error {
-	// Resolve operator for RBAC (0 = system user).
+// runStreamingAgentConversation runs the agent with accumulating card updates.
+// Returns the final answer text.
+func (s *LarkBotService) runStreamingAgentConversation(ctx context.Context, question, chatID, larkChatID, senderOpenID, systemPrompt string) (string, error) {
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("load lark config: %w", err)
+	}
+
+	// Resolve the SENDER (not the chat) for tool authorization. Unmapped
+	// senders get operatorID 0 — write tools reject that.
 	var operatorID uint
-	if resolved, err := s.resolveUserID(ctx, chatID); err == nil {
+	if resolved, err := s.resolveUserID(ctx, senderOpenID); err == nil {
 		operatorID = resolved
 	}
 
-	// Create streaming card.
 	entity, err := s.cardSvc.CreateStreamingCard(ctx, larkChatID, question)
 	if err != nil {
 		s.logger.Warn("streaming card creation failed, falling back to text", zap.Error(err))
-		return s.handleAgentConversationFallback(ctx, question, chatID, larkChatID, systemPrompt)
+		answer, chatErr := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
+		if chatErr != nil {
+			return "", chatErr
+		}
+		return answer, s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", answer))
 	}
 
-	// Run agent with streaming callback.
-	result, err := s.agentSvc.RunWithStreaming(ctx, operatorID, systemPrompt, question, nil, 10,
+	// Accumulate steps so the card shows the FULL progress history, and let
+	// the per-card rate limiter (inside CardKit UpdateCardEntity) pace updates.
+	var steps []StreamStep
+	result, err := s.agentSvc.RunWithStreaming(ctx, operatorID, systemPrompt, question, botAllowedTools(cfg), 10,
 		func(step int, toolName, content string) {
-			if updateErr := s.cardSvc.AppendStreamingContent(ctx, entity.ID, step, toolName, content); updateErr != nil {
-				s.logger.Warn("streaming card append failed",
-					zap.Int("step", step), zap.Error(updateErr))
+			steps = append(steps, StreamStep{Step: step, ToolName: toolName, Content: content})
+			if updateErr := s.cardSvc.UpdateStreamingProgress(ctx, entity.ID, question, steps); updateErr != nil {
+				s.logger.Warn("streaming card update failed", zap.Int("step", step), zap.Error(updateErr))
 			}
 		},
 	)
 	if err != nil {
 		s.logger.Warn("streaming agent failed", zap.Error(err))
-		// Update card with error state.
-		_ = s.cardSvc.FinalizeStreamingCard(ctx, entity.ID, question, fmt.Sprintf("❌ 执行失败: %v", err))
-		return nil
+		_ = s.cardSvc.FinalizeStreamingCard(ctx, entity.ID, question, fmt.Sprintf("❌ 执行失败: %v", err), steps)
+		return "", nil // error already shown on the card; don't double-post
 	}
 
-	// Finalize card with the complete answer.
-	if err := s.cardSvc.FinalizeStreamingCard(ctx, entity.ID, question, result.FinalAnswer); err != nil {
+	if err := s.cardSvc.FinalizeStreamingCard(ctx, entity.ID, question, result.FinalAnswer, steps); err != nil {
 		s.logger.Warn("streaming card finalize failed", zap.Error(err))
 	}
-
 	s.recordMessageSuccess()
-	return nil
-}
-
-// handleAgentConversationFallback is the non-streaming fallback.
-func (s *LarkBotService) handleAgentConversationFallback(ctx context.Context, question, chatID, larkChatID, systemPrompt string) error {
-	result, err := s.aiSvc.Chat(ctx, systemPrompt, nil, question)
-	if err != nil {
-		return s.SendMessage(ctx, chatID, fmt.Sprintf("AI 助手暂时无法回复: %v", err))
-	}
-	return s.SendMessage(ctx, chatID, fmt.Sprintf("🤖 **AI 回复:**\n%s", result))
+	return result.FinalAnswer, nil
 }

@@ -86,6 +86,9 @@ type Dependencies struct {
 	ReportSched     *service.ReportScheduler
 	EventSource     service.EventSource
 
+	// Lark card state service (for graceful shutdown of debounce timers)
+	LarkCardStateSvc *service.LarkCardStateService
+
 	// Noise reducer (for graceful shutdown of GC goroutine)
 	NoiseReducer *service.NoiseReducer
 
@@ -507,7 +510,7 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 
 	// Report task service + executor (scheduler created after engine block)
 	svcs.ReportTaskSvc = service.NewReportTaskService(repos.ReportTask)
-	svcs.ReportExecutor = service.NewReportExecutor(repos.ReportTask, svcs.AgentSvc, zapLogger)
+	svcs.ReportExecutor = service.NewReportExecutor(repos.ReportTask, repos.Event, svcs.AgentSvc, zapLogger)
 
 	// Recording rule service
 	svcs.RecordingRuleSvc = service.NewRecordingRuleService(repos.RecordingRule, zapLogger)
@@ -563,10 +566,29 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 	svcs.LarkBotSvc.SetAgentService(svcs.AgentSvc)
 
 	// Shared Lark token cache — one cache across LarkSvc, LarkBotSvc, NotifyMediaSvc.
+	// The cache is bound to the GLOBAL bot app; NotifyMediaSvc only uses it for
+	// media whose app_id matches (others keep their per-app cache, preventing
+	// cross-application token mixups).
 	larkTokenCache := lark.NewTokenCache()
 	svcs.LarkSvc.SetTokenCache(larkTokenCache)
 	svcs.LarkBotSvc.SetTokenCache(larkTokenCache)
-	svcs.NotifyMediaSvc.SetTokenCache(larkTokenCache)
+	{
+		globalAppID := ""
+		if larkCfg, err := svcs.SettingSvc.GetLarkConfig(context.Background()); err == nil {
+			globalAppID = larkCfg.AppID
+		}
+		svcs.NotifyMediaSvc.SetTokenCache(larkTokenCache, globalAppID)
+	}
+	// Domain-aware API base for notify_media's direct Lark calls (the
+	// previous hardcoded open.feishu.cn broke Lark International tenants).
+	settingSvcRef := svcs.SettingSvc
+	svcs.NotifyMediaSvc.SetLarkBaseURLGetter(func(ctx context.Context) string {
+		cfg, err := settingSvcRef.GetLarkConfig(ctx)
+		if err != nil {
+			return ""
+		}
+		return lark.BaseURLForDomain(cfg.Domain)
+	})
 
 	// LDAP + OAuth2 services
 	svcs.LDAPSvc = service.NewLDAPService(svcs.SettingSvc, repos.User, zapLogger)
@@ -940,6 +962,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 
 	// Report scheduler
 	d.ReportSched = service.NewReportScheduler(repos.ReportTask, svcs.ReportExecutor, d.Leader, svcs.LarkBotSvc, zapLogger)
+	d.ReportSched.SetExternalURL(cfg.Server.ExternalURL())
 
 	// LarkCardStateService (CardKit card lifecycle)
 	if redisClient != nil {
@@ -952,18 +975,45 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		if botClient != nil {
 			cardKit := lark.NewCardKitClient(botClient, lark.NewRateLimiter())
 			svcs.LarkCardStateSvc = service.NewLarkCardStateService(repos.LarkCard, cardKit, svcs.SettingSvc, zapLogger)
+			svcs.LarkCardStateSvc.SetUserRepo(repos.User)
+			svcs.LarkCardStateSvc.SetExternalURL(cfg.Server.ExternalURL())
 			svcs.LarkSvc.SetCardService(svcs.LarkCardStateSvc)
 			svcs.LarkBotSvc.SetCardService(svcs.LarkCardStateSvc)
+			d.LarkCardStateSvc = svcs.LarkCardStateSvc
+
+			// v2 send path for notify_media: load the event and route it
+			// through the CardKit entity flow (multi-chat aware). handled=false
+			// when v1 is configured or the media uses a different app — the
+			// caller then falls back to the legacy interactive-card send.
+			cardSvc := svcs.LarkCardStateSvc
+			settingSvc := svcs.SettingSvc
+			svcs.NotifyMediaSvc.SetV2CardSender(func(ctx context.Context, eventID uint, chatID, appID string) (bool, error) {
+				cfg, err := settingSvc.GetLarkConfig(ctx)
+				if err != nil || cfg.CardSchemaVersion != "v2" {
+					return false, nil
+				}
+				if appID != "" && appID != cfg.AppID {
+					return false, nil // CardKit entities live under the global bot app
+				}
+				event, err := repos.Event.GetByID(ctx, eventID)
+				if err != nil {
+					return true, err
+				}
+				_, err = cardSvc.EnsureCardForEvent(ctx, event, chatID)
+				return true, err
+			})
 		}
 
-		// ConversationStore for Lark bot multi-turn context
-		convStore := service.NewConversationStore(redisClient.Raw())
-		_ = convStore // injected into LarkBotService below if needed
-
-		// EventSource: WebSocket or HTTP based on config
+		// Lark bot runtime wiring: event idempotency + multi-turn memory.
 		dedup := service.NewEventDedup(redisClient.Raw(), zapLogger)
+		svcs.LarkBotSvc.SetEventDedup(dedup)
+		svcs.LarkBotSvc.SetConversationStore(service.NewConversationStore(redisClient.Raw()))
+
+		// EventSource: the WebSocket transport feeds the SAME LarkBotService
+		// handlers as the HTTP callback path (transport-level auth differs).
 		if larkCfg.ConnectionMode == "websocket" && larkCfg.AppID != "" {
-			wsSource := service.NewWSEventSource(larkCfg.AppID, larkCfg.AppSecret, larkCfg.Domain, nil, dedup, zapLogger)
+			wsSource := service.NewWSEventSource(larkCfg.AppID, larkCfg.AppSecret, larkCfg.Domain, svcs.LarkBotSvc, zapLogger)
+			svcs.LarkBotSvc.SetEventSourceStatusFn(wsSource.Status)
 			d.EventSource = wsSource
 		}
 	}
@@ -980,6 +1030,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	)
 	// Register MCP tools from enabled MCP servers (non-blocking, logs warnings on failure)
 	toolRegistry.RegisterMCPTools(svcs.MCPServerSvc)
+	// Lark bot tools (alert queries / stats / oncall / ack / inspections).
+	// Without this call the Lark NL conversation has no platform tools at all.
+	service.RegisterLarkTools(toolRegistry, svcs.EventSvc, svcs.DashboardStatsSvc, svcs.ScheduleSvc, svcs.InspectionExecutor, repos.Inspection)
 	svcs.AISvc.SetToolRegistry(toolRegistry)
 	svcs.AgentSvc.SetToolRegistry(toolRegistry)
 
@@ -1297,6 +1350,11 @@ func (d *Dependencies) Shutdown() {
 	// 4.5.2 Stop event source (WebSocket)
 	if d.EventSource != nil {
 		d.EventSource.Stop()
+	}
+
+	// 4.5.3 Stop Lark card state service (cancel pending debounce timers)
+	if d.LarkCardStateSvc != nil {
+		d.LarkCardStateSvc.Stop()
 	}
 
 	// 4.6 Stop noise reducer GC goroutine
