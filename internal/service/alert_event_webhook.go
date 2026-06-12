@@ -142,16 +142,14 @@ func (s *AlertEventService) processAlert(ctx context.Context, alert *model.Alert
 		return s.repo.IncrFireCount(ctx, existing.ID)
 	}
 
-	// Determine severity from labels
+	// Determine severity from labels — map external names (critical/error/warn/info)
+	// to the platform's Px convention using the shared mapping function.
 	severity := model.SeverityWarning
 	if sev, ok := alert.Labels["severity"]; ok {
-		switch sev {
-		case "critical":
-			severity = model.SeverityCritical
-		case "warning":
+		mapped := mapSeverityInbound(sev, nil) // nil = use default mapping
+		severity = model.AlertSeverity(mapped)
+		if !severity.IsValid() {
 			severity = model.SeverityWarning
-		case "info":
-			severity = model.SeverityInfo
 		}
 	}
 

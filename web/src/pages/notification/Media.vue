@@ -86,6 +86,9 @@ interface MediaForm {
   access_key_id: string
   access_key_secret: string
   template_code: string
+  // severity mapping
+  severity_mapping_enabled: boolean
+  severity_mapping: Record<string, string>
 }
 
 function parseConfig(configStr: string): Record<string, unknown> {
@@ -93,6 +96,19 @@ function parseConfig(configStr: string): Record<string, unknown> {
 }
 
 function buildConfigString(f: Record<string, unknown>): string {
+  // Severity mapping fields (shared across all media types)
+  const severityFields: Record<string, unknown> = {}
+  if (f.severity_mapping_enabled) {
+    severityFields.severity_mapping_enabled = true
+    if (f.severity_mapping && typeof f.severity_mapping === 'object' && Object.keys(f.severity_mapping as object).length > 0) {
+      severityFields.severity_mapping = f.severity_mapping
+    }
+  }
+
+  const mergeSeverity = (base: Record<string, unknown>) => Object.keys(severityFields).length > 0
+    ? { ...base, ...severityFields }
+    : base
+
   switch (f.type) {
     case 'lark_webhook':
     case 'dingtalk_webhook':
@@ -101,35 +117,35 @@ function buildConfigString(f: Record<string, unknown>): string {
     case 'discord_webhook':
     case 'feishu_webhook':
     case 'feishu_card':
-      return JSON.stringify({ webhook_url: f.webhook_url }, null, 2)
+      return JSON.stringify(mergeSeverity({ webhook_url: f.webhook_url }), null, 2)
     case 'email':
-      return JSON.stringify({
+      return JSON.stringify(mergeSeverity({
         smtp_host: f.smtp_host, smtp_port: f.smtp_port,
         username: f.username, password: f.password, from: f.from,
-      }, null, 2)
+      }), null, 2)
     case 'http': {
       const hdrs: Record<string, string> = {}
       for (const hdr of (f.headers as { key: string; value: string }[] || [])) { if (hdr.key?.trim()) hdrs[hdr.key.trim()] = hdr.value }
-      return JSON.stringify({ method: f.method, url: f.url, headers: hdrs, body: f.body }, null, 2)
+      return JSON.stringify(mergeSeverity({ method: f.method, url: f.url, headers: hdrs, body: f.body }), null, 2)
     }
     case 'script':
-      return JSON.stringify({ path: f.path, args: f.args }, null, 2)
+      return JSON.stringify(mergeSeverity({ path: f.path, args: f.args }), null, 2)
     case 'telegram_bot':
-      return JSON.stringify({ bot_token: f.bot_token, chat_id: f.chat_id }, null, 2)
+      return JSON.stringify(mergeSeverity({ bot_token: f.bot_token, chat_id: f.chat_id }), null, 2)
     case 'feishu_app':
-      return JSON.stringify({
+      return JSON.stringify(mergeSeverity({
         app_id: f.app_id, app_secret: f.app_secret,
         receive_id: f.receive_id, receive_id_type: f.receive_id_type,
-      }, null, 2)
+      }), null, 2)
     case 'wecom_app':
-      return JSON.stringify({
+      return JSON.stringify(mergeSeverity({
         corp_id: f.corp_id, corp_secret: f.corp_secret,
         agent_id: f.agent_id, to_user: f.to_user,
-      }, null, 2)
+      }), null, 2)
     case 'flashduty':
-      return JSON.stringify({ integration_url: f.integration_url }, null, 2)
+      return JSON.stringify(mergeSeverity({ integration_url: f.integration_url }), null, 2)
     case 'pagerduty':
-      return JSON.stringify({ routing_key: f.routing_key }, null, 2)
+      return JSON.stringify(mergeSeverity({ routing_key: f.routing_key }), null, 2)
     case 'tencent_sms':
       return JSON.stringify({
         secret_id: f.secret_id, secret_key: f.secret_key,
@@ -163,6 +179,7 @@ const crud = useCrudPage<NotifyMedia>({
     secret_id: '', secret_key: '', sdk_app_id: '', template_id: '',
     sign_name: '', phone_numbers: '',
     access_key_id: '', access_key_secret: '', template_code: '',
+    severity_mapping_enabled: false, severity_mapping: {} as Record<string, string>,
   } as unknown as Partial<NotifyMedia>),
   i18nKeys: {
     created: 'media.created',
@@ -194,6 +211,8 @@ const crud = useCrudPage<NotifyMedia>({
       sign_name: (cfg.sign_name as string) || '', phone_numbers: (cfg.phone_numbers as string) || '',
       access_key_id: (cfg.access_key_id as string) || '', access_key_secret: (cfg.access_key_secret as string) || '',
       template_code: (cfg.template_code as string) || '',
+      severity_mapping_enabled: !!cfg.severity_mapping_enabled,
+      severity_mapping: (cfg.severity_mapping as Record<string, string>) || {},
     } as unknown as Partial<NotifyMedia>
   },
   formToPayload: (form) => {
@@ -708,6 +727,30 @@ onMounted(fetchList)
           </n-grid>
           <n-form-item :label="t('media.field.phoneNumbers')" required>
             <n-input v-model:value="form.phone_numbers" :placeholder="t('mediaMgmt.phoneNumbersPlaceholder')" />
+          </n-form-item>
+        </template>
+
+        <n-divider style="margin: 12px 0" />
+
+        <n-form-item :label="t('media.severityMapping')">
+          <n-switch v-model:value="form.severity_mapping_enabled" />
+          <span style="margin-left: 8px; color: var(--n-text-color-3); font-size: 12px">
+            {{ t('media.severityMappingHint') }}
+          </span>
+        </n-form-item>
+
+        <template v-if="form.severity_mapping_enabled">
+          <n-form-item :label="t('media.severityMappingTable')">
+            <div style="width: 100%">
+              <div v-for="(prom, px) in (form.severity_mapping || {})" :key="px" style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px">
+                <n-tag size="small" bordered>{{ px }}</n-tag>
+                <span>→</span>
+                <n-tag size="small" type="info" bordered>{{ prom }}</n-tag>
+              </div>
+              <div v-if="!form.severity_mapping || Object.keys(form.severity_mapping).length === 0" style="color: var(--n-text-color-3); font-size: 12px">
+                {{ t('media.severityMappingDefault') }}
+              </div>
+            </div>
           </n-form-item>
         </template>
 

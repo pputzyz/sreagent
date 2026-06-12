@@ -1373,6 +1373,10 @@ export default {
     headerName: 'Header Name',
     headerValue: 'Header Value',
     invalidJson: 'Invalid JSON format',
+    severityMapping: 'Severity Mapping',
+    severityMappingHint: 'Map platform severity (P0-P4) to external format (critical/error/warning/info) when sending notifications',
+    severityMappingTable: 'Mapping Table (platform → external)',
+    severityMappingDefault: 'Default: P0→critical, P1→error, P2→warning, P3→info',
     channelType: {
       dingtalk_webhook: 'DingTalk Bot',
       wecom_webhook: 'WeCom Bot',

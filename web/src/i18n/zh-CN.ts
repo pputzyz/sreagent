@@ -1382,6 +1382,10 @@ export default {
     headerName: '请求头名称',
     headerValue: '请求头值',
     invalidJson: '无效的 JSON 格式',
+    severityMapping: '严重等级映射',
+    severityMappingHint: '发送通知时将平台严重等级（P0-P4）映射为外部格式（critical/error/warning/info）',
+    severityMappingTable: '映射表（平台 → 外部）',
+    severityMappingDefault: '默认映射：P0→critical, P1→error, P2→warning, P3→info',
     channelType: {
       dingtalk_webhook: '钉钉机器人',
       wecom_webhook: '企业微信机器人',

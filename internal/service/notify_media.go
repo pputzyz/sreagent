@@ -314,6 +314,11 @@ func (s *NotifyMediaService) SendNotification(ctx context.Context, media *model.
 	localMedia := *media
 	localMedia.Config = s.decryptNotifyMediaConfig(media)
 
+	// Apply severity mapping if configured (e.g. P0→critical for Prometheus-compatible receivers).
+	if data != nil {
+		data = s.applySeverityMapping(&localMedia, data)
+	}
+
 	// Execute the actual send and track success/failure for circuit breaker.
 	var sendErr error
 	switch localMedia.Type {
@@ -1215,6 +1220,79 @@ func (s *NotifyMediaService) sendFeishuCard(ctx context.Context, media *model.No
 		return fmt.Errorf("failed to marshal feishu card payload: %w", err)
 	}
 	return s.doHTTPPostWithRetryTyped(ctx, cfg.WebhookURL, "application/json", body, 3, 100, "feishu_card")
+}
+
+// --- Severity mapping (per-media, optional) ---
+
+// severityMappingConfig is embedded in media Config JSON to control severity mapping.
+type severityMappingConfig struct {
+	SeverityMappingEnabled bool              `json:"severity_mapping_enabled"`
+	SeverityMapping        map[string]string `json:"severity_mapping,omitempty"` // e.g. {"p0":"critical","p1":"error"}
+}
+
+// defaultSeverityMapPxToProm maps platform Px severity to Prometheus-compatible names.
+var defaultSeverityMapPxToProm = map[string]string{
+	"p0": "critical",
+	"p1": "error",
+	"p2": "warning",
+	"p3": "info",
+	"p4": "info",
+	// also handle Chinese labels from external sources
+	"critical": "critical",
+	"error":    "error",
+	"warning":  "warning",
+	"warn":     "warning",
+	"info":     "info",
+}
+
+// defaultSeverityMapPromToPx maps Prometheus severity back to platform Px names.
+var defaultSeverityMapPromToPx = map[string]string{
+	"critical": "p0",
+	"error":    "p1",
+	"warning":  "p2",
+	"warn":     "p2",
+	"info":     "p3",
+	"email":    "p3",
+}
+
+// applySeverityMapping maps data.Severity according to the media's severity_mapping config.
+// Returns a shallow copy of data with the mapped severity (original data is not mutated).
+func (s *NotifyMediaService) applySeverityMapping(media *model.NotifyMedia, data *TemplateData) *TemplateData {
+	var cfg severityMappingConfig
+	if err := json.Unmarshal([]byte(media.Config), &cfg); err != nil || !cfg.SeverityMappingEnabled {
+		return data
+	}
+
+	sev := strings.ToLower(data.Severity)
+
+	// Use custom mapping if provided, otherwise use default Px→Prometheus.
+	mapping := cfg.SeverityMapping
+	if len(mapping) == 0 {
+		mapping = defaultSeverityMapPxToProm
+	}
+
+	if mapped, ok := mapping[sev]; ok {
+		cp := *data
+		cp.Severity = mapped
+		return &cp
+	}
+	return data
+}
+
+// mapSeverityInbound maps an external severity to the platform's Px convention.
+// Used when receiving webhook alerts from external sources (Prometheus, Alertmanager, etc.).
+func mapSeverityInbound(external string, mapping map[string]string) string {
+	sev := strings.ToLower(external)
+	if len(mapping) == 0 {
+		if mapped, ok := defaultSeverityMapPromToPx[sev]; ok {
+			return mapped
+		}
+		return sev
+	}
+	if mapped, ok := mapping[sev]; ok {
+		return mapped
+	}
+	return sev
 }
 
 // --- Feishu App (send via tenant_access_token) ---
