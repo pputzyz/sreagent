@@ -17,6 +17,12 @@ type AlertForwarderService struct {
 	forwarderRepo *repository.AlertForwarderRepository
 	mediaRepo     *repository.NotifyMediaRepository
 	mediaSvc      *NotifyMediaService
+	// Platform capability dependencies
+	eventRepo     *repository.AlertEventRepository
+	notifySvc     *NotificationService
+	muteSvc       *MuteRuleService
+	inhibitorSvc  *InhibitionRuleService
+	pipelineEngine interface{} // *ppipeline.Engine - avoid import cycle
 	logger        *zap.Logger
 }
 
@@ -33,6 +39,26 @@ func NewAlertForwarderService(
 		mediaSvc:      mediaSvc,
 		logger:        logger,
 	}
+}
+
+// SetEventRepository injects the event repository for platform capabilities.
+func (s *AlertForwarderService) SetEventRepository(repo *repository.AlertEventRepository) {
+	s.eventRepo = repo
+}
+
+// SetNotificationService injects the notification service for routing.
+func (s *AlertForwarderService) SetNotificationService(svc *NotificationService) {
+	s.notifySvc = svc
+}
+
+// SetMuteRuleService injects the mute rule service.
+func (s *AlertForwarderService) SetMuteRuleService(svc *MuteRuleService) {
+	s.muteSvc = svc
+}
+
+// SetInhibitionRuleService injects the inhibition rule service.
+func (s *AlertForwarderService) SetInhibitionRuleService(svc *InhibitionRuleService) {
+	s.inhibitorSvc = svc
 }
 
 // Create creates a new alert forwarder.

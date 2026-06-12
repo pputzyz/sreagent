@@ -609,6 +609,10 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 
 	// Alert forwarder service
 	svcs.AlertForwarderSvc = service.NewAlertForwarderService(repos.AlertForwarder, repos.NotifyMedia, svcs.NotifyMediaSvc, zapLogger)
+	svcs.AlertForwarderSvc.SetEventRepository(repos.Event)
+	svcs.AlertForwarderSvc.SetNotificationService(svcs.NotifySvc)
+	svcs.AlertForwarderSvc.SetMuteRuleService(svcs.MuteRuleSvc)
+	svcs.AlertForwarderSvc.SetInhibitionRuleService(svcs.InhibitionRuleSvc)
 
 	// Seed default notification media and templates
 	seedSvc := service.NewSeedService(repos.NotifyMedia, repos.MessageTemplate, zapLogger)
@@ -816,6 +820,21 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 				zap.Uint("event_id", event.ID),
 				zap.Error(err),
 			)
+		}
+
+		// 6. Outbound forwarding via AlertForwarder (async, non-blocking).
+		if svcs.AlertForwarderSvc != nil {
+			go func(ev *model.AlertEvent) {
+				fwdCtx, fwdCancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer fwdCancel()
+				if err := svcs.AlertForwarderSvc.ProcessOutbound(fwdCtx, ev); err != nil {
+					zapLogger.Warn("outbound forwarding failed",
+						zap.Uint("event_id", ev.ID),
+						zap.String("alert_name", ev.AlertName),
+						zap.Error(err),
+					)
+				}
+			}(event)
 		}
 	}
 

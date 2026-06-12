@@ -1,5 +1,5 @@
 import request from './request'
-import type { ApiResponse, PaginatedResponse } from './types'
+import type { ApiResponse, PageData } from '@/types'
 
 export interface AlertForwarder {
   id: number
@@ -84,7 +84,7 @@ export function getAlertForwarder(id: number) {
 
 // List alert forwarders
 export function listAlertForwarders(params?: ForwarderListParams) {
-  return request.get<PaginatedResponse<AlertForwarder>>('/api/v1/alert-forwarders', { params })
+  return request.get<ApiResponse<PageData<AlertForwarder>>>('/api/v1/alert-forwarders', { params })
 }
 
 // Update alert forwarder

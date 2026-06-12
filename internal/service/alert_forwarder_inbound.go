@@ -287,13 +287,57 @@ func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forward
 		}
 	}
 
-	// TODO: Integrate with platform capabilities
-	// - EnableInhibition: Check inhibition rules
-	// - EnableMute: Check mute rules
-	// - EnableEscalation: Match escalation policies
-	// - EnableNotification: Route to notification pipeline
-	// - EnableAIAnalysis: Run AI analysis
-	// - PipelineID: Execute custom event pipeline
+	// Save event to database if event repository is available
+	if s.eventRepo != nil {
+		if err := s.eventRepo.Create(ctx, event); err != nil {
+			s.logger.Error("failed to save inbound alert event",
+				zap.Uint("forwarder_id", forwarder.ID),
+				zap.String("fingerprint", alert.Fingerprint),
+				zap.Error(err),
+			)
+			// Continue even if save fails - still try to route
+		}
+	}
+
+	// Platform capability: Inhibition check
+	if caps.EnableInhibition && s.inhibitorSvc != nil {
+		// Get currently firing events for inhibition check
+		var firingEvents []model.AlertEvent
+		if s.eventRepo != nil {
+			firingEvents, _, _ = s.eventRepo.List(ctx, "firing", "", 1, 2000)
+		}
+		if s.inhibitorSvc.IsInhibited(ctx, event, firingEvents) {
+			s.logger.Info("inbound alert inhibited",
+				zap.Uint("forwarder_id", forwarder.ID),
+				zap.String("alert_name", alertName),
+				zap.String("fingerprint", alert.Fingerprint),
+			)
+			return nil
+		}
+	}
+
+	// Platform capability: Mute check
+	if caps.EnableMute && s.muteSvc != nil {
+		if s.muteSvc.IsAlertMuted(ctx, event) {
+			s.logger.Info("inbound alert muted",
+				zap.Uint("forwarder_id", forwarder.ID),
+				zap.String("alert_name", alertName),
+				zap.String("fingerprint", alert.Fingerprint),
+			)
+			return nil
+		}
+	}
+
+	// Platform capability: Notification routing
+	if caps.EnableNotification && s.notifySvc != nil {
+		if err := s.notifySvc.RouteAlert(ctx, event); err != nil {
+			s.logger.Error("failed to route inbound alert notification",
+				zap.Uint("forwarder_id", forwarder.ID),
+				zap.String("alert_name", alertName),
+				zap.Error(err),
+			)
+		}
+	}
 
 	s.logger.Info("inbound alert processed",
 		zap.Uint("forwarder_id", forwarder.ID),
@@ -302,6 +346,8 @@ func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forward
 		zap.String("severity", severity),
 		zap.String("fingerprint", alert.Fingerprint),
 		zap.Bool("enable_notification", caps.EnableNotification),
+		zap.Bool("enable_mute", caps.EnableMute),
+		zap.Bool("enable_inhibition", caps.EnableInhibition),
 	)
 
 	return nil
