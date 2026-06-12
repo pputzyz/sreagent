@@ -3,6 +3,7 @@ package lark
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -65,9 +66,28 @@ func Test_RateLimiter_AllowChat(t *testing.T) {
 	assert.True(t, r.AllowChat("chat1"))
 }
 
-func Test_RateLimiter_AllowCard(t *testing.T) {
+func Test_RateLimiter_AllowCard_EnforcesBurst(t *testing.T) {
 	r := NewRateLimiter()
-	assert.True(t, r.AllowCard("entity1"))
+	allowed := 0
+	for i := 0; i < 30; i++ {
+		if r.AllowCard("entity1") {
+			allowed++
+		}
+	}
+	// Per-card burst is 10; a tiny refill margin may occur during the loop.
+	assert.GreaterOrEqual(t, allowed, 10, "burst of 10 must be allowed")
+	assert.LessOrEqual(t, allowed, 12, "requests beyond the per-card burst must be rejected")
+}
+
+func Test_RateLimiter_WaitCard_RespectsContext(t *testing.T) {
+	r := NewRateLimiter()
+	for i := 0; i < 30; i++ {
+		r.AllowCard("exhausted-card")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	err := r.WaitCard(ctx, "exhausted-card")
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func Test_RateLimiter_WaitChat_RespectsContext(t *testing.T) {
@@ -85,14 +105,26 @@ func Test_RateLimiter_WaitChat_RespectsContext(t *testing.T) {
 func Test_RateLimiter_ConcurrentAccess(t *testing.T) {
 	r := NewRateLimiter()
 	var wg sync.WaitGroup
+	var chatAllowed, cardAllowed atomic.Int64
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func() {
 			defer wg.Done()
-			r.AllowChat("shared-chat")
-			r.AllowCard("shared-card")
-		}(i)
+			if r.AllowChat("shared-chat") {
+				chatAllowed.Add(1)
+			}
+			if r.AllowCard("shared-card") {
+				cardAllowed.Add(1)
+			}
+		}()
 	}
 	wg.Wait()
-	// No panic = success.
+
+	// Under concurrency the buckets must still enforce their limits: the
+	// per-chat burst is 4 and per-card burst is 10 (small refill margin
+	// allowed). If locking were broken, far more would slip through.
+	assert.GreaterOrEqual(t, chatAllowed.Load(), int64(1))
+	assert.LessOrEqual(t, chatAllowed.Load(), int64(6), "per-chat burst must hold under concurrency")
+	assert.GreaterOrEqual(t, cardAllowed.Load(), int64(1))
+	assert.LessOrEqual(t, cardAllowed.Load(), int64(12), "per-card burst must hold under concurrency")
 }

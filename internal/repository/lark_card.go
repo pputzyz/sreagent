@@ -47,21 +47,45 @@ func (r *LarkCardRepository) GetEntityByID(ctx context.Context, id uint) (*model
 	return &entity, nil
 }
 
-// IncrementSequence atomically increments the sequence counter and returns the new value.
-// This avoids read-modify-write races: UPDATE ... SET sequence = sequence + 1.
+// IncrementSequence atomically increments the sequence counter and returns the
+// new value. The UPDATE and the read-back run inside ONE transaction so the
+// row lock taken by the UPDATE is held until the SELECT — two concurrent
+// callers can never read the same value. (A bare UPDATE followed by an
+// independent SELECT would let both readers observe the final value.)
 func (r *LarkCardRepository) IncrementSequence(ctx context.Context, id uint) (int64, error) {
-	err := r.db.WithContext(ctx).
-		Model(&model.LarkCardEntity{}).
-		Where("id = ?", id).
-		Update("sequence", gorm.Expr("sequence + 1")).Error
+	return r.bumpSequence(ctx, id, 1)
+}
+
+// JumpSequence advances the sequence by a large step. Used to re-sync after
+// the remote rejects an update with 300317 (sequence not increasing): jumping
+// well past any value the remote may have seen makes the next update valid.
+func (r *LarkCardRepository) JumpSequence(ctx context.Context, id uint, step int64) (int64, error) {
+	if step < 1 {
+		step = 1
+	}
+	return r.bumpSequence(ctx, id, step)
+}
+
+func (r *LarkCardRepository) bumpSequence(ctx context.Context, id uint, step int64) (int64, error) {
+	var seq int64
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.
+			Model(&model.LarkCardEntity{}).
+			Where("id = ?", id).
+			Update("sequence", gorm.Expr("sequence + ?", step)).Error; err != nil {
+			return err
+		}
+		var entity model.LarkCardEntity
+		if err := tx.Select("sequence").First(&entity, id).Error; err != nil {
+			return err
+		}
+		seq = entity.Sequence
+		return nil
+	})
 	if err != nil {
 		return 0, err
 	}
-	var entity model.LarkCardEntity
-	if err := r.db.WithContext(ctx).Select("sequence").First(&entity, id).Error; err != nil {
-		return 0, err
-	}
-	return entity.Sequence, nil
+	return seq, nil
 }
 
 // UpdateCardID sets the CardKit card_id on an entity (used after CreateCardEntity API call).

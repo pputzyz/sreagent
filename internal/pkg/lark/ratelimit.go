@@ -38,8 +38,19 @@ func (r *RateLimiter) AllowCard(entityID string) bool {
 // WaitChat blocks until the per-chat rate limit allows a request, or ctx is cancelled.
 // Returns ctx.Err() if the context expires before the limit allows.
 func (r *RateLimiter) WaitChat(ctx context.Context, chatID string) error {
+	return waitFor(ctx, func() bool { return r.AllowChat(chatID) })
+}
+
+// WaitCard blocks until the per-card (CardKit entity) rate limit allows an
+// update, or ctx is cancelled. CardKit allows ≤10 ops/sec per card entity.
+func (r *RateLimiter) WaitCard(ctx context.Context, entityID string) error {
+	return waitFor(ctx, func() bool { return r.AllowCard(entityID) })
+}
+
+// waitFor polls allow() until it passes or the context is done.
+func waitFor(ctx context.Context, allow func() bool) error {
 	for {
-		if r.AllowChat(chatID) {
+		if allow() {
 			return nil
 		}
 		select {
