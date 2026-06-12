@@ -24,6 +24,26 @@ func (d ForwarderDirection) IsValid() bool {
 	return false
 }
 
+// InboundMode defines how inbound alerts are processed.
+type InboundMode string
+
+const (
+	// InboundModeIntegrate: alert enters platform core lifecycle (like engine-generated alerts).
+	// Goes through: create AlertEvent → inhibition → mute → noise reduction → notification → escalation.
+	InboundModeIntegrate InboundMode = "integrate"
+	// InboundModeProxy: alert is forwarded to an external target without entering platform lifecycle.
+	// Only applies severity mapping, then forwards to configured outbound target.
+	InboundModeProxy InboundMode = "proxy"
+)
+
+func (m InboundMode) IsValid() bool {
+	switch m {
+	case InboundModeIntegrate, InboundModeProxy:
+		return true
+	}
+	return false
+}
+
 // ForwarderSourceFormat defines the format of incoming alert payloads.
 type ForwarderSourceFormat string
 
@@ -60,23 +80,6 @@ func (a ForwarderAuthType) IsValid() bool {
 	return false
 }
 
-// SeverityMappingDirection defines which direction the severity mapping applies to.
-type SeverityMappingDirection string
-
-const (
-	SeverityMappingDirInbound  SeverityMappingDirection = "inbound"
-	SeverityMappingDirOutbound SeverityMappingDirection = "outbound"
-	SeverityMappingDirBoth     SeverityMappingDirection = "both"
-)
-
-func (d SeverityMappingDirection) IsValid() bool {
-	switch d {
-	case SeverityMappingDirInbound, SeverityMappingDirOutbound, SeverityMappingDirBoth:
-		return true
-	}
-	return false
-}
-
 // AlertForwarder is the main model for alert forwarding configuration.
 type AlertForwarder struct {
 	ID          uint               `json:"id" gorm:"primaryKey"`
@@ -86,14 +89,15 @@ type AlertForwarder struct {
 	Direction   ForwarderDirection `json:"direction" gorm:"size:32;not null"`
 	Priority    int                `json:"priority" gorm:"default:0;index"`
 
-	// Inbound configuration
+	// Inbound configuration (for inbound/bidirectional)
 	InboundConfig  *InboundConfig  `json:"inbound_config,omitempty" gorm:"type:json;column:inbound_config"`
 	OutboundConfig *OutboundConfig `json:"outbound_config,omitempty" gorm:"type:json;column:outbound_config"`
 
-	// Severity mapping
-	SeverityMapping *SeverityMappingConfig `json:"severity_mapping,omitempty" gorm:"type:json;column:severity_mapping"`
+	// Severity mapping (independent for inbound and outbound)
+	InboundSeverityMapping  *SeverityMappingConfig `json:"inbound_severity_mapping,omitempty" gorm:"type:json;column:inbound_severity_mapping"`
+	OutboundSeverityMapping *SeverityMappingConfig `json:"outbound_severity_mapping,omitempty" gorm:"type:json;column:outbound_severity_mapping"`
 
-	// Platform capabilities
+	// Platform capabilities (only for integrate mode)
 	PlatformCapabilities *PlatformCapabilitiesConfig `json:"platform_capabilities,omitempty" gorm:"type:json;column:platform_capabilities"`
 
 	// Match conditions
@@ -110,9 +114,11 @@ func (AlertForwarder) TableName() string {
 // InboundConfig holds configuration for inbound alert receiving.
 type InboundConfig struct {
 	SourceFormat ForwarderSourceFormat `json:"source_format"`
-	Path         string               `json:"path,omitempty"` // Auto-generated
+	Mode         InboundMode          `json:"mode"` // "integrate" or "proxy"
 	AuthType     ForwarderAuthType    `json:"auth_type"`
 	AuthConfig   *AuthConfig          `json:"auth_config,omitempty"`
+	// ProxyTarget is used when mode=proxy: forward to this target after inbound processing.
+	ProxyTarget *OutboundConfig `json:"proxy_target,omitempty"`
 }
 
 // AuthConfig holds authentication credentials.
@@ -123,8 +129,8 @@ type AuthConfig struct {
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
 	// HMAC
-	HMACSecret  string `json:"hmac_secret,omitempty"`
-	HMACHeader  string `json:"hmac_header,omitempty"`
+	HMACSecret    string `json:"hmac_secret,omitempty"`
+	HMACHeader    string `json:"hmac_header,omitempty"`
 	HMACAlgorithm string `json:"hmac_algorithm,omitempty"` // sha256, sha1
 }
 
@@ -142,20 +148,20 @@ type OutboundConfig struct {
 
 // SeverityMappingConfig holds severity mapping configuration.
 type SeverityMappingConfig struct {
-	Enabled         bool                      `json:"enabled"`
-	Direction       SeverityMappingDirection  `json:"direction"`
-	Mapping         map[string]string         `json:"mapping"`          // e.g., {"critical": "P0", "warning": "P2"}
-	DefaultSeverity string                    `json:"default_severity"` // Fallback when no mapping found
+	Enabled         bool              `json:"enabled"`
+	Mapping         map[string]string `json:"mapping"`          // e.g., {"critical": "P0", "warning": "P2"}
+	DefaultSeverity string            `json:"default_severity"` // Fallback when no mapping found
 }
 
 // PlatformCapabilitiesConfig controls which platform features to engage during forwarding.
+// Only applies to integrate mode.
 type PlatformCapabilitiesConfig struct {
-	EnableEscalation   bool   `json:"enable_escalation"`
-	EnableMute         bool   `json:"enable_mute"`
-	EnableInhibition   bool   `json:"enable_inhibition"`
-	EnableNotification bool   `json:"enable_notification"`
-	EnableAIAnalysis   bool   `json:"enable_ai_analysis"`
-	PipelineID         *uint  `json:"pipeline_id,omitempty"` // Optional: custom event pipeline
+	EnableEscalation   bool  `json:"enable_escalation"`
+	EnableMute         bool  `json:"enable_mute"`
+	EnableInhibition   bool  `json:"enable_inhibition"`
+	EnableNotification bool  `json:"enable_notification"`
+	EnableAIAnalysis   bool  `json:"enable_ai_analysis"`
+	PipelineID         *uint `json:"pipeline_id,omitempty"` // Optional: custom event pipeline
 }
 
 // Value/Scan implementations for GORM JSON columns.
@@ -206,4 +212,19 @@ func jsonScan(src interface{}, dst interface{}) error {
 		return fmt.Errorf("unsupported type for JSON scan: %T", src)
 	}
 	return json.Unmarshal(data, dst)
+}
+
+// ApplySeverityMapping applies severity mapping to a given severity string.
+// Returns the mapped severity and whether mapping was applied.
+func (c *SeverityMappingConfig) ApplySeverityMapping(severity string) (string, bool) {
+	if c == nil || !c.Enabled {
+		return severity, false
+	}
+	if mapped, ok := c.Mapping[severity]; ok {
+		return mapped, true
+	}
+	if c.DefaultSeverity != "" {
+		return c.DefaultSeverity, true
+	}
+	return severity, false
 }

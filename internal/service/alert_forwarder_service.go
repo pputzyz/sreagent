@@ -17,13 +17,12 @@ type AlertForwarderService struct {
 	forwarderRepo *repository.AlertForwarderRepository
 	mediaRepo     *repository.NotifyMediaRepository
 	mediaSvc      *NotifyMediaService
-	// Platform capability dependencies
-	eventRepo     *repository.AlertEventRepository
-	notifySvc     *NotificationService
-	muteSvc       *MuteRuleService
-	inhibitorSvc  *InhibitionRuleService
-	pipelineEngine interface{} // *ppipeline.Engine - avoid import cycle
-	logger        *zap.Logger
+	// Platform capability dependencies (for integrate mode)
+	eventRepo    *repository.AlertEventRepository
+	notifySvc    *NotificationService
+	muteSvc      *MuteRuleService
+	inhibitorSvc *InhibitionRuleService
+	logger       *zap.Logger
 }
 
 // NewAlertForwarderService creates a new AlertForwarderService.
@@ -76,8 +75,17 @@ func (s *AlertForwarderService) Create(ctx context.Context, forwarder *model.Ale
 		if !forwarder.InboundConfig.SourceFormat.IsValid() {
 			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid source_format")
 		}
+		if !forwarder.InboundConfig.Mode.IsValid() {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid inbound mode: must be integrate or proxy")
+		}
 		if !forwarder.InboundConfig.AuthType.IsValid() {
 			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid auth_type")
+		}
+		// Proxy mode requires a proxy target
+		if forwarder.InboundConfig.Mode == model.InboundModeProxy {
+			if forwarder.InboundConfig.ProxyTarget == nil {
+				return apperr.WithMessage(apperr.ErrInvalidParam, "proxy_target is required for proxy mode")
+			}
 		}
 	}
 
@@ -91,37 +99,24 @@ func (s *AlertForwarderService) Create(ctx context.Context, forwarder *model.Ale
 		}
 	}
 
-	// Validate severity mapping
-	if forwarder.SeverityMapping != nil && forwarder.SeverityMapping.Enabled {
-		if !forwarder.SeverityMapping.Direction.IsValid() {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid severity_mapping direction")
-		}
-	}
-
 	// Set defaults
 	if forwarder.OutboundConfig != nil {
-		if forwarder.OutboundConfig.Method == "" {
-			forwarder.OutboundConfig.Method = "POST"
-		}
-		if forwarder.OutboundConfig.Timeout == 0 {
-			forwarder.OutboundConfig.Timeout = 30000
-		}
-		if forwarder.OutboundConfig.RetryTimes == 0 {
-			forwarder.OutboundConfig.RetryTimes = 3
-		}
-		if forwarder.OutboundConfig.RetryInterval == 0 {
-			forwarder.OutboundConfig.RetryInterval = 100
-		}
+		setOutboundDefaults(forwarder.OutboundConfig)
+	}
+	if forwarder.InboundConfig != nil && forwarder.InboundConfig.ProxyTarget != nil {
+		setOutboundDefaults(forwarder.InboundConfig.ProxyTarget)
 	}
 
-	// Set default platform capabilities if not provided
-	if forwarder.PlatformCapabilities == nil {
-		forwarder.PlatformCapabilities = &model.PlatformCapabilitiesConfig{
-			EnableEscalation:   false,
-			EnableMute:         false,
-			EnableInhibition:   false,
-			EnableNotification: true,
-			EnableAIAnalysis:   false,
+	// Set default platform capabilities if not provided (integrate mode only)
+	if forwarder.InboundConfig != nil && forwarder.InboundConfig.Mode == model.InboundModeIntegrate {
+		if forwarder.PlatformCapabilities == nil {
+			forwarder.PlatformCapabilities = &model.PlatformCapabilitiesConfig{
+				EnableEscalation:   false,
+				EnableMute:         false,
+				EnableInhibition:   false,
+				EnableNotification: true,
+				EnableAIAnalysis:   false,
+			}
 		}
 	}
 
@@ -165,10 +160,13 @@ func (s *AlertForwarderService) Update(ctx context.Context, forwarder *model.Ale
 		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid direction")
 	}
 
-	// Validate severity mapping
-	if forwarder.SeverityMapping != nil && forwarder.SeverityMapping.Enabled {
-		if !forwarder.SeverityMapping.Direction.IsValid() {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid severity_mapping direction")
+	// Validate inbound mode
+	if forwarder.InboundConfig != nil {
+		if !forwarder.InboundConfig.Mode.IsValid() {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid inbound mode")
+		}
+		if forwarder.InboundConfig.Mode == model.InboundModeProxy && forwarder.InboundConfig.ProxyTarget == nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "proxy_target is required for proxy mode")
 		}
 	}
 
@@ -245,8 +243,8 @@ func (s *AlertForwarderService) GetStats(ctx context.Context) (map[string]interf
 	}
 
 	return map[string]interface{}{
-		"by_direction":       counts,
-		"enabled_count":      len(enabledForwarders),
+		"by_direction":  counts,
+		"enabled_count": len(enabledForwarders),
 	}, nil
 }
 
@@ -281,17 +279,24 @@ func (s *AlertForwarderService) TestForwarder(ctx context.Context, id uint) (map
 	if forwarder.Direction == model.ForwarderDirectionInbound || forwarder.Direction == model.ForwarderDirectionBidirectional {
 		if forwarder.InboundConfig != nil {
 			result["inbound_source_format"] = forwarder.InboundConfig.SourceFormat
+			result["inbound_mode"] = forwarder.InboundConfig.Mode
 			result["inbound_auth_type"] = forwarder.InboundConfig.AuthType
 			result["inbound_path"] = fmt.Sprintf("/api/v1/forwarders/%d/inbound", forwarder.ID)
 		}
 	}
 
-	// Severity mapping
-	if forwarder.SeverityMapping != nil && forwarder.SeverityMapping.Enabled {
-		result["severity_mapping_enabled"] = true
-		result["severity_mapping_direction"] = forwarder.SeverityMapping.Direction
-		mappingJSON, _ := json.Marshal(forwarder.SeverityMapping.Mapping)
-		result["severity_mapping"] = string(mappingJSON)
+	// Inbound severity mapping
+	if forwarder.InboundSeverityMapping != nil && forwarder.InboundSeverityMapping.Enabled {
+		result["inbound_severity_mapping_enabled"] = true
+		mappingJSON, _ := json.Marshal(forwarder.InboundSeverityMapping.Mapping)
+		result["inbound_severity_mapping"] = string(mappingJSON)
+	}
+
+	// Outbound severity mapping
+	if forwarder.OutboundSeverityMapping != nil && forwarder.OutboundSeverityMapping.Enabled {
+		result["outbound_severity_mapping_enabled"] = true
+		mappingJSON, _ := json.Marshal(forwarder.OutboundSeverityMapping.Mapping)
+		result["outbound_severity_mapping"] = string(mappingJSON)
 	}
 
 	// Platform capabilities
@@ -304,4 +309,20 @@ func (s *AlertForwarderService) TestForwarder(ctx context.Context, id uint) (map
 	}
 
 	return result, nil
+}
+
+// setOutboundDefaults sets default values for outbound config.
+func setOutboundDefaults(config *model.OutboundConfig) {
+	if config.Method == "" {
+		config.Method = "POST"
+	}
+	if config.Timeout == 0 {
+		config.Timeout = 30000
+	}
+	if config.RetryTimes == 0 {
+		config.RetryTimes = 3
+	}
+	if config.RetryInterval == 0 {
+		config.RetryInterval = 100
+	}
 }

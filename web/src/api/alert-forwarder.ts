@@ -1,16 +1,22 @@
 import request from './request'
 import type { ApiResponse, PageData } from '@/types'
 
+export type ForwarderDirection = 'inbound' | 'outbound' | 'bidirectional'
+export type InboundMode = 'integrate' | 'proxy'
+export type SourceFormat = 'alertmanager' | 'grafana' | 'prometheus' | 'generic'
+export type AuthType = 'none' | 'bearer' | 'basic' | 'hmac'
+
 export interface AlertForwarder {
   id: number
   name: string
   description: string
   enabled: boolean
-  direction: 'inbound' | 'outbound' | 'bidirectional'
+  direction: ForwarderDirection
   priority: number
   inbound_config?: InboundConfig
   outbound_config?: OutboundConfig
-  severity_mapping?: SeverityMappingConfig
+  inbound_severity_mapping?: SeverityMappingConfig
+  outbound_severity_mapping?: SeverityMappingConfig
   platform_capabilities?: PlatformCapabilitiesConfig
   match_labels?: Record<string, string>
   created_at: string
@@ -18,10 +24,11 @@ export interface AlertForwarder {
 }
 
 export interface InboundConfig {
-  source_format: 'alertmanager' | 'grafana' | 'prometheus' | 'generic'
-  path?: string
-  auth_type: 'none' | 'bearer' | 'basic' | 'hmac'
+  source_format: SourceFormat
+  mode: InboundMode
+  auth_type: AuthType
   auth_config?: AuthConfig
+  proxy_target?: OutboundConfig
 }
 
 export interface AuthConfig {
@@ -46,7 +53,6 @@ export interface OutboundConfig {
 
 export interface SeverityMappingConfig {
   enabled: boolean
-  direction: 'inbound' | 'outbound' | 'both'
   mapping: Record<string, string>
   default_severity?: string
 }

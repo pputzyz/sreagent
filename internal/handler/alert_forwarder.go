@@ -32,30 +32,32 @@ func (h *AlertForwarderHandler) SetAuditService(svc *service.AuditLogService) {
 
 // CreateAlertForwarderRequest is the request body for creating an alert forwarder.
 type CreateAlertForwarderRequest struct {
-	Name                 string                          `json:"name" binding:"required"`
-	Description          string                          `json:"description"`
-	Enabled              *bool                           `json:"enabled"`
-	Direction            string                          `json:"direction" binding:"required"`
-	Priority             int                             `json:"priority"`
-	InboundConfig        *model.InboundConfig            `json:"inbound_config"`
-	OutboundConfig       *model.OutboundConfig           `json:"outbound_config"`
-	SeverityMapping      *model.SeverityMappingConfig    `json:"severity_mapping"`
-	PlatformCapabilities *model.PlatformCapabilitiesConfig `json:"platform_capabilities"`
-	MatchLabels          model.JSONLabels                `json:"match_labels"`
+	Name                     string                          `json:"name" binding:"required"`
+	Description              string                          `json:"description"`
+	Enabled                  *bool                           `json:"enabled"`
+	Direction                string                          `json:"direction" binding:"required"`
+	Priority                 int                             `json:"priority"`
+	InboundConfig            *model.InboundConfig            `json:"inbound_config"`
+	OutboundConfig           *model.OutboundConfig           `json:"outbound_config"`
+	InboundSeverityMapping   *model.SeverityMappingConfig    `json:"inbound_severity_mapping"`
+	OutboundSeverityMapping  *model.SeverityMappingConfig    `json:"outbound_severity_mapping"`
+	PlatformCapabilities     *model.PlatformCapabilitiesConfig `json:"platform_capabilities"`
+	MatchLabels              model.JSONLabels                `json:"match_labels"`
 }
 
 // UpdateAlertForwarderRequest is the request body for updating an alert forwarder.
 type UpdateAlertForwarderRequest struct {
-	Name                 string                          `json:"name" binding:"required"`
-	Description          string                          `json:"description"`
-	Enabled              *bool                           `json:"enabled"`
-	Direction            string                          `json:"direction" binding:"required"`
-	Priority             int                             `json:"priority"`
-	InboundConfig        *model.InboundConfig            `json:"inbound_config"`
-	OutboundConfig       *model.OutboundConfig           `json:"outbound_config"`
-	SeverityMapping      *model.SeverityMappingConfig    `json:"severity_mapping"`
-	PlatformCapabilities *model.PlatformCapabilitiesConfig `json:"platform_capabilities"`
-	MatchLabels          model.JSONLabels                `json:"match_labels"`
+	Name                     string                          `json:"name" binding:"required"`
+	Description              string                          `json:"description"`
+	Enabled                  *bool                           `json:"enabled"`
+	Direction                string                          `json:"direction" binding:"required"`
+	Priority                 int                             `json:"priority"`
+	InboundConfig            *model.InboundConfig            `json:"inbound_config"`
+	OutboundConfig           *model.OutboundConfig           `json:"outbound_config"`
+	InboundSeverityMapping   *model.SeverityMappingConfig    `json:"inbound_severity_mapping"`
+	OutboundSeverityMapping  *model.SeverityMappingConfig    `json:"outbound_severity_mapping"`
+	PlatformCapabilities     *model.PlatformCapabilitiesConfig `json:"platform_capabilities"`
+	MatchLabels              model.JSONLabels                `json:"match_labels"`
 }
 
 // BatchRequest is the request body for batch operations.
@@ -89,11 +91,12 @@ func (h *AlertForwarderHandler) Create(c *gin.Context) {
 		Enabled:              enabled,
 		Direction:            model.ForwarderDirection(req.Direction),
 		Priority:             req.Priority,
-		InboundConfig:        req.InboundConfig,
-		OutboundConfig:       req.OutboundConfig,
-		SeverityMapping:      req.SeverityMapping,
-		PlatformCapabilities: req.PlatformCapabilities,
-		MatchLabels:          req.MatchLabels,
+		InboundConfig:            req.InboundConfig,
+		OutboundConfig:           req.OutboundConfig,
+		InboundSeverityMapping:   req.InboundSeverityMapping,
+		OutboundSeverityMapping:  req.OutboundSeverityMapping,
+		PlatformCapabilities:     req.PlatformCapabilities,
+		MatchLabels:              req.MatchLabels,
 	}
 
 	if err := h.svc.Create(c.Request.Context(), forwarder); err != nil {
@@ -175,11 +178,12 @@ func (h *AlertForwarderHandler) Update(c *gin.Context) {
 		Enabled:              enabled,
 		Direction:            model.ForwarderDirection(req.Direction),
 		Priority:             req.Priority,
-		InboundConfig:        req.InboundConfig,
-		OutboundConfig:       req.OutboundConfig,
-		SeverityMapping:      req.SeverityMapping,
-		PlatformCapabilities: req.PlatformCapabilities,
-		MatchLabels:          req.MatchLabels,
+		InboundConfig:            req.InboundConfig,
+		OutboundConfig:           req.OutboundConfig,
+		InboundSeverityMapping:   req.InboundSeverityMapping,
+		OutboundSeverityMapping:  req.OutboundSeverityMapping,
+		PlatformCapabilities:     req.PlatformCapabilities,
+		MatchLabels:              req.MatchLabels,
 	}
 
 	if err := h.svc.Update(c.Request.Context(), forwarder); err != nil {

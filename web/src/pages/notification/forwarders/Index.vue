@@ -169,11 +169,26 @@ const columns = computed<DataTableColumns<AlertForwarder>>(() => [
     width: 80
   },
   {
-    title: t('forwarder.severityMapping'),
-    key: 'severity_mapping',
-    width: 120,
+    title: t('forwarder.inboundSeverityMapping'),
+    key: 'inbound_severity_mapping',
+    width: 140,
     render(row) {
-      if (row.severity_mapping?.enabled) {
+      if (row.inbound_severity_mapping?.enabled) {
+        return h(NTag, { type: 'warning', size: 'small' }, {
+          default: () => t('common.enabled')
+        })
+      }
+      return h(NTag, { type: 'default', size: 'small' }, {
+        default: () => t('common.disabled')
+      })
+    }
+  },
+  {
+    title: t('forwarder.outboundSeverityMapping'),
+    key: 'outbound_severity_mapping',
+    width: 140,
+    render(row) {
+      if (row.outbound_severity_mapping?.enabled) {
         return h(NTag, { type: 'warning', size: 'small' }, {
           default: () => t('common.enabled')
         })

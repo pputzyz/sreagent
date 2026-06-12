@@ -4,7 +4,7 @@
     :model="formData"
     :rules="rules"
     label-placement="left"
-    label-width="140"
+    label-width="160"
     require-mark-placement="right-hanging"
     style="padding: 20px"
   >
@@ -58,6 +58,25 @@
             v-model:value="formData.inbound_config.source_format"
             :options="sourceFormatOptions"
           />
+        </n-form-item>
+
+        <n-form-item :label="t('forwarder.inboundMode')" path="inbound_config.mode">
+          <n-radio-group v-model:value="formData.inbound_config.mode">
+            <n-space>
+              <n-radio value="integrate">
+                <n-tooltip trigger="hover">
+                  <template #trigger>{{ t('forwarder.modeIntegrate') }}</template>
+                  {{ t('forwarder.modeIntegrateDesc') }}
+                </n-tooltip>
+              </n-radio>
+              <n-radio value="proxy">
+                <n-tooltip trigger="hover">
+                  <template #trigger>{{ t('forwarder.modeProxy') }}</template>
+                  {{ t('forwarder.modeProxyDesc') }}
+                </n-tooltip>
+              </n-radio>
+            </n-space>
+          </n-radio-group>
         </n-form-item>
 
         <n-form-item :label="t('forwarder.authType')" path="inbound_config.auth_type">
@@ -118,6 +137,62 @@
               v-model:value="formData.inbound_config.auth_config.hmac_algorithm"
               :options="hmacAlgorithmOptions"
             />
+          </n-form-item>
+        </template>
+
+        <!-- Inbound Severity Mapping -->
+        <n-divider>{{ t('forwarder.inboundSeverityMapping') }}</n-divider>
+        <n-form-item :label="t('forwarder.enableSeverityMapping')">
+          <n-switch v-model:value="formData.inbound_severity_mapping.enabled" />
+        </n-form-item>
+        <template v-if="formData.inbound_severity_mapping.enabled">
+          <n-form-item :label="t('forwarder.severityMap')">
+            <n-dynamic-input
+              v-model:value="inboundSeverityMappingList"
+              :on-create="createSeverityMapping"
+            >
+              <template #default="{ value }">
+                <n-space>
+                  <n-input v-model:value="value.source" :placeholder="t('forwarder.sourceSeverity')" style="width: 150px" />
+                  <n-text>→</n-text>
+                  <n-input v-model:value="value.target" :placeholder="t('forwarder.targetSeverity')" style="width: 150px" />
+                </n-space>
+              </template>
+            </n-dynamic-input>
+          </n-form-item>
+          <n-form-item :label="t('forwarder.defaultSeverity')">
+            <n-input v-model:value="formData.inbound_severity_mapping.default_severity" :placeholder="t('forwarder.defaultSeverityPlaceholder')" />
+          </n-form-item>
+        </template>
+
+        <!-- Proxy Target (only for proxy mode) -->
+        <template v-if="formData.inbound_config.mode === 'proxy'">
+          <n-divider>{{ t('forwarder.proxyTarget') }}</n-divider>
+          <n-form-item :label="t('forwarder.targetType')">
+            <n-radio-group v-model:value="proxyTargetType">
+              <n-space>
+                <n-radio value="media">{{ t('forwarder.targetMedia') }}</n-radio>
+                <n-radio value="url">{{ t('forwarder.targetURL') }}</n-radio>
+              </n-space>
+            </n-radio-group>
+          </n-form-item>
+          <n-form-item v-if="proxyTargetType === 'media'" :label="t('forwarder.targetMedia')">
+            <n-select
+              v-model:value="formData.inbound_config.proxy_target.target_media_id"
+              :options="mediaOptions"
+              :loading="loadingMedia"
+              :placeholder="t('forwarder.selectMedia')"
+              filterable
+            />
+          </n-form-item>
+          <n-form-item v-if="proxyTargetType === 'url'" :label="t('forwarder.targetURL')">
+            <n-input v-model:value="formData.inbound_config.proxy_target.target_url" :placeholder="t('forwarder.urlPlaceholder')" />
+          </n-form-item>
+          <n-form-item :label="t('forwarder.httpMethod')">
+            <n-select v-model:value="formData.inbound_config.proxy_target.method" :options="httpMethodOptions" />
+          </n-form-item>
+          <n-form-item :label="t('forwarder.bodyTemplate')">
+            <n-input v-model:value="formData.inbound_config.proxy_target.body_template" type="textarea" :rows="4" :placeholder="t('forwarder.bodyTemplatePlaceholder')" />
           </n-form-item>
         </template>
 
@@ -185,59 +260,42 @@
         <n-form-item :label="t('forwarder.retryTimes')" path="outbound_config.retry_times">
           <n-input-number v-model:value="formData.outbound_config.retry_times" :min="0" :max="10" />
         </n-form-item>
-      </n-tab-pane>
 
-      <!-- Severity Mapping Tab -->
-      <n-tab-pane name="severity" :tab="t('forwarder.severityMapping')">
-        <n-form-item :label="t('forwarder.enableSeverityMapping')" path="severity_mapping.enabled">
-          <n-switch v-model:value="formData.severity_mapping.enabled" />
+        <!-- Outbound Severity Mapping -->
+        <n-divider>{{ t('forwarder.outboundSeverityMapping') }}</n-divider>
+        <n-form-item :label="t('forwarder.enableSeverityMapping')">
+          <n-switch v-model:value="formData.outbound_severity_mapping.enabled" />
         </n-form-item>
-
-        <template v-if="formData.severity_mapping.enabled">
-          <n-form-item :label="t('forwarder.mappingDirection')" path="severity_mapping.direction">
-            <n-radio-group v-model:value="formData.severity_mapping.direction">
-              <n-space>
-                <n-radio value="inbound">{{ t('forwarder.directionInbound') }}</n-radio>
-                <n-radio value="outbound">{{ t('forwarder.directionOutbound') }}</n-radio>
-                <n-radio value="both">{{ t('forwarder.directionBoth') }}</n-radio>
-              </n-space>
-            </n-radio-group>
-          </n-form-item>
-
-          <n-form-item :label="t('forwarder.severityMap')" path="severity_mapping.mapping">
+        <template v-if="formData.outbound_severity_mapping.enabled">
+          <n-form-item :label="t('forwarder.severityMap')">
             <n-dynamic-input
-              v-model:value="severityMappingList"
+              v-model:value="outboundSeverityMappingList"
               :on-create="createSeverityMapping"
             >
               <template #default="{ value }">
                 <n-space>
-                  <n-input
-                    v-model:value="value.source"
-                    :placeholder="t('forwarder.sourceSeverity')"
-                    style="width: 150px"
-                  />
+                  <n-input v-model:value="value.source" :placeholder="t('forwarder.sourceSeverity')" style="width: 150px" />
                   <n-text>→</n-text>
-                  <n-input
-                    v-model:value="value.target"
-                    :placeholder="t('forwarder.targetSeverity')"
-                    style="width: 150px"
-                  />
+                  <n-input v-model:value="value.target" :placeholder="t('forwarder.targetSeverity')" style="width: 150px" />
                 </n-space>
               </template>
             </n-dynamic-input>
           </n-form-item>
-
-          <n-form-item :label="t('forwarder.defaultSeverity')" path="severity_mapping.default_severity">
-            <n-input
-              v-model:value="formData.severity_mapping.default_severity"
-              :placeholder="t('forwarder.defaultSeverityPlaceholder')"
-            />
+          <n-form-item :label="t('forwarder.defaultSeverity')">
+            <n-input v-model:value="formData.outbound_severity_mapping.default_severity" :placeholder="t('forwarder.defaultSeverityPlaceholder')" />
           </n-form-item>
         </template>
       </n-tab-pane>
 
-      <!-- Platform Capabilities Tab -->
-      <n-tab-pane name="capabilities" :tab="t('forwarder.platformCapabilities')">
+      <!-- Platform Capabilities Tab (only for integrate mode) -->
+      <n-tab-pane
+        v-if="showPlatformCapabilities"
+        name="capabilities"
+        :tab="t('forwarder.platformCapabilities')"
+      >
+        <n-alert type="info" style="margin-bottom: 16px">
+          {{ t('forwarder.capabilitiesIntegrateOnly') }}
+        </n-alert>
         <n-form-item :label="t('forwarder.capNotification')" path="platform_capabilities.enable_notification">
           <n-switch v-model:value="formData.platform_capabilities.enable_notification" />
           <n-text depth="3" style="margin-left: 12px">{{ t('forwarder.capNotificationDesc') }}</n-text>
@@ -289,7 +347,7 @@ import { useI18n } from 'vue-i18n'
 import {
   NForm, NFormItem, NInput, NInputNumber, NSelect, NSwitch, NRadioGroup, NRadio,
   NSpace, NButton, NText, NAlert, NTabs, NTabPane, NDynamicTags, NDynamicInput,
-  useMessage
+  NDivider, NTooltip, useMessage
 } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
 import {
@@ -317,14 +375,16 @@ const mediaOptions = ref<{ label: string; value: number }[]>([])
 
 // Outbound target type
 const outboundTargetType = ref<'media' | 'url'>('media')
+const proxyTargetType = ref<'media' | 'url'>('url')
 
 // Match labels as list for dynamic tags
 const matchLabelsList = ref<string[]>([])
 
-// Severity mapping as list for dynamic input
-const severityMappingList = ref<{ source: string; target: string }[]>([])
+// Severity mapping lists for dynamic input
+const inboundSeverityMappingList = ref<{ source: string; target: string }[]>([])
+const outboundSeverityMappingList = ref<{ source: string; target: string }[]>([])
 
-// Form data
+// Form data with defaults
 const formData = reactive<Partial<AlertForwarder>>({
   name: '',
   description: '',
@@ -334,6 +394,7 @@ const formData = reactive<Partial<AlertForwarder>>({
   match_labels: {},
   inbound_config: {
     source_format: 'alertmanager',
+    mode: 'integrate',
     auth_type: 'none',
     auth_config: {
       token: '',
@@ -342,6 +403,15 @@ const formData = reactive<Partial<AlertForwarder>>({
       hmac_secret: '',
       hmac_header: 'X-Signature',
       hmac_algorithm: 'sha256'
+    },
+    proxy_target: {
+      target_url: '',
+      method: 'POST',
+      headers: {},
+      body_template: '',
+      timeout: 30000,
+      retry_times: 3,
+      retry_interval: 100
     }
   },
   outbound_config: {
@@ -354,9 +424,13 @@ const formData = reactive<Partial<AlertForwarder>>({
     retry_times: 3,
     retry_interval: 100
   },
-  severity_mapping: {
+  inbound_severity_mapping: {
     enabled: false,
-    direction: 'both',
+    mapping: {},
+    default_severity: ''
+  },
+  outbound_severity_mapping: {
+    enabled: false,
     mapping: {},
     default_severity: ''
   },
@@ -368,6 +442,12 @@ const formData = reactive<Partial<AlertForwarder>>({
     enable_ai_analysis: false,
     pipeline_id: undefined
   }
+})
+
+// Computed: show platform capabilities tab only for integrate mode
+const showPlatformCapabilities = computed(() => {
+  if (formData.direction === 'outbound') return false
+  return formData.inbound_config?.mode === 'integrate'
 })
 
 // Options
@@ -434,6 +514,20 @@ function updateMatchLabels(labels: string[]) {
   formData.match_labels = result
 }
 
+// Convert severity mapping map to list and back
+function mappingToList(mapping?: Record<string, string>): { source: string; target: string }[] {
+  if (!mapping) return []
+  return Object.entries(mapping).map(([source, target]) => ({ source, target }))
+}
+
+function listToMapping(list: { source: string; target: string }[]): Record<string, string> {
+  const result: Record<string, string> = {}
+  list.forEach(({ source, target }) => {
+    if (source && target) result[source] = target
+  })
+  return result
+}
+
 async function loadMediaOptions() {
   loadingMedia.value = true
   try {
@@ -465,18 +559,22 @@ async function loadForwarder() {
         )
       }
 
-      // Convert severity mapping to list
-      if (data.severity_mapping?.mapping) {
-        severityMappingList.value = Object.entries(data.severity_mapping.mapping).map(
-          ([source, target]) => ({ source, target })
-        )
-      }
+      // Convert severity mappings to lists
+      inboundSeverityMappingList.value = mappingToList(data.inbound_severity_mapping?.mapping)
+      outboundSeverityMappingList.value = mappingToList(data.outbound_severity_mapping?.mapping)
 
       // Set outbound target type
       if (data.outbound_config?.target_media_id) {
         outboundTargetType.value = 'media'
       } else if (data.outbound_config?.target_url) {
         outboundTargetType.value = 'url'
+      }
+
+      // Set proxy target type
+      if (data.inbound_config?.proxy_target?.target_media_id) {
+        proxyTargetType.value = 'media'
+      } else {
+        proxyTargetType.value = 'url'
       }
     }
   } catch (error: any) {
@@ -491,22 +589,29 @@ async function handleSubmit() {
     return
   }
 
-  // Convert severity mapping list to map
-  if (formData.severity_mapping?.enabled) {
-    const mapping: Record<string, string> = {}
-    severityMappingList.value.forEach(({ source, target }) => {
-      if (source && target) {
-        mapping[source] = target
-      }
-    })
-    formData.severity_mapping.mapping = mapping
+  // Convert severity mapping lists to maps
+  if (formData.inbound_severity_mapping?.enabled) {
+    formData.inbound_severity_mapping.mapping = listToMapping(inboundSeverityMappingList.value)
+  }
+  if (formData.outbound_severity_mapping?.enabled) {
+    formData.outbound_severity_mapping.mapping = listToMapping(outboundSeverityMappingList.value)
   }
 
-  // Clear unused outbound config
+  // Clear unused outbound config fields
   if (outboundTargetType.value === 'media') {
     formData.outbound_config!.target_url = ''
   } else {
     formData.outbound_config!.target_media_id = undefined
+  }
+
+  // Clear proxy target if not proxy mode
+  if (formData.inbound_config?.mode !== 'proxy') {
+    formData.inbound_config!.proxy_target = undefined
+  }
+
+  // Clear platform capabilities if not integrate mode
+  if (formData.inbound_config?.mode !== 'integrate' && formData.direction === 'inbound') {
+    formData.platform_capabilities = undefined
   }
 
   submitting.value = true

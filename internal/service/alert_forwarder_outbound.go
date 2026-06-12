@@ -78,21 +78,12 @@ func (s *AlertForwarderService) processOutboundForForwarder(ctx context.Context,
 		return fmt.Errorf("outbound config is nil")
 	}
 
-	// Apply severity mapping if enabled
+	// Apply outbound severity mapping
 	severity := string(event.Severity)
 	originalSeverity := severity
 
-	if forwarder.SeverityMapping != nil && forwarder.SeverityMapping.Enabled {
-		shouldMap := forwarder.SeverityMapping.Direction == model.SeverityMappingDirOutbound ||
-			forwarder.SeverityMapping.Direction == model.SeverityMappingDirBoth
-
-		if shouldMap {
-			if mapped, ok := forwarder.SeverityMapping.Mapping[severity]; ok {
-				severity = mapped
-			} else if forwarder.SeverityMapping.DefaultSeverity != "" {
-				severity = forwarder.SeverityMapping.DefaultSeverity
-			}
-		}
+	if mapped, applied := forwarder.OutboundSeverityMapping.ApplySeverityMapping(severity); applied {
+		severity = mapped
 	}
 
 	// Build render data
@@ -108,14 +99,6 @@ func (s *AlertForwarderService) processOutboundForForwarder(ctx context.Context,
 		FireCount:     event.FireCount,
 		ForwarderName: forwarder.Name,
 		ForwarderID:   forwarder.ID,
-	}
-
-	// Get value from annotations
-	if val, ok := event.Annotations["value"]; ok {
-		data.Value = val
-	}
-	if dur, ok := event.Annotations["duration"]; ok {
-		data.Duration = dur
 	}
 
 	// Get value from annotations

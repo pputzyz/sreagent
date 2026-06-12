@@ -22,9 +22,9 @@ import (
 
 // InboundPayload represents the parsed inbound alert payload.
 type InboundPayload struct {
-	Alerts      []InboundAlert `json:"alerts"`
-	Receiver    string         `json:"receiver"`
-	Status      string         `json:"status"`
+	Alerts         []InboundAlert    `json:"alerts"`
+	Receiver       string            `json:"receiver"`
+	Status         string            `json:"status"`
 	ExternalLabels map[string]string `json:"external_labels,omitempty"`
 }
 
@@ -87,7 +87,7 @@ func (s *AlertForwarderService) ProcessInbound(ctx context.Context, forwarderID 
 		}
 	}
 
-	// 7. Process each alert
+	// 7. Process each alert based on mode
 	for _, alert := range payload.Alerts {
 		if err := s.processInboundAlert(ctx, forwarder, &alert, payload); err != nil {
 			s.logger.Error("failed to process inbound alert",
@@ -230,38 +230,39 @@ func (s *AlertForwarderService) parseInboundPayload(r *http.Request, forwarder *
 	return &payload, nil
 }
 
-// processInboundAlert processes a single inbound alert.
+// processInboundAlert processes a single inbound alert based on the forwarder's mode.
 func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forwarder *model.AlertForwarder, alert *InboundAlert, payload *InboundPayload) error {
-	// Apply severity mapping if enabled
+	// Get severity from labels
 	severity := ""
 	if sev, ok := alert.Labels["severity"]; ok {
 		severity = sev
 	}
 
-	if forwarder.SeverityMapping != nil && forwarder.SeverityMapping.Enabled {
-		shouldMap := forwarder.SeverityMapping.Direction == model.SeverityMappingDirInbound ||
-			forwarder.SeverityMapping.Direction == model.SeverityMappingDirBoth
-
-		if shouldMap {
-			if mapped, ok := forwarder.SeverityMapping.Mapping[severity]; ok {
-				// Store original severity in labels
-				alert.Labels["original_severity"] = severity
-				alert.Labels["severity"] = mapped
-				severity = mapped
-			} else if forwarder.SeverityMapping.DefaultSeverity != "" {
-				alert.Labels["original_severity"] = severity
-				alert.Labels["severity"] = forwarder.SeverityMapping.DefaultSeverity
-				severity = forwarder.SeverityMapping.DefaultSeverity
-			}
-		}
+	// Apply inbound severity mapping
+	if mapped, applied := forwarder.InboundSeverityMapping.ApplySeverityMapping(severity); applied {
+		alert.Labels["original_severity"] = severity
+		alert.Labels["severity"] = mapped
+		severity = mapped
 	}
 
-	// Build AlertEvent
+	// Build alert name
 	alertName := alert.Labels["alertname"]
 	if alertName == "" {
 		alertName = "Unknown"
 	}
 
+	// Route based on mode
+	if forwarder.InboundConfig != nil && forwarder.InboundConfig.Mode == model.InboundModeProxy {
+		return s.processProxyAlert(ctx, forwarder, alert, alertName, severity)
+	}
+
+	// Default: integrate mode
+	return s.processIntegrateAlert(ctx, forwarder, alert, alertName, severity)
+}
+
+// processIntegrateAlert processes an inbound alert in integrate mode.
+// The alert enters the platform's full lifecycle management.
+func (s *AlertForwarderService) processIntegrateAlert(ctx context.Context, forwarder *model.AlertForwarder, alert *InboundAlert, alertName, severity string) error {
 	event := &model.AlertEvent{
 		Fingerprint:  alert.Fingerprint,
 		AlertName:    alertName,
@@ -279,6 +280,18 @@ func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forward
 		event.Status = model.EventStatusResolved
 	}
 
+	// Save event to database
+	if s.eventRepo != nil {
+		if err := s.eventRepo.Create(ctx, event); err != nil {
+			s.logger.Error("failed to save inbound alert event",
+				zap.Uint("forwarder_id", forwarder.ID),
+				zap.String("fingerprint", alert.Fingerprint),
+				zap.Error(err),
+			)
+			// Continue even if save fails
+		}
+	}
+
 	// Apply platform capabilities
 	caps := forwarder.PlatformCapabilities
 	if caps == nil {
@@ -287,21 +300,8 @@ func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forward
 		}
 	}
 
-	// Save event to database if event repository is available
-	if s.eventRepo != nil {
-		if err := s.eventRepo.Create(ctx, event); err != nil {
-			s.logger.Error("failed to save inbound alert event",
-				zap.Uint("forwarder_id", forwarder.ID),
-				zap.String("fingerprint", alert.Fingerprint),
-				zap.Error(err),
-			)
-			// Continue even if save fails - still try to route
-		}
-	}
-
-	// Platform capability: Inhibition check
+	// Inhibition check
 	if caps.EnableInhibition && s.inhibitorSvc != nil {
-		// Get currently firing events for inhibition check
 		var firingEvents []model.AlertEvent
 		if s.eventRepo != nil {
 			firingEvents, _, _ = s.eventRepo.List(ctx, "firing", "", 1, 2000)
@@ -310,25 +310,23 @@ func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forward
 			s.logger.Info("inbound alert inhibited",
 				zap.Uint("forwarder_id", forwarder.ID),
 				zap.String("alert_name", alertName),
-				zap.String("fingerprint", alert.Fingerprint),
 			)
 			return nil
 		}
 	}
 
-	// Platform capability: Mute check
+	// Mute check
 	if caps.EnableMute && s.muteSvc != nil {
 		if s.muteSvc.IsAlertMuted(ctx, event) {
 			s.logger.Info("inbound alert muted",
 				zap.Uint("forwarder_id", forwarder.ID),
 				zap.String("alert_name", alertName),
-				zap.String("fingerprint", alert.Fingerprint),
 			)
 			return nil
 		}
 	}
 
-	// Platform capability: Notification routing
+	// Notification routing
 	if caps.EnableNotification && s.notifySvc != nil {
 		if err := s.notifySvc.RouteAlert(ctx, event); err != nil {
 			s.logger.Error("failed to route inbound alert notification",
@@ -339,27 +337,143 @@ func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forward
 		}
 	}
 
-	s.logger.Info("inbound alert processed",
+	s.logger.Info("inbound alert integrated into platform",
 		zap.Uint("forwarder_id", forwarder.ID),
 		zap.String("forwarder_name", forwarder.Name),
 		zap.String("alert_name", alertName),
 		zap.String("severity", severity),
 		zap.String("fingerprint", alert.Fingerprint),
-		zap.Bool("enable_notification", caps.EnableNotification),
-		zap.Bool("enable_mute", caps.EnableMute),
-		zap.Bool("enable_inhibition", caps.EnableInhibition),
 	)
 
 	return nil
 }
 
+// processProxyAlert processes an inbound alert in proxy mode.
+// The alert is forwarded to the configured proxy target without entering platform lifecycle.
+func (s *AlertForwarderService) processProxyAlert(ctx context.Context, forwarder *model.AlertForwarder, alert *InboundAlert, alertName, severity string) error {
+	if forwarder.InboundConfig.ProxyTarget == nil {
+		return fmt.Errorf("proxy target not configured")
+	}
+
+	target := forwarder.InboundConfig.ProxyTarget
+
+	// Build outbound payload (Alertmanager format)
+	outPayload := InboundPayload{
+		Alerts: []InboundAlert{
+			{
+				Status:       alert.Status,
+				Labels:       alert.Labels,
+				Annotations:  alert.Annotations,
+				StartsAt:     alert.StartsAt,
+				EndsAt:       alert.EndsAt,
+				Fingerprint:  alert.Fingerprint,
+				GeneratorURL: alert.GeneratorURL,
+			},
+		},
+		Receiver: fmt.Sprintf("proxy:%s", forwarder.Name),
+		Status:   alert.Status,
+	}
+
+	// Send to proxy target
+	if err := s.sendToProxyTarget(ctx, target, &outPayload); err != nil {
+		s.logger.Error("failed to forward alert to proxy target",
+			zap.Uint("forwarder_id", forwarder.ID),
+			zap.String("alert_name", alertName),
+			zap.String("target_url", target.TargetURL),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	s.logger.Info("inbound alert proxied to external target",
+		zap.Uint("forwarder_id", forwarder.ID),
+		zap.String("forwarder_name", forwarder.Name),
+		zap.String("alert_name", alertName),
+		zap.String("severity", severity),
+		zap.String("target_url", target.TargetURL),
+	)
+
+	return nil
+}
+
+// sendToProxyTarget sends the payload to the proxy target.
+func (s *AlertForwarderService) sendToProxyTarget(ctx context.Context, target *model.OutboundConfig, payload *InboundPayload) error {
+	// Serialize payload
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal proxy payload: %w", err)
+	}
+
+	// Build request
+	method := target.Method
+	if method == "" {
+		method = "POST"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, target.TargetURL, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return fmt.Errorf("failed to create proxy request: %w", err)
+	}
+
+	// Set headers
+	if target.Headers != nil {
+		for k, v := range target.Headers {
+			req.Header.Set(k, v)
+		}
+	}
+	if req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Set timeout
+	timeout := target.Timeout
+	if timeout == 0 {
+		timeout = 30000
+	}
+	client := &http.Client{
+		Timeout: time.Duration(timeout) * time.Millisecond,
+	}
+
+	// Send with retry
+	retryTimes := target.RetryTimes
+	if retryTimes == 0 {
+		retryTimes = 3
+	}
+	retryInterval := target.RetryInterval
+	if retryInterval == 0 {
+		retryInterval = 100
+	}
+
+	var lastErr error
+	for i := 0; i <= retryTimes; i++ {
+		if i > 0 {
+			time.Sleep(time.Duration(retryInterval) * time.Millisecond)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return nil
+		}
+
+		lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	return fmt.Errorf("proxy failed after %d retries: %w", retryTimes, lastErr)
+}
+
 // generateFingerprint generates a fingerprint from labels.
 func generateFingerprint(labels map[string]string) string {
-	// Sort labels and create a hash
 	var parts []string
 	for k, v := range labels {
 		parts = append(parts, k+"="+v)
 	}
-	// Simple fingerprint - in production, use a proper hash
 	return strings.Join(parts, ",")
 }
