@@ -92,6 +92,7 @@ type Handlers struct {
 	StatusSubscription *handler.StatusSubscriptionHandler // 状态页邮件订阅 (Status Page Subscriptions)
 	TeamNotifyChannel  *handler.TeamNotifyChannelHandler  // 团队通知渠道 (Team Notify Channels)
 	UserTeamNotifyPref *handler.UserTeamNotifyPrefHandler // 用户团队通知偏好 (User Team Notify Prefs)
+	AlertForwarder     *handler.AlertForwarderHandler     // 告警转发器 (Alert Forwarders)
 }
 
 // Setup initializes the Gin router with all routes and middleware.
@@ -264,6 +265,7 @@ func Setup(cfg *config.Config, handlers *Handlers, logger *zap.Logger) *gin.Engi
 			handlers.registerESIndexPatternRoutes(auth, manage)
 			handlers.registerBuiltinDashboardRoutes(auth, adminOnly, manage)
 			handlers.registerTaskRoutes(auth, manage, operate)
+			handlers.registerAlertForwarderRoutes(auth, api, manage, operate)
 		}
 	}
 

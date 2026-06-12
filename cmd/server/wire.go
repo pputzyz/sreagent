@@ -218,6 +218,7 @@ type repoBundle struct {
 	MCPServer          *repository.MCPServerRepository
 	AISkill            *repository.AISkillRepository
 	ESIndexPattern     *repository.ESIndexPatternRepository
+	AlertForwarder     *repository.AlertForwarderRepository
 }
 
 // initRepositories creates all repository instances from a single database connection.
@@ -295,6 +296,7 @@ func initRepositories(db *gorm.DB) *repoBundle {
 		MCPServer:          repository.NewMCPServerRepository(db),
 		AISkill:            repository.NewAISkillRepository(db),
 		ESIndexPattern:     repository.NewESIndexPatternRepository(db),
+		AlertForwarder:     repository.NewAlertForwarderRepository(db),
 	}
 }
 
@@ -371,6 +373,7 @@ type serviceBundle struct {
 	OAuth2Svc             *service.OAuth2Service
 	UserContactSvc        *service.UserContactService
 	DashboardStatsSvc     *service.DashboardStatsService
+	AlertForwarderSvc     *service.AlertForwarderService
 
 	// Shared engine components
 	AlertWorkerPool *engine.AlertWorkerPool
@@ -603,6 +606,9 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 
 	// Dashboard stats service
 	svcs.DashboardStatsSvc = service.NewDashboardStatsService(db, zapLogger)
+
+	// Alert forwarder service
+	svcs.AlertForwarderSvc = service.NewAlertForwarderService(repos.AlertForwarder, repos.NotifyMedia, svcs.NotifyMediaSvc, zapLogger)
 
 	// Seed default notification media and templates
 	seedSvc := service.NewSeedService(repos.NotifyMedia, repos.MessageTemplate, zapLogger)
@@ -1147,6 +1153,7 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		StatusSubscription: statusSubHandler,
 		TeamNotifyChannel:  teamNotifyChannelHandler,
 		UserTeamNotifyPref: userTeamNotifyPrefHandler,
+		AlertForwarder:     handler.NewAlertForwarderHandler(svcs.AlertForwarderSvc, zapLogger),
 	}
 
 	// Inject audit service into handlers that support it
@@ -1171,6 +1178,9 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 	handlers.ESIndexPattern.SetAuditService(svcs.AuditLogSvc)
 	if handlers.IncidentV2 != nil {
 		handlers.IncidentV2.SetAuditService(svcs.AuditLogSvc)
+	}
+	if handlers.AlertForwarder != nil {
+		handlers.AlertForwarder.SetAuditService(svcs.AuditLogSvc)
 	}
 	if handlers.ChangeEvent != nil {
 		handlers.ChangeEvent.SetIncidentService(svcs.IncidentSvc)

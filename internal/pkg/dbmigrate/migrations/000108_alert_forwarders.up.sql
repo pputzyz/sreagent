@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `alert_forwarders` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(128) NOT NULL,
+  `description` VARCHAR(512) NOT NULL DEFAULT '',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `direction` VARCHAR(32) NOT NULL,
+  `priority` INT NOT NULL DEFAULT 0,
+  `inbound_config` JSON DEFAULT NULL,
+  `outbound_config` JSON DEFAULT NULL,
+  `severity_mapping` JSON DEFAULT NULL,
+  `platform_capabilities` JSON DEFAULT NULL,
+  `match_labels` JSON DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `idx_alert_forwarders_name` (`name`),
+  INDEX `idx_alert_forwarders_enabled` (`enabled`),
+  INDEX `idx_alert_forwarders_direction` (`direction`),
+  INDEX `idx_alert_forwarders_priority` (`priority`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

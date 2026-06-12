@@ -4,6 +4,54 @@
 
 ---
 
+## [v4.72.0] — 2026-06-12
+
+### 告警转发器模块（AlertForwarder）
+
+**新增功能：**
+- 新增 `AlertForwarder` 模型，支持入站/出站/双向告警转发
+- 支持多种数据源格式：Alertmanager、Grafana、Prometheus、通用格式
+- 入站认证：无认证、Bearer Token、Basic Auth、HMAC 签名
+- 等级映射：可配置的入站/出站等级映射，支持默认等级
+- 平台能力接入：通知管道、升级策略、静默规则、抑制规则、AI 分析
+- 启用/禁用开关：每个转发器可独立启用或禁用
+- 标签匹配：支持标签过滤，只转发匹配的告警
+
+**后端实现：**
+- `internal/model/alert_forwarder.go`：数据模型定义
+- `internal/repository/alert_forwarder.go`：数据访问层（带缓存）
+- `internal/service/alert_forwarder_service.go`：CRUD 业务逻辑
+- `internal/service/alert_forwarder_inbound.go`：入站处理（认证、解析、映射）
+- `internal/service/alert_forwarder_outbound.go`：出站处理（媒体/HTTP 转发）
+- `internal/handler/alert_forwarder.go`：HTTP 处理器
+- `internal/router/alert_forwarder_routes.go`：路由注册
+- `cmd/server/wire.go`：依赖注入
+- 迁移文件：`000108_alert_forwarders.up.sql` / `000108_alert_forwarders.down.sql`
+
+**前端实现：**
+- `web/src/api/alert-forwarder.ts`：API 接口
+- `web/src/pages/notification/forwarders/Index.vue`：转发器列表页
+- `web/src/pages/notification/forwarders/ForwarderForm.vue`：转发器表单（支持基本设置、入站配置、出站配置、等级映射、平台能力）
+- `web/src/router/index.ts`：路由注册
+- `web/src/i18n/zh-CN.ts` / `web/src/i18n/en.ts`：国际化
+
+**API 端点：**
+- `POST /api/v1/alert-forwarders` — 创建转发器
+- `GET /api/v1/alert-forwarders` — 列表（分页、筛选）
+- `GET /api/v1/alert-forwarders/:id` — 详情
+- `PUT /api/v1/alert-forwarders/:id` — 更新
+- `DELETE /api/v1/alert-forwarders/:id` — 删除
+- `POST /api/v1/alert-forwarders/:id/enable` — 启用
+- `POST /api/v1/alert-forwarders/:id/disable` — 禁用
+- `POST /api/v1/alert-forwarders/batch/enable` — 批量启用
+- `POST /api/v1/alert-forwarders/batch/disable` — 批量禁用
+- `POST /api/v1/alert-forwarders/batch/delete` — 批量删除
+- `POST /api/v1/alert-forwarders/:id/test` — 测试转发器
+- `GET /api/v1/alert-forwarders/stats` — 统计信息
+- `POST /api/v1/alert-forwarders/:id/inbound` — 入站端点（外部系统调用）
+
+---
+
 ## [v4.71.0] — 2026-06-12
 
 ### Lark 集成第三轮整改（接线修复 + 安全加固 + 功能补全）

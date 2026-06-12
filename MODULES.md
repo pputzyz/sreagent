@@ -1,7 +1,7 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-06-06 | tag: v4.64.0
-> 共 62 个 model, 77 个 handler, 98 个 service, 59 个 repository, 350+ API 端点, 17 种通知渠道
+> 最后更新: 2026-06-12 | tag: v4.72.0
+> 共 63 个 model, 78 个 handler, 99 个 service, 60 个 repository, 363+ API 端点, 17 种通知渠道
 
 ---
 
@@ -28,6 +28,10 @@ webhook ──────────→ alert-engine ←──── alert-rul
 
 integration (webhook接入) ──→ alert-v2-pipeline
   └── routing-rule (共享集成路由)
+
+alert-forwarder ──→ notify-media (出站目标)
+  └──→ event-pipeline (可选自定义处理链)
+  └──→ platform-capabilities (通知/升级/静默/抑制/AI)
 
 channel (协作空间) ──┬── incident (故障)
                      ├── exclusion-rule (排除规则)
@@ -99,6 +103,7 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 | MCP 服务器 | ✅ | ❌ | ❌ | 0% |
 | 任务模板 | ✅ | ❌ | ❌ | 0% |
 | 任务执行 | ✅ | ❌ | ❌ | 0% |
+| 告警转发器 | ✅ | ❌ | ❌ | 0% |
 
 > 目标：service 层 > 60%，handler 层 > 40%（v1.11.0 起逐步补全）
 
@@ -158,6 +163,16 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 - **状态**: ✅ 完成（v4.30.0 扩展至 17 种渠道类型）
 - **迁移**: 000080_notify_max_notifications（NotifyRule.MaxNotifications 最大通知次数上限）
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
+
+## 告警转发器 (alert-forwarder) [v4.72.0]
+
+- **功能**: 入站/出站/双向告警转发，支持 Alertmanager/Grafana/Prometheus 格式，等级映射，平台能力接入（通知管道、升级策略、静默规则、抑制规则、AI 分析）
+- **后端**: `model/alert_forwarder.go`, `handler/alert_forwarder.go`, `service/alert_forwarder_service.go`, `service/alert_forwarder_inbound.go`, `service/alert_forwarder_outbound.go`, `repository/alert_forwarder.go`
+- **前端**: `web/src/pages/notification/forwarders/Index.vue`, `web/src/pages/notification/forwarders/ForwarderForm.vue`, `web/src/api/alert-forwarder.ts`
+- **API**: `/api/v1/alert-forwarders` (13 endpoints: CRUD, enable/disable, batch, test, stats, inbound)
+- **迁移**: 000108_alert_forwarders
+- **依赖**: notify-media (出站目标), event-pipeline (可选自定义处理链)
+- **状态**: ✅ 核心完成
 
 ## 事件管道 (event-pipeline)
 

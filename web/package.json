@@ -1,7 +1,7 @@
 {
   "name": "sreagent-web",
   "private": true,
-  "version": "4.65.0",
+  "version": "4.72.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,6 +21,7 @@
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@prometheus-io/codemirror-promql": "^0.311.3",
+    "@vicons/antd": "^0.13.0",
     "@vicons/ionicons5": "^0.12.0",
     "@vicons/tabler": "^0.12.0",
     "axios": "^1.7.9",

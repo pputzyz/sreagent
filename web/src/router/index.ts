@@ -41,6 +41,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'oncall/notify/channels', component: () => import('@/pages/notification/Media.vue'), meta: { title: 'menu.notifyChannels', requiresRole: ['admin', 'team_lead'] } },
       { path: 'oncall/notify/subscriptions', component: () => import('@/pages/notification/Subscribe.vue'), meta: { title: 'menu.subscriptions' } },
       { path: 'oncall/notify/alert-channels', component: () => import('@/pages/notification/AlertChannels.vue'), meta: { title: 'menu.alertChannels', requiresRole: ['admin', 'team_lead'] } },
+      { path: 'oncall/notify/forwarders', component: () => import('@/pages/notification/forwarders/Index.vue'), meta: { title: 'menu.alertForwarders', requiresRole: ['admin', 'team_lead'] } },
 
       // ===== Alert =====
       { path: 'alert', redirect: '/alert/overview' },
