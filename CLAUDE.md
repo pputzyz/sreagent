@@ -65,7 +65,8 @@ NotifyRule / MuteRule / InhibitionRule / SubscribeRule ── match labels → N
 
 **关键词 → 模块映射**（命中任一关键词即定位）：
 - 告警、规则、事件、firing、resolve、分组、触发、恢复、严重等级、severity、threshold、条件、评估、去重、指纹、心跳、heartbeat、状态机、group_wait、group_interval → 告警引擎 + 告警规则 + 告警事件
-- 通知、飞书、邮件、webhook、lark、短信、渠道、分发、模板、订阅、推送、card、卡片、消息、dispatch、notify → 通知管道 + 飞书集成 + 告警通道
+- 通知、飞书、邮件、webhook、lark、短信、渠道、分发、模板、订阅、推送、card、卡片、消息、dispatch、notify、CardKit、长连接、websocket、bot、机器人 → 通知管道 + 飞书集成 + 告警通道
+- 报告、日报、周报、report、报表、定时报告 → 智能报告任务 + AI 助手
 - 值班、排班、oncall、替班、升级、轮转、rotation、shift、日程、schedule、escalation、值班人 → 值班排班 + 升级策略
 - 静默、mute、屏蔽、抑制、inhibition、silence、免打扰 → 静默规则 + 抑制规则
 - 数据源、Prometheus、PromQL、VM、VictoriaMetrics、VLogs、Zabbix、采集、查询、metric、指标、数据查询、explore、日志查询、MetricsQL、LogsQL → 数据源 + 数据查询 + 标签注册表

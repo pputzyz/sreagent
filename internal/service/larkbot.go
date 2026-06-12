@@ -445,11 +445,11 @@ func (s *LarkBotService) HandleCardActionEvent(ctx context.Context, req *LarkCar
 // Identity mapping alone is NOT authorization: a viewer-role user with a bound
 // Lark account must not be able to mutate alerts from a group chat.
 var cardActionPerms = map[string]string{
-	"ack":         "events.ack",
-	"silence":     "events.ack",
+	"ack":          "events.ack",
+	"silence":      "events.ack",
 	"silence_form": "events.ack",
-	"resolve":     "events.ack",
-	"assign_form": "events.assign",
+	"resolve":      "events.ack",
+	"assign_form":  "events.assign",
 }
 
 // processCardAction validates, authorizes and executes a card button action.

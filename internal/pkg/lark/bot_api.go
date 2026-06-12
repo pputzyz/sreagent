@@ -71,8 +71,8 @@ func (e *LarkError) IsRetryable() bool {
 		codeTokenInvalid, // retried with a fresh token: apiCall invalidates the cache on this code
 		99991668,         // app/user token expired
 		11232, 11233,     // legacy throttling codes (global / per-chat)
-		10012,            // frequency limit
-		10006:            // request timeout
+		10012, // frequency limit
+		10006: // request timeout
 		return true
 	}
 	return false

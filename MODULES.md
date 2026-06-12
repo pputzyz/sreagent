@@ -278,9 +278,22 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 
 ## 飞书集成 (lark)
 
-- **功能**: Webhook 通知、Bot API (DM + 群消息)、卡片模板、Bot 指令回调
-- **后端**: `pkg/lark/` (2 files), `service/lark.go`, `service/larkbot.go`, `handler/larkbot.go`
-- **API**: `POST /lark/event`, `/api/v1/lark/bot/config` (2 endpoints)
+- **功能**: Webhook 通知、Bot API (DM + 群消息)、卡片 2.0 + CardKit 实体（一卡多群/sequence 防并发/过期重建）、双事件通道（WebSocket 长连接 + HTTP 回调，配置切换）、卡片交互（RBAC 校验，callback/open_url 三档模式）、@bot 自然语言对话（工具白名单 + 会话记忆 + 流式卡片）、限流（per-chat 4QPS / 全局 45QPS / per-card 10QPS）
+- **后端**: `pkg/lark/` (bot_api/card_v2/cardkit/ratelimit/client/cardbuilder), `service/lark.go`, `service/larkbot.go`, `service/lark_card_state.go`, `service/lark_tools.go`, `service/lark_conversation.go`, `service/event_source.go`, `service/event_source_ws.go`, `handler/larkbot.go`
+- **前端**: `web/src/pages/settings/LarkBotConfig.vue`
+- **API**: `POST /lark/event`, `POST /lark/card-action`, `/api/v1/lark/bot/config`, `GET /api/v1/lark/bot/status`
+- **数据模型**: `lark_card_entities`(event_id, card_id, sequence, card_status, expires_at) ─1:N─ `lark_card_messages`(chat_id, message_id)；迁移 000123
+- **依赖**: notification(通知路由)、alert-event(状态机)、ai(对话 Agent)、system-setting(配置)
+- **状态**: ✅ 完成（WS 在 Lark 国际版的可用性以 PoC 为准，详见 docs/lark-assistant-plan.md T0）
+
+## 智能报告任务 (report-task)
+
+- **功能**: 用户自定义定时报告（cron 6 段含秒 + Scope 标签圈定 + 自定义提示词），统计由平台直接计算（总量/环比/severity 分布/Top5/趋势/MTTA/MTTR，LLM 只解读不生成数字），输出 Card 2.0 图表卡片到飞书群/webhook，日报/周报预置模板
+- **后端**: `model/report_task.go`, `repository/report_task.go`, `service/report_task.go`, `service/report_executor.go`, `service/report_scheduler.go`, `service/report_stats.go`, `service/report_card.go`, `service/report_prompt.go`, `handler/report_task.go`
+- **前端**: `web/src/pages/platform/ReportTasks.vue`（路由 `/platform/report-tasks`）
+- **API**: `/api/v1/report-tasks` CRUD + `POST /api/v1/report-tasks/:id/run` + `/api/v1/report-runs`
+- **数据模型**: `report_tasks` ─1:N─ `report_runs`；迁移 000124
+- **依赖**: ai(AgentService)、alert-event(统计源)、lark(卡片输出)、引擎 LeaderElection(多实例单跑)
 - **状态**: ✅ 完成
 
 ## 系统设置 (system-setting)

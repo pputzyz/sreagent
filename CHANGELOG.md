@@ -4,6 +4,56 @@
 
 ---
 
+## [v4.71.0] — 2026-06-12
+
+### Lark 集成第三轮整改（接线修复 + 安全加固 + 功能补全）
+
+**事件通道（双通道接线，修复 WS nil handler 致整通道失效）:**
+- `LarkBotService` 实现 `EventHandler`：事件 ID Redis 去重 + 异步处理（3 秒 ack 窗口内返回，LLM 长耗时不再触发 Lark 重投风暴）；HTTP 回调路径与 WS 喂同一套 handler
+- `event_source_ws.go`：handler 真实接线（原为 nil → 每条消息 panic 被吞）；新增 `OnP2CardActionTrigger`（callback_ws 模式）；连接状态（connected/reconnecting/...）经 `GetBotStatus` 暴露到设置页
+- 删除无人调用且与主逻辑漂移的 `HTTPEventSource` 死代码
+
+**卡片交互安全（RBAC + 单更新通道）:**
+- `processCardAction`：操作者身份映射后增加 **RBAC 校验**（`events.ack`/`events.assign`，viewer 角色拒绝）；时间戳反重放改为强制；`retry` 递归改为单层解包（消除栈溢出向量）
+- v2 卡片回调响应只返回 toast，内容统一走 CardKit 实体更新（消除双路径互踩）
+- 静默改为按钮带时长（1h/24h），时长来自按钮 value 而非空表单默认
+
+**CardKit / 卡片 2.0 修复:**
+- `CardInteractionMode` 真实落地：open_url 模式（默认）按钮跳转平台、不再生成点击无效的 callback 按钮
+- 六态卡片内容差异化：认领人/指派人（含 @）、静默截止与原因、终态无操作按钮
+- `EnsureCardForEvent` 多群修复：同一实体补发到未投递的群（原实现第二个群永远收不到卡）
+- 过期/卡死实体自动重建并补发全部群；300317 序号漂移 → JumpSequence 重同步 → 仍失败重建实体
+- `IncrementSequence` 事务化（UPDATE+读回同事务持锁），消除并发重复序号；新增 50 goroutine 并发回归测试
+- builder：30KB 超限分级裁剪（折叠面板截断→丢弃→才报错）；组件数统计含嵌套；新增 VChart line/pie/bar spec helper（饼图 valueField/categoryField）；`AddColumnSet`
+- 限流：`UpdateCardEntity` 接入 per-card 10/s `WaitCard`（原 AllowCard 为死代码）
+
+**真实发送链路接线（修复 v2 全链路死代码）:**
+- `notify_media.sendFeishuApp`：群聊 + v2 + 同 app 时路由 CardKit 实体流（一卡多群）；硬编码 `open.feishu.cn` 改为按 Domain 配置（Lark 国际版修复）
+- `triggerLarkCardUpdate`/`HandleCardLifecycle` 的 LarkMessageID 门禁与 v2 解耦（原实现 v2 卡片状态同步永不触发）
+- 共享 token cache 按 app_id 隔离（修复跨应用 token 串用）；增加 `TokenCache.Invalidate`
+
+**Lark API 客户端健壮性:**
+- 统一 `apiCall`：每次重试重新取 token、99991663 自动失效缓存重取、HTTP 429 读 `x-ogw-ratelimit-reset` 头定延迟、99991672（缺权限）等不可重试码不再盲目重试
+
+**AI 工具安全（修复全量工具暴露 + 身份伪造）:**
+- `RegisterLarkTools` 真实接线（原为死代码）；新增 `run_inspection` 工具
+- `acknowledge_alert` 的操作者改从 **agent context** 注入（`WithAgentOperator`），移除 LLM 可填的 user_id 参数；未绑定用户写操作拒绝
+- LarkConfig 新增 `bot_allowed_tools` 白名单（空 = 内置安全默认集，绝不展开为全量注册表）；@bot 对话操作者从消息发送者 open_id 解析（原误用 chat_id）
+- 会话记忆（ConversationStore）真实注入，支持多轮追问；CommandsEnabled 开关恢复生效；mapNaturalLanguage 低延迟 fast-path 恢复
+
+**智能报告任务补全:**
+- 新增 `report_stats.go`：按 Scope（match_labels + 时间窗）从 alert_events 直接计算统计（总量/环比/severity 分布/Top5/逐小时趋势/MTTA/MTTR）——数字来自平台查询，LLM 只解读（防幻觉硬边界）
+- 新增 `report_card.go`：报告卡片含趋势折线 + 等级饼图 + Top 柱状图（chart 组件）+ AI 摘要 + 发现项折叠
+- 系统提示词重写为必答四问（异常模式/重复告警收敛/容量水位 ETA/MTTA 点名，P0-P2 排序带证据）
+- cron 校验（6 段含秒，与调度器同解析器）；UpdateTask 防 id/created_by 覆写
+- 前端：路由+菜单注册（原为孤儿页）；表单补输出群/统计窗口/范围标签；默认 cron 修为 6 段；日报/周报预置模板按钮
+
+**CI:** 恢复 `go test -race`（上轮被无理由移除，恰逢大量并发代码合入）
+
+**测试:** 改写 3 个不调用被测函数的假测试为真实六态/交互模式断言；ratelimit 并发测试补真实断言；新增 sequence 并发、JumpSequence、30KB 裁剪、嵌套组件计数、VChart 字段名守卫等回归测试
+
+---
+
 ## [v4.70.2] — 2026-06-11
 
 ### 第二轮整改（补丁驱动，25 个文件 +511/-167 行）

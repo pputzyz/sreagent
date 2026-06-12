@@ -32,8 +32,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # -race is mandatory: the Lark integration adds concurrent code paths
+      # (token buckets, debounce timers, CardKit sequence, WS goroutines) —
+      # removing race detection here hides exactly the bugs it would catch.
       - name: Run tests
-        run: go test ./... -timeout 180s -count=1
+        run: go test ./... -race -timeout 300s -count=1
 
   # ──────────────────────────────────────────────────────────
   # Job 1b: Go lint（独立 job，不阻塞测试）
