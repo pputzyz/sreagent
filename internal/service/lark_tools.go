@@ -3,18 +3,27 @@ package service
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/repository"
 )
 
 // RegisterLarkTools registers SRE tools available to the Lark bot Agent.
-// These tools allow the Lark bot to query alert data, statistics, and on-call info.
+// These tools allow the Lark bot to query alert data, statistics, on-call
+// info, trigger inspections, and acknowledge alerts.
+//
+// Security: write tools take the operator from the agent context
+// (AgentOperatorFromContext), never from LLM-controlled parameters.
 func RegisterLarkTools(
 	registry *AIToolRegistry,
 	eventSvc *AlertEventService,
 	statsSvc *DashboardStatsService,
 	scheduleSvc *ScheduleService,
+	inspectionExec *InspectionExecutor,
+	inspectionRepo *repository.InspectionRepository,
 ) {
 	// ── query_alert_events: 查询告警事件列表 ──
 	registry.Register(&AITool{
@@ -27,7 +36,7 @@ func RegisterLarkTools(
 			"properties": map[string]interface{}{
 				"status": map[string]interface{}{
 					"type":        "string",
-					"description": "告警状态筛选: firing, acknowledged, resolved, closed",
+					"description": "告警状态筛选: firing, acknowledged, assigned, silenced, resolved, closed",
 				},
 				"severity": map[string]interface{}{
 					"type":        "string",
@@ -45,6 +54,9 @@ func RegisterLarkTools(
 			limit, _ := aiToolToInt(params["limit"])
 			if limit <= 0 {
 				limit = 10
+			}
+			if limit > 50 {
+				limit = 50
 			}
 
 			events, total, err := eventSvc.List(ctx, status, severity, 1, limit)
@@ -97,6 +109,9 @@ func RegisterLarkTools(
 			if hours <= 0 {
 				hours = 24
 			}
+			if hours > 24*31 {
+				hours = 24 * 31
+			}
 
 			stats, err := statsSvc.GetMTTRStats(ctx, hours)
 			if err != nil {
@@ -109,10 +124,11 @@ func RegisterLarkTools(
 
 	// ── acknowledge_alert: 认领告警 ──
 	registry.Register(&AITool{
-		Name:        "acknowledge_alert",
-		Description: "认领（acknowledge）一个告警事件。需要提供告警事件 ID。此操作会将告警状态从 firing 变为 acknowledged。",
-		IO:          "write",
-		RiskLevel:   1,
+		Name: "acknowledge_alert",
+		Description: "认领（acknowledge）一个告警事件，将状态从 firing 变为 acknowledged。" +
+			"操作以当前对话用户的身份执行；未绑定平台账号的用户无法执行。",
+		IO:        "write",
+		RiskLevel: 1,
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -120,31 +136,30 @@ func RegisterLarkTools(
 					"type":        "integer",
 					"description": "告警事件 ID",
 				},
-				"user_id": map[string]interface{}{
-					"type":        "integer",
-					"description": "操作人用户 ID",
-				},
 			},
-			"required": []string{"event_id", "user_id"},
+			"required": []string{"event_id"},
 		},
 		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
 			eventID, _ := aiToolToUint(params["event_id"])
-			userID, _ := aiToolToUint(params["user_id"])
-
 			if eventID == 0 {
 				return "", fmt.Errorf("event_id 不能为空")
 			}
-			if userID == 0 {
-				return "", fmt.Errorf("user_id 不能为空")
+
+			// Operator comes from the agent context (the mapped platform user
+			// of the Lark sender) — NOT from an LLM-fillable parameter.
+			operatorID := AgentOperatorFromContext(ctx)
+			if operatorID == 0 {
+				return "认领失败：当前用户未绑定 SREAgent 平台账号，无法执行写操作。请先在平台个人设置中绑定 Lark 账号。", nil
 			}
 
-			if err := eventSvc.Acknowledge(ctx, eventID, userID); err != nil {
+			if err := eventSvc.Acknowledge(ctx, eventID, operatorID); err != nil {
 				return fmt.Sprintf("认领告警失败: %v", err), nil
 			}
 
 			return marshalJSONOrError(map[string]interface{}{
 				"success":  true,
 				"event_id": eventID,
+				"operator": operatorID,
 				"message":  fmt.Sprintf("告警 #%d 已认领", eventID),
 			}), nil
 		},
@@ -180,12 +195,77 @@ func RegisterLarkTools(
 		},
 	})
 
+	// ── run_inspection: 触发巡检任务 ──
+	registry.Register(&AITool{
+		Name: "run_inspection",
+		Description: "触发一个已配置的巡检任务（按任务 ID）。巡检在后台异步执行（通常需要数分钟），" +
+			"执行结果记录在平台「巡检记录」页面。返回触发确认。",
+		IO:        "write",
+		RiskLevel: 1,
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"task_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "巡检任务 ID（可先用其他工具或平台页面查看任务列表）",
+				},
+			},
+			"required": []string{"task_id"},
+		},
+		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
+			if inspectionExec == nil || inspectionRepo == nil {
+				return "巡检服务未配置", nil
+			}
+			taskID, _ := aiToolToUint(params["task_id"])
+			if taskID == 0 {
+				return "", fmt.Errorf("task_id 不能为空")
+			}
+			if AgentOperatorFromContext(ctx) == 0 {
+				return "触发失败：当前用户未绑定 SREAgent 平台账号，无法执行写操作。", nil
+			}
+
+			task, err := inspectionRepo.GetTask(ctx, taskID)
+			if err != nil {
+				return fmt.Sprintf("巡检任务 #%d 不存在", taskID), nil
+			}
+			if !task.Enabled {
+				return fmt.Sprintf("巡检任务 #%d（%s）已禁用", taskID, task.Name), nil
+			}
+
+			// Run asynchronously: inspections take minutes; the chat reply
+			// only confirms the trigger. Results flow through the task's own
+			// output channels.
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						registry.logger.Error("run_inspection panic recovered",
+							zap.Any("recover", r), zap.String("stack", string(debug.Stack())))
+					}
+				}()
+				runCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+				defer cancel()
+				if _, err := inspectionExec.Run(runCtx, task); err != nil {
+					registry.logger.Error("inspection triggered from Lark failed",
+						zap.Uint("task_id", taskID), zap.Error(err))
+				}
+			}()
+
+			return marshalJSONOrError(map[string]interface{}{
+				"triggered": true,
+				"task_id":   taskID,
+				"task_name": task.Name,
+				"message":   fmt.Sprintf("巡检任务「%s」已在后台触发，结果可稍后在平台「巡检记录」页查看", task.Name),
+			}), nil
+		},
+	})
+
 	registry.logger.Info("Lark bot tools registered",
 		zap.Strings("tools", []string{
 			"query_alert_events",
 			"alert_statistics",
 			"acknowledge_alert",
 			"get_oncall",
+			"run_inspection",
 		}),
 	)
 }

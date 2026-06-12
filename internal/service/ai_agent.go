@@ -925,6 +925,10 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 	if maxSteps <= 0 {
 		maxSteps = 15
 	}
+	// Carry the operator identity to tool executions: write tools (e.g.
+	// acknowledge_alert) take the operator from the context, NEVER from an
+	// LLM-controlled parameter (which would allow identity spoofing).
+	ctx = WithAgentOperator(ctx, userID)
 
 	// 持久化会话
 	var convID uint
@@ -998,6 +1002,26 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 	}, nil
 }
 
+// agentOperatorKey carries the platform user driving an agent run through the
+// context into tool executions.
+type agentOperatorKeyType struct{}
+
+var agentOperatorKey = agentOperatorKeyType{}
+
+// WithAgentOperator returns a context carrying the operator's platform user ID.
+func WithAgentOperator(ctx context.Context, userID uint) context.Context {
+	return context.WithValue(ctx, agentOperatorKey, userID)
+}
+
+// AgentOperatorFromContext returns the operator user ID driving this agent run.
+// 0 means unauthenticated (e.g. an unbound Lark user) — write tools must reject it.
+func AgentOperatorFromContext(ctx context.Context) uint {
+	if v, ok := ctx.Value(agentOperatorKey).(uint); ok {
+		return v
+	}
+	return 0
+}
+
 // StepCallback is called after each agent tool step during streaming execution.
 // step is the 1-based step number, content is the tool result or intermediate text.
 type StepCallback func(step int, toolName, content string)
@@ -1017,6 +1041,8 @@ func (s *AgentService) RunWithStreaming(
 	if maxSteps <= 0 {
 		maxSteps = 15
 	}
+	// See RunUntilDone: operator identity travels via context, not LLM params.
+	ctx = WithAgentOperator(ctx, userID)
 
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
