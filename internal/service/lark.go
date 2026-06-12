@@ -345,7 +345,7 @@ func (s *LarkService) UpdateAlertCard(ctx context.Context, event *model.AlertEve
 // HandleCardLifecycle handles card updates or deletions based on the Lark config strategy.
 // Called by AlertEventService.triggerLarkCardUpdate on status changes.
 func (s *LarkService) HandleCardLifecycle(ctx context.Context, event *model.AlertEvent) error {
-	if s.settingSvc == nil || event.LarkMessageID == "" {
+	if s.settingSvc == nil {
 		return nil
 	}
 
@@ -361,9 +361,16 @@ func (s *LarkService) HandleCardLifecycle(ctx context.Context, event *model.Aler
 		return nil
 	}
 
-	// v2 path: CardKit entity-based status sync.
+	// v2 path: CardKit entity-based status sync. v2 cards are tracked in
+	// lark_card_entities, NOT via event.LarkMessageID — gating on the message
+	// ID here would silently disable all v2 status updates.
 	if larkCfg.CardSchemaVersion == "v2" && s.cardSvc != nil {
 		return s.cardSvc.SyncCardStatus(ctx, event)
+	}
+
+	// v1 path requires the stored message ID.
+	if event.LarkMessageID == "" {
+		return nil
 	}
 
 	// v1 path: legacy PATCH-based card lifecycle.

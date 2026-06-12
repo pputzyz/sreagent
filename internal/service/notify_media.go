@@ -50,8 +50,16 @@ type circuitState struct {
 type NotifyMediaService struct {
 	repo             *repository.NotifyMediaRepository
 	logger           *zap.Logger
-	feishuTokenCache sync.Map         // key: appID, value: *feishuTokenEntry (legacy fallback)
+	feishuTokenCache sync.Map         // key: appID, value: *feishuTokenEntry (per-app cache)
 	tokenCache       *lark.TokenCache // shared cache (injected); avoids duplicate token fetches
+	tokenCacheAppID  string           // app the shared cache belongs to — other apps use the per-app cache
+
+	// v2CardSender routes feishu_app group sends through the CardKit entity
+	// flow when Card 2.0 is enabled. Returns handled=false to fall back to v1.
+	v2CardSender func(ctx context.Context, eventID uint, chatID, appID string) (bool, error)
+	// larkBaseURLFn resolves the Lark API base URL from the configured domain
+	// (feishu vs larksuite). Nil → China default (backward compatible).
+	larkBaseURLFn func(ctx context.Context) string
 
 	// B5-10: Global concurrency cap for outbound notification sends.
 	sendSem chan struct{}
@@ -88,9 +96,32 @@ func NewNotifyMediaService(
 
 // SetTokenCache injects a shared token cache so that NotifyMediaService,
 // LarkService, and LarkBotService share a single cache, avoiding redundant
-// tenant_access_token fetches.
-func (s *NotifyMediaService) SetTokenCache(cache *lark.TokenCache) {
+// tenant_access_token fetches. appID identifies which application the shared
+// cache belongs to: a media configured with a DIFFERENT app must not read
+// this cache (it would receive another application's token).
+func (s *NotifyMediaService) SetTokenCache(cache *lark.TokenCache, appID string) {
 	s.tokenCache = cache
+	s.tokenCacheAppID = appID
+}
+
+// SetV2CardSender injects the CardKit (Card 2.0) send path for feishu_app media.
+func (s *NotifyMediaService) SetV2CardSender(fn func(ctx context.Context, eventID uint, chatID, appID string) (bool, error)) {
+	s.v2CardSender = fn
+}
+
+// SetLarkBaseURLGetter injects the API base URL resolver (domain-aware).
+func (s *NotifyMediaService) SetLarkBaseURLGetter(fn func(ctx context.Context) string) {
+	s.larkBaseURLFn = fn
+}
+
+// larkBaseURL returns the configured Lark API base, defaulting to the China region.
+func (s *NotifyMediaService) larkBaseURL(ctx context.Context) string {
+	if s.larkBaseURLFn != nil {
+		if base := s.larkBaseURLFn(ctx); base != "" {
+			return base
+		}
+	}
+	return lark.DefaultLarkBaseURL
 }
 
 // checkCircuit returns true if the circuit is open (should skip send).
@@ -1313,14 +1344,31 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 		return fmt.Errorf("feishu app_id, app_secret, or receive_id is empty")
 	}
 
-	token, err := s.getFeishuTenantToken(ctx, cfg.AppID, cfg.AppSecret)
-	if err != nil {
-		return fmt.Errorf("failed to get feishu tenant token: %w", err)
-	}
-
 	ridType := cfg.ReceiveIDType
 	if ridType == "" {
 		ridType = "chat_id"
+	}
+
+	// Card 2.0 path: group chats route through the CardKit entity flow (one
+	// entity, N chats, status updates refresh all of them). handled=false
+	// (v1 configured / different app / no event context) falls back to the
+	// legacy interactive-card send below.
+	if s.v2CardSender != nil && ridType == "chat_id" && data.EventID != 0 {
+		handled, err := s.v2CardSender(ctx, data.EventID, cfg.ReceiveID, cfg.AppID)
+		if handled {
+			if err != nil {
+				return fmt.Errorf("feishu app cardkit send failed: %w", err)
+			}
+			return nil
+		}
+		if err != nil {
+			s.logger.Warn("cardkit path errored, falling back to v1 card", zap.Error(err))
+		}
+	}
+
+	token, err := s.getFeishuTenantToken(ctx, cfg.AppID, cfg.AppSecret)
+	if err != nil {
+		return fmt.Errorf("failed to get feishu tenant token: %w", err)
 	}
 
 	// Convert AI analysis if available
@@ -1357,7 +1405,7 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 		return fmt.Errorf("failed to marshal feishu app payload: %w", err)
 	}
 
-	url := fmt.Sprintf("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=%s", ridType)
+	url := fmt.Sprintf("%s/im/v1/messages?receive_id_type=%s", s.larkBaseURL(ctx), ridType)
 	retryTimes := 3
 	retryIntervalMs := 100
 	backoffMultipliers := []int{1, 5, 20} // 100ms, 500ms, 2000ms
@@ -1403,14 +1451,16 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 }
 
 func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, appSecret string) (string, error) {
-	// Fast path: shared token cache (avoids duplicate fetches across services).
-	if s.tokenCache != nil {
+	// Fast path: shared token cache — ONLY when the requesting app is the one
+	// the cache belongs to. A media configured with a different app_id must
+	// never read another application's token.
+	if s.tokenCache != nil && appID != "" && appID == s.tokenCacheAppID {
 		if tok, ok := s.tokenCache.Get(); ok {
 			return tok, nil
 		}
 	}
 
-	// Legacy fallback: per-appID cache in sync.Map.
+	// Per-appID cache in sync.Map.
 	if cached, ok := s.feishuTokenCache.Load(appID); ok {
 		if entry, ok := cached.(*feishuTokenEntry); ok {
 			if time.Now().Before(entry.expiresAt.Add(-60 * time.Second)) {
@@ -1424,7 +1474,7 @@ func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, ap
 		"app_secret": appSecret,
 	}
 	body, _ := json.Marshal(payload)
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.larkBaseURL(ctx)+"/auth/v3/tenant_access_token/internal", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -1450,12 +1500,13 @@ func (s *NotifyMediaService) getFeishuTenantToken(ctx context.Context, appID, ap
 		return "", fmt.Errorf("feishu token error %d: %s", result.Code, result.Msg)
 	}
 
-	// Populate both caches.
+	// Populate the per-app cache always; the shared cache only when this
+	// token belongs to the application the shared cache represents.
 	ttl := result.Expire
 	if ttl <= 0 {
 		ttl = 7200 // default 2h
 	}
-	if s.tokenCache != nil {
+	if s.tokenCache != nil && appID != "" && appID == s.tokenCacheAppID {
 		s.tokenCache.Set(result.TenantAccessToken, ttl)
 	}
 	s.feishuTokenCache.Store(appID, &feishuTokenEntry{
