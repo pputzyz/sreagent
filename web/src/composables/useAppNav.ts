@@ -140,6 +140,7 @@ function resolveAppFromPath(path: string): AppKey {
   if (path.startsWith('/alert'))    return 'alert'
   // Items moved from platform to oncall "辅助工具" section
   if (path.startsWith('/platform/inspections')) return 'oncall'
+  if (path.startsWith('/platform/report-tasks')) return 'oncall'
   if (path.startsWith('/platform/diagnostic-workflows')) return 'oncall'
   if (path.startsWith('/platform/change-events')) return 'oncall'
   if (path === '/platform/knowledge') return 'oncall'
@@ -252,6 +253,7 @@ export function useAppNav() {
               if (authStore.canManage) {
                 items.push(
                   { label: t('menu.inspection'), key: '/platform/inspections', icon: SearchOutline },
+                  { label: t('menu.reportTasks'), key: '/platform/report-tasks', icon: StatsChartOutline },
                   { label: t('menu.diagnosticWorkflows'), key: '/platform/diagnostic-workflows', icon: GitBranchOutline },
                   { label: t('menu.changeEvents'), key: '/platform/change-events', icon: GitPullRequestOutline },
                 )

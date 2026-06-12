@@ -105,6 +105,9 @@ const routes: RouteRecordRaw[] = [
       { path: 'platform/inspections', component: () => import('@/pages/platform/inspections/Index.vue'), meta: { title: 'menu.inspection', requiresRole: ['admin', 'team_lead'] } },
       { path: 'platform/inspections/runs/:id', component: () => import('@/pages/platform/inspections/RunDetail.vue'), meta: { title: 'menu.inspectionDetail', requiresRole: ['admin', 'team_lead'] } },
 
+      // ===== Report Tasks (智能报告任务) =====
+      { path: 'platform/report-tasks', component: () => import('@/pages/platform/ReportTasks.vue'), meta: { title: 'menu.reportTasks', requiresRole: ['admin', 'team_lead'] } },
+
       // ===== Diagnostic Workflows =====
       { path: 'platform/diagnostic-workflows', component: () => import('@/pages/platform/DiagnosticWorkflows.vue'), meta: { title: 'menu.diagnosticWorkflows', requiresRole: ['admin', 'team_lead'] } },
 

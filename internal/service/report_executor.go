@@ -16,23 +16,26 @@ import (
 
 // ReportExecutor executes a single report generation task.
 type ReportExecutor struct {
-	taskRepo *repository.ReportTaskRepository
-	runRepo  *repository.ReportTaskRepository
-	agentSvc *AgentService
-	logger   *zap.Logger
+	taskRepo  *repository.ReportTaskRepository
+	runRepo   *repository.ReportTaskRepository
+	eventRepo *repository.AlertEventRepository // platform statistics source
+	agentSvc  *AgentService
+	logger    *zap.Logger
 }
 
 // NewReportExecutor creates a new ReportExecutor.
 func NewReportExecutor(
 	taskRepo *repository.ReportTaskRepository,
+	eventRepo *repository.AlertEventRepository,
 	agentSvc *AgentService,
 	logger *zap.Logger,
 ) *ReportExecutor {
 	return &ReportExecutor{
-		taskRepo: taskRepo,
-		runRepo:  taskRepo,
-		agentSvc: agentSvc,
-		logger:   logger,
+		taskRepo:  taskRepo,
+		runRepo:   taskRepo,
+		eventRepo: eventRepo,
+		agentSvc:  agentSvc,
+		logger:    logger,
 	}
 }
 
@@ -69,15 +72,30 @@ func validateReportFinding(f ReportFinding) ReportFinding {
 	return f
 }
 
-// Run executes a single report task, returns the run record and possible error.
-func (e *ReportExecutor) Run(ctx context.Context, task *model.ReportTask) (*model.ReportRun, error) {
+// defaultReportTools is the tool whitelist for report agents when the task
+// doesn't configure one. Read-only — a scheduled report must never mutate
+// state, and an empty list would expand to the FULL registry downstream.
+var defaultReportTools = []string{
+	"query_alert_events",
+	"alert_statistics",
+	"query_instant",
+	"list_alert_rules",
+	"list_metrics",
+	"search_similar_alerts",
+	"search_knowledge",
+	"get_oncall",
+}
+
+// Run executes a single report task. Returns the run record, the
+// platform-computed statistics used (for card rendering), and possible error.
+func (e *ReportExecutor) Run(ctx context.Context, task *model.ReportTask) (*model.ReportRun, *ReportAlertStats, error) {
 	run := &model.ReportRun{
 		TaskID:    task.ID,
 		Status:    "running",
 		StartedAt: time.Now(),
 	}
 	if err := e.runRepo.CreateRun(ctx, run); err != nil {
-		return nil, fmt.Errorf("创建报告运行记录失败: %w", err)
+		return nil, nil, fmt.Errorf("创建报告运行记录失败: %w", err)
 	}
 
 	e.logger.Info("报告任务开始执行",
@@ -86,18 +104,32 @@ func (e *ReportExecutor) Run(ctx context.Context, task *model.ReportTask) (*mode
 		zap.Uint("run_id", run.ID),
 	)
 
-	// Parse allowed tools
-	var allowedTools []string
+	// Scope-driven platform statistics: the report's numbers come from DB
+	// queries; the LLM only interprets them (anti-hallucination boundary).
+	scope := parseReportScope(task.Scope)
+	var stats *ReportAlertStats
+	if e.eventRepo != nil {
+		var statsErr error
+		stats, statsErr = GatherReportAlertStats(ctx, e.eventRepo, scope, task.ReportType)
+		if statsErr != nil {
+			e.logger.Warn("报告统计数据收集失败，继续执行（Agent 仍可用工具查询）", zap.Error(statsErr))
+		}
+	}
+
+	// Parse allowed tools (empty → read-only default set).
+	allowedTools := append([]string(nil), defaultReportTools...)
 	if task.AllowedTools != "" {
-		if err := json.Unmarshal([]byte(task.AllowedTools), &allowedTools); err != nil {
-			e.logger.Warn("解析 allowed_tools 失败，使用全部只读工具", zap.Error(err))
-			allowedTools = nil
+		var configured []string
+		if err := json.Unmarshal([]byte(task.AllowedTools), &configured); err != nil {
+			e.logger.Warn("解析 allowed_tools 失败，使用默认只读工具集", zap.Error(err))
+		} else if len(configured) > 0 {
+			allowedTools = configured
 		}
 	}
 
 	// Build prompts
 	systemPrompt := buildReportSystemPrompt()
-	userPrompt := buildReportUserPrompt(task.Name, task.Description, task.PromptTemplate)
+	userPrompt := buildReportUserPrompt(task, scope, stats)
 
 	// Execute via Agent (report tasks use system user ID 0)
 	result, err := e.agentSvc.RunUntilDone(ctx, 0, systemPrompt, userPrompt, allowedTools, 15)
@@ -107,7 +139,7 @@ func (e *ReportExecutor) Run(ctx context.Context, task *model.ReportTask) (*mode
 		now := time.Now()
 		run.FinishedAt = &now
 		_ = e.runRepo.UpdateRun(ctx, run)
-		return run, fmt.Errorf("报告 Agent 执行失败: %w", err)
+		return run, stats, fmt.Errorf("报告 Agent 执行失败: %w", err)
 	}
 
 	run.AIConversationID = &result.ConversationID
@@ -137,7 +169,7 @@ func (e *ReportExecutor) Run(ctx context.Context, task *model.ReportTask) (*mode
 		zap.Int("findings", len(report.Findings)),
 	)
 
-	return run, nil
+	return run, stats, nil
 }
 
 // parseReport extracts a structured report from LLM output.

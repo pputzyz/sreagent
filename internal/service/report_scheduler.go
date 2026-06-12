@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,12 +24,13 @@ import (
 
 // ReportScheduler manages scheduled report task execution.
 type ReportScheduler struct {
-	taskRepo   *repository.ReportTaskRepository
-	executor   *ReportExecutor
-	leader     LeaderChecker
-	larkSvc    *LarkBotService
-	httpClient *http.Client
-	logger     *zap.Logger
+	taskRepo    *repository.ReportTaskRepository
+	executor    *ReportExecutor
+	leader      LeaderChecker
+	larkSvc     *LarkBotService
+	httpClient  *http.Client
+	externalURL string // platform base URL for report detail links
+	logger      *zap.Logger
 
 	cron    *cron.Cron
 	mu      sync.Mutex
@@ -166,17 +168,20 @@ func (s *ReportScheduler) runWithLeaderCheck(task *model.ReportTask) {
 		zap.String("task_name", task.Name),
 	)
 
-	run, err := s.executor.Run(ctx, task)
+	run, stats, err := s.executor.Run(ctx, task)
 	if err != nil {
 		s.logger.Error("报告任务执行失败",
 			zap.Uint("task_id", task.ID),
 			zap.Error(err),
 		)
-		return
+		if run == nil {
+			return
+		}
+		// fall through: a failed run still notifies (failure card) below.
 	}
 
 	// Send notifications
-	s.notifyResult(task, run)
+	s.notifyResult(task, run, stats)
 }
 
 // ReportOutputChannel is the output channel configuration for report tasks.
@@ -187,8 +192,16 @@ type ReportOutputChannel struct {
 	URL   string   `json:"url,omitempty"`
 }
 
+// SetExternalURL sets the platform base URL for "查看完整报告" buttons.
+func (s *ReportScheduler) SetExternalURL(url string) {
+	s.externalURL = strings.TrimRight(url, "/")
+}
+
 // notifyResult sends the report result to configured output channels.
-func (s *ReportScheduler) notifyResult(task *model.ReportTask, run *model.ReportRun) {
+// lark_bot channels receive a Card 2.0 report card (stat columns + trend
+// line + severity pie + top-alerts bar + AI summary); plain text is only
+// the fallback when card build/send fails.
+func (s *ReportScheduler) notifyResult(task *model.ReportTask, run *model.ReportRun, stats *ReportAlertStats) {
 	var channels []ReportOutputChannel
 	if err := json.Unmarshal([]byte(task.OutputChannels), &channels); err != nil {
 		s.logger.Warn("解析输出渠道配置失败", zap.Uint("task_id", task.ID), zap.Error(err))
@@ -204,8 +217,12 @@ func (s *ReportScheduler) notifyResult(task *model.ReportTask, run *model.Report
 				s.logger.Warn("飞书服务未配置，跳过通知", zap.Uint("task_id", task.ID))
 				continue
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			err := s.larkSvc.SendMessage(ctx, ch.BotID, summary)
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			err := s.sendLarkReportCard(ctx, ch.BotID, task, run, stats)
+			if err != nil {
+				s.logger.Warn("报告卡片发送失败，降级为文本", zap.Uint("task_id", task.ID), zap.Error(err))
+				err = s.larkSvc.SendMessage(ctx, ch.BotID, summary)
+			}
 			cancel()
 			if err != nil {
 				s.logger.Error("报告结果飞书通知失败", zap.Uint("task_id", task.ID), zap.Error(err))
@@ -249,6 +266,19 @@ func (s *ReportScheduler) notifyResult(task *model.ReportTask, run *model.Report
 			s.logger.Warn("未知的输出渠道类型", zap.String("type", ch.Type))
 		}
 	}
+}
+
+// sendLarkReportCard renders and sends the Card 2.0 report card.
+func (s *ReportScheduler) sendLarkReportCard(ctx context.Context, chatID string, task *model.ReportTask, run *model.ReportRun, stats *ReportAlertStats) error {
+	detailURL := ""
+	if s.externalURL != "" {
+		detailURL = fmt.Sprintf("%s/platform/report-tasks?run_id=%d", s.externalURL, run.ID)
+	}
+	cardJSON, err := BuildReportCardJSON(task.Name, run, stats, detailURL)
+	if err != nil {
+		return fmt.Errorf("build report card: %w", err)
+	}
+	return s.larkSvc.SendCardJSON(ctx, chatID, cardJSON)
 }
 
 // ListEntries returns the list of currently scheduled task IDs (for debugging).

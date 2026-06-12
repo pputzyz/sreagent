@@ -2,7 +2,7 @@
 import { ref, onMounted, h } from 'vue'
 import {
   NButton, NDataTable, NSpace, NTag, NSwitch, NIcon,
-  NModal, NForm, NFormItem, NInput, NSelect, NSpin,
+  NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NSpin,
   NPopconfirm, useMessage, type DataTableColumns
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -95,18 +95,73 @@ async function runNow(task: ReportTask) {
   }
 }
 
-function createTask() {
-  editingTask.value = { name: '', description: '', cron_expr: '0 9 * * *', report_type: 'daily', prompt_template: '', output_channels: '[]', enabled: true }
+// Form-friendly views of the JSON columns (output_channels / scope).
+const larkChatId = ref('')
+const scopeHours = ref<number | null>(null)
+const scopeLabels = ref('')
+
+function loadJSONFields(task: Partial<ReportTask>) {
+  larkChatId.value = ''
+  scopeHours.value = null
+  scopeLabels.value = ''
+  try {
+    const channels = JSON.parse(task.output_channels || '[]')
+    const larkCh = Array.isArray(channels) ? channels.find((c: { type?: string }) => c?.type === 'lark_bot') : null
+    if (larkCh?.bot_id) larkChatId.value = larkCh.bot_id
+  } catch { /* malformed config — start blank */ }
+  try {
+    const scope = JSON.parse(task.scope || '{}')
+    if (scope.time_range_hours) scopeHours.value = scope.time_range_hours
+    if (scope.match_labels && Object.keys(scope.match_labels).length > 0) {
+      scopeLabels.value = JSON.stringify(scope.match_labels, null, 2)
+    }
+  } catch { /* malformed scope — start blank */ }
+}
+
+function serializeJSONFields(task: Partial<ReportTask>): boolean {
+  const channels: Array<Record<string, string>> = []
+  if (larkChatId.value.trim()) {
+    channels.push({ type: 'lark_bot', bot_id: larkChatId.value.trim() })
+  }
+  task.output_channels = JSON.stringify(channels)
+
+  const scope: Record<string, unknown> = {}
+  if (scopeHours.value && scopeHours.value > 0) scope.time_range_hours = scopeHours.value
+  if (scopeLabels.value.trim()) {
+    try {
+      scope.match_labels = JSON.parse(scopeLabels.value)
+    } catch {
+      message.error(t('report.invalidLabelsJson'))
+      return false
+    }
+  }
+  task.scope = JSON.stringify(scope)
+  return true
+}
+
+// Scheduler uses 6-field cron (with seconds) — a 5-field default would
+// register-fail silently.
+const presets = {
+  daily: { name: t('report.presetDailyName'), cron_expr: '0 0 9 * * *', report_type: 'daily' },
+  weekly: { name: t('report.presetWeeklyName'), cron_expr: '0 30 9 * * 1', report_type: 'weekly' },
+}
+
+function createTask(preset?: 'daily' | 'weekly') {
+  const base = { name: '', description: '', cron_expr: '0 0 9 * * *', report_type: 'daily', prompt_template: '', output_channels: '[]', scope: '{}', enabled: true }
+  editingTask.value = preset ? { ...base, ...presets[preset] } : base
+  loadJSONFields(editingTask.value)
   showModal.value = true
 }
 
 function editTask(task: ReportTask) {
   editingTask.value = { ...task }
+  loadJSONFields(editingTask.value)
   showModal.value = true
 }
 
 async function saveTask() {
   if (!editingTask.value) return
+  if (!serializeJSONFields(editingTask.value)) return
   try {
     if (editingTask.value.id) {
       await reportApi.updateTask(editingTask.value.id, editingTask.value)
@@ -149,10 +204,14 @@ onMounted(() => {
         <h2 class="sre-config-header-title">{{ t('report.title') }}</h2>
         <p class="sre-config-header-sub">{{ t('report.subtitle') }}</p>
       </div>
-      <NButton type="primary" size="small" @click="createTask">
-        <template #icon><NIcon :component="AddOutline" /></template>
-        {{ t('report.createTask') }}
-      </NButton>
+      <NSpace size="small">
+        <NButton size="small" @click="createTask('daily')">{{ t('report.presetDaily') }}</NButton>
+        <NButton size="small" @click="createTask('weekly')">{{ t('report.presetWeekly') }}</NButton>
+        <NButton type="primary" size="small" @click="createTask()">
+          <template #icon><NIcon :component="AddOutline" /></template>
+          {{ t('report.createTask') }}
+        </NButton>
+      </NSpace>
     </header>
 
     <NSpin :show="loading">
@@ -181,10 +240,22 @@ onMounted(() => {
           <NInput v-model:value="editingTask.description" type="textarea" :placeholder="t('report.descPlaceholder')" />
         </NFormItem>
         <NFormItem :label="t('report.cron')">
-          <NInput v-model:value="editingTask.cron_expr" placeholder="0 9 * * *" />
+          <NInput v-model:value="editingTask.cron_expr" placeholder="0 0 9 * * *" />
+          <template #feedback>{{ t('report.cronHint') }}</template>
         </NFormItem>
         <NFormItem :label="t('report.type')">
           <NSelect v-model:value="editingTask.report_type" :options="reportTypeOptions" />
+        </NFormItem>
+        <NFormItem :label="t('report.larkChat')">
+          <NInput v-model:value="larkChatId" placeholder="oc_xxxxxxxx" />
+          <template #feedback>{{ t('report.larkChatHint') }}</template>
+        </NFormItem>
+        <NFormItem :label="t('report.scopeHours')">
+          <NInputNumber v-model:value="scopeHours" :min="1" :max="744" style="width: 100%" :placeholder="t('report.scopeHoursPlaceholder')" />
+        </NFormItem>
+        <NFormItem :label="t('report.scopeLabels')">
+          <NInput v-model:value="scopeLabels" type="textarea" :rows="3" :placeholder="'{\n  &quot;biz&quot;: &quot;payment&quot;\n}'" />
+          <template #feedback>{{ t('report.scopeLabelsHint') }}</template>
         </NFormItem>
         <NFormItem :label="t('report.prompt')">
           <NInput v-model:value="editingTask.prompt_template" type="textarea" :rows="4" :placeholder="t('report.promptPlaceholder')" />

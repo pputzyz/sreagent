@@ -77,7 +77,7 @@ func (h *ReportTaskHandler) CreateTask(c *gin.Context) {
 	task.CreatedBy = uid
 
 	if err := h.taskSvc.CreateTask(c.Request.Context(), &task); err != nil {
-		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+		Error(c, err) // service returns typed apperr (validation vs DB)
 		return
 	}
 
@@ -104,13 +104,18 @@ func (h *ReportTaskHandler) UpdateTask(c *gin.Context) {
 		return
 	}
 
+	// Bind into the loaded entity but protect server-controlled fields:
+	// the request body must not be able to rewrite id / created_by / audit times.
+	preservedID, preservedCreatedBy := existing.ID, existing.CreatedBy
+	preservedCreatedAt := existing.CreatedAt
 	if err := c.ShouldBindJSON(existing); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
+	existing.ID, existing.CreatedBy, existing.CreatedAt = preservedID, preservedCreatedBy, preservedCreatedAt
 
 	if err := h.taskSvc.UpdateTask(c.Request.Context(), existing); err != nil {
-		Error(c, apperr.Wrap(apperr.ErrDatabase, err))
+		Error(c, err) // service returns typed apperr (validation vs DB)
 		return
 	}
 
@@ -198,7 +203,7 @@ func (h *ReportTaskHandler) RunNow(c *gin.Context) {
 
 	// Execute asynchronously; use Background context to avoid cancellation after request ends.
 	go func() {
-		_, _ = h.execSvc.Run(context.Background(), task)
+		_, _, _ = h.execSvc.Run(context.Background(), task)
 	}()
 
 	Success(c, gin.H{"message": "报告任务已提交后台执行", "task_id": task.ID})

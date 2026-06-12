@@ -26,7 +26,7 @@ const savingCommands = ref(false)
 
 // Bot status
 const botStatusLoading = ref(false)
-const botStatus = ref<{ configured: boolean; app_id: string; webhook_set: boolean; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean } | null>(null)
+const botStatus = ref<{ configured: boolean; app_id: string; webhook_set: boolean; commands_enabled: boolean; natural_language_enabled: boolean; debug_mode: boolean; connection_mode?: string; event_source_status?: string } | null>(null)
 
 const resolveOptions = [
   { label: () => t('settings.larkResolveUpdate'), value: 'update' },
@@ -211,6 +211,12 @@ onMounted(() => {
                 <p class="form-desc">{{ t('settings.larkNLEnabledDesc') }}</p>
               </div>
             </NFormItem>
+            <NFormItem :label="t('settings.larkBotTools')" class="full-row">
+              <div style="width: 100%">
+                <NInput v-model:value="form.bot_allowed_tools" :placeholder="t('settings.larkBotToolsPlaceholder')" />
+                <p class="form-desc">{{ t('settings.larkBotToolsDesc') }}</p>
+              </div>
+            </NFormItem>
           </div>
           <div class="section-footer">
             <NButton type="primary" size="small" :loading="savingCommands" @click="saveSection('commands')">
@@ -271,6 +277,12 @@ onMounted(() => {
               <span class="bot-status-label">{{ t('settings.larkStatusDebugMode') }}</span>
               <NTag :type="botStatus.debug_mode ? 'warning' : 'default'" size="small" :bordered="false">
                 {{ botStatus.debug_mode ? t('common.on') : t('common.off') }}
+              </NTag>
+            </div>
+            <div v-if="botStatus.connection_mode === 'websocket'" class="bot-status-row">
+              <span class="bot-status-label">{{ t('settings.larkStatusWS') }}</span>
+              <NTag :type="botStatus.event_source_status === 'connected' ? 'success' : botStatus.event_source_status === 'reconnecting' ? 'warning' : 'error'" size="small" :bordered="false">
+                {{ botStatus.event_source_status || t('settings.larkStatusWSNotStarted') }}
               </NTag>
             </div>
           </div>
