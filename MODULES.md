@@ -1,6 +1,6 @@
 # 模块清单 (MODULES)
 
-> 最后更新: 2026-06-12 | tag: v4.72.0
+> 最后更新: 2026-06-12 | tag: v4.74.0
 > 共 63 个 model, 78 个 handler, 99 个 service, 60 个 repository, 363+ API 端点, 17 种通知渠道
 
 ---
@@ -164,7 +164,7 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 - **迁移**: 000080_notify_max_notifications（NotifyRule.MaxNotifications 最大通知次数上限）
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
 
-## 告警转发器 (alert-forwarder) [v4.72.0]
+## 告警转发器 (alert-forwarder) [v4.74.0]
 
 - **功能**: 入站/出站/双向告警转发，支持 Alertmanager/Grafana/Prometheus 格式，等级映射，平台能力接入（通知管道、升级策略、静默规则、抑制规则、AI 分析）
 - **后端**: `model/alert_forwarder.go`, `handler/alert_forwarder.go`, `service/alert_forwarder_service.go`, `service/alert_forwarder_inbound.go`, `service/alert_forwarder_outbound.go`, `repository/alert_forwarder.go`
