@@ -20,6 +20,7 @@ import (
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 // InboundPayload represents the parsed inbound alert payload.
@@ -433,9 +434,8 @@ func (s *AlertForwarderService) sendToProxyTarget(ctx context.Context, target *m
 	if timeout == 0 {
 		timeout = 30000
 	}
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Millisecond,
-	}
+	// Use SSRF-safe client (re-validates resolved IP at dial time)
+	client := safehttp.NewSafeClient(time.Duration(timeout) * time.Millisecond)
 
 	// Send with retry
 	retryTimes := target.RetryTimes
