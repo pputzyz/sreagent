@@ -106,7 +106,7 @@ const editingId = ref<number | null>(null)
 
 const filters = reactive({
   direction: null as string | null,
-  enabled: null as boolean | null
+  enabled: null as string | null
 })
 
 const pagination = reactive<PaginationProps>({
@@ -125,8 +125,8 @@ const directionOptions = computed(() => [
 ])
 
 const statusOptions = computed(() => [
-  { label: t('common.enabled'), value: true },
-  { label: t('common.disabled'), value: false }
+  { label: t('common.enabled'), value: 'true' },
+  { label: t('common.disabled'), value: 'false' }
 ])
 
 // Columns
@@ -205,7 +205,7 @@ const columns = computed<DataTableColumns<AlertForwarder>>(() => [
     render(row) {
       const caps = row.platform_capabilities
       if (!caps) return '-'
-      const enabled = []
+      const enabled: string[] = []
       if (caps.enable_notification) enabled.push(t('forwarder.capNotification'))
       if (caps.enable_escalation) enabled.push(t('forwarder.capEscalation'))
       if (caps.enable_mute) enabled.push(t('forwarder.capMute'))
@@ -271,7 +271,7 @@ async function fetchForwarders() {
       page_size: pagination.pageSize
     }
     if (filters.direction) params.direction = filters.direction
-    if (filters.enabled !== null) params.enabled = filters.enabled
+    if (filters.enabled !== null) params.enabled = filters.enabled === 'true'
 
     const res = await listAlertForwarders(params)
     forwarders.value = res.data.data?.list || []

@@ -353,8 +353,23 @@ import type { FormInst, FormRules } from 'naive-ui'
 import {
   getAlertForwarder, createAlertForwarder, updateAlertForwarder
 } from '@/api/alert-forwarder'
-import type { AlertForwarder } from '@/api/alert-forwarder'
+import type {
+  AlertForwarder, InboundConfig, OutboundConfig,
+  SeverityMappingConfig, PlatformCapabilitiesConfig
+} from '@/api/alert-forwarder'
 import { notifyMediaApi } from '@/api/notify'
+
+// Form-specific type where nested objects are always defined
+interface ForwarderFormData extends Omit<Required<Pick<AlertForwarder,
+  'name' | 'description' | 'enabled' | 'direction' | 'priority' | 'match_labels'
+>>, 'match_labels'> {
+  match_labels: Record<string, string>
+  inbound_config: InboundConfig & { auth_config: NonNullable<InboundConfig['auth_config']>; proxy_target: OutboundConfig }
+  outbound_config: OutboundConfig
+  inbound_severity_mapping: SeverityMappingConfig
+  outbound_severity_mapping: SeverityMappingConfig
+  platform_capabilities: PlatformCapabilitiesConfig
+}
 
 const props = defineProps<{
   id?: number | null
@@ -385,7 +400,7 @@ const inboundSeverityMappingList = ref<{ source: string; target: string }[]>([])
 const outboundSeverityMappingList = ref<{ source: string; target: string }[]>([])
 
 // Form data with defaults
-const formData = reactive<Partial<AlertForwarder>>({
+const formData = reactive<ForwarderFormData>({
   name: '',
   description: '',
   enabled: true,
@@ -606,21 +621,22 @@ async function handleSubmit() {
 
   // Clear proxy target if not proxy mode
   if (formData.inbound_config?.mode !== 'proxy') {
-    formData.inbound_config!.proxy_target = undefined
+    delete (formData.inbound_config as any).proxy_target
   }
 
   // Clear platform capabilities if not integrate mode
   if (formData.inbound_config?.mode !== 'integrate' && formData.direction === 'inbound') {
-    formData.platform_capabilities = undefined
+    delete (formData as any).platform_capabilities
   }
 
   submitting.value = true
   try {
+    const payload = { ...formData } as Partial<AlertForwarder>
     if (props.id) {
-      await updateAlertForwarder(props.id, formData)
+      await updateAlertForwarder(props.id, payload)
       message.success(t('common.updateSuccess'))
     } else {
-      await createAlertForwarder(formData)
+      await createAlertForwarder(payload)
       message.success(t('common.createSuccess'))
     }
     emit('success')

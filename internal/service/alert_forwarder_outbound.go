@@ -257,8 +257,8 @@ func (s *AlertForwarderService) sendViaHTTP(ctx context.Context, forwarder *mode
 			continue
 		}
 
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			s.logger.Info("outbound alert forwarded via HTTP",

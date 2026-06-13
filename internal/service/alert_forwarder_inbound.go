@@ -467,8 +467,8 @@ func (s *AlertForwarderService) sendToProxyTarget(ctx context.Context, target *m
 			continue
 		}
 
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil

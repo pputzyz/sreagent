@@ -11,8 +11,8 @@ import (
 type ForwarderDirection string
 
 const (
-	ForwarderDirectionInbound      ForwarderDirection = "inbound"
-	ForwarderDirectionOutbound     ForwarderDirection = "outbound"
+	ForwarderDirectionInbound       ForwarderDirection = "inbound"
+	ForwarderDirectionOutbound      ForwarderDirection = "outbound"
 	ForwarderDirectionBidirectional ForwarderDirection = "bidirectional"
 )
 
@@ -114,9 +114,9 @@ func (AlertForwarder) TableName() string {
 // InboundConfig holds configuration for inbound alert receiving.
 type InboundConfig struct {
 	SourceFormat ForwarderSourceFormat `json:"source_format"`
-	Mode         InboundMode          `json:"mode"` // "integrate" or "proxy"
-	AuthType     ForwarderAuthType    `json:"auth_type"`
-	AuthConfig   *AuthConfig          `json:"auth_config,omitempty"`
+	Mode         InboundMode           `json:"mode"` // "integrate" or "proxy"
+	AuthType     ForwarderAuthType     `json:"auth_type"`
+	AuthConfig   *AuthConfig           `json:"auth_config,omitempty"`
 	// ProxyTarget is used when mode=proxy: forward to this target after inbound processing.
 	ProxyTarget *OutboundConfig `json:"proxy_target,omitempty"`
 }
