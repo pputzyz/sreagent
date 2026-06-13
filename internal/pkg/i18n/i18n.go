@@ -90,33 +90,33 @@ var translations = map[string]map[string]string{
 		"external api error":    "外部接口调用失败",
 
 		// AI / Agent
-		"AI feature is not enabled":                              "AI 功能未启用，请在系统设置中配置并启用 AI",
-		"AI is not enabled":                                      "AI 未启用",
-		"failed to load AI config":                               "加载 AI 配置失败",
-		"LLM planning call failed":                               "LLM 规划调用失败",
-		"failed to parse planning result":                        "解析规划结果失败",
-		"tool does not exist":                                    "工具不存在",
-		"tool execution failed":                                  "工具执行失败",
-		"tool is not in allowed list":                            "工具不在允许列表中",
-		"invalid time range format":                              "无效的时间范围格式",
-		"query time range exceeds maximum allowed by AI tools":   "查询时间范围超过 AI 工具允许的最大值",
+		"AI feature is not enabled":                            "AI 功能未启用，请在系统设置中配置并启用 AI",
+		"AI is not enabled":                                    "AI 未启用",
+		"failed to load AI config":                             "加载 AI 配置失败",
+		"LLM planning call failed":                             "LLM 规划调用失败",
+		"failed to parse planning result":                      "解析规划结果失败",
+		"tool does not exist":                                  "工具不存在",
+		"tool execution failed":                                "工具执行失败",
+		"tool is not in allowed list":                          "工具不在允许列表中",
+		"invalid time range format":                            "无效的时间范围格式",
+		"query time range exceeds maximum allowed by AI tools": "查询时间范围超过 AI 工具允许的最大值",
 
 		// Inspection / Report
-		"failed to create inspection run":    "创建巡检运行记录失败",
-		"inspection agent execution failed":  "巡检 Agent 执行失败",
-		"failed to load inspection tasks":    "加载巡检任务失败",
-		"failed to create report run":        "创建报告运行记录失败",
-		"report agent execution failed":      "报告 Agent 执行失败",
-		"failed to load report tasks":        "加载报告任务失败",
-		"invalid cron expression":            "无效的 cron 表达式",
+		"failed to create inspection run":   "创建巡检运行记录失败",
+		"inspection agent execution failed": "巡检 Agent 执行失败",
+		"failed to load inspection tasks":   "加载巡检任务失败",
+		"failed to create report run":       "创建报告运行记录失败",
+		"report agent execution failed":     "报告 Agent 执行失败",
+		"failed to load report tasks":       "加载报告任务失败",
+		"invalid cron expression":           "无效的 cron 表达式",
 
 		// Diagnostic workflow
-		"query failed":                       "查询失败",
-		"change_correlation query failed":    "change_correlation 查询失败",
+		"query failed":                    "查询失败",
+		"change_correlation query failed": "change_correlation 查询失败",
 
 		// Rule generator
-		"expression is empty":   "表达式为空",
-		"PromQL syntax error":   "PromQL 语法错误",
+		"expression is empty": "表达式为空",
+		"PromQL syntax error": "PromQL 语法错误",
 
 		// Lark tools
 		"event_id is required": "event_id 不能为空",

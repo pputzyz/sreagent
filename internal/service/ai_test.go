@@ -161,7 +161,7 @@ func Test_query_datasource_tool_range_limit(t *testing.T) {
 		"time_range":    "48h",
 	})
 	assert.Error(t, err, "48h time range should be rejected")
-	assert.Contains(t, err.Error(), "超过", "error should mention the limit being exceeded")
+	assert.Contains(t, err.Error(), "exceeds", "error should mention the limit being exceeded")
 
 	// Test: time range exactly 24h should NOT be rejected at the range check level
 	// (it may fail later due to mock, but not due to range limit).
