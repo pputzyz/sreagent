@@ -260,3 +260,116 @@ func Test_RefreshToken_InvalidSignature(t *testing.T) {
 	_, _, err := svc.RefreshToken(context.Background(), tokenStr)
 	assert.Error(t, err, "should reject token with invalid signature")
 }
+
+// ---------------------------------------------------------------------------
+// Token Revocation regression tests (the fix: RefreshToken now checks
+// TokenRevocationChecker and TokenBlacklistChecker, matching JWTAuth middleware)
+// ---------------------------------------------------------------------------
+
+// mockRevocationChecker implements middleware.TokenRevocationChecker.
+type mockRevocationChecker struct {
+	revokedAt map[uint]time.Time
+}
+
+func (m *mockRevocationChecker) GetUserTokenRevokedAt(userID uint) time.Time {
+	if t, ok := m.revokedAt[userID]; ok {
+		return t
+	}
+	return time.Time{}
+}
+
+// mockBlacklistChecker implements middleware.TokenBlacklistChecker.
+type mockBlacklistChecker struct {
+	blacklisted map[string]bool
+}
+
+func (m *mockBlacklistChecker) IsTokenBlacklisted(_ context.Context, tokenID string) (bool, error) {
+	if m.blacklisted != nil {
+		return m.blacklisted[tokenID], nil
+	}
+	return false, nil
+}
+
+// Test_RefreshToken_RevokedTokenRejected verifies that a token whose user
+// was revoked AFTER the token was issued is rejected for refresh.
+// This is the regression test for the token revocation bypass fix.
+func Test_RefreshToken_RevokedTokenRejected(t *testing.T) {
+	svc, db := setupAuthService(t)
+	user := seedUserWithPassword(t, db, "revoked-user", "pass", model.RoleMember, true)
+
+	// Token issued 5 minutes ago (within the 30-min grace window)
+	tokenStr := generateTestToken(t, user.ID, user.Username, string(user.Role), svc.GetJWTSecret(), time.Now().Add(-5*time.Minute))
+
+	// Set up revocation checker: user was revoked 2 minutes ago (AFTER token issuance)
+	origRevocation := middleware.TokenRevocationChecker
+	middleware.TokenRevocationChecker = &mockRevocationChecker{
+		revokedAt: map[uint]time.Time{
+			user.ID: time.Now().Add(-2 * time.Minute),
+		},
+	}
+	defer func() { middleware.TokenRevocationChecker = origRevocation }()
+
+	_, _, err := svc.RefreshToken(context.Background(), tokenStr)
+	assert.Error(t, err, "should reject refresh for revoked token")
+	assert.Contains(t, err.Error(), "revoked", "error should mention revocation")
+}
+
+// Test_RefreshToken_BlacklistedTokenRejected verifies that a blacklisted
+// token is rejected for refresh.
+func Test_RefreshToken_BlacklistedTokenRejected(t *testing.T) {
+	svc, db := setupAuthService(t)
+	user := seedUserWithPassword(t, db, "blacklist-user", "pass", model.RoleMember, true)
+
+	tokenStr := generateTestToken(t, user.ID, user.Username, string(user.Role), svc.GetJWTSecret(), time.Now())
+
+	// Compute the token hash the same way auth.go does
+	// We need to pre-compute it. Since we can't import the exact logic,
+	// we'll set up the blacklist to match the token string hash.
+	// auth.go does: hash := sha256.Sum256([]byte(tokenString)); tokenID := hex.EncodeToString(hash[:16])
+	// For the test, we just need to ensure the checker is consulted.
+
+	origBlacklist := middleware.TokenBlacklistChecker
+	middleware.TokenBlacklistChecker = &mockBlacklistChecker{
+		blacklisted: map[string]bool{
+			// We'll use a wildcard approach: any token is blacklisted
+			"": true,
+		},
+	}
+	// Override to match all tokens
+	middleware.TokenBlacklistChecker = &alwaysBlacklistedChecker{}
+	defer func() { middleware.TokenBlacklistChecker = origBlacklist }()
+
+	_, _, err := svc.RefreshToken(context.Background(), tokenStr)
+	assert.Error(t, err, "should reject refresh for blacklisted token")
+	assert.Contains(t, err.Error(), "revoked", "error should mention revocation")
+}
+
+// alwaysBlacklistedChecker returns true for all tokens.
+type alwaysBlacklistedChecker struct{}
+
+func (a *alwaysBlacklistedChecker) IsTokenBlacklisted(_ context.Context, _ string) (bool, error) {
+	return true, nil
+}
+
+// Test_RefreshToken_RevocationBeforeTokenIssued verifies that a revocation
+// timestamp BEFORE the token's issuance time does NOT block refresh.
+func Test_RefreshToken_RevocationBeforeTokenIssued(t *testing.T) {
+	svc, db := setupAuthService(t)
+	user := seedUserWithPassword(t, db, "old-revocation", "pass", model.RoleMember, true)
+
+	// Token issued 5 minutes ago (within grace window)
+	tokenStr := generateTestToken(t, user.ID, user.Username, string(user.Role), svc.GetJWTSecret(), time.Now().Add(-5*time.Minute))
+
+	// Revocation was 10 minutes ago (BEFORE token issuance) — should NOT block
+	origRevocation := middleware.TokenRevocationChecker
+	middleware.TokenRevocationChecker = &mockRevocationChecker{
+		revokedAt: map[uint]time.Time{
+			user.ID: time.Now().Add(-10 * time.Minute),
+		},
+	}
+	defer func() { middleware.TokenRevocationChecker = origRevocation }()
+
+	newToken, _, err := svc.RefreshToken(context.Background(), tokenStr)
+	assert.NoError(t, err, "should allow refresh when revocation is before token issuance")
+	assert.NotEmpty(t, newToken)
+}
