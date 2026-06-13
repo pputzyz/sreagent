@@ -142,7 +142,7 @@ func RegisterLarkTools(
 		Execute: func(ctx context.Context, params map[string]interface{}) (string, error) {
 			eventID, _ := aiToolToUint(params["event_id"])
 			if eventID == 0 {
-				return "", fmt.Errorf("event_id 不能为空")
+				return "", fmt.Errorf("event_id is required")
 			}
 
 			// Operator comes from the agent context (the mapped platform user
@@ -218,7 +218,7 @@ func RegisterLarkTools(
 			}
 			taskID, _ := aiToolToUint(params["task_id"])
 			if taskID == 0 {
-				return "", fmt.Errorf("task_id 不能为空")
+				return "", fmt.Errorf("task_id is required")
 			}
 			if AgentOperatorFromContext(ctx) == 0 {
 				return "触发失败：当前用户未绑定 SREAgent 平台账号，无法执行写操作。", nil

@@ -114,11 +114,11 @@ func (s *RuleGeneratorService) ImproveRule(ctx context.Context, req *ImproveRule
 // validatePromQLSyntax performs real PromQL syntax validation using the Prometheus parser.
 func validatePromQLSyntax(expr string) error {
 	if strings.TrimSpace(expr) == "" {
-		return fmt.Errorf("表达式为空")
+		return fmt.Errorf("expression is empty")
 	}
 	_, err := parser.ParseExpr(expr)
 	if err != nil {
-		return fmt.Errorf("PromQL 语法错误: %w", err)
+		return fmt.Errorf("PromQL syntax error: %w", err)
 	}
 	return nil
 }

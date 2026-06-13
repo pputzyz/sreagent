@@ -66,7 +66,7 @@ func NewInspectionScheduler(
 func (s *InspectionScheduler) Start(ctx context.Context) error {
 	tasks, err := s.taskRepo.ListEnabledTasks(ctx)
 	if err != nil {
-		return fmt.Errorf("加载巡检任务失败: %w", err)
+		return fmt.Errorf("failed to load inspection tasks: %w", err)
 	}
 
 	s.mu.Lock()
@@ -131,7 +131,7 @@ func (s *InspectionScheduler) addTask(task model.InspectionTask) error {
 		s.runWithLeaderCheck(&taskCopy)
 	})
 	if err != nil {
-		return fmt.Errorf("无效的 cron 表达式 %q: %w", task.CronExpr, err)
+		return fmt.Errorf("invalid cron expression %q: %w", task.CronExpr, err)
 	}
 
 	s.entries[task.ID] = entryID

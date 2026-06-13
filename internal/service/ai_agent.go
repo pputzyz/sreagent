@@ -768,22 +768,22 @@ func (s *AgentService) planSteps(ctx context.Context, query string) ([]AgentStep
 	// 加载 AI 配置
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+		return nil, fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("AI 未启用")
+		return nil, fmt.Errorf("AI is not enabled")
 	}
 
 	result, err := s.aiSvc.callLLMWithSystem(ctx, cfg, systemPrompt, fmt.Sprintf("用户查询: %s", sanitizeUserQuery(query)))
 	if err != nil {
-		return nil, fmt.Errorf("LLM 规划调用失败: %w", err)
+		return nil, fmt.Errorf("LLM planning call failed: %w", err)
 	}
 
 	// 解析 JSON
 	cleaned := stripMarkdownCodeBlock(result)
 	var plan stepPlan
 	if err := json.Unmarshal([]byte(cleaned), &plan); err != nil {
-		return nil, fmt.Errorf("解析规划结果失败: %w (raw: %s)", err, truncateString(result, 200))
+		return nil, fmt.Errorf("failed to parse planning result: %w (raw: %s)", err, truncateString(result, 200))
 	}
 
 	// 转换为 AgentStep
@@ -805,7 +805,7 @@ func (s *AgentService) planSteps(ctx context.Context, query string) ([]AgentStep
 func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *AgentStep) error {
 	tool, ok := s.toolReg.Get(step.Tool)
 	if !ok {
-		return fmt.Errorf("工具 %q 不存在", step.Tool)
+		return fmt.Errorf("tool %q does not exist", step.Tool)
 	}
 
 	// 持久化工具调用记录
@@ -847,7 +847,7 @@ func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *A
 				s.logger.Error("failed to update tool call status to failed", zap.Uint("call_id", callID), zap.Error(updateErr))
 			}
 		}
-		return fmt.Errorf("工具 %q 执行失败: %w", step.Tool, err)
+		return fmt.Errorf("tool %q execution failed: %w", step.Tool, err)
 	}
 	// B8-5: Truncate tool result before storing in step to prevent unbounded LLM context growth.
 	step.Result = truncateString(sanitizeToolResult(result), agentMaxToolResultLen)
@@ -947,10 +947,10 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+		return nil, fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("AI 未启用")
+		return nil, fmt.Errorf("AI is not enabled")
 	}
 
 	// 构建过滤后的工具定义
@@ -966,7 +966,7 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 	executor := func(execCtx context.Context, name string, params map[string]interface{}) (string, error) {
 		tool, ok := toolMap[name]
 		if !ok {
-			return "", fmt.Errorf("工具 %q 不在允许列表中", name)
+			return "", fmt.Errorf("tool %q is not in allowed list", name)
 		}
 		toolCtx, cancel := context.WithTimeout(execCtx, agentStepTimeout)
 		defer cancel()
@@ -1046,10 +1046,10 @@ func (s *AgentService) RunWithStreaming(
 
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+		return nil, fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("AI 未启用")
+		return nil, fmt.Errorf("AI is not enabled")
 	}
 
 	tools := s.toolReg.ToOpenAIToolsFiltered(allowedTools)
@@ -1063,7 +1063,7 @@ func (s *AgentService) RunWithStreaming(
 	executor := func(execCtx context.Context, name string, params map[string]interface{}) (string, error) {
 		tool, ok := toolMap[name]
 		if !ok {
-			return "", fmt.Errorf("工具 %q 不在允许列表中", name)
+			return "", fmt.Errorf("tool %q is not in allowed list", name)
 		}
 		toolCtx, cancel := context.WithTimeout(execCtx, agentStepTimeout)
 		defer cancel()
@@ -1118,7 +1118,7 @@ func (s *AgentService) summarize(ctx context.Context, task *AgentTask) (string, 
 	// 加载 AI 配置
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return "", fmt.Errorf("加载 AI 配置失败: %w", err)
+		return "", fmt.Errorf("failed to load AI config: %w", err)
 	}
 
 	return s.aiSvc.callLLMWithSystem(ctx, cfg, systemPrompt, userMsg)

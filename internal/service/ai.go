@@ -166,7 +166,7 @@ func (s *AIService) GenerateAlertReport(ctx context.Context, event *model.AlertE
 		return "", fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		return "", fmt.Errorf("AI 功能未启用，请在系统设置中配置并启用 AI")
+		return "", fmt.Errorf("AI feature is not enabled")
 	}
 
 	prompt := fmt.Sprintf(
@@ -192,7 +192,7 @@ func (s *AIService) SuggestSOP(ctx context.Context, event *model.AlertEvent) (st
 		return "", fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		return "", fmt.Errorf("AI 功能未启用，请在系统设置中配置并启用 AI")
+		return "", fmt.Errorf("AI feature is not enabled")
 	}
 
 	prompt := fmt.Sprintf(
@@ -215,7 +215,7 @@ func (s *AIService) AnalyzeAlert(ctx context.Context, event *model.AlertEvent) (
 		return "", fmt.Errorf("failed to load AI config: %w", err)
 	}
 	if !cfg.Enabled {
-		return "", fmt.Errorf("AI 功能未启用，请在系统设置中配置并启用 AI")
+		return "", fmt.Errorf("AI feature is not enabled")
 	}
 
 	prompt := fmt.Sprintf(

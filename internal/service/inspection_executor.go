@@ -77,7 +77,7 @@ func (e *InspectionExecutor) Run(ctx context.Context, task *model.InspectionTask
 		StartedAt: time.Now(),
 	}
 	if err := e.runRepo.CreateRun(ctx, run); err != nil {
-		return nil, fmt.Errorf("创建巡检运行记录失败: %w", err)
+		return nil, fmt.Errorf("failed to create inspection run: %w", err)
 	}
 
 	e.logger.Info("巡检任务开始执行",
@@ -107,7 +107,7 @@ func (e *InspectionExecutor) Run(ctx context.Context, task *model.InspectionTask
 		now := time.Now()
 		run.FinishedAt = &now
 		_ = e.runRepo.UpdateRun(ctx, run)
-		return run, fmt.Errorf("巡检 Agent 执行失败: %w", err)
+		return run, fmt.Errorf("inspection agent execution failed: %w", err)
 	}
 
 	run.AIConversationID = &result.ConversationID
