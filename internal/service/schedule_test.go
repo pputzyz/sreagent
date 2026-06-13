@@ -968,6 +968,11 @@ func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
 	if db == nil {
 		t.Skip("SREAGENT_TEST_DSN not set")
 	}
+	// Direct cleanup to ensure stale shifts are removed
+	db.Exec("DELETE FROM oncall_shifts")
+	db.Exec("DELETE FROM schedule_participants")
+	db.Exec("DELETE FROM schedule_overrides")
+	db.Exec("DELETE FROM schedules")
 	t.Cleanup(func() { testutil.CleanupDB(t, db) })
 
 	logger := testutil.TestLogger()
