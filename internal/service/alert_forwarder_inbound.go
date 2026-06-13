@@ -3,13 +3,15 @@ package service
 import (
 	"context"
 	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -118,7 +120,8 @@ func (s *AlertForwarderService) authenticateInbound(r *http.Request, config *mod
 		if !strings.HasPrefix(token, "Bearer ") {
 			return apperr.WithMessage(apperr.ErrUnauthorized, "missing or invalid Bearer token")
 		}
-		if strings.TrimPrefix(token, "Bearer ") != config.AuthConfig.Token {
+		provided := strings.TrimPrefix(token, "Bearer ")
+		if subtle.ConstantTimeCompare([]byte(provided), []byte(config.AuthConfig.Token)) != 1 {
 			return apperr.WithMessage(apperr.ErrUnauthorized, "invalid Bearer token")
 		}
 
@@ -127,7 +130,9 @@ func (s *AlertForwarderService) authenticateInbound(r *http.Request, config *mod
 		if !ok {
 			return apperr.WithMessage(apperr.ErrUnauthorized, "missing Basic auth credentials")
 		}
-		if username != config.AuthConfig.Username || password != config.AuthConfig.Password {
+		usernameMatch := subtle.ConstantTimeCompare([]byte(username), []byte(config.AuthConfig.Username))
+		passwordMatch := subtle.ConstantTimeCompare([]byte(password), []byte(config.AuthConfig.Password))
+		if usernameMatch != 1 || passwordMatch != 1 {
 			return apperr.WithMessage(apperr.ErrUnauthorized, "invalid Basic auth credentials")
 		}
 
@@ -232,6 +237,11 @@ func (s *AlertForwarderService) parseInboundPayload(r *http.Request, forwarder *
 
 // processInboundAlert processes a single inbound alert based on the forwarder's mode.
 func (s *AlertForwarderService) processInboundAlert(ctx context.Context, forwarder *model.AlertForwarder, alert *InboundAlert, payload *InboundPayload) error {
+	// Ensure labels map is not nil
+	if alert.Labels == nil {
+		alert.Labels = make(map[string]string)
+	}
+
 	// Get severity from labels
 	severity := ""
 	if sev, ok := alert.Labels["severity"]; ok {
@@ -404,25 +414,10 @@ func (s *AlertForwarderService) sendToProxyTarget(ctx context.Context, target *m
 		return fmt.Errorf("failed to marshal proxy payload: %w", err)
 	}
 
-	// Build request
+	// Build request settings
 	method := target.Method
 	if method == "" {
 		method = "POST"
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, target.TargetURL, strings.NewReader(string(jsonData)))
-	if err != nil {
-		return fmt.Errorf("failed to create proxy request: %w", err)
-	}
-
-	// Set headers
-	if target.Headers != nil {
-		for k, v := range target.Headers {
-			req.Header.Set(k, v)
-		}
-	}
-	if req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "application/json")
 	}
 
 	// Set timeout
@@ -450,6 +445,22 @@ func (s *AlertForwarderService) sendToProxyTarget(ctx context.Context, target *m
 			time.Sleep(time.Duration(retryInterval) * time.Millisecond)
 		}
 
+		// Create new request for each retry (body is consumed after each send)
+		req, err := http.NewRequestWithContext(ctx, method, target.TargetURL, strings.NewReader(string(jsonData)))
+		if err != nil {
+			return fmt.Errorf("failed to create proxy request: %w", err)
+		}
+
+		// Set headers
+		if target.Headers != nil {
+			for k, v := range target.Headers {
+				req.Header.Set(k, v)
+			}
+		}
+		if req.Header.Get("Content-Type") == "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			lastErr = err
@@ -469,11 +480,17 @@ func (s *AlertForwarderService) sendToProxyTarget(ctx context.Context, target *m
 	return fmt.Errorf("proxy failed after %d retries: %w", retryTimes, lastErr)
 }
 
-// generateFingerprint generates a fingerprint from labels.
+// generateFingerprint generates a deterministic fingerprint from labels.
 func generateFingerprint(labels map[string]string) string {
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	var parts []string
-	for k, v := range labels {
-		parts = append(parts, k+"="+v)
+	for _, k := range keys {
+		parts = append(parts, k+"="+labels[k])
 	}
 	return strings.Join(parts, ",")
 }

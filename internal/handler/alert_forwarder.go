@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
@@ -104,6 +106,15 @@ func (h *AlertForwarderHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionCreate,
+			ResourceType: "alert_forwarder", ResourceID: &forwarder.ID, ResourceName: forwarder.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, forwarder)
 }
 
@@ -121,7 +132,7 @@ func (h *AlertForwarderHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	Success(c, forwarder)
+	Success(c, forwarder.SanitizeForResponse())
 }
 
 // List returns a paginated list of alert forwarders.
@@ -142,7 +153,12 @@ func (h *AlertForwarderHandler) List(c *gin.Context) {
 		return
 	}
 
-	SuccessPage(c, forwarders, total, page, pageSize)
+	sanitized := make([]model.AlertForwarder, len(forwarders))
+	for i, f := range forwarders {
+		sanitized[i] = *f.SanitizeForResponse()
+	}
+
+	SuccessPage(c, sanitized, total, page, pageSize)
 }
 
 // Update updates an existing alert forwarder.
@@ -191,6 +207,15 @@ func (h *AlertForwarderHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: "alert_forwarder", ResourceID: &forwarder.ID, ResourceName: forwarder.Name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, forwarder)
 }
 
@@ -211,6 +236,16 @@ func (h *AlertForwarderHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		name := fmt.Sprintf("id:%d", id)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionDelete,
+			ResourceType: "alert_forwarder", ResourceID: &id, ResourceName: name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)
@@ -235,6 +270,16 @@ func (h *AlertForwarderHandler) Enable(c *gin.Context) {
 		return
 	}
 
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		name := fmt.Sprintf("id:%d", id)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: "alert_forwarder", ResourceID: &id, ResourceName: name,
+			IP: c.ClientIP(),
+		})
+	}
+
 	Success(c, nil)
 }
 
@@ -255,6 +300,16 @@ func (h *AlertForwarderHandler) Disable(c *gin.Context) {
 	if err := h.svc.Disable(c.Request.Context(), id); err != nil {
 		Error(c, err)
 		return
+	}
+
+	if h.auditSvc != nil {
+		uid := GetCurrentUserID(c)
+		name := fmt.Sprintf("id:%d", id)
+		h.auditSvc.Record(&model.AuditLog{
+			UserID: &uid, Action: model.AuditActionUpdate,
+			ResourceType: "alert_forwarder", ResourceID: &id, ResourceName: name,
+			IP: c.ClientIP(),
+		})
 	}
 
 	Success(c, nil)

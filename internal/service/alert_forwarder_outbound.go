@@ -204,27 +204,10 @@ func (s *AlertForwarderService) sendViaHTTP(ctx context.Context, forwarder *mode
 		bodyStr = string(jsonData)
 	}
 
-	// Build request
+	// Build request settings
 	method := config.Method
 	if method == "" {
 		method = "POST"
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, config.TargetURL, bytes.NewBufferString(bodyStr))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	if config.Headers != nil {
-		for k, v := range config.Headers {
-			req.Header.Set(k, v)
-		}
-	}
-
-	// Default content type
-	if req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "application/json")
 	}
 
 	// Set timeout
@@ -252,13 +235,28 @@ func (s *AlertForwarderService) sendViaHTTP(ctx context.Context, forwarder *mode
 			time.Sleep(time.Duration(retryInterval) * time.Millisecond)
 		}
 
+		// Create new request for each retry (body is consumed after each send)
+		req, err := http.NewRequestWithContext(ctx, method, config.TargetURL, bytes.NewBufferString(bodyStr))
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+
+		// Set headers
+		if config.Headers != nil {
+			for k, v := range config.Headers {
+				req.Header.Set(k, v)
+			}
+		}
+		if req.Header.Get("Content-Type") == "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			lastErr = err
 			continue
 		}
 
-		// Read and close body
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 

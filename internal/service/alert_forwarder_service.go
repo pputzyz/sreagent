@@ -157,17 +157,44 @@ func (s *AlertForwarderService) Update(ctx context.Context, forwarder *model.Ale
 
 	// Validate direction
 	if !forwarder.Direction.IsValid() {
-		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid direction")
+		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid direction: must be inbound, outbound, or bidirectional")
 	}
 
-	// Validate inbound mode
-	if forwarder.InboundConfig != nil {
+	// Validate inbound config for inbound/bidirectional
+	if forwarder.Direction == model.ForwarderDirectionInbound || forwarder.Direction == model.ForwarderDirectionBidirectional {
+		if forwarder.InboundConfig == nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "inbound_config is required for inbound/bidirectional forwarders")
+		}
+		if !forwarder.InboundConfig.SourceFormat.IsValid() {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid source_format")
+		}
 		if !forwarder.InboundConfig.Mode.IsValid() {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid inbound mode")
+			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid inbound mode: must be integrate or proxy")
+		}
+		if !forwarder.InboundConfig.AuthType.IsValid() {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid auth_type")
 		}
 		if forwarder.InboundConfig.Mode == model.InboundModeProxy && forwarder.InboundConfig.ProxyTarget == nil {
 			return apperr.WithMessage(apperr.ErrInvalidParam, "proxy_target is required for proxy mode")
 		}
+	}
+
+	// Validate outbound config for outbound/bidirectional
+	if forwarder.Direction == model.ForwarderDirectionOutbound || forwarder.Direction == model.ForwarderDirectionBidirectional {
+		if forwarder.OutboundConfig == nil {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "outbound_config is required for outbound/bidirectional forwarders")
+		}
+		if forwarder.OutboundConfig.TargetMediaID == nil && forwarder.OutboundConfig.TargetURL == "" {
+			return apperr.WithMessage(apperr.ErrInvalidParam, "either target_media_id or target_url is required")
+		}
+	}
+
+	// Set defaults
+	if forwarder.OutboundConfig != nil {
+		setOutboundDefaults(forwarder.OutboundConfig)
+	}
+	if forwarder.InboundConfig != nil && forwarder.InboundConfig.ProxyTarget != nil {
+		setOutboundDefaults(forwarder.InboundConfig.ProxyTarget)
 	}
 
 	// Preserve creation time

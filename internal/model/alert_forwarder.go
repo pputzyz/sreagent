@@ -228,3 +228,22 @@ func (c *SeverityMappingConfig) ApplySeverityMapping(severity string) (string, b
 	}
 	return severity, false
 }
+
+// SanitizeForResponse returns a copy of the forwarder with sensitive fields masked.
+func (f *AlertForwarder) SanitizeForResponse() *AlertForwarder {
+	out := *f // shallow copy
+	if out.InboundConfig != nil && out.InboundConfig.AuthConfig != nil {
+		ac := *out.InboundConfig.AuthConfig
+		if ac.Token != "" {
+			ac.Token = "***"
+		}
+		if ac.Password != "" {
+			ac.Password = "***"
+		}
+		if ac.HMACSecret != "" {
+			ac.HMACSecret = "***"
+		}
+		out.InboundConfig.AuthConfig = &ac
+	}
+	return &out
+}

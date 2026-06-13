@@ -88,7 +88,7 @@ import {
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import {
   listAlertForwarders, deleteAlertForwarder, enableAlertForwarder,
-  disableAlertForwarder, getForwarderStats
+  disableAlertForwarder, getForwarderStats, testAlertForwarder
 } from '@/api/alert-forwarder'
 import type { AlertForwarder, ForwarderStats } from '@/api/alert-forwarder'
 import ForwarderForm from './ForwarderForm.vue'
