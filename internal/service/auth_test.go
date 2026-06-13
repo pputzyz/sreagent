@@ -58,9 +58,14 @@ func seedUserWithPassword(t *testing.T, db *gorm.DB, username, password string, 
 		Username: username,
 		Password: string(hash),
 		Role:     role,
-		IsActive: isActive,
+		IsActive: true, // GORM default:true overrides false, so always create as active
 	}
 	require.NoError(t, db.Create(user).Error)
+	// If we need inactive, update after creation
+	if !isActive {
+		require.NoError(t, db.Model(user).Update("is_active", false).Error)
+		user.IsActive = false
+	}
 	return user
 }
 

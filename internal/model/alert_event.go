@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // AlertEventStatus defines the lifecycle status of an alert event.
 type AlertEventStatus string
@@ -117,6 +121,14 @@ type AlertTimeline struct {
 
 func (AlertTimeline) TableName() string {
 	return "alert_timelines"
+}
+
+// BeforeCreate ensures the Extra field is valid JSON (not empty string).
+func (t *AlertTimeline) BeforeCreate(tx *gorm.DB) error {
+	if t.Extra == "" {
+		t.Extra = "{}"
+	}
+	return nil
 }
 
 // ViewAlertEvent is the API response type for the v2 alert events endpoint.

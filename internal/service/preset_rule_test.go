@@ -81,15 +81,16 @@ func Test_autoMatchDatasource_disabled_ds_ignored(t *testing.T) {
 
 	dsRepo := repository.NewDataSourceRepository(db)
 
-	// Seed a DISABLED datasource with matching cluster
+	// Seed a DISABLED datasource with matching cluster (GORM default:true overrides false)
 	ds := &model.DataSource{
 		Name:      "prom-prod-disabled",
 		Type:      model.DSTypePrometheus,
 		Endpoint:  "http://localhost:9090",
 		Labels:    model.JSONLabels{"cluster": "prod-cn"},
-		IsEnabled: false,
+		IsEnabled: true,
 	}
 	require.NoError(t, dsRepo.Create(context.Background(), ds))
+	require.NoError(t, db.Model(&model.DataSource{}).Where("id = ?", ds.ID).Update("is_enabled", false).Error)
 
 	svc := &PresetRuleService{
 		dsRepo: dsRepo,

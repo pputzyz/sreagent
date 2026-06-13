@@ -656,15 +656,16 @@ func Test_GetCurrentOnCall_disabled_schedule(t *testing.T) {
 
 	svc := NewScheduleService(scheduleRepo, participantRepo, overrideRepo, shiftRepo, policyRepo, stepRepo, nil, nil, logger)
 
-	// Create a disabled schedule
+	// Create a disabled schedule (GORM default:true overrides false, so create then disable)
 	schedule := &model.Schedule{
 		Name:         "disabled-schedule",
 		RotationType: model.RotationDaily,
 		Timezone:     "UTC",
 		HandoffTime:  "09:00",
-		IsEnabled:    false,
+		IsEnabled:    true,
 	}
 	require.NoError(t, db.Create(schedule).Error)
+	require.NoError(t, db.Model(&model.Schedule{}).Where("id = ?", schedule.ID).Update("is_enabled", false).Error)
 
 	_, err := svc.GetCurrentOnCall(context.Background(), schedule.ID)
 	require.Error(t, err)

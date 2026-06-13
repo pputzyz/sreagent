@@ -51,10 +51,11 @@ func Test_isThrottled_per_fingerprint(t *testing.T) {
 		"fingerprint B should NOT be throttled before any sends")
 
 	// Create a "sent" record for fingerprint A.
+	// PolicyID must match rule.ID for isThrottled to count it.
 	require.NoError(t, recordRepo.Create(ctx, &model.NotifyRecord{
 		EventID:     1,
 		ChannelID:   nc.MediaID,
-		PolicyID:    1, // does not need to match rule.ID for this test
+		PolicyID:    rule.ID,
 		Fingerprint: fpA,
 		Status:      "sent",
 	}))
@@ -94,11 +95,11 @@ func Test_isThrottled_repeat_interval_per_fingerprint(t *testing.T) {
 	fpY := "fp-repeat-yyy"
 
 	// Create a recently-sent record for fingerprint X.
-	// GORM autoCreateTime sets CreatedAt to now, which is within the 5-min window.
+	// PolicyID must match rule.ID for isThrottled to count it.
 	require.NoError(t, recordRepo.Create(ctx, &model.NotifyRecord{
 		EventID:     2,
 		ChannelID:   nc.MediaID,
-		PolicyID:    1,
+		PolicyID:    rule.ID,
 		Fingerprint: fpX,
 		Status:      "sent",
 	}))
@@ -225,11 +226,13 @@ func Test_FindMatchingRules_DisabledRule_Excluded(t *testing.T) {
 
 	disabledRule := &model.NotifyRule{
 		Name:          "disabled-rule",
-		IsEnabled:     false,
+		IsEnabled:     true, // create as enabled first (GORM default:true overrides false)
 		MatchLabels:   model.JSONLabels{"env": "prod"},
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, disabledRule))
+	// Now disable it (direct DB update to bypass GORM zero-value default)
+	require.NoError(t, db.Model(&model.NotifyRule{}).Where("id = ?", disabledRule.ID).Update("is_enabled", false).Error)
 
 	event := &model.AlertEvent{
 		Severity: model.SeverityWarning,
@@ -286,23 +289,26 @@ func Test_ProcessEvent_DisabledRule_Skips(t *testing.T) {
 	t.Cleanup(func() { testutil.CleanupDB(t, db) })
 
 	ruleRepo := repository.NewNotifyRuleRepository(db)
+	recordRepo := repository.NewNotifyRecordRepository(db)
 	logger := zap.NewNop()
 
 	svc := &NotifyRuleService{
-		ruleRepo: ruleRepo,
-		logger:   logger,
+		ruleRepo:   ruleRepo,
+		recordRepo: recordRepo,
+		logger:     logger,
 	}
 
 	ctx := context.Background()
 
-	// Create a disabled rule
+	// Create a disabled rule (create as enabled first, then disable)
 	rule := &model.NotifyRule{
 		Name:          "disabled-for-process",
-		IsEnabled:     false,
+		IsEnabled:     true,
 		Severities:    "critical,warning",
 		NotifyConfigs: `[{"media_id":1}]`,
 	}
 	require.NoError(t, ruleRepo.Create(ctx, rule))
+	require.NoError(t, db.Model(&model.NotifyRule{}).Where("id = ?", rule.ID).Update("is_enabled", false).Error)
 
 	event := &model.AlertEvent{
 		AlertName: "TestAlert",
