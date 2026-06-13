@@ -245,6 +245,14 @@ func (s *ScheduledDispatchService) CleanupOldRecords(ctx context.Context) {
 // Stops when ctx is cancelled.
 func (s *ScheduledDispatchService) StartWorker(ctx context.Context) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("scheduled dispatch worker panic, restarting in 1 minute",
+					zap.Any("panic", r))
+				time.Sleep(time.Minute)
+				s.StartWorker(ctx)
+			}
+		}()
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 		cleanupTicker := time.NewTicker(10 * time.Minute)

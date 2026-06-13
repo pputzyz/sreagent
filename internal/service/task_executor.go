@@ -144,6 +144,16 @@ func (e *TaskExecutor) ExecuteDirect(ctx context.Context, script, args, account 
 
 // execute runs the task on all hosts, respecting batch mode.
 func (e *TaskExecutor) execute(record *model.TaskRecord, hosts []string, tpl *model.TaskTpl) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.logger.Error("task executor panic",
+				zap.Uint("task_id", record.ID),
+				zap.Any("panic", r))
+			// Mark task as failed
+			record.Status = model.TaskStatusFail
+			_ = e.recRepo.UpdateRecord(context.Background(), record)
+		}
+	}()
 	ctx := context.Background()
 
 	// Create host records

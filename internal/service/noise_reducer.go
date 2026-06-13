@@ -99,6 +99,14 @@ func (nr *NoiseReducer) startGC() {
 	nr.gcTicker = time.NewTicker(10 * time.Minute)
 	nr.gcStop = make(chan struct{})
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				zap.L().Error("noise_reducer GC panic, restarting in 1 minute",
+					zap.Any("panic", r))
+				time.Sleep(time.Minute)
+				nr.startGC()
+			}
+		}()
 		for {
 			select {
 			case <-nr.gcTicker.C:

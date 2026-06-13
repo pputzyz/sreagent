@@ -274,6 +274,11 @@ func (s *IntegrationService) ReceiveAlerts(ctx context.Context, token string, ra
 	case s.dispatchSem <- struct{}{}:
 		go func() {
 			defer func() { <-s.dispatchSem }()
+			defer func() {
+				if r := recover(); r != nil {
+					s.logger.Error("integration counter panic", zap.Any("panic", r))
+				}
+			}()
 			_ = s.repo.IncrTotalAlerts(context.Background(), integ.ID)
 		}()
 	default:
@@ -334,6 +339,14 @@ func (s *IntegrationService) injectAndRoute(ctx context.Context, integ *model.In
 	case s.dispatchSem <- struct{}{}:
 		go func() {
 			defer func() { <-s.dispatchSem }()
+			defer func() {
+				if r := recover(); r != nil {
+					s.logger.Error("integration pipeline panic",
+						zap.Uint("integration_id", integ.ID),
+						zap.String("alert", alert.Title),
+						zap.Any("panic", r))
+				}
+			}()
 			pCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			if err := s.pipeline.process(pCtx, syntheticEvent); err != nil {
