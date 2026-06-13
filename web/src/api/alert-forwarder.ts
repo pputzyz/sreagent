@@ -80,60 +80,60 @@ export interface ForwarderStats {
 
 // Create a new alert forwarder
 export function createAlertForwarder(data: Partial<AlertForwarder>) {
-  return request.post<ApiResponse<AlertForwarder>>('/api/v1/alert-forwarders', data)
+  return request.post<ApiResponse<AlertForwarder>>('/alert-forwarders', data)
 }
 
 // Get alert forwarder by ID
 export function getAlertForwarder(id: number) {
-  return request.get<ApiResponse<AlertForwarder>>(`/api/v1/alert-forwarders/${id}`)
+  return request.get<ApiResponse<AlertForwarder>>(`/alert-forwarders/${id}`)
 }
 
 // List alert forwarders
 export function listAlertForwarders(params?: ForwarderListParams) {
-  return request.get<ApiResponse<PageData<AlertForwarder>>>('/api/v1/alert-forwarders', { params })
+  return request.get<ApiResponse<PageData<AlertForwarder>>>('/alert-forwarders', { params })
 }
 
 // Update alert forwarder
 export function updateAlertForwarder(id: number, data: Partial<AlertForwarder>) {
-  return request.put<ApiResponse<AlertForwarder>>(`/api/v1/alert-forwarders/${id}`, data)
+  return request.put<ApiResponse<AlertForwarder>>(`/alert-forwarders/${id}`, data)
 }
 
 // Delete alert forwarder
 export function deleteAlertForwarder(id: number) {
-  return request.delete<ApiResponse<void>>(`/api/v1/alert-forwarders/${id}`)
+  return request.delete<ApiResponse<void>>(`/alert-forwarders/${id}`)
 }
 
 // Enable alert forwarder
 export function enableAlertForwarder(id: number) {
-  return request.post<ApiResponse<void>>(`/api/v1/alert-forwarders/${id}/enable`)
+  return request.post<ApiResponse<void>>(`/alert-forwarders/${id}/enable`)
 }
 
 // Disable alert forwarder
 export function disableAlertForwarder(id: number) {
-  return request.post<ApiResponse<void>>(`/api/v1/alert-forwarders/${id}/disable`)
+  return request.post<ApiResponse<void>>(`/alert-forwarders/${id}/disable`)
 }
 
 // Batch enable alert forwarders
 export function batchEnableAlertForwarders(ids: number[]) {
-  return request.post<ApiResponse<void>>('/api/v1/alert-forwarders/batch/enable', { ids })
+  return request.post<ApiResponse<void>>('/alert-forwarders/batch/enable', { ids })
 }
 
 // Batch disable alert forwarders
 export function batchDisableAlertForwarders(ids: number[]) {
-  return request.post<ApiResponse<void>>('/api/v1/alert-forwarders/batch/disable', { ids })
+  return request.post<ApiResponse<void>>('/alert-forwarders/batch/disable', { ids })
 }
 
 // Batch delete alert forwarders
 export function batchDeleteAlertForwarders(ids: number[]) {
-  return request.post<ApiResponse<void>>('/api/v1/alert-forwarders/batch/delete', { ids })
+  return request.post<ApiResponse<void>>('/alert-forwarders/batch/delete', { ids })
 }
 
 // Test alert forwarder
 export function testAlertForwarder(id: number) {
-  return request.post<ApiResponse<Record<string, any>>>(`/api/v1/alert-forwarders/${id}/test`)
+  return request.post<ApiResponse<Record<string, any>>>(`/alert-forwarders/${id}/test`)
 }
 
 // Get forwarder stats
 export function getForwarderStats() {
-  return request.get<ApiResponse<ForwarderStats>>('/api/v1/alert-forwarders/stats')
+  return request.get<ApiResponse<ForwarderStats>>('/alert-forwarders/stats')
 }

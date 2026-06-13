@@ -24,7 +24,7 @@ internal/
   engine/ (22)               # 告警引擎：evaluator + rule_eval + suppression + heartbeat + escalation + multi_query + pipeline
   middleware/ (8)            # JWT / CORS / Logger / Permission / RateLimit / WebhookAuth
   router/ (21 files)         # 350+ 端点
-  pkg/                       # dbmigrate / datasource / lark / redis / errors / hashring / tplx / mcp / ldapx
+  pkg/                       # dbmigrate / datasource / lark / redis / errors / hashring / tplx / mcp / ldapx / safehttp / i18n
 web/src/                     # Vue 3 前端
 ```
 

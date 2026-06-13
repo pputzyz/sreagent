@@ -7,7 +7,7 @@ import { alertEventApi, userApi, aiApi } from '@/api'
 import type { AlertEvent, AlertTimeline, User } from '@/types'
 import { getErrorMessage } from '@/utils/format'
 import { formatTime, formatDuration } from '@/utils/format'
-import { getStatusLabelKey } from '@/utils/alert'
+import { getStatusLabelKey, getSeverityDotKey } from '@/utils/alert'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import {
   ArrowBackOutline,
@@ -62,12 +62,7 @@ const userOptions = computed(() =>
 )
 
 // ── Severity helpers ──
-const severityKey = computed(() => {
-  const s = event.value?.severity ?? 'info'
-  if (s === 'p0' || s === 'critical') return 'critical'
-  if (s === 'p1' || s === 'p2' || s === 'warning') return 'warning'
-  return 'info'
-})
+const severityKey = computed(() => getSeverityDotKey(event.value?.severity ?? 'info'))
 const severityLabel = computed(() => (event.value?.severity ?? '').toString().toUpperCase())
 
 // ── Status helpers ──

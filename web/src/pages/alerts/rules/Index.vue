@@ -8,6 +8,7 @@ import type { AlertRule, DataSource } from '@/types'
 import type { RuleGenerateResult, MuteRuleGenerateResult } from '@/types/ai-module'
 import { usePaginatedList, useAIModule, useFilterMemory, usePermissions } from '@/composables'
 import { getErrorMessage } from '@/utils/format'
+import { getSeverityDotKey } from '@/utils/alert'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -196,12 +197,9 @@ function severityLabel(sev: string) {
   return map[sev] || sev
 }
 
-function severitySlot(sev: string): 'critical' | 'warning' | 'info' | 'success' {
-  if (sev === 'critical' || sev === 'p0' || sev === 'p1') return 'critical'
-  if (sev === 'warning' || sev === 'p2') return 'warning'
-  if (sev === 'info' || sev === 'p4') return 'info'
-  return 'info'
-}
+// Delegates to the shared util so severity colors stay consistent across pages.
+// (Previously this page mapped p1→critical and p4→info, diverging from the events page.)
+const severitySlot = getSeverityDotKey
 
 // ─── Data fetching ───
 // fetchRules is now handled by usePaginatedList.fetchList

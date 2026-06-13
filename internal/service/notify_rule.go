@@ -424,6 +424,13 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 				zap.String("media_name", media.Name),
 				zap.Error(err),
 			)
+			// Roll back the dedup reservation claimed above — otherwise a transient
+			// failure silently suppresses this notification for the full 4h TTL.
+			if s.dedupSvc != nil {
+				s.dedupSvc.Release(ctx, dedupKey)
+			} else {
+				routeDedup.Release(dedupKey)
+			}
 			s.createRecord(ctx, event.ID, media.ID, rule.ID, event.Fingerprint, "failed", err.Error())
 			continue
 		}

@@ -111,7 +111,7 @@ func (s *OIDCService) ExchangeAndLogin(ctx context.Context, code string) (token 
 		Sub               string `json:"sub"`
 		PreferredUsername string `json:"preferred_username"`
 		Email             string `json:"email"`
-		EmailVerified     bool   `json:"email_verified"`
+		EmailVerified     *bool  `json:"email_verified"`
 		Name              string `json:"name"`
 		GivenName         string `json:"given_name"`
 		FamilyName        string `json:"family_name"`
@@ -126,13 +126,14 @@ func (s *OIDCService) ExchangeAndLogin(ctx context.Context, code string) (token 
 
 	// Find or create user via shared SSO helpers
 	ssoInfo := &SSOUserInfo{
-		Subject:     claims.Sub,
-		Username:    claims.PreferredUsername,
-		DisplayName: claims.Name,
-		Email:       claims.Email,
-		Avatar:      claims.Picture,
-		Role:        role,
-		Source:      "oidc",
+		Subject:       claims.Sub,
+		Username:      claims.PreferredUsername,
+		DisplayName:   claims.Name,
+		Email:         claims.Email,
+		Avatar:        claims.Picture,
+		Role:          role,
+		Source:        "oidc",
+		EmailVerified: claims.EmailVerified,
 	}
 	user, err := s.findOrCreateUser(ctx, ssoInfo)
 	if err != nil {

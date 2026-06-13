@@ -11,16 +11,18 @@ import (
 
 // AlertEventFilter holds the parameters for filtering alert events.
 type AlertEventFilter struct {
-	Status    string
-	Severity  string
-	AlertName string // FE4-1: partial match on alert_name (LIKE %value%)
-	RuleID    *uint  // FE4-4: exact match on rule_id
-	ViewMode  string // "mine" | "unassigned" | "all"
-	UserID    uint   // current user ID (for "mine" mode)
-	StartTime *time.Time
-	EndTime   *time.Time
-	Page      int
-	PageSize  int
+	Status     string
+	Severity   string
+	Statuses   []string // multi-select status filter (IN); takes precedence over Status
+	Severities []string // multi-select severity filter (IN); takes precedence over Severity
+	AlertName  string   // FE4-1: partial match on alert_name (LIKE %value%)
+	RuleID     *uint    // FE4-4: exact match on rule_id
+	ViewMode   string   // "mine" | "unassigned" | "all"
+	UserID     uint     // current user ID (for "mine" mode)
+	StartTime  *time.Time
+	EndTime    *time.Time
+	Page       int
+	PageSize   int
 }
 
 type AlertEventRepository struct {
@@ -185,10 +187,14 @@ func (r *AlertEventRepository) ListWithFilter(ctx context.Context, filter AlertE
 
 	query := r.db.WithContext(ctx).Model(&model.AlertEvent{})
 
-	if filter.Status != "" {
+	if len(filter.Statuses) > 0 {
+		query = query.Where("status IN ?", filter.Statuses)
+	} else if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)
 	}
-	if filter.Severity != "" {
+	if len(filter.Severities) > 0 {
+		query = query.Where("severity IN ?", filter.Severities)
+	} else if filter.Severity != "" {
 		query = query.Where("severity = ?", filter.Severity)
 	}
 	if filter.StartTime != nil {

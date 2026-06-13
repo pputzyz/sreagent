@@ -38,12 +38,14 @@ func (h *AlertEventHandler) List(c *gin.Context) {
 	pq := GetPageQuery(c)
 
 	filter := service.AlertEventFilter{
-		Status:    c.Query("status"),
-		Severity:  c.Query("severity"),
-		AlertName: c.Query("alert_name"), // FE4-1: wire frontend search to backend
-		ViewMode:  c.DefaultQuery("view_mode", "all"),
-		Page:      pq.Page,
-		PageSize:  pq.PageSize,
+		Status:     c.Query("status"),
+		Severity:   c.Query("severity"),
+		Statuses:   queryMulti(c, "status"),   // multi-select filter (e.g. history page)
+		Severities: queryMulti(c, "severity"), // multi-select filter
+		AlertName:  c.Query("alert_name"),     // FE4-1: wire frontend search to backend
+		ViewMode:   c.DefaultQuery("view_mode", "all"),
+		Page:       pq.Page,
+		PageSize:   pq.PageSize,
 	}
 
 	// FE4-2/4-3: Wire time range params from frontend filter bar
@@ -406,10 +408,12 @@ func (h *AlertEventHandler) BatchClose(c *gin.Context) {
 // GET /api/v1/alert-events/export?status=firing&severity=critical&start=RFC3339&end=RFC3339
 func (h *AlertEventHandler) Export(c *gin.Context) {
 	filter := service.AlertEventFilter{
-		Status:   c.Query("status"),
-		Severity: c.Query("severity"),
-		Page:     1,
-		PageSize: 10000, // cap at 10k rows
+		Status:     c.Query("status"),
+		Severity:   c.Query("severity"),
+		Statuses:   queryMulti(c, "status"),
+		Severities: queryMulti(c, "severity"),
+		Page:       1,
+		PageSize:   10000, // cap at 10k rows
 	}
 	// user_id param: only admins can export other users' data
 	currentUserID := GetCurrentUserID(c)

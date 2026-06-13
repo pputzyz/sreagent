@@ -29,6 +29,7 @@ import { alertEventApi, alertRuleApi } from '@/api'
 import type { AlertEvent, AlertRule, AlertViewMode } from '@/types'
 import { usePaginatedList, useFilterMemory, usePermissions } from '@/composables'
 import { getErrorMessage } from '@/utils/format'
+import { getSeverityDotKey } from '@/utils/alert'
 import { useAuthStore } from '@/stores/auth'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -398,13 +399,8 @@ function statusLabel(status: string): string {
   return map[status] ? t(map[status]) : status
 }
 
-function severityDotKey(sev: string): string {
-  if (['p0', 'critical'].includes(sev)) return 'critical'
-  if (['p1', 'p2', 'warning'].includes(sev)) return 'warning'
-  if (['p3', 'info'].includes(sev)) return 'info'
-  if (['p4', 'success'].includes(sev)) return 'success'
-  return 'info'
-}
+// Delegates to the shared util so severity colors stay consistent across pages.
+const severityDotKey = getSeverityDotKey
 
 function hasLabels(ev: AlertEvent): boolean {
   return !!ev.labels && Object.keys(ev.labels).length > 0

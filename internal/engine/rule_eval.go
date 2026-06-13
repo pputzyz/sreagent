@@ -305,9 +305,17 @@ func (re *RuleEvaluator) evaluate() {
 	}
 
 	// 3. Check for resolved alerts — iterate with rangeStates, lock each fp individually
+	noDataFP := fmt.Sprintf("nodata_%d", re.rule.ID)
 	re.rangeStates(func(fp string, sl *stateLock) bool {
 		if seenFingerprints[fp] {
 			return true // skip, already processed above
+		}
+		// The synthetic NoData state is owned exclusively by step 4 below; it never
+		// appears in seenFingerprints (which only holds real query-result fingerprints),
+		// so without this guard step 3 would reset its ActiveAt every cycle (NoData
+		// could never accumulate to fire) and resolve a firing NoData state prematurely.
+		if fp == noDataFP {
+			return true
 		}
 
 		sl.mu.Lock()
@@ -367,7 +375,6 @@ func (re *RuleEvaluator) evaluate() {
 			noDataDuration = 5 * time.Minute
 		}
 
-		noDataFP := fmt.Sprintf("nodata_%d", re.rule.ID)
 		sl := re.lockState(noDataFP)
 		sl.mu.Lock()
 
@@ -404,7 +411,6 @@ func (re *RuleEvaluator) evaluate() {
 		sl.mu.Unlock()
 	} else {
 		// Data received, clear nodata state if it exists
-		noDataFP := fmt.Sprintf("nodata_%d", re.rule.ID)
 		sl := re.lockState(noDataFP)
 		sl.mu.Lock()
 		resolved := true

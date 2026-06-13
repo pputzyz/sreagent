@@ -4,6 +4,67 @@
 
 ---
 
+## [Unreleased] — 2026-06-13
+
+### 全局 Review 修复（前后端 bug 排查）
+
+**CRITICAL：**
+- 熔断器逻辑反转修复：`SendAggregatedLarkCard` 中 `checkCircuit` 判断取反，导致聚合飞书卡片在熔断器关闭（健康）时被拒绝、在熔断器打开（故障）时反而继续发送。修正为 `if s.checkCircuit(...)` 直接返回错误（`service/notify_media.go`）。
+- NoData 告警永不触发修复：第 3 步「已解决告警」扫描会遍历到合成的 `nodata_{ruleID}` 状态（它不在 `seenFingerprints` 中），每个评估周期都将其 `ActiveAt` 重置，导致 NoData 永远无法累积到触发时长；且当 `recovery_hold=0` 时会把正在 firing 的 NoData 立即误判为 resolved。修复：在第 3 步扫描中跳过 NoData 指纹，NoData 生命周期完全交由第 4 步管理（`engine/rule_eval.go`）。
+
+**HIGH：**
+- SSRF（DNS rebinding）修复：出站转发 `sendViaHTTP` 使用裸 `http.Client`，`validateEndpoint` 与实际连接各自独立解析 DNS，存在 TOCTOU 重绑定窗口。改用 `safehttp.NewSafeClient`（拨号时复校解析 IP），与其余出站发送一致（`service/alert_forwarder_outbound.go`）。
+- 刷新令牌绕过登出/吊销修复：`RefreshToken` 仅校验签名与签发时间，未检查 `TokenRevocationChecker`/`TokenBlacklistChecker`，导致已登出或被全局吊销的令牌在宽限窗口内仍可换取新令牌。补齐与 `JWTAuth` 中间件一致的吊销 + 黑名单校验（黑名单存储不可用时 fail-closed）（`service/auth.go`）。
+- 通知去重失败回滚修复：去重键在发送前即被占用（SetNX/内存写入，4h TTL），发送失败后不回滚，导致瞬时下游故障会静默压制该通知达 4 小时。新增 `Release` 方法并在发送失败路径回滚去重占用（`service/notify_dedup.go`、`service/notification_dedup.go`、`service/notify_rule.go`）。
+
+- SSO 账号接管加固（保守策略）：OIDC/OAuth2 按 email 关联已有账号时未校验 `email_verified`，在允许自助注册/未验证邮箱的 IdP 下存在账号接管风险。`SSOUserInfo.EmailVerified` 改为三态 `*bool`（nil=未提供→保留原行为，false=IdP 明确未验证→拒绝按 email 关联，true=已验证）；OIDC 从 id_token claim、OAuth2 从 userinfo 提取（`service/sso_helper.go`、`service/oidc.go`、`service/oauth2.go`）。
+
+**MEDIUM：**
+- 多查询右连接（JoinTypeRight）操作数错位修复：原实现复用 `leftJoin` 并交换参数，导致 A_/B_ 标签前缀与 `__B_value__` 互换，`$A op $B` 触发表达式比较了错误的操作数。新增专用 `rightJoin`，A 始终作为 `mergeResults` 的第一个参数（`engine/multi_query.go`）。
+
+### 全局 Review 第二轮（多维度：接口一致性 / 稳定性 / IDOR / i18n / 构建）
+
+**CRITICAL：**
+- 故障（Incident）IDOR 越权修复：`List` 已按团队隔离（`ListScoped`），但所有按 ID 的单资源操作（Get/Acknowledge/Close/Reopen/Snooze/Reassign/Merge/Escalate/Timeline/Comment + Bulk）均未做团队校验，任意成员可凭 ID 读取/确认/关闭/合并他人团队的故障。新增集中式 `authorizeIncident` 守卫（admin 放行，其余校验故障所属 channel.team_id ∈ 用户团队），`Merge` 额外校验目标、Bulk 逐 ID 校验（`handler/incident.go`、`service/incident.go`、`repository/incident.go`）。
+
+**HIGH：**
+- 告警转发器前端整页不可用修复（两处）：① `web/src/api/alert-forwarder.ts` 所有 URL 重复带 `/api/v1` 前缀（axios baseURL 已是 `/api/v1`）→ 实际请求 `/api/v1/api/v1/...` 全部 404，已去除冗余前缀；② `web/src/pages/notification/forwarders/Index.vue` 依赖 `@vicons/antd` 在 package.json 声明但未装入 node_modules → `vite build` 直接失败，已安装该依赖。
+- 故障 Snooze 后永不唤醒修复：`Snooze` 写入 `snoozed_until` 但无任何 worker 读取，故障被永久挂起（且被自动关闭排除），升级与重复通知静默停止。新增 `IncidentRepository.ListExpiredSnoozed` + `IncidentService.WakeExpiredSnoozed`，并入后台 worker tick，到期 CAS 回 `triggered`（`service/incident.go`、`repository/incident.go`）。
+- Cron 任务无 panic 恢复修复：`inspection_scheduler`、`report_scheduler`、`engine/recording_rule` 三处 `cron.New` 未挂 Recover 链，cron/v3 默认不恢复 panic → 单个任务 panic 可拖垮整个进程。统一改为 `cron.WithChain(cron.Recover(cron.DefaultLogger))`。
+- 告警事件多选过滤被静默丢弃修复：前端按数组发送 `status`/`severity`（历史页固定 `['resolved','closed']`），后端只读标量 `c.Query` → 过滤完全失效（历史页显示全部状态）。后端改为 `queryMulti`（兼容 `status` 与 `status[]` 两种序列化）+ 仓储 `IN` 查询，保留标量回退（`handler/alert_event.go`、`handler/handler.go`、`repository/alert_event.go`）。
+
+**MEDIUM：**
+- i18n 日期本地化随语言切换失效修复：语言切换只改 `i18n.locale` 与 localStorage，从未更新 `document.documentElement.lang`，而 `utils/format.ts` 的 `toLocaleString` 依赖 `<html lang>` → 切到英文后日期仍按中文格式。在 `i18n/index.ts` 增加 `watch(locale)` 同步 `<html lang>`（`web/src/i18n/index.ts`）。
+
+### 第二轮补充修复（接续）
+
+**MEDIUM：**
+- 周轮转排班交接日错位修复：`GenerateRotationShifts` 仅把 `genStart` 对齐到当天交接小时，再按 7 天步进，导致生成班次的交接日为"生成当天的星期几"，与 `calculateRotationIndex`/`GetCurrentOnCall`（按 `HandoffDay` 对齐）相差最多 6 天。抽出纯函数 `alignToHandoffWeekday` 将 `genStart` 回退到配置的交接星期几（保持 `<= now`），周轮转生成时调用（`service/schedule.go`）。回归测试 `Test_alignToHandoffWeekday_weekly`。
+- 前端 severity 分桶映射跨页不一致修复：`alerts/rules/Index.vue`（p1→critical、p4→info）与 `alerts/events/Index.vue`（p1→warning、p4→success）对同一等级渲染不同颜色。新增 `utils/alert.ts` 单一来源 `getSeverityDotKey`（由 `getSeverityType` 派生），`rules/Index.vue`、`events/Index.vue`、`events/Detail.vue` 全部委托该函数（`web/src/utils/alert.ts` 及三个页面）。
+
+### 第二轮补充修复（接续 2）
+
+**MEDIUM（安全加固）：**
+- SSH 参数注入面收敛：`runSSH` 原先把 `args` 用黑名单 `sanitizeSSHArgs` 校验（`$VAR`/`~`/`*` 等可绕过），`script` 完全不过滤。改为 `quoteSSHArgs`——按空白切分后对每个 token 做 POSIX 单引号转义（嵌入单引号转 `'\''`），使用户参数作为字面量传入，shell 元字符全部失效。`script` 为管理员编写、受 `task.execute` RBAC 门控的脚本，按设计经远端 shell 执行（已加注释说明）（`service/task_executor.go`）。回归测试 `Test_quoteSSHArgs`。
+
+**MEDIUM（后端 i18n，基础设施 + 错误层）：**
+- 新增 `internal/pkg/i18n` 包：`Negotiate(explicit, acceptLanguage)` 语言协商（默认 `en`，不改变现有 API 行为）+ 以"规范英文消息串"为键的 zh-CN 译表 `LocalizeMessage`。
+- 响应助手 `handler.Error` 接入：按请求 `X-Lang`（SPA 同步语言切换）/`Accept-Language` 本地化 `AppError` 规范消息及两处兜底文案；`WithMessage` 自定义文案与未知串原样透传。
+- 前端 `request.ts` 拦截器附带 `X-Lang` 头，使应用内语言切换同时驱动后端报错语言。
+- **范围说明（仍待后续）**：服务层散落的 `fmt.Errorf("中文…")`、飞书卡片文案、AI/Agent 输出未纳入译表（量大，属独立工程）。本次仅覆盖结构化错误响应这一主用户面。
+
+**回归测试：**
+- `engine/multi_query_test.go`：`TestRightJoin_OperandOrientation`
+- `service/notification_dedup_test.go`：`Test_notifDedup_Release_allows_resend`
+- `service/oauth2_test.go`：`Test_getBoolField_tristate`
+- `service/schedule_test.go`：`Test_alignToHandoffWeekday_weekly`
+- `service/task_executor_test.go`：`Test_quoteSSHArgs`
+- `pkg/i18n/i18n_test.go`：`Test_Negotiate` / `Test_LocalizeMessage`
+
+**已记录但未改（建议项，需评估/排期）：**
+- 后端 i18n 剩余面：服务层散落中文 `fmt.Errorf`、飞书卡片/AI 输出文案（量大，需单独立项）。
+- 测试覆盖结构性不足：handler 层 5/75、repository 层 2/63 有测试；incident 生命周期/聚合、routing-rule、定时调度类无测试；前端无组件级测试。MODULES.md 覆盖表的"0%"已过时，需修订。
+
 ## [v4.74.0] — 2026-06-12
 
 ### 告警转发器模块（AlertForwarder）

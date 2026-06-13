@@ -89,3 +89,12 @@ func (d *notifDedup) TrySend(key string) bool {
 	d.sent[key] = time.Now()
 	return true
 }
+
+// Release removes a key previously claimed by TrySend. It is used to roll back
+// the dedup reservation when the actual send fails, so a transient downstream
+// error does not silently suppress the notification for the full TTL window.
+func (d *notifDedup) Release(key string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.sent, key)
+}

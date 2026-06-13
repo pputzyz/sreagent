@@ -45,6 +45,9 @@ type OAuth2UserInfo struct {
 	Username    string
 	Email       string
 	DisplayName string
+	// EmailVerified mirrors the provider's email_verified claim when present
+	// (nil = not provided). Used to guard email-based account linking.
+	EmailVerified *bool
 }
 
 // OAuth2Service handles generic OAuth2 authorization code flow.
@@ -286,10 +289,11 @@ func (s *OAuth2Service) fetchUserInfo(ctx context.Context, cfg OAuth2Config, acc
 	}
 
 	info := &OAuth2UserInfo{
-		UserID:      getStringField(rawInfo, cfg.UserIDField),
-		Username:    getStringField(rawInfo, cfg.UsernameField),
-		Email:       getStringField(rawInfo, cfg.EmailField),
-		DisplayName: getStringField(rawInfo, "name"),
+		UserID:        getStringField(rawInfo, cfg.UserIDField),
+		Username:      getStringField(rawInfo, cfg.UsernameField),
+		Email:         getStringField(rawInfo, cfg.EmailField),
+		DisplayName:   getStringField(rawInfo, "name"),
+		EmailVerified: getBoolField(rawInfo, "email_verified"),
 	}
 
 	// Fallback: if no display name, try nickname or username
@@ -311,11 +315,12 @@ func (s *OAuth2Service) fetchUserInfo(ctx context.Context, cfg OAuth2Config, acc
 // then by email, then by username. Auto-creates if not found and auto_provision is enabled.
 func (s *OAuth2Service) findOrCreateUser(ctx context.Context, cfg OAuth2Config, info *OAuth2UserInfo) (*model.User, error) {
 	ssoInfo := &SSOUserInfo{
-		Subject:     "oauth2:" + info.UserID,
-		Username:    info.Username,
-		DisplayName: info.DisplayName,
-		Email:       info.Email,
-		Source:      "oauth2",
+		Subject:       "oauth2:" + info.UserID,
+		Username:      info.Username,
+		DisplayName:   info.DisplayName,
+		Email:         info.Email,
+		Source:        "oauth2",
+		EmailVerified: info.EmailVerified,
 	}
 
 	user, err := LookupSSOUser(ctx, s.userRepo, ssoInfo)
@@ -370,6 +375,33 @@ func generateRandomState() (string, error) {
 }
 
 // getStringField extracts a string value from a map, supporting nested keys with dot notation.
+// getBoolField extracts a boolean claim, tolerating bool and "true"/"false"
+// string encodings. Returns nil when the key is absent so callers can distinguish
+// "not provided" from an explicit false.
+func getBoolField(m map[string]interface{}, key string) *bool {
+	if key == "" {
+		return nil
+	}
+	v, ok := m[key]
+	if !ok {
+		return nil
+	}
+	switch t := v.(type) {
+	case bool:
+		return &t
+	case string:
+		if t == "true" {
+			b := true
+			return &b
+		}
+		if t == "false" {
+			b := false
+			return &b
+		}
+	}
+	return nil
+}
+
 func getStringField(m map[string]interface{}, key string) string {
 	if key == "" {
 		return ""

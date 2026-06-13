@@ -63,6 +63,8 @@ request.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) config.headers.Authorization = `Bearer ${token}`
+    // Mirror the in-app language toggle so the backend localizes its error messages too.
+    config.headers['X-Lang'] = i18n.global.locale.value
     return config
   },
   (error) => Promise.reject(error)

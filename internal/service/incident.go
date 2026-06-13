@@ -168,6 +168,18 @@ func (s *IncidentService) ListScoped(ctx context.Context, isAdmin bool, teamIDs 
 	return list, total, nil
 }
 
+// CanAccess reports whether a non-admin user (identified by their team IDs) may
+// act on the given incident. Admins bypass this check at the handler layer.
+// Mirrors the team isolation enforced by ListScoped so single-resource operations
+// cannot be used to bypass team boundaries (IDOR).
+func (s *IncidentService) CanAccess(ctx context.Context, id uint, teamIDs []uint) (bool, error) {
+	ok, err := s.repo.IncidentInTeams(ctx, id, teamIDs)
+	if err != nil {
+		return false, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return ok, nil
+}
+
 // Acknowledge marks the incident as processing and records the ack.
 // Uses atomic CAS: UPDATE ... WHERE status = 'triggered'. No read-then-write race.
 func (s *IncidentService) Acknowledge(ctx context.Context, id, userID uint) error {
@@ -619,6 +631,36 @@ func (s *IncidentService) CloseExpiredIncidents(ctx context.Context) {
 	}
 }
 
+// WakeExpiredSnoozed transitions snoozed incidents whose snooze window has elapsed
+// back to "triggered" so escalation and repeat notifications resume. Without this,
+// a snoozed incident would stay snoozed forever (it is also excluded from auto-close).
+func (s *IncidentService) WakeExpiredSnoozed(ctx context.Context) {
+	now := time.Now()
+	incidents, err := s.repo.ListExpiredSnoozed(ctx, now)
+	if err != nil {
+		s.logger.Error("snooze-wake: failed to list expired snoozed incidents", zap.Error(err))
+		return
+	}
+	for _, inc := range incidents {
+		// CAS from snoozed -> triggered, clearing the snooze timestamp.
+		updates := map[string]interface{}{"snoozed_until": nil}
+		if err := s.repo.TransitionStatus(ctx, inc.ID, model.IncidentStatusSnoozed, model.IncidentStatusTriggered, updates); err != nil {
+			if err != gorm.ErrRecordNotFound { // not-found = status changed concurrently; skip quietly
+				s.logger.Error("snooze-wake: failed to wake incident", zap.Uint("id", inc.ID), zap.Error(err))
+			}
+			continue
+		}
+		if err := s.repo.AddTimeline(ctx, &model.IncidentTimeline{
+			IncidentID: inc.ID,
+			Action:     model.IncidentActionReopened,
+			Content:    "Incident snooze expired; returned to triggered",
+		}); err != nil {
+			s.logger.Error("failed to add timeline", zap.Error(err), zap.Uint("incident_id", inc.ID))
+		}
+		s.logger.Info("snooze-wake: incident returned to triggered", zap.Uint("id", inc.ID))
+	}
+}
+
 // StartAutoCloseWorker starts a background goroutine that periodically closes
 // timed-out incidents. It stops when ctx is cancelled.
 func (s *IncidentService) StartAutoCloseWorker(ctx context.Context) {
@@ -635,6 +677,7 @@ func (s *IncidentService) StartAutoCloseWorker(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
+				s.WakeExpiredSnoozed(ctx)
 				s.CloseExpiredIncidents(ctx)
 			case <-ctx.Done():
 				s.logger.Info("incident auto-close worker stopped")

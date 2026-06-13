@@ -53,7 +53,8 @@ func NewRecordingRuleEngine(
 		execDB:   db,
 		queryCli: queryCli,
 		logger:   logger,
-		cron:     cron.New(),
+		// Recover from job panics instead of crashing the process (cron/v3 has no default recovery).
+		cron:     cron.New(cron.WithChain(cron.Recover(cron.DefaultLogger))),
 		entries:  make(map[uint]cron.EntryID),
 		patterns: make(map[uint]string),
 		stopCh:   make(chan struct{}),

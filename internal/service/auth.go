@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -156,6 +158,29 @@ func (s *AuthService) RefreshToken(ctx context.Context, tokenString string) (str
 	// Reject tokens issued more than RefreshGrace seconds ago
 	if claims.IssuedAt == nil || time.Since(claims.IssuedAt.Time) > time.Duration(graceSeconds)*time.Second {
 		return "", 0, apperr.WithMessage(apperr.ErrInvalidCreds, "token is too old to refresh, please log in again")
+	}
+
+	// Honor revocation the same way JWTAuth does — otherwise a logged-out or
+	// globally-revoked token could be refreshed into a fresh valid one within the
+	// grace window, defeating logout / account-disable.
+	if middleware.TokenRevocationChecker != nil {
+		revokedAt := middleware.TokenRevocationChecker.GetUserTokenRevokedAt(claims.UserID)
+		if !revokedAt.IsZero() && claims.IssuedAt.Before(revokedAt) {
+			return "", 0, apperr.WithMessage(apperr.ErrInvalidCreds, "token has been revoked, please log in again")
+		}
+	}
+	if middleware.TokenBlacklistChecker != nil {
+		hash := sha256.Sum256([]byte(tokenString))
+		tokenID := hex.EncodeToString(hash[:16])
+		blacklisted, blErr := middleware.TokenBlacklistChecker.IsTokenBlacklisted(ctx, tokenID)
+		if blErr != nil {
+			// Fail closed: if the blacklist store is unavailable, refuse to refresh.
+			s.logger.Error("refresh: failed to check token blacklist, failing closed", zap.Error(blErr))
+			return "", 0, apperr.Wrap(apperr.ErrExternalAPI, blErr)
+		}
+		if blacklisted {
+			return "", 0, apperr.WithMessage(apperr.ErrInvalidCreds, "token has been revoked, please log in again")
+		}
 	}
 
 	// Re-validate the user still exists and is active

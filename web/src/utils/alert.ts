@@ -57,6 +57,21 @@ export function getSeverityColor(severity: string): string {
 }
 
 /**
+ * Map a severity to one of the four canonical dot/row keys used by the global
+ * `[data-severity]` CSS (critical | warning | info | success). Derived from
+ * getSeverityType so there is a SINGLE source of truth — pages must use this
+ * instead of re-implementing their own (previously divergent) bucket maps.
+ */
+export function getSeverityDotKey(severity: string): 'critical' | 'warning' | 'info' | 'success' {
+  switch (getSeverityType(severity)) {
+    case 'error':   return 'critical'
+    case 'warning': return 'warning'
+    case 'info':    return 'info'
+    default:        return 'success' // only p4/unknown lands here
+  }
+}
+
+/**
  * Return a CSS class name for table row highlighting by severity.
  */
 export function severityRowClass(row: { severity?: string }): string {

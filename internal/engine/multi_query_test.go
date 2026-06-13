@@ -66,6 +66,35 @@ func TestLeftJoin(t *testing.T) {
 	assert.Len(t, joined, 2)
 }
 
+// TestRightJoin_OperandOrientation is a regression test: a right join must keep A
+// as the A operand and B as the B operand (correct A_/B_ prefixes and __B_value__),
+// independent of join direction. Previously JoinTypeRight reused leftJoin with
+// swapped args, inverting $A and $B in trigger expressions.
+func TestRightJoin_OperandOrientation(t *testing.T) {
+	aResults := []datasource.QueryResult{
+		{Labels: map[string]string{"host": "server1"}, Values: []datasource.DataPoint{{Value: 100}}},
+	}
+	bResults := []datasource.QueryResult{
+		{Labels: map[string]string{"host": "server1"}, Values: []datasource.DataPoint{{Value: 50}}},
+		{Labels: map[string]string{"host": "server2"}, Values: []datasource.DataPoint{{Value: 75}}}, // no A match
+	}
+
+	joined := rightJoin(aResults, bResults, []string{"host"})
+	require.Len(t, joined, 2)
+
+	// The matched row (server1) must carry A's value as primary and B's value in __B_value__.
+	var matched *datasource.QueryResult
+	for i := range joined {
+		if joined[i].Labels["A_host"] == "server1" {
+			matched = &joined[i]
+		}
+	}
+	require.NotNil(t, matched, "expected a merged row for server1")
+	assert.Equal(t, float64(100), matched.Values[0].Value, "primary value must be A's, not B's")
+	assert.Equal(t, "server1", matched.Labels["B_host"], "B labels must use B_ prefix")
+	assert.Equal(t, "50", matched.Labels["__B_value__"], "__B_value__ must hold B's value")
+}
+
 func TestJoinQueryResults_None(t *testing.T) {
 	allResults := []queryResults{
 		{

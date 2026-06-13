@@ -267,6 +267,30 @@ func (r *IncidentRepository) ListForAutoClose(ctx context.Context, now time.Time
 	return list, err
 }
 
+// IncidentInTeams reports whether the incident's channel belongs to one of the
+// given teams. Used for per-incident authorization, mirroring ListByTeamIDs.
+func (r *IncidentRepository) IncidentInTeams(ctx context.Context, id uint, teamIDs []uint) (bool, error) {
+	if len(teamIDs) == 0 {
+		return false, nil
+	}
+	var count int64
+	err := r.withTx(ctx).Model(&model.Incident{}).
+		Where("id = ? AND channel_id IN (SELECT id FROM channels WHERE team_id IN ? AND deleted_at IS NULL)", id, teamIDs).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// ListExpiredSnoozed returns snoozed incidents whose snooze window has elapsed.
+func (r *IncidentRepository) ListExpiredSnoozed(ctx context.Context, now time.Time) ([]model.Incident, error) {
+	var list []model.Incident
+	err := r.withTx(ctx).
+		Where("status = ? AND snoozed_until IS NOT NULL AND snoozed_until <= ?",
+			string(model.IncidentStatusSnoozed), now).
+		Limit(1000).
+		Find(&list).Error
+	return list, err
+}
+
 // --- Counts ---
 
 // FindOpenByFingerprint returns the first open incident (triggered/processing) for a fingerprint.

@@ -459,6 +459,7 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 | [docs/ai-rule-generation.md](docs/ai-rule-generation.md) | AI 规则生成引擎（dry-run + few-shot + 缓存） |
 | [docs/preset-rule-library.md](docs/preset-rule-library.md) | 预置规则库（monitoring-trading 315 条导入） |
 | [docs/notification-pipeline.md](docs/notification-pipeline.md) | v2 通知管道（规则匹配 + 模板渲染 + 多渠道分发） |
+| [docs/i18n.md](docs/i18n.md) | 国际化分层决策（UI 前端 / API 错误码+前端翻译 / 出站文案后端 per-recipient，ADR-16） |
 
 ---
 

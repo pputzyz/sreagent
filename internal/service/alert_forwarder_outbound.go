@@ -14,6 +14,7 @@ import (
 
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/labelmatch"
+	"github.com/sreagent/sreagent/internal/pkg/safehttp"
 )
 
 // OutboundRenderData is the data context for outbound body template rendering.
@@ -221,9 +222,10 @@ func (s *AlertForwarderService) sendViaHTTP(ctx context.Context, forwarder *mode
 	if timeout == 0 {
 		timeout = 30000
 	}
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Millisecond,
-	}
+	// Use the SSRF-safe client: it re-validates the resolved IP at dial time,
+	// closing the DNS-rebinding TOCTOU gap between validateEndpoint above and the
+	// actual connection (and across retries / redirects).
+	client := safehttp.NewSafeClient(time.Duration(timeout) * time.Millisecond)
 
 	// Send with retry
 	retryTimes := config.RetryTimes

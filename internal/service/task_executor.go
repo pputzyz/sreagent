@@ -342,13 +342,13 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, password, scri
 	}
 	defer func() { _ = session.Close() }()
 
-	// Build command — sanitize args to prevent shell injection
+	// Build command. The script itself is an admin-authored shell script executed
+	// by design (gated behind the task.execute RBAC permission); it is intentionally
+	// run through the remote shell. User-supplied args, however, are POSIX single-quoted
+	// per token so they are passed as literal arguments and cannot inject shell syntax.
 	cmd := script
-	if args != "" {
-		if err := sanitizeSSHArgs(args); err != nil {
-			return "", "", -1, fmt.Errorf("unsafe SSH args: %w", err)
-		}
-		cmd = cmd + " " + args
+	if strings.TrimSpace(args) != "" {
+		cmd = cmd + " " + quoteSSHArgs(args)
 	}
 
 	// Capture output
@@ -390,21 +390,22 @@ func (e *TaskExecutor) runSSH(ctx context.Context, host, account, password, scri
 	}
 }
 
-// sanitizeSSHArgs rejects args that contain shell metacharacters to prevent injection.
-func sanitizeSSHArgs(args string) error {
-	dangerous := []string{
-		";", "|", "&", "`", "$(", "\n", "\r",
-		// Redirection operators
-		">>", "<<", ">", "<",
-		// Brace expansion
-		"{", "}",
-		// History expansion and comment
-		"!", "#",
+// quoteSSHArgs splits a free-form args string on whitespace and POSIX single-quotes
+// each token. The result is safe to append after a script on the remote shell: every
+// token is passed as a single literal argument, so shell metacharacters (; | & $() ` >
+// {} etc.) in user input are inert. This replaces the previous blocklist, which was
+// trivially bypassable (e.g. $VAR, ~, * were not blocked).
+func quoteSSHArgs(args string) string {
+	fields := strings.Fields(args)
+	quoted := make([]string, len(fields))
+	for i, f := range fields {
+		quoted[i] = shellQuote(f)
 	}
-	for _, d := range dangerous {
-		if strings.Contains(args, d) {
-			return fmt.Errorf("argument contains unsafe character %q", d)
-		}
-	}
-	return nil
+	return strings.Join(quoted, " ")
+}
+
+// shellQuote wraps s in single quotes for POSIX shells, escaping any embedded single
+// quote as the standard '\” sequence. The output is a single safe shell word.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

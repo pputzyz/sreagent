@@ -1350,3 +1350,30 @@ func Test_GenerateRotationShifts_OnlyDeletesRotationSource(t *testing.T) {
 	}
 	assert.True(t, foundManual, "manual shift should survive rotation-only deletion")
 }
+
+// Test_alignToHandoffWeekday_weekly is a regression test: weekly rotation shifts
+// must be generated starting on the configured HandoffDay, not on whatever weekday
+// generation happens to run (previously off by up to 6 days from GetCurrentOnCall).
+func Test_alignToHandoffWeekday_weekly(t *testing.T) {
+	loc := time.UTC
+	// 2026-06-10 is a Wednesday (weekday 3).
+	wed := time.Date(2026, 6, 10, 9, 0, 0, 0, loc)
+	require.Equal(t, time.Wednesday, wed.Weekday())
+
+	cases := []struct {
+		handoffDay int
+		wantDate   int // day-of-month after rolling back to the target weekday
+	}{
+		{int(time.Monday), 8},     // roll back Wed(10) -> Mon(8)
+		{int(time.Wednesday), 10}, // already on target, unchanged
+		{int(time.Sunday), 7},     // roll back Wed(10) -> Sun(7)
+		{int(time.Thursday), 4},   // nearest past Thursday is 4th
+	}
+	for _, tc := range cases {
+		got := alignToHandoffWeekday(wed, tc.handoffDay)
+		assert.Equal(t, time.Weekday(tc.handoffDay), got.Weekday(), "must land on handoff weekday")
+		assert.Equal(t, tc.wantDate, got.Day())
+		assert.False(t, got.After(wed), "aligned start must not move into the future")
+		assert.Equal(t, 9, got.Hour(), "handoff time-of-day preserved")
+	}
+}

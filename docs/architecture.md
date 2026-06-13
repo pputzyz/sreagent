@@ -667,6 +667,7 @@ DispatchPolicy.DataSourceID  *uint  // 分派策略过滤数据源
 | ADR-13 | AlertRule.Status 移除 muted，新增 draft | 静默由 MuteRule 独立管理；draft 支持 AI save-as-draft 工作流 |
 | ADR-14 | RequirePerm 支持 warn/deny 两种模式 | 灰度上线时 warn 记录但不阻断，生产切换为 deny 强制执行 |
 | ADR-15 | labelmatch 统一标签匹配引擎 + 正则缓存 | 替换各模块分散的匹配逻辑，sync.Map 缓存编译后正则 |
+| ADR-16 | i18n 分层：UI 文案在前端 / API 错误"码+前端翻译" / 出站文案后端 per-recipient | 翻译归属取决于文案"给谁看、走不走前端"，详见 [docs/i18n.md](i18n.md) |
 
 ---
 

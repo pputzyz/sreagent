@@ -41,6 +41,19 @@ func (d *NotificationDedupService) TrySend(ctx context.Context, key string) bool
 	return ok
 }
 
+// Release removes a previously-claimed dedup key so a failed send can be retried
+// instead of being silently suppressed for the full TTL window.
+func (d *NotificationDedupService) Release(ctx context.Context, key string) {
+	if d.rdb == nil {
+		return
+	}
+	redisKey := fmt.Sprintf("notify_dedup:%s", key)
+	if err := d.rdb.Del(ctx, redisKey).Err(); err != nil {
+		d.logger.Warn("notify_dedup: failed to release key",
+			zap.String("key", key), zap.Error(err))
+	}
+}
+
 // BuildNotifyDedupKey creates a dedup key from notification components.
 func BuildNotifyDedupKey(eventID uint, mediaID uint, fingerprint, status string) string {
 	return fmt.Sprintf("%d:%d:%s:%s", eventID, mediaID, fingerprint, status)

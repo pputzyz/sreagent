@@ -27,6 +27,27 @@ func (h *IncidentHandler) SetAuditService(svc *service.AuditLogService) {
 	h.auditSvc = svc
 }
 
+// authorizeIncident enforces the same team isolation as List on single-incident
+// operations. Admins may act on any incident; others only on incidents whose
+// channel belongs to one of their teams. Writes the error response and returns
+// false when access is denied, so callers just `if !h.authorizeIncident(c, id) { return }`.
+func (h *IncidentHandler) authorizeIncident(c *gin.Context, id uint) bool {
+	if role, _ := c.Get("role"); role == "admin" {
+		return true
+	}
+	teamIDs := middleware.GetUserTeamIDs(c)
+	ok, err := h.svc.CanAccess(c.Request.Context(), id, teamIDs)
+	if err != nil {
+		Error(c, err)
+		return false
+	}
+	if !ok {
+		Error(c, apperr.ErrForbidden)
+		return false
+	}
+	return true
+}
+
 // --- Request structs ---
 
 type CreateIncidentRequest struct {
@@ -122,6 +143,9 @@ func (h *IncidentHandler) Get(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+	if !h.authorizeIncident(c, id) {
+		return
+	}
 
 	inc, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
@@ -173,6 +197,9 @@ func (h *IncidentHandler) Acknowledge(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+	if !h.authorizeIncident(c, id) {
+		return
+	}
 
 	userID := GetCurrentUserID(c)
 	if err := h.svc.Acknowledge(c.Request.Context(), id, userID); err != nil {
@@ -197,6 +224,9 @@ func (h *IncidentHandler) Close(c *gin.Context) {
 	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, err)
+		return
+	}
+	if !h.authorizeIncident(c, id) {
 		return
 	}
 
@@ -225,6 +255,9 @@ func (h *IncidentHandler) Reopen(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+	if !h.authorizeIncident(c, id) {
+		return
+	}
 
 	userID := GetCurrentUserID(c)
 	if err := h.svc.Reopen(c.Request.Context(), id, userID); err != nil {
@@ -249,6 +282,9 @@ func (h *IncidentHandler) Snooze(c *gin.Context) {
 	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, err)
+		return
+	}
+	if !h.authorizeIncident(c, id) {
 		return
 	}
 
@@ -281,6 +317,9 @@ func (h *IncidentHandler) Reassign(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+	if !h.authorizeIncident(c, id) {
+		return
+	}
 
 	var req ReassignIncidentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -305,10 +344,17 @@ func (h *IncidentHandler) Merge(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+	if !h.authorizeIncident(c, id) {
+		return
+	}
 
 	var req MergeIncidentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
+		return
+	}
+	// Must also be authorized on the merge target, not just the source.
+	if !h.authorizeIncident(c, req.TargetID) {
 		return
 	}
 
@@ -329,6 +375,9 @@ func (h *IncidentHandler) Escalate(c *gin.Context) {
 		Error(c, err)
 		return
 	}
+	if !h.authorizeIncident(c, id) {
+		return
+	}
 
 	userID := GetCurrentUserID(c)
 	if err := h.svc.Escalate(c.Request.Context(), id, userID); err != nil {
@@ -345,6 +394,9 @@ func (h *IncidentHandler) GetTimeline(c *gin.Context) {
 	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, err)
+		return
+	}
+	if !h.authorizeIncident(c, id) {
 		return
 	}
 
@@ -369,6 +421,11 @@ func (h *IncidentHandler) BulkAcknowledge(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "ids is required"))
 		return
 	}
+	for _, bid := range req.IDs {
+		if !h.authorizeIncident(c, bid) {
+			return
+		}
+	}
 
 	userID := GetCurrentUserID(c)
 	if err := h.svc.BulkAcknowledge(c.Request.Context(), req.IDs, userID); err != nil {
@@ -391,6 +448,11 @@ func (h *IncidentHandler) BulkClose(c *gin.Context) {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "ids is required"))
 		return
 	}
+	for _, bid := range req.IDs {
+		if !h.authorizeIncident(c, bid) {
+			return
+		}
+	}
 
 	userID := GetCurrentUserID(c)
 	if err := h.svc.BulkClose(c.Request.Context(), req.IDs, userID); err != nil {
@@ -407,6 +469,9 @@ func (h *IncidentHandler) AddComment(c *gin.Context) {
 	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, err)
+		return
+	}
+	if !h.authorizeIncident(c, id) {
 		return
 	}
 

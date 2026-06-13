@@ -10,8 +10,15 @@ import (
 	"gorm.io/gorm"
 
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"github.com/sreagent/sreagent/internal/pkg/i18n"
 	"github.com/sreagent/sreagent/pkg/types"
 )
+
+// localeOf resolves the request locale from an explicit X-Lang header (set by the
+// SPA to mirror its language toggle) or the standard Accept-Language header.
+func localeOf(c *gin.Context) string {
+	return i18n.Negotiate(c.GetHeader("X-Lang"), c.GetHeader("Accept-Language"))
+}
 
 // Success returns a successful JSON response.
 func Success(c *gin.Context, data interface{}) {
@@ -38,10 +45,11 @@ func SuccessPage(c *gin.Context, list interface{}, total int64, page, pageSize i
 
 // Error returns an error JSON response.
 func Error(c *gin.Context, err error) {
+	locale := localeOf(c)
 	if appErr, ok := err.(*apperr.AppError); ok {
 		c.JSON(appErr.HTTPStatus(), types.Response{
 			Code:    appErr.Code,
-			Message: appErr.Message,
+			Message: i18n.LocalizeMessage(locale, appErr.Message),
 		})
 		return
 	}
@@ -54,13 +62,13 @@ func Error(c *gin.Context, err error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusNotFound, types.Response{
 			Code:    apperr.ErrNotFound.Code,
-			Message: "resource not found",
+			Message: i18n.LocalizeMessage(locale, "resource not found"),
 		})
 		return
 	}
 	c.JSON(http.StatusInternalServerError, types.Response{
 		Code:    apperr.ErrInternal.Code,
-		Message: "internal server error",
+		Message: i18n.LocalizeMessage(locale, "internal server error"),
 	})
 }
 
@@ -74,6 +82,17 @@ func GetPageQuery(c *gin.Context) types.PageQuery {
 		pq.PageSize = pageSize
 	}
 	return pq
+}
+
+// queryMulti reads a repeated query parameter, tolerating both the bare form
+// (?status=a&status=b) and the bracketed form (?status[]=a&status[]=b) that some
+// HTTP clients (e.g. axios default) emit for arrays. Returns nil when absent.
+func queryMulti(c *gin.Context, key string) []string {
+	vals := c.QueryArray(key)
+	if bracketed := c.QueryArray(key + "[]"); len(bracketed) > 0 {
+		vals = append(vals, bracketed...)
+	}
+	return vals
 }
 
 // GetIDParam extracts an ID parameter from the URL path.

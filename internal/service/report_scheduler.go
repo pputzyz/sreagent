@@ -52,8 +52,10 @@ func NewReportScheduler(
 		larkSvc:    larkSvc,
 		httpClient: safehttp.NewSafeClient(10 * time.Second),
 		logger:     logger,
-		cron:       cron.New(cron.WithSeconds()),
-		entries:    make(map[uint]cron.EntryID),
+		// WithChain(Recover) ensures a panic inside a job is recovered and logged
+		// instead of crashing the whole server process. cron/v3 does NOT recover by default.
+		cron:    cron.New(cron.WithSeconds(), cron.WithChain(cron.Recover(cron.DefaultLogger))),
+		entries: make(map[uint]cron.EntryID),
 	}
 }
 

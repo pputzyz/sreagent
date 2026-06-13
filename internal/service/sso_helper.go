@@ -20,6 +20,14 @@ type SSOUserInfo struct {
 	Avatar      string     // picture URL (OIDC only)
 	Role        model.Role // override role from OIDC claims; empty to use default
 	Source      string     // "ldap", "oauth2", "oidc" (for logging)
+
+	// EmailVerified tri-states the IdP's email_verified assertion:
+	//   nil   = unknown / claim not provided (e.g. LDAP, or an OAuth2 provider that
+	//           omits it) — preserve legacy behavior and allow email-based linking.
+	//   false = IdP explicitly asserted the email is NOT verified — refuse to link by
+	//           email (account-takeover guard).
+	//   true  = verified.
+	EmailVerified *bool
 }
 
 // LookupSSOUser finds an existing user by subject, email, then username.
@@ -37,8 +45,13 @@ func LookupSSOUser(ctx context.Context, userRepo *repository.UserRepository, inf
 		}
 	}
 
-	// 2. Try by email (link existing account)
-	if info.Email != "" {
+	// 2. Try by email (link existing account).
+	// Account-takeover guard: only refuse email linking when the IdP *explicitly*
+	// asserts the email is unverified. A nil (unknown) value preserves legacy
+	// behavior so providers that omit email_verified keep working.
+	if info.Email != "" && info.EmailVerified != nil && !*info.EmailVerified {
+		// Skip email-based linking; fall through to username / auto-provision.
+	} else if info.Email != "" {
 		user, err := userRepo.GetByEmail(ctx, info.Email)
 		if err == nil {
 			if info.Subject != "" {

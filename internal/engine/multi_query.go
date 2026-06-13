@@ -243,7 +243,7 @@ func joinQueryResults(allResults []queryResults, joinType JoinType, joinKeys []s
 	case JoinTypeLeft:
 		return leftJoin(aResults.Results, bResults.Results, joinKeys), nil
 	case JoinTypeRight:
-		return leftJoin(bResults.Results, aResults.Results, joinKeys), nil
+		return rightJoin(aResults.Results, bResults.Results, joinKeys), nil
 	default:
 		return nil, fmt.Errorf("unsupported join type: %s", joinType)
 	}
@@ -282,6 +282,31 @@ func leftJoin(aResults, bResults []datasource.QueryResult, joinKeys []string) []
 		} else {
 			// No match in B — include A with null B values
 			joined = append(joined, a)
+		}
+	}
+
+	return joined
+}
+
+// rightJoin returns all results from B, with matching results from A merged where
+// available. A is always passed as the first argument to mergeResults so that
+// label prefixes (A_/B_) and the synthetic "__B_value__" stay consistent with the
+// $A/$B trigger-expression semantics regardless of join direction. (Previously this
+// reused leftJoin with swapped args, which inverted the A/B operands.)
+func rightJoin(aResults, bResults []datasource.QueryResult, joinKeys []string) []datasource.QueryResult {
+	aIndex := indexResultsByKeys(aResults, joinKeys)
+	var joined []datasource.QueryResult
+
+	for _, b := range bResults {
+		key := extractKeyFromLabels(b.Labels, joinKeys)
+		if aMatches, ok := aIndex[key]; ok {
+			for _, a := range aMatches {
+				joined = append(joined, mergeResults(a, b, "A", "B"))
+			}
+		} else {
+			// No match in A — include B alone. A var-to-var trigger ($A op $B)
+			// cannot evaluate without an A value, so it will skip this row.
+			joined = append(joined, b)
 		}
 	}
 

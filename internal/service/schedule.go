@@ -456,6 +456,18 @@ func calendarDayIndex(ref, now time.Time, periodDays, numParticipants int) int {
 	return periods % numParticipants
 }
 
+// alignToHandoffWeekday rolls a start time backward (day by day) until it lands on
+// the given weekday (0=Sunday..6=Saturday). Used so weekly rotation shifts hand over
+// on the configured HandoffDay, matching calculateRotationIndex/GetCurrentOnCall.
+// Stepping backward preserves the caller's "<= now" invariant.
+func alignToHandoffWeekday(start time.Time, handoffDay int) time.Time {
+	target := time.Weekday(((handoffDay % 7) + 7) % 7)
+	for start.Weekday() != target {
+		start = start.AddDate(0, 0, -1)
+	}
+	return start
+}
+
 // rotationPeriodDays returns the period length in days for the given rotation type.
 // B11-11: For custom rotation, uses the RotationPeriodDays field (defaults to 1).
 func rotationPeriodDays(schedule *model.Schedule) int {
@@ -737,6 +749,13 @@ func (s *ScheduleService) GenerateRotationShifts(ctx context.Context, scheduleID
 	genStart := time.Date(now.Year(), now.Month(), now.Day(), handoffHour, handoffMin, 0, 0, loc)
 	if genStart.After(now) {
 		genStart = genStart.AddDate(0, 0, -1)
+	}
+	// For weekly rotations, roll back to the most recent configured handoff weekday
+	// (<= now). Without this, generated shifts hand over on whatever weekday generation
+	// happened to run, disagreeing with calculateRotationIndex/GetCurrentOnCall (which
+	// align to HandoffDay) by up to 6 days. Stepping backward keeps genStart <= now.
+	if schedule.RotationType == model.RotationWeekly {
+		genStart = alignToHandoffWeekday(genStart, schedule.HandoffDay)
 	}
 	genEnd := genStart.AddDate(0, 0, weeks*7)
 

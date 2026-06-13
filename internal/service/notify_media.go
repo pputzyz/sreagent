@@ -525,8 +525,9 @@ func (s *NotifyMediaService) SendAggregatedLarkCard(ctx context.Context, media *
 		return fmt.Errorf("lark webhook_url is empty")
 	}
 
-	// Circuit breaker check — if circuit is open, reject immediately
-	if !s.checkCircuit(media.ID) {
+	// Circuit breaker check — if circuit is open, reject immediately.
+	// checkCircuit returns true when the circuit is OPEN (should skip send).
+	if s.checkCircuit(media.ID) {
 		return fmt.Errorf("circuit breaker open for media %d", media.ID)
 	}
 

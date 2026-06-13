@@ -20,6 +20,17 @@ func Test_notifDedup_TrySend_duplicate_returns_false(t *testing.T) {
 	assert.False(t, d.TrySend("key1"))
 }
 
+// Test_notifDedup_Release_allows_resend is a regression test: after a send fails,
+// Release must clear the reservation so the same notification can be retried instead
+// of being silently suppressed for the full TTL.
+func Test_notifDedup_Release_allows_resend(t *testing.T) {
+	d := newNotifDedup(zap.NewNop())
+	assert.True(t, d.TrySend("key1"))
+	assert.False(t, d.TrySend("key1")) // still claimed
+	d.Release("key1")
+	assert.True(t, d.TrySend("key1"), "after Release the key should be sendable again")
+}
+
 func Test_notifDedup_TrySend_different_keys_independent(t *testing.T) {
 	d := newNotifDedup(zap.NewNop())
 	assert.True(t, d.TrySend("key1"))
