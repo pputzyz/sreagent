@@ -59,20 +59,23 @@ func (s *AlertForwarderService) ProcessInbound(ctx context.Context, forwarderID 
 		return apperr.WithMessage(apperr.ErrInvalidParam, "forwarder does not support inbound direction")
 	}
 
-	// 4. Authenticate
+	// 4. Limit request body size (1MB max) to prevent OOM
+	r.Body = http.MaxBytesReader(nil, r.Body, 1<<20) // 1MB
+
+	// 5. Authenticate
 	if forwarder.InboundConfig != nil {
 		if err := s.authenticateInbound(r, forwarder.InboundConfig); err != nil {
 			return err
 		}
 	}
 
-	// 5. Parse payload
+	// 6. Parse payload
 	payload, err := s.parseInboundPayload(r, forwarder)
 	if err != nil {
 		return err
 	}
 
-	// 6. Match labels
+	// 7. Match labels
 	if len(forwarder.MatchLabels) > 0 {
 		matched := false
 		for _, alert := range payload.Alerts {
@@ -408,6 +411,11 @@ func (s *AlertForwarderService) processProxyAlert(ctx context.Context, forwarder
 
 // sendToProxyTarget sends the payload to the proxy target.
 func (s *AlertForwarderService) sendToProxyTarget(ctx context.Context, target *model.OutboundConfig, payload *InboundPayload) error {
+	// SSRF protection: validate target URL
+	if err := validateEndpoint(ctx, target.TargetURL); err != nil {
+		return fmt.Errorf("proxy target URL blocked by SSRF policy: %w", err)
+	}
+
 	// Serialize payload
 	jsonData, err := json.Marshal(payload)
 	if err != nil {

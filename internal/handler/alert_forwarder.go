@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
@@ -16,6 +17,8 @@ type AlertForwarderHandler struct {
 	svc      *service.AlertForwarderService
 	auditSvc *service.AuditLogService
 	log      *zap.Logger
+	// Rate limiter for inbound webhook endpoint (per IP)
+	inboundLimiter *middleware.RateLimiter
 }
 
 // NewAlertForwarderHandler creates a new AlertForwarderHandler.
@@ -24,7 +27,11 @@ func NewAlertForwarderHandler(svc *service.AlertForwarderService, logger ...*zap
 	if len(logger) > 0 && logger[0] != nil {
 		l = logger[0]
 	}
-	return &AlertForwarderHandler{svc: svc, log: l}
+	return &AlertForwarderHandler{
+		svc:            svc,
+		log:            l,
+		inboundLimiter: middleware.NewRateLimiter(100, 200), // 100 req/s, burst 200 per IP
+	}
 }
 
 // SetAuditService injects the audit log service.
@@ -115,7 +122,7 @@ func (h *AlertForwarderHandler) Create(c *gin.Context) {
 		})
 	}
 
-	Success(c, forwarder)
+	Success(c, forwarder.SanitizeForResponse())
 }
 
 // GetByID returns an alert forwarder by its ID.
@@ -216,7 +223,7 @@ func (h *AlertForwarderHandler) Update(c *gin.Context) {
 		})
 	}
 
-	Success(c, forwarder)
+	Success(c, forwarder.SanitizeForResponse())
 }
 
 // Delete deletes an alert forwarder.
@@ -417,6 +424,12 @@ func (h *AlertForwarderHandler) TestForwarder(c *gin.Context) {
 
 // HandleInbound handles inbound alert webhook requests.
 func (h *AlertForwarderHandler) HandleInbound(c *gin.Context) {
+	// Rate limiting per IP
+	if !h.inboundLimiter.Allow(c.ClientIP()) {
+		Error(c, apperr.WithMessage(apperr.ErrRateLimitExceeded, "too many requests"))
+		return
+	}
+
 	id, err := GetIDParam(c, "id")
 	if err != nil {
 		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "invalid id"))

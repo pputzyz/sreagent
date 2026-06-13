@@ -60,102 +60,8 @@ func (s *AlertForwarderService) SetInhibitionRuleService(svc *InhibitionRuleServ
 	s.inhibitorSvc = svc
 }
 
-// Create creates a new alert forwarder.
-func (s *AlertForwarderService) Create(ctx context.Context, forwarder *model.AlertForwarder) error {
-	// Validate direction
-	if !forwarder.Direction.IsValid() {
-		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid direction: must be inbound, outbound, or bidirectional")
-	}
-
-	// Validate inbound config for inbound/bidirectional
-	if forwarder.Direction == model.ForwarderDirectionInbound || forwarder.Direction == model.ForwarderDirectionBidirectional {
-		if forwarder.InboundConfig == nil {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "inbound_config is required for inbound/bidirectional forwarders")
-		}
-		if !forwarder.InboundConfig.SourceFormat.IsValid() {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid source_format")
-		}
-		if !forwarder.InboundConfig.Mode.IsValid() {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid inbound mode: must be integrate or proxy")
-		}
-		if !forwarder.InboundConfig.AuthType.IsValid() {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "invalid auth_type")
-		}
-		// Proxy mode requires a proxy target
-		if forwarder.InboundConfig.Mode == model.InboundModeProxy {
-			if forwarder.InboundConfig.ProxyTarget == nil {
-				return apperr.WithMessage(apperr.ErrInvalidParam, "proxy_target is required for proxy mode")
-			}
-		}
-	}
-
-	// Validate outbound config for outbound/bidirectional
-	if forwarder.Direction == model.ForwarderDirectionOutbound || forwarder.Direction == model.ForwarderDirectionBidirectional {
-		if forwarder.OutboundConfig == nil {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "outbound_config is required for outbound/bidirectional forwarders")
-		}
-		if forwarder.OutboundConfig.TargetMediaID == nil && forwarder.OutboundConfig.TargetURL == "" {
-			return apperr.WithMessage(apperr.ErrInvalidParam, "either target_media_id or target_url is required")
-		}
-	}
-
-	// Set defaults
-	if forwarder.OutboundConfig != nil {
-		setOutboundDefaults(forwarder.OutboundConfig)
-	}
-	if forwarder.InboundConfig != nil && forwarder.InboundConfig.ProxyTarget != nil {
-		setOutboundDefaults(forwarder.InboundConfig.ProxyTarget)
-	}
-
-	// Set default platform capabilities if not provided (integrate mode only)
-	if forwarder.InboundConfig != nil && forwarder.InboundConfig.Mode == model.InboundModeIntegrate {
-		if forwarder.PlatformCapabilities == nil {
-			forwarder.PlatformCapabilities = &model.PlatformCapabilitiesConfig{
-				EnableEscalation:   false,
-				EnableMute:         false,
-				EnableInhibition:   false,
-				EnableNotification: true,
-				EnableAIAnalysis:   false,
-			}
-		}
-	}
-
-	if err := s.forwarderRepo.Create(ctx, forwarder); err != nil {
-		s.logger.Error("failed to create alert forwarder", zap.Error(err))
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	return nil
-}
-
-// GetByID returns an alert forwarder by its ID.
-func (s *AlertForwarderService) GetByID(ctx context.Context, id uint) (*model.AlertForwarder, error) {
-	forwarder, err := s.forwarderRepo.GetByID(ctx, id)
-	if err != nil {
-		return nil, apperr.Wrap(apperr.ErrDatabase, err)
-	}
-	return forwarder, nil
-}
-
-// List returns a paginated list of alert forwarders.
-func (s *AlertForwarderService) List(ctx context.Context, page, pageSize int, direction string, enabled *bool) ([]model.AlertForwarder, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	return s.forwarderRepo.List(ctx, page, pageSize, direction, enabled)
-}
-
-// Update updates an existing alert forwarder.
-func (s *AlertForwarderService) Update(ctx context.Context, forwarder *model.AlertForwarder) error {
-	// Verify forwarder exists
-	existing, err := s.forwarderRepo.GetByID(ctx, forwarder.ID)
-	if err != nil {
-		return apperr.Wrap(apperr.ErrDatabase, err)
-	}
-
-	// Validate direction
+// validateForwarder validates a forwarder's configuration.
+func validateForwarder(forwarder *model.AlertForwarder) error {
 	if !forwarder.Direction.IsValid() {
 		return apperr.WithMessage(apperr.ErrInvalidParam, "invalid direction: must be inbound, outbound, or bidirectional")
 	}
@@ -195,6 +101,67 @@ func (s *AlertForwarderService) Update(ctx context.Context, forwarder *model.Ale
 	}
 	if forwarder.InboundConfig != nil && forwarder.InboundConfig.ProxyTarget != nil {
 		setOutboundDefaults(forwarder.InboundConfig.ProxyTarget)
+	}
+
+	// Set default platform capabilities if not provided (integrate mode only)
+	if forwarder.InboundConfig != nil && forwarder.InboundConfig.Mode == model.InboundModeIntegrate {
+		if forwarder.PlatformCapabilities == nil {
+			forwarder.PlatformCapabilities = &model.PlatformCapabilitiesConfig{
+				EnableEscalation:   false,
+				EnableMute:         false,
+				EnableInhibition:   false,
+				EnableNotification: true,
+				EnableAIAnalysis:   false,
+			}
+		}
+	}
+
+	return nil
+}
+
+// Create creates a new alert forwarder.
+func (s *AlertForwarderService) Create(ctx context.Context, forwarder *model.AlertForwarder) error {
+	if err := validateForwarder(forwarder); err != nil {
+		return err
+	}
+
+	if err := s.forwarderRepo.Create(ctx, forwarder); err != nil {
+		s.logger.Error("failed to create alert forwarder", zap.Error(err))
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return nil
+}
+
+// GetByID returns an alert forwarder by its ID.
+func (s *AlertForwarderService) GetByID(ctx context.Context, id uint) (*model.AlertForwarder, error) {
+	forwarder, err := s.forwarderRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, apperr.Wrap(apperr.ErrDatabase, err)
+	}
+	return forwarder, nil
+}
+
+// List returns a paginated list of alert forwarders.
+func (s *AlertForwarderService) List(ctx context.Context, page, pageSize int, direction string, enabled *bool) ([]model.AlertForwarder, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	return s.forwarderRepo.List(ctx, page, pageSize, direction, enabled)
+}
+
+// Update updates an existing alert forwarder.
+func (s *AlertForwarderService) Update(ctx context.Context, forwarder *model.AlertForwarder) error {
+	// Verify forwarder exists
+	existing, err := s.forwarderRepo.GetByID(ctx, forwarder.ID)
+	if err != nil {
+		return apperr.Wrap(apperr.ErrDatabase, err)
+	}
+
+	if err := validateForwarder(forwarder); err != nil {
+		return err
 	}
 
 	// Preserve creation time

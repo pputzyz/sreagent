@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -229,21 +230,62 @@ func (c *SeverityMappingConfig) ApplySeverityMapping(severity string) (string, b
 	return severity, false
 }
 
+// sensitiveHeaderKeys are HTTP header keys that typically carry secrets.
+var sensitiveHeaderKeys = map[string]bool{
+	"authorization": true,
+	"x-api-key":     true,
+	"x-auth-token":  true,
+	"cookie":        true,
+	"set-cookie":    true,
+}
+
 // SanitizeForResponse returns a copy of the forwarder with sensitive fields masked.
 func (f *AlertForwarder) SanitizeForResponse() *AlertForwarder {
 	out := *f // shallow copy
-	if out.InboundConfig != nil && out.InboundConfig.AuthConfig != nil {
-		ac := *out.InboundConfig.AuthConfig
-		if ac.Token != "" {
-			ac.Token = "***"
+	if out.InboundConfig != nil {
+		ic := *out.InboundConfig // deep copy InboundConfig
+		if ic.AuthConfig != nil {
+			ac := *ic.AuthConfig
+			if ac.Token != "" {
+				ac.Token = "***"
+			}
+			if ac.Password != "" {
+				ac.Password = "***"
+			}
+			if ac.HMACSecret != "" {
+				ac.HMACSecret = "***"
+			}
+			ic.AuthConfig = &ac
 		}
-		if ac.Password != "" {
-			ac.Password = "***"
+		// Mask ProxyTarget headers
+		if ic.ProxyTarget != nil {
+			pt := *ic.ProxyTarget
+			pt.Headers = maskSensitiveHeaders(pt.Headers)
+			ic.ProxyTarget = &pt
 		}
-		if ac.HMACSecret != "" {
-			ac.HMACSecret = "***"
-		}
-		out.InboundConfig.AuthConfig = &ac
+		out.InboundConfig = &ic
+	}
+	// Mask OutboundConfig headers
+	if out.OutboundConfig != nil {
+		oc := *out.OutboundConfig
+		oc.Headers = maskSensitiveHeaders(oc.Headers)
+		out.OutboundConfig = &oc
 	}
 	return &out
+}
+
+// maskSensitiveHeaders returns a copy of headers with sensitive values masked.
+func maskSensitiveHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return headers
+	}
+	masked := make(map[string]string, len(headers))
+	for k, v := range headers {
+		if sensitiveHeaderKeys[strings.ToLower(k)] && v != "" {
+			masked[k] = "***"
+		} else {
+			masked[k] = v
+		}
+	}
+	return masked
 }

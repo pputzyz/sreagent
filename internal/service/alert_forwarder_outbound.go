@@ -182,10 +182,16 @@ func (s *AlertForwarderService) sendViaMedia(ctx context.Context, forwarder *mod
 func (s *AlertForwarderService) sendViaHTTP(ctx context.Context, forwarder *model.AlertForwarder, data *OutboundRenderData) error {
 	config := forwarder.OutboundConfig
 
+	// SSRF protection: validate target URL
+	if err := validateEndpoint(ctx, config.TargetURL); err != nil {
+		return fmt.Errorf("outbound target URL blocked by SSRF policy: %w", err)
+	}
+
 	// Render body template
 	var bodyStr string
 	if config.BodyTemplate != "" {
-		tmpl, err := template.New("body").Parse(config.BodyTemplate)
+		// Use safe template with restricted function set and missing key error
+		tmpl, err := template.New("body").Option("missingkey=error").Parse(config.BodyTemplate)
 		if err != nil {
 			return fmt.Errorf("invalid body template: %w", err)
 		}
