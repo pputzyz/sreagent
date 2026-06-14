@@ -40,7 +40,7 @@ type User struct {
 	LarkUserID   string   `json:"lark_user_id" gorm:"size:64;index"`
 	Avatar       string   `json:"avatar" gorm:"size:512"`
 	Role         Role     `json:"role" gorm:"size:32;not null;default:member"`
-	IsActive     bool     `json:"is_active" gorm:"default:true"`
+	IsActive     bool     `json:"is_active"` // create handlers set true explicitly; DB column keeps DEFAULT 1 for seeds
 	UserType     UserType `json:"user_type" gorm:"size:32;default:human;index"`
 	NotifyTarget string   `json:"notify_target" gorm:"type:text"`               // JSON: for bot type: {"lark_webhook":"https://..."}, for channel: {"media_id":1}
 	OIDCSubject  string   `json:"oidc_subject,omitempty" gorm:"size:256;index"` // OIDC subject identifier (sub claim)

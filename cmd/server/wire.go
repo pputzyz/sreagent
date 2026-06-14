@@ -503,6 +503,9 @@ func initServices(repos *repoBundle, db *gorm.DB, cfg *config.Config, zapLogger 
 
 	// AI Agent service (Phase 3 — 自主执行能力)
 	svcs.AgentSvc = service.NewAgentService(svcs.AISvc, repos.AIConversation, nil, zapLogger)
+	// Per-recipient i18n: let the agent localize its user-facing answer to the
+	// requesting user's language preference.
+	svcs.AgentSvc.SetUserPreferenceService(svcs.UserPreferenceSvc)
 
 	// AIOps Phase 2 services
 	svcs.ChangeEventSvc = service.NewChangeEventService(repos.ChangeEvent, zapLogger)

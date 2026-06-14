@@ -20,7 +20,7 @@ type InhibitionRule struct {
 	// in both the source and target alert for suppression to apply.
 	// Empty string means the target is always suppressed when the source fires.
 	EqualLabels string `json:"equal_labels" gorm:"size:512;not null;default:''"`
-	IsEnabled   bool   `json:"is_enabled" gorm:"not null;default:true"`
+	IsEnabled   bool   `json:"is_enabled" gorm:"not null"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	CreatedBy   uint   `json:"created_by" gorm:"not null;default:0"`
 }
 

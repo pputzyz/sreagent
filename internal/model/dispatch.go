@@ -11,7 +11,7 @@ type DispatchPolicy struct {
 
 	Name        string `json:"name" gorm:"size:128;not null"`
 	Description string `json:"description" gorm:"size:512"`
-	IsEnabled   bool   `json:"is_enabled" gorm:"default:true"`
+	IsEnabled   bool   `json:"is_enabled"` // explicit value persists on create now; DB column keeps DEFAULT 1 for seeds
 
 	// Priority: lower number = higher priority (evaluated first among all channel policies)
 	Priority int `json:"priority" gorm:"default:0;index"`

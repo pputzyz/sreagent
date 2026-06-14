@@ -47,6 +47,7 @@ interface MediaForm {
   is_enabled: boolean
   config: string
   variables: string
+  language: string
   webhook_url: string
   smtp_host: string
   smtp_port: number
@@ -111,12 +112,14 @@ function buildConfigString(f: Record<string, unknown>): string {
 
   switch (f.type) {
     case 'lark_webhook':
+    case 'feishu_webhook':
+    case 'feishu_card':
+      // Card-capable Lark/Feishu types: include the per-channel card language.
+      return JSON.stringify(mergeSeverity({ webhook_url: f.webhook_url, language: f.language }), null, 2)
     case 'dingtalk_webhook':
     case 'wecom_webhook':
     case 'slack_webhook':
     case 'discord_webhook':
-    case 'feishu_webhook':
-    case 'feishu_card':
       return JSON.stringify(mergeSeverity({ webhook_url: f.webhook_url }), null, 2)
     case 'email':
       return JSON.stringify(mergeSeverity({
@@ -136,6 +139,7 @@ function buildConfigString(f: Record<string, unknown>): string {
       return JSON.stringify(mergeSeverity({
         app_id: f.app_id, app_secret: f.app_secret,
         receive_id: f.receive_id, receive_id_type: f.receive_id_type,
+        language: f.language,
       }), null, 2)
     case 'wecom_app':
       return JSON.stringify(mergeSeverity({
@@ -168,6 +172,7 @@ const crud = useCrudPage<NotifyMedia>({
   defaultForm: () => ({
     name: '', description: '', type: 'lark_webhook' as MediaType,
     is_enabled: true, config: '{}', variables: '{}',
+    language: 'zh-CN',
     webhook_url: '', smtp_host: '', smtp_port: 25,
     username: '', password: '', from: '',
     method: 'POST', url: '', headers: [] as { key: string; value: string }[],
@@ -194,6 +199,7 @@ const crud = useCrudPage<NotifyMedia>({
     return {
       name: row.name, description: row.description, type: row.type,
       is_enabled: row.is_enabled, config: row.config, variables: row.variables || '{}',
+      language: (cfg.language as string) || 'zh-CN',
       webhook_url: (cfg.webhook_url as string) || '',
       smtp_host: (cfg.smtp_host as string) || '', smtp_port: (cfg.smtp_port as number) || 25,
       username: (cfg.username as string) || '', password: (cfg.password as string) || '', from: (cfg.from as string) || '',
@@ -503,6 +509,18 @@ onMounted(fetchList)
         </n-form-item>
 
         <n-divider style="margin: 12px 0">{{ t('media.config') }}</n-divider>
+
+        <!-- Card language: group webhooks fan out to many recipients, so the card's
+             static-label language is a per-channel setting (not per-recipient). -->
+        <n-form-item
+          v-if="['lark_webhook','feishu_webhook','feishu_card','feishu_app'].includes(form.type)"
+          :label="t('media.cardLanguage')"
+        >
+          <n-select
+            v-model:value="form.language"
+            :options="[{ label: '中文', value: 'zh-CN' }, { label: 'English', value: 'en' }]"
+          />
+        </n-form-item>
 
         <template v-if="form.type === 'lark_webhook'">
           <n-form-item :label="t('media.webhookUrl')" required>

@@ -41,7 +41,7 @@ type Integration struct {
 	// LabelEnhancementConfig stores label enrichment rules as JSON.
 	LabelEnhancementConfig string `json:"label_enhancement_config" gorm:"type:json"`
 
-	IsEnabled bool `json:"is_enabled" gorm:"default:true"`
+	IsEnabled bool `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 
 	// Counters (denormalized)
 	TotalAlerts int `json:"total_alerts" gorm:"default:0"`
@@ -94,7 +94,7 @@ type RoutingRule struct {
 	TargetChannel   *Channel `json:"target_channel,omitempty" gorm:"foreignKey:TargetChannelID"`
 	// Priority: lower number = higher priority, evaluated top-to-bottom.
 	Priority  int  `json:"priority" gorm:"default:0;index"`
-	IsEnabled bool `json:"is_enabled" gorm:"default:true"`
+	IsEnabled bool `json:"is_enabled"` // explicit value persists on create now; DB column keeps DEFAULT 1 for seeds
 }
 
 func (RoutingRule) TableName() string {

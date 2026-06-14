@@ -7,7 +7,7 @@ type SubscribeRule struct {
 	BaseModel
 	Name        string `json:"name" gorm:"size:128;not null"`
 	Description string `json:"description" gorm:"size:512"`
-	IsEnabled   bool   `json:"is_enabled" gorm:"default:true"`
+	IsEnabled   bool   `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	// Match conditions - which events to subscribe to
 	MatchLabels   JSONLabels  `json:"match_labels" gorm:"type:json"`
 	Severities    string      `json:"severities" gorm:"size:128"`

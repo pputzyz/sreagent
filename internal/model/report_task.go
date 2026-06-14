@@ -13,7 +13,7 @@ type ReportTask struct {
 	PromptTemplate string `json:"prompt_template" gorm:"type:text;not null"`
 	AllowedTools   string `json:"allowed_tools" gorm:"type:json"`
 	OutputChannels string `json:"output_channels" gorm:"type:json;not null"`
-	Enabled        bool   `json:"enabled" gorm:"default:true"`
+	Enabled        bool   `json:"enabled"` // create form always sends this; DB column keeps DEFAULT 1 for seeds
 	CreatedBy      uint   `json:"created_by" gorm:"not null"`
 }
 

@@ -558,6 +558,21 @@ async function loadMediaOptions() {
   }
 }
 
+// Recursively overlay src onto target for plain objects, preserving any nested
+// default object in target that src omits. Arrays and scalars are replaced.
+function deepMergeInto(target: any, src: any) {
+  for (const key of Object.keys(src)) {
+    const sv = src[key]
+    const tv = target[key]
+    if (sv && typeof sv === 'object' && !Array.isArray(sv) &&
+        tv && typeof tv === 'object' && !Array.isArray(tv)) {
+      deepMergeInto(tv, sv)
+    } else {
+      target[key] = sv
+    }
+  }
+}
+
 async function loadForwarder() {
   if (!props.id) return
 
@@ -565,7 +580,11 @@ async function loadForwarder() {
     const res = await getAlertForwarder(props.id)
     const data = res.data.data
     if (data) {
-      Object.assign(formData, data)
+      // Deep-merge so seeded nested defaults (auth_config / proxy_target / *_mapping)
+      // survive when the backend omits them (omitempty). A shallow Object.assign would
+      // replace inbound_config wholesale and leave auth_config undefined, crashing the
+      // template (e.g. inbound_config.auth_config.token) when the user toggles auth_type.
+      deepMergeInto(formData, data)
 
       // Convert match_labels to list
       if (data.match_labels) {

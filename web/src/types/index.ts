@@ -333,6 +333,7 @@ export interface MessageTemplate {
   name: string
   description: string
   content: string
+  content_en?: string
   type: 'text' | 'html' | 'markdown' | 'lark_card'
   is_builtin: boolean
   created_at: string

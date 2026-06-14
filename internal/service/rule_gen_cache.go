@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // ruleGenCacheEntry holds a cached AI generation result.
@@ -30,14 +32,22 @@ func NewRuleGenCache(ttl time.Duration) *RuleGenCache {
 		ttl:     ttl,
 		stop:    make(chan struct{}),
 	}
-	// Background cleanup every 5 minutes
+	// Background cleanup every 5 minutes. Per-tick recover keeps the loop alive even
+	// if evict ever panics, so cache GC can't silently stop (→ unbounded memory growth).
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				c.evict()
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							zap.L().Error("rule_gen_cache cleanup panic recovered", zap.Any("recover", r))
+						}
+					}()
+					c.evict()
+				}()
 			case <-c.stop:
 				return
 			}

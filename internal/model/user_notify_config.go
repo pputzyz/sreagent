@@ -12,7 +12,7 @@ type UserNotifyConfig struct {
 	// email: {"email": "user@example.com"}
 	// webhook: {"url": "https://..."}
 	Config    string `json:"config" gorm:"type:text"`
-	IsEnabled bool   `json:"is_enabled" gorm:"default:true"`
+	IsEnabled bool   `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 }
 
 func (UserNotifyConfig) TableName() string { return "user_notify_configs" }

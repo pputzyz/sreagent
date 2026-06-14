@@ -134,6 +134,7 @@ func (s *MessageTemplateService) Update(ctx context.Context, tmpl *model.Message
 	existing.Name = tmpl.Name
 	existing.Description = tmpl.Description
 	existing.Content = tmpl.Content
+	existing.ContentEN = tmpl.ContentEN
 	existing.Type = tmpl.Type
 
 	if err := s.repo.Update(ctx, existing); err != nil {
@@ -161,14 +162,26 @@ func (s *MessageTemplateService) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-// RenderTemplate renders a message template with the given event data.
+// RenderTemplate renders a message template with the given event data (default variant).
 func (s *MessageTemplateService) RenderTemplate(ctx context.Context, templateID uint, data *TemplateData) (string, error) {
+	return s.RenderTemplateLang(ctx, templateID, data, "")
+}
+
+// RenderTemplateLang renders a message template, selecting the body variant for the
+// given language. When lang == "en" and the template has a non-empty English variant
+// (ContentEN), that variant is rendered; otherwise it falls back to Content. This lets
+// a group-broadcast channel's configured language drive the rendered notification body.
+func (s *MessageTemplateService) RenderTemplateLang(ctx context.Context, templateID uint, data *TemplateData, lang string) (string, error) {
 	tmpl, err := s.repo.GetByID(ctx, templateID)
 	if err != nil {
 		return "", apperr.ErrTemplateNotFound
 	}
 
-	return s.RenderContent(ctx, tmpl.Content, data)
+	content := tmpl.Content
+	if lang == "en" && strings.TrimSpace(tmpl.ContentEN) != "" {
+		content = tmpl.ContentEN
+	}
+	return s.RenderContent(ctx, content, data)
 }
 
 // RenderContent renders a Go template string with the given data.

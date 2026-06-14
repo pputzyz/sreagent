@@ -16,7 +16,7 @@ type MCPServer struct {
 	URL         string `json:"url" gorm:"column:url;size:512;not null"`
 	Headers     string `json:"headers" gorm:"column:headers;type:text"`
 	Description string `json:"description" gorm:"column:description;size:1024"`
-	Enabled     bool   `json:"enabled" gorm:"column:enabled;default:true"`
+	Enabled     bool   `json:"enabled" gorm:"column:enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 }
 
 func (MCPServer) TableName() string { return "mcp_servers" }

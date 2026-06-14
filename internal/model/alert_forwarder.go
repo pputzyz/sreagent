@@ -86,7 +86,7 @@ type AlertForwarder struct {
 	ID          uint               `json:"id" gorm:"primaryKey"`
 	Name        string             `json:"name" gorm:"size:128;not null;uniqueIndex"`
 	Description string             `json:"description" gorm:"size:512"`
-	Enabled     bool               `json:"enabled" gorm:"default:true;index"`
+	Enabled     bool               `json:"enabled" gorm:"index"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	Direction   ForwarderDirection `json:"direction" gorm:"size:32;not null"`
 	Priority    int                `json:"priority" gorm:"default:0;index"`
 

@@ -148,6 +148,11 @@ func (b *StreamBus) Subscribe(ctx context.Context, taskID string, lastID string)
 
 	go func() {
 		defer close(out)
+		defer func() {
+			if r := recover(); r != nil {
+				zap.L().Error("stream bus Subscribe goroutine panic recovered", zap.Any("recover", r))
+			}
+		}()
 
 		cursor := lastID
 		if cursor == "" {

@@ -50,8 +50,12 @@ func (h *InhibitionRuleHandler) Create(c *gin.Context) {
 		zap.String("name", req.Name),
 		zap.String("request_id", c.GetString("request_id")))
 
-	// B4-6: Dereference *bool with default false when nil (Create path).
-	isEnabled := req.IsEnabled != nil && *req.IsEnabled
+	// Default to enabled on create when the client omits the flag; an explicit false
+	// is respected and now persists (model no longer carries gorm default:true).
+	isEnabled := true
+	if req.IsEnabled != nil {
+		isEnabled = *req.IsEnabled
+	}
 
 	rule := &model.InhibitionRule{
 		Name:        req.Name,

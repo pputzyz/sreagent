@@ -7,7 +7,7 @@ type NotifyRule struct {
 	BaseModel
 	Name        string `json:"name" gorm:"size:128;not null"`
 	Description string `json:"description" gorm:"size:512"`
-	IsEnabled   bool   `json:"is_enabled" gorm:"default:true"`
+	IsEnabled   bool   `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	// Which severities this rule applies to (empty = all)
 	Severities string `json:"severities" gorm:"size:128"` // "critical,warning"
 	// Label matchers (optional - if empty, matches all events routed to this rule)

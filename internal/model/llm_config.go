@@ -18,7 +18,7 @@ type LLMConfig struct {
 	APIKey      string `json:"-" gorm:"size:512"` // AES-256-GCM encrypted
 	ModelName   string `json:"model" gorm:"size:128;column:model"`
 	ExtraConfig string `json:"extra_config" gorm:"type:text"` // JSON
-	Enabled     bool   `json:"enabled" gorm:"default:true"`
+	Enabled     bool   `json:"enabled"`                       // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	IsDefault   bool   `json:"is_default" gorm:"default:false"`
 	Description string `json:"description" gorm:"size:512"`
 	CreatedBy   uint   `json:"created_by" gorm:"not null;default:0"`

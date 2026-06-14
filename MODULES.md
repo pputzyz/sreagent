@@ -161,7 +161,8 @@ task-execution ──→ task-tpl (加载模板) + alert-event (event_id 关联)
 - **API**: `/api/v1/notify-rules`, `/api/v1/notify-media`, `/api/v1/message-templates`, `/api/v1/subscribe-rules` (~25 endpoints)
 - **渠道类型**: lark_webhook, email, http, script, dingtalk_webhook, wecom_webhook, slack_webhook, discord_webhook, telegram_bot, feishu_webhook, feishu_card, feishu_app, wecom_app, flashduty, pagerduty, tencent_sms, aliyun_sms
 - **状态**: ✅ 完成（v4.30.0 扩展至 17 种渠道类型）
-- **迁移**: 000080_notify_max_notifications（NotifyRule.MaxNotifications 最大通知次数上限）
+- **迁移**: 000080_notify_max_notifications（NotifyRule.MaxNotifications 最大通知次数上限）, 000125_message_template_content_en（MessageTemplate.ContentEN 英文变体，多语言模板）
+- **i18n（出站本地化）**: 群播卡片按渠道语言（NotifyMedia.Config.language）、消息模板多语言变体（ContentEN，按渠道语言渲染）；详见 [docs/i18n.md](docs/i18n.md)
 - **文档**: [docs/architecture.md](docs/architecture.md)（引擎状态机 + 通知管道）
 
 ## 告警转发器 (alert-forwarder) [v4.74.0]

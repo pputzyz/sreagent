@@ -29,7 +29,8 @@ type CreateMessageTemplateRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 	Content     string `json:"content" binding:"required"`
-	Type        string `json:"type"` // text, html, markdown, lark_card
+	ContentEN   string `json:"content_en"` // optional English variant
+	Type        string `json:"type"`       // text, html, markdown, lark_card
 }
 
 // UpdateMessageTemplateRequest is the request body for updating a message template.
@@ -37,6 +38,7 @@ type UpdateMessageTemplateRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 	Content     string `json:"content" binding:"required"`
+	ContentEN   string `json:"content_en"`
 	Type        string `json:"type"`
 }
 
@@ -67,6 +69,7 @@ func (h *MessageTemplateHandler) Create(c *gin.Context) {
 		Name:        req.Name,
 		Description: req.Description,
 		Content:     req.Content,
+		ContentEN:   req.ContentEN,
 		Type:        tmplType,
 	}
 
@@ -137,6 +140,7 @@ func (h *MessageTemplateHandler) Update(c *gin.Context) {
 		Name:        req.Name,
 		Description: req.Description,
 		Content:     req.Content,
+		ContentEN:   req.ContentEN,
 		Type:        tmplType,
 	}
 	tmpl.ID = id

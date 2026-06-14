@@ -459,9 +459,30 @@ func (s *NotifyMediaService) TestMedia(ctx context.Context, id uint) error {
 
 // --- Private dispatch methods ---
 
+// mediaLanguage extracts the channel-level language ("zh-CN" default | "en") from a
+// media's JSON config. Used to pick the message-template variant and card labels for
+// group-broadcast channels (one message → many recipients, so language is per-channel).
+func mediaLanguage(media *model.NotifyMedia) string {
+	if media == nil {
+		return "zh-CN"
+	}
+	var c struct {
+		Language string `json:"language"`
+	}
+	_ = json.Unmarshal([]byte(media.Config), &c)
+	if c.Language == "en" {
+		return "en"
+	}
+	return "zh-CN"
+}
+
 // larkWebhookConfig represents the JSON config for Lark webhook media.
 type larkWebhookConfig struct {
 	WebhookURL string `json:"webhook_url"`
+	// Language sets the card's static-label language ("zh-CN" default | "en").
+	// Group webhooks fan out to many recipients, so language is a per-channel
+	// (per-media) setting rather than per-recipient.
+	Language string `json:"language"`
 }
 
 // sendLarkWebhook sends a notification via Lark webhook.
@@ -495,6 +516,7 @@ func (s *NotifyMediaService) sendLarkWebhook(ctx context.Context, media *model.N
 		content,
 		aiResult,
 		"", // no platform URL for webhook path
+		cfg.Language,
 	)
 
 	payload := map[string]interface{}{
@@ -1160,6 +1182,7 @@ func (s *NotifyMediaService) sendTelegramBot(ctx context.Context, media *model.N
 
 type feishuWebhookConfig struct {
 	WebhookURL string `json:"webhook_url"`
+	Language   string `json:"language"` // card static-label language: "zh-CN" default | "en"
 }
 
 func (s *NotifyMediaService) sendFeishuWebhook(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
@@ -1192,6 +1215,7 @@ func (s *NotifyMediaService) sendFeishuWebhook(ctx context.Context, media *model
 		content,
 		aiResult,
 		"", // no platform URL for webhook path
+		cfg.Language,
 	)
 
 	payload := map[string]interface{}{
@@ -1209,6 +1233,7 @@ func (s *NotifyMediaService) sendFeishuWebhook(ctx context.Context, media *model
 
 type feishuCardConfig struct {
 	WebhookURL string `json:"webhook_url"`
+	Language   string `json:"language"` // card static-label language: "zh-CN" default | "en"
 }
 
 func (s *NotifyMediaService) sendFeishuCard(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
@@ -1241,6 +1266,7 @@ func (s *NotifyMediaService) sendFeishuCard(ctx context.Context, media *model.No
 		content,
 		aiResult,
 		"", // no platform URL for webhook path
+		cfg.Language,
 	)
 
 	payload := map[string]interface{}{
@@ -1334,6 +1360,7 @@ type feishuAppConfig struct {
 	AppSecret     string `json:"app_secret"`
 	ReceiveID     string `json:"receive_id"`
 	ReceiveIDType string `json:"receive_id_type"` // open_id, user_id, chat_id, email
+	Language      string `json:"language"`        // card static-label language: "zh-CN" default | "en"
 }
 
 func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.NotifyMedia, content string, data *TemplateData) error {
@@ -1393,6 +1420,7 @@ func (s *NotifyMediaService) sendFeishuApp(ctx context.Context, media *model.Not
 		content,
 		aiResult,
 		"", // no platform URL for app path
+		cfg.Language,
 	)
 	cardJSON, _ := json.Marshal(richCard.Card)
 

@@ -93,6 +93,10 @@ type AgentService struct {
 	logger     *zap.Logger
 	agentModel string // "tool-calling" (default) or "plan-execute"
 
+	// prefSvc resolves the requesting user's output-language preference (per-recipient
+	// i18n for AI responses). Injected via SetUserPreferenceService; nil = default zh-CN.
+	prefSvc *UserPreferenceService
+
 	// 内存任务存储（用于快速轮询，DB 用于持久化）
 	mu    sync.RWMutex
 	tasks map[string]*AgentTask
@@ -148,6 +152,29 @@ func NewAgentService(aiSvc *AIService, convRepo *repository.AIConversationReposi
 // SetToolRegistry 延迟注入工具注册表（DI 两阶段初始化）
 func (s *AgentService) SetToolRegistry(reg *AIToolRegistry) {
 	s.toolReg = reg
+}
+
+// SetUserPreferenceService injects the preference service used to resolve a user's
+// output-language preference for AI responses (per-recipient i18n). DI two-phase init.
+func (s *AgentService) SetUserPreferenceService(svc *UserPreferenceService) {
+	s.prefSvc = svc
+}
+
+// resolveOutputLang returns the requesting user's preferred output language
+// ("zh-CN" or "en"), defaulting to zh-CN when unknown/unset. Never errors out the
+// caller — falls back to the platform default on any lookup failure.
+func (s *AgentService) resolveOutputLang(ctx context.Context, userID uint) string {
+	if s.prefSvc == nil || userID == 0 {
+		return "zh-CN"
+	}
+	pref, err := s.prefSvc.Get(ctx, userID)
+	if err != nil || pref == nil || pref.Language == "" {
+		return "zh-CN"
+	}
+	if pref.Language == "en" {
+		return "en"
+	}
+	return "zh-CN"
 }
 
 // SetStreamBus 注入分布式 SSE 总线（可选，nil 表示回退到内存 channel）
@@ -485,9 +512,16 @@ func (s *AgentService) runTaskWithToolCalling(ctx context.Context, task *AgentTa
 	s.mu.Unlock()
 	s.notifySubscribers(task)
 
-	// Build system prompt for the SRE agent
-	systemPrompt := "你是 SRE 运维助手。请根据用户查询，自主调用可用工具获取信息，然后给出简洁的中文回答。" +
-		"如果需要多个工具，按需逐步调用。最终回答格式：\n1. 简要总结\n2. 关键发现\n3. 建议的后续行动（如有）"
+	// Build system prompt for the SRE agent, localized to the requesting user's
+	// language preference (per-recipient i18n for the user-facing answer).
+	var systemPrompt string
+	if s.resolveOutputLang(ctx, task.UserID) == "en" {
+		systemPrompt = "You are an SRE operations assistant. Based on the user's query, autonomously call available tools to gather information, then give a concise answer in English. " +
+			"Call multiple tools step by step as needed. Final answer format:\n1. Brief summary\n2. Key findings\n3. Suggested next actions (if any)"
+	} else {
+		systemPrompt = "你是 SRE 运维助手。请根据用户查询，自主调用可用工具获取信息，然后给出简洁的中文回答。" +
+			"如果需要多个工具，按需逐步调用。最终回答格式：\n1. 简要总结\n2. 关键发现\n3. 建议的后续行动（如有）"
+	}
 
 	// Execute tool-calling loop
 	result, err := s.RunUntilDone(ctx, task.UserID, systemPrompt, sanitizeUserQuery(task.Query), nil, agentMaxSteps)
@@ -768,22 +802,22 @@ func (s *AgentService) planSteps(ctx context.Context, query string) ([]AgentStep
 	// 加载 AI 配置
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load AI config: %w", err)
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
 	}
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("AI is not enabled")
+		return nil, fmt.Errorf("AI 未启用")
 	}
 
 	result, err := s.aiSvc.callLLMWithSystem(ctx, cfg, systemPrompt, fmt.Sprintf("用户查询: %s", sanitizeUserQuery(query)))
 	if err != nil {
-		return nil, fmt.Errorf("LLM planning call failed: %w", err)
+		return nil, fmt.Errorf("LLM 规划调用失败: %w", err)
 	}
 
 	// 解析 JSON
 	cleaned := stripMarkdownCodeBlock(result)
 	var plan stepPlan
 	if err := json.Unmarshal([]byte(cleaned), &plan); err != nil {
-		return nil, fmt.Errorf("failed to parse planning result: %w (raw: %s)", err, truncateString(result, 200))
+		return nil, fmt.Errorf("解析规划结果失败: %w (raw: %s)", err, truncateString(result, 200))
 	}
 
 	// 转换为 AgentStep
@@ -805,7 +839,7 @@ func (s *AgentService) planSteps(ctx context.Context, query string) ([]AgentStep
 func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *AgentStep) error {
 	tool, ok := s.toolReg.Get(step.Tool)
 	if !ok {
-		return fmt.Errorf("tool %q does not exist", step.Tool)
+		return fmt.Errorf("工具 %q 不存在", step.Tool)
 	}
 
 	// 持久化工具调用记录
@@ -847,7 +881,7 @@ func (s *AgentService) executeStep(ctx context.Context, task *AgentTask, step *A
 				s.logger.Error("failed to update tool call status to failed", zap.Uint("call_id", callID), zap.Error(updateErr))
 			}
 		}
-		return fmt.Errorf("tool %q execution failed: %w", step.Tool, err)
+		return fmt.Errorf("工具 %q 执行失败: %w", step.Tool, err)
 	}
 	// B8-5: Truncate tool result before storing in step to prevent unbounded LLM context growth.
 	step.Result = truncateString(sanitizeToolResult(result), agentMaxToolResultLen)
@@ -947,10 +981,10 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load AI config: %w", err)
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
 	}
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("AI is not enabled")
+		return nil, fmt.Errorf("AI 未启用")
 	}
 
 	// 构建过滤后的工具定义
@@ -966,7 +1000,7 @@ func (s *AgentService) RunUntilDone(ctx context.Context, userID uint, systemProm
 	executor := func(execCtx context.Context, name string, params map[string]interface{}) (string, error) {
 		tool, ok := toolMap[name]
 		if !ok {
-			return "", fmt.Errorf("tool %q is not in allowed list", name)
+			return "", fmt.Errorf("工具 %q 不在允许列表中", name)
 		}
 		toolCtx, cancel := context.WithTimeout(execCtx, agentStepTimeout)
 		defer cancel()
@@ -1046,10 +1080,10 @@ func (s *AgentService) RunWithStreaming(
 
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load AI config: %w", err)
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
 	}
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("AI is not enabled")
+		return nil, fmt.Errorf("AI 未启用")
 	}
 
 	tools := s.toolReg.ToOpenAIToolsFiltered(allowedTools)
@@ -1063,7 +1097,7 @@ func (s *AgentService) RunWithStreaming(
 	executor := func(execCtx context.Context, name string, params map[string]interface{}) (string, error) {
 		tool, ok := toolMap[name]
 		if !ok {
-			return "", fmt.Errorf("tool %q is not in allowed list", name)
+			return "", fmt.Errorf("工具 %q 不在允许列表中", name)
 		}
 		toolCtx, cancel := context.WithTimeout(execCtx, agentStepTimeout)
 		defer cancel()
@@ -1118,7 +1152,7 @@ func (s *AgentService) summarize(ctx context.Context, task *AgentTask) (string, 
 	// 加载 AI 配置
 	cfg, err := s.aiSvc.loadConfig(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to load AI config: %w", err)
+		return "", fmt.Errorf("加载 AI 配置失败: %w", err)
 	}
 
 	return s.aiSvc.callLLMWithSystem(ctx, cfg, systemPrompt, userMsg)

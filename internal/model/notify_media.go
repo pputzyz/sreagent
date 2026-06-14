@@ -44,7 +44,7 @@ type NotifyMedia struct {
 	Name        string          `json:"name" gorm:"size:128;not null"`
 	Type        NotifyMediaType `json:"type" gorm:"size:32;not null"`
 	Description string          `json:"description" gorm:"size:512"`
-	IsEnabled   bool            `json:"is_enabled" gorm:"default:true"`
+	IsEnabled   bool            `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	// Type-specific configuration (stored as JSON):
 	// For HTTP type: {"method":"POST","url":"https://...","headers":{"Content-Type":"application/json"},"body":"{{template}}"}
 	// For Email type: {"smtp_host":"...","smtp_port":587,"username":"...","password":"...","from":"..."}

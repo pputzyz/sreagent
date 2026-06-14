@@ -109,6 +109,20 @@ func (s *ScheduledDispatchService) ProcessDueDispatches(ctx context.Context) err
 				zap.Error(sendErr),
 			)
 			metrics.IncScheduledDispatch("failed")
+			// A transient failure on a repeating dispatch must NOT terminate the whole
+			// repeat chain (previously MarkFailed stopped all further escalation/notify).
+			// Reschedule the next cycle instead; the failed cycle counts toward MaxRepeats
+			// so a permanently-broken target is still bounded (unlimited repeats terminate
+			// naturally when the incident is acked/closed, which cancels pending dispatches).
+			if d.RepeatInterval > 0 && (d.MaxRepeats == 0 || d.RepeatCount+1 < d.MaxRepeats) {
+				nextAt := time.Now().Add(time.Duration(d.RepeatInterval) * time.Second)
+				if rErr := s.repo.RescheduleAfterFailure(ctx, d.ID, nextAt, sendErr.Error()); rErr != nil {
+					s.logger.Error("failed to reschedule dispatch after failure",
+						zap.Uint("dispatch_id", d.ID), zap.Error(rErr))
+				}
+				continue
+			}
+			// Non-repeating, or repeat cap reached → terminal failure.
 			if markErr := s.repo.MarkFailed(ctx, d.ID, sendErr.Error()); markErr != nil {
 				s.logger.Error("failed to mark dispatch as failed",
 					zap.Uint("dispatch_id", d.ID), zap.Error(markErr))
@@ -159,10 +173,19 @@ func (s *ScheduledDispatchService) sendDispatch(ctx context.Context, d *model.Sc
 	// Build template data
 	templateData := EventToTemplateData(event, nil, nil, nil)
 
+	// Resolve the channel-level language from the policy's unified media so the
+	// template's localized variant (if any) is selected.
+	dispatchLang := "zh-CN"
+	if policy.UnifiedMediaID != nil && *policy.UnifiedMediaID > 0 {
+		if m, mErr := s.mediaRepo.GetByID(ctx, *policy.UnifiedMediaID); mErr == nil {
+			dispatchLang = mediaLanguage(m)
+		}
+	}
+
 	// Render content using the policy's template if configured
 	var renderedContent string
 	if policy.UnifiedTemplateID != nil && *policy.UnifiedTemplateID > 0 {
-		rendered, err := s.templateSvc.RenderTemplate(ctx, *policy.UnifiedTemplateID, templateData)
+		rendered, err := s.templateSvc.RenderTemplateLang(ctx, *policy.UnifiedTemplateID, templateData, dispatchLang)
 		if err != nil {
 			s.logger.Warn("failed to render template for scheduled dispatch, using fallback",
 				zap.Uint("template_id", *policy.UnifiedTemplateID),

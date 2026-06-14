@@ -164,14 +164,27 @@ func (s *LevelSuppressor) Start() {
 		s.ctx, s.cancel = context.WithCancel(context.Background())
 
 		go func() {
-			s.gc() // initial cleanup on startup
+			defer func() {
+				if r := recover(); r != nil {
+					zap.L().Error("suppression GC goroutine panic recovered", zap.Any("recover", r))
+				}
+			}()
+			runGC := func() {
+				defer func() {
+					if r := recover(); r != nil {
+						zap.L().Error("suppression GC tick panic recovered", zap.Any("recover", r))
+					}
+				}()
+				s.gc()
+			}
+			runGC() // initial cleanup on startup
 			ticker := time.NewTicker(1 * time.Hour)
 			defer ticker.Stop()
 
 			for {
 				select {
 				case <-ticker.C:
-					s.gc()
+					runGC()
 				case <-s.ctx.Done():
 					return
 				}

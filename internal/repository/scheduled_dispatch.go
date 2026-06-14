@@ -66,6 +66,22 @@ func (r *ScheduledDispatchRepository) ScheduleNext(ctx context.Context, id uint,
 		}).Error
 }
 
+// RescheduleAfterFailure advances a repeating dispatch to its next cycle after a
+// transient send failure instead of terminating the whole chain. The failed cycle
+// still counts toward repeat_count (so MaxRepeats bounds retries on a broken target),
+// last_error is recorded for diagnostics, and status stays pending for the next tick.
+func (r *ScheduledDispatchRepository) RescheduleAfterFailure(ctx context.Context, id uint, nextDispatchAt time.Time, lastError string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.ScheduledDispatch{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"repeat_count": gorm.Expr("repeat_count + 1"),
+			"dispatch_at":  nextDispatchAt,
+			"status":       model.ScheduledDispatchPending,
+			"last_error":   lastError,
+		}).Error
+}
+
 // UpdateIncidentID sets the incident_id on a scheduled dispatch entry.
 // Called after incident aggregation resolves the actual incident ID.
 func (r *ScheduledDispatchRepository) UpdateIncidentID(ctx context.Context, dispatchID uint, incidentID uint) error {
@@ -94,12 +110,18 @@ func (r *ScheduledDispatchRepository) CancelByIncident(ctx context.Context, inci
 		Update("status", model.ScheduledDispatchCancelled).Error
 }
 
-// MarkExpired marks all pending dispatches older than the given time as expired.
-// Returns the number of rows updated.
+// MarkExpired marks pending dispatches whose scheduled time is older than the given
+// time as expired (i.e. genuinely stuck — never got processed). Returns rows updated.
+//
+// NOTE: filters on dispatch_at, NOT created_at. A repeating dispatch keeps the same
+// created_at across cycles (ScheduleNext only advances dispatch_at), so filtering on
+// created_at would force-expire a still-active repeat chain once it crossed the window,
+// silently stopping escalation/repeat notifications. An in-flight repeat's dispatch_at
+// points at its next cycle (future/near), so only truly-stuck pendings are expired.
 func (r *ScheduledDispatchRepository) MarkExpired(ctx context.Context, olderThan time.Time) (int64, error) {
 	result := r.db.WithContext(ctx).
 		Model(&model.ScheduledDispatch{}).
-		Where("status = ? AND created_at < ?", model.ScheduledDispatchPending, olderThan).
+		Where("status = ? AND dispatch_at < ?", model.ScheduledDispatchPending, olderThan).
 		Update("status", model.ScheduledDispatchExpired)
 	return result.RowsAffected, result.Error
 }

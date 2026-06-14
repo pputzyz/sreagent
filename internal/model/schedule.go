@@ -30,7 +30,7 @@ type Schedule struct {
 	// Only used when RotationType=custom. Defaults to 1 (daily).
 	// For daily rotation this is always 1; for weekly it is always 7.
 	RotationPeriodDays int  `json:"rotation_period_days" gorm:"default:1"`
-	IsEnabled          bool `json:"is_enabled" gorm:"default:true"`
+	IsEnabled          bool `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	// Default severity filter for the entire schedule.
 	// Empty string = all severities; "critical" = only critical; "critical,warning" = both.
 	SeverityFilter string `json:"severity_filter" gorm:"size:128"`
@@ -76,7 +76,7 @@ type EscalationPolicy struct {
 	Description string           `json:"description" gorm:"size:512"` // P1-09
 	TeamID      *uint            `json:"team_id" gorm:"index"`        // nil = global policy (no team)
 	Team        *Team            `json:"team,omitempty" gorm:"foreignKey:TeamID"`
-	IsEnabled   bool             `json:"is_enabled" gorm:"default:true"`
+	IsEnabled   bool             `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	Steps       []EscalationStep `json:"steps,omitempty" gorm:"foreignKey:PolicyID"`
 }
 

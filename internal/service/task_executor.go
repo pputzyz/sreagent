@@ -19,6 +19,10 @@ import (
 	"github.com/sreagent/sreagent/internal/repository"
 )
 
+// maxConcurrentSSH caps simultaneous SSH connections within a single task batch,
+// preventing fd exhaustion / network overload on large "all at once" batches.
+const maxConcurrentSSH = 50
+
 // TaskExecutor executes task templates against remote hosts via SSH.
 type TaskExecutor struct {
 	tplRepo        *repository.TaskTplRepository
@@ -195,8 +199,10 @@ func (e *TaskExecutor) execute(record *model.TaskRecord, hosts []string, tpl *mo
 		}
 	}
 
-	// Execute in batches
+	// Execute in batches. Cap concurrent SSH connections per batch with a semaphore so
+	// a large "all at once" batch can't exhaust file descriptors / overwhelm the network.
 	var totalFailed int
+	sem := make(chan struct{}, maxConcurrentSSH)
 	for i := 0; i < len(hosts); i += batch {
 		end := i + batch
 		if end > len(hosts) {
@@ -210,6 +216,19 @@ func (e *TaskExecutor) execute(record *model.TaskRecord, hosts []string, tpl *mo
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
+				// Per-host recover: a panic in one host's execution must not crash the process.
+				defer func() {
+					if r := recover(); r != nil {
+						e.logger.Error("task host execution panic recovered",
+							zap.String("host", hostRecords[idx].Host), zap.Any("recover", r))
+						hostRecords[idx].Status = model.TaskStatusFail
+						mu.Lock()
+						totalFailed++
+						mu.Unlock()
+					}
+				}()
+				sem <- struct{}{}
+				defer func() { <-sem }()
 				e.executeOnHost(ctx, record, hostRecords[idx])
 				mu.Lock()
 				if hostRecords[idx].Status == model.TaskStatusFail {

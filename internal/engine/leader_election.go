@@ -118,6 +118,11 @@ func (l *RedisLeaderElection) Start(ctx context.Context) {
 		l.wg.Add(1)
 		go func() {
 			defer l.wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					zap.L().Error("leader election renew goroutine panic recovered", zap.Any("recover", r))
+				}
+			}()
 			l.renewLoop(ctx)
 		}()
 	})

@@ -207,6 +207,11 @@ func (h *InspectionHandler) RunNow(c *gin.Context) {
 
 	// 异步执行，立即返回（使用 Background context 避免请求结束后 context 被取消）
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				zap.L().Error("inspection run goroutine panic recovered", zap.Uint("task_id", task.ID), zap.Any("recover", r))
+			}
+		}()
 		_, _ = h.execSvc.Run(context.Background(), task)
 	}()
 

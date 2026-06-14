@@ -6,6 +6,86 @@
 
 ## [Unreleased] — 2026-06-13
 
+### 测试覆盖补强 — 本会话修复的回归测试（DB-gated，CI 运行）
+
+新增 4 个集成回归测试（`testutil.TestDB`，无 `SREAGENT_TEST_DSN` 时跳过），锁定本会话高影响修复：
+- `repository/gorm_default_persist_test.go` `Test_NotifyRule_CreateDisabled_Persists` — 验证创建 `IsEnabled=false` 持久化为 false（GORM default:true 修复）。
+- `repository/scheduled_dispatch_regression_test.go` — `Test_ScheduledDispatch_MarkExpired_DispatchAt`（按 dispatch_at 过期、活跃重复链不误杀）+ `Test_ScheduledDispatch_RescheduleAfterFailure`（瞬时失败推进下一周期、计入 repeat_count、记 last_error）。
+- `repository/incident_snooze_regression_test.go` `Test_Incident_ListExpiredSnoozed` — 验证 snooze 到期唤醒的查询源。
+- `repository/incident_idor_regression_test.go` `Test_Incident_IncidentInTeams` — 验证 IDOR 团队范围原语（本团队放行 / 他团队+空团队拒绝）。
+
+> 仍待补（greenfield，非本会话回归）：incident 生命周期状态机/聚合、routing-rule、调度器全链路的独立测试套件；前端组件测试。
+
+### 消息模板多语言变体 + 群播文案 i18n 收尾
+
+**消息模板多语言变体：**
+- `MessageTemplate` 新增 `ContentEN`（英文变体，可选）。`RenderTemplateLang(ctx, id, data, lang)` 在 lang=="en" 且 ContentEN 非空时渲染英文变体，否则回退 `Content`；`RenderTemplate` 委托为默认变体。
+- 渲染入口按**渠道语言**选择变体：`notify_rule`（主发送 + 测试路径）、`scheduled_dispatch`（按 policy 的 unified media）经 `mediaLanguage(media)`（通用解析 media.Config 的 language 字段）传入。
+- 由此覆盖**所有渠道**（email/dingtalk/wecom/slack/discord 等纯模板驱动渠道的本地化内容即模板正文）。
+- 前端：`Templates.vue` 模板编辑器新增"英文内容（可选）"文本域；类型/payload/i18n key（`template.contentEn`）补齐。
+- 迁移：`000125_message_template_content_en`（up: ADD COLUMN content_en TEXT；down: DROP COLUMN）。MessageTemplate 在 AutoMigrate 列表，greenfield 自动建列。
+- 回归测试 `Test_mediaLanguage`（渠道语言解析：en/zh-CN/缺省/未知/畸形/nil）。
+
+**email + 其它群播渠道静态文案（核实结论）：**
+- 核实 `notify_media.go` **无任何硬编码中文**：email 主题为 `[SREAgent][SEVERITY] name`（中性），dingtalk/wecom/slack/discord 仅透传渲染后的 content。无静态文案需本地化——这些渠道的可本地化内容即模板正文，已由多语言变体覆盖。
+
+### 群播渠道级语言配置（出站卡片 i18n，补 per-recipient 无法覆盖的群播场景）
+
+- 飞书/Lark **群播告警卡片**静态标签支持按渠道（按 NotifyMedia）配置语言（zh-CN 默认 | en）。群播一条消息发给多接收人，无法 per-recipient，故语言挂在渠道维度。
+- 后端：新增 `pkg/lark` 卡片标签目录 `cardLabelsFor(lang)`（状态/级别/触发时间/标签/描述/AI 分析各子项/查看详情按钮）；`BuildWebhookCard` 增加 `lang` 参数；`larkWebhookConfig`/`feishuWebhookConfig`/`feishuCardConfig`/`feishuAppConfig` 增加 `language` 字段并透传到 4 个发送路径。仅群播 webhook 卡片本地化，DM/逐用户卡片不动。
+- 前端：`Media.vue` 媒介配置表单对 lark_webhook/feishu_webhook/feishu_card/feishu_app 新增"卡片语言"下拉（中文/English），写入/读取 config.language；新增 i18n key `media.cardLanguage`。
+- 回归测试 `Test_cardLabelsFor`（en 英文 / 其它回退中文）。
+- 文档 [docs/i18n.md](docs/i18n.md) 已记录该设计（群播按渠道、非按收件人）。
+
+### 后续补强（按用户要求）
+
+**GORM default:true — 扩展到剩余可安全去 tag 的 enable 标志：**
+- 再移除 4 个：inspection.Enabled、report_task.Enabled、diagnostic_workflow.Enabled（前端创建表单均固定下发该字段）、status_subscription.IsActive（repo.Subscribe 显式置 true）。显式 false 现正确持久化。
+- 经核对仍保留 tag（避免回归）：`channel.IsEnabled`（创建 handler 不设置该字段、且不在请求体中，去 tag 会使新建协作空间变 disabled）、`NotifyChannel.IsEnabled`（无用户创建路径，仅 escalation 内存态合成用）。
+
+**后端出站 i18n — AI 响应按请求用户语言（per-recipient）：**
+- 复用既有 `UserPreference.Language`（zh-CN|en）。新增 `AgentService.resolveOutputLang`（缺失/匿名→默认 zh-CN，永不报错）+ `SetUserPreferenceService` 注入（wire.go）。
+- AI Agent 面向用户的最终回答 system prompt 按用户语言切换中/英（`service/ai_agent.go`）；内部规划/判断 prompt 不本地化。
+- 文档 [docs/i18n.md](docs/i18n.md) 更新：群播卡片/告警通知无法 per-recipient（一条消息多接收人），需按渠道/任务配置语言，列为独立设计。
+- 回归测试 `Test_resolveOutputLang_defaults`（默认/匿名回退）。
+
+### 全局 Review 第三轮 — 修复落地（按用户决策）
+
+**🔴 GORM default:true 系统性 bug — 正确修复：**
+- 移除 17 个用户可创建"启用标志"字段的 `gorm:"default:true"` 结构体 tag，使 `db.Create` 持久化显式 `false`（之前被吞、DB 默认 1 覆盖→静默存成 enabled）。覆盖：notify_rule / notify_media / alert_forwarder / datasource / subscribe_rule / schedule(Schedule+EscalationPolicy) / mute_rule / inhibition_rule / dispatch / alert_channel / llm_config / mcp_server / ai_skill / integration(Integration+RoutingRule) / user(IsActive) / user_notify_config。
+- mute_rule / inhibition_rule 创建 handler 改为默认 `true`（原默认 false，依赖 DB 默认 bug 才"启用"），显式 false 现正确持久化。
+- 机制安全性已验证：迁移先于 AutoMigrate 运行（main.go 65→74），DB 列 `DEFAULT 1` 由 SQL 迁移保留、AutoMigrate 不改既有列；seed 显式设值（实际修正了 seed.go 中 8 个 `IsEnabled:false` 被吞成 enabled 的潜在 bug）。
+- 语义类 default:true（auto_action.DryRun/ApprovalRequired、preset_rule.IsBuiltin、builtin_dashboard.BuiltIn、diagnostic_workflow.RequireApproval、channel.FollowAlertClose）按设计保留；inspection/report_task/status_subscription/notification/channel.IsEnabled（直接绑定 model 的创建路径）暂不动，避免 omit→disabled 回归。
+
+**i18n 服务层回退为中文：**
+- 还原 commit 03a8577 的 32 处 service 层 `fmt.Errorf` 英文→中文（ai/ai_agent/ai_tools/diagnostic_workflow/inspection_executor/inspection_scheduler/lark_tools/report_executor/report_scheduler/rule_generator_improve），消除巡检/报告 `run.error_msg`、Lark 工具错误对中文用户显示英文的回归。
+- 删除 `pkg/i18n` 译表中无效的 service 层译项 + 对应测试断言（仅 handler.Error 走 LocalizeMessage，service 错误不经过且 `%w` 无法精确匹配）；保留有效的 AppError 错误码译表。
+
+**HIGH — 定时分派单次瞬时失败永久终止整链 修复：**
+- `ProcessDueDispatches` 发送失败时，对未达 `MaxRepeats` 的重复分派改为 `RescheduleAfterFailure`（推进到下一周期 + 记录 last_error），失败周期计入 repeat_count 以约束坏目标；非重复/已达上限才 `MarkFailed`（`service/scheduled_dispatch.go`、`repository/scheduled_dispatch.go`）。
+
+**MEDIUM — 补全剩余后台 goroutine panic 恢复：**
+- suppression GC 循环（goroutine + 按 tick 双层 recover）、leader_election renewLoop、redis stream_bus Subscribe、inspection/report handler 异步执行、task 执行的每主机 goroutine（panic 标记该主机失败而非崩溃进程）。
+
+**MEDIUM — task ExecuteDirect 入参校验 + SSH 并发上限：**
+- handler 校验：hosts 上限 500（`maxDirectExecHosts`）、tolerance/batch 拒绝负值；executor 批次内 SSH 并发用信号量限制为 50（`maxConcurrentSSH`），防 fd 耗尽（`handler/task.go`、`service/task_executor.go`）。
+
+### 全局 Review 第三轮（复核既有提交 + 新发现）
+
+**HIGH（已修）：**
+- 定时分派 24h 误杀重复链修复：`MarkExpired` 用 `created_at` 过滤，而重复分派跨周期不更新 `created_at`（`ScheduleNext` 只推进 `dispatch_at`），导致活跃重复链跨 24h 被强制 `expired`、升级/重复通知静默停止。改为按 `dispatch_at` 过滤（`repository/scheduled_dispatch.go`）。
+
+**MEDIUM（已修）：**
+- 后台 goroutine panic 恢复补全（前次"P0 补全"遗漏）：审计日志异步写入（请求热路径，`service/audit_log.go`）、AI 规则生成缓存 GC 长循环（按 tick 恢复，避免 GC 静默停止→内存增长，`service/rule_gen_cache.go`）。
+- 转发器编辑表单崩溃修复：`ForwarderForm.vue` `Object.assign` 浅拷贝覆盖后端 `omitempty` 嵌套配置（`auth_config`/`proxy_target`），切换 `auth_type`/代理模式时解引用 `undefined` 崩溃。改为 `deepMergeInto` 深合并保留种子默认值（`web/src/pages/notification/forwarders/ForwarderForm.vue`）。
+
+**复核发现 — 待决策（未改，见对话）：**
+- 🔴 **GORM `default:true` 系统性 bug 仍存在**：commit 91ad866 仅改测试（create-then-update 绕过）使测试变绿，生产代码未动。创建资源时 `is_enabled:false` 被静默存成 enabled，影响 notify_rule/notify_media/alert_forwarder/datasource/mute_rule 等 10+ 模型的 Create 路径。
+- i18n 服务层 32 处中文→英文转换无效且回归：仅 `handler.Error` 调用 `LocalizeMessage`，这些 service 错误不经过它；`%w` 包裹串无法精确匹配译表；巡检/报告 `run.error_msg`、Lark 工具错误现对中文用户显示英文。建议回退为中文。
+- 重复分派单次瞬时失败即永久终止整条重复链（`scheduled_dispatch.go`，需重试/终止策略决策）。
+- 其余后台 goroutine 仍缺 recover：suppression GC、leader_election renewLoop、stream_bus Subscribe、inspection/report handler fire-and-forget。
+- task `ExecuteDirect` host 列表无上限、tolerance 负值未校验。
+
 ### 全局 Review 修复（前后端 bug 排查）
 
 **CRITICAL：**

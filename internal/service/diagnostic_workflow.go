@@ -263,7 +263,7 @@ func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model
 		}
 		resp, err := s.dsSvc.QueryDatasource(ctx, *step.DatasourceID, step.Expression, time.Now())
 		if err != nil {
-			return "", fmt.Errorf("query failed: %w", err)
+			return "", fmt.Errorf("查询失败: %w", err)
 		}
 		summary := fmt.Sprintf("%d 条时间序列", len(resp.Series))
 		for i, series := range resp.Series {
@@ -324,7 +324,7 @@ func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model
 		}
 		changes, err := s.changeEventSvc.FindByTimeWindow(ctx, svcName, windowStart, windowEnd)
 		if err != nil {
-			return "", fmt.Errorf("change_correlation query failed: %w", err)
+			return "", fmt.Errorf("change_correlation 查询失败: %w", err)
 		}
 		if len(changes) == 0 {
 			return "change_correlation: 未发现相关变更", nil

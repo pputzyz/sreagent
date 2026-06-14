@@ -23,6 +23,7 @@ interface TemplateForm {
   description: string
   type: 'text' | 'html' | 'markdown' | 'lark_card'
   content: string
+  content_en: string
 }
 
 const crud = useCrudPage<MessageTemplate>({
@@ -31,6 +32,7 @@ const crud = useCrudPage<MessageTemplate>({
     name: '', description: '',
     type: 'text' as 'text' | 'html' | 'markdown' | 'lark_card',
     content: '',
+    content_en: '',
   } as unknown as Partial<MessageTemplate>),
   i18nKeys: {
     created: 'template.created',
@@ -43,10 +45,12 @@ const crud = useCrudPage<MessageTemplate>({
   rowToForm: (row) => ({
     name: row.name, description: row.description,
     type: row.type, content: row.content || '',
+    content_en: row.content_en || '',
   } as unknown as Partial<MessageTemplate>),
   formToPayload: (form) => ({
     name: form.name, description: form.description,
     type: form.type, content: form.content,
+    content_en: (form as unknown as TemplateForm).content_en,
   }),
   validate: (form) => {
     if (!form.name?.trim()) return t('template.nameRequired')
@@ -310,6 +314,12 @@ onMounted(fetchList)
             v-model:value="form.content" type="textarea" :rows="12"
             :placeholder="t('common.enterContent')"
             class="tmpl-content-input"
+          />
+        </n-form-item>
+        <n-form-item :label="t('template.contentEn')">
+          <n-input
+            v-model:value="form.content_en" type="textarea" :rows="8"
+            :placeholder="t('template.contentEnPlaceholder')"
           />
         </n-form-item>
       </n-form>

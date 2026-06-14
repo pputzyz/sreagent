@@ -400,7 +400,7 @@ func (s *NotifyRuleService) ProcessEvent(ctx context.Context, event *model.Alert
 		// Render template
 		var renderedContent string
 		if nc.TemplateID > 0 {
-			rendered, err := s.templateSvc.RenderTemplate(ctx, nc.TemplateID, templateData)
+			rendered, err := s.templateSvc.RenderTemplateLang(ctx, nc.TemplateID, templateData, mediaLanguage(media))
 			if err != nil {
 				s.logger.Error("failed to render template",
 					zap.Uint("template_id", nc.TemplateID),
@@ -965,7 +965,7 @@ func (s *NotifyRuleService) TestRule(ctx context.Context, ruleID uint, req TestR
 		// Render template
 		var renderedContent string
 		if nc.TemplateID > 0 {
-			rendered, err := s.templateSvc.RenderTemplate(ctx, nc.TemplateID, templateData)
+			rendered, err := s.templateSvc.RenderTemplateLang(ctx, nc.TemplateID, templateData, mediaLanguage(media))
 			if err != nil {
 				renderedContent = fmt.Sprintf("[%s] %s - test (template error: %v)", severity, alertName, err)
 			} else {

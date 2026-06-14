@@ -36,8 +36,8 @@ type DataSource struct {
 	AuthConfig string `json:"-" gorm:"type:text"`       // JSON: {"username":"x","password":"y"} or {"token":"x"}
 	// Health check
 	HealthCheckInterval int    `json:"health_check_interval" gorm:"default:60"` // seconds
-	IsEnabled           bool   `json:"is_enabled" gorm:"default:true"`
-	Version             string `json:"version" gorm:"size:128"` // populated by health check
+	IsEnabled           bool   `json:"is_enabled"`                              // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
+	Version             string `json:"version" gorm:"size:128"`                 // populated by health check
 	// Computed (not stored in DB) — populated by AfterFind hook
 	SupportsQueryField bool `json:"supports_query" gorm:"-"` // true for PromQL/LogsQL types; false for Zabbix
 }

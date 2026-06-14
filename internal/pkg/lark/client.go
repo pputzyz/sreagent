@@ -520,25 +520,27 @@ func BuildWebhookCard(
 	renderedContent string,
 	analysis *AIAnalysisResult,
 	platformURL string,
+	lang string,
 ) *CardMessage {
 	tmpl := severityTemplate(severity)
 	emoji := severityEmoji(severity)
+	lbl := cardLabelsFor(lang)
 
 	headerContent := fmt.Sprintf("%s [%s] %s", emoji, strings.ToUpper(severity), alertName)
 
 	// Status section
-	statusText := "告警中"
+	statusText := lbl.StatusFiring
 	if strings.ToLower(status) == "resolved" {
-		statusText = "已恢复"
+		statusText = lbl.StatusResol
 	} else if strings.ToLower(status) == "acknowledged" {
-		statusText = "已确认"
+		statusText = lbl.StatusAcked
 	}
 
 	elements := []interface{}{
 		// Basic info
 		CardMarkdown{
 			Tag:     "markdown",
-			Content: fmt.Sprintf("**状态:** %s\n**级别:** %s\n**触发时间:** %s", statusText, severity, firedAt.Format("2006-01-02 15:04:05")),
+			Content: fmt.Sprintf("**%s:** %s\n**%s:** %s\n**%s:** %s", lbl.FieldStatus, statusText, lbl.FieldLevel, severity, lbl.FieldFiredAt, firedAt.Format("2006-01-02 15:04:05")),
 		},
 		CardDivider{Tag: "hr"},
 	}
@@ -564,12 +566,12 @@ func BuildWebhookCard(
 	}
 	labelsText := labelsBuilder.String()
 	if labelsText == "" {
-		labelsText = "_无额外标签_"
+		labelsText = lbl.NoLabels
 	}
 	elements = append(elements,
 		CardMarkdown{
 			Tag:     "markdown",
-			Content: fmt.Sprintf("📋 **标签**\n%s", labelsText),
+			Content: fmt.Sprintf("📋 **%s**\n%s", lbl.LabelsTitle, labelsText),
 		},
 		CardDivider{Tag: "hr"},
 	)
@@ -581,26 +583,26 @@ func BuildWebhookCard(
 	}
 	annotationsText := annotationsBuilder.String()
 	if annotationsText == "" {
-		annotationsText = "_无描述_"
+		annotationsText = lbl.NoDesc
 	}
 	elements = append(elements,
 		CardMarkdown{
 			Tag:     "markdown",
-			Content: fmt.Sprintf("📝 **描述**\n%s", annotationsText),
+			Content: fmt.Sprintf("📝 **%s**\n%s", lbl.DescTitle, annotationsText),
 		},
 	)
 
 	// AI Analysis section (only if analysis is provided)
 	if analysis != nil {
 		var aiContent strings.Builder
-		aiContent.WriteString("🤖 **AI 分析**\n\n")
+		aiContent.WriteString("🤖 **" + lbl.AITitle + "**\n\n")
 
 		if analysis.Summary != "" {
-			fmt.Fprintf(&aiContent, "**摘要:** %s\n\n", analysis.Summary)
+			fmt.Fprintf(&aiContent, "**%s:** %s\n\n", lbl.AISummary, analysis.Summary)
 		}
 
 		if len(analysis.ProbableCauses) > 0 {
-			aiContent.WriteString("**可能原因:**\n")
+			fmt.Fprintf(&aiContent, "**%s:**\n", lbl.AICauses)
 			for i, cause := range analysis.ProbableCauses {
 				fmt.Fprintf(&aiContent, "%d. %s\n", i+1, cause)
 			}
@@ -608,11 +610,11 @@ func BuildWebhookCard(
 		}
 
 		if analysis.Impact != "" {
-			fmt.Fprintf(&aiContent, "**影响范围:** %s\n\n", analysis.Impact)
+			fmt.Fprintf(&aiContent, "**%s:** %s\n\n", lbl.AIImpact, analysis.Impact)
 		}
 
 		if len(analysis.RecommendedSteps) > 0 {
-			aiContent.WriteString("**建议操作:**\n")
+			fmt.Fprintf(&aiContent, "**%s:**\n", lbl.AISteps)
 			for i, step := range analysis.RecommendedSteps {
 				fmt.Fprintf(&aiContent, "%d. %s\n", i+1, step)
 			}
@@ -644,7 +646,7 @@ func BuildWebhookCard(
 				Actions: []interface{}{
 					CardButton{
 						Tag:  "button",
-						Text: CardText{Tag: "plain_text", Content: "📊 查看详情"},
+						Text: CardText{Tag: "plain_text", Content: lbl.BtnDetail},
 						URL:  platformURL,
 						Type: "primary",
 					},

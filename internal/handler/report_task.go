@@ -203,6 +203,11 @@ func (h *ReportTaskHandler) RunNow(c *gin.Context) {
 
 	// Execute asynchronously; use Background context to avoid cancellation after request ends.
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				zap.L().Error("report run goroutine panic recovered", zap.Uint("task_id", task.ID), zap.Any("recover", r))
+			}
+		}()
 		_, _, _ = h.execSvc.Run(context.Background(), task)
 	}()
 

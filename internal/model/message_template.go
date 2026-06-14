@@ -8,8 +8,12 @@ type MessageTemplate struct {
 	BaseModel
 	Name        string `json:"name" gorm:"size:128;not null;uniqueIndex"`
 	Description string `json:"description" gorm:"size:512"`
-	// Content is a Go template string
+	// Content is a Go template string — the default/Chinese variant.
 	Content string `json:"content" gorm:"type:text;not null"`
+	// ContentEN is the optional English variant. When a notification's channel
+	// (or recipient) language resolves to "en" and this is non-empty, it is rendered
+	// instead of Content; otherwise Content is the fallback.
+	ContentEN string `json:"content_en" gorm:"type:text"`
 	// Template type determines the output format
 	Type      string `json:"type" gorm:"size:32;default:text"` // text, html, markdown, lark_card
 	IsBuiltin bool   `json:"is_builtin" gorm:"default:false"`

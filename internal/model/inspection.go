@@ -12,7 +12,7 @@ type InspectionTask struct {
 	TargetIDs      string `json:"target_ids" gorm:"type:json"`                        // [1,2,3]
 	AllowedTools   string `json:"allowed_tools" gorm:"type:json"`                     // ["tool_a","tool_b"]
 	OutputChannels string `json:"output_channels" gorm:"type:json;not null"`          // channel config array
-	Enabled        bool   `json:"enabled" gorm:"default:true"`
+	Enabled        bool   `json:"enabled"`                                            // create form always sends this; DB column keeps DEFAULT 1 for seeds
 	CreatedBy      uint   `json:"created_by" gorm:"not null"`
 }
 

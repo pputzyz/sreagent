@@ -63,7 +63,7 @@ func NewReportScheduler(
 func (s *ReportScheduler) Start(ctx context.Context) error {
 	tasks, err := s.taskRepo.ListEnabledTasks(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load report tasks: %w", err)
+		return fmt.Errorf("加载报告任务失败: %w", err)
 	}
 
 	s.mu.Lock()
@@ -128,7 +128,7 @@ func (s *ReportScheduler) addTask(task model.ReportTask) error {
 		s.runWithLeaderCheck(&taskCopy)
 	})
 	if err != nil {
-		return fmt.Errorf("invalid cron expression %q: %w", task.CronExpr, err)
+		return fmt.Errorf("无效的 cron 表达式 %q: %w", task.CronExpr, err)
 	}
 
 	s.entries[task.ID] = entryID

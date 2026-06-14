@@ -41,7 +41,7 @@ type Channel struct {
 	AutoCloseOrigin  string `json:"auto_close_origin" gorm:"size:32;default:triggered"` // triggered | last_alert
 	AutoCloseMinutes int    `json:"auto_close_minutes" gorm:"default:0"`
 	// FollowAlertClose: when all related alerts recover, auto-close the incident.
-	FollowAlertClose bool `json:"follow_alert_close" gorm:"default:true"`
+	FollowAlertClose bool `json:"follow_alert_close"`
 
 	// --- Metrics (denormalized for list display) ---
 	ActiveIncidentCount int `json:"active_incident_count" gorm:"default:0"`
@@ -108,7 +108,7 @@ type ChannelExclusionRule struct {
 	Name        string `json:"name" gorm:"size:128;not null"`
 	Description string `json:"description" gorm:"size:512"`
 	Conditions  string `json:"conditions" gorm:"type:json"` // []FilterCondition JSON
-	IsEnabled   bool   `json:"is_enabled" gorm:"default:true"`
+	IsEnabled   bool   `json:"is_enabled"`
 	Priority    int    `json:"priority" gorm:"default:0;index"`
 }
 

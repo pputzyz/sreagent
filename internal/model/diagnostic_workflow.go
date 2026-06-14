@@ -10,9 +10,9 @@ type DiagnosticWorkflow struct {
 	TriggerLabels   JSONLabels `json:"trigger_labels" gorm:"type:json"`
 	TriggerSeverity string     `json:"trigger_severity" gorm:"size:20"`
 	Category        string     `json:"category" gorm:"size:50;default:general"`
-	Enabled         bool       `json:"enabled" gorm:"default:true"`
+	Enabled         bool       `json:"enabled"` // create form always sends this; DB column keeps DEFAULT 1 for seeds
 	MaxSteps        int        `json:"max_steps" gorm:"default:10"`
-	RequireApproval bool       `json:"require_approval" gorm:"default:true"`
+	RequireApproval bool       `json:"require_approval"`
 	CreatedBy       *uint      `json:"created_by" gorm:"index"`
 }
 
@@ -28,7 +28,7 @@ type DiagnosticWorkflowStep struct {
 	DatasourceID   *uint     `json:"datasource_id"`
 	Expression     string    `json:"expression" gorm:"type:text"`
 	ConditionExpr  string    `json:"condition_expr" gorm:"size:500"`
-	AutoAdvance    bool      `json:"auto_advance" gorm:"default:true"`
+	AutoAdvance    bool      `json:"auto_advance"`
 	TimeoutSeconds int       `json:"timeout_seconds" gorm:"default:30"`
 	OnFailure      string    `json:"on_failure" gorm:"size:20;default:continue"`
 	CreatedAt      time.Time `json:"created_at"`

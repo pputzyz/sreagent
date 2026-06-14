@@ -38,6 +38,12 @@ func (s *AuditLogService) Record(entry *model.AuditLog) {
 	case s.dispatchSem <- struct{}{}:
 		go func() {
 			defer func() { <-s.dispatchSem }()
+			// Recover so a panic on the (request-triggered) audit path never crashes the process.
+			defer func() {
+				if r := recover(); r != nil {
+					s.logger.Error("audit log goroutine panic recovered", zap.Any("recover", r))
+				}
+			}()
 			if err := s.repo.Create(context.Background(), entry); err != nil {
 				s.logger.Warn("failed to write audit log",
 					zap.String("action", entry.Action),

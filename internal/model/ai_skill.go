@@ -17,7 +17,7 @@ type AISkill struct {
 	Compatibility string         `json:"compatibility" gorm:"size:255"`
 	AllowedTools  string         `json:"allowed_tools" gorm:"size:4096"` // space-separated tool whitelist
 	Metadata      string         `json:"metadata" gorm:"type:text"`      // JSON map[string]string
-	Enabled       bool           `json:"enabled" gorm:"default:true;index"`
+	Enabled       bool           `json:"enabled" gorm:"index"`           // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	CreatedBy     string         `json:"created_by" gorm:"size:64"`
 	UpdatedBy     string         `json:"updated_by" gorm:"size:64"`
 	CreatedAt     time.Time      `json:"created_at"`

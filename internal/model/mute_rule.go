@@ -21,7 +21,7 @@ type MuteRule struct {
 	Timezone      string `json:"timezone" gorm:"size:64;default:Asia/Shanghai"`
 	// Who created it
 	CreatedBy uint `json:"created_by" gorm:"index"`
-	IsEnabled bool `json:"is_enabled" gorm:"default:true"`
+	IsEnabled bool `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	// Optional: specific rule IDs to mute (empty = match by labels)
 	RuleIDs string `json:"rule_ids" gorm:"size:512"` // comma-separated
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,10 @@ import (
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
+
+// maxDirectExecHosts caps the number of hosts a single direct execution may target,
+// bounding fan-out (SSH dials / goroutines) and blast radius.
+const maxDirectExecHosts = 500
 
 // TaskHandler handles task execution and record API endpoints.
 type TaskHandler struct {
@@ -86,6 +91,21 @@ func (h *TaskHandler) ExecuteDirect(c *gin.Context) {
 
 	if req.Title == "" {
 		req.Title = "Direct Execution"
+	}
+
+	// Bound blast radius / resource use of a direct execution.
+	if len(req.Hosts) > maxDirectExecHosts {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam,
+			fmt.Sprintf("too many hosts: %d (max %d)", len(req.Hosts), maxDirectExecHosts)))
+		return
+	}
+	if req.Tolerance < 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "tolerance must be >= 0"))
+		return
+	}
+	if req.Batch < 0 {
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "batch must be >= 0 (0 = all at once)"))
+		return
 	}
 
 	record, err := h.executor.ExecuteDirect(c.Request.Context(),

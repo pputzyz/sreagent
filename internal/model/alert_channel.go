@@ -18,7 +18,7 @@ type AlertChannel struct {
 	TemplateID *uint `json:"template_id" gorm:"index"`       // optional template override
 	// Throttle in minutes (0 = no throttle)
 	ThrottleMin int  `json:"throttle_min" gorm:"default:5"`
-	IsEnabled   bool `json:"is_enabled" gorm:"default:true"`
+	IsEnabled   bool `json:"is_enabled"` // create handler defaults to true; DB column keeps DEFAULT 1 for seeds
 	CreatedBy   uint `json:"created_by" gorm:"index"`
 }
 

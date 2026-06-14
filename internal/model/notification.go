@@ -22,7 +22,7 @@ type NotifyChannel struct {
 	// Lark webhook: {"webhook_url": "https://..."}
 	// Email: {"smtp_host": "...", "recipients": ["a@b.com"]}
 	Config    string `json:"-" gorm:"type:text;not null"`
-	IsEnabled bool   `json:"is_enabled" gorm:"default:true"`
+	IsEnabled bool   `json:"is_enabled"`
 }
 
 func (NotifyChannel) TableName() string {
