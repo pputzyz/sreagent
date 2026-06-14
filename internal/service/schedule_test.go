@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -968,7 +969,13 @@ func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
 	if db == nil {
 		t.Skip("SREAGENT_TEST_DSN not set")
 	}
-	testutil.CleanupDB(t, db)
+	// Use raw SQL with SET to ensure cleanup is atomic and visible
+	db.Exec("SET FOREIGN_KEY_CHECKS = 0")
+	db.Exec("TRUNCATE TABLE oncall_shifts")
+	db.Exec("TRUNCATE TABLE schedule_overrides")
+	db.Exec("TRUNCATE TABLE schedule_participants")
+	db.Exec("TRUNCATE TABLE schedules")
+	db.Exec("SET FOREIGN_KEY_CHECKS = 1")
 	t.Cleanup(func() { testutil.CleanupDB(t, db) })
 
 	logger := testutil.TestLogger()
@@ -986,8 +993,9 @@ func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
 	user2 := testutil.SeedUser(t, db, "weekly-bob", model.RoleMember)
 
 	// Create a schedule with weekly rotation (Monday handoff)
+	// Use unique name to avoid collision with stale data from failed previous runs
 	schedule := &model.Schedule{
-		Name:         "weekly-rotation-schedule",
+		Name:         fmt.Sprintf("weekly-rotation-%d", time.Now().UnixNano()),
 		RotationType: model.RotationWeekly,
 		Timezone:     "UTC",
 		HandoffTime:  "09:00",
@@ -1009,7 +1017,8 @@ func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
 	}).Error)
 
 	// Create two weekly shifts spanning different weeks
-	now := time.Now()
+	// Truncate to second precision to avoid MySQL datetime rounding issues
+	now := time.Now().Truncate(time.Second)
 	// Current week shift for user1
 	shift1 := &model.OnCallShift{
 		ScheduleID: schedule.ID,
@@ -1020,11 +1029,11 @@ func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
 	}
 	require.NoError(t, svc.CreateShift(context.Background(), shift1))
 
-	// Next week shift for user2
+	// Next week shift for user2 — start == shift1.end, no overlap
 	shift2 := &model.OnCallShift{
 		ScheduleID: schedule.ID,
 		UserID:     user2.ID,
-		StartTime:  now.Add(6 * 24 * time.Hour),
+		StartTime:  now.Add(6 * 24 * time.Hour), // exactly shift1.EndTime
 		EndTime:    now.Add(13 * 24 * time.Hour), // covers next week
 		Source:     "rotation",
 	}

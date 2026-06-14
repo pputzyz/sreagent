@@ -181,11 +181,11 @@ func (r *AIToolRegistry) RegisterBuiltinTools(
 
 			duration, err := time.ParseDuration(timeRange)
 			if err != nil {
-				return "", fmt.Errorf("无效的时间范围格式 %q: %w", timeRange, err)
+				return "", fmt.Errorf("invalid time range format %q: %w", timeRange, err)
 			}
 
 			if duration > maxQueryRange {
-				return "", fmt.Errorf("查询时间范围 %v 超过 AI 工具允许的最大值 %v", timeRange, maxQueryRange)
+				return "", fmt.Errorf("query time range %v exceeds maximum allowed by AI tools %v", timeRange, maxQueryRange)
 			}
 
 			end := time.Now()

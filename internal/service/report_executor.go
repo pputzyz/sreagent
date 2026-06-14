@@ -95,7 +95,7 @@ func (e *ReportExecutor) Run(ctx context.Context, task *model.ReportTask) (*mode
 		StartedAt: time.Now(),
 	}
 	if err := e.runRepo.CreateRun(ctx, run); err != nil {
-		return nil, nil, fmt.Errorf("创建报告运行记录失败: %w", err)
+		return nil, nil, fmt.Errorf("failed to create report run: %w", err)
 	}
 
 	e.logger.Info("报告任务开始执行",
@@ -139,7 +139,7 @@ func (e *ReportExecutor) Run(ctx context.Context, task *model.ReportTask) (*mode
 		now := time.Now()
 		run.FinishedAt = &now
 		_ = e.runRepo.UpdateRun(ctx, run)
-		return run, stats, fmt.Errorf("报告 Agent 执行失败: %w", err)
+		return run, stats, fmt.Errorf("report agent execution failed: %w", err)
 	}
 
 	run.AIConversationID = &result.ConversationID
