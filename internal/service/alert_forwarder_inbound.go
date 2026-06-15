@@ -318,7 +318,13 @@ func (s *AlertForwarderService) processIntegrateAlert(ctx context.Context, forwa
 	if caps.EnableInhibition && s.inhibitorSvc != nil {
 		var firingEvents []model.AlertEvent
 		if s.eventRepo != nil {
-			firingEvents, _, _ = s.eventRepo.List(ctx, "firing", "", 1, 2000)
+			var queryErr error
+			firingEvents, _, queryErr = s.eventRepo.List(ctx, "firing", "", 1, 2000)
+			if queryErr != nil {
+				s.logger.Error("failed to query firing events for inhibition check",
+					zap.Uint("forwarder_id", forwarder.ID),
+					zap.Error(queryErr))
+			}
 		}
 		if s.inhibitorSvc.IsInhibited(ctx, event, firingEvents) {
 			s.logger.Info("inbound alert inhibited",

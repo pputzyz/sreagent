@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -227,7 +226,7 @@ func (h *AISkillHandler) DeleteFile(c *gin.Context) {
 func (h *AISkillHandler) Import(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "file is required"))
 		return
 	}
 	defer func() { _ = file.Close() }()
@@ -244,11 +243,11 @@ func (h *AISkillHandler) Import(c *gin.Context) {
 	} else if ext == ".gz" && strings.HasSuffix(strings.ToLower(header.Filename), ".tar.gz") {
 		skill, files, err = parseTarGzArchive(file)
 	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported format, use .zip or .tar.gz"})
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, "unsupported format, use .zip or .tar.gz"))
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		Error(c, apperr.WithMessage(apperr.ErrInvalidParam, err.Error()))
 		return
 	}
 

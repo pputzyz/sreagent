@@ -267,10 +267,19 @@ func (m *AlertGroupManager) Stop() {
 			// Use detached context for flush — serverCtx may be cancelled during shutdown
 			flushCtx, flushCancel := context.WithTimeout(context.Background(), 30*time.Second)
 			if m.batchRouteFunc != nil {
-				_ = m.batchRouteFunc(flushCtx, events)
+				if err := m.batchRouteFunc(flushCtx, events); err != nil {
+					m.logger.Error("alert group batch route failed",
+						zap.Int("event_count", len(events)),
+						zap.Error(err))
+				}
 			} else {
 				for _, event := range events {
-					_ = m.routeFunc(flushCtx, event)
+					if err := m.routeFunc(flushCtx, event); err != nil {
+						m.logger.Error("alert group route failed",
+							zap.Uint("event_id", event.ID),
+							zap.String("alert_name", event.AlertName),
+							zap.Error(err))
+					}
 				}
 			}
 			flushCancel()
