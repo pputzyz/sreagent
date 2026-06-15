@@ -179,6 +179,7 @@ func initLogger(cfg config.LogConfig) *zap.Logger {
 }
 
 func initDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
+	cfg.SetDefaults()
 	gormLogLevel := logger.Silent
 	if cfg.Debug {
 		gormLogLevel = logger.Info

@@ -77,6 +77,19 @@ func (d *DatabaseConfig) DSN() string {
 		d.Username, d.Password, d.Host, d.Port, d.Database, d.Charset)
 }
 
+// SetDefaults fills in zero-value fields with production-safe defaults.
+func (d *DatabaseConfig) SetDefaults() {
+	if d.MaxIdleConns <= 0 {
+		d.MaxIdleConns = 10
+	}
+	if d.MaxOpenConns <= 0 {
+		d.MaxOpenConns = 50
+	}
+	if d.MaxLifetime <= 0 {
+		d.MaxLifetime = 300 // 5 minutes
+	}
+}
+
 // SafeDSN returns the DSN with the password masked for safe logging.
 // Useful for startup logs and health-check endpoints.
 func (d *DatabaseConfig) SafeDSN() string {

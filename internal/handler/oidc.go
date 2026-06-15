@@ -49,7 +49,7 @@ func (h *OIDCHandler) LoginRedirect(c *gin.Context) {
 
 	// Store state in a secure cookie for CSRF protection
 	c.SetSameSite(http.SameSiteLaxMode)
-	secure := c.Request.TLS != nil
+	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
 	c.SetCookie("oidc_state", state, 300, "/", "", secure, true)
 
 	c.Redirect(http.StatusFound, authURL)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -106,6 +106,13 @@ onMounted(() => {
   if (route.query.search) searchQuery.value = String(route.query.search)
   fetchList()
   loadChannels()
+})
+
+onUnmounted(() => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
 })
 
 const {
