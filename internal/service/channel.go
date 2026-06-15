@@ -74,6 +74,23 @@ func (s *ChannelService) List(ctx context.Context, query, status string, page, p
 	return list, total, nil
 }
 
+// CanAccess checks if a user with the given team IDs can access the channel.
+func (s *ChannelService) CanAccess(ctx context.Context, id uint, teamIDs []uint) (bool, error) {
+	ch, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if ch.TeamID == nil || *ch.TeamID == 0 {
+		return true, nil
+	}
+	for _, tid := range teamIDs {
+		if tid == *ch.TeamID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // Update updates an existing channel.
 // P1-18: Pointer-based patching — only fields present in the request are updated.
 func (s *ChannelService) Update(ctx context.Context, id uint, updates *model.Channel) (*model.Channel, error) {

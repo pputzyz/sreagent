@@ -771,6 +771,12 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		if event.Status == model.EventStatusResolved || event.Status == model.EventStatusClosed {
 			if svcs.KnowledgeSvc != nil {
 				go func(ev *model.AlertEvent) {
+					defer func() {
+						if r := recover(); r != nil {
+							zapLogger.Error("knowledge ingestion panic",
+								zap.Uint("event_id", ev.ID), zap.Any("recover", r))
+						}
+					}()
 					bgCtx, bgCancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer bgCancel()
 					if err := svcs.KnowledgeSvc.IngestFromAlertEvent(bgCtx, ev); err != nil {
@@ -828,6 +834,14 @@ func initDependencies(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger) (*
 		// 6. Outbound forwarding via AlertForwarder (async, non-blocking).
 		if svcs.AlertForwarderSvc != nil {
 			go func(ev *model.AlertEvent) {
+				defer func() {
+					if r := recover(); r != nil {
+						zapLogger.Error("outbound forwarding panic",
+							zap.Uint("event_id", ev.ID),
+							zap.String("alert_name", ev.AlertName),
+							zap.Any("recover", r))
+					}
+				}()
 				fwdCtx, fwdCancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer fwdCancel()
 				if err := svcs.AlertForwarderSvc.ProcessOutbound(fwdCtx, ev); err != nil {
