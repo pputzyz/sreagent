@@ -71,10 +71,25 @@ func (h *LarkBotHandler) CardActionCallback(c *gin.Context) {
 func (h *LarkBotHandler) GetConfig(c *gin.Context) {
 	cfg, err := h.svc.GetConfig(c.Request.Context())
 	if err != nil {
-		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to load Lark config: "+err.Error()))
+		Error(c, apperr.WithMessage(apperr.ErrExternalAPI, "failed to load Lark config"))
 		return
 	}
+	// Mask sensitive fields
+	maskLarkConfig(&cfg)
 	Success(c, cfg)
+}
+
+// maskLarkConfig masks sensitive fields in LarkConfig.
+func maskLarkConfig(cfg *service.LarkConfig) {
+	if cfg.AppSecret != "" {
+		cfg.AppSecret = "***"
+	}
+	if cfg.VerificationToken != "" {
+		cfg.VerificationToken = "***"
+	}
+	if cfg.EncryptKey != "" {
+		cfg.EncryptKey = "***"
+	}
 }
 
 // UpdateConfig updates the Lark bot configuration.
