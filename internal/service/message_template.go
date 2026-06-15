@@ -213,6 +213,11 @@ func (s *MessageTemplateService) RenderContent(ctx context.Context, content stri
 
 	ch := make(chan renderResult, 1)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- renderResult{err: fmt.Errorf("template render panic: %v", r)}
+			}
+		}()
 		var buf bytes.Buffer
 		if err := t.Execute(&buf, data); err != nil {
 			ch <- renderResult{err: err}

@@ -235,7 +235,12 @@ func (s *InspectionScheduler) notifyResult(task *model.InspectionTask, run *mode
 			}
 			body, _ := json.Marshal(payload)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			req, _ := http.NewRequestWithContext(ctx, http.MethodPost, ch.URL, bytes.NewReader(body))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, ch.URL, bytes.NewReader(body))
+			if err != nil {
+				cancel()
+				s.logger.Error("failed to create webhook request", zap.Error(err))
+				continue
+			}
 			req.Header.Set("Content-Type", "application/json")
 
 			// HMAC-SHA256 signing for webhook payload integrity verification (B8-12).

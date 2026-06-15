@@ -378,6 +378,11 @@ func (s *RuleGeneratorService) buildLabelContext(ctx context.Context, datasource
 	}
 	ch := make(chan keysResult, 1)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- keysResult{err: fmt.Errorf("label query panic: %v", r)}
+			}
+		}()
 		k, e := s.labelRegSvc.GetKeys(ctx, dsIDs)
 		ch <- keysResult{keys: k, err: e}
 	}()

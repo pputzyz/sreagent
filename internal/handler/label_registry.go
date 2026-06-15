@@ -3,13 +3,15 @@ package handler
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
-	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
+	"go.uber.org/zap"
 
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -69,6 +71,13 @@ func (h *LabelRegistryHandler) Sync(c *gin.Context) {
 	}
 	go func() {
 		defer h.syncRunning.Store(false)
+		defer func() {
+			if r := recover(); r != nil {
+				zap.L().Error("label registry sync panic",
+					zap.Any("recover", r),
+					zap.String("stack", string(debug.Stack())))
+			}
+		}()
 		// Use the server-level context so sync is cancelled on shutdown.
 		h.svc.SyncAll(h.ctx)
 	}()

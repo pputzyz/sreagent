@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/sreagent/sreagent/internal/model"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
@@ -153,6 +154,11 @@ func (h *AgentHandler) streamAgentTaskViaBus(c *gin.Context, taskID string, task
 
 	// Schedule stream cleanup after 5 minute grace period (deferred).
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				zap.L().Error("SSE stream cleanup panic", zap.Any("recover", r))
+			}
+		}()
 		<-c.Request.Context().Done()
 		time.AfterFunc(5*time.Minute, func() {
 			_ = h.agentSvc.DeleteStream(context.Background(), taskID)

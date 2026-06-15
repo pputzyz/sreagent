@@ -52,6 +52,13 @@ func NewRateLimiter(rate float64, burst int) *RateLimiter {
 }
 
 func (rl *RateLimiter) cleanupLoop() {
+	defer func() {
+		if r := recover(); r != nil {
+			// Rate limiter cleanup crashed; restart after delay
+			time.Sleep(time.Minute)
+			go rl.cleanupLoop()
+		}
+	}()
 	ticker := time.NewTicker(rl.cleanup)
 	defer ticker.Stop()
 	for range ticker.C {

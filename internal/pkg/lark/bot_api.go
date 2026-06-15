@@ -256,7 +256,7 @@ func (c *BotClient) getTenantAccessToken(ctx context.Context) (string, error) {
 			return larkAPIResult{}, fmt.Errorf("get tenant_access_token: %w", err)
 		}
 		defer func() { _ = resp.Body.Close() }()
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 
 		if err := json.Unmarshal(respBody, &tokenResult); err != nil {
 			return larkAPIResult{}, fmt.Errorf("parse token response: %w", err)

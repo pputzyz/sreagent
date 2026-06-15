@@ -223,7 +223,7 @@ func (s *OAuth2Service) exchangeToken(ctx context.Context, cfg OAuth2Config, cod
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 256<<10))
 	if err != nil {
 		return "", fmt.Errorf("oauth2: read token response: %w", err)
 	}
@@ -273,7 +273,7 @@ func (s *OAuth2Service) fetchUserInfo(ctx context.Context, cfg OAuth2Config, acc
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 256<<10))
 	if err != nil {
 		return nil, fmt.Errorf("oauth2: read userinfo response: %w", err)
 	}

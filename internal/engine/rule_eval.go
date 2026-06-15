@@ -658,6 +658,14 @@ func (re *RuleEvaluator) executeVarFillingBeforeQuery(ctx context.Context, vc *m
 				<-sem
 				wg.Done()
 			}()
+			defer func() {
+				if r := recover(); r != nil {
+					zap.L().Error("multi-query goroutine panic",
+						zap.String("rule", re.rule.Name),
+						zap.String("query", queryExpr),
+						zap.Any("recover", r))
+				}
+			}()
 
 			var results []datasource.QueryResult
 			var err error

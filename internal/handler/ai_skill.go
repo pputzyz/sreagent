@@ -298,7 +298,7 @@ func parseZipArchive(r io.ReaderAt, size int64) (*model.AISkill, []model.AISkill
 		if err != nil {
 			return nil, nil, err
 		}
-		content, err := io.ReadAll(rc)
+		content, err := io.ReadAll(io.LimitReader(rc, 10<<20))
 		_ = rc.Close()
 		if err != nil {
 			return nil, nil, err
@@ -360,7 +360,7 @@ func parseTarGzArchive(r io.Reader) (*model.AISkill, []model.AISkillFile, error)
 			fileName = strings.TrimPrefix(name, skillDir)
 		}
 
-		content, err := io.ReadAll(tr)
+		content, err := io.ReadAll(io.LimitReader(tr, 10<<20))
 		if err != nil {
 			return nil, nil, err
 		}

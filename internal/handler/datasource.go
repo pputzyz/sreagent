@@ -602,6 +602,11 @@ func (h *DataSourceHandler) DsQuery(c *gin.Context) {
 			Step         string  `json:"step"`
 		}) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					zap.L().Error("datasource query panic", zap.Int("index", idx), zap.Any("recover", r))
+				}
+			}()
 			ctx := c.Request.Context()
 
 			if query.Start > 0 && query.End > 0 {
