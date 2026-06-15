@@ -297,6 +297,11 @@ func (s *LarkBotService) HandleEvent(ctx context.Context, body []byte, signature
 		return nil, fmt.Errorf("lark request timestamp out of acceptable window")
 	}
 
+	// Reject if no authentication is configured at all.
+	if cfg.EncryptKey == "" && cfg.VerificationToken == "" {
+		return nil, fmt.Errorf("lark bot authentication not configured: set encrypt_key or verification_token")
+	}
+
 	// Verify HMAC-SHA256 signature (preferred over plaintext token verification).
 	if cfg.EncryptKey != "" && signature != "" {
 		if !verifyLarkSignature(timestamp, nonce, cfg.EncryptKey, body, signature) {

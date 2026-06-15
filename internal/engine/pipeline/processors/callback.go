@@ -3,7 +3,6 @@ package processors
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -74,13 +73,8 @@ func (p *callbackProcessor) Process(ctx context.Context, event *model.AlertEvent
 	}
 
 	client := safehttp.NewSafeClient(time.Duration(p.Timeout) * time.Second)
-	if p.SkipSSLVerify {
-		// nolint:gosec
-		if st, ok := client.Transport.(*safehttp.SafeTransport); ok {
-			// nolint:gosec
-			st.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		}
-	}
+	// Note: skip_ssl_verify is intentionally ignored for security.
+	// SSL verification cannot be disabled even in pipeline callbacks.
 
 	resp, err := client.Do(req)
 	if err != nil {

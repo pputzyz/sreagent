@@ -23,8 +23,8 @@ func (h *Handlers) registerBuiltinMetricRoutes(auth *gin.RouterGroup, adminOnly,
 	mf := auth.Group("/builtin-metric-filters")
 	{
 		mf.GET("", h.BuiltinMetric.ListFilters)
-		mf.POST("", h.BuiltinMetric.CreateFilter)
-		mf.PUT("", h.BuiltinMetric.UpdateFilter)
-		mf.POST("/delete", h.BuiltinMetric.DeleteFilter)
+		mf.POST("", manage, middleware.RequirePerm("metrics.write"), h.BuiltinMetric.CreateFilter)
+		mf.PUT("", manage, middleware.RequirePerm("metrics.write"), h.BuiltinMetric.UpdateFilter)
+		mf.POST("/delete", manage, middleware.RequirePerm("metrics.write"), h.BuiltinMetric.DeleteFilter)
 	}
 }

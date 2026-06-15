@@ -92,6 +92,8 @@ func (s *DataSourceService) decryptAuthConfig(ds *model.DataSource) (string, err
 // Set SREAGENT_DEV_SKIP_SSRF_CHECK=true to skip validation for local development.
 func validateEndpoint(ctx context.Context, endpoint string) error {
 	if os.Getenv("SREAGENT_DEV_SKIP_SSRF_CHECK") == "true" {
+		// Safety: log a warning so operators notice if this is accidentally set in production.
+		zap.L().Warn("SSRF check disabled via SREAGENT_DEV_SKIP_SSRF_CHECK — should NOT be set in production")
 		return nil
 	}
 	u, err := url.Parse(endpoint)

@@ -18,11 +18,22 @@ type Client struct {
 
 // New creates a new Redis client from config.
 func New(cfg *config.RedisConfig) (*Client, error) {
+	poolSize := cfg.PoolSize
+	if poolSize <= 0 {
+		poolSize = 20
+	}
+
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.Addr(),
-		Password: cfg.Password,
-		DB:       cfg.DB,
-		PoolSize: cfg.PoolSize,
+		Addr:         cfg.Addr(),
+		Password:     cfg.Password,
+		DB:           cfg.DB,
+		PoolSize:     poolSize,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		MinIdleConns: 5,
+		PoolTimeout:  4 * time.Second,
+		IdleTimeout:  5 * time.Minute,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

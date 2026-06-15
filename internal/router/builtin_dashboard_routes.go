@@ -12,7 +12,7 @@ func (h *Handlers) registerBuiltinDashboardRoutes(auth *gin.RouterGroup, adminOn
 		bd.GET("/components", h.BuiltinDashboard.Components)
 		bd.GET("/:id", h.BuiltinDashboard.Get)
 		bd.GET("/ident/:ident", h.BuiltinDashboard.GetByIdent)
-		bd.POST("/:ident/import", h.BuiltinDashboard.Import)
+		bd.POST("/:ident/import", adminOnly, h.BuiltinDashboard.Import)
 		bd.POST("", adminOnly, h.BuiltinDashboard.Create)
 	}
 }

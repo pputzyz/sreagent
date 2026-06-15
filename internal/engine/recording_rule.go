@@ -31,12 +31,14 @@ type RecordingRuleEngine struct {
 	leader   LeaderElection // optional; nil = always run
 	logger   *zap.Logger
 
-	cron     *cron.Cron
-	entries  map[uint]cron.EntryID // ruleID → cron entry
-	patterns map[uint]string       // ruleID → cron pattern (for change detection)
-	mu       sync.Mutex
-	stopCh   chan struct{}
-	stopped  bool
+	cron      *cron.Cron
+	entries   map[uint]cron.EntryID // ruleID → cron entry
+	patterns  map[uint]string       // ruleID → cron pattern (for change detection)
+	mu        sync.Mutex
+	stopCh    chan struct{}
+	stopped   bool
+	stopOnce  sync.Once
+	startOnce sync.Once
 }
 
 // NewRecordingRuleEngine creates a new recording rule execution engine.
@@ -109,18 +111,16 @@ func (e *RecordingRuleEngine) Start(ctx context.Context) {
 
 // Stop gracefully stops the recording rule engine.
 func (e *RecordingRuleEngine) Stop() {
-	e.mu.Lock()
-	if e.stopped {
+	e.stopOnce.Do(func() {
+		e.mu.Lock()
+		e.stopped = true
 		e.mu.Unlock()
-		return
-	}
-	e.stopped = true
-	e.mu.Unlock()
 
-	close(e.stopCh)
-	ctx := e.cron.Stop()
-	<-ctx.Done()
-	e.logger.Info("recording rule engine stopped")
+		close(e.stopCh)
+		ctx := e.cron.Stop()
+		<-ctx.Done()
+		e.logger.Info("recording rule engine stopped")
+	})
 }
 
 // syncRules loads enabled rules from DB and reconciles cron entries.
