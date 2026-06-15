@@ -1033,7 +1033,7 @@ func Test_Schedule_Rotation_Weekly_DB(t *testing.T) {
 	shift2 := &model.OnCallShift{
 		ScheduleID: schedule.ID,
 		UserID:     user2.ID,
-		StartTime:  now.Add(6 * 24 * time.Hour), // exactly shift1.EndTime
+		StartTime:  now.Add(6 * 24 * time.Hour),  // exactly shift1.EndTime
 		EndTime:    now.Add(13 * 24 * time.Hour), // covers next week
 		Source:     "rotation",
 	}

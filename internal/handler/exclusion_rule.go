@@ -20,12 +20,12 @@ func NewExclusionRuleHandler(svc *service.ExclusionRuleService) *ExclusionRuleHa
 }
 
 type CreateExclusionRuleRequest struct {
-	ChannelID   uint    `json:"channel_id" binding:"required"`
-	Name        string  `json:"name" binding:"required"`
-	Description string  `json:"description"`
-	Conditions  string  `json:"conditions"` // JSON array of FilterCondition
-	IsEnabled   *bool   `json:"is_enabled"` // nil = default true
-	Priority    int     `json:"priority"`
+	ChannelID   uint   `json:"channel_id" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Conditions  string `json:"conditions"` // JSON array of FilterCondition
+	IsEnabled   *bool  `json:"is_enabled"` // nil = default true
+	Priority    int    `json:"priority"`
 }
 
 type UpdateExclusionRuleRequest struct {
