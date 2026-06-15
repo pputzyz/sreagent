@@ -114,7 +114,7 @@ func (s *LarkService) SendAlertNotification(ctx context.Context, event *model.Al
 }
 
 // SendEnrichedAlertNotification sends an alert notification with AI analysis via Lark webhook.
-func (s *LarkService) SendEnrichedAlertNotification(ctx context.Context, event *model.AlertEvent, analysis *AlertAnalysis, webhookURL string) error {
+func (s *LarkService) SendEnrichedAlertNotification(ctx context.Context, event *model.AlertEvent, analysis *AlertAnalysis, webhookURL string, lang ...string) error {
 	// Build the platform link for this alert event
 	platformURL := ""
 	if s.platformBaseURL != "" {
@@ -146,6 +146,12 @@ func (s *LarkService) SendEnrichedAlertNotification(ctx context.Context, event *
 		}
 	}
 
+	// Extract language (default to zh-CN for backward compatibility)
+	cardLang := ""
+	if len(lang) > 0 {
+		cardLang = lang[0]
+	}
+
 	card := lark.BuildEnrichedAlertCard(
 		event.AlertName,
 		string(event.Severity),
@@ -157,6 +163,7 @@ func (s *LarkService) SendEnrichedAlertNotification(ctx context.Context, event *
 		platformURL,
 		actionBaseURL,
 		0, // no callback for webhook delivery
+		cardLang,
 	)
 
 	resp, err := s.client.SendWebhook(ctx, webhookURL, card)
@@ -434,7 +441,7 @@ func isWithinBusinessHours(start, end string) bool {
 // When useCallback is true, action buttons use Lark card callback (behaviour: "callback")
 // instead of URL links. This is appropriate for Bot API delivery where the server can
 // receive card.action.trigger events.
-func (s *LarkService) buildEnrichedCard(event *model.AlertEvent, analysis *AlertAnalysis, useCallback bool) *lark.CardMessage {
+func (s *LarkService) buildEnrichedCard(event *model.AlertEvent, analysis *AlertAnalysis, useCallback bool, lang ...string) *lark.CardMessage {
 	platformURL := ""
 	if s.platformBaseURL != "" {
 		platformURL = fmt.Sprintf("%s/alert-events/%d", s.platformBaseURL, event.ID)
@@ -460,6 +467,12 @@ func (s *LarkService) buildEnrichedCard(event *model.AlertEvent, analysis *Alert
 		}
 	}
 
+	// Extract language (default to zh-CN for backward compatibility)
+	cardLang := ""
+	if len(lang) > 0 {
+		cardLang = lang[0]
+	}
+
 	return lark.BuildEnrichedAlertCard(
 		event.AlertName,
 		string(event.Severity),
@@ -471,5 +484,6 @@ func (s *LarkService) buildEnrichedCard(event *model.AlertEvent, analysis *Alert
 		platformURL,
 		actionBaseURL,
 		eventID,
+		cardLang,
 	)
 }

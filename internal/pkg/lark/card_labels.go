@@ -20,6 +20,8 @@ type webhookCardLabels struct {
 	AIImpact     string
 	AISteps      string
 	BtnDetail    string
+	BtnAck       string
+	BtnSilence   string
 }
 
 // cardLabelsFor returns the label set for the given language. Anything other than
@@ -44,6 +46,8 @@ func cardLabelsFor(lang string) webhookCardLabels {
 			AIImpact:     "Impact",
 			AISteps:      "Recommended steps",
 			BtnDetail:    "📊 View details",
+			BtnAck:       "✅ Acknowledge",
+			BtnSilence:   "🔕 Silence",
 		}
 	}
 	return webhookCardLabels{
@@ -63,5 +67,7 @@ func cardLabelsFor(lang string) webhookCardLabels {
 		AIImpact:     "影响范围",
 		AISteps:      "建议操作",
 		BtnDetail:    "📊 查看详情",
+		BtnAck:       "✅ 认领告警",
+		BtnSilence:   "🔕 静默告警",
 	}
 }

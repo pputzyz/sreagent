@@ -254,7 +254,7 @@ func (s *InspectionScheduler) notifyResult(task *model.InspectionTask, run *mode
 			resp, err := s.httpClient.Do(req)
 			cancel()
 			if err != nil {
-				s.logger.Error("巡检结果 webhook 通知失败", zap.Uint("task_id", task.ID), zap.Error(err))
+				s.logger.Error("inspection webhook notification failed", zap.Uint("task_id", task.ID), zap.Error(err))
 			} else {
 				_ = resp.Body.Close()
 				s.logger.Info("巡检结果 webhook 通知已发送", zap.Uint("task_id", task.ID), zap.Int("status", resp.StatusCode))

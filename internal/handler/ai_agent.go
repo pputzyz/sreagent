@@ -150,7 +150,12 @@ func (h *AgentHandler) streamAgentTaskViaBus(c *gin.Context, taskID string, task
 		return
 	}
 
-	ch := h.agentSvc.SubscribeStream(c.Request.Context(), taskID, lastID)
+	// SSE connections have a max lifetime of 30 minutes to prevent resource leaks.
+	const maxStreamLifetime = 30 * time.Minute
+	streamCtx, streamCancel := context.WithTimeout(c.Request.Context(), maxStreamLifetime)
+	defer streamCancel()
+
+	ch := h.agentSvc.SubscribeStream(streamCtx, taskID, lastID)
 
 	// Schedule stream cleanup after 5 minute grace period (deferred).
 	go func() {
@@ -159,7 +164,7 @@ func (h *AgentHandler) streamAgentTaskViaBus(c *gin.Context, taskID string, task
 				zap.L().Error("SSE stream cleanup panic", zap.Any("recover", r))
 			}
 		}()
-		<-c.Request.Context().Done()
+		<-streamCtx.Done()
 		time.AfterFunc(5*time.Minute, func() {
 			_ = h.agentSvc.DeleteStream(context.Background(), taskID)
 		})

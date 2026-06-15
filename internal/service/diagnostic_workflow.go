@@ -442,7 +442,7 @@ func (s *DiagnosticWorkflowService) executeStep(ctx context.Context, step *model
 		return summary, nil
 
 	default:
-		return fmt.Sprintf("步骤类型 %q 暂不支持自动执行（当前支持: query, label_check, change_correlation, metric_correlation, http_probe）", step.StepType),
+		return fmt.Sprintf("step type %q does not support auto-execution (supported: query, label_check, change_correlation, metric_correlation, http_probe)", step.StepType),
 			fmt.Errorf("unsupported step type: %s", step.StepType)
 	}
 }
