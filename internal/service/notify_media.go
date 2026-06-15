@@ -243,6 +243,27 @@ func (s *NotifyMediaService) List(ctx context.Context, page, pageSize int) ([]mo
 	return list, total, nil
 }
 
+// CanAccess checks if a user with the given team IDs can access the media.
+// Admin can access everything. Others can access if the media's team_id is in their team list
+// or if the media has no team_id (global).
+func (s *NotifyMediaService) CanAccess(ctx context.Context, id uint, teamIDs []uint) (bool, error) {
+	media, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	// Global media (no team_id) is accessible to everyone
+	if media.TeamID == nil || *media.TeamID == 0 {
+		return true, nil
+	}
+	// Check if user belongs to the media's team
+	for _, tid := range teamIDs {
+		if tid == *media.TeamID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // Update updates an existing notify media.
 func (s *NotifyMediaService) Update(ctx context.Context, media *model.NotifyMedia) error {
 	if err := validateScriptPath(media); err != nil {

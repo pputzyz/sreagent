@@ -104,6 +104,23 @@ func (s *ScheduleService) ListSchedules(ctx context.Context, teamID uint, page, 
 	return list, total, nil
 }
 
+// CanAccess checks if a user with the given team IDs can access the schedule.
+func (s *ScheduleService) CanAccess(ctx context.Context, id uint, teamIDs []uint) (bool, error) {
+	schedule, err := s.scheduleRepo.GetByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if schedule.TeamID == nil || *schedule.TeamID == 0 {
+		return true, nil
+	}
+	for _, tid := range teamIDs {
+		if tid == *schedule.TeamID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // UpdateSchedule updates an existing schedule.
 func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule *model.Schedule) error {
 	if err := validateSchedule(schedule); err != nil {

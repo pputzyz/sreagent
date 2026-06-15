@@ -2,10 +2,11 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
+	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -105,6 +106,20 @@ func (h *SubscribeRuleHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// Team isolation check
+	if role, _ := c.Get("role"); role != "admin" {
+		teamIDs := middleware.GetUserTeamIDs(c)
+		ok, accessErr := h.svc.CanAccess(c.Request.Context(), id, teamIDs)
+		if accessErr != nil {
+			Error(c, accessErr)
+			return
+		}
+		if !ok {
+			Error(c, apperr.ErrForbidden)
+			return
+		}
+	}
+
 	rule, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
@@ -133,6 +148,20 @@ func (h *SubscribeRuleHandler) Update(c *gin.Context) {
 	if err != nil {
 		Error(c, err)
 		return
+	}
+
+	// Team isolation check
+	if role, _ := c.Get("role"); role != "admin" {
+		teamIDs := middleware.GetUserTeamIDs(c)
+		ok, accessErr := h.svc.CanAccess(c.Request.Context(), id, teamIDs)
+		if accessErr != nil {
+			Error(c, accessErr)
+			return
+		}
+		if !ok {
+			Error(c, apperr.ErrForbidden)
+			return
+		}
 	}
 
 	var req UpdateSubscribeRuleRequest
@@ -180,6 +209,20 @@ func (h *SubscribeRuleHandler) Delete(c *gin.Context) {
 	if err != nil {
 		Error(c, err)
 		return
+	}
+
+	// Team isolation check
+	if role, _ := c.Get("role"); role != "admin" {
+		teamIDs := middleware.GetUserTeamIDs(c)
+		ok, accessErr := h.svc.CanAccess(c.Request.Context(), id, teamIDs)
+		if accessErr != nil {
+			Error(c, accessErr)
+			return
+		}
+		if !ok {
+			Error(c, apperr.ErrForbidden)
+			return
+		}
 	}
 
 	h.log.Info("subscribe rule delete",

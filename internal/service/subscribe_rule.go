@@ -45,6 +45,23 @@ func (s *SubscribeRuleService) GetByID(ctx context.Context, id uint) (*model.Sub
 	return rule, nil
 }
 
+// CanAccess checks if a user with the given team IDs can access the subscribe rule.
+func (s *SubscribeRuleService) CanAccess(ctx context.Context, id uint, teamIDs []uint) (bool, error) {
+	rule, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if rule.TeamID == nil || *rule.TeamID == 0 {
+		return true, nil
+	}
+	for _, tid := range teamIDs {
+		if tid == *rule.TeamID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // List returns a paginated list of subscribe rules.
 func (s *SubscribeRuleService) List(ctx context.Context, page, pageSize int) ([]model.SubscribeRule, int64, error) {
 	list, total, err := s.repo.List(ctx, page, pageSize)

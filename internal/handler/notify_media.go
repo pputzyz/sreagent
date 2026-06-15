@@ -5,11 +5,12 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
+	"github.com/sreagent/sreagent/internal/middleware"
 	"github.com/sreagent/sreagent/internal/model"
 	"github.com/sreagent/sreagent/internal/pkg/crypto"
 	apperr "github.com/sreagent/sreagent/internal/pkg/errors"
-	"go.uber.org/zap"
-
 	"github.com/sreagent/sreagent/internal/service"
 )
 
@@ -138,6 +139,20 @@ func (h *NotifyMediaHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// Team isolation check
+	if role, _ := c.Get("role"); role != "admin" {
+		teamIDs := middleware.GetUserTeamIDs(c)
+		ok, accessErr := h.svc.CanAccess(c.Request.Context(), id, teamIDs)
+		if accessErr != nil {
+			Error(c, accessErr)
+			return
+		}
+		if !ok {
+			Error(c, apperr.ErrForbidden)
+			return
+		}
+	}
+
 	media, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		Error(c, err)
@@ -170,6 +185,20 @@ func (h *NotifyMediaHandler) Update(c *gin.Context) {
 	if err != nil {
 		Error(c, err)
 		return
+	}
+
+	// Team isolation check
+	if role, _ := c.Get("role"); role != "admin" {
+		teamIDs := middleware.GetUserTeamIDs(c)
+		ok, accessErr := h.svc.CanAccess(c.Request.Context(), id, teamIDs)
+		if accessErr != nil {
+			Error(c, accessErr)
+			return
+		}
+		if !ok {
+			Error(c, apperr.ErrForbidden)
+			return
+		}
 	}
 
 	var req UpdateNotifyMediaRequest
@@ -223,6 +252,20 @@ func (h *NotifyMediaHandler) Delete(c *gin.Context) {
 	if err != nil {
 		Error(c, err)
 		return
+	}
+
+	// Team isolation check
+	if role, _ := c.Get("role"); role != "admin" {
+		teamIDs := middleware.GetUserTeamIDs(c)
+		ok, accessErr := h.svc.CanAccess(c.Request.Context(), id, teamIDs)
+		if accessErr != nil {
+			Error(c, accessErr)
+			return
+		}
+		if !ok {
+			Error(c, apperr.ErrForbidden)
+			return
+		}
 	}
 
 	h.log.Info("notify media delete",
